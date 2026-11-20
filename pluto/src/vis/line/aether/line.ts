@@ -24,6 +24,7 @@ import {
   type Series,
   type SeriesDigest,
   TimeSpan,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -32,6 +33,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+import { theming } from "@/theming/aether";
 import { forEachPair, windowBounds } from "@/vis/line/aether/bounds";
 import {
   bridgeVertices,
@@ -50,6 +52,13 @@ export const stateZ = z.object({
   x: telem.seriesSourceSpecZ,
   y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
+  /**
+   * Lines with one tooltip group list under one heading in a tooltip, such as the lines
+   * of one channel across ranges.
+   */
+  tooltipGroup: z.string().optional(),
+  /** The name of the line in its tooltip group, such as its range. */
+  tooltipLabel: z.string().optional(),
   color: color.colorZ,
   strokeWidth: z.number().default(1),
   visible: z.boolean().default(true),
@@ -60,6 +69,15 @@ export const stateZ = z.object({
     .default(1 / 2),
   /** True when the line reports no loading while it has no data. */
   loadingHidden: z.boolean().default(false),
+  /**
+   * The x value that the line draws at zero, such as the start of a range on an axis
+   * that shows time from each range's zero. Undefined draws x as is.
+   */
+  zero: TimeStamp.z.optional(),
+  /** True when the line draws over the other lines of its axis. */
+  raised: z.boolean().default(false),
+  /** Fades the line toward the background. The legend and tooltip do not fade. */
+  opacity: z.number().min(0).max(1).default(1),
 });
 
 // A zoom waits this long for its span to hold before the line's sources read for it.
@@ -103,6 +121,8 @@ export interface FindResult {
   value: xy.XY;
   color: color.Color;
   label?: string;
+  tooltipGroup?: string;
+  tooltipLabel?: string;
   units?: string;
   bounds: bounds.Bounds;
 }
@@ -150,8 +170,15 @@ export class GLProgram extends render.GLProgram {
     this.translationBufferCache = new Map();
   }
 
-  bindState({ strokeWidth, color }: ParsedState): number {
-    this.uniformColor("u_color", color);
+  bindState(
+    { strokeWidth, color: c, opacity }: ParsedState,
+    background: color.Color,
+  ): number {
+    // The program draws with no blending, so a faded line is an opaque color.
+    this.uniformColor(
+      "u_color",
+      opacity === 1 ? c : color.over(c, background, opacity),
+    );
     return this.attrStrokeWidth(strokeWidth);
   }
 
@@ -334,6 +361,7 @@ interface InternalState {
   drawn: DrawOperation[];
   xBounds: bounds.Bounds;
   groupSize: number;
+  background: color.Color;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -360,6 +388,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
+    i.background = theming.use(ctx).colors.gray.l0;
     i.reducer ??= new Reducer();
     i.drawn ??= [];
     i.xBounds ??= bounds.INVALID;
@@ -390,9 +419,35 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return this.internal.loadingState === "fetching";
   }
 
+  /** True when the line draws over the other lines of its axis. */
+  get raised(): boolean {
+    return this.state.raised;
+  }
+
+  // shift is the amount that the axis value of a sample is less than its x value.
+  private get shift(): number {
+    const { zero } = this.state;
+    return zero == null ? 0 : Number(zero.valueOf());
+  }
+
+  // absolute returns props whose scale maps the x value of a sample instead of its axis
+  // value, so the line reads and draws its sources as if its axis had no shift.
+  private absolute(props: LineProps): LineProps {
+    const { shift } = this;
+    if (shift === 0) return props;
+    const s = props.dataToDecimalScale;
+    return { ...props, dataToDecimalScale: s.translate(s.x.dim(-shift), 0) };
+  }
+
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x), edge: x.edge };
+    const b = x.data[0];
+    const { shift } = this;
+    return {
+      bounds: { lower: b.lower - shift, upper: b.upper - shift },
+      loading: isLoading(x),
+      edge: x.edge,
+    };
   }
 
   /**
@@ -401,8 +456,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    * source's full bounds are used instead.
    * @returns the y bounds of this line's samples inside the window.
    */
-  yBounds(xWindow: bounds.Bounds): DataBounds {
+  yBounds(axisWindow: bounds.Bounds): DataBounds {
     const { xTelem, yTelem } = this.internal;
+    const { shift } = this;
+    const xWindow = {
+      lower: axisWindow.lower + shift,
+      upper: axisWindow.upper + shift,
+    };
     const valueProps = { extremesKept: true, bounds: xWindow };
     const y = yTelem.value(valueProps);
     const [b, yData] = y.data;
@@ -414,9 +474,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     };
   }
 
-  findByXValue(props: LineProps, target: number): FindResult {
+  findByXValue(props: LineProps, axisTarget: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const valueProps = this.read(view(props));
+    const { shift } = this;
+    const target = axisTarget + shift;
+    const absolute = this.absolute(props);
+    const valueProps = this.read(view(absolute));
     const [xBounds, xData] = xTelem.value(valueProps).data;
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
@@ -433,11 +496,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (series !== -1) index = xData.series[series].length - 1;
     }
     const { key } = this;
-    const { color, label } = this.state;
+    const { color, label, tooltipGroup, tooltipLabel } = this.state;
     const result = {
       key,
       color,
       label,
+      tooltipGroup,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
@@ -459,8 +524,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     );
     if (ySeries == null) return result;
     const x = safelyGetDataValue(series, index, xData);
-    if (!reaches(props, xBounds, target, x)) return result;
-    result.value.x = x;
+    if (!reaches(absolute, xBounds, target, x)) return result;
+    result.value.x = x - shift;
 
     result.value.y = Number(ySeries.atAlignment(alignment, true));
 
@@ -478,24 +543,28 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    * the y bounds of every point drawn. The value of a point the line reduced has
    * float32 precision.
    */
-  findDrawnByXValue(props: LineProps, target: number): FindResult {
-    const { key } = this;
-    const { color, label, visible } = this.state;
+  findDrawnByXValue(props: LineProps, axisTarget: number): FindResult {
+    const { key, shift } = this;
+    const { color, label, tooltipGroup, tooltipLabel, visible } = this.state;
     const result: FindResult = {
       key,
       color,
       label,
+      tooltipGroup,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
     };
     const { drawn } = this.internal;
+    const target = axisTarget + shift;
     const found = visible ? nearest(drawn, target) : null;
     if (found == null) return result;
     const [{ x, y, xOffset, yOffset }, i] = found;
     const foundX = Number(x.at(xOffset + i, true));
-    if (!reaches(props, this.internal.xBounds, target, foundX)) return result;
-    result.value = { x: foundX, y: Number(y.at(yOffset + i, true)) };
+    const absolute = this.absolute(props);
+    if (!reaches(absolute, this.internal.xBounds, target, foundX)) return result;
+    result.value = { x: foundX - shift, y: Number(y.at(yOffset + i, true)) };
     result.bounds = bounds.union(
       drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
     );
@@ -522,9 +591,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
   }
 
-  render(props: LineProps): void {
+  render(axisProps: LineProps): void {
     const { internal: i } = this;
     if (this.deleted) return;
+    const props = this.absolute(axisProps);
     if (!this.state.visible) {
       i.loadingState = undefined;
       return;
@@ -563,7 +633,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       ops: digests(ops),
     }));
     const clearProg = prog.setAsActive();
-    const instances = prog.bindState(this.state);
+    const instances = prog.bindState(this.state, this.internal.background);
     const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
     ops.forEach((op) => {
       const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
@@ -575,7 +645,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (bridges.length === 0) return;
     const bridgeProg = ctx.getProgram(DataType.FLOAT32);
     const clearBridgeProg = bridgeProg.setAsActive();
-    const bridgeInstances = bridgeProg.bindState(this.state);
+    const bridgeInstances = bridgeProg.bindState(this.state, this.internal.background);
     bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
     bridgeProg.segments(bridges, bridgeInstances);
     clearBridgeProg();

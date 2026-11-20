@@ -9,9 +9,11 @@
 
 import {
   bounds,
+  box,
   color,
   DataType,
   MultiSeries,
+  scale,
   Series,
   TimeRange,
   TimeSpan,
@@ -72,6 +74,8 @@ interface Mount {
   xAxis: XAxis;
   axis: YAxis;
   setVisible: (line: string, visible: boolean) => void;
+  setXAxis: (state: Record<string, unknown>) => void;
+  calls: canvasTest.RecordingGL["calls"];
 }
 
 describe("YAxis", () => {
@@ -92,7 +96,8 @@ describe("YAxis", () => {
     xAxis = {},
   }: MountProps = {}): Mount => {
     const recorder = canvasTest.record();
-    (recorder as { gl: unknown }).gl = GL;
+    const { gl, calls } = canvasTest.createGL();
+    (recorder as { gl: unknown }).gl = gl;
     const stack = buildStack({
       registry: {
         [lineTest.Host.TYPE]: lineTest.Host,
@@ -105,11 +110,14 @@ describe("YAxis", () => {
     const xPath = [...stack.basePath, "host", "x1"];
     const path = [...xPath, "y1"];
     stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
-    stack.driver.update(xPath, XAxis.TYPE, {
-      location: "bottom",
-      autoBoundPadding: 0,
-      ...xAxis,
-    });
+    const setXAxis = (state: Record<string, unknown>): void =>
+      stack.driver.update(xPath, XAxis.TYPE, {
+        location: "bottom",
+        autoBoundPadding: 0,
+        ...xAxis,
+        ...state,
+      });
+    setXAxis({});
     stack.driver.update(path, YAxis.TYPE, {
       location: "left",
       autoBoundPadding: 0,
@@ -117,8 +125,8 @@ describe("YAxis", () => {
     });
     const setVisible = (line: string, visible: boolean): void =>
       stack.driver.update([...path, line], Line.TYPE, {
-        ...lines[line],
         color: color.construct("#ff0000"),
+        ...lines[line],
         visible,
       });
     Object.keys(lines).forEach((line) => setVisible(line, !hidden.includes(line)));
@@ -127,8 +135,49 @@ describe("YAxis", () => {
       xAxis: stack.driver.find<XAxis>(xPath),
       axis: stack.driver.find<YAxis>(path),
       setVisible,
+      setXAxis,
+      calls,
     };
   };
+
+  describe("render", () => {
+    it("should draw a raised line over the other lines", () => {
+      const RAISED = color.construct("#00ff00");
+      const m = mount({
+        lines: {
+          raised: {
+            x: sourceSpec([0, 50]),
+            y: sourceSpec([1, 2]),
+            color: RAISED,
+            raised: true,
+          },
+          plain: { x: sourceSpec([0, 50]), y: sourceSpec([3, 4]) },
+        },
+      });
+      const region = box.construct(0, 0, 800, 600);
+      const raised: Array<() => void> = [];
+      m.axis.render(
+        {
+          grid: {},
+          plot: region,
+          viewport: box.DECIMAL,
+          container: region,
+          canvases: ["gl"],
+          hold: false,
+          xDataToDecimalScale: scale.Scale.scale<number>(0, 50).scale(0, 1),
+          xBounds: { lower: 0, upper: 50 },
+        },
+        raised,
+      );
+      raised.forEach((draw) => draw());
+      const colors = m.calls
+        .filter((c) => c.op === "uniform4fv")
+        .map((c) => [...(c.args[1] as Iterable<number>)]);
+      expect(colors.length).toBeGreaterThan(1);
+      expect(colors.at(-1)).toEqual(color.rgba1(RAISED));
+      expect(colors[0]).not.toEqual(color.rgba1(RAISED));
+    });
+  });
 
   describe("autoBoundPadding", () => {
     it("should default to 10% on a y axis and 1% on an x axis", () => {
@@ -248,6 +297,14 @@ describe("YAxis", () => {
       m.axis.bounds(false, bounds.INFINITE);
       m.setVisible("railed", false);
       expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+    });
+
+    it("should drop the held x bounds when the x axis changes tick type", () => {
+      const m = mount({ xAxis: { type: "time" } });
+      m.xAxis.bounds(false);
+      m.setVisible("railed", false);
+      m.setXAxis({ type: "relative" });
+      expect(m.xAxis.bounds(true)).toEqual({ lower: 0, upper: 10 });
     });
 
     it("should exclude a hidden line when the hold ends", () => {

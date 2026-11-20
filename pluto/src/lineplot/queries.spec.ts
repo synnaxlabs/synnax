@@ -586,6 +586,33 @@ describe("lineplot queries", () => {
       );
     });
 
+    it("useRangeColors resolves the stored color of each range", async () => {
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        colors: LinePlot.useRangeColors({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const red = color.construct("#ff0000");
+      const refs = [
+        {
+          variant: "key" as const,
+          key: uuid.create(),
+          color: { type: "fixed" as const, value: red },
+        },
+        { variant: "key" as const, key: uuid.create() },
+      ];
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: refs.map((range) => lineplotClient.addRange({ range })),
+        });
+      });
+      const series = (await retrieveSeries()).map((c) => c.light);
+      await waitFor(() => expect(result.current.colors).toHaveLength(2));
+      expect(result.current.colors[0]).toEqual(red);
+      expect(series).toContainEqual(result.current.colors[1]);
+    });
+
     it("useYAxisChannels returns one axis's channels and updates after setChannels", async () => {
       const keys = [await createChannel(), await createChannel()];
       const created = await createPlot();

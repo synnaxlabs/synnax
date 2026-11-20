@@ -666,6 +666,52 @@ describe("line", () => {
       });
     });
 
+    describe("zero", () => {
+      // X1 holds x 0, 1, and 2, so a zero of 1 draws them at -1, 0, and 1.
+      const zero = new TimeStamp(1);
+
+      it("should shift its x bounds by its zero", () => {
+        const { bounds: plain } = mount([X1], [Y1]).line.xBounds();
+        expect(mount([X1], [Y1], { zero }).line.xBounds().bounds).toEqual({
+          lower: plain.lower - 1,
+          upper: plain.upper - 1,
+        });
+      });
+
+      it("should read the y bounds of a window measured from its zero", () => {
+        const plain = mount([X1], [Y1]).line.yBounds({ lower: 0, upper: 1 });
+        const shifted = mount([X1], [Y1], { zero });
+        expect(shifted.line.yBounds({ lower: -1, upper: 0 })).toEqual(plain);
+      });
+
+      it("should find a sample by its x from its zero", () => {
+        const m = mount([X1], [Y1], { zero });
+        expect(m.line.findByXValue(PROPS, 0).value).toEqual({ x: 0, y: 20 });
+      });
+
+      it("should find a drawn point by its x from its zero", () => {
+        const m = mount([X1], [Y1], { zero });
+        m.line.render(PROPS);
+        expect(m.line.findDrawnByXValue(PROPS, 1).value).toEqual({ x: 1, y: 30 });
+      });
+    });
+
+    describe("opacity", () => {
+      const lineColor = (opacity: number): number[] => {
+        const m = mount([X1], [Y1], { opacity });
+        m.line.render(PROPS);
+        const set = m.calls.find((c) => c.op === "uniform4fv");
+        if (set == null) throw new Error("the line set no color");
+        return [...(set.args[1] as Iterable<number>)];
+      };
+
+      it("should draw a faded line in an opaque color unlike its own", () => {
+        const faded = lineColor(0.25);
+        expect(faded).not.toEqual(lineColor(1));
+        expect(faded[3]).toBeCloseTo(1);
+      });
+    });
+
     describe("findByXValue", () => {
       const X = series(
         Array.from({ length: 30 }, (_, i) => i),

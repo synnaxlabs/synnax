@@ -50,4 +50,11 @@
         flex-shrink: 0;
         cursor: pointer;
     }
+
+    .pluto-legend-entry__start {
+        display: flex;
+        justify-content: center;
+        flex-shrink: 0;
+        width: var(--pluto-height-tiny);
+    }
 }

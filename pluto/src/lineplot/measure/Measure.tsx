@@ -30,6 +30,8 @@ const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 export interface MeasureProps extends Aether.ComponentProps {
   mode?: measure.Mode;
   onModeChange?: (mode: measure.Mode) => void;
+  /** True when x is a span from a zero, shown as T+ time. */
+  relative?: boolean;
 }
 
 const determineMode = (triggers: Triggers.Trigger[]): measure.Mode =>
@@ -39,16 +41,17 @@ export const Measure = ({
   aetherKey,
   mode = "one",
   onModeChange,
+  relative = false,
 }: MeasureProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const [, state, setState] = Aether.use({
     aetherKey: cKey,
     type: measure.Measure.TYPE,
     schema: measure.measureStateZ,
-    initialState: { hover: null, one: null, two: null, mode },
+    initialState: { hover: null, one: null, two: null, mode, relative },
   });
 
-  useEffect(() => setState((p) => ({ ...p, mode })), [mode]);
+  useEffect(() => setState((p) => ({ ...p, mode, relative })), [mode, relative]);
 
   const ref = useRef<HTMLSpanElement>(null);
 
