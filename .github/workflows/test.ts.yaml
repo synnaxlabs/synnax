@@ -334,7 +334,7 @@ jobs:
             github.job, strategy.job-index) }}
         run: >-
           pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
-          webkit
+          '*webkit'
 
       - name: Set up Deno
         if: inputs.runtimes && matrix.lint
