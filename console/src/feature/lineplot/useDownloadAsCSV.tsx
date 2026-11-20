@@ -72,16 +72,13 @@ const readEdge = async (
 
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
-  return ({ timeRanges, lines, name }) => {
-    const channels = channelsOf(lines);
-    const timeRange = TimeRange.merge(...timeRanges);
+  return ({ timeRanges, lines, name }) =>
     openDownloadCSVModal({
-      timeRange,
+      timeRanges,
       name,
-      channels,
+      channels: channelsOf(lines),
       icon: <Icon.LinePlot />,
     });
-  };
 };
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
@@ -100,7 +97,8 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       }));
       const live = windows.some((w) => w.variant === "dynamic");
       const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
-      const timeRanges = windows.map((w) => resolveWindow(w, end));
-      downloadAsCSV({ timeRanges, lines, name });
+      // With no breaks, the plot shows all the time from its first range to its last.
+      const shown = TimeRange.merge(...windows.map((w) => resolveWindow(w, end)));
+      downloadAsCSV({ timeRanges: [shown], lines, name });
     }, "Failed to download plot as CSV");
 };

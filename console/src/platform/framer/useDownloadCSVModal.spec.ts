@@ -23,6 +23,14 @@ import {
 } from "@/testutil";
 
 const TIME_RANGE = new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(10));
+const MARCH_RANGE = new TimeRange(
+  new TimeStamp(new Date(2020, 2, 5, 12)),
+  new TimeStamp(new Date(2020, 2, 5, 13)),
+);
+const JULY_RANGE = new TimeRange(
+  new TimeStamp(new Date(2020, 6, 9, 12)),
+  new TimeStamp(new Date(2020, 6, 9, 13)),
+);
 
 const openDownloadModal = async (
   params: Framer.DownloadCSVModalParams,
@@ -32,7 +40,11 @@ const openDownloadModal = async (
 describe("useDownloadCSVModal", () => {
   describe("form step (no client)", () => {
     it("disables the Download button when no channels are selected", async () => {
-      await openDownloadModal({ timeRange: TIME_RANGE, channels: [], name: "My Plot" });
+      await openDownloadModal({
+        timeRanges: [TIME_RANGE],
+        channels: [],
+        name: "My Plot",
+      });
       await waitFor(() =>
         expect(findButton("Download").className).toContain("lyra--disabled"),
       );
@@ -40,7 +52,7 @@ describe("useDownloadCSVModal", () => {
 
     it("enables the Download button when channels are preselected", async () => {
       await openDownloadModal({
-        timeRange: TIME_RANGE,
+        timeRanges: [TIME_RANGE],
         channels: [1, 2],
         name: "My Plot",
       });
@@ -51,7 +63,7 @@ describe("useDownloadCSVModal", () => {
 
     it("shows a range that still runs as ending now", async () => {
       await openDownloadModal({
-        timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.MAX).numeric,
+        timeRanges: [new TimeRange(TimeStamp.seconds(0), TimeStamp.MAX).numeric],
         channels: [],
         name: "My Plot",
       });
@@ -60,7 +72,7 @@ describe("useDownloadCSVModal", () => {
 
     it("shows a range that has not started as starting now", async () => {
       await openDownloadModal({
-        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX).numeric,
+        timeRanges: [new TimeRange(TimeStamp.MAX, TimeStamp.MAX).numeric],
         channels: [],
         name: "My Plot",
       });
@@ -69,9 +81,39 @@ describe("useDownloadCSVModal", () => {
       );
     });
 
+    it("lets the user edit one time range", async () => {
+      await openDownloadModal({
+        timeRanges: [MARCH_RANGE],
+        channels: [],
+        name: "My Plot",
+      });
+      await waitFor(() => expect(screen.getAllByText("Mar 5, 2020")).toHaveLength(2));
+      for (const day of screen.getAllByText("Mar 5, 2020"))
+        expect(day.closest("button")?.className).not.toContain("lyra-btn--preview");
+    });
+
+    it("lists several time ranges in time order with no edit", async () => {
+      await openDownloadModal({
+        timeRanges: [JULY_RANGE, MARCH_RANGE],
+        channels: [],
+        name: "My Plot",
+      });
+      await waitFor(() =>
+        expect(document.body.textContent).toMatch(
+          /From\s*Mar 5, 2020\s*12:00.*To\s*Mar 5, 2020\s*13:00.*Jul 9, 2020\s*12:00.*Jul 9, 2020\s*13:00/,
+        ),
+      );
+      expect(screen.getAllByText("From")).toHaveLength(1);
+      for (const day of [
+        ...screen.getAllByText("Mar 5, 2020"),
+        ...screen.getAllByText("Jul 9, 2020"),
+      ])
+        expect(day.closest("button")?.className).toContain("lyra-btn--preview");
+    });
+
     it("keeps the modal open when the download fails without a client", async () => {
       await openDownloadModal({
-        timeRange: TIME_RANGE,
+        timeRanges: [TIME_RANGE],
         channels: [1, 2],
         name: "My Plot",
       });
@@ -118,7 +160,7 @@ describe("useDownloadCSVModal", () => {
 
       await openDownloadModal(
         {
-          timeRange: new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6)),
+          timeRanges: [new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6))],
           channels: [dataCh.key],
           name: "export",
         },
@@ -149,6 +191,51 @@ describe("useDownloadCSVModal", () => {
       );
     });
 
+    it("reads only the samples inside each of several time ranges", async () => {
+      const client = createTestClient();
+      const suffix = id.create().replace(/-/g, "_");
+      const indexCh = await client.channels.create({
+        name: `csv_dl_time_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const dataCh = await client.channels.create({
+        name: `csv_dl_data_${suffix}`,
+        dataType: DataType.FLOAT64,
+        index: indexCh.key,
+      });
+      const timestamps = Array.from({ length: 8 }, (_, i) => TimeStamp.seconds(i + 1));
+      await client.write(TimeStamp.seconds(1), {
+        [indexCh.key]: timestamps,
+        [dataCh.key]: [1, 2, 3, 4, 5, 6, 7, 8],
+      });
+      await openDownloadModal(
+        {
+          timeRanges: [
+            new TimeRange(TimeStamp.seconds(6), TimeStamp.seconds(8)),
+            new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(3)),
+          ],
+          channels: [dataCh.key],
+          name: "ranges",
+        },
+        { client },
+      );
+      const downloadButton = await waitFor(() => {
+        const btn = findButton("Download");
+        expect(btn.className).not.toContain("lyra--disabled");
+        return btn;
+      });
+      await act(async () => {
+        fireEvent.click(downloadButton);
+      });
+      await waitFor(() => expect(downloads.blobs).toHaveLength(1));
+      const rows = (await readBlob(downloads.blobs[0])).trim().split("\n");
+      expect(rows[0]).toEqual(`${indexCh.name},${dataCh.name}`);
+      expect(rows.slice(1).map((r) => Number(r.split(",").at(-1)))).toEqual([
+        1, 2, 6, 7,
+      ]);
+    });
+
     it("reads every sample of a range that still runs up to the download", async () => {
       const client = createTestClient();
       const suffix = id.create().replace(/-/g, "_");
@@ -167,7 +254,7 @@ describe("useDownloadCSVModal", () => {
       await client.write(start, { [indexCh.key]: [start], [dataCh.key]: [1] });
       await openDownloadModal(
         {
-          timeRange: new TimeRange(start, TimeStamp.MAX),
+          timeRanges: [new TimeRange(start, TimeStamp.MAX)],
           channels: [dataCh.key],
           name: "running",
         },

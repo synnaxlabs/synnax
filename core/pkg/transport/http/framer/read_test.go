@@ -12,6 +12,7 @@ package framer_test
 import (
 	"bytes"
 	"context"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,6 +31,14 @@ import (
 
 // readBounds spans every timestamp the specs write.
 var readBounds = telem.TimeRange{Start: 0, End: telem.SecondTS * 100}
+
+// splitRanges reads the samples at 1, 2, 6, and 7 s of samples written each second from
+// 1 s. Its middle range holds no samples.
+var splitRanges = []telem.TimeRange{
+	telem.NewRangeSeconds(1, 3),
+	{Start: 3500 * telem.MillisecondTS, End: 3900 * telem.MillisecondTS},
+	telem.NewRangeSeconds(6, 8),
+}
 
 // createIndexed creates an index channel and one channel of each given data type
 // indexed by it.
@@ -115,10 +124,10 @@ func response(
 	cfg svcframer.IteratorConfig,
 ) framer.ReadResponse {
 	return framer.ReadResponse{
-		Channels:  channels,
-		Indexes:   indexes,
-		Bounds:    readBounds,
-		Reduction: cfg.Reduction,
+		Channels:   channels,
+		Indexes:    indexes,
+		TimeRanges: []telem.TimeRange{readBounds},
+		Reduction:  cfg.Reduction,
 		OpenIterator: func(
 			ctx context.Context,
 			keys svcchannel.Keys,
@@ -147,6 +156,26 @@ func splitRecords(body []byte) (data [][]byte, terminator []byte) {
 	}
 	Fail("body ended without a terminator record")
 	return data, terminator
+}
+
+// encodeSamples encodes res as frames and returns the samples of ch in every record, in
+// order.
+func encodeSamples(
+	ctx context.Context,
+	res framer.ReadResponse,
+	ch svcchannel.Channel,
+) []byte {
+	GinkgoHelper()
+	data, terminator := splitRecords(
+		MustSucceed(framer.NewFrameEncoder(ctx, errors.NewCodec()).Encode(res)),
+	)
+	Expect(terminator).To(BeEmpty())
+	c := codec.NewStatic(svcchannel.Keys{ch.Key()}, []telem.DataType{ch.DataType})
+	samples := make([][]byte, len(data))
+	for i, record := range data {
+		samples[i] = MustSucceed(c.Decode(record)).Get(ch.Key()).Data()
+	}
+	return slices.Concat(samples...)
 }
 
 // failFirstWriter fails its first write and buffers every write after it.
@@ -290,6 +319,47 @@ var _ = Describe("Read", func() {
 			fr := MustSucceed(c.Decode(data[0]))
 			Expect(fr.Get(channels[0].Key()).Series[0]).
 				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
+		})
+
+		It("Should encode the samples of each time range in time order", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+			)
+			res := read(ctx, index, channels...)
+			res.TimeRanges = splitRanges
+			Expect(encodeSamples(ctx, res, channels[0])).
+				To(Equal(telem.NewSeriesV[float32](1, 2, 6, 7).Data))
+		})
+
+		It("Should stride the samples of every time range as one series", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9),
+			)
+			res := response(channels, nil, svcframer.IteratorConfig{
+				Reduction: telem.Reduction{
+					Variant: telem.StrideReduction{Factor: 2},
+				},
+			})
+			res.TimeRanges = []telem.TimeRange{
+				telem.NewRangeSeconds(1, 4),
+				telem.NewRangeSeconds(6, 9),
+			}
+			Expect(encodeSamples(ctx, res, channels[0])).
+				To(Equal(telem.NewSeriesV[float32](1, 3, 7).Data))
 		})
 
 		It("Should encode a read with no data as a single terminator", func(
