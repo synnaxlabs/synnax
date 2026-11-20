@@ -35,25 +35,19 @@ const Picker = ({ value, fallback, onCommit }: PickerProps): ReactElement => {
     },
     [pendingRef, onCommitRef],
   );
-  const palettes = PColor.usePalettes();
-  const resolve = PColor.useResolve();
   const shown = pending == null ? value : pending.value;
+  const binding = PColor.useBinding(shown, (ref) => setPending({ value: ref }));
+  // The swatch menu would draw under this submenu.
+  const library =
+    binding.library == null
+      ? undefined
+      : { ...binding.library, swatchMenu: undefined, hasSwatchMenu: undefined };
   return (
     <Base.Picker
-      value={resolve(shown)}
+      value={binding.value}
+      onChange={binding.onChange}
       fallback={fallback}
-      onChange={(next) =>
-        setPending({ value: next == null ? undefined : { type: "fixed", value: next } })
-      }
-      library={
-        palettes.length === 0
-          ? undefined
-          : {
-              palettes,
-              named: shown?.type === "named" ? shown.key : undefined,
-              onNamedChange: (key) => setPending({ value: { type: "named", key } }),
-            }
-      }
+      library={library}
     />
   );
 };
