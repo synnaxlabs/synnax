@@ -11,10 +11,11 @@ index channel from the user model and lets a channel change its data type and it
 source. A **clock** is the list of times at which one source took samples; it has a key
 and no Core record. Each series names the clock that timed it, and a series whose type
 differs from the stream's agreed type carries a 1-byte type code. Every frame the Core
-sends brings the times of its data. Readers pair values with times by clock key and
-alignment, accept mixed types, and pair calculation inputs across clocks by sample time.
-Writers send time under the reserved key `"time"`. The typed device links a port to a
-channel, and the Core makes missing channels at task save.
+sends brings the times of its data, unless the request marks a key untimed. Readers pair
+values with times by clock key and alignment, accept mixed types, and pair calculation
+inputs across clocks by sample time. Writers send time under the reserved key `"time"`.
+The typed device links a port to a channel, and the Core makes missing channels at task
+save.
 
 ## 1 Motivation
 
@@ -68,28 +69,33 @@ A clock is a key under which Cesium stores timestamps (RFC 0118). The Core keeps
 clock record and no channel record for it. A clock belongs to one producer and lives as
 long as that producer names it.
 
-| Producer        | Where the clock key lives                                                    | Lifetime                                   |
-| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
-| Hardware task   | the task config, one key per sample clock of the task                        | the task                                   |
-| Arc task        | the Arc task config (`schemas/synnax/arc_task.oracle`, a new schema version) | the task                                   |
-| Script          | the framer, one entry per client ID and channel set (NEW)                    | back-to-back sessions of one client object |
-| Metrics service | Core memory, allocated at start                                              | one Core run                               |
+| Producer        | Where the clock key lives                                                    | Lifetime                                                                         |
+| --------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Hardware task   | the task config, one key per sample clock of the task                        | the task                                                                         |
+| Arc task        | the Arc task config (`schemas/synnax/arc_task.oracle`, a new schema version) | the task                                                                         |
+| Script          | the framer, one entry per subject, client ID, and channel set (NEW)          | back-to-back sessions of one client object, up to one hour idle, in one Core run |
+| Metrics service | Core memory, allocated at start                                              | one Core run                                                                     |
 
 - **Named at open**: A task writer names the clocks that its config holds, each with its
-  kind (§4.8). A client writer names no clock: it sends a client ID (NEW), a UUID that
-  each client object makes at construction, and the framer picks the clock. The framer
-  reuses the clock of that client ID and channel set for a session that opens after the
-  last one closed, so `client.write` in a loop writes one clock. It takes a new clock
-  when a session of the entry is still open or when the claim conflicts. An entry
-  expires one hour after its last session closes, and a Core restart drops them all. The
-  open response carries the session's clock key, which the client library sets on the
-  wire for that session only. No client library keeps a clock between sessions or shows
-  one to a user.
-- **Who may name a clock**: A subject that may update a producer, a clock that the
-  producer's config holds; the API checks it through an injected owner lookup over the
-  unique space of clock keys. Until Phase 9, a writer of an index channel, under the
-  access and write control of today. No client names a clock. An open fails on a key
-  that is not issued, and on a key of a record that is not an index channel.
+  kind (§4.8). From Phase 6 the task service allocates, in the save transaction, each
+  clock key that a hardware or Arc task config lacks, so a task keeps its clock across
+  restarts. A client writer names no clock. It sends a client ID (NEW), a UUID that each
+  client object makes at construction, and the framer picks the clock.
+- **The framer's entries**: The framer writer service keeps one entry per subject,
+  client ID, and channel set, so a subject that sends another's client ID gets a clock
+  of its own. A session that opens after the entry's last session closed reuses its
+  clock, so `client.write` in a loop writes one clock. A session that opens while one is
+  open, or whose claim conflicts, takes a new clock, and the entry keeps its first. A
+  sweep on the injected time source removes an entry one hour after its last session
+  closes (a `Config` field), and a Core restart drops them all. The open response
+  carries the session's clock key, which the client library sets on the wire for that
+  session only. No client library keeps a clock between sessions or shows one to a user.
+- **Who may name a clock**: A subject that may update a producer may name a clock that
+  the producer's config holds. The API checks it through an injected owner lookup over
+  the unique space of clock keys. Until Phase 9 the framer gives a writer of a channel
+  that has an index channel that index key (§4.8). No client names a clock. An open
+  fails on a key that is not issued, and on a key of a record that is not an index
+  channel.
 - **Claims**: A clock key takes claims like a channel key (RFC 0118 §5.8). Sessions of
   one producer may write one clock on time ranges that do not overlap, and an open that
   overlaps fails. A calculation session names no clock and takes no claim (§4.5).
@@ -190,11 +196,12 @@ override sits before the length, so a decoder knows the type before it reads dat
 - **Declared clocks**: A time series travels under its clock key, which a request need
   not name (§4.5, §4.8). The list that a frame needs holds each key of a series in the
   frame that the request did not name, plus each key already in the list that the agreed
-  clock of a requested key still names. So a stream that carries no time series declares
-  nothing, and its frames stay the frames of today. The encoder sends the whole list in
-  field 5 when it differs from the list of the state, and it becomes the list of the
-  state; N can be 0. A list applies to the frame that holds it. A state's key list is
-  the sorted, unique union of the requested and the declared keys in all four codecs,
+  clock of a timed requested key still names. The encoder's state takes the request's
+  `untimed_keys`; the decoder needs none. So a stream that carries no time series
+  declares nothing, and its frames stay the frames of today. The encoder sends the whole
+  list in field 5 when it differs from the list of the state, and it becomes the list of
+  the state; N can be 0. A list applies to the frame that holds it. A state's key list
+  is the sorted, unique union of the requested and the declared keys in all four codecs,
   and `allChannelsPresent` compares with it. A declared key has the agreed type
   `timestamp` and is its own agreed clock. It takes no type and no clock override; the
   override chain can sit on it for another kind.
@@ -236,7 +243,7 @@ override sits before the length, so a decoder knows the type before it reads dat
   it.
 - The writer service, not the codec, judges a write: it rejects a type that differs from
   the session's type of the key (`core/pkg/service/framer/writer/validator.go:82-95`)
-  and a clock that the session did not name at open. A calculation session is exempt
+  and a clock that is not one of the session's clocks. A calculation session is exempt
   from the clock check (§4.5).
 
 **Worked example**: A request names keys 6 (`float32`) and 8 (`uint8`, no clock). Clock
@@ -309,8 +316,8 @@ change. The WebSocket server reports a closed stream in place of the decode erro
 These forms hold no state, so each series describes itself. `data_type` is already a
 string per series (`x/go/telem/pb/frame.proto:22-28`). `Series` gains
 `uint32 clock = 6`. JSON and msgpack carry `clock` and leave it out when 0. The Go
-`Series` writes its own msgpack form, since the library's zero test boxes the value, an
-allocation per series. An old reader of these forms drops `clock` with no error. The
+`Series` writes its own msgpack form, because the library's zero test boxes the value,
+an allocation per series. An old reader of these forms drops `clock` with no error. The
 gRPC `buffer` fields carry the layout of §4.2
 (`core/pkg/transport/grpc/framer/framer.proto:50`, `:69`, `:93`).
 
@@ -347,18 +354,22 @@ request marks that channel as needing no time. The reader sends no second reques
 names no clock key.
 
 - **Closed frames**: Every frame the Core sends holds, for each data series of a timed
-  key, the time series of its clock for the same alignments: one per contiguous range of
-  alignments of each clock and multiple per frame, under the clock key, on every
-  transport and encoding.
+  key, the time series of its clock for the same alignments, under the clock key, on
+  every transport and encoding. A frame holds one time series for each clock and each
+  contiguous range of alignments, so it can hold several.
 - **Untimed keys**: A streamer or iterator request may list `untimed_keys`, a subset of
   its keys whose values a reader needs with no time: readouts, gauges, lights, and the
-  other value displays. Staleness uses sample arrival, not stamps
-  (`pluto/src/vis/staleness`), so they need none. The Core sends a clock's time series
-  when at least one requested key on that clock is not untimed. It computes that set of
-  clocks when the key list or a key's clock changes, never per frame. The TypeScript
-  client shares one stream across every display
+  other value displays. Staleness ages a sample from its series' time range
+  (`pluto/src/vis/staleness/aether/staleness.ts:98-99`), which every series carries, so
+  they need no stamps. The Core sends a clock's time series when at least one requested
+  key on that clock is not untimed, and the storage iterator reads stamps only for those
+  clocks. It computes that set of clocks when the key list or a key's clock changes,
+  never per frame. A request that lists in `untimed_keys` a key it does not request
+  fails. The API `ReadRequest` (`core/pkg/api/framer/framer.go:181-199`) takes the same
+  field. The TypeScript client shares one stream across every display
   (`client/ts/src/framer/cache/streamer.ts`), so it marks a key untimed only while every
-  display that holds the key marks it.
+  display that holds the key marks it. A demand that needs time waits until the stream
+  acks the key as timed. Phase 6 lands the field.
 - **Sources**: A writer's relay frame holds each clock write whole (§4.8). The storage
   iterator adds, per chunk and clock, the stamps of the alignment ranges of its data
   series, within the chunk size. A reduced read reduces them as it does the data.
@@ -369,8 +380,9 @@ names no clock key.
   (`core/pkg/service/framer/calculation/transform.go:45-63`), so its outputs cannot ride
   in the input's frame. A subscriber of both gets those stamps twice: 8 bytes per output
   sample.
-- **Filters**: A filter keeps a series whose key was asked for, and a time series that a
-  kept series names, at one compare per series. The relay
+- **Filters**: A filter keeps a series whose key was asked for, and a time series that
+  the clock of a kept timed key names, at one compare per series. The same compare finds
+  a clock move and updates the set in the frame that moves. The relay
   (`core/pkg/distribution/framer/relay/streamer.go:220`), the calculation transform, and
   the iterator's calculation step take the rule.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
@@ -554,26 +566,27 @@ The channel record drops `is_index`, `local_index`, and `concurrency` in schema 
 
 ### 4.10 Package boundaries
 
-| Concern                                                       | Owner                                                                | May import                                                                       | Must not                                                    |
-| ------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `Series.Clock`, `DataTypeCode`                                | `x/go/telem`, `x/ts`, `x/py`, `x/cpp`, from `schemas/x/telem.oracle` | nothing of Synnax                                                                | name a channel or a clock record                            |
-| Frame codec                                                   | the framer codec package and the three client codecs                 | `x/telem`, the key types of `distribution/channel`                               | read a channel record on decode; resolve anything per frame |
-| Declared type                                                 | the channel service                                                  | Gorp                                                                             | Cesium                                                      |
-| Key types and the key allocator (the counters and `Allocate`) | `core/pkg/distribution/channel`                                      | Gorp KV                                                                          | hold a service; make a record for a clock                   |
-| New clocks and claims at open                                 | the framer writer                                                    | the channel key allocator in `distribution/channel`, the claim table of RFC 0118 | Gorp records                                                |
-| Clock keys                                                    | the producer's own config, or the framer for a client ID             | -                                                                                | the channel record                                          |
-| Clock owner lookup                                            | each producer service, injected at the API layer                     | the unique space of clock keys                                                   | the framer                                                  |
-| Setting `Clock` on a series                                   | the framer writer and iterator                                       | Cesium's public API                                                              | client readers                                              |
-| Type and clock per segment                                    | Cesium (RFC 0118)                                                    | `x/telem`                                                                        | channel names, Gorp                                         |
-| The `"time"` key                                              | client write APIs                                                    | the writer open response                                                         | the Core's channel lookup                                   |
-| Arrival stamps                                                | the framer writer                                                    | `x/telem`                                                                        | Cesium                                                      |
-| Join node                                                     | `arc/go/stl`                                                         | Arc runtime types                                                                | the Core, channel records                                   |
-| Join policy and the primary                                   | the calculation service                                              | `arc/go`                                                                         | Arc flows                                                   |
-| Widening of mixed types                                       | client series libraries                                              | -                                                                                | the Core                                                    |
-| Name proposers                                                | each integration, injected into the task service                     | channel and group services                                                       | load-time registration                                      |
-| Port to channel link                                          | the typed device (RFC 0081)                                          | the channel key type                                                             | the task config                                             |
-| Device path resolver                                          | each integration, injected at the API layer                          | its device package, channel paths                                                | the channel service                                         |
-| Device name uniqueness                                        | the shared unique space of RFC 0116 §4.1                             | Gorp                                                                             | a check across tables in a service                          |
+| Concern                                                       | Owner                                                                        | May import                                                                       | Must not                                                    |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `Series.Clock`, `DataTypeCode`                                | `x/go/telem`, `x/ts`, `x/py`, `x/cpp`, from `schemas/x/telem.oracle`         | nothing of Synnax                                                                | name a channel or a clock record                            |
+| Frame codec                                                   | the framer codec package and the three client codecs                         | `x/telem`, the key types of `distribution/channel`                               | read a channel record on decode; resolve anything per frame |
+| Declared type                                                 | the channel service                                                          | Gorp                                                                             | Cesium                                                      |
+| Key types and the key allocator (the counters and `Allocate`) | `core/pkg/distribution/channel`                                              | Gorp KV                                                                          | hold a service; make a record for a clock                   |
+| New clocks and claims at open                                 | the framer writer                                                            | the channel key allocator in `distribution/channel`, the claim table of RFC 0118 | Gorp records                                                |
+| New clock keys of a task at save                              | the task service                                                             | the channel key allocator in `distribution/channel`                              | the framer                                                  |
+| Clock keys                                                    | the producer's own config, or the framer's entry for a subject and client ID | -                                                                                | the channel record                                          |
+| Clock owner lookup                                            | each producer service, injected at the API layer                             | the unique space of clock keys                                                   | the framer                                                  |
+| Setting `Clock` on a series                                   | the framer writer and iterator                                               | Cesium's public API                                                              | client readers                                              |
+| Type and clock per segment                                    | Cesium (RFC 0118)                                                            | `x/telem`                                                                        | channel names, Gorp                                         |
+| The `"time"` key                                              | client write APIs                                                            | the writer open response                                                         | the Core's channel lookup                                   |
+| Arrival stamps                                                | the framer writer                                                            | `x/telem`                                                                        | Cesium                                                      |
+| Join node                                                     | `arc/go/stl`                                                                 | Arc runtime types                                                                | the Core, channel records                                   |
+| Join policy and the primary                                   | the calculation service                                                      | `arc/go`                                                                         | Arc flows                                                   |
+| Widening of mixed types                                       | client series libraries                                                      | -                                                                                | the Core                                                    |
+| Name proposers                                                | each integration, injected into the task service                             | channel and group services                                                       | load-time registration                                      |
+| Port to channel link                                          | the typed device (RFC 0081)                                                  | the channel key type                                                             | the task config                                             |
+| Device path resolver                                          | each integration, injected at the API layer                                  | its device package, channel paths                                                | the channel service                                         |
+| Device name uniqueness                                        | the shared unique space of RFC 0116 §4.1                                     | Gorp                                                                             | a check across tables in a service                          |
 
 Two shallow packages change. `core/pkg/storage/ts` holds only Cesium aliases
 (`core/pkg/storage/ts/ts.go:23-30`), so callers import Cesium. Only the three calls of
@@ -590,12 +603,13 @@ which allocates clock keys from it.
 - **Floors**: A target is a ratio to a floor measured in the same run by a Go benchmark
   of the standard library: `BenchmarkFloorCopy`, the time of `copy` over n bytes. A
   floor never gates. Each ratio is on a shape that Phase 1 records, as channels ×
-  samples of `float32` (4 kB of payload).
+  samples of `float32` (4 kB of payload). A codec ratio is the bench host's base ratio
+  plus the 5% of the fail rule, so a head that passes the time rule meets it.
 
 | Path                        | Benchmarks                                                                    | Target                                                                                                                                                                                        | Napkin sketch                                                                                                                                                                            |
 | --------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Encode                      | `BenchmarkEncode`, `codec.bench.ts`, the single-channel benchmarks of Phase 1 | Steady state: 0 extra bytes, 0 extra allocations, time within noise of the baseline at every Phase 1 shape. 100 × 10: at most 290 times the copy floor of 4 kB. 1000 × 1: at most 3,500 times | On the bench host a 4 kB copy takes 28 ns, in cache. 100 × 10: 100 series at about 77 ns (7.7 µs). 1000 × 1: 1000 series at about 96 ns (96 µs). One XOR and OR per series adds under 1% |
-| Decode                      | `BenchmarkDecode` and its client twins                                        | Steady state: 0 extra allocations, time within noise of the baseline at every Phase 1 shape. 100 × 10: at most 430 times the copy floor of 4 kB. 1000 × 1: at most 3,500 times                | One allocation and one copy per series: 100 × 10 is about 116 ns per series (11.6 µs), 1000 × 1 about 96 ns (96 µs). A 4-byte store per series hides in both                             |
+| Encode                      | `BenchmarkEncode`, `codec.bench.ts`, the single-channel benchmarks of Phase 1 | Steady state: 0 extra bytes, 0 extra allocations, time within noise of the baseline at every Phase 1 shape. 100 × 10: at most 300 times the copy floor of 4 kB. 1000 × 1: at most 3,650 times | On the bench host a 4 kB copy takes 28 ns, in cache. 100 × 10: 100 series at about 77 ns (7.7 µs). 1000 × 1: 1000 series at about 96 ns (96 µs). One XOR and OR per series adds under 1% |
+| Decode                      | `BenchmarkDecode` and its client twins                                        | Steady state: 0 extra allocations, time within noise of the baseline at every Phase 1 shape. 100 × 10: at most 450 times the copy floor of 4 kB. 1000 × 1: at most 3,650 times                | One allocation and one copy per series: 100 × 10 is about 116 ns per series (11.6 µs), 1000 × 1 about 96 ns (96 µs). A 4-byte store per series hides in both                             |
 | Write                       | framer `BenchmarkWrite`, `BenchmarkOpen`                                      | Within noise. One store per series, no new map lookup                                                                                                                                         | The validator already looks up each series (`validator.go:75`); the clock sits in the same value                                                                                         |
 | Stream                      | `BenchmarkStreamKeyChange`, TypeScript cache and line plot benchmarks         | Within noise. One compare per series in each filter and per series pair in a reader                                                                                                           | A relay filter over 501 series is 501 lookups (10 µs) today; 501 compares add about 0.25 µs                                                                                              |
 | Live calculator             | Phase 1 benchmarks: 1 kHz on one clock, 1 kHz with 1 Hz, 10 kHz               | One clock: within noise. Two clocks: no worse than arrival pairing on the baseline. No allocation and no scheduler cycle per sample                                                           | The join steps one cursor per input per output sample, about 5 ns. At 10 kHz, 50 µs of CPU per second                                                                                    |
@@ -614,11 +628,11 @@ Readers take the clock from the channel record between Phases 3 and 6, while eac
 channel has one clock: the Driver's bypass bus stamps `clock` from the index of each
 channel it carries; CSV, TDMS, and Sift exports group by the record's index; the
 TypeScript cache join places a series on the join of the record's index; and Pluto
-requests the index key of its x channel. An export and the cache join fail, naming the
-channel and both clock keys, on a series whose clock differs; neither drops it. Phase 6
-ends all of them: the Driver sets `clock` on each series it builds, exports and the
-cache group by series clock across a clock move, and Pluto takes time from closed
-frames.
+requests the index key of its x channel. An export and the cache join fail on a series
+whose clock differs, with an error that names the channel and its index channel; neither
+drops it. Phase 6 ends all of them: the Driver sets `clock` on each series it builds,
+exports and the cache group by series clock across a clock move, and Pluto takes time
+from closed frames.
 
 Dependencies on other RFCs:
 
@@ -697,8 +711,8 @@ Phase 6. Keys of `core/v0.62.0` keep their numbers.
    makes one clock per `client.write` call
    (`client/py/synnax/framer/client.py:241-256`): 864,000 per day at 10 Hz. A clock
    record would store what the producer already holds. For a script, the framer keeps
-   the clock by client ID: a client that kept and named its own clock would put one more
-   concept in every client library and leak keys to users.
+   the clock by subject and client ID. A client that kept and named its own clock would
+   add one more concept to every client library. It would also show keys to users.
 10. **Time is a key in the write, not a `time=` argument**: One reserved key keeps a
     write one mapping. The first write fixes the kind, so a write that forgets its time
     fails.
@@ -722,8 +736,6 @@ Phase 6. Keys of `core/v0.62.0` keep their numbers.
 
 ## 8 Open questions
 
-- **Session clock access**: A session clock that no config holds has no access rule: any
-  writer that learns the key can name it while it is idle.
 - **Hold limit multiple**: The count of sample intervals of an input that make its hold
   limit, and how many samples estimate the interval.
 - **Status and warning text**: The stale status of a calculation, and the warnings for
