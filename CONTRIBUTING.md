@@ -104,14 +104,13 @@ passes the gate without a review. `OK` is the CI workflow's last job: it fails w
 check the PR's paths select failed. A merge into `main` goes through a merge queue,
 which reruns CI with the integration suite added before the branch moves. A queue
 entry's CI builds `main` with the entries ahead of it and the entry itself, and selects
-checks from every change since `main`. An entry skips the integration suite only when it
-and the entries ahead of it change only unit tests. The queue merges a group when its
-last entry passes, even when an entry ahead of it failed. GitHub refuses a queue on a
-wildcard branch pattern, so a `release/**` merge goes in directly, and CI runs again on
-the pushed commit. The queue also runs the gate again, on every pull request in the
-group. A release runs the integration suite itself. Nobody bypasses the rules on `main`:
-when Sedosaur is down, pull requests wait for it. The gate script is
-`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+checks from the entry's own change. An entry skips the integration suite when its own
+change touches only unit tests. The queue merges an entry only after it and every entry
+ahead of it pass. GitHub refuses a queue on a wildcard branch pattern, so a `release/**`
+merge goes in directly, and CI runs again on the pushed commit. The queue also runs the
+gate again on each entry. A release runs the integration suite itself. Nobody bypasses
+the rules on `main`: when Sedosaur is down, pull requests wait for it. The gate script
+is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
 `.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
 `Check - Rulesets` workflow fails each day until GitHub matches the files.
 
