@@ -310,12 +310,17 @@ func compileComparison[N, O antlr.ParserRuleContext](
 	if isSeries {
 		left = leftType
 	}
-	if _, _, err = CompileOperand(ctx, left, operands[1], compile); err != nil {
+	rightType, _, err := CompileOperand(ctx, left, operands[1], compile)
+	if err != nil {
 		return types.Type{}, err
 	}
 	if isSeries {
 		if err = ctx.Resolver.EmitSeriesComparison(
-			ctx.Writer, ctx.WriterID, op, *leftType.Elem,
+			ctx.Writer,
+			ctx.WriterID,
+			op,
+			*leftType.Elem,
+			rightType.Kind != types.KindSeries,
 		); err != nil {
 			return types.Type{}, err
 		}
