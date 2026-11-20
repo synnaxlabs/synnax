@@ -253,7 +253,8 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("lists the ranges newest first", async () => {
-      // Later than the far-future ranges of other specs, so none sort above these two.
+      // Later than the far-future ranges of other specs, so only planned ranges sort
+      // above these two.
       const start = TimeStamp.now().add(TimeSpan.days(365 * 200));
       const create = async (offset: TimeSpan): Promise<ranger.Range> =>
         await client.ranges.create({
