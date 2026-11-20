@@ -312,7 +312,7 @@ func (c *Calculator) String() string {
 // is free to discard the returned value.
 //
 // The first error a node reports during the step is returned, with no new calculations.
-// A step that uses its whole loop budget returns an error wrapping
+// A step that uses its whole loop budget returns an error marked with
 // runtime.ErrLoopBudget.
 func (c *Calculator) Next(
 	ctx context.Context,

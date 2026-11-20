@@ -120,6 +120,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       component: componentItem,
       panels: page.locator(".console-panel-selector").first(),
       help,
+      settings: page.getByRole("button", { name: "Settings", exact: true }).first(),
       code,
     });
     // In the empty top bar left of its buttons, so nothing shows its hover state.

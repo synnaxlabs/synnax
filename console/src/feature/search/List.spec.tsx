@@ -10,6 +10,7 @@
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -18,7 +19,7 @@ import { Channel } from "@/feature/channel";
 import { LinePlot } from "@/feature/lineplot";
 import { Search } from "@/feature/search";
 import { Search as PlatformSearch } from "@/platform/search";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 

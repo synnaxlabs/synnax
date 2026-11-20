@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { caseconv, deep, type direction, location, notation } from "@synnaxlabs/x";
+import { deep, type direction, location, notation, strings } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -76,7 +76,7 @@ const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
       <Select.Buttons value={value} onChange={onChange}>
         {sides.map((side) => (
           <Select.Item key={side} itemKey={side}>
-            {caseconv.capitalize(side)}
+            {strings.capitalize(side)}
           </Select.Item>
         ))}
       </Select.Buttons>

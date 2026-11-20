@@ -21,6 +21,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Credential, Synnax } from "@synnaxlabs/pluto";
+import { strings } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { countSessions, ensure, replace } from "@/feature/embedded/apiKey";
@@ -188,9 +189,6 @@ const TypeScriptTab = ({
   );
 };
 
-const formatSessions = (count: number): string =>
-  `${count} ${count === 1 ? "session" : "sessions"}`;
-
 interface SessionCountProps {
   apiKey: string;
   /** The user that owns the key. */
@@ -203,7 +201,7 @@ const SessionCount = ({ apiKey, subject }: SessionCountProps): ReactElement | nu
   return (
     <Text.Text color={9}>
       {sessions.variant === "success"
-        ? formatSessions(countSessions(sessions.data, apiKey))
+        ? strings.count(countSessions(sessions.data, apiKey), "session")
         : "Sessions unknown"}
     </Text.Text>
   );

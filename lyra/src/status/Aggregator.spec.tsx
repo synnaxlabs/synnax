@@ -99,7 +99,9 @@ describe("Aggregator", () => {
       });
 
       it("should count from when it gets a status, not from the status time", () => {
-        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout", "Date", "Temporal"],
+        });
         const { result } = renderHook(
           () => ({
             add: Status.useAdder(),

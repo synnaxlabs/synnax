@@ -163,29 +163,34 @@ export const failRequests = (
 };
 
 /**
- * Holds each response to target until release is called. responded resolves when the
- * first held response arrives, and sent returns the count of requests to target.
+ * Holds each response to target, or to each request that target matches, until release
+ * is called or the test finishes. responded resolves when the first held response
+ * arrives, and sent returns the count of held requests.
  */
 export const holdResponses = (
   client: Synnax,
-  target: string,
+  target: string | ((target: string, req: unknown) => boolean),
   field: "transport" = "transport",
 ) => {
+  const matches = typeof target === "string" ? (t: string) => t === target : target;
   const { unary } = client[field];
   const send = unary.send.bind(unary);
-  let respond = (): void => {};
-  const responded = new Promise<void>((resolve) => (respond = resolve));
-  let release = (): void => {};
-  const released = new Promise<void>((resolve) => (release = resolve));
+  const { promise: responded, resolve: respond } = Promise.withResolvers<void>();
+  const { promise: released, resolve: release } = Promise.withResolvers<void>();
   let sent = 0;
-  vi.spyOn(unary, "send").mockImplementation(async (...args) => {
-    if (args[0] === target) sent++;
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    const held = matches(args[0], args[1]);
+    if (held) sent++;
     const res = await send(...args);
-    if (args[0] === target) {
+    if (held) {
       respond();
       await released;
     }
     return res;
+  });
+  onTestFinished(() => {
+    release();
+    spy.mockRestore();
   });
   return { responded, release, sent: () => sent };
 };

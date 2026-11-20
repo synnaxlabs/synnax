@@ -70,21 +70,28 @@ class Master final : public master::Master {
     struct Domain {
         uint16_t position = 0;
         ec_domain_t *handle = nullptr;
+        ec_slave_config_t *config = nullptr;
         /// @brief the domain memory, valid only after activation.
         uint8_t *data = nullptr;
         /// @brief where the domain starts in the inputs and outputs.
         size_t offset = 0;
         size_t size = 0;
         master::WorkingCounterShare share;
+        /// @brief whether the latest receive() found the full working counter.
+        bool complete = false;
+        /// @brief whether the latest send() left the domain out, since IgH reported
+        /// the slave below SAFE-OP.
+        bool skipped = false;
 
         /// @brief returns where the domain ends in the inputs and outputs.
         [[nodiscard]] size_t end() const { return this->offset + this->size; }
     };
     /// @brief the domain of each enabled slave with process data, in position order.
     std::vector<Domain> domains;
-    /// @brief a copy of every domain after each receive(), as the image inputs.
+    /// @brief a copy of each domain that the latest receive() processed, as the image
+    /// inputs.
     std::vector<uint8_t> inputs;
-    /// @brief the image outputs, which send() copies to every domain.
+    /// @brief the image outputs, which send() copies to each domain that it queues.
     std::vector<uint8_t> outputs;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
@@ -244,15 +251,20 @@ private:
     [[nodiscard]] uint64_t app_time() const;
 
     /// @brief waits until every enabled slave reaches OP, until no slave reaches OP for
-    /// Config::op_timeout, or until cancel stops.
+    /// Config::op_timeout, or until the cancel of plan stops. Reports each slave that
+    /// reaches OP to the progress of plan.
     /// @returns errors::STATE_CHANGE_REFUSED with the refusals when every slave below
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
-    /// x::errors::CANCELLED once cancel stops.
-    master::Activation wait_for_op(const x::breaker::Breaker *cancel);
+    /// x::errors::CANCELLED once the cancel of plan stops.
+    master::Activation wait_for_op(const master::Plan &plan);
+
+    /// @brief reads the CoE objects of each starting slave that has reached PRE-OP.
+    /// Returns how many slaves are still starting.
+    size_t read_started();
 
     /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
-    /// the scan to reach PRE-OP, then reads its CoE objects.
+    /// the scan to reach PRE-OP, and reads its CoE objects once it does.
     void read_starting();
 
     /// @brief waits until IgH has read the CoE dictionary of each of slaves, as IgH
