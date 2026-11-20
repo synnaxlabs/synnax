@@ -153,7 +153,11 @@ export class Codec {
     let zeroAlignmentsFlag = true;
     let multiplesPresentFlag = false;
 
-    if (src.keys.length !== this.currState?.keys.length) {
+    const stateKeys = this.currState?.keys;
+    if (
+      src.keys.length !== stateKeys?.length ||
+      src.keys.some((key, i) => key !== stateKeys[i])
+    ) {
       channelFlag = false;
       byteArraySize += src.keys.length * KEY_SIZE;
     }
