@@ -42,7 +42,7 @@ import {
   sortEntries,
   type TypeFilter,
 } from "@/platform/file-browser/Entries";
-import { type Entry } from "@/platform/file-browser/list";
+import type { Entry } from "@/platform/file-browser/list";
 import { dirnameOf, normalize } from "@/platform/file-browser/path";
 import { PathBar } from "@/platform/file-browser/PathBar";
 import { Places, placesOf } from "@/platform/file-browser/Places";

@@ -24,7 +24,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar as LinePlotToolbar } from "@/feature/lineplot/toolbar";
 import { Range } from "@/feature/range";
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";

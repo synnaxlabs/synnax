@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/exit"
@@ -333,7 +334,9 @@ func unescape(s string) (string, string, error) {
 // the working directory workDir.
 func dataDir(args []string, workDir string) (string, error) {
 	cmd := &cobra.Command{
-		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlagsHandling: pflag.IgnoreUnknownFlag,
+		},
 	}
 	cmdstart.AddDataFlag(cmd)
 	config := cmd.Flags().String("config", "", "")

@@ -9,7 +9,7 @@
 
 import "@/feature/device/Connect.css";
 
-import { type device, type rack } from "@synnaxlabs/client";
+import type { device, rack } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -24,7 +24,7 @@ import { HARDWARE, type Hardware, NETWORK } from "@/feature/device/integrations"
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 export interface ConnectModalParams {
   /** The integration to open at, instead of the picker. */

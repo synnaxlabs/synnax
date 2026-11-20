@@ -33,10 +33,10 @@ import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
-import { type Hardware } from "@/platform/device/integration";
+import type { Hardware } from "@/platform/device/integration";
 import { isReady } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 /** The command that makes a scan task scan for devices now. */
 export const SCAN_COMMAND = "scan";

@@ -38,7 +38,7 @@ import { Details } from "@/feature/opcua/device/Details";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { HaulPreview, resolveIcon } from "@/feature/opcua/device/HaulPreview";
 import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
-import { type Device } from "@/feature/opcua/device/types";
+import type { Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
   type BrowseResponse,

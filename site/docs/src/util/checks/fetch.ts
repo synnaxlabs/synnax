@@ -10,7 +10,7 @@
 import { map, sleep, TimeSpan } from "@synnaxlabs/x";
 
 import { CDN } from "@/components/media/cdn";
-import { type Context } from "@/util/checks/check";
+import type { Context } from "@/util/checks/check";
 
 // Some hosts reject non-browser user agents outright.
 const HEADERS = {

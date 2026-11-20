@@ -15,7 +15,7 @@ import {
   TimeSpan,
   type url,
 } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import {
   type Connector,
@@ -24,14 +24,9 @@ import {
   type FetchResponse,
 } from "@/connector";
 import { Timeout, Unreachable } from "@/errors";
-import {
-  type FileEncoding,
-  type FileOptions,
-  type FileTransport,
-  type UploadBody,
-} from "@/file";
+import type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
-import { type UnaryClient } from "@/unary";
+import type { UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 const ACCEPT_HEADER_KEY = "Accept";

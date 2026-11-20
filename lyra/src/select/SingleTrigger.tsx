@@ -9,7 +9,7 @@
 
 import "@/select/SingleTrigger.css";
 
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type KeyboardEvent,
@@ -22,7 +22,7 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
-import { type Icon } from "@/icon";
+import type { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";

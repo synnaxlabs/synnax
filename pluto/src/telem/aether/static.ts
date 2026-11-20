@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type ColorSource,
