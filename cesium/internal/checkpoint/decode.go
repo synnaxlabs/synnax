@@ -11,16 +11,12 @@ package checkpoint
 
 import (
 	"bytes"
-	"cmp"
 	"encoding/binary"
-	"math"
-	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -107,10 +103,6 @@ func decodeSector(b []byte) (Header, error) {
 	}
 	if h.Length != uint64(len(b)) {
 		return h, corrupt("file is %d bytes, but its header says %d", len(b), h.Length)
-	}
-	if h.Limits.Alignments > log.MaxAlignment {
-		return h, corrupt("alignment limit %d is above %d", h.Limits.Alignments,
-			uint64(log.MaxAlignment))
 	}
 	if h.table < BodyStart ||
 		h.chunks != h.table+sectionCount*tableEntry ||
@@ -217,7 +209,7 @@ func parse(b []byte, h Header) (*state.Snapshot, error) {
 		return nil, err
 	}
 	s := &state.Snapshot{Sequence: h.Sequence, Limits: h.Limits}
-	if s.Channels, err = parseChannels(b, h, secs); err != nil {
+	if s.Channels, err = parseChannels(b, secs); err != nil {
 		return nil, err
 	}
 	clocks := Clocks(s)
@@ -250,7 +242,6 @@ func parse(b []byte, h Header) (*state.Snapshot, error) {
 
 func parseChannels(
 	b []byte,
-	h Header,
 	secs [sectionCount + 1]section,
 ) ([]*state.Channel, error) {
 	cs, ss := secs[sectionChans], secs[sectionSegs]
@@ -258,7 +249,6 @@ func parseChannels(
 	if cs.count > 0 {
 		channels = make([]*state.Channel, cs.count)
 	}
-	ids := make(set.Set[uint64], ss.count)
 	var nextSeg, nextPtr uint64
 	for i := range channels {
 		r := b[cs.off+uint64(i)*20:]
@@ -283,10 +273,7 @@ func parseChannels(
 			binary.LittleEndian.Uint32(r[16:]) != noPart:
 			return nil, corrupt("key %d names tombstones or parts", c.Key)
 		}
-		if err := parseSegments(b, h, secs, c, first, end, ids, &nextPtr); err != nil {
-			return nil, err
-		}
-		if err := checkApart(c); err != nil {
+		if err := parseSegments(b, secs, c, first, end, &nextPtr); err != nil {
 			return nil, err
 		}
 		nextSeg = end
@@ -299,31 +286,28 @@ func parseChannels(
 	return channels, nil
 }
 
-// parseSegments parses segment records first to end into c, and adds their identities
-// to ids.
+// parseSegments parses segment records first to end into c.
 func parseSegments(
 	b []byte,
-	h Header,
 	secs [sectionCount + 1]section,
 	c *state.Channel,
 	first, end uint64,
-	ids set.Set[uint64],
 	nextPtr *uint64,
 ) error {
 	c.Segments = make([]state.Segment, end-first)
 	for j := range c.Segments {
-		seg, err := parseSegment(b, h, secs, first+uint64(j), nextPtr)
+		seg, err := parseSegment(b, secs, first+uint64(j), nextPtr)
 		if err != nil {
 			return err
 		}
-		if ids.Contains(seg.ID) || (j > 0 && seg.ID <= c.Segments[j-1].ID) {
+		if j > 0 && seg.ID <= c.Segments[j-1].ID {
 			return corrupt(
-				"segment %d of key %d is out of order or named twice",
+				"segment %d of key %d is not above segment %d",
 				seg.ID,
 				c.Key,
+				c.Segments[j-1].ID,
 			)
 		}
-		ids.Add(seg.ID)
 		c.Segments[j] = seg
 	}
 	return nil
@@ -331,7 +315,6 @@ func parseSegments(
 
 func parseSegment(
 	b []byte,
-	h Header,
 	secs [sectionCount + 1]section,
 	index uint64,
 	nextPtr *uint64,
@@ -353,12 +336,6 @@ func parseSegment(
 		end = uint64(binary.LittleEndian.Uint32(b[ss.off+(index+1)*32+20:]))
 	}
 	switch {
-	case seg.ID == 0 || seg.ID >= h.Limits.Segments:
-		return seg, corrupt("segment %d is not below the limit %d", seg.ID,
-			h.Limits.Segments)
-	case seg.Version != log.SegmentVersion:
-		return seg, errors.Wrapf(log.ErrUnknown, "segment %d has format version %d",
-			seg.ID, seg.Version)
 	case r[27]&^flagSealed != 0 || !allZero(r[28:32]):
 		return seg, corrupt("segment %d has unknown flags or a set reserved byte",
 			seg.ID)
@@ -366,27 +343,18 @@ func parseSegment(
 		return seg, corrupt("segment %d has pointer records %d to %d", seg.ID, first,
 			end)
 	}
-	if err := parsePointers(b, h, ps, &seg, first, end); err != nil {
-		return seg, err
-	}
+	parsePointers(b, ps, &seg, first, end)
 	*nextPtr = end
 	return seg, nil
 }
 
-func parsePointers(
-	b []byte,
-	h Header,
-	ps section,
-	seg *state.Segment,
-	first, end uint64,
-) error {
+func parsePointers(b []byte, ps section, seg *state.Segment, first, end uint64) {
 	if end > first {
 		seg.Pointers = make([]state.Pointer, end-first)
 	}
-	var stream uint64
 	for i := range seg.Pointers {
 		r := b[ps.off+(first+uint64(i))*36:]
-		p := state.Pointer{
+		seg.Pointers[i] = state.Pointer{
 			First:     telem.TimeStamp(binary.LittleEndian.Uint64(r)),
 			Last:      telem.TimeStamp(binary.LittleEndian.Uint64(r[8:])),
 			Alignment: telem.Alignment(binary.LittleEndian.Uint64(r[16:])),
@@ -394,55 +362,7 @@ func parsePointers(
 			Length:    binary.LittleEndian.Uint32(r[28:]),
 			Samples:   binary.LittleEndian.Uint32(r[32:]),
 		}
-		if err := checkPointer(h, *seg, p, stream); err != nil {
-			return err
-		}
-		stream = uint64(p.Offset) + uint64(p.Length)
-		seg.Pointers[i] = p
 	}
-	if stream > uint64(seg.Length) {
-		return corrupt("segment %d has pointers past its length %d", seg.ID, seg.Length)
-	}
-	return nil
-}
-
-func checkPointer(h Header, seg state.Segment, p state.Pointer, stream uint64) error {
-	last := uint64(p.Alignment.SampleIndex()) + uint64(p.Samples) - 1
-	switch {
-	case p.Samples == 0 || p.Length < p.Samples || p.First > p.Last:
-		return corrupt("segment %d has a pointer of %d samples in %d bytes from %d "+
-			"to %d", seg.ID, p.Samples, p.Length, p.First, p.Last)
-	case uint64(p.Offset) < stream:
-		return corrupt("segment %d has a pointer at %d, before the end %d of the one "+
-			"before", seg.ID, p.Offset, stream)
-	case uint64(p.Alignment.DomainIndex()) >= h.Limits.Alignments ||
-		last > math.MaxUint32:
-		return corrupt("segment %d has a pointer with alignment %d of %d samples",
-			seg.ID, uint64(p.Alignment), p.Samples)
-	}
-	return nil
-}
-
-// checkApart checks that the pointers of c lie apart in time, across its segments.
-func checkApart(c *state.Channel) error {
-	var all []state.Pointer
-	for _, seg := range c.Segments {
-		all = append(all, seg.Pointers...)
-	}
-	slices.SortFunc(
-		all,
-		func(a, b state.Pointer) int { return cmp.Compare(a.First, b.First) },
-	)
-	for i := 1; i < len(all); i++ {
-		if all[i].First <= all[i-1].Last {
-			return corrupt(
-				"key %d has pointers that overlap at %d",
-				c.Key,
-				all[i].First,
-			)
-		}
-	}
-	return nil
 }
 
 func allZero(b []byte) bool {

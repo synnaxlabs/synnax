@@ -39,7 +39,8 @@ var _ = Describe("Files", func() {
 
 			Describe("Write", func() {
 				It(
-					"Should write the body, sync, sync the root, then commit the header "+
+					"Should write the body, sync, sync the root, then commit the "+
+						"header "+
 						"sector",
 					func() {
 						b := checkpoint.Encode(db, generation, sample(2))

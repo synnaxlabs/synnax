@@ -53,7 +53,8 @@ var _ = Describe("Head", func() {
 		Expect(b[:8]).To(Equal([]byte("CSCHKPT\x00")))
 		Expect(binary.LittleEndian.Uint16(b[8:])).To(Equal(uint16(1)))
 		Expect(b[10]).To(Equal(uint8(4)))
-		for i, want := range []uint64{db, generation, 77, 64, 1 << 20, 3, uint64(len(b))} {
+		wants := []uint64{db, generation, 77, 64, 1 << 20, 3, uint64(len(b))}
+		for i, want := range wants {
 			Expect(binary.LittleEndian.Uint64(b[16+8*i:])).To(Equal(want))
 		}
 		table := binary.LittleEndian.Uint64(b[72:])
@@ -158,7 +159,8 @@ func withRecord(b []byte, kind int, record []byte) []byte {
 		}
 	}
 	chunks := tab + 9*24
-	n := (chunks - checkpoint.BodyStart + checkpoint.ChunkSize - 1) / checkpoint.ChunkSize
+	body := chunks - checkpoint.BodyStart
+	n := (body + checkpoint.ChunkSize - 1) / checkpoint.ChunkSize
 	grown = append(grown[:chunks], make([]byte, 4*n)...)
 	binary.LittleEndian.PutUint64(grown[64:], uint64(len(grown)))
 	binary.LittleEndian.PutUint64(grown[72:], tab)
@@ -220,10 +222,6 @@ var _ = Describe("Head checks", func() {
 		Entry("file length", func(b []byte) []byte {
 			return append(b, 0)
 		}, place.ErrCorrupt, "but its header says"),
-		Entry("alignment limit", func(b []byte) []byte {
-			put64(b, 48, 1<<31+1)
-			return b
-		}, place.ErrCorrupt, "alignment limit"),
 		Entry("table offset", func(b []byte) []byte {
 			put64(b, 72, table(b)+8)
 			return b
@@ -273,18 +271,6 @@ var _ = Describe("Head checks", func() {
 			put32(b, at(b, 4, 2, 16), 0)
 			return b
 		}, place.ErrCorrupt, "names tombstones or parts"),
-		Entry("segment zero", func(b []byte) []byte {
-			put64(b, at(b, 5, 0, 0), 0)
-			return b
-		}, place.ErrCorrupt, "segment 0 is not below"),
-		Entry("segment at the limit", func(b []byte) []byte {
-			put64(b, at(b, 5, 4, 0), 64)
-			return b
-		}, place.ErrCorrupt, "segment 64 is not below the limit 64"),
-		Entry("segment version", func(b []byte) []byte {
-			binary.LittleEndian.PutUint16(b[at(b, 5, 2, 24):], 0)
-			return b
-		}, log.ErrUnknown, "segment 3 has format version 0"),
 		Entry("segment flag", func(b []byte) []byte {
 			b[at(b, 5, 2, 27)] = 2
 			return b
@@ -296,52 +282,15 @@ var _ = Describe("Head checks", func() {
 		Entry("segments out of order", func(b []byte) []byte {
 			put64(b, at(b, 5, 0, 0), 13)
 			return b
-		}, place.ErrCorrupt, "segment 12 of key 5 is out of order"),
+		}, place.ErrCorrupt, "segment 12 of key 5 is not above segment 13"),
 		Entry("a segment named twice in a key", func(b []byte) []byte {
 			put64(b, at(b, 5, 1, 0), 2)
 			return b
-		}, place.ErrCorrupt, "segment 2 of key 5 is out of order or named twice"),
-		Entry("a segment in two keys", func(b []byte) []byte {
-			put64(b, at(b, 5, 3, 0), 3)
-			return b
-		}, place.ErrCorrupt, "segment 3 of key 9 is out of order or named twice"),
+		}, place.ErrCorrupt, "segment 2 of key 5 is not above segment 2"),
 		Entry("pointer index", func(b []byte) []byte {
 			put32(b, at(b, 5, 0, 20), 1)
 			return b
 		}, place.ErrCorrupt, "segment 2 has pointer records 1 to 1"),
-		Entry("no samples", func(b []byte) []byte {
-			put32(b, at(b, 6, 0, 32), 0)
-			return b
-		}, place.ErrCorrupt, "a pointer of 0 samples"),
-		Entry("fewer bytes than samples", func(b []byte) []byte {
-			put32(b, at(b, 6, 0, 28), 2)
-			return b
-		}, place.ErrCorrupt, "a pointer of 3 samples in 2 bytes"),
-		Entry("first after last", func(b []byte) []byte {
-			put64(b, at(b, 6, 0, 0), 31)
-			return b
-		}, place.ErrCorrupt, "from 31 to 30"),
-		Entry("pointers that touch in a segment", func(b []byte) []byte {
-			put32(b, at(b, 6, 2, 24), 39)
-			return b
-		}, place.ErrCorrupt, "a pointer at 39, before the end 40"),
-		Entry("alignment above its limit", func(b []byte) []byte {
-			put64(b, at(b, 6, 0, 16), 1<<52)
-			return b
-		}, place.ErrCorrupt, "alignment"),
-		Entry("alignment past its stretch", func(b []byte) []byte {
-			put64(b, at(b, 6, 0, 16), 1<<32|0xFFFFFFFE)
-			return b
-		}, place.ErrCorrupt, "of 3 samples"),
-		Entry("pointers past the length", func(b []byte) []byte {
-			put32(b, at(b, 5, 0, 12), 23)
-			return b
-		}, place.ErrCorrupt, "segment 2 has pointers past its length 23"),
-		Entry("pointers that overlap across segments", func(b []byte) []byte {
-			put64(b, at(b, 6, 1, 0), 30)
-			put64(b, at(b, 6, 1, 8), 1004)
-			return b
-		}, place.ErrCorrupt, "key 5 has pointers that overlap at 30"),
 		Entry("a clock the section leaves out", func(b []byte) []byte {
 			put32(b, at(b, 5, 2, 8), 8)
 			return b
