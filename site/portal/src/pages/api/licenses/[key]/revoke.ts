@@ -41,7 +41,7 @@ export const POST: APIRoute = async (context) =>
         throw new HTTPError(
           502,
           `"${license.label}" is revoked, but the email about it failed.`,
-          undefined,
+          "mail_failed",
           { cause: err },
         );
       }

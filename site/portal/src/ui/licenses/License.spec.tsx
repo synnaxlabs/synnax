@@ -225,7 +225,10 @@ describe("Licenses.License", () => {
       window.history.replaceState(null, "", `/licenses/${LICENSE.key}?org=acme`);
       vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
         Response.json(
-          { error: '"Test rig" is restored, but the email about it failed.' },
+          {
+            error: '"Test rig" is restored, but the email about it failed.',
+            code: "mail_failed",
+          },
           { status: 502 },
         ),
       );

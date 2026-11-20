@@ -39,7 +39,7 @@ const change = async (key: string, action: "revoke" | "restore"): Promise<void> 
   try {
     await post(`/api/licenses/${key}/${action}`);
   } catch (err) {
-    if (!(err instanceof RequestError) || err.status !== 502)
+    if (!(err instanceof RequestError) || err.code !== "mail_failed")
       throw errors.fromUnknown(err);
     const url = new URL(window.location.href);
     url.searchParams.set(MAIL_PARAM, "failed");
