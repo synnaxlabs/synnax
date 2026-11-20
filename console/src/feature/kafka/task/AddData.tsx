@@ -19,13 +19,15 @@ import { type ReactNode, useState } from "react";
 import { type Device } from "@/feature/kafka/device/types";
 import {
   defaultPicks,
-  freeKeys,
+  heldPointers,
+  isExtendable,
   isPickable,
   type Picks,
+  type Reads,
   shapeKey,
+  takenPointers,
 } from "@/feature/kafka/task/additions";
 import { sampleTopic } from "@/feature/kafka/task/sample";
-import { type ReadRecord } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
@@ -33,8 +35,8 @@ import { Modals } from "@/platform/modals";
 interface Params {
   device: Device;
   topic: string;
-  /** The records that the task holds now. */
-  records: ReadRecord[];
+  /** The fields that the task reads now. */
+  reads: Reads;
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
 }
@@ -46,6 +48,10 @@ export type Result =
 const FRAME = "records";
 
 const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
+
+const NO_JSON = "No JSON message";
+
+const NOT_EXTENDABLE: ICD.Picker.Lock = { checked: false, label: NO_JSON };
 
 /** @returns the value at a JSON pointer of a document, or undefined for none. */
 const valueAt = (doc: unknown, pointer: string): unknown => {
@@ -91,8 +97,7 @@ interface ShapeValuesProps {
   sample: kafka.SampledTopic;
   shape: json.Shape;
   name: string;
-  /** The task reads every key of the shape already. */
-  taken: boolean;
+  reads: Reads;
   value: Set<string>;
   onChange: (value: Set<string>) => void;
 }
@@ -102,17 +107,21 @@ const ShapeValues = ({
   sample,
   shape,
   name,
-  taken,
+  reads,
   value,
   onChange,
 }: ShapeValuesProps) => {
   const records = newestFirst(sample, shape);
+  const extendable = isExtendable(shape, reads);
+  const taken = takenPointers(shape, reads);
+  const held = new Set([...heldPointers(shape, reads), ...value]);
   const values = shape.fields.map((f, i): ICD.Picker.Value => {
     const dataType = f.timeFormat == null ? f.dataType.toString() : "timestamp";
     let lock: ICD.Picker.Lock | undefined;
     if (i === shape.index) lock = INDEX;
-    else if (taken) lock = ICD.Picker.TAKEN;
-    else if (!isPickable(shape, value, f)) lock = { checked: false, label: dataType };
+    else if (taken.has(f.pointer)) lock = ICD.Picker.TAKEN;
+    else if (!extendable) lock = NOT_EXTENDABLE;
+    else if (!isPickable(shape, held, f)) lock = { checked: false, label: dataType };
     return {
       key: f.pointer,
       name: f.pointer === "" ? "Whole value" : f.pointer,
@@ -121,15 +130,15 @@ const ShapeValues = ({
       lock,
     };
   });
-  const mixed = !taken && values.some(({ lock }) => lock?.checked === false);
+  const mixed = extendable && values.some(({ lock }) => lock?.checked === false);
   return (
     <>
       <ICD.Picker.PaneHeader
         title={name}
         note={pluralize("record", shape.count, true)}
-        free={taken ? 0 : defaultPicks(shape).size}
+        free={defaultPicks(shape, reads).size}
         picked={value.size}
-        onPickAll={() => onChange(defaultPicks(shape))}
+        onPickAll={() => onChange(defaultPicks(shape, reads))}
         onClear={() => onChange(new Set())}
       />
       <ICD.Picker.Values
@@ -151,16 +160,16 @@ const ShapeValues = ({
 const toItem = (
   shape: json.Shape,
   picks: Picks,
-  records: ReadRecord[],
+  reads: Reads,
   label: Params["label"],
 ): ICD.Picker.TreeItem => {
   const key = shapeKey(shape);
-  const taken = freeKeys(shape, records).length === 0;
   const picked = picks.get(key)?.size ?? 0;
-  const pickable = taken ? 0 : defaultPicks(shape).size;
+  const pickable = defaultPicks(shape, reads).size;
   let meta = pluralize("record", shape.count, true);
   if (picked > 0) meta = `${picked} selected`;
-  else if (taken) meta = "In task";
+  else if (!isExtendable(shape, reads)) meta = NO_JSON;
+  else if (pickable === 0 && takenPointers(shape, reads).size > 0) meta = "In task";
   let state: ICD.Picker.TreeItem["picked"] = "none";
   if (picked > 0) state = picked >= pickable ? "all" : "some";
   return {
@@ -181,7 +190,7 @@ const SKELETON: ICD.Picker.SkeletonItem[] = [
 const Content = ({
   device,
   topic,
-  records,
+  reads,
   label,
   close,
 }: Modals.ContentProps<Params, Result>) => {
@@ -193,7 +202,7 @@ const Content = ({
   const [selected, setSelected] = useState<string | null>(null);
   const sample = result.data ?? null;
   const shapes = sample?.shapes ?? [];
-  const items = shapes.map((s) => toItem(s, picks, records, label));
+  const items = shapes.map((s) => toItem(s, picks, reads, label));
   const active = shapes.find((s) => shapeKey(s) === selected) ?? shapes.at(0) ?? null;
   const loading = result.variant === "loading";
   const count = shapes.reduce((n, s) => n + (picks.get(shapeKey(s))?.size ?? 0), 0);
@@ -208,7 +217,7 @@ const Content = ({
   const handlePick = (key: string) => {
     const shape = shapes.find((s) => shapeKey(s) === key);
     if (shape == null) throw new Error(`No shape of records has the key ${key}`);
-    setPicked(shape, picks.has(key) ? new Set() : defaultPicks(shape));
+    setPicked(shape, picks.has(key) ? new Set() : defaultPicks(shape, reads));
     setSelected(key);
   };
 
@@ -259,7 +268,7 @@ const Content = ({
         sample={sample}
         shape={active}
         name={active.sources.map(label).join(", ")}
-        taken={freeKeys(active, records).length === 0}
+        reads={reads}
         value={picks.get(key) ?? new Set()}
         onChange={(pointers) => setPicked(active, pointers)}
       />
