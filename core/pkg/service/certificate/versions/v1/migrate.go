@@ -18,6 +18,11 @@ import (
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 )
 
+// MigrateBase lifts the base of a v0 certificate to v1, with no uses.
+func MigrateBase(ctx context.Context, old v0.Base) (Base, error) {
+	return autoMigrateBase(ctx, old)
+}
+
 // NewMigration returns the migration that lifts stored certificates from v0 to v1.
 // Each v0 file certificate moves to rk.
 func NewMigration(rk rack.Key) gorp.Migration {

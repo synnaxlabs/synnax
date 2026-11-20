@@ -62,7 +62,7 @@ is deleted. Desktop gains two inputs in `release.yaml`: `desktop` and `desktop_b
 A release runs from `main` or from `release/X.Y`. One branch per train replaces
 `release/<console|core|driver>-X.Y`. `resolve_version.sh:81` requires a product in the
 name but uses only the `X.Y`, so the product carries no meaning. The docs deploy also
-reads the branch name (`site/docs/src/util/deploy/plan.ts:82`).
+reads the branch name (`site/docs/src/util/deploy/plan.ts:87`).
 
 Desktop joins a run with the other products only on `main`. A Desktop patch is its own
 dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set.
