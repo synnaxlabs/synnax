@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
@@ -28,7 +28,7 @@ import {
   renderTaskFormTab,
   START_FAILURE,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText } from "@/testutil";
+import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,6 +65,8 @@ interface EntryParams {
   index?: string;
   /** The channel of each field the task reads, by field key. All fields by default. */
   bound?: Record<string, number>;
+  /** The key of the ICD that holds the message. Random by default. */
+  icdKey?: icd.Key;
 }
 
 interface RenderParams extends Partial<Omit<EntryParams, "topic">> {
@@ -86,6 +88,7 @@ const createEntry = async ({
   topic = TOPIC,
   index,
   bound = Object.fromEntries(fields.map(({ key }) => [key, 0])),
+  icdKey,
 }: EntryParams): Promise<MQTT.Task.PlainReadEntry> => {
   const message: icd.Message = {
     key: uuid.create(),
@@ -93,6 +96,7 @@ const createEntry = async ({
     payload: { format: "json", fields },
   };
   const format = await client.icds.create({
+    key: icdKey,
     name: uniqueName("format"),
     messages: [message],
   });
@@ -927,13 +931,14 @@ describe("MQTT read form", () => {
 
   describe("message format", () => {
     /** Creates an ICD that holds one message of the fields, with a unique name. */
-    const createShared = async (fields: icd.JSONField[]) => {
+    const createShared = async (fields: icd.JSONField[], key?: icd.Key) => {
       const message: icd.Message = {
         key: uuid.create(),
         name: uniqueName("status"),
         payload: { format: "json", fields },
       };
       const shared = await client.icds.create({
+        key,
         name: uniqueName("pump"),
         messages: [message],
       });
@@ -941,16 +946,32 @@ describe("MQTT read form", () => {
     };
 
     /**
-     * Picks the message format of the open topic, from the one it reads now. Pass the
-     * name of the ICD of the next message when another ICD has a message of its name.
+     * Opens the message format field of the open topic, from the one it reads now, and
+     * searches for an ICD name. @returns the dialog.
      */
-    const pickFormat = async (current: string, next: string, icdName = "") => {
+    const searchFormats = async (current: string, icdName: string) => {
       fireEvent.click(await findDialogTriggerByText(current));
       const dialogs = await screen.findAllByRole("dialog");
-      const names = await within(dialogs[dialogs.length - 1]).findAllByText(next);
-      const [name] = names.filter((n) =>
-        n.parentElement?.textContent?.includes(icdName),
+      const dialog = within(dialogs[dialogs.length - 1]);
+      fireEvent.change(
+        await dialog.findByPlaceholderText("Search message formats..."),
+        {
+          target: { value: icdName },
+        },
       );
+      return dialog;
+    };
+
+    /** Picks a message of the named ICD as the message format of the open topic. */
+    const pickFormat = async (current: string, next: string, icdName: string) => {
+      const dialog = await searchFormats(current, icdName);
+      const name = await waitFor(() => {
+        const [match] = dialog
+          .getAllByText(next)
+          .filter((n) => n.parentElement?.textContent?.includes(icdName));
+        if (match == null) throw new Error(`no ${next} of ${icdName}`);
+        return match;
+      });
       fireEvent.click(name);
     };
 
@@ -994,7 +1015,7 @@ describe("MQTT read form", () => {
       const { shared, message } = await createShared([pressure, mode]);
       const { draft } = await renderRead({ entries: [entry] });
       await openTopic();
-      await pickFormat(TOPIC, message.name);
+      await pickFormat(TOPIC, message.name, shared.name);
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0])).toMatchObject({
           icd: shared.key,
@@ -1016,10 +1037,12 @@ describe("MQTT read form", () => {
     });
 
     it("should delete a message with no fields that the task made when its topic stops reading it", async () => {
-      const { message } = await createShared([createField("pressure", "float")]);
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
       const { draft } = await renderRead();
       const entry = await addTopic(draft.key, TOPIC);
-      await pickFormat("Untitled", message.name);
+      await pickFormat("Untitled", message.name, shared.name);
       await waitFor(async () => expect(await messageKeys(entry.icd)).toEqual([]));
     });
 
@@ -1036,7 +1059,7 @@ describe("MQTT read form", () => {
         ).toMatchObject({ fields: [{ name: "Field 1" }] }),
       );
       await openTopic();
-      await pickFormat("Untitled", message.name);
+      await pickFormat("Untitled", message.name, shared.name);
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
       );
@@ -1063,7 +1086,7 @@ describe("MQTT read form", () => {
         ]),
       );
       await openTopic();
-      await pickFormat("Untitled", message.name);
+      await pickFormat("Untitled", message.name, shared.name);
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[1]).icd).toBe(shared.key),
       );
@@ -1077,7 +1100,7 @@ describe("MQTT read form", () => {
       ]);
       const { draft } = await renderRead({ entries: [entry] });
       await openTopic();
-      await pickFormat(TOPIC, message.name);
+      await pickFormat(TOPIC, message.name, shared.name);
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
       );
@@ -1088,7 +1111,9 @@ describe("MQTT read form", () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
       });
-      const { message } = await createShared([createField("pressure", "float")]);
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
       const { draft } = await renderRead({ entries: [entry] });
       fireEvent.contextMenu(
         await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
@@ -1102,7 +1127,7 @@ describe("MQTT read form", () => {
         expect(messages[0].message).not.toBe(entry.messages[0].message);
       });
       await openTopic();
-      await pickFormat(`${TOPIC} 2`, message.name);
+      await pickFormat(`${TOPIC} 2`, message.name, shared.name);
       await waitFor(async () =>
         expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]),
       );
@@ -1112,7 +1137,9 @@ describe("MQTT read form", () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
       });
-      const { message } = await createShared([createField("pressure", "float")]);
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
       await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
       await screen.findByText("Message not found");
       const dialog = await openAddData();
@@ -1124,7 +1151,7 @@ describe("MQTT read form", () => {
       );
       await waitFor(async () => expect(await messageKeys(entry.icd)).toHaveLength(1));
       await openTopic();
-      await pickFormat(TOPIC, message.name);
+      await pickFormat(TOPIC, message.name, shared.name);
       await waitFor(async () => expect(await messageKeys(entry.icd)).toEqual([]));
     });
 
@@ -1144,10 +1171,10 @@ describe("MQTT read form", () => {
           pointer: `/${name}`,
         }));
         const pressure = createField("pressure", "float");
-        const { message } = await createShared([...stamps, pressure]);
+        const { shared, message } = await createShared([...stamps, pressure]);
         const { draft } = await renderRead({ entries: [entry] });
         await openTopic();
-        await pickFormat(TOPIC, message.name);
+        await pickFormat(TOPIC, message.name, shared.name);
         await waitFor(async () => {
           const [read] = plainOf((await retrieveEntries(draft.key))[0]).messages;
           expect(read.message).toBe(message.key);
@@ -1170,14 +1197,14 @@ describe("MQTT read form", () => {
       ]);
       await renderRead({ entries: [entry] });
       await openTopic();
-      fireEvent.click(await findDialogTriggerByText(TOPIC));
-      await screen.findByText(message.name);
+      const dialog = await searchFormats(TOPIC, shared.name);
+      await dialog.findByText(message.name);
       const renamed = uniqueName("alarm");
       await client.icds.dispatch(
         shared.key,
         icd.set({ path: ["messages", message.key, "name"], value: renamed }),
       );
-      await screen.findByText(renamed);
+      await dialog.findByText(renamed);
     });
 
     /**
@@ -1196,7 +1223,7 @@ describe("MQTT read form", () => {
         bound: { [temperature.key]: ch.key },
       });
       const next = createField("temperature", kind);
-      const { message } = await createShared([next]);
+      const { shared, message } = await createShared([next]);
       const stored = `${TOPIC}#${entry.messages[0].message}`;
       const { draft } = await renderRead({
         entries: [entry],
@@ -1205,7 +1232,7 @@ describe("MQTT read form", () => {
         },
       });
       await openTopic();
-      await pickFormat(TOPIC, message.name);
+      await pickFormat(TOPIC, message.name, shared.name);
       return { ch, next, draft };
     };
 
@@ -1302,6 +1329,48 @@ describe("MQTT read form", () => {
         const { messages } = await client.icds.retrieve({ key: pump.icd });
         expect(messages.map(({ key }) => key)).toContain(
           entries[3].messages[0].message,
+        );
+      });
+    });
+
+    describe("past the first page of ICDs", () => {
+      // More ICDs than one page of the field lists. Gorp orders keys by their trailing
+      // bytes, so a key ending in ones lists after every filler.
+      const FILLER_COUNT = 1000;
+      let fillers: icd.Key[] = [];
+
+      beforeAll(async () => {
+        const created = await client.icds.create(
+          Array.from({ length: FILLER_COUNT }, () => ({ name: uniqueName("filler") })),
+        );
+        fillers = created.map(({ key }) => key);
+      });
+
+      afterAll(async () => await client.icds.delete(fillers));
+
+      it("should name the message of an ICD outside the first page", async () => {
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+          icdKey: createKeyEndingIn("f"),
+        });
+        await renderRead({ entries: [entry] });
+        await openTopic();
+        await findDialogTriggerByText(TOPIC);
+      });
+
+      it("should find a message of an ICD outside the first page by its ICD name", async () => {
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+        });
+        const { shared, message } = await createShared(
+          [createField("pressure", "float")],
+          createKeyEndingIn("f"),
+        );
+        const { draft } = await renderRead({ entries: [entry] });
+        await openTopic();
+        await pickFormat(TOPIC, message.name, shared.name);
+        await waitFor(async () =>
+          expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
         );
       });
     });
