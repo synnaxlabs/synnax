@@ -9,9 +9,11 @@
 
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
+import { render } from "vitest-browser-react";
 
 import { Access } from "@/access";
 import { Label } from "@/label";
@@ -34,16 +36,20 @@ describe("Label.SelectMultiple", () => {
       name: `named-${id.create()}`,
       color: { type: "named", key: named.key },
     });
-    render(<Label.SelectMultiple value={[lbl.key]} onChange={vi.fn()} />, { wrapper });
-    const expected = color.cssString("#123456");
-    const tag = await screen.findByText(lbl.name);
-    await waitFor(() => expect(dotColor(tag.closest(".lyra-tag"))).toBe(expected));
-    fireEvent.click(tag);
-    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-      target: { value: lbl.name },
+    await render(<Label.SelectMultiple value={[lbl.key]} onChange={vi.fn()} />, {
+      wrapper,
     });
-    const option = await screen.findByRole("option", { name: lbl.name });
-    await waitFor(() => expect(dotColor(option)).toBe(expected));
+    const expected = color.cssString("#123456");
+    const tag = page.getByText(lbl.name);
+    await expect.element(tag).toBeInTheDocument();
+    await expect
+      .poll(() => dotColor(tag.element().closest(".lyra-tag")))
+      .toBe(expected);
+    await tag.click();
+    await userEvent.fill(page.getByPlaceholder("Search labels..."), lbl.name);
+    const option = page.getByRole("option", { name: lbl.name });
+    await expect.element(option).toBeInTheDocument();
+    await expect.poll(() => dotColor(option.element())).toBe(expected);
   });
 });
 
@@ -60,20 +66,16 @@ describe("Label.SelectSingle", () => {
       Access.useEnsurePermissions({});
       return <Label.SelectSingle value={lbl.key} onChange={vi.fn()} virtual={false} />;
     };
-    await act(async () => {
-      render(<Harness />, { wrapper });
-    });
-    fireEvent.click(await screen.findByText(lbl.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-      target: { value: lbl.name },
-    });
-    const option = await screen.findByRole("option", { name: lbl.name });
-    expect(fireEvent.contextMenu(option)).toBe(false);
-    fireEvent.click(await screen.findByText("Edit"));
-    const name = await screen.findByLabelText("Label name");
-    fireEvent.change(name, { target: { value: `${lbl.name}-renamed` } });
-    await waitFor(async () =>
-      expect((await client.labels.retrieve(lbl.key)).name).toBe(`${lbl.name}-renamed`),
-    );
+    await render(<Harness />, { wrapper });
+    await page.getByText(lbl.name).click();
+    await userEvent.fill(page.getByPlaceholder("Search labels..."), lbl.name);
+    const option = page.getByRole("option", { name: lbl.name });
+    await expect.element(option).toBeInTheDocument();
+    expect(fireEvent.contextMenu(option.element())).toBe(false);
+    await page.getByText("Edit").click();
+    await userEvent.fill(page.getByLabelText("Label name"), `${lbl.name}-renamed`);
+    await expect
+      .poll(async () => (await client.labels.retrieve(lbl.key)).name)
+      .toBe(`${lbl.name}-renamed`);
   });
 });

@@ -272,7 +272,8 @@ jobs:
           package: ${{ inputs.package }}
 
       # Only the Linux runners start a Core, and not for a fork, so the others run only
-      # the spec files that create no test client.
+      # the spec files that create no test client. A spec also needs a Core when it
+      # imports a helper module that creates one.
       - name: Skip the specs that need a Core
         if:
           inputs.test && inputs.core_image != '' && (runner.os != 'Linux' || env.FORK ==
@@ -280,9 +281,14 @@ jobs:
         shell: bash
         working-directory: ${{ inputs.directory }}
         run: |
-          specs=$(git grep -L -E \
-            'create(Proxied)?TestClient|TEST_(CLIENT_PARAMS|CORE_ADDRESS)' \
-            -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
+          pattern='create(Proxied)?TestClient|test(ClientParams|CoreAddress)'
+          pattern+='|CONNECTION_PARAMS'
+          while read -r helper; do
+            module=${helper#src/}
+            pattern+="|\"@/${module%.*}\""
+          done < <(git grep -l -E 'create(Proxied)?TestClient' -- 'src/*.ts' \
+            'src/*.tsx' ':!*.spec.ts' ':!*.spec.tsx')
+          specs=$(git grep -L -E "$pattern" -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
           echo "SPECS=$specs" >> "$GITHUB_ENV"
 
       # Without a limit, a hung test run holds the job for up to 6 hours. Turbo holds a
@@ -322,19 +328,25 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
-      # One shard runs the whole WebKit pass. Vitest rejects more shards than files.
+      # Vitest rejects more shards than files, so a sharded package needs more browser
+      # spec files than shards.
       - name: Test in WebKit
-        if: inputs.test && inputs.browsers && matrix.shard == 1
+        if: inputs.test && inputs.browsers
         shell: bash
         timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
+          SHARD_ARG:
+            ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
+            inputs.shards) || '' }}
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
-        run: >-
-          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
-          webkit
+        run: |
+          read -ra args <<< "$SHARD_ARG"
+          read -ra specs <<< "$SPECS"
+          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
+            --project '*webkit' "${args[@]}" "${specs[@]}"
 
       - name: Set up Deno
         if: inputs.runtimes && matrix.lint
