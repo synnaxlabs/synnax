@@ -9,7 +9,7 @@
 
 import "@/platform/file-browser/Modal.css";
 
-import { type rack, status, TimeSpan, type TimeStamp } from "@synnaxlabs/client";
+import { type rack, TimeSpan, type TimeStamp } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useNow } from "@synnaxlabs/lyra/hooks";
@@ -27,7 +27,6 @@ import {
   type ReactElement,
   type ReactNode,
   useEffect,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -43,7 +42,7 @@ import {
   sortEntries,
   type TypeFilter,
 } from "@/platform/file-browser/Entries";
-import { type Entry, type Listing } from "@/platform/file-browser/list";
+import { type Entry } from "@/platform/file-browser/list";
 import { dirnameOf } from "@/platform/file-browser/path";
 import { PathBar } from "@/platform/file-browser/PathBar";
 import { Places, placesOf } from "@/platform/file-browser/Places";
@@ -54,7 +53,11 @@ import { Triggers } from "@/platform/triggers";
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
-const NO_SNAPSHOT: Snapshot = { listings: new Map(), loading: new Set() };
+const NO_SNAPSHOT: Snapshot = {
+  listings: new Map(),
+  failures: new Map(),
+  loading: new Set(),
+};
 
 const subscribeToNothing = (): (() => void) => () => {};
 
@@ -105,16 +108,12 @@ const Content = ({
     stack: [dirnameOf(start.trim())],
     index: 0,
   }));
-  const [failures, setFailures] = useState<ReadonlyMap<string, status.Status>>(
-    () => new Map(),
+  const [selected, setSelected] = useState<string | null>(() =>
+    start.trim() === "" ? null : start.trim(),
   );
-  const [selected, setSelected] = useState<string | null>(null);
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
-  const [lastShown, setLastShown] = useState<Listing | null>(null);
-  // The entry to select once the next folder opens: the start file, or the folder the
-  // user came up from.
-  const selectAfter = useRef<string | null>(start.trim() === "" ? null : start.trim());
+  const [shownPath, setShownPath] = useState<string | null>(null);
 
   const path = history.stack[history.index];
   const places = placesOf(snapshot.listings.get(""));
@@ -127,41 +126,29 @@ const Content = ({
 
   useEffect(() => session?.prefetch(""), [session]);
 
+  // Each visit lists the folder again. The snapshot shows the result or the failure.
   useEffect(() => {
-    if (session == null) return;
-    session.list(path).then(
-      () =>
-        setFailures((f) => {
-          if (!f.has(path)) return f;
-          const next = new Map(f);
-          next.delete(path);
-          return next;
-        }),
-      (e: unknown) =>
-        setFailures((f) =>
-          new Map(f).set(path, status.fromException(e, "Failed to list files")),
-        ),
-    );
-    setSelected(selectAfter.current);
-    selectAfter.current = null;
+    session?.list(path).catch(() => {});
   }, [session, path]);
 
   const listing = snapshot.listings.get(path);
-  if (listing != null && listing !== lastShown) setLastShown(listing);
+  if (listing != null && shownPath !== path) setShownPath(path);
   // A folder that is still loading shows the folder before it, dimmed.
-  const shown = listing ?? lastShown;
+  const shown =
+    listing ?? (shownPath == null ? undefined : snapshot.listings.get(shownPath));
   const stale = listing == null;
   const loading = snapshot.loading.has(path);
-  const failure = failures.get(path);
+  const failure = snapshot.failures.get(path);
   const entries: KeyedEntry[] =
     shown == null
       ? []
       : sortEntries(shown.entries, sort).map((e) => ({ ...e, key: e.path }));
   const { data, getItem } = List.useStaticData<string, KeyedEntry>({ data: entries });
 
+  // A folder opens with the folder the user came from selected, if it holds it.
   const go = (to: string, from: string | null = null): void => {
     if (to === path) return;
-    selectAfter.current = from;
+    setSelected(from);
     setHistory((h) => ({
       stack: [...h.stack.slice(0, h.index + 1), to],
       index: h.index + 1,
@@ -169,12 +156,13 @@ const Content = ({
   };
   const back = (): void => {
     if (history.index === 0) return;
-    selectAfter.current = path;
+    setSelected(path);
     setHistory((h) => ({ ...h, index: h.index - 1 }));
   };
   const forward = (): void => {
-    if (history.index < history.stack.length - 1)
-      setHistory((h) => ({ ...h, index: h.index + 1 }));
+    if (history.index === history.stack.length - 1) return;
+    setSelected(null);
+    setHistory((h) => ({ ...h, index: h.index + 1 }));
   };
   const parent = dirnameOf(path);
   const canGoUp = parent !== "" && parent !== path;

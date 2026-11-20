@@ -128,7 +128,7 @@ const entryNames = (): string[] =>
 
 describe("FileBrowser.useModal", () => {
   describe("session", () => {
-    it("should show the last listing of a folder at once when it opens again", async () => {
+    it("should show the last listing of a folder at once on reopen", async () => {
       const { result, reopen, rack, served } = await openBrowser([TOP]);
       await findEntry("secrets");
       fireEvent.click(findButton("Cancel"));
@@ -304,7 +304,7 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
-    it("should pick a file that is not a certificate only under All files", async () => {
+    it("should pick other files only under All files", async () => {
       const { result } = await openBrowser(LISTINGS);
       await openEtc();
       const hosts = await findEntry("hosts");
@@ -333,7 +333,7 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
-    it("should pick the selected file on the shortcut its Select button shows", async () => {
+    it("should pick the selected file on the Select shortcut", async () => {
       const { result } = await openBrowser(LISTINGS);
       await openEtc();
       fireEvent.click(await findEntry("client.crt"));
@@ -375,6 +375,25 @@ describe("FileBrowser.useModal", () => {
           expect.stringMatching(/^client\.crt/),
         ]),
       );
+    });
+
+    it("should say that it lists files before the first listing comes", async () => {
+      const files = await createFileRack(client);
+      await renderModalOpener(FileBrowser.useModal, [{ rack: files.rack.key }], {
+        client,
+      });
+      expect(await screen.findByText("Listing files")).toBeDefined();
+    });
+
+    it("should keep the last folder in view while the next one loads", async () => {
+      const { served } = await openBrowser(LISTINGS);
+      await openFolder("/");
+      const etc = await findEntry("etc");
+      served.stop();
+      fireEvent.doubleClick(etc);
+      const path = screen.getByLabelText("Path");
+      await within(path).findByRole("button", { name: "etc" });
+      expect(await findEntry("etc")).toBeDefined();
     });
 
     it("should count the entries of a folder", async () => {

@@ -10,7 +10,7 @@
  */
 
 .console-file-browser__frame {
-    --console-file-browser-divider: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    --console-file-browser-line: var(--pluto-border-width) solid var(--pluto-gray-l4);
 
     width: min(160rem, calc(100vw - 8rem));
 }
@@ -18,8 +18,8 @@
 .console-file-browser__body {
     height: min(82rem, calc(100vh - 40rem));
     min-height: 0;
-    border-top: var(--console-file-browser-divider);
-    border-bottom: var(--console-file-browser-divider);
+    border-top: var(--console-file-browser-line);
+    border-bottom: var(--console-file-browser-line);
 }
 
 /* Modal.Footer expects a Modal.Body above it to give it its top space. */
@@ -32,7 +32,7 @@
     width: 30rem;
     padding: 2rem 1rem;
     background: var(--pluto-gray-l2);
-    border-right: var(--console-file-browser-divider);
+    border-right: var(--console-file-browser-line);
     overflow-y: auto;
 }
 

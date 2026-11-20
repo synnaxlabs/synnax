@@ -26,8 +26,15 @@ const LIST_TIMEOUT = TimeSpan.seconds(10);
 export interface Snapshot {
   /** The last listing of each folder. */
   listings: ReadonlyMap<string, Listing>;
+  /** The failure of the last list of each folder, until the folder lists again. */
+  failures: ReadonlyMap<string, status.Status>;
   /** The folders that the session lists now. */
   loading: ReadonlySet<string>;
+}
+
+interface Outcome {
+  listing?: Listing;
+  failure?: status.Status;
 }
 
 /**
@@ -38,7 +45,11 @@ export class Session {
   private readonly client: Synnax;
   private readonly rack: rack.Key;
   private browser: Promise<task.Task> | null = null;
-  private snap: Snapshot = { listings: new Map(), loading: new Set() };
+  private snap: Snapshot = {
+    listings: new Map(),
+    failures: new Map(),
+    loading: new Set(),
+  };
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, Promise<Listing>>();
 
@@ -68,12 +79,9 @@ export class Session {
   async list(path: string = ""): Promise<Listing> {
     let request = this.pending.get(path);
     if (request == null) {
-      request = this.request(path).finally(() => {
-        this.pending.delete(path);
-        this.update();
-      });
+      request = this.request(path);
       this.pending.set(path, request);
-      this.update();
+      this.update(path, {});
     }
     return await request;
   }
@@ -86,23 +94,32 @@ export class Session {
   }
 
   private async request(path: string): Promise<Listing> {
-    const browser = await this.retrieveBrowser();
-    const res = await browser.executeCommandSync({
-      type: LIST_COMMAND_TYPE,
-      timeout: LIST_TIMEOUT,
-      args: { path },
-    });
-    if (res.variant === "error") throw status.toError(res);
-    const listing = listingZ.parse(res.details?.data);
-    this.update(path, listing);
-    return listing;
+    try {
+      const browser = await this.retrieveBrowser();
+      const res = await browser.executeCommandSync({
+        type: LIST_COMMAND_TYPE,
+        timeout: LIST_TIMEOUT,
+        args: { path },
+      });
+      if (res.variant === "error") throw status.toError(res);
+      const listing = listingZ.parse(res.details?.data);
+      this.pending.delete(path);
+      this.update(path, { listing });
+      return listing;
+    } catch (e) {
+      this.pending.delete(path);
+      this.update(path, { failure: status.fromException(e, "Failed to list files") });
+      throw errors.fromUnknown(e);
+    }
   }
 
-  private update(path?: string, listing?: Listing): void {
-    let { listings } = this.snap;
-    if (path != null && listing != null)
-      listings = new Map(listings).set(path, listing);
-    this.snap = { listings, loading: new Set(this.pending.keys()) };
+  private update(path: string, { listing, failure }: Outcome): void {
+    const listings = new Map(this.snap.listings);
+    const failures = new Map(this.snap.failures);
+    if (listing != null) listings.set(path, listing);
+    if (failure != null) failures.set(path, failure);
+    else failures.delete(path);
+    this.snap = { listings, failures, loading: new Set(this.pending.keys()) };
     this.listeners.forEach((listener) => listener());
   }
 
