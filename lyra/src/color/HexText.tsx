@@ -39,7 +39,10 @@ export interface HexTextProps extends Omit<
 > {
   /** The hex digits, or a name, to show while the user is not editing. */
   text: string;
-  /** If true, `text` is a name, shown in the text font until the user edits it. */
+  /**
+   * If true, `text` is a name, shown in the text font until the user edits it. A commit
+   * of the same name changes nothing, even when the name is also a color.
+   */
   named?: boolean;
   /** The alpha a hex without alpha digits keeps. */
   alpha: number;
@@ -67,6 +70,7 @@ export const HexText = ({
   const [draft, setDraft] = useState<string | null>(null);
   const commit = (raw: string): void => {
     setDraft(null);
+    if (named && raw.trim() === text) return;
     if (raw.trim() === "" && onClear != null) return onClear();
     const parsed = parseHexInput(raw, alpha);
     if (parsed != null) onChange(parsed);

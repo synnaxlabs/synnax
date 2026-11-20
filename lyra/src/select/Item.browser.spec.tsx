@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { type ReactElement, useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
@@ -464,7 +464,8 @@ describe("Select render isolation", () => {
     it("should not select a disabled item through its checkbox", async () => {
       const onChange = vi.fn();
       const c = render(<Checkable onChange={onChange} disabled />);
-      await userEvent.click(checkbox(c, "alpha"));
+      // Force skips the wait for an enabled target and clicks at its position.
+      await page.elementLocator(checkbox(c, "alpha")).click({ force: true });
       expect(onChange).not.toHaveBeenCalled();
       expect(checkbox(c, "alpha").checked).toBe(false);
     });
