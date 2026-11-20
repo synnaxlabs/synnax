@@ -104,28 +104,6 @@ func outputError(format string, ch channel.Channel) error {
 	)
 }
 
-// Update writes c over the calculation with its key, which keeps its output, and the
-// commit broadcasts a create action that holds it. It returns an error wrapping
-// validate.ErrValidation when c is not valid, and an error wrapping query.ErrNotFound
-// when no calculation has the key.
-func (w Writer) Update(ctx context.Context, c Calculation) error {
-	if err := c.Validate(); err != nil {
-		return err
-	}
-	if err := w.table.
-		NewUpdate().
-		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
-		Change(func(_ gorp.Context, stored Calculation) Calculation {
-			c.Output = stored.Output
-			return c
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Attach(w.tx, c.Key, NewCreateAction(CreatePayload{Calculation: c}))
-	return nil
-}
-
 // Apply applies the actions to the calculation with the given key, and the commit
 // broadcasts them. It returns an error wrapping validate.ErrValidation when an action
 // is a create or the result is not valid, and an error wrapping query.ErrNotFound when
@@ -254,7 +232,10 @@ func (w Writer) SetFromChannel(ctx context.Context, ch channel.Channel) error {
 		c := Calculation{Output: ch.Key(), Expression: ch.Expression, Operations: ops}
 		return w.Create(ctx, &c)
 	}
-	c := stored[0]
-	c.Expression, c.Operations = ch.Expression, ops
-	return w.Update(ctx, c)
+	return w.Apply(
+		ctx,
+		stored[0].Key,
+		NewSetAction(SetPayload{Path: []string{"expression"}, Value: ch.Expression}),
+		NewSetAction(SetPayload{Path: []string{"operations"}, Value: ops}),
+	)
 }

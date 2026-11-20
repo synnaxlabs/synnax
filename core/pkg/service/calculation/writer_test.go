@@ -169,6 +169,46 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("SetFromChannel", func() {
+		setFromChannel := func(ctx SpecContext, ch channel.Channel) error {
+			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).SetFromChannel(ctx, ch)
+			})
+		}
+
+		It("Should write the expression and operations over the calculation", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			out.Expression = "return 3"
+			out.Operations = []channel.Operation{
+				{Type: channel.OperationTypeMax, Duration: telem.Second},
+			}
+			Expect(setFromChannel(ctx, out)).To(Succeed())
+			Expect(retrieve(ctx, out.Key())).To(ConsistOf(calculation.Calculation{
+				Key:        c.Key,
+				Output:     out.Key(),
+				Expression: "return 3",
+				Operations: []calculation.Operation{{Variant: calculation.MaxOperation{
+					Window: calculation.Window{Duration: telem.Second},
+				}}},
+			}))
+		})
+
+		It("Should create the calculation of a channel that has none", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			out.Expression = "return 3"
+			Expect(setFromChannel(ctx, out)).To(Succeed())
+			stored := retrieve(ctx, out.Key())
+			Expect(stored).To(HaveLen(1))
+			Expect(stored[0].Expression).To(Equal("return 3"))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should keep the output of a deleted calculation", func(ctx SpecContext) {
 			out := createVirtual(ctx, "doubled")
