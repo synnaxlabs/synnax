@@ -205,16 +205,11 @@ var _ = DescribeTable("Crash harness",
 		"data_type: required"),
 	Entry("Visible, Mixed: R4", crash.Visible, crash.Mixed, uint64(0), crash.R4,
 		"data_type: required"),
-	// One bad read of a meta file stops the open: no checksum, and no second read. The
-	// read bytes fail to decode, or decode to a channel that does not validate.
-	Entry("Durable, OneTimeReadFaults: R4", crash.Durable, crash.OneTimeReadFaults,
-		uint64(0), crash.R4, "error decoding meta"),
-	Entry("Visible, OneTimeReadFaults: R4", crash.Visible, crash.OneTimeReadFaults,
-		uint64(0), crash.R4, "error decoding meta"),
-	Entry("Durable, RepeatedReadFaults: R4", crash.Durable, crash.RepeatedReadFaults,
-		uint64(0), crash.R4, "name: required"),
-	Entry("Visible, RepeatedReadFaults: R4", crash.Visible, crash.RepeatedReadFaults,
-		uint64(0), crash.R4, "name: required"),
+	// A crash image holds no file to read, so the read faults change nothing.
+	Entry("Durable, OneTimeReadFaults: R1", crash.Durable, crash.OneTimeReadFaults,
+		uint64(0), crash.R1, "durable commit 1 is missing"),
+	Entry("Durable, RepeatedReadFaults: R1", crash.Durable, crash.RepeatedReadFaults,
+		uint64(0), crash.R1, "durable commit 1 is missing"),
 )
 
 // With the directory changes in order, as ext4, XFS, APFS, and NTFS journals keep them,
@@ -255,6 +250,10 @@ var _ = DescribeTable("Crash harness, holding",
 	Entry("Visible, FullDisk", crash.Visible, crash.FullDisk, uint64(0)),
 	Entry("Visible, OldCorruption", crash.Visible, crash.OldCorruption, uint64(0)),
 	Entry("Visible, NewCorruption", crash.Visible, crash.NewCorruption, uint64(0)),
+	Entry("Visible, OneTimeReadFaults", crash.Visible, crash.OneTimeReadFaults,
+		uint64(0)),
+	Entry("Visible, RepeatedReadFaults", crash.Visible, crash.RepeatedReadFaults,
+		uint64(0)),
 	// The disk fills on the first commit, so the engine acks nothing.
 	Entry("Durable, FullDisk, run key 1", crash.Durable, crash.FullDisk, uint64(1)),
 )
