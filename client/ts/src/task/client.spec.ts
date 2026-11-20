@@ -24,7 +24,7 @@ import { framer } from "@/framer";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
-import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
+import { PushStreamer, testCoreAddress } from "@/testutil";
 
 // Every request fails, so the cache holds only what the stream delivers.
 const unary: UnaryClient = {
@@ -43,7 +43,7 @@ const createStreamedClient = async (recordCap?: number) => {
     recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const coreURL = new url.URL(TEST_CORE_ADDRESS);
+  const coreURL = new url.URL(testCoreAddress());
   const frames = new framer.Client({
     stream: new WebSocketClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     unary,

@@ -13,7 +13,7 @@ import {
   SessionEndedError,
   ValidationError,
 } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import { StreamClosed } from "@synnaxlabs/freighter";
 import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
@@ -100,7 +100,7 @@ const hold = async (key: channel.Key, subject: string): Promise<Holder> => {
 const setup = async (key: channel.Key, openWriter?: OpenWriter) => {
   const h = renderAether(Colors, {
     state: {},
-    synnax: { props: TEST_CLIENT_PARAMS },
+    synnax: { props: testClientParams() },
     registry:
       openWriter == null ? { [Controller.TYPE]: Controller } : registryWith(openWriter),
     children: {

@@ -11,19 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import resource
+from synnax import rack as rack_, resource
 from synnax.resource import ID
 from x import filter, telem
-
-ORDER_FIELD_NAME: Literal["name"] = "name"
-
-
-OrderField = Literal["name"]
+from x.filter import shorthand
 
 SOURCE_STORED: Literal["stored"] = "stored"
 
@@ -31,6 +27,11 @@ SOURCE_FILE: Literal["file"] = "file"
 
 
 Source = Literal["stored", "file"]
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
 
@@ -77,6 +78,8 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
+        source: Selects by source.
+        racks: Matches the file secrets on any of the given racks.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -86,6 +89,13 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
+    source: filter.Set[Source] | None = None
+    racks: list[rack_.Key] | None = None
+
+    @field_validator("racks", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -98,6 +108,8 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
+        "source": filter.SetInput[Source],
+        "racks": rack_.Key | list[rack_.Key],
     },
     total=False,
 )
@@ -128,6 +140,7 @@ class FileSecret(Base):
 
     source: Literal["file"] = "file"
     file_name: str
+    rack: rack_.Key = Field(gt=0, le=4294967295)
 
 
 # Is a hidden value that a device or task uses to connect, such as a password, a
