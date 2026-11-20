@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <cerrno>
+#include <filesystem>
+#include <string>
 #include <system_error>
 
 #include <arpa/inet.h>
@@ -29,14 +31,31 @@ x::errors::Error ProdAPI::check_socket(const char *ifname) {
     if (errno == EPERM)
         return x::errors::Error(
             errors::PERMISSION_DENIED,
-            "permission denied opening " + iface +
+            "Permission denied opening " + iface +
                 ": the Driver needs CAP_NET_RAW. Reinstall the Driver service with "
-                "'sudo synnax-driver install', or run the Core or the Driver as root"
+                "'sudo synnax-driver install', or run the Core or the Driver as root."
         );
     return x::errors::Error(
         errors::INTERFACE_ERROR,
-        "failed to open a raw socket on " + iface + ": " +
+        "Failed to open a raw socket on " + iface + ": " +
             std::generic_category().message(errno)
     );
+}
+
+bool ProdAPI::dewesoft_filter_bound(const char *) {
+    return false;
+}
+
+std::optional<std::string> ProdAPI::adapter_name(const char *) {
+    return std::nullopt;
+}
+
+bool ProdAPI::on_usb(const char *ifname) {
+    std::error_code ec;
+    const auto subsystem = std::filesystem::read_symlink(
+        "/sys/class/net/" + std::string(ifname) + "/device/subsystem",
+        ec
+    );
+    return !ec && subsystem.filename() == "usb";
 }
 }

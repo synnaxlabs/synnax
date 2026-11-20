@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { v0, v1, v2 } from "@/feature/opcua/device/types/versions";
-import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
+
+const CLIENT_CERTIFICATE_KEY = uuid.create();
+const SERVER_CERTIFICATE_KEY = uuid.create();
 
 interface TestCase {
   description: string;
-  input: OPCUA.Device.AnyProperties;
+  input: v0.Properties | v1.Properties | v2.Properties;
   output: v2.Properties;
 }
 
@@ -57,48 +60,36 @@ const TEST_RECORD: TestCase[] = [
         endpoint: "opc.tcp://localhost:48",
         securityMode: "Sign",
         securityPolicy: "Basic256",
+        password: "",
+        clientCertificate: "",
         serverCertificate: "",
         certificateValidationDisabled: false,
+        clientTimeoutMs: 5000,
+        secureChannelLifetimeMs: 600_000,
+        sessionTimeoutMs: 1_200_000,
       },
-      read: { indexes: [34], channels: { test: 34 } },
+      read: { indexes: [34], channels: { test: 34 }, fields: [] },
       version: "2.0.0",
       write: { channels: { "4132": 4132 } },
     },
   },
   {
-    description: "clears a v1 server certificate path",
+    description: "keeps v1 certificate keys and drops the private key path",
     input: {
       ...v1.ZERO_PROPERTIES,
       connection: {
         ...v0.ZERO_CONNECTION_CONFIG,
-        clientCertificate: "/etc/opcua/client.der",
+        clientCertificate: CLIENT_CERTIFICATE_KEY,
         clientPrivateKey: "/etc/opcua/client.key",
-        serverCertificate: "/etc/opcua/server.der",
+        serverCertificate: SERVER_CERTIFICATE_KEY,
       },
     },
     output: {
       ...v2.ZERO_PROPERTIES,
       connection: {
         ...v2.ZERO_PROPERTIES.connection,
-        clientCertificate: "/etc/opcua/client.der",
-        clientPrivateKey: "/etc/opcua/client.key",
-      },
-    },
-  },
-  {
-    description: "keeps a v1 server certificate that is PEM",
-    input: {
-      ...v1.ZERO_PROPERTIES,
-      connection: {
-        ...v0.ZERO_CONNECTION_CONFIG,
-        serverCertificate: SERVER_CERTIFICATE.pem,
-      },
-    },
-    output: {
-      ...v2.ZERO_PROPERTIES,
-      connection: {
-        ...v2.ZERO_PROPERTIES.connection,
-        serverCertificate: SERVER_CERTIFICATE.pem,
+        clientCertificate: CLIENT_CERTIFICATE_KEY,
+        serverCertificate: SERVER_CERTIFICATE_KEY,
       },
     },
   },
@@ -107,6 +98,6 @@ const TEST_RECORD: TestCase[] = [
 describe("migrations", () =>
   TEST_RECORD.forEach(({ description, input, output }) =>
     it(description, () =>
-      expect(OPCUA.Device.migrateProperties(input)).toEqual(output),
+      expect(OPCUA.Device.propertiesZ.parse(input)).toEqual(output),
     ),
   ));

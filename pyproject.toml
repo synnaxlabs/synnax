@@ -11,10 +11,13 @@
 name = "synnax-workspace"
 version = "0.0.0"
 description = "Synnax Python Workspace"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 
 [dependency-groups]
-dev = ["vermin>=1.9.1,<2"]
+dev = ["vermin>=1.9.2,<2"]
+
+[tool.uv]
+required-version = ">=0.13"
 
 [tool.uv.workspace]
 members = [
@@ -24,6 +27,7 @@ members = [
     "freighter/py",
     "integration",
     "scripts",
+    "scripts/common",
     "x/py",
 ]
 
@@ -31,4 +35,47 @@ members = [
 alamos = { workspace = true }
 synnax-freighter = { workspace = true }
 synnax = { workspace = true }
+synnax-scripts-common = { workspace = true }
 synnax-x = { workspace = true }
+
+# Each workspace member extends this base config.
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "ASYNC",
+    "EXE",
+    "FURB",
+    "PGH",
+    "PLW1508",
+    "T10",
+    "TID252",
+    "W605",
+    "YTT",
+    "I",
+    "B",
+    "DTZ",
+    "E501",
+    "E7",
+    "E9",
+    "PLE",
+    "PLR1722",
+    "UP",
+    "SIM",
+    "C4",
+    "RET",
+    "PIE",
+    "PERF",
+    "RUF",
+    "S110",
+    "PT",
+]
+# Oracle generates public aliases that callers call and validate, which a `type` alias
+# cannot do.
+ignore = ["UP040", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true

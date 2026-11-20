@@ -9,20 +9,22 @@
 
 import "@/schematic/node/general/input/input.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
-import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { color, TimeSpan } from "@synnaxlabs/x";
+import type { CSSProperties, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface PrimitiveProps extends Partial<
-  Omit<schematic.InputNodeConfig, "variant" | "label" | "scale">
+  Omit<schematic.InputNodeConfig, "variant" | "label" | "scale" | "fillColor">
 > {
+  fillColor?: color.Crude;
   /** value is the last sent string, or null when none is known. */
   value?: string | null;
   /** readback renders under the field and shows the value the device holds. */
@@ -37,7 +39,7 @@ export const Input = ({
   readback,
   orientation = "left",
   fillColor,
-  size,
+  size = "medium",
   onSend,
   disabled,
   onClickDelay,
@@ -77,17 +79,19 @@ export const Input = ({
           onChange={draft.edit}
           className={CSS.BE("symbol-field", "control")}
           size={size}
+          level={SIZE_LEVELS[size]}
           borderWidth={1}
           disabled={disabled}
         >
           <BaseButton.Button
             size={size}
+            level={SIZE_LEVELS[size]}
             variant="filled"
             onClick={() => {
               onSend?.(shown);
               draft.send();
             }}
-            onClickDelay={onClickDelay}
+            onClickDelay={new TimeSpan(onClickDelay ?? 0)}
           >
             Set
           </BaseButton.Button>

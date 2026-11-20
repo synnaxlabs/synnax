@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { act, screen } from "@testing-library/react";
 import { describe, it } from "vitest";
 
@@ -18,11 +19,13 @@ interface Entry {
   device: string;
 }
 
+const root = deep.path<{ config: { channels: Entry[]; endpoints: Entry[] } }>();
+
 interface KeysProps {
-  path?: string;
+  path?: deep.Target<Entry[]>;
 }
 
-const Keys = ({ path }: KeysProps) => (
+const Keys = ({ path = root.config.channels }: KeysProps) => (
   <span>{Task.useChannelDeviceKeys(path).join(",") || "none"}</span>
 );
 
@@ -46,7 +49,7 @@ describe("useChannelDeviceKeys", () => {
     });
     await screen.findByText("a");
     act(() =>
-      form.current?.set("config.channels", [
+      form.current?.set(root.config.channels, [
         createEntry("1", "a"),
         createEntry("2", "c"),
       ]),
@@ -55,7 +58,7 @@ describe("useChannelDeviceKeys", () => {
   });
 
   it("should read the list at a custom path", async () => {
-    await renderInTaskForm(<Keys path="config.endpoints" />, {
+    await renderInTaskForm(<Keys path={root.config.endpoints} />, {
       values: { config: { endpoints: [createEntry("1", "z")] } },
     });
     await screen.findByText("z");

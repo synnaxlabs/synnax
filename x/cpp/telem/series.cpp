@@ -15,8 +15,8 @@ pb::Series Series::to_proto() const {
     pb::Series pb;
     auto [tr, err] = this->time_range.to_proto();
     *pb.mutable_time_range() = tr;
-    pb.set_data_type(this->data_type_.name());
-    pb.set_data(this->data_.get(), byte_size());
+    pb.set_data_type(this->type.name());
+    pb.set_data(this->buffer.get(), byte_size());
     pb.set_alignment(this->alignment.uint64());
     return pb;
 }

@@ -9,12 +9,15 @@
 
 import { table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { TextForm, ValueForm } from "@/table/cells/Forms";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<table.ValueCellConfig>();
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
@@ -71,7 +74,28 @@ describe("ValueForm", () => {
       expect(input).not.toBeNull();
       fireEvent.change(input!, { target: { value: "7" } });
       fireEvent.blur(input!);
-      expect(methods.get<number>("rollingAverage").value).toBe(7);
+      expect(methods.get(path.rollingAverage).value).toBe(7);
+    });
+
+    const typePrecision = (getByText: (text: string) => HTMLElement, value: string) => {
+      const input = getByText("Precision")
+        .closest(".lyra-input__item")
+        ?.querySelector("input");
+      expect(input).not.toBeNull();
+      fireEvent.change(input!, { target: { value } });
+      fireEvent.blur(input!);
+    };
+
+    it("should round a typed fractional precision to a whole number", () => {
+      const { getByText } = renderTelemetryTab();
+      typePrecision(getByText, "4.6");
+      expect(methods.get(path.precision).value).toBe(5);
+    });
+
+    it("should clamp a typed precision to 17", () => {
+      const { getByText } = renderTelemetryTab();
+      typePrecision(getByText, "40");
+      expect(methods.get(path.precision).value).toBe(17);
     });
   });
 
@@ -196,14 +220,16 @@ describe("ValueForm", () => {
       ).not.toContain("lyra--square");
       expect(container.querySelector(".pluto-redline-form__floor input")).toBeNull();
       expect(getByText("No fill")).toBeDefined();
-      act(() => methods.set("units", "psi"));
+      act(() => methods.set(path.units, "psi"));
       expect(floor()).toBe("0 psi");
     });
 
     it("should show the fill below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
-      act(() => methods.set("fillColor", [0, 255, 0, 1]));
+      act(() =>
+        methods.set(path.fillColor, { type: "fixed", value: [0, 255, 0, 255] }),
+      );
       expect(getByText("Fill")).toBeDefined();
     });
   });
@@ -212,7 +238,10 @@ describe("ValueForm", () => {
 describe("TextForm", () => {
   const TextWrapper = ({ children }: PropsWithChildren): ReactElement => {
     const textMethods = Form.use<typeof table.textCellConfigZ>({
-      values: table.textCellConfigZ.parse({ variant: "text", fillColor: "#00ff00" }),
+      values: table.textCellConfigZ.parse({
+        variant: "text",
+        fillColor: { type: "fixed", value: "#00ff00" },
+      }),
       schema: table.textCellConfigZ,
     });
     return (

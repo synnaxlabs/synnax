@@ -46,11 +46,80 @@ describe("Editable", () => {
       expect(text.querySelector("img")).toBeNull();
     });
 
+    it("should not render a one-character value as a square", () => {
+      const c = render(<Editable value="a" onChange={vi.fn()} />);
+      expect(c.getByText("a").className).not.toContain("lyra--square");
+    });
+
+    it("should not render a read-only one-character value as a square", () => {
+      const c = render(<MaybeEditable value="a" />);
+      expect(c.getByText("a").className).not.toContain("lyra--square");
+    });
+
     it("should forward refs to the underlying element", () => {
       const ref = createRef<HTMLParagraphElement>();
       const c = render(<Editable ref={ref} value="Hello" onChange={vi.fn()} />);
       expect(ref.current).not.toBeNull();
       expect(ref.current).toBe(c.getByText("Hello"));
+    });
+  });
+
+  describe("maxLength", () => {
+    const renderField = (maxLength?: number): HTMLElement => {
+      const c = render(
+        <Editable value="abc" onChange={vi.fn()} maxLength={maxLength} />,
+      );
+      const text = c.getByText("abc");
+      fireEvent.dblClick(text);
+      return text;
+    };
+
+    it("should drop characters typed past the limit", () => {
+      const text = renderField(3);
+      text.textContent = "abcd";
+      window.getSelection()?.collapse(text.firstChild, 4);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should drop only the characters inserted before the caret", () => {
+      const text = renderField(3);
+      text.textContent = "aXYbc";
+      window.getSelection()?.collapse(text.firstChild, 3);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+      expect(window.getSelection()?.focusOffset).toBe(1);
+    });
+
+    it("should find the caret inside pasted markup", () => {
+      const text = renderField(3);
+      text.innerHTML = "a<b>XY</b>bc";
+      window.getSelection()?.collapse(text.querySelector("b")?.firstChild ?? null, 2);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should drop a whole emoji rather than half of one", () => {
+      const text = renderField(3);
+      text.textContent = "abc🚀";
+      window.getSelection()?.collapse(text.firstChild, 5);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should keep the start of text pasted over the limit", () => {
+      const text = renderField(3);
+      text.textContent = "abcdefgh";
+      window.getSelection()?.collapse(text.firstChild, 8);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should leave text alone without a limit", () => {
+      const text = renderField();
+      text.textContent = "abcdefgh";
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abcdefgh");
     });
   });
 
@@ -171,6 +240,38 @@ describe("Editable", () => {
       c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Elsewhere");
     });
+
+    it("should commit a rename back to the value while the write is pending", () => {
+      const onChange = vi.fn();
+      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Hello";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenLastCalledWith("Hello");
+      expect(text.innerHTML).toBe("Hello");
+    });
+
+    it("should hold a rename back to the value while the earlier write lands", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Hello";
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="World" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Hello");
+      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Hello");
+      c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Elsewhere");
+    });
+
     it("should revert when the handler rejects the committed text", () => {
       const onChange = vi.fn<(value: string) => boolean>(() => false);
       const c = render(<Editable value="Hello" onChange={onChange} />);
@@ -182,6 +283,44 @@ describe("Editable", () => {
       expect(text.innerText).toBe("Hello");
       c.rerender(<Editable value="Hello" onChange={onChange} />);
       expect(text.innerHTML).toBe("Hello");
+    });
+
+    it("should show the pending text when Escape is pressed", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Other";
+      fireEvent.keyDown(text, { key: "Escape" });
+      expect(text.innerText).toBe("World");
+    });
+
+    it("should show the pending text when an empty commit is refused", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(text.innerText).toBe("World");
+    });
+
+    it("should show the first commit when the handler rejects a second", () => {
+      const onChange = vi.fn<(value: string) => boolean>((v) => v !== "Taken");
+      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Taken";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenLastCalledWith("Taken");
+      expect(text.innerText).toBe("World");
     });
 
     it("should resolve asyncEdit as a cancel when the handler rejects", async () => {
@@ -215,6 +354,45 @@ describe("Editable", () => {
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Escape" });
       expect(text.innerText).toBe("Hello");
+    });
+  });
+
+  describe("focus", () => {
+    const renderWithList = () => {
+      const c = render(
+        <div tabIndex={0} data-testid="list">
+          <Editable value="Hello" onChange={vi.fn()} />
+        </div>,
+      );
+      const list = c.getByTestId("list");
+      list.focus();
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      expect(document.activeElement).toBe(text);
+      return { list, text };
+    };
+
+    it("should give the focus back when Enter commits", () => {
+      const { list, text } = renderWithList();
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(document.activeElement).toBe(list);
+    });
+
+    it("should give the focus back when Escape reverts", () => {
+      const { list, text } = renderWithList();
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Escape" });
+      expect(document.activeElement).toBe(list);
+    });
+
+    it("should blur when nothing held the focus before the edit", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(document.activeElement).toBe(document.body);
     });
   });
 
@@ -257,6 +435,56 @@ describe("Editable", () => {
       await expect(promise).resolves.toEqual(["World", true]);
     });
 
+    it("should edit the copy inside the given element when two share an id", () => {
+      const c = render(
+        <>
+          <div>
+            <Editable id="shared" value="First" onChange={vi.fn()} />
+          </div>
+          <div data-testid="second">
+            <Editable id="shared" value="Second" onChange={vi.fn()} />
+          </div>
+        </>,
+      );
+      act(() => edit("shared", c.getByTestId("second")));
+      expect(c.getByText("Second").getAttribute("contenteditable")).toBe("true");
+      expect(c.getByText("First").getAttribute("contenteditable")).not.toBe("true");
+    });
+
+    it("should edit the copy nearest the element when the element holds none", () => {
+      const c = render(
+        <>
+          <div>
+            <Editable id="shared" value="First" onChange={vi.fn()} />
+          </div>
+          <div>
+            <Editable id="shared" value="Second" onChange={vi.fn()} />
+            <div data-testid="item">Item</div>
+          </div>
+        </>,
+      );
+      act(() => edit("shared", c.getByTestId("item")));
+      expect(c.getByText("Second").getAttribute("contenteditable")).toBe("true");
+      expect(c.getByText("First").getAttribute("contenteditable")).not.toBe("true");
+    });
+
+    it("should edit nothing when the nearest copy is read-only", async () => {
+      const c = render(
+        <>
+          <div>
+            <Editable id="shared" value="Editable" onChange={vi.fn()} />
+          </div>
+          <div data-testid="item">
+            <MaybeEditable id="shared" value="Read only" />
+          </div>
+        </>,
+      );
+      await expect(asyncEdit("shared", c.getByTestId("item"))).rejects.toThrow(
+        "The nearest element with id shared is read-only",
+      );
+      expect(c.getByText("Editable").getAttribute("contenteditable")).not.toBe("true");
+    });
+
     it("should start an edit after a level change renders a new element", async () => {
       const onChange = vi.fn();
       const c = render(
@@ -287,32 +515,6 @@ describe("Editable", () => {
       text.innerText = "Hello";
       fireEvent.keyDown(text, { key: "Enter" });
       await expect(promise).resolves.toEqual(["Hello", false]);
-    });
-
-    it("resolves asyncEdit with the initialValue the caller supplies", async () => {
-      const c = render(<Editable id="aliased" value="Alias" onChange={vi.fn()} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("aliased", { initialValue: "RealName" });
-      });
-      expect(text.innerText).toBe("RealName");
-      fireEvent.keyDown(text, { key: "Escape" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-    });
-
-    it("treats an unchanged initialValue as a cancel", async () => {
-      const onChange = vi.fn();
-      const c = render(<Editable id="alias-kept" value="Alias" onChange={onChange} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("alias-kept", { initialValue: "RealName" });
-      });
-      fireEvent.keyDown(text, { key: "Enter" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-      expect(onChange).not.toHaveBeenCalled();
-      expect(text.innerText).toBe("Alias");
     });
 
     it("resolves asyncEdit with renamed=false on escape", async () => {

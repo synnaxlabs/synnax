@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -38,7 +39,7 @@ func openStreamer(
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames(name)).
 		Entry(&sigCh).
-		Exec(ctx, nil),
+		Exec(ctx, db),
 	).To(Succeed())
 	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 		Keys:        channel.Keys{sigCh.Key()},
@@ -76,7 +77,9 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		receiveSeries(responses, func(g Gomega, s telem.Series) {
 			g.Expect(s.DecodeJSON[channelPayload]()).
 				To(ContainElement(HaveField("Name", ch.Name)))
@@ -90,7 +93,9 @@ var _ = Describe("Signals", func() {
 			ch := channel.Channel{
 				Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			var payloads []map[string]any
 			receiveSeries(responses, func(g Gomega, s telem.Series) {
 				g.Expect(s.DecodeJSON[map[string]any]()).To(ContainElement(
@@ -108,9 +113,13 @@ var _ = Describe("Signals", func() {
 			ch := channel.Channel{
 				Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			responses := openStreamer(ctx, "sy_channel_delete")
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).To(Succeed())
 			receiveSeries(responses, func(g Gomega, s telem.Series) {
 				g.Expect(s.Unmarshal[uint32]()).To(ContainElement(uint32(ch.Key())))
 			})

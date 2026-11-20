@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, type record } from "@synnaxlabs/x";
+import type { errors, record } from "@synnaxlabs/x";
 
 /** Main → worker: create or update the component at `path`. */
 export interface MainUpdateRequest {
@@ -74,7 +74,8 @@ export type MainMessage =
   MainUpdateRequest | MainDeleteRequest | MainClearRequest | MainInvokeRequest;
 
 /** Send-only channel handed to individual aether components. Takes one
- * {@link WorkerMessage} at a time; the implementation decides when it reaches the wire. */
+ * {@link WorkerMessage} at a time; the implementation decides when it reaches the wire.
+ */
 export interface Sender {
   send: (value: WorkerMessage, transfer?: Transferable[]) => void;
 }

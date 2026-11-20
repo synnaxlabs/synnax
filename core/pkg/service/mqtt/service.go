@@ -14,7 +14,10 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -40,6 +43,15 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Channel holds the channels that config fields read from and write to.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// ICD holds the ICDs that read entries read the messages of, and creates the ICD of
+	// a read config from before ICDs.
+	//
+	// [REQUIRED]
+	ICD *icd.Service
 	alamos.Instrumentation
 }
 
@@ -48,6 +60,8 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -56,6 +70,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("mqtt.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("icd", c.ICD)
 	return v.Error()
 }
 
@@ -83,55 +99,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.Read, err = config.OpenService(
-		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               ReadTaskType,
-			Ladder:             versions.ReadConfigLadder,
-			SetEntryKey:        (*ReadConfig).SetKey,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ValidateEntry:      (*ReadConfig).Validate,
-		},
-	); !ok(err, s.Read) {
+	if s.Read, err = config.OpenService(ctx, readServiceConfig(cfg)); !ok(err, s.Read) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
-		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               WriteTaskType,
-			Ladder:             versions.WriteConfigLadder,
-			SetEntryKey:        (*WriteConfig).SetKey,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ValidateEntry:      (*WriteConfig).Validate,
-		},
-	); !ok(err, s.Write) {
+		ctx,
+		writeServiceConfig(cfg),
+	); !ok(
+		err,
+		s.Write,
+	) {
 		return nil, err
 	}
-	if s.Scan, err = config.OpenService(
-		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               ScanTaskType,
-			Ladder:             versions.ScanConfigLadder,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
-		},
-	); !ok(err, s.Scan) {
+	if s.Scan, err = config.OpenService(ctx, scanServiceConfig(cfg)); !ok(err, s.Scan) {
 		return nil, err
 	}
-	if s.Edge, err = config.OpenService(
-		ctx, config.ServiceConfig[EdgeConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               EdgeTaskType,
-			Ladder:             versions.EdgeConfigLadder,
-			SetEntryKey:        (*EdgeConfig).SetKey,
-			ApplyEntryDefaults: (*EdgeConfig).ApplyDefaults,
-			ValidateEntry:      (*EdgeConfig).Validate,
-		},
-	); !ok(err, s.Edge) {
+	if s.Edge, err = config.OpenService(ctx, edgeServiceConfig(cfg)); !ok(err, s.Edge) {
 		return nil, err
 	}
 	return s, nil
@@ -144,4 +127,75 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan, s.Edge}
+}
+
+// readServiceConfig returns the config of the read task config service.
+func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
+	resolver := readResolver{
+		icds:     cfg.ICD,
+		channels: readChannels(cfg.Channel),
+		create:   createICD(cfg.ICD),
+		ins:      cfg.Instrumentation,
+	}
+	return config.ServiceConfig[ReadConfig]{
+		DB:              cfg.DB,
+		References:      readConfigReferences(),
+		Instrumentation: cfg.Instrumentation,
+		Type:            ReadTaskType,
+		Ladder:          versions.ReadConfigLadder,
+		Migrations: []gorp.Migration{
+			v2.NewReadMigration(resolver.channels, resolver.create),
+		},
+		SetEntryKey:    (*ReadConfig).SetKey,
+		PatchEntry:     (*ReadConfig).Patch,
+		HashEntry:      (*ReadConfig).HashContent,
+		HashReferences: resolver.hash,
+		HashedTables:   []string{"icd"},
+		ResolveEntry:   resolver.resolve,
+		ValidateEntry:  (*ReadConfig).Validate,
+	}
+}
+
+// writeServiceConfig returns the config of the write task config service.
+func writeServiceConfig(cfg ServiceConfig) config.ServiceConfig[WriteConfig] {
+	return config.ServiceConfig[WriteConfig]{
+		DB:              cfg.DB,
+		References:      writeConfigReferences(),
+		Instrumentation: cfg.Instrumentation,
+		Type:            WriteTaskType,
+		Ladder:          versions.WriteConfigLadder,
+		SetEntryKey:     (*WriteConfig).SetKey,
+		PatchEntry:      (*WriteConfig).Patch,
+		HashEntry:       (*WriteConfig).HashContent,
+		ValidateEntry:   (*WriteConfig).Validate,
+	}
+}
+
+// scanServiceConfig returns the config of the scan task config service.
+func scanServiceConfig(cfg ServiceConfig) config.ServiceConfig[ScanConfig] {
+	return config.ServiceConfig[ScanConfig]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+		Type:            ScanTaskType,
+		Ladder:          versions.ScanConfigLadder,
+		SetEntryKey:     (*ScanConfig).SetKey,
+		PatchEntry:      (*ScanConfig).Patch,
+		HashEntry:       (*ScanConfig).HashContent,
+		ValidateEntry:   (*ScanConfig).Validate,
+	}
+}
+
+// edgeServiceConfig returns the config of the edge task config service.
+func edgeServiceConfig(cfg ServiceConfig) config.ServiceConfig[EdgeConfig] {
+	return config.ServiceConfig[EdgeConfig]{
+		DB:              cfg.DB,
+		References:      edgeConfigReferences(),
+		Instrumentation: cfg.Instrumentation,
+		Type:            EdgeTaskType,
+		Ladder:          versions.EdgeConfigLadder,
+		SetEntryKey:     (*EdgeConfig).SetKey,
+		PatchEntry:      (*EdgeConfig).Patch,
+		HashEntry:       (*EdgeConfig).HashContent,
+		ValidateEntry:   (*EdgeConfig).Validate,
+	}
 }

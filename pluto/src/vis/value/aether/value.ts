@@ -15,25 +15,24 @@ import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
-import { type Element } from "@/vis/diagram/aether/Diagram";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import type { Element } from "@/vis/diagram/aether/Diagram";
+import type { FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
-// Below this contrast against the background a color is illegible and gets
-// swapped for a legible gray. Rough guard, tune later.
-const MIN_LEGIBLE_CONTRAST = 1.1;
+// Below this contrast against the background a color is illegible and gets swapped for
+// a legible gray.
+const MIN_LEGIBLE_CONTRAST = 1.5;
 
-const valueState = staleness.configZ.extend({
+const valueState = staleness.drawnStateZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
-  color: color.colorZ.default(color.ZERO),
+  color: color.colorZ.optional(),
   precision: z.number().default(2),
-  stalenessColor: color.colorZ.optional(),
   minWidth: z.number().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.default("standard"),
@@ -67,8 +66,6 @@ interface InternalState {
   textColor: color.Color;
   fontString: string;
   staleness: staleness.Registration;
-  // Staleness stays on the worker here, which draws the value itself.
-  stale: boolean;
 }
 
 export class Value
@@ -77,20 +74,16 @@ export class Value
 {
   static readonly TYPE = "value";
   static readonly z = valueState;
-  schema = Value.z;
+  override schema = Value.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useInternalRegistration(
-      ctx,
-      i.staleness,
-      this,
-      i.telem,
-      () => this.requestRender(),
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem, () =>
+      this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
@@ -109,7 +102,7 @@ export class Value
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();
@@ -151,18 +144,18 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    if (this.internal.stale)
-      return staleness.resolveColor(this.state.stalenessColor, theme);
+    const staleColor = staleness.drawnColor(this.state, theme);
+    if (staleColor != null) return staleColor;
 
     // gray.l0 is the background the text renders on; gray.l11 is the
     // high-contrast end of the scale, legible against it in both themes.
     const background = theme.colors.gray.l0;
     const legible = theme.colors.gray.l11;
     // Honor an explicit color unless it's illegible against the background.
-    if (color.isZero(this.state.color)) return legible;
-    if (color.contrast(background, this.state.color) < MIN_LEGIBLE_CONTRAST)
+    const c = this.state.color;
+    if (c == null || color.contrast(background, c) < MIN_LEGIBLE_CONTRAST)
       return legible;
-    return this.state.color;
+    return c;
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
@@ -201,26 +194,22 @@ export class Value
       : null;
     try {
       if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-        const colorValue = backgroundTelem.value().data;
-        const isZero = color.isZero(colorValue);
-        if (!isZero) {
-          canvas.fillStyle = color.hex(colorValue);
-          const width = this.state.useWidthForBackground
-            ? (this.state.width ?? this.state.minWidth)
-            : box.width(b);
-          canvas.fillRect(
-            ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
-            width + this.state.valueBackgroundOverScan.x,
-            bHeight + this.state.valueBackgroundOverScan.y,
-          );
-        }
+        canvas.fillStyle = color.hex(backgroundTelem.value().data);
+        const width = this.state.useWidthForBackground
+          ? (this.state.width ?? this.state.minWidth)
+          : box.width(b);
+        canvas.fillRect(
+          ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
+          width + this.state.valueBackgroundOverScan.x,
+          bHeight + this.state.valueBackgroundOverScan.y,
+        );
       }
 
       const textColor = this.getTextColor();
       canvas.fillStyle = color.hex(textColor);
 
-      // If the value is negative, chop of the negative sign and draw it separately
-      // so that the first digit always stays in the same position, regardless of the sign.
+      // If the value is negative, chop of the negative sign and draw it separately so
+      // that the first digit always stays in the same position, regardless of the sign.
       if (isNegative)
         canvas.fillText(
           "-",

@@ -15,6 +15,7 @@ cc_library(
     srcs = ["base64.cpp"],
     hdrs = ["base64.h"],
     visibility = ["//visibility:public"],
+    deps = ["//x/cpp/errors"],
 )
 
 cc_test(
@@ -23,6 +24,7 @@ cc_test(
     srcs = ["base64_test.cpp"],
     deps = [
         ":base64",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

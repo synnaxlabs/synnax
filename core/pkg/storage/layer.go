@@ -36,8 +36,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -48,6 +53,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type (
@@ -59,7 +65,7 @@ type (
 	TSEngine uint8
 )
 
-//go:generate stringer -type=KVEngine
+//go:generate go tool stringer -type=KVEngine
 const (
 	// KVEnginePebble uses CockroachDB's pebble key-value store.
 	KVEnginePebble KVEngine = iota + 1
@@ -67,7 +73,7 @@ const (
 
 var kvEngines = []KVEngine{KVEnginePebble}
 
-//go:generate stringer -type=TSEngine
+//go:generate go tool stringer -type=TSEngine
 const (
 	// TSEngineCesium uses Synnax's Cesium time-series engine.
 	TSEngineCesium TSEngine = iota + 1
@@ -103,18 +109,29 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to CesiumTS
 	TSEngine TSEngine
+	// Version is the semantic version of the Core, without a "v" prefix. Open checks it
+	// against the version recorded in the data directory, unless it is a 0.0 version.
+	//
+	// [REQUIRED] - Unless InMemory is true.
+	Version string
+	// UpdateBackupDisabled skips the backup before a new version first opens the data,
+	// so a failed update cannot be undone.
+	//
+	// [OPTIONAL] - Defaults to false.
+	UpdateBackupDisabled *bool
 }
 
-var (
-	_ config.Config[LayerConfig] = LayerConfig{}
-	// DefaultLayerConfig returns the default configuration for the storage layer.
-	DefaultLayerConfig = LayerConfig{
-		Perm:     xfs.UserRWX,
-		InMemory: new(false),
-		KVEngine: KVEnginePebble,
-		TSEngine: TSEngineCesium,
+var _ config.Config[LayerConfig] = LayerConfig{}
+
+func defaultLayerConfig() LayerConfig {
+	return LayerConfig{
+		Perm:                 xfs.UserRWX,
+		InMemory:             new(false),
+		KVEngine:             KVEnginePebble,
+		TSEngine:             TSEngineCesium,
+		UpdateBackupDisabled: new(false),
 	}
-)
+}
 
 // Override implements LayerConfig.
 func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
@@ -124,6 +141,11 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
+	cfg.Version = override.String(cfg.Version, other.Version)
+	cfg.UpdateBackupDisabled = override.Nil(
+		cfg.UpdateBackupDisabled,
+		other.UpdateBackupDisabled,
+	)
 	if cfg.InMemory != nil && *cfg.InMemory {
 		cfg.Dirname = ""
 	}
@@ -147,17 +169,25 @@ func (cfg LayerConfig) Validate() error {
 		cfg.TSEngine,
 	)
 	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
+	v.Ternaryf(
+		"version",
+		!*cfg.InMemory && !version.IsDev(cfg.Version) && !version.Valid(cfg.Version),
+		"invalid version %q",
+		cfg.Version,
+	)
 	return v.Error()
 }
 
 // Report implements the alamos.ReportProvider interface.
 func (cfg LayerConfig) Report() alamos.Report {
 	return alamos.Report{
-		"dirname":     cfg.Dirname,
-		"permissions": cfg.Perm,
-		"in_memory":   cfg.InMemory,
-		"kv_engine":   cfg.KVEngine.String(),
-		"ts_engine":   cfg.TSEngine.String(),
+		"dirname":                cfg.Dirname,
+		"permissions":            cfg.Perm,
+		"in_memory":              cfg.InMemory,
+		"kv_engine":              cfg.KVEngine.String(),
+		"ts_engine":              cfg.TSEngine.String(),
+		"version":                cfg.Version,
+		"update_backup_disabled": cfg.UpdateBackupDisabled,
 	}
 }
 
@@ -172,31 +202,45 @@ type Layer struct {
 	KV kv.DB
 	// TS is the time-series engine for the node.
 	TS *cesium.DB
+	// Gorp is the metadata DB of the node, stored in KV.
+	Gorp *gorp.DB
+	// Update is the update of the data that OpenLayer started, or nil when it started
+	// none. The caller commits it before the Core serves clients. If the Core fails
+	// before that, the caller closes the Layer, then undoes the update.
+	Update *Update
 	// closer is used for shutting down the storage layer.
 	closer xio.MultiCloser
 }
 
-// Open opens a new storage Layer with the given configuration(s). Specified fields in
-// later configurations override those in previous configurations. If the configuration
-// is invalid, Open returns a nil Layer and the configuration error.
+// OpenLayer opens a new storage Layer with the given configuration(s). Specified fields
+// in later configurations override those in previous configurations. If the
+// configuration is invalid, OpenLayer returns a nil Layer and the configuration error.
 //
-// When LayerConfig.InMemory is false, Open acquires an exclusive lock on the directory
-// specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to
-// another storage layer or unrelated process accessing it), then Open will return a nil
-// Layer and an error.
+// When LayerConfig.InMemory is false, OpenLayer acquires an exclusive lock on the
+// directory specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly
+// due to another storage layer or unrelated process accessing it), then OpenLayer will
+// return a nil Layer and an error. OpenLayer then undoes an update that an earlier open
+// did not commit, and checks the version recorded in the directory against
+// LayerConfig.Version. Before a newer Core first opens the directory, OpenLayer backs
+// up the metadata and starts a Layer.Update, which it undoes if it fails after that. It
+// returns an error when a newer Core last opened the directory, when a Restore on it
+// did not finish, or when an update to LayerConfig.Version failed before.
 //
 // If the returned error is nil, then the Layer must be closed after use. None of the
 // services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(DefaultLayerConfig, cfgs...)
+	cfg, err := config.New(defaultLayerConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	l = &Layer{}
+	var update *Update
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() {
-		err = cleanup(err)
+		if err = cleanup(err); err != nil && update != nil {
+			err = update.Undo(ctx, err)
+		}
 	}()
 
 	if *cfg.InMemory {
@@ -220,8 +264,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	// same directory, we return an error to the client. We'll also add it to the
 	// list of closers to release the lock when the storage layer shuts down.
 	var lock io.Closer
-	if lock, err = acquireLock(cfg, kvFS); !ok(err, lock) {
+	if lock, err = acquireLock(cfg.Dirname, kvFS); !ok(err, lock) {
 		return nil, err
+	}
+
+	if !*cfg.InMemory {
+		if update, err = checkData(cfg, kvFS, tsFS); !ok(err, nil) {
+			return nil, err
+		}
 	}
 
 	cache, cacheCloser, err := openPebbleCache(cfg)
@@ -229,21 +279,38 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	// Open the key-value storage engine.
 	if l.KV, err = openKV(cfg, kvFS, cache); !ok(err, l.KV) {
 		return nil, err
 	}
+	l.Gorp = gorp.Wrap(
+		l.KV,
+		gorp.WithCodec(encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec)),
+		gorp.WithInstrumentation(cfg.Child("gorp")),
+	)
 
 	// Open the time-series engine.
 	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
 		return nil, err
 	}
+	l.Update = update
 	return l, nil
 }
 
+// Run runs the time-series engine and the Gorp DB until ctx ends or one of them fails,
+// then waits for both to stop and returns the first error. Writes to the engine, its
+// streamers, and the opening of Gorp tables with indexes or references need Run to
+// run. Call Run once.
+func (s *Layer) Run(ctx context.Context) error {
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return s.TS.Run(ctx) })
+	g.Go(func() error { return s.Gorp.Run(ctx) })
+	return g.Wait()
+}
+
 // Close closes the Layer, releasing the lock on the storage directory. Close
-// must be called when the Layer is no longer in use. The caller must ensure that
-// all routines interacting with the Layer have finished before calling Close.
+// must be called when the Layer is no longer in use, and after Run returns. The caller
+// must ensure that all routines interacting with the Layer have finished before calling
+// Close.
 func (s *Layer) Close() error {
 	return s.closer.Close()
 }
@@ -316,13 +383,42 @@ Failed to acquire lock on storage directory
 Is there another Synnax node using the same directory?
 `
 
-func acquireLock(cfg LayerConfig, fs vfs.FS) (io.Closer, error) {
-	fName := filepath.Join(cfg.Dirname, "LOCK")
+// checkData refuses data that a Restore did not finish, that a newer Core opened, or
+// that cfg.Version failed to update. It undoes an update that did not commit, and
+// starts an update of data that an older Core opened.
+func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) (*Update, error) {
+	backups, err := NewBackups(BackupsConfig{
+		Instrumentation: cfg.Child("backups"),
+		Dirname:         cfg.Dirname,
+		FS:              fs,
+		LockFS:          lockFS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err = backups.checkRestore(); err != nil {
+		return nil, err
+	}
+	if err = backups.checkUpdate(cfg.Version); err != nil {
+		return nil, err
+	}
+	return backups.checkVersion(cfg.Version, *cfg.UpdateBackupDisabled)
+}
+
+// ErrLocked is returned when another process holds the data directory. An open after
+// that process exits succeeds.
+var ErrLocked = errors.New("data locked")
+
+func acquireLock(dirname string, fs vfs.FS) (io.Closer, error) {
+	fName := filepath.Join(dirname, "LOCK")
 	release, err := fs.Lock(fName)
 	if err == nil {
 		return release, nil
 	}
-	return release, errors.Wrapf(err, failedToAcquireLockMsg, cfg.Dirname)
+	if heldByOtherProcess(err) {
+		err = errors.Mark(err, ErrLocked)
+	}
+	return release, errors.Wrapf(err, failedToAcquireLockMsg, dirname)
 }
 
 func openPebbleCache(cfg LayerConfig) (*pebble.Cache, io.Closer, error) {
@@ -353,7 +449,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		)
 	}
 	ins := cfg.Child("kv")
-	dirname := filepath.Join(cfg.Dirname, "kv")
+	dirname := filepath.Join(cfg.Dirname, kvDir)
 	requiresMigration, err := pebblekv.RequiresMigration(dirname, fs)
 	if err != nil {
 		return nil, err
@@ -388,7 +484,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		// Allow more open files (up from 1000)
 		MaxOpenFiles: 10000,
 		BytesPerSync: int(telem.Megabyte * 2),
-		// Let OS handle WAL syncing
+		// No background WAL syncs. Each commit still syncs the WAL.
 		WALBytesPerSync: 0,
 	}
 
@@ -414,7 +510,11 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 			dirname,
 		)
 	}
-	return pebblekv.Wrap(db, pebblekv.DisableObservation()), err
+	if err = deleteAspenKeys(db); err != nil {
+		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
+		return nil, errors.Combine(err, db.Close())
+	}
+	return pebblekv.Wrap(db, logger), nil
 }
 
 func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
@@ -426,7 +526,7 @@ func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
 	}
 	return ts.Open(ctx, ts.Config{
 		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, "cesium"),
+		Dirname:         filepath.Join(cfg.Dirname, cesiumDir),
 		FS:              fs,
 	})
 }

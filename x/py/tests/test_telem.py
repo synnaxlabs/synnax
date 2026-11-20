@@ -11,23 +11,31 @@ import operator
 import time
 import uuid
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from fractions import Fraction
 
-import dateutil
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
 from pydantic import ValidationError
 
 import x.telem as sy
 from x.exceptions import ContiguityError
+from x.testutil import untyped
 
 _now = sy.TimeStamp.now()
 
-EST = dateutil.tz.gettz("EST")
+EST = timezone(timedelta(hours=-5), "EST")
+
+_COMPARISONS = (
+    operator.eq,
+    operator.ne,
+    operator.lt,
+    operator.le,
+    operator.gt,
+    operator.ge,
+)
 
 _INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
 _SPAN = st.integers(min_value=-(2**62), max_value=2**62)
@@ -51,6 +59,13 @@ class TestTimeStamp:
         """Should return the current timestamp"""
         now = sy.TimeStamp.now() + sy.TimeSpan.SECOND
         assert now.datetime() > datetime.now().astimezone()
+
+    def test_now_nanosecond_precision(self) -> None:
+        """Should read the system clock without truncating it to microseconds"""
+        before = time.time_ns()
+        now = sy.TimeStamp.now()
+        after = time.time_ns()
+        assert before <= now <= after
 
     @pytest.mark.parametrize(
         ("crude", "expected"),
@@ -134,7 +149,7 @@ class TestTimeStamp:
     def test_nat_datetime64(self) -> None:
         """Should raise a ValueError for a NaT np.datetime64"""
         with pytest.raises(ValueError, match="NaT"):
-            sy.TimeStamp(np.datetime64("NaT"))
+            sy.TimeStamp(np.datetime64("NaT", "ns"))
 
     def test_aware_datetime_microseconds(self) -> None:
         """Should convert an aware datetime with exact microseconds"""
@@ -370,6 +385,7 @@ class TestTimeSpan:
             (timedelta(microseconds=1000), 1000 * sy.TimeSpan.MICROSECOND),
             (sy.TimeStamp(1000), sy.TimeSpan.MICROSECOND),
             (np.timedelta64(1000, "us"), 1000 * sy.TimeSpan.MICROSECOND),
+            (sy.Rate(2), 500 * sy.TimeSpan.MILLISECOND),
             (pd.Timedelta(1000, "ms"), 1000 * sy.TimeSpan.MILLISECOND),
             (sy.TimeSpan.MICROSECOND * 1000, sy.TimeSpan.MICROSECOND * 1000),
             (np.int64(1000), 1 * sy.TimeSpan.MICROSECOND),
@@ -426,6 +442,17 @@ class TestTimeSpan:
     def test_add(self) -> None:
         """Should correctly add two time spans"""
         assert sy.TimeSpan(2000) == sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND
+
+    def test_sum(self) -> None:
+        """Should sum time spans with the builtin sum"""
+        total = sum([sy.TimeSpan.SECOND, sy.TimeSpan.MILLISECOND])
+        assert isinstance(total, sy.TimeSpan)
+        assert total == sy.TimeSpan.SECOND + sy.TimeSpan.MILLISECOND
+
+    def test_zero_before(self) -> None:
+        """Should return the span when an int 0 is added before it"""
+        span = sy.TimeSpan.SECOND
+        assert 0 + span is span
 
     def test_sub(self) -> None:
         """Should correctly subtract two time spans"""
@@ -491,12 +518,16 @@ class TestTimeSpan:
                 1 * sy.TimeSpan.SECOND,
                 1 * sy.TimeSpan.SECOND,
             ),
+            (np.int64(2), 2 * sy.TimeSpan.SECOND),
+            (np.float64(0.5), 500 * sy.TimeSpan.MILLISECOND),
+            (sy.Rate(2), 500 * sy.TimeSpan.MILLISECOND),
+            (timedelta(seconds=3), 3 * sy.TimeSpan.SECOND),
+            (sy.TimeStamp(1000), sy.TimeSpan.MICROSECOND),
         ],
     )
-    def test_from_seconds(self, span: object, expected: sy.TimeSpan) -> None:
+    def test_from_seconds(self, span: sy.CrudeTimeSpan, expected: sy.TimeSpan) -> None:
         """It should evaluate pure floats or integers as seconds"""
-        abc = sy.TimeSpan.from_seconds(1.0)
-        assert abc == sy.TimeSpan(1 * sy.TimeSpan.SECOND)
+        assert sy.TimeSpan.from_seconds(span) == expected
 
     @pytest.mark.parametrize(
         ("span", "expected"),
@@ -705,7 +736,7 @@ class TestRate:
     def test_invalid_init(self) -> None:
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
-            sy.Rate(timedelta(seconds=1))  # type: ignore[arg-type]
+            untyped(sy.Rate)(timedelta(seconds=1))
 
     def test_sample_count(self) -> None:
         """Should return the number of samples"""
@@ -785,13 +816,19 @@ class TestRate:
             op(sy.Rate(10), number)
 
     @pytest.mark.parametrize("op", [operator.add, operator.sub])
-    @pytest.mark.parametrize("number", [5, 5.0])
+    @pytest.mark.parametrize("number", [5, 5.0, 0.0])
     def test_bare_number_before_rejected(
         self, op: Callable[[object, object], object], number: float
     ) -> None:
         """Should reject a bare int or float before a rate"""
         with pytest.raises(TypeError):
             op(number, sy.Rate(10))
+
+    def test_sum(self) -> None:
+        """Should sum rates with the builtin sum"""
+        total = sum([sy.Rate.KHZ, sy.Rate.HZ])
+        assert type(total) is sy.Rate
+        assert total == 1001.0
 
 
 @pytest.mark.telem
@@ -1266,6 +1303,50 @@ class TestTimeProperties:
         assert (span == other) == (value == other)
         if span == other:
             assert hash(span) == hash(other)
+
+    @given(_INT64, st.floats(allow_nan=False, allow_infinity=False))
+    def test_float_compare_matches_int(self, value: int, other: float) -> None:
+        """Should compare a timestamp and a span with a float as the equal int does"""
+        for t in (sy.TimeStamp(value), sy.TimeSpan(value)):
+            for op in _COMPARISONS:
+                assert op(t, other) == op(value, other)
+                assert op(t, np.float64(other)) == op(value, other)
+            if t == other:
+                assert hash(t) == hash(other)
+
+    def test_compare_with_timedelta64(self) -> None:
+        """Should convert a timedelta64 by its unit before it checks equality"""
+        assert sy.TimeSpan(1000) == np.timedelta64(1, "us")
+        assert sy.TimeSpan(1) != np.timedelta64(1, "us")
+
+    def test_stamp_compare_with_timedelta64(self) -> None:
+        """Should convert a timedelta64 by its unit before it compares a timestamp"""
+        assert sy.TimeStamp(1000) == np.timedelta64(1, "us")
+        assert sy.TimeStamp(1) != np.timedelta64(1, "us")
+
+    def test_ne_with_datetime(self) -> None:
+        """Should not differ from a datetime that it equals"""
+        d = datetime(2020, 1, 1, tzinfo=UTC)
+        assert sy.TimeStamp(d) == d
+        assert (sy.TimeStamp(d) != d) is False
+
+    def test_compare_with_longdouble(self) -> None:
+        """Should compare with a long double without rounding it to a float"""
+        wide = np.longdouble(2**53) + np.longdouble(1)
+        if int(wide) != 2**53 + 1:
+            pytest.skip("long double is not wider than float on this platform")
+        for t in (sy.TimeStamp(2**53 + 1), sy.TimeSpan(2**53 + 1)):
+            assert t == wide
+            assert t <= wide
+            assert not t > wide
+
+    @given(_INT64)
+    def test_numpy_number_eq(self, value: int) -> None:
+        """Should equal a NumPy number that holds the same value"""
+        for t in (sy.TimeStamp(value), sy.TimeSpan(value)):
+            assert t == np.int64(value)
+            if -(2**31) <= value < 2**31:
+                assert t == np.int32(value)
 
     @given(_STAMP, st.integers(min_value=2**63))
     def test_compare_with_out_of_range_int(self, value: int, big: int) -> None:

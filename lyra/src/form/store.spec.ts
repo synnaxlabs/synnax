@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { type Form } from "@/form";
+import type { Form } from "@/form";
 import { createLocalStore } from "@/form/store";
 
 interface Values {
@@ -64,6 +64,121 @@ describe("createLocalStore", () => {
       expect(next.channels[0]).toBe(prev.channels[0]);
       expect(next.profile).toBe(prev.profile);
       expect(prev.channels[1].port).toBe(2);
+    });
+
+    it("should copy each ancestor of an entry with a dot in its key", () => {
+      const store = createLocalStore(createValues());
+      store.insert("channels", { key: "ns=1;s=a.b", port: 5 }, "b");
+      const prev = store.get();
+      store.set("channels.ns=1;s=a.b.port", 6);
+      const next = store.get();
+      expect(next.channels[2]).toEqual({ key: "ns=1;s=a.b", port: 6 });
+      expect(next.channels).not.toBe(prev.channels);
+      expect(next.channels[2]).not.toBe(prev.channels[2]);
+      expect(next.channels[0]).toBe(prev.channels[0]);
+      expect(prev.channels[2].port).toBe(5);
+    });
+
+    it("should copy an object under a key with a dot without changing the old values", () => {
+      const store = createLocalStore<Record<string, { x: number }>>({
+        "a.b": { x: 1 },
+      });
+      const prev = store.get();
+      store.set("a.b.x", 2);
+      expect(store.get()).toEqual({ "a.b": { x: 2 } });
+      expect(store.get()["a.b"]).not.toBe(prev["a.b"]);
+      expect(prev["a.b"].x).toBe(1);
+    });
+
+    it("should build missing objects on the way to the path", () => {
+      const store = createLocalStore<Values & { extra?: { a?: { b: number } } }>(
+        createValues(),
+      );
+      store.set("extra.a.b", 1);
+      expect(store.get().extra).toEqual({ a: { b: 1 } });
+    });
+
+    describe("a list entry that is gone", () => {
+      it("should do nothing for a field of an entry another client removed", () => {
+        const store = createLocalStore(createValues());
+        store.remove("channels.a");
+        const prev = store.get();
+        const handleChange = vi.fn();
+        store.onChange(handleChange);
+        expect(() => store.set("channels.a.port", 5)).not.toThrow();
+        expect(store.get()).toBe(prev);
+        expect(keys(store)).toEqual(["b"]);
+        expect(handleChange).not.toHaveBeenCalled();
+      });
+
+      it("should do nothing for an entry the list does not hold", () => {
+        const store = createLocalStore(createValues());
+        const prev = store.get();
+        store.set("channels.c", { key: "c", port: 3 });
+        expect(store.get()).toBe(prev);
+      });
+
+      it("should do nothing for a field of an entry in an emptied list", () => {
+        const store = createLocalStore(createValues());
+        store.remove("channels.a");
+        store.remove("channels.b");
+        const prev = store.get();
+        store.set("channels.b.port", 5);
+        expect(store.get()).toBe(prev);
+        expect(store.get().channels).toEqual([]);
+      });
+
+      it("should do nothing for a nested field of an entry that is gone", () => {
+        const store = createLocalStore<{
+          items: { key: string; cfg: { a: number } }[];
+        }>({
+          items: [{ key: "x", cfg: { a: 1 } }],
+        });
+        store.remove("items.x");
+        const prev = store.get();
+        store.set("items.x.cfg.a", 2);
+        expect(store.get()).toBe(prev);
+      });
+
+      it("should do nothing for an entry key with a dot that is gone", () => {
+        const store = createLocalStore(createValues());
+        store.insert("channels", { key: "ns=1;s=a.b", port: 5 });
+        store.remove("channels.ns=1;s=a.b");
+        const prev = store.get();
+        store.set("channels.ns=1;s=a.b.port", 6);
+        expect(store.get()).toBe(prev);
+      });
+
+      it("should append at the index just past the end of a list without keys", () => {
+        const store = createLocalStore<{ tags: string[] }>({ tags: ["a"] });
+        store.set("tags.1", "b");
+        expect(store.get().tags).toEqual(["a", "b"]);
+      });
+
+      it("should build a missing object on the way to the path", () => {
+        const store = createLocalStore<{ cfg?: { a?: { b: number } } }>({});
+        store.set("cfg.a.b", 1);
+        expect(store.get()).toEqual({ cfg: { a: { b: 1 } } });
+      });
+
+      it("should still write a new field into an entry that is present", () => {
+        const store = createLocalStore<{ items: { key: string; port?: number }[] }>({
+          items: [{ key: "x" }],
+        });
+        store.set("items.x.port", 2);
+        expect(store.get().items).toEqual([{ key: "x", port: 2 }]);
+      });
+
+      it("should do nothing in a batch and keep the batch's other writes", () => {
+        const store = createLocalStore(createValues());
+        store.remove("channels.a");
+        store.batch(() => {
+          store.set("channels.a.port", 5);
+          store.set("name", "z");
+        });
+        expect(store.get().name).toBe("z");
+        expect(keys(store)).toEqual(["b"]);
+      });
     });
   });
 

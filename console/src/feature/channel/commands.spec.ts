@@ -10,12 +10,13 @@
 import { channel } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { findCommand } from "@/platform/command/testutil";
-import { assertDefined, renderHookWithConsole } from "@/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -39,7 +40,7 @@ describe("Channel Commands", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(channel.TYPE_RESOURCE_ID),
       }),
       { client: viewer },
     );

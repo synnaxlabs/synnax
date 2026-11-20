@@ -13,32 +13,26 @@ from pathlib import Path
 
 from keyring.errors import KeyringError
 
-from freighter.exceptions import Unreachable
+from freighter.exceptions import Timeout, Unreachable
 from synnax import Synnax
 from synnax.auth import api_key_id
-from synnax.cli.flow import Context
+from synnax.cli.prompt import Prompt
 from synnax.config import Cluster, Clusters
-from synnax.exceptions import AuthError
+from synnax.exceptions import AuthError, ConfigurationError
 from synnax.options import Options
+from x.exceptions import Error
 
 
-def prompt_client_options(ctx: Context) -> Options:
-    """Prompts the user for the parameters to connect to a Synnax server.
-
-    :param ctx: The context of the current flow.
-    :return: The options to connect to a Synnax server.
-    """
-    ctx.console.info("Enter your Synnax connection parameters:")
-    host = ctx.console.ask("Host", default="localhost")
-    port = ctx.console.ask("Port", type_=int, default=9090)
-    username = ctx.console.ask("Username", default="synnax")
-    password = ctx.console.ask("Password", type_=str, password=True)
-    secure = ctx.console.ask("Secure Connection?", type_=bool, default=False)
+def _prompt_client_options(prompt: Prompt) -> Options:
+    prompt.info("Enter your Synnax connection parameters:")
+    host = prompt.ask("Host", default="localhost")
+    port = prompt.ask_int("Port", default=9090)
+    username = prompt.ask("Username", default="synnax")
+    password = prompt.secret("Password")
+    secure = prompt.confirm("Secure connection?")
     ca_cert = None
     if secure:
-        path = ctx.console.ask(
-            "CA certificate path (empty for system roots)", default=""
-        )
+        path = prompt.ask("CA certificate path (empty for system roots)")
         if path:
             ca_cert = str(Path(path).expanduser().resolve())
     return Options(
@@ -51,33 +45,13 @@ def prompt_client_options(ctx: Context) -> Options:
     )
 
 
-def from_clusters(ctx: Context, clusters: Clusters) -> Synnax | None:
-    """Connects to a Synnax server. Prompts the user for the connection parameters if
-    none are saved. A saved password is replaced with an API key after the connection
-    succeeds.
-
-    :param ctx: The context of the current flow.
-    :param clusters: The saved connection parameters.
-    :returns: The connected client, or None if the connection failed.
-    """
-    cluster = clusters.get()
-    if cluster is None:
-        return from_context(ctx, opts=prompt_client_options(ctx))
-    ctx.console.info("Using saved credentials.")
-    client = from_context(ctx, opts=cluster.options)
-    if client is not None and not cluster.options.api_key:
-        try:
-            save_api_key(client, opts=cluster.options, clusters=clusters)
-        except (OSError, KeyringError, AuthError, Unreachable) as e:
-            ctx.console.warn(f"Cannot replace the saved password with an API key: {e}")
-    return client
-
-
-def save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
+def _save_api_key(
+    client: Synnax, *, opts: Options, clusters: Clusters, prompt: Prompt
+) -> None:
     """Creates an API key for the logged-in user and saves it with opts in place of
     the username and password. Deletes the key when it is not saved, and, once the new
     one is saved, deletes the key it replaces when the same account on the same Core
-    owns it.
+    owns it. Warns when that last deletion fails, because the login has succeeded.
     """
     previous = clusters.get()
     token, key = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
@@ -93,12 +67,16 @@ def save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
                 )
             )
         )
-    except (OSError, KeyringError):
-        # a failure after the save, such as a stale password that cannot be deleted,
-        # leaves the key in use
+    except (OSError, KeyringError, ConfigurationError) as e:
         saved = clusters.get()
-        if saved is None or saved.options.api_key != token:
+        if saved is not None and saved.options.api_key == token:
+            # The save worked, and only the cleanup of the old password failed.
+            prompt.error(f"Saved the API key, but cannot delete the old password: {e}")
+            return
+        try:
             client.auth.delete_keys(key.key)
+        except Error as cleanup:
+            e.add_note(f"The new API key {key.key} is still on the Core: {cleanup}")
         raise
     if (
         previous is None
@@ -107,33 +85,61 @@ def save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
     ):
         return
     previous_key = api_key_id(previous.options.api_key)
-    # A key another account saved is not ours to delete.
-    if any(k.key == previous_key for k in client.auth.retrieve_keys()):
-        client.auth.delete_keys(previous_key)
+    try:
+        # A key another account saved is not ours to delete.
+        if any(k.key == previous_key for k in client.auth.retrieve_keys()):
+            client.auth.delete_keys(previous_key)
+    except Error as e:
+        prompt.error(f"Saved the new API key, but cannot delete the old one: {e}")
 
 
-def from_context(ctx: Context, *, opts: Options) -> Synnax | None:
-    """Connects to a Synnax server. Prints user-friendly messages to the console if
-    the connection fails.
-
-    :param ctx: The context of the current flow.
-    :param opts: The options to connect with.
-    :returns: The connected client, or None if the connection failed.
-    """
+def _connect(prompt: Prompt, *, opts: Options) -> Synnax | None:
     try:
         client = Synnax(**opts.model_dump())
     except Unreachable:
-        ctx.console.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
+        prompt.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
+        return None
+    except Timeout:
+        prompt.error(f"No response from Synnax server at {opts.host}:{opts.port}")
         return None
     except AuthError:
-        ctx.console.error("Invalid credentials")
+        prompt.error("Invalid credentials")
         return None
     except (FileNotFoundError, ssl.SSLError) as e:
         if opts.ca_cert is None:
             raise
-        ctx.console.error(f"Cannot load the CA certificate at {opts.ca_cert}: {e}")
+        prompt.error(f"Cannot load the CA certificate at {opts.ca_cert}: {e}")
         return None
-    except Exception as e:
-        raise e
-    ctx.console.success("Connection successful!")
+    prompt.info("Connection successful!")
     return client
+
+
+def login(prompt: Prompt, clusters: Clusters) -> bool:
+    """Prompts for connection parameters, connects, and saves an API key for the
+    logged-in user to clusters. Prints why a login fails.
+
+    :returns: Whether the login succeeded.
+    """
+    options = _prompt_client_options(prompt)
+    synnax = _connect(prompt, opts=options)
+    if synnax is None:
+        return False
+    try:
+        _save_api_key(synnax, opts=options, clusters=clusters, prompt=prompt)
+    except ConfigurationError as e:
+        prompt.error(" ".join([str(e), *getattr(e, "__notes__", [])]))
+        return False
+    except (OSError, KeyringError, Error) as e:
+        notes = getattr(e, "__notes__", [])
+        prompt.error(" ".join([f"Cannot save the API key: {e}", *notes]))
+        return False
+    prompt.info(_SUCCESSFUL_LOGIN)
+    return True
+
+
+_SUCCESSFUL_LOGIN = """Saved an API key. You can now use the Synnax Client
+without having to log in. To connect the cluster in a Python shell, use the following:
+
+from synnax import Synnax
+client = Synnax()
+"""

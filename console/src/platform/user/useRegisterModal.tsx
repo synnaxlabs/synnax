@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = User.formPath;
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   variant: "text",
@@ -45,6 +47,7 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
     query: null,
     afterSave: () => close(),
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame>
@@ -52,18 +55,22 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
       <Modal.Body>
         <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
-            <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             <Form.TextField
-              path="username"
+              path={path.name}
+              label="Name"
+              inputProps={NAME_INPUT_PROPS}
+            />
+            <Form.TextField
+              path={path.username}
               label="Username"
               inputProps={USERNAME_INPUT_PROPS}
             />
             <Form.TextField
-              path="password"
+              path={path.password}
               label="Password"
               inputProps={PASSWORD_INPUT_PROPS}
             />
-            <Form.Field<access.role.Key> path="role" label="Role">
+            <Form.Field path={path.role} label="Role">
               {({ value, onChange }) => (
                 <Access.Role.Select value={value} onChange={onChange} />
               )}

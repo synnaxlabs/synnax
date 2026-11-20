@@ -13,13 +13,9 @@
 
 #include <optional>
 #include <string>
-#include <utility>
 
 #include "x/cpp/color/color.h"
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-
-#include "x/go/color/pb/color.pb.h"
 
 namespace x::color {
 
@@ -40,9 +36,5 @@ struct Stop {
 
     static Stop parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::color::pb::Stop;
-    [[nodiscard]] std::pair<::x::color::pb::Stop, x::errors::Error> to_proto() const;
-    static std::pair<Stop, x::errors::Error> from_proto(const ::x::color::pb::Stop &pb);
 };
 }

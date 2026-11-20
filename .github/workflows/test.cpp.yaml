@@ -27,6 +27,13 @@ on:
         required: false
         type: string
         default: ""
+      coverage_flag:
+        description:
+          Codecov flag for coverage of the sources in `directories` on Ubuntu, or empty
+          for no coverage
+        required: false
+        type: string
+        default: ""
       directories:
         description: Directories clang-format checks, separated by spaces
         required: false
@@ -34,11 +41,6 @@ on:
         default: ""
       macos:
         description: Whether to test on macOS
-        required: false
-        type: boolean
-        default: false
-      rust:
-        description: Whether the build needs a Rust toolchain
         required: false
         type: boolean
         default: false
@@ -71,10 +73,20 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
 env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
   BAZEL_REMOTE_CACHE_FLAGS:
     --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
     --remote_cache_compression=true
@@ -87,22 +99,6 @@ permissions:
 jobs:
   test:
     name: Test (${{ matrix.os }})
-    # A service with an empty image does not start. Services run on Linux only, so the
-    # other runners get no image and skip tests tagged requires-core.
-    services:
-      synnax:
-        image: ${{ matrix.os == 'ubuntu-build-bot' && inputs.core_image || '' }}
-        env:
-          SYNNAX_LISTEN: localhost:9090
-          SYNNAX_VERBOSE: true
-          SYNNAX_INSECURE: true
-          SYNNAX_MEM: true
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 9090:9090
     strategy:
       fail-fast: false
       matrix:
@@ -112,30 +108,47 @@ jobs:
           - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
           - os: ${{ !inputs.windows && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
-    # About 1.5x the slowest successful cold-cache job on each OS.
-    timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
+    # A cold-cache build passes 30 minutes on every OS.
+    timeout-minutes: 75
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Start Core
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
+        uses: ./.github/actions/start-service
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        with:
+          name: synnax
+          image: ${{ inputs.core_image }}
+          port: 9090
+          token: ${{ github.token }}
+          variables: >-
+            SYNNAX_LISTEN SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
 
       - name: Install packages
+        timeout-minutes: 10
         if: runner.os == 'Linux' && inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ inputs.apt_packages }}
-
-      - name: Install Rust
-        if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
+          read -ra packages <<< "$PACKAGES"
+          sudo apt-get install -y "${packages[@]}"
 
       - name: Update submodules
-        run: git submodule update --init --recursive
+        shell: bash
+        run: .github/scripts/update_submodules.sh
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.1
+        uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
           bazelisk-cache: false
           disk-cache: false
@@ -143,7 +156,7 @@ jobs:
 
       - name: Set up uv
         if: runner.os == 'Linux' && inputs.directories != ''
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -153,8 +166,11 @@ jobs:
 
       - name: Check formatting
         if: runner.os == 'Linux' && inputs.directories != ''
+        env:
+          DIRECTORIES: ${{ inputs.directories }}
         run: |
-          for directory in ${{ inputs.directories }}; do
+          read -ra directories <<< "$DIRECTORIES"
+          for directory in "${directories[@]}"; do
             scripts/check_clang_format.sh "$directory"
           done
 
@@ -163,7 +179,8 @@ jobs:
         shell: bash
         env:
           EXTRA: ${{ inputs.test_tags }}
-          CORE: ${{ runner.os == 'Linux' && inputs.core_image != '' }}
+          CORE:
+            ${{ runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true' }}
         run: |
           tags=()
           if [ "$RUNNER_OS" = macOS ]; then tags+=(-no-asan); fi
@@ -178,34 +195,72 @@ jobs:
         env:
           # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
           GODEBUG: http2client=0
-        run: >-
-          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
-          ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
+        run: |
+          read -ra args <<< "$TARGETS $TAG_FLAG $TEST_FLAGS"
+          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} \
+            --test_output=all "${args[@]}"
 
       # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
-      # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
-      # the job and leaves its Core service container holding port 9090.
+      # 3.5 GB, the Bazel server up to 4 GB, and the Core service container holds more,
+      # so four compiles at once reach the OOM killer.
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
+        env:
+          COVERAGE_FLAG: ${{ inputs.coverage_flag }}
+          DIRECTORIES: ${{ inputs.directories }}
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           lsan="$GITHUB_WORKSPACE/scripts/sanitizers/lsan_suppressions.txt"
-          # shellcheck disable=SC2086 # Splits the flag list into arguments.
-          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
+          read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS $TAG_FLAG $TEST_FLAGS"
+          verb="test"
+          if [ -n "$COVERAGE_FLAG" ]; then
+            verb=coverage
+            read -ra directories <<< "$DIRECTORIES"
+            filter=$(printf '^//%s[/:],' "${directories[@]}")
+            args+=(--combined_report=lcov --instrument_test_targets \
+              "--instrumentation_filter=${filter%,}")
+          fi
+          bazel "$verb" --jobs=3 \
             ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
-            --test_env=LSAN_OPTIONS=suppressions="$lsan" \
-            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
-            ${{ inputs.test_flags }}
+            --test_env=LSAN_OPTIONS=suppressions="$lsan" "${args[@]}"
+
+      # GCC counts the exception edge of every call as a branch, so Codecov marks most
+      # lines partial. Report line coverage only, as Go does.
+      - name: Strip branch coverage
+        if: runner.os == 'Linux' && inputs.coverage_flag != ''
+        run: |
+          grep -v '^BR[DFH]' bazel-out/_coverage/_coverage_report.dat \
+            > "$RUNNER_TEMP/coverage.lcov"
+
+      - name: Upload coverage
+        if: runner.os == 'Linux' && inputs.coverage_flag != ''
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: ${{ runner.temp }}/coverage.lcov
+          flags: ${{ inputs.coverage_flag }}
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
+        env:
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           export MSYS_NO_PATHCONV=1
-          # shellcheck disable=SC2086 # Splits the flag list into arguments.
-          scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
-            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
-            ${{ inputs.test_flags }}
+          read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS $TAG_FLAG $TEST_FLAGS"
+          scripts/run_bazel.sh test --test_output=all "${args[@]}"
 
       - name: Clean build caches (Ubuntu)
         if: always() && runner.os == 'Linux'
@@ -216,6 +271,10 @@ jobs:
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
 
+      - name: Stop the services
+        if: always() && runner.os == 'Linux'
+        run: docker rm --force synnax 2> /dev/null || true
+
   lint:
     name: Lint
     if: inputs.clang_tidy
@@ -223,37 +282,39 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install packages
+        timeout-minutes: 10
         if: inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ inputs.apt_packages }}
-
-      - name: Install Rust
-        if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
+          read -ra packages <<< "$PACKAGES"
+          sudo apt-get install -y "${packages[@]}"
 
       - name: Update submodules
-        run: git submodule update --init --recursive
+        shell: bash
+        run: .github/scripts/update_submodules.sh
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.1
+        uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
 
-      # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
+      # A clang-tidy action peaks near 2 GB, and so does the Bazel server. The build
+      # bots have 16 GB and no swap, so six jobs leave 2 GB free.
       - name: Lint
+        env:
+          TARGETS: ${{ inputs.targets }}
         run: |
-          # shellcheck disable=SC2086 # Splits the flag list into arguments.
-          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy \
-            --keep_going ${{ inputs.targets }}
+          read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS"
+          bazel build --jobs=6 --config=clang-tidy --keep_going "${args[@]}"
 
       - name: Clean build caches
         if: always()

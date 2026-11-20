@@ -10,16 +10,24 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <set>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 
+#include "client/cpp/device/device.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/thread/thread.h"
@@ -104,7 +112,15 @@ struct Scanner {
     virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
-    /// @brief Optional: Handle custom commands. Return true if handled.
+    /// @brief returns the data that the status of the scan task carries, such as a
+    /// problem of the last scan that the user can fix from the Console. The scan task
+    /// reads it right after each scan(), and sends it with the result of that scan.
+    [[nodiscard]] virtual std::optional<x::json::json::object_t> status_data() const {
+        return std::nullopt;
+    }
+
+    /// @brief handles a command that the scan task does not know. Returns true when it
+    /// handled the command and answered it with its own status.
     virtual bool exec(
         synnax::task::Command &cmd,
         const synnax::task::Task &task,
@@ -126,8 +142,18 @@ struct ClusterAPI {
     virtual std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) = 0;
 
+    /// @brief retrieves the devices that have the given keys, on any rack.
+    virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    retrieve_devices(const std::vector<std::string> &keys) = 0;
+
     virtual x::errors::Error
     create_devices(std::vector<synnax::device::Device> &devs) = 0;
+
+    /// @brief applies the actions to the device with the given key.
+    virtual x::errors::Error dispatch_device(
+        const std::string &key,
+        const std::vector<synnax::device::Action> &actions
+    ) = 0;
 
     virtual x::errors::Error
     update_statuses(std::vector<synnax::device::Status> statuses) = 0;
@@ -149,28 +175,35 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
-        synnax::device::RetrieveRequest req;
-        req.makes = {make};
-        req.racks = {rack};
-        req.include_status = true;
-        req.include_parent = true;
-        return this->client->devices.retrieve(req);
+        return this->client->devices.retrieve(
+            synnax::device::Where{.make = make, .rack = rack},
+            {.include_status = true}
+        );
     }
 
     std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) override {
         return this->client->devices.retrieve(
             key,
-            synnax::device::RetrieveOptions{
-                .include_status = true,
-                .include_parent = true,
-            }
+            synnax::device::RetrieveOptions{.include_status = true}
         );
+    }
+
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    retrieve_devices(const std::vector<std::string> &keys) override {
+        return this->client->devices.retrieve(keys);
     }
 
     x::errors::Error
     create_devices(std::vector<synnax::device::Device> &devs) override {
         return this->client->devices.create(devs);
+    }
+
+    x::errors::Error dispatch_device(
+        const std::string &key,
+        const std::vector<synnax::device::Action> &actions
+    ) override {
+        return this->client->devices.dispatch(key, actions);
     }
 
     x::errors::Error
@@ -201,13 +234,29 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::task::Status status;
+    /// @brief whether the scanner answered a command with a status of its own since the
+    /// last scan started.
+    std::atomic<bool> status_replaced = false;
+    /// @brief the error of a scan, with the scanner data read right after it.
+    struct ScanResult {
+        x::errors::Error err;
+        std::optional<x::json::json::object_t> data;
+    };
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
-    /// @brief the keys of devices that the last save failed to write. dev_states
-    /// already holds their changes, so the next scan saves them again.
-    std::set<std::string> unsaved;
     std::string log_prefix;
+
+    /// @brief the changes that a scan saves to one device.
+    struct Update {
+        /// @brief the device as the scan saves it.
+        synnax::device::Device scanned;
+        /// @brief the copy of the device that dev_states held before the scan. Absent
+        /// when the scan looked the device up.
+        std::optional<synnax::device::Device> tracked;
+        /// @brief the actions that save the changes.
+        std::vector<synnax::device::Action> actions;
+    };
 
     // Signal monitoring infrastructure
     synnax::channel::Channel device_set_channel;
@@ -224,32 +273,38 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.details.cmd = driver::task::NO_COMMAND;
     }
 
-    /// @brief sets the status variant and text, then sends it.
+    /// @brief sets the variant, text, and scanner data of the status, then sends it.
     void send_status(
         const std::string &variant,
         const std::string &message,
-        const std::string &description = ""
+        const std::string &description = "",
+        const std::optional<x::json::json::object_t> &data = std::nullopt
     ) {
         this->status.variant = variant;
         this->status.message = message;
         this->status.description = description;
+        this->status.details.data = data;
         this->send_status();
     }
 
     /// @brief sends a warning when the scan error changes, and a success once scans
-    /// recover.
-    void report_scan(const x::errors::Error &err) {
+    /// recover. replaced is whether a command answer replaced the status before the
+    /// scan started, since a scan that started earlier can report stale data.
+    void report_scan(const ScanResult &res, const bool replaced) {
+        const auto &[err, data] = res;
         if (err) {
-            if (this->status.variant == synnax::status::VARIANT_WARNING &&
-                this->status.description == err.data)
+            if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
+                this->status.description == err.data &&
+                this->status.details.data == data)
                 return;
             LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
             this->send_status(
                 synnax::status::VARIANT_WARNING,
                 "Failed to scan for devices",
-                err.data
+                err.data,
+                data
             );
-        } else if (this->status.variant != synnax::status::VARIANT_SUCCESS)
+        } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
             this->send_status(synnax::status::VARIANT_SUCCESS, "Scan task running");
     }
 
@@ -262,6 +317,119 @@ class ScanTask final : public task::Task, public pipeline::Base {
         }
         const auto delta = x::telem::TimeStamp::now() - last_updated;
         return delta > x::telem::SECOND * 30;
+    }
+
+    /// @brief fills the fields of a scanned device that the scan does not own from its
+    /// stored version, and returns the actions that save what the scan changed.
+    std::vector<synnax::device::Action>
+    changes(synnax::device::Device &dev, const synnax::device::Device &stored) {
+        std::vector<synnax::device::Action> actions;
+        if (dev.location != stored.location) {
+            LOG(INFO) << this->log_prefix << "device location changed from "
+                      << stored.location << " to " << dev.location;
+            actions.push_back(
+                synnax::device::set({.path = {"location"}, .value = dev.location})
+            );
+        }
+
+        if (dev.model != stored.model) {
+            LOG(INFO) << this->log_prefix << "device model changed from "
+                      << stored.model << " to " << dev.model;
+            actions.push_back(
+                synnax::device::set({.path = {"model"}, .value = dev.model})
+            );
+        }
+
+        if (dev.rack != stored.rack) {
+            if (this->update_threshold_exceeded(dev.key))
+                LOG(INFO) << this->log_prefix << "taking ownership over device";
+            else
+                dev.rack = stored.rack;
+        }
+
+        // A scan that finds no parent keeps the stored one.
+        if (!dev.parent.has_value()) dev.parent = stored.parent;
+        if (dev.parent != stored.parent)
+            VLOG(1) << this->log_prefix << "device parent changed for " << dev.key
+                    << " from '" << stored.parent.value_or("") << "' to '"
+                    << *dev.parent << "'";
+
+        if (dev.rack != stored.rack || dev.parent != stored.parent)
+            actions.push_back(
+                synnax::device::set_rack({.rack = dev.rack, .parent = dev.parent})
+            );
+
+        auto merged_props = merge_device_properties(stored.properties, dev.properties);
+        if (merged_props != stored.properties) {
+            VLOG(1) << this->log_prefix << "device properties changed for " << dev.key;
+            actions.push_back(
+                synnax::device::set({.path = {"properties"}, .value = merged_props})
+            );
+        }
+        dev.properties = merged_props;
+        dev.name = stored.name;
+        dev.configured = stored.configured;
+        return actions;
+    }
+
+    /// @brief creates the given new devices. A failed create drops them from
+    /// dev_states, so the next scan looks them up again.
+    x::errors::Error create(std::vector<synnax::device::Device> &devs) {
+        if (devs.empty()) return x::errors::NIL;
+        if (const auto err = this->client->create_devices(devs)) {
+            LOG(WARNING) << this->log_prefix << "failed to create devices: " << err;
+            std::lock_guard lock(this->mu);
+            for (const auto &dev: devs)
+                this->dev_states.erase(dev.key);
+            return err;
+        }
+        for (const auto &dev: devs)
+            LOG(INFO) << this->log_prefix << "successfully created device " << dev.key;
+        return x::errors::NIL;
+    }
+
+    /// @brief returns whether a and b hold the same fields that a scan saves.
+    static bool same_saved_fields(
+        const synnax::device::Device &a,
+        const synnax::device::Device &b
+    ) {
+        return a.location == b.location && a.model == b.model && a.rack == b.rack &&
+               a.parent == b.parent && a.properties == b.properties;
+    }
+
+    /// @brief sends each update. When one fails, the device in dev_states goes back to
+    /// its state before the scan, so the next scan finds the changes again. A device
+    /// that the Core does not hold, or that the scan looked up, drops from dev_states,
+    /// so the next scan looks it up. Returns the first error.
+    x::errors::Error update(const std::vector<Update> &updates) {
+        x::errors::Error first_err;
+        for (const auto &u: updates) {
+            const auto &key = u.scanned.key;
+            const auto err = this->client->dispatch_device(key, u.actions);
+            if (!err) {
+                LOG(INFO) << this->log_prefix << "successfully updated device " << key;
+                continue;
+            }
+            LOG(WARNING) << this->log_prefix << "failed to update device " << key
+                         << ": " << err;
+            if (!first_err) first_err = err;
+            std::lock_guard lock(this->mu);
+            // A delete signal can drop the device while the update runs.
+            const auto it = this->dev_states.find(key);
+            if (it == this->dev_states.end()) continue;
+            if (err.matches(x::errors::NOT_FOUND) || !u.tracked.has_value()) {
+                this->dev_states.erase(it);
+                continue;
+            }
+            // Keep a newer device that a set signal stored.
+            if (!same_saved_fields(it->second, u.scanned)) continue;
+            it->second.location = u.tracked->location;
+            it->second.model = u.tracked->model;
+            it->second.rack = u.tracked->rack;
+            it->second.parent = u.tracked->parent;
+            it->second.properties = u.tracked->properties;
+        }
+        return first_err;
     }
 
     /// @brief Starts signal monitoring thread for device set/delete events.
@@ -369,9 +537,8 @@ public:
         if (this->log_prefix.empty())
             throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
-        this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
-        this->status.details.task = task.key;
+        this->status.owner = synnax::task::resource_id(task.key);
         this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
     }
@@ -432,7 +599,8 @@ public:
         this->status.details.running = true;
         this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
-            this->report_scan(this->scan());
+            const bool replaced = this->status_replaced.exchange(false);
+            this->report_scan(this->scan(), replaced);
             this->timer.wait(this->breaker);
         }
 
@@ -448,11 +616,20 @@ public:
             this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
     }
 
-    void exec(synnax::task::Command &cmd) override {
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->status.details.running = false;
+        this->send_status(
+            synnax::status::VARIANT_ERROR,
+            "Failed to scan for devices",
+            err.data
+        );
+    }
+
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that
         // changes nothing never reaches it, so the current status answers instead.
-        if (cmd.type == STOP_CMD_TYPE) {
+        if (cmd.type == synnax::task::STOP_CMD_TYPE) {
             if (!this->stop()) this->send_status();
             return;
         }
@@ -461,12 +638,13 @@ public:
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
-            if (const auto err = this->scan())
+            if (const auto [err, data] = this->scan(); err)
                 this->send_status(
                     err.matches(PARTIAL_SCAN_ERROR) ? synnax::status::VARIANT_WARNING
                                                     : synnax::status::VARIANT_ERROR,
                     "Failed to scan for devices",
-                    err.data
+                    err.data,
+                    data
                 );
             else
                 this->send_status(synnax::status::VARIANT_SUCCESS, "Scan complete");
@@ -475,6 +653,7 @@ public:
         // The scanner answers the commands it handles with its own status.
         if (this->scanner->exec(cmd, this->task, this->ctx)) {
             this->status.details.cmd = driver::task::NO_COMMAND;
+            this->status_replaced = true;
             return;
         }
         LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
@@ -485,17 +664,20 @@ public:
         );
     }
 
-    x::errors::Error scan() {
+    ScanResult scan() {
         x::errors::Error scan_err;
+        std::optional<x::json::json::object_t> data;
         std::vector<synnax::device::Device> to_create;
-        std::vector<synnax::device::Status> statuses;
+        std::vector<Update> to_update;
+        std::vector<std::pair<std::string, synnax::device::Status>> statuses;
         {
             std::lock_guard lock(this->mu);
 
             // Step 1: Scanner produces list of devices.
             this->scanner_ctx.devices = &this->dev_states;
             auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
-            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return err;
+            data = this->scanner->status_data();
+            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return {err, data};
             scan_err = err;
             this->scanner_ctx.count++;
 
@@ -513,7 +695,19 @@ public:
                 scanned_devs = std::move(deduped);
             }
 
-            // Step 2: Track which devices are present that need to be created.
+            // Step 2: Retrieve the scanned devices that this task does not track. One
+            // can already exist on another rack.
+            std::vector<std::string> untracked;
+            for (const auto &dev: scanned_devs)
+                if (!this->dev_states.contains(dev.key)) untracked.push_back(dev.key);
+            std::unordered_map<std::string, synnax::device::Device> stored;
+            if (!untracked.empty()) {
+                auto [devs, retrieve_err] = this->client->retrieve_devices(untracked);
+                if (retrieve_err) return {retrieve_err, data};
+                stored = synnax::device::map_device_keys(devs);
+            }
+
+            // Step 3: Find the devices to create and the changes to existing devices.
             std::set<std::string> present;
             auto last_available = x::telem::TimeStamp::now();
             for (auto &dev: scanned_devs) {
@@ -521,53 +715,31 @@ public:
                 // Unless the device already exists on the remote, it should not
                 // be configured. No exceptions.
                 dev.configured = false;
-                auto iter = this->dev_states.find(dev.key);
-                if (iter == this->dev_states.end()) {
+                std::vector<synnax::device::Action> actions;
+                std::optional<synnax::device::Device> tracked;
+                if (const auto iter = this->dev_states.find(dev.key);
+                    iter != this->dev_states.end()) {
+                    actions = this->changes(dev, iter->second);
+                    if (!actions.empty()) tracked = iter->second;
+                } else if (
+                    const auto found = stored.find(dev.key); found != stored.end()
+                ) {
+                    // The task holds no status for the device, so the update threshold
+                    // lets it take the device over from another rack at once.
+                    actions = this->changes(dev, found->second);
+                } else {
                     to_create.push_back(dev);
                     this->dev_states[dev.key] = dev;
                     continue;
                 }
-                const auto &remote_dev = iter->second;
-                bool needs_update = this->unsaved.contains(dev.key);
-
-                if (dev.location != remote_dev.location) {
-                    LOG(INFO) << this->log_prefix << "device location changed from "
-                              << remote_dev.location << " to " << dev.location;
-                    needs_update = true;
-                }
-
-                if (dev.rack != remote_dev.rack &&
-                    this->update_threshold_exceeded(dev.key)) {
-                    LOG(INFO) << this->log_prefix << "taking ownership over device";
-                    needs_update = true;
-                }
-
-                // The Core keeps the parent of a device written without one.
-                if (dev.parent.has_value() && dev.parent != remote_dev.parent) {
-                    VLOG(1) << this->log_prefix << "device parent changed for "
-                            << dev.key << " from '"
-                            << (remote_dev.parent ? remote_dev.parent->string() : "")
-                            << "' to '" << dev.parent->string() << "'";
-                    needs_update = true;
-                }
-
-                auto merged_props = merge_device_properties(
-                    remote_dev.properties,
-                    dev.properties
-                );
-                if (merged_props != remote_dev.properties) {
-                    VLOG(1) << this->log_prefix << "device properties changed for "
-                            << dev.key;
-                    needs_update = true;
-                }
-                dev.properties = merged_props;
-                dev.name = remote_dev.name;
-                dev.configured = remote_dev.configured;
-
-                if (needs_update) to_create.push_back(dev);
-
                 if (!dev.status.has_value()) dev.status = synnax::device::Status{};
                 dev.status->time = last_available;
+                if (!actions.empty())
+                    to_update.push_back({
+                        .scanned = dev,
+                        .tracked = std::move(tracked),
+                        .actions = std::move(actions),
+                    });
                 this->dev_states[dev.key] = dev;
             }
 
@@ -575,41 +747,36 @@ public:
                 if (present.contains(key)) continue;
                 if (!dev.status.has_value())
                     dev.status = synnax::device::Status{
-                        .key = synnax::device::status_key(dev),
                         .name = dev.name,
+                        .owner = synnax::device::resource_id(dev.key),
                     };
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
                 dev.status->description = "";
+                dev.status->details.connected = false;
             }
 
             statuses.reserve(this->dev_states.size());
-            for (auto &info: this->dev_states | std::views::values)
-                if (info.status.has_value()) statuses.push_back(*info.status);
+            for (auto &[key, info]: this->dev_states)
+                if (info.status.has_value()) statuses.emplace_back(key, *info.status);
         }
 
-        if (const auto state_err = this->client->update_statuses(statuses))
-            LOG(ERROR) << this->log_prefix
-                       << "failed to propagate statuses: " << state_err;
-
-        if (to_create.empty()) return scan_err;
-
-        const auto err = this->client->create_devices(to_create);
+        // The Core rejects the status of a device that it does not hold, so statuses go
+        // after the creates, and not for the devices that create() and update() drop.
+        const auto create_err = this->create(to_create);
+        const auto update_err = this->update(to_update);
+        std::vector<synnax::device::Status> held;
         {
             std::lock_guard lock(this->mu);
-            for (const auto &dev: to_create)
-                if (err)
-                    this->unsaved.insert(dev.key);
-                else
-                    this->unsaved.erase(dev.key);
+            for (auto &[key, status]: statuses)
+                if (this->dev_states.contains(key)) held.push_back(std::move(status));
         }
-        if (err) {
-            LOG(WARNING) << this->log_prefix << "failed to create devices: " << err;
-            return err;
-        }
-        for (const auto &dev: to_create)
-            LOG(INFO) << this->log_prefix << "successfully created device " << dev.key;
-        return scan_err;
+        if (const auto state_err = this->client->update_statuses(held))
+            LOG(ERROR) << this->log_prefix
+                       << "failed to propagate statuses: " << state_err;
+        if (create_err) return {create_err, data};
+        if (update_err) return {update_err, data};
+        return {scan_err, data};
     }
 
     std::string name() const override { return this->task.name; }

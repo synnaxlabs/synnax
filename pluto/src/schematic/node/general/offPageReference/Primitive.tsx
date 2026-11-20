@@ -9,10 +9,10 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction, type text } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -20,11 +20,11 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 
 export const offPageReferenceTooltip = (
-  page?: schematic.Page,
-  dblClickNavDisabled?: boolean,
+  page: schematic.Page,
+  doubleClickNavigationDisabled?: boolean,
 ): string | undefined => {
-  if (page == null || page.key.length === 0) return undefined;
-  const mode = dblClickNavDisabled === true ? "Single" : "Double";
+  if (page.key.length === 0) return undefined;
+  const mode = doubleClickNavigationDisabled === true ? "Single" : "Double";
   return `${mode}-click to navigate`;
 };
 

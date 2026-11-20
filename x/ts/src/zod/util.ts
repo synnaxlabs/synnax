@@ -7,26 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
-import {
-  type $ZodFunction,
-  type $ZodFunctionIn,
-  type $ZodFunctionOut,
-  type $ZodType,
-  type $ZodTypeDef,
-  getDiscriminatedOption,
-} from "zod/v4/core";
+import type { z } from "zod";
+import { type $ZodType, type $ZodTypeDef, getDiscriminatedOption } from "zod/v4/core";
 
 import { deep } from "@/deep";
+import { getIndex, step } from "@/deep/resolve";
 import { narrow } from "@/narrow";
-
-export const functionOutput = <
-  In extends $ZodFunctionIn,
-  Out extends $ZodFunctionOut,
-  Func extends $ZodFunction<In, Out>,
->(
-  schema: $ZodFunction<In, Out>,
-): Func["_zod"]["def"]["output"] => schema._zod.def.output;
 
 /** Options for {@link getFieldSchema}. */
 export interface GetFieldSchemaOptions<
@@ -95,7 +81,7 @@ const child = (values: unknown, part: string): unknown => {
   if (Array.isArray(values)) {
     const entry = values.find((e: unknown) => narrow.isObject(e) && e.key === part);
     if (entry != null) return entry;
-    const i = deep.getIndex(part);
+    const i = getIndex(part);
     return i == null ? undefined : values[i];
   }
   return narrow.isObject(values) ? values[part] : undefined;
@@ -112,20 +98,20 @@ const walk = (
   values: unknown,
   found: Discriminator[],
 ): $ZodType | NotFound => {
-  if (index >= parts.length) return schema;
+  const part = parts[index];
+  if (part == null) return schema;
   schema = unwrap(schema);
   const def = schema._zod.def as $ZodTypeDef & Record<string, unknown>;
-  const part = parts[index];
   switch (def.type) {
     case "unknown":
     case "any":
       return schema;
     case "object": {
       const shape = def.shape as Record<string, $ZodType>;
-      const best = deep.findBestKey(shape, parts.slice(index));
+      const best = step(shape, parts, index);
       if (best != null) {
-        const [key, consumed] = best;
-        return walk(shape[key], parts, index + consumed, child(values, key), found);
+        const value = child(values, String(best.key));
+        return walk(best.value as $ZodType, parts, best.end, value, found);
       }
       if (def.catchall == null) return NOT_FOUND;
       const catchall = def.catchall as $ZodType;
@@ -140,7 +126,7 @@ const walk = (
         found,
       );
     case "tuple": {
-      const i = deep.getIndex(part);
+      const i = getIndex(part);
       if (i == null) return NOT_FOUND;
       const items = def.items as $ZodType[];
       const item = i < items.length ? items[i] : (def.rest as $ZodType | null);
@@ -188,10 +174,10 @@ const walk = (
  * Finds the schema of the field at a dot-separated path.
  *
  * A segment may name an object key, the key or index of an array element, a tuple
- * index, or a record key. Wrappers such as optional, default, and pipe are transparent. Inside a
- * discriminated union the member is chosen by the discriminator `values` holds there;
- * inside a plain union, by the first member that contains the path. A `z.unknown()` or
- * `z.any()` accepts any remaining path.
+ * index, or a record key. Wrappers such as optional, default, and pipe are transparent.
+ * Inside a discriminated union the member is chosen by the discriminator `values` holds
+ * there; inside a plain union, by the first member that contains the path. A
+ * `z.unknown()` or `z.any()` accepts any remaining path.
  *
  * @throws {Error} if the schema does not contain the path and `optional` is not set. A
  * discriminated union with no discriminator in `values` contains no path.

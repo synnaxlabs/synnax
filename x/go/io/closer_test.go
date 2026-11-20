@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/io"
 )
 
-// mockCloser is a test helper that tracks Close() calls
+// mockCloser is a test helper that tracks Close() calls.
 type mockCloser struct {
 	err    error
 	closed bool
@@ -106,8 +106,7 @@ var _ = Describe("Closer", func() {
 
 			multi := io.MultiCloser{closer1, closer2, closer3}
 
-			err := multi.Close()
-			Expect(err).To(SatisfyAll(MatchError(err1), MatchError(err2)))
+			Expect(multi.Close()).To(SatisfyAll(MatchError(err1), MatchError(err2)))
 		})
 
 		It("should handle empty MultiCloser", func() {

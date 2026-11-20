@@ -100,3 +100,11 @@ class TestReport:
         after = write(tmp_path, source.replace("T: int", "T: str"))
         assert "widget.Box[T: int] class()" in before
         assert after != before
+
+    def test_lists_type_statements(self, tmp_path: Path) -> None:
+        source = SOURCE + "\ntype Pair[T = int] = tuple[T, T]\n"
+        source = source.replace('"LIMIT"]', '"LIMIT", "Pair"]')
+        before = write(tmp_path, source)
+        after = write(tmp_path, source.replace("tuple[T, T]", "list[T]"))
+        assert "widget.Pair[T = int] type = tuple[T, T]" in before
+        assert after != before

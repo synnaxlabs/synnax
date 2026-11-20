@@ -14,13 +14,14 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { id, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderWithConsole, uniqueName } from "@/testutil";
+import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -38,24 +39,21 @@ describe("project/Splash", () => {
       expect(screen.queryByText("No projects")).toBeNull();
     });
 
-    it("should name the denial when the list read is refused", async () => {
+    it("should show no projects when the subject cannot retrieve any", async () => {
       await client.projects.create({ name: uniqueName("argon") });
       const denied = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });
       const { wrapper } = await createConsoleWrapper({ client: denied });
       render(<Project.Splash />, { wrapper });
-      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
-      expect(
-        screen.getByText(/^You do not have permission to do that\. /),
-      ).toBeDefined();
-      expect(screen.queryByText("No projects created.")).toBeNull();
+      expect(await screen.findByText("No projects")).toBeDefined();
+      expect(screen.queryByText("Failed to retrieve projects")).toBeNull();
     });
   });
 
@@ -220,8 +218,9 @@ describe("project/Splash", () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
-          <Project.Splash />
-          <Modals.Stack />
+          <Modals.Stack>
+            <Project.Splash />
+          </Modals.Stack>
         </Triggers.Provider>,
         { wrapper },
       );
@@ -244,10 +243,9 @@ describe("project/Splash", () => {
     it("should open the create modal and activate the created project", async () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
-        <>
+        <Modals.Stack>
           <Project.Splash />
-          <Modals.Stack />
-        </>,
+        </Modals.Stack>,
         { wrapper },
       );
       const name = `proj-${id.create()}`;

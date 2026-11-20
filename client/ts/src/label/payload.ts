@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key } from "@/label/types.gen";
+import type { Key } from "@/label/types.gen";
 
 /** One or many labels, by key. */
 export type Params = Key | Key[];
-
-/** Relationship type joining a resource to the labels on it. */
-export const LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE = "labeled_by";

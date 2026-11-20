@@ -30,7 +30,11 @@ var _ = Describe("Result", func() {
 		It("Should rank the keys of every result together", func() {
 			a := newIndex(map[string]string{"a1": "pressure", "a2": "pressures"})
 			b := newIndex(map[string]string{"b1": "pressure feed", "b2": "pressur"})
-			merged := search.Merge(0, a.Search("pressure", 0), b.Search("pressure", 0))
+			merged := search.Merge(
+				0,
+				a.Search(search.Query[string]{Term: "pressure"}),
+				b.Search(search.Query[string]{Term: "pressure"}),
+			)
 			Expect(merged.Keys).To(Equal([]string{"a1", "b1", "a2", "b2"}))
 		})
 
@@ -42,8 +46,8 @@ var _ = Describe("Result", func() {
 				Expect(
 					search.Merge(
 						0,
-						a.Search("blob tree", 0),
-						b.Search("blob tree", 0),
+						a.Search(search.Query[string]{Term: "blob tree"}),
+						b.Search(search.Query[string]{Term: "blob tree"}),
 					).Keys,
 				).
 					To(Equal([]string{"b1"}))
@@ -58,8 +62,8 @@ var _ = Describe("Result", func() {
 				Expect(
 					search.Merge(
 						0,
-						a.Search("blob tree", 0),
-						b.Search("blob tree", 0),
+						a.Search(search.Query[string]{Term: "blob tree"}),
+						b.Search(search.Query[string]{Term: "blob tree"}),
 					).Keys,
 				).
 					To(ConsistOf("a1", "b1"))
@@ -69,7 +73,13 @@ var _ = Describe("Result", func() {
 		It("Should keep the order of results for equal matches", func() {
 			a := newIndex(map[string]string{"a1": "valve"})
 			b := newIndex(map[string]string{"b1": "valve"})
-			Expect(search.Merge(0, b.Search("valve", 0), a.Search("valve", 0)).Keys).
+			Expect(
+				search.Merge(
+					0,
+					b.Search(search.Query[string]{Term: "valve"}),
+					a.Search(search.Query[string]{Term: "valve"}),
+				).Keys,
+			).
 				To(Equal([]string{"b1", "a1"}))
 		})
 
@@ -77,8 +87,18 @@ var _ = Describe("Result", func() {
 			a := newIndex(map[string]string{"a1": "pressure feed"})
 			b := newIndex(map[string]string{"b1": "pressure"})
 			c := newIndex(map[string]string{"c1": "pressures"})
-			ab := search.Merge(0, a.Search("pressure", 0), b.Search("pressure", 0))
-			Expect(search.Merge(0, c.Search("pressure", 0), ab).Keys).
+			ab := search.Merge(
+				0,
+				a.Search(search.Query[string]{Term: "pressure"}),
+				b.Search(search.Query[string]{Term: "pressure"}),
+			)
+			Expect(
+				search.Merge(
+					0,
+					c.Search(search.Query[string]{Term: "pressure"}),
+					ab,
+				).Keys,
+			).
 				To(Equal([]string{"b1", "a1", "c1"}))
 		})
 
@@ -94,8 +114,8 @@ var _ = Describe("Result", func() {
 			Expect(
 				search.Merge(
 					limit,
-					a.Search("pressure", 0),
-					b.Search("pressure", 0),
+					a.Search(search.Query[string]{Term: "pressure"}),
+					b.Search(search.Query[string]{Term: "pressure"}),
 				).Keys,
 			).To(Equal(expected))
 		},
@@ -110,7 +130,11 @@ var _ = Describe("Result", func() {
 		})
 		other := newIndex(map[string]string{"d": "pressure inlet feed"})
 		Expect(
-			search.Merge(0, a.Search("pressure", 2), other.Search("pressure", 0)).Keys,
+			search.Merge(
+				0,
+				a.Search(search.Query[string]{Term: "pressure", Limit: 2}),
+				other.Search(search.Query[string]{Term: "pressure"}),
+			).Keys,
 		).
 			To(Equal([]string{"a", "b", "d"}))
 	})
@@ -121,9 +145,18 @@ var _ = Describe("Result", func() {
 			a.Set(1, "pressure feed")
 			a.Set(2, "pressure")
 			b := newIndex(map[string]string{"1.5": "pressures"})
-			mapped := search.MapKeys(a.Search("pressure", 0), strconv.Itoa)
+			mapped := search.MapKeys(
+				a.Search(search.Query[int]{Term: "pressure"}),
+				strconv.Itoa,
+			)
 			Expect(mapped.Keys).To(Equal([]string{"2", "1"}))
-			Expect(search.Merge(0, b.Search("pressure", 0), mapped).Keys).
+			Expect(
+				search.Merge(
+					0,
+					b.Search(search.Query[string]{Term: "pressure"}),
+					mapped,
+				).Keys,
+			).
 				To(Equal([]string{"2", "1", "1.5"}))
 		})
 	})

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { type Organization, organization } from "@/server/db/schema";
@@ -23,7 +24,7 @@ import {
   pick,
   retrieve,
 } from "@/server/organization";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 import { createLicense, createOrganization } from "@/testutil";
 
 const SESSION: Session = {
@@ -44,6 +45,7 @@ const organizationOf = (key: string, kind: Organization["kind"]): Organization =
   name: key,
   clerkOrgID: kind === "team" ? `org_${key}` : null,
   ownerUserID: kind === "personal" ? "user_a" : null,
+  desktopChannels: null,
   createdAt: new Date(0),
 });
 
@@ -303,7 +305,7 @@ describe("organization", () => {
     });
 
     it("should return undefined for an unknown key", async () => {
-      expect(await retrieve(store, crypto.randomUUID())).toBeUndefined();
+      expect(await retrieve(store, uuid.create())).toBeUndefined();
     });
   });
 });

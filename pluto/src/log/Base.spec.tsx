@@ -7,13 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/lyra/menu";
+import { log } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import { box, color } from "@synnaxlabs/x";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Base } from "@/log/Base";
+import { Base, type BaseProps } from "@/log/Base";
+import { createAetherSetup, DEFAULT_STATE, initialStateOf } from "@/log/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -45,37 +49,9 @@ const Wrapper: FC<PropsWithChildren> = ({ children }) => (
   </SynnaxWrapper>
 );
 
-const DEFAULT_STATE = {
-  region: { one: { x: 0, y: 0 }, two: { x: 400, y: 500 } },
-  wheelPos: 0,
-  scrolling: false,
-  resumedAt: 0,
-  empty: true,
-  visible: true,
-  channelNamesHidden: false,
-  timestampPrecision: 0,
-  channelNames: {},
-  channels: [],
-  telem: { type: "noop-log-source", props: {}, variant: "source", valueType: "log" },
-  font: "p",
-  color: { r: 0, g: 0, b: 0, a: 0 },
-  overshoot: { x: 0, y: 0 },
-  selectionStart: -1,
-  selectionEnd: -1,
-  visibleStart: 0,
-  selectedText: "",
-  selectedLines: [],
-  computedLineHeight: 16,
-};
+const setupAether = createAetherSetup(mockAetherUse);
 
-const setupAether = (overrides: Record<string, unknown> = {}) => {
-  const setState = vi.fn();
-  const state = { ...DEFAULT_STATE, ...overrides };
-  mockAetherUse.mockReturnValue(["test-key", state, setState]);
-  return { setState, state };
-};
-
-const renderLog = (props: Record<string, unknown> = {}) =>
+const renderLog = (props: Partial<BaseProps> = {}) =>
   render(<Base {...props} />, { wrapper: Wrapper });
 
 const getLogDiv = (container: HTMLElement): HTMLElement => {
@@ -85,7 +61,7 @@ const getLogDiv = (container: HTMLElement): HTMLElement => {
 };
 
 const getAetherInitialState = (): Record<string, unknown> =>
-  mockAetherUse.mock.calls[0][0].initialState;
+  initialStateOf(mockAetherUse);
 
 // Simulates a worker-pushed state change, which reaches the main thread through
 // onAetherChange alone — local setState never fires it.
@@ -110,6 +86,31 @@ describe("log/Base", () => {
       expect(screen.getByText("No log entries")).toBeDefined();
     });
 
+    it("should expose the log role", () => {
+      renderLog();
+      expect(screen.getByRole("log")).toBeDefined();
+    });
+
+    it("should show the loading symbol only while loading", () => {
+      setupAether({ empty: false, loading: true });
+      const { rerender } = renderLog();
+      expect(screen.getByLabelText("Loading")).toBeDefined();
+      setupAether({ empty: false, loading: false });
+      rerender(<Base />);
+      expect(screen.queryByLabelText("Loading")).toBeNull();
+    });
+
+    it("should show the full loading state while a log has no entries", () => {
+      setupAether({ empty: false, loading: true, blank: true });
+      const { rerender } = renderLog();
+      expect(screen.getByLabelText("Loading entries")).toBeDefined();
+      expect(screen.queryByLabelText("Loading")).toBeNull();
+      setupAether({ empty: false, loading: true, blank: false });
+      rerender(<Base />);
+      expect(screen.queryByLabelText("Loading entries")).toBeNull();
+      expect(screen.getByLabelText("Loading")).toBeDefined();
+    });
+
     it("should render children when not empty", () => {
       setupAether({ empty: false });
       renderLog({ children: <div data-testid="overlay" /> });
@@ -127,18 +128,45 @@ describe("log/Base", () => {
       expect(screen.getByTestId("custom-empty")).toBeDefined();
     });
 
-    it("should append the consumer's extra context menu items", async () => {
-      const { container } = renderLog({
-        extraContextMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item>,
-      });
-      fireEvent.contextMenu(getLogDiv(container));
-      expect(await screen.findByText("Extra")).toBeDefined();
-    });
-
     it("should apply className to the container div", () => {
       const { container } = renderLog({ className: "my-class" });
       const div = container.querySelector(".my-class");
       expect(div).not.toBeNull();
+    });
+  });
+
+  describe("channel colors", () => {
+    it("should send Aether the resolved color of each channel", () => {
+      setupAether();
+      renderLog({
+        channels: [
+          log.channelEntryZ.parse({
+            channel: 1,
+            color: { type: "fixed", value: "#ff0000" },
+          }),
+          log.channelEntryZ.parse({ channel: 2 }),
+        ],
+      });
+      expect(getAetherInitialState().channelColors).toEqual({
+        1: color.construct("#ff0000"),
+      });
+    });
+  });
+
+  describe("onLeave", () => {
+    it("should report the last position when the log unmounts", () => {
+      setupAether({ position: "42" });
+      const onLeave = vi.fn();
+      const { unmount } = renderLog({ onLeave });
+      expect(onLeave).not.toHaveBeenCalled();
+      unmount();
+      expect(onLeave).toHaveBeenCalledExactlyOnceWith("42");
+    });
+
+    it("should start the log at the position prop", () => {
+      setupAether();
+      renderLog({ position: "42" });
+      expect(mockAetherUse.mock.calls[0][0].initialState.position).toBe("42");
     });
   });
 
@@ -372,47 +400,142 @@ describe("log/Base", () => {
   });
 
   describe("copy", () => {
-    it("should no-op onCopy when no text is selected", () => {
-      setupAether({ empty: false, selectedText: "" });
+    const SELECTED = { empty: false, selectionStart: 0, rowEntries: [0, 1] };
+
+    interface Item {
+      data: Record<string, Promise<Blob>>;
+    }
+
+    const Messages = (): ReactElement => {
+      const { statuses } = Status.useNotifications();
+      return (
+        <>
+          {statuses.map(({ key, variant, message, description }) => (
+            <span key={key}>
+              <span>{`${variant}: ${message}`}</span>
+              {description != null && <span>{description}</span>}
+            </span>
+          ))}
+        </>
+      );
+    };
+
+    const stubClipboard = () => {
+      const write = vi.fn(async (_items: Item[]) => {});
+      Object.defineProperty(globalThis, "ClipboardItem", {
+        configurable: true,
+        value: class implements Item {
+          constructor(readonly data: Item["data"]) {}
+        },
+      });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { write },
+      });
+      return write;
+    };
+
+    it("should leave the copy event alone when nothing is selected", () => {
+      const { selection } = setupAether({ empty: false });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      const prevented = fireEvent.copy(logDiv);
-      expect(prevented).toBe(true);
+      expect(fireEvent.copy(getLogDiv(container))).toBe(true);
+      expect(selection).not.toHaveBeenCalled();
     });
 
-    it("should write to clipboardData onCopy when text is selected", () => {
-      setupAether({
-        empty: false,
-        selectedText: "hello",
-        selectedLines: [{ text: "hello", color: "" }],
-      });
+    it("should leave the copy event alone when the log has no rows", () => {
+      setupAether({ ...SELECTED, selectionEnd: 0, rowEntries: [] });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      const setData = vi.fn();
-      const event = new Event("copy", { bubbles: true });
-      Object.defineProperty(event, "clipboardData", {
-        value: { setData },
+      expect(fireEvent.copy(getLogDiv(container))).toBe(true);
+    });
+
+    it("should start the write within the copy event", async () => {
+      const write = stubClipboard();
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog();
+      await act(async () => {
+        expect(fireEvent.copy(getLogDiv(container))).toBe(false);
+        expect(write).toHaveBeenCalledTimes(1);
       });
-      fireEvent(logDiv, event);
-      expect(setData).toHaveBeenCalledWith("text/plain", "hello");
-      expect(setData).toHaveBeenCalledWith(
-        "text/html",
-        expect.stringContaining("hello"),
-      );
+    });
+
+    it("should read the lines from the worker only on a copy", async () => {
+      const write = stubClipboard();
+      const { selection } = setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog();
+      expect(selection).not.toHaveBeenCalled();
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(selection).toHaveBeenCalledTimes(1);
+      const [item] = write.mock.calls[0][0];
+      const text = await (await item.data["text/plain"]).text();
+      expect(text).toBe("<one>\ntwo");
+      const html = await (await item.data["text/html"]).text();
+      expect(html).toContain("&lt;one&gt;");
+      expect(html).toContain('<span style="color: #ff0000">two</span>');
+    });
+
+    it("should copy plain text in a context with no clipboard API", async () => {
+      Reflect.deleteProperty(globalThis, "ClipboardItem");
+      stubClipboardUnavailable();
+      const copied = stubCopyCommand();
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        expect(fireEvent.copy(getLogDiv(container))).toBe(false);
+      });
+      expect(copied).toHaveBeenCalledWith("<one>\ntwo");
+      expect(
+        await screen.findByText("success: Copied 2 lines to clipboard"),
+      ).toBeDefined();
+    });
+
+    it("should report a copy the browser refuses", async () => {
+      Reflect.deleteProperty(globalThis, "ClipboardItem");
+      stubClipboardUnavailable();
+      stubCopyCommand(false);
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(
+        await screen.findByText("error: Failed to copy to clipboard"),
+      ).toBeDefined();
+    });
+
+    it("should report the count of copied lines", async () => {
+      stubClipboard();
+      setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(
+        await screen.findByText("success: Copied 2 lines to clipboard"),
+      ).toBeDefined();
+    });
+
+    it("should warn that a select-all copy leaves out stored values", async () => {
+      stubClipboard();
+      setupAether({ ...SELECTED, selectionEnd: Number.MAX_SAFE_INTEGER }, true);
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(
+        await screen.findByText("warning: Copied 2 lines to clipboard"),
+      ).toBeDefined();
+      expect(screen.getByText(/not every stored value/)).toBeDefined();
     });
   });
 
   describe("channel name resolution", () => {
     it("should pass channels to aether state", () => {
-      renderLog({
-        channels: [{ channel: 1 }, { channel: 2 }, { channel: "virtual" }],
-      });
+      const channels = [1, 2].map((channel) => log.channelEntryZ.parse({ channel }));
+      renderLog({ channels });
       expect(mockAetherUse).toHaveBeenCalled();
-      expect(getAetherInitialState().channels).toEqual([
-        { channel: 1 },
-        { channel: 2 },
-        { channel: "virtual" },
-      ]);
+      expect(getAetherInitialState().channels).toEqual(channels);
     });
   });
 
@@ -433,42 +556,15 @@ describe("log/Base", () => {
     });
 
     it("should pass channels with configs to aether state", () => {
-      const channels = [{ channel: 1, color: "#ff0000" }, { channel: 2 }];
+      const channels = [
+        log.channelEntryZ.parse({
+          channel: 1,
+          color: { type: "fixed", value: "#ff0000" },
+        }),
+        log.channelEntryZ.parse({ channel: 2 }),
+      ];
       renderLog({ channels });
       expect(getAetherInitialState().channels).toEqual(channels);
-    });
-  });
-
-  describe("context menu", () => {
-    const openMenu = (container: HTMLElement): void => {
-      fireEvent.contextMenu(getLogDiv(container), { clientX: 10, clientY: 10 });
-    };
-
-    it("should run undo from the menu when the host supplies the handlers", async () => {
-      setupAether({ empty: false });
-      const undo = vi.fn();
-      const redo = vi.fn();
-      const { container } = renderLog({
-        undoRedo: { undo, redo, canUndo: true, canRedo: true },
-      });
-      openMenu(container);
-      // Both entries are asserted before the click, since selecting one closes the menu
-      // and takes the other out of the document with it.
-      expect(await screen.findByText("Undo")).toBeDefined();
-      expect(screen.getByText("Redo")).toBeDefined();
-      fireEvent.click(screen.getByText("Undo"));
-      expect(undo).toHaveBeenCalledTimes(1);
-      expect(redo).not.toHaveBeenCalled();
-    });
-
-    it("should omit undo and redo when the host supplies none", async () => {
-      setupAether({ empty: false });
-      const { container } = renderLog();
-      openMenu(container);
-      // Positive control: the menu opened, so the absence below is the missing prop
-      // rather than a menu that never rendered.
-      expect(await screen.findByText("Copy")).toBeDefined();
-      expect(screen.queryByText("Undo")).toBeNull();
     });
   });
 
@@ -478,7 +574,6 @@ describe("log/Base", () => {
       empty: false,
       selectionStart: 2,
       selectionEnd: 7,
-      selectedText: "primed",
     };
 
     const findUpdaterResult = (
@@ -504,7 +599,7 @@ describe("log/Base", () => {
     const isSelectAll = (r: Record<string, unknown>) =>
       r.selectionStart === 0 && r.selectionEnd === Number.MAX_SAFE_INTEGER;
     const isClearSelection = (r: Record<string, unknown>) =>
-      r.selectionStart === -1 && r.selectionEnd === -1 && r.selectedText === "";
+      r.selectionStart === -1 && r.selectionEnd === -1;
 
     it("should fire setState selecting all entries on Ctrl+A when enableTriggers is true", () => {
       const { setState } = setupAether({ empty: false });
@@ -555,6 +650,36 @@ describe("log/Base", () => {
       const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 100 });
       expect(setState).toHaveBeenCalled();
+    });
+
+    it("should select the entry of a wrapped row", () => {
+      const { setState } = setupAether({
+        empty: false,
+        computedLineHeight: 16,
+        rowEntries: [4, 4, 4, 5],
+        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
+      });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
+      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
+        selectionStart: 4,
+      });
+    });
+
+    it("should select the last shown entry below the last row", () => {
+      const { setState } = setupAether({
+        empty: false,
+        computedLineHeight: 16,
+        rowEntries: [0, 0, 1],
+        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
+      });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 400 });
+      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
+      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
+        selectionStart: 1,
+      });
     });
 
     it("should compute entry index from clientY position", () => {

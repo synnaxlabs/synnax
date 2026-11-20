@@ -12,10 +12,14 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Binary Operations", func() {
@@ -288,7 +292,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 subtraction",
@@ -298,7 +302,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 multiplication",
@@ -308,7 +312,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 division",
@@ -318,7 +322,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(4),
-			OpI32DivU,
+			OpI32DivU, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 modulo",
@@ -328,7 +332,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(17),
 			OpI32Const,
 			int32(5),
-			OpI32RemU,
+			OpI32RemU, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 equality",
@@ -399,7 +403,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 subtraction",
@@ -409,7 +413,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 multiplication",
@@ -419,7 +423,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 division",
@@ -429,7 +433,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(4),
-			OpI32DivU,
+			OpI32DivU, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 modulo",
@@ -439,7 +443,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(17),
 			OpI32Const,
 			int32(5),
-			OpI32RemU,
+			OpI32RemU, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 equality",
@@ -703,7 +707,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
 		),
 		Entry(
 			"i8 subtraction",
@@ -713,7 +717,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
 		),
 		Entry(
 			"i8 multiplication",
@@ -723,7 +727,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
 		),
 		Entry(
 			"i8 division",
@@ -734,6 +738,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(4),
 			OpI32DivS,
+			OpI32Const,
+			int32(24),
+			OpI32Shl,
+			OpI32Const,
+			int32(24),
+			OpI32ShrS,
 		),
 		Entry(
 			"i8 modulo",
@@ -744,6 +754,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(5),
 			OpI32RemS,
+			OpI32Const,
+			int32(24),
+			OpI32Shl,
+			OpI32Const,
+			int32(24),
+			OpI32ShrS,
 		),
 		Entry(
 			"i8 equality",
@@ -814,7 +830,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
 		),
 		Entry(
 			"i16 subtraction",
@@ -824,7 +840,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
 		),
 		Entry(
 			"i16 multiplication",
@@ -834,7 +850,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
 		),
 		Entry(
 			"i16 division",
@@ -845,6 +861,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(4),
 			OpI32DivS,
+			OpI32Const,
+			int32(16),
+			OpI32Shl,
+			OpI32Const,
+			int32(16),
+			OpI32ShrS,
 		),
 		Entry(
 			"i16 modulo",
@@ -855,6 +877,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(5),
 			OpI32RemS,
+			OpI32Const,
+			int32(16),
+			OpI32Shl,
+			OpI32Const,
+			int32(16),
+			OpI32ShrS,
 		),
 		Entry(
 			"i16 equality",
@@ -1740,7 +1768,7 @@ var _ = Describe("Binary Operations", func() {
 				uint32(0),
 				OpI32Const,
 				int32(5),
-				OpI32Sub,
+				OpI32Sub, OpI32Const, int32(255), OpI32And,
 			),
 			Entry(
 				"u16 channel * u16 literal",
@@ -1758,7 +1786,7 @@ var _ = Describe("Binary Operations", func() {
 				uint32(0),
 				OpI32Const,
 				int32(3),
-				OpI32Mul,
+				OpI32Mul, OpI32Const, int32(65535), OpI32And,
 			),
 			Entry(
 				"complex: channel - literal + channel",
@@ -3029,4 +3057,73 @@ var _ = Describe("Binary Operations", func() {
 			)
 		})
 	})
+})
+
+var _ = Describe("CompileOperand", func() {
+	var (
+		ms  = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+		s   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+		psi = &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+	)
+	in := func(unit *types.Unit) types.Type {
+		return types.WithUnit(types.I64(), unit)
+	}
+	// compile compiles an operand of type t that the analyzer typed as analyzed.
+	compile := func(
+		bCtx SpecContext,
+		left, analyzed, t types.Type,
+	) ([]byte, *types.Unit, error) {
+		GinkgoHelper()
+		ctx := NewContext(bCtx)
+		operand := MustSucceed(parser.ParseExpression("x"))
+		ctx.TypeMap[operand] = analyzed
+		_, unit, err := expression.CompileOperand(ctx, left, operand,
+			func(c ccontext.Context[parser.IExpressionContext]) (types.Type, error) {
+				c.Writer.WriteLocalGet(0)
+				return t, nil
+			})
+		if err != nil {
+			return nil, nil, err
+		}
+		return FinalizeContext(ctx), unit, nil
+	}
+
+	DescribeTable("should compile an operand in the unit that it and the stack meet in",
+		func(bCtx SpecContext, left, operand types.Type, unit *types.Unit, ops ...any) {
+			bytes, got := MustSucceed2(compile(bCtx, left, operand, operand))
+			Expect(got).To(BeIdenticalTo(unit))
+			Expect(bytes).To(MatchOpcodes(ops...))
+		},
+		Entry("the same unit", in(s), in(s), s, OpLocalGet, 0),
+		Entry("a stack value in the larger unit", in(s), in(ms), ms,
+			OpI64Const, int64(1000), OpI64Mul, OpLocalGet, 0),
+		Entry("an operand in the larger unit", in(ms), in(s), ms,
+			OpLocalGet, 0, OpI64Const, int64(1000), OpI64Mul),
+		Entry("an operand with no unit", in(s), types.I64(), s, OpLocalGet, 0),
+		Entry("a stack value with no unit", types.I64(), in(s), s, OpLocalGet, 0),
+		Entry("another dimension", in(s), in(pa), s, OpLocalGet, 0),
+		Entry("an integer series on the stack by a whole factor",
+			types.Series(in(s)), in(ms), ms,
+			OpI64Const, int64(1000), OpCall, uint32(0), OpLocalGet, 0),
+		Entry("a float series on the stack by a factor that is not whole",
+			types.Series(types.WithUnit(types.F64(), psi)),
+			types.WithUnit(types.F64(), pa), pa,
+			OpF64Const, float64(6894.76), OpCall, uint32(0), OpLocalGet, 0),
+	)
+
+	It("should reject an operand in a smaller unit that was not analyzed", func(
+		bCtx SpecContext,
+	) {
+		Expect(compile(bCtx, in(s), types.I64(), in(ms))).Error().To(MatchError(
+			"operand in ms was not analyzed before a value in s",
+		))
+	})
+
+	It("should reject an integer series on the stack by a factor that is not whole",
+		func(bCtx SpecContext) {
+			Expect(compile(bCtx, types.Series(in(psi)), in(pa), in(pa))).Error().To(
+				MatchError(ContainSubstring("cannot convert a series of")),
+			)
+		})
 })

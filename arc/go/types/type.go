@@ -66,8 +66,6 @@
 package types
 
 import (
-	"slices"
-
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -141,7 +139,8 @@ func Variable(name string, constraint *Type) Type {
 // NumericConstraint returns a constraint accepting any numeric type.
 func NumericConstraint() Type { return Type{Kind: KindNumericConstant} }
 
-// IntegerConstraint returns a constraint accepting any integer type.
+// IntegerConstraint returns a constraint for integer literals, which can resolve to any
+// numeric type.
 func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 
 // FloatConstraint returns a constraint accepting any floating-point type.
@@ -160,6 +159,18 @@ func Stage() Type { return Type{Kind: KindStage} }
 // Function creates a function type with the given inputs and outputs.
 func Function(props FunctionProperties) Type {
 	return Type{Kind: KindFunction, FunctionProperties: props}
+}
+
+// Concrete returns t with the type of an untyped literal resolved to i64 or f64.
+func Concrete(t Type) Type {
+	if t.Kind != KindVariable {
+		return t
+	}
+	kind := KindF64
+	if c := t.Constraint; c != nil && c.Kind == KindIntegerConstant {
+		kind = KindI64
+	}
+	return Type{Kind: kind, Unit: t.Unit}
 }
 
 // StructuralMatch returns true if both types have the same wrapper structure.
@@ -228,17 +239,6 @@ func paramsEqual(a, b Params) bool {
 	return true
 }
 
-var (
-	// UnsignedIntegers contains all unsigned integer types.
-	UnsignedIntegers = []Type{U8(), U16(), U32(), U64()}
-	// SignedIntegers contains all signed integer types.
-	SignedIntegers = []Type{I8(), I16(), I32(), I64()}
-	// Floats contains all floating-point types.
-	Floats = []Type{F32(), F64()}
-	// Numerics contains all numeric types (unsigned, signed, and floating-point).
-	Numerics = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
-)
-
 // FromTelem converts a telemetry data type to an Arc type.
 func FromTelem(t telem.DataType) Type {
 	switch t {
@@ -268,7 +268,43 @@ func FromTelem(t telem.DataType) Type {
 		return String()
 	case telem.TimestampT:
 		return TimeStamp()
-	default:
-		return Type{Kind: KindInvalid}
+	case telem.UnknownT, telem.BytesT:
 	}
+	return Type{Kind: KindInvalid}
+}
+
+// Zero returns the value a Param carries for the zero of t: 0 for numeric kinds,
+// "" for strings, false for bools. Returns nil when t has no scalar zero.
+func Zero(t Type) any {
+	switch t.Kind {
+	case KindU8:
+		return uint8(0)
+	case KindU16:
+		return uint16(0)
+	case KindU32:
+		return uint32(0)
+	case KindU64:
+		return uint64(0)
+	case KindI8:
+		return int8(0)
+	case KindI16:
+		return int16(0)
+	case KindI32:
+		return int32(0)
+	case KindI64:
+		return int64(0)
+	case KindF32:
+		return float32(0)
+	case KindF64:
+		return float64(0)
+	case KindString:
+		return ""
+	case KindBool:
+		return false
+	case KindInvalid, KindChan, KindSeries, KindVariable, KindNumericConstant,
+		KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef:
+		return nil
+	}
+	panic("unknown type kind " + t.Kind.String())
 }

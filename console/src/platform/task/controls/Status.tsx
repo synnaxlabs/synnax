@@ -14,13 +14,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status as PStatus } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
 export interface ExpandableStatusProps extends Omit<Flex.BoxProps, "children"> {
-  /** The status to display */
-  status: status.Status;
+  /** The status to display. Absent for a task with no status. */
+  status?: status.Status;
   /** Whether the status is expanded */
   expanded: boolean;
   /** Callback when expand/collapse is toggled */
@@ -37,6 +37,25 @@ export const Status = ({
   className,
   ...props
 }: ExpandableStatusProps): ReactElement => {
+  if (stat == null)
+    return (
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.cls(
+          CSS.B("task-status"),
+          CSS.BM("task-status", "absent"),
+          className,
+        )}
+        {...props}
+      >
+        <PStatus.Indicator variant="disabled" />
+        <Text.Text level="p" status="disabled" weight={500}>
+          No status
+        </Text.Text>
+      </Flex.Box>
+    );
   const hasDescription = Boolean(stat.description);
   const message = stat.message || fallbackMessage;
   const ExpansionIcon = expanded ? Icon.Collapse : Icon.Expand;
@@ -81,7 +100,13 @@ export const Status = ({
               {message}
             </Text.Text>
             {!expanded && hasDescription && (
-              <Text.Text level="small" color={9} overflow="wrap" lineClamp={2}>
+              <Text.Text
+                level="small"
+                color={9}
+                overflow="wrap"
+                lineClamp={2}
+                className={CSS.BE("task-status", "summary")}
+              >
                 {stat.description}
               </Text.Text>
             )}

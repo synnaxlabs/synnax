@@ -10,14 +10,13 @@
 package types
 
 import (
-	"context"
 	"maps"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -31,10 +30,10 @@ import (
 // declarations define. Types whose live declarations carry omit fields always define —
 // the frozen counterpart is persisted-only, so the two can never be the same Go type.
 func chainPredecessors(
-	ctx context.Context, req *plugin.Request,
+	req *plugin.Request,
 ) (map[string]predecessor, error) {
 	preds := make(map[string]predecessor)
-	entries, err := chainEntries(ctx, req)
+	entries, err := chainEntries(req)
 	if err != nil {
 		return nil, err
 	}
@@ -42,21 +41,58 @@ func chainPredecessors(
 		if e.ended || e.version == e.chain.First() {
 			continue
 		}
-		f, err := req.Versions.File(ctx, e.livePath, e.version)
+		f, err := req.Versions.File(e.livePath, e.version)
+		if err != nil {
+			return nil, err
+		}
+		prev, _ := e.chain.Predecessor(e.version)
+		surf, err := req.Versions.Surface(e.livePath, prev)
 		if err != nil {
 			return nil, err
 		}
 		aliased := make(set.Set[string], len(f.Aliases))
+		names := make(map[string]string, len(f.Aliases))
 		for name := range f.Aliases {
 			aliased.Add(e.resource + "." + name)
+			if def, ok := surf[name]; ok {
+				names[e.resource+"."+name] = naming.GetGoName(def.Type)
+			}
 		}
-		prev, _ := e.chain.Predecessor(e.version)
 		preds[versioning.VersionedPath(origPath, e.version)] = predecessor{
 			path:    versioning.VersionedPath(origPath, prev),
 			aliased: aliased,
+			names:   names,
 		}
 	}
 	return preds, nil
+}
+
+// chainOrders maps every current version package to its version file's declaration
+// order. A frozen package renders in that order, so a current package renders in it too
+// and a freeze never moves a declaration.
+func chainOrders(
+	req *plugin.Request,
+) (map[string]map[string]int, error) {
+	orders := make(map[string]map[string]int)
+	entries, err := chainEntries(req)
+	if err != nil {
+		return nil, err
+	}
+	for origPath, e := range entries {
+		if e.ended {
+			continue
+		}
+		f, err := req.Versions.File(e.livePath, e.version)
+		if err != nil {
+			return nil, err
+		}
+		order := make(map[string]int, len(f.Order))
+		for i, name := range f.Order {
+			order[e.resource+"."+name] = i
+		}
+		orders[versioning.VersionedPath(origPath, e.version)] = order
+	}
+	return orders, nil
 }
 
 // chainEntry pairs a versioned Go output path with its resource and chain.
@@ -73,21 +109,21 @@ type chainEntry struct {
 // chainEntries maps every chain-covered versioned Go output path to its
 // resource, current version, and chain.
 func chainEntries(
-	ctx context.Context, req *plugin.Request,
+	req *plugin.Request,
 ) (map[string]chainEntry, error) {
 	out := make(map[string]chainEntry)
 	if req.Versions == nil {
 		return out, nil
 	}
 	for livePath, chain := range req.Versions.Chains() {
-		goPath, ok, err := memberGoPath(ctx, req, livePath, chain)
+		goPath, ok, err := memberGoPath(req, livePath, chain)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			continue
 		}
-		ended, err := req.Versions.Ended(ctx, livePath)
+		ended, err := req.Versions.Ended(livePath)
 		if err != nil {
 			return nil, err
 		}
@@ -119,13 +155,12 @@ func liveType(
 // falls back through earlier versions: the frozen packages still anchor to
 // the live schema's output path.
 func memberGoPath(
-	ctx context.Context,
 	req *plugin.Request,
 	livePath string,
 	chain versions.Chain,
 ) (string, bool, error) {
 	for _, v := range slices.Backward(chain.Numbers) {
-		surf, err := req.Versions.Surface(ctx, livePath, v)
+		surf, err := req.Versions.Surface(livePath, v)
 		if err != nil {
 			return "", false, err
 		}
@@ -151,12 +186,14 @@ func memberGoPath(
 // chainFrozenFiles regenerates every frozen version package of every chain: for each
 // version k below current, the package at <path>/versions/vk is emitted from the
 // chain's surface at k — full declarations for types defined at k, predecessor aliases
-// for the rest. Frozen packages are persisted-only: they render exactly what the
-// version files record.
+// for the rest. A frozen package renders what the same version rendered as current, so
+// a mint moves nothing in it.
 func chainFrozenFiles(
-	ctx context.Context, req *plugin.Request, fileName string,
+	req *plugin.Request,
+	fileName string,
+	embedded set.Set[string],
 ) ([]plugin.File, error) {
-	entries, err := chainEntries(ctx, req)
+	entries, err := chainEntries(req)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +204,14 @@ func chainFrozenFiles(
 			if k >= e.version {
 				break
 			}
-			file, err := frozenFile(ctx, req, origPath, e.livePath, k, fileName)
+			file, err := frozenFile(
+				req,
+				origPath,
+				e.livePath,
+				k,
+				fileName,
+				embedded,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -195,9 +239,9 @@ type ChainPath struct {
 
 // ChainPaths maps every chain-covered versioned Go output path to its chain.
 func ChainPaths(
-	ctx context.Context, req *plugin.Request,
+	req *plugin.Request,
 ) (map[string]ChainPath, error) {
-	entries, err := chainEntries(ctx, req)
+	entries, err := chainEntries(req)
 	if err != nil {
 		return nil, err
 	}
@@ -218,17 +262,16 @@ func ChainPaths(
 // alongside, and @go output annotations resolving every type to its frozen versions/vN
 // directory. The returned namespace qualifies the package's own types.
 func ChainFrozenTable(
-	ctx context.Context,
 	req *plugin.Request,
 	origPath, livePath string,
 	k int,
 ) (*resolution.Table, string, error) {
 	ns := versions.DepNS(livePath, k)
 	table := resolution.NewTable()
-	if err := req.Versions.SurfaceInto(ctx, table, livePath, k, ns); err != nil {
+	if err := req.Versions.SurfaceInto(table, livePath, k, ns); err != nil {
 		return nil, "", err
 	}
-	if err := annotateOutputs(ctx, req, table, origPath, livePath); err != nil {
+	if err := annotateOutputs(req, table, origPath, livePath); err != nil {
 		return nil, "", err
 	}
 	return table, ns, nil
@@ -236,21 +279,18 @@ func ChainFrozenTable(
 
 // frozenFile emits one frozen version package's type file.
 func frozenFile(
-	ctx context.Context,
 	req *plugin.Request,
 	origPath, livePath string,
 	k int,
 	fileName string,
+	embedded set.Set[string],
 ) (plugin.File, error) {
-	f, err := req.Versions.File(ctx, livePath, k)
+	f, err := req.Versions.File(livePath, k)
 	if err != nil {
 		return plugin.File{}, err
 	}
-	table, ns, err := ChainFrozenTable(ctx, req, origPath, livePath, k)
+	table, ns, err := ChainFrozenTable(req, origPath, livePath, k)
 	if err != nil {
-		return plugin.File{}, err
-	}
-	if err = withLiveMethods(ctx, req, table, ns, livePath, f.Chain, k); err != nil {
 		return plugin.File{}, err
 	}
 	pred := predecessor{}
@@ -263,125 +303,44 @@ func frozenFile(
 			pred.aliased.Add(ns + "." + name)
 		}
 	}
-	var structs, enums, typedefs, unions []resolution.Type
 	// The frozen surface table registers sorted, so the version file's declaration
 	// order passes to the generator explicitly.
 	order := make(map[string]int, len(f.Order))
 	for i, name := range f.Order {
 		order[ns+"."+name] = i
 	}
+	vkPath := versioning.VersionedPath(origPath, k)
+	out := goFile{
+		outputPath: vkPath,
+		table:      table,
+		repoRoot:   req.RepoRoot,
+		pred:       pred,
+		closure:    PersistedClosure(table),
+		order:      order,
+		embedded:   embedded,
+	}
 	for _, name := range f.Order {
 		t, ok := table.Get(ns + "." + name)
-		if !ok || t.Synthetic || omit.IsSkipped(t, "go") {
-			continue
-		}
-		switch t.Form.(type) {
-		case resolution.StructForm:
-			structs = append(structs, t)
-		case resolution.EnumForm:
-			enums = append(enums, t)
-		case resolution.UnionForm:
-			unions = append(unions, t)
-		case resolution.DistinctForm, resolution.AliasForm:
-			typedefs = append(typedefs, t)
+		if ok && !t.Synthetic && !omit.IsSkipped(t, "go") {
+			out.addDecl(t)
 		}
 	}
-	vkPath := versioning.VersionedPath(origPath, k)
 	// A fully hand-written frozen package (every declaration @go hand) keeps its
 	// historical files; there is nothing to generate.
-	if len(structs)+len(enums)+len(typedefs)+len(unions) == 0 {
+	if len(out.structs)+len(out.enums)+len(out.typeDefs)+len(out.unions) == 0 {
 		return plugin.File{}, nil
 	}
-	content, err := generateGoFile(
-		vkPath, structs, enums, typedefs, unions,
-		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order, nil,
-	)
+	content, err := generateGoFile(out)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)
 	}
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
 }
 
-// withLiveMethods copies the live file's @validate rules, @default groups, and @go
-// to_any markers onto the version k types that the chain's current version aliases,
-// and onto the inline variant payloads of those unions. The current package's alias is
-// the frozen type, so the frozen methods are the ones the live surface calls.
-func withLiveMethods(
-	ctx context.Context,
-	req *plugin.Request,
-	table *resolution.Table,
-	ns, livePath string,
-	chain versions.Chain,
-	k int,
-) error {
-	surf, err := req.Versions.Surface(ctx, livePath, chain.Current())
-	if err != nil {
-		return err
-	}
-	aliased := make(set.Set[string])
-	for name, def := range surf {
-		if def.Version == k {
-			aliased.Add(ns + "." + name)
-		}
-	}
-	for _, t := range table.Types {
-		u, isUnion := t.Form.(resolution.UnionForm)
-		if !isUnion || !aliased.Contains(t.QualifiedName) {
-			continue
-		}
-		for _, v := range u.Variants {
-			if !v.Inline {
-				continue
-			}
-			if payload, ok := v.Type.Resolve(table); ok {
-				aliased.Add(payload.QualifiedName)
-			}
-		}
-	}
-	for i := range table.Types {
-		t := &table.Types[i]
-		if !aliased.Contains(t.QualifiedName) {
-			continue
-		}
-		form, isStruct := t.Form.(resolution.StructForm)
-		live, hasLive := liveType(req, livePath, t.Name)
-		if !isStruct || !hasLive {
-			continue
-		}
-		liveForm, ok := live.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		fields := slices.Clone(form.Fields)
-		for j := range fields {
-			lf, _ := lo.Find(liveForm.Fields, func(f resolution.Field) bool {
-				return f.Name == fields[j].Name
-			})
-			for _, name := range []string{"validate", "default"} {
-				d, has := lf.Domains[name]
-				if !has {
-					continue
-				}
-				domains := make(map[string]resolution.Domain, len(fields[j].Domains)+1)
-				maps.Copy(domains, fields[j].Domains)
-				domains[name] = d
-				fields[j].Domains = domains
-			}
-		}
-		form.Fields = fields
-		t.Form = form
-		if toAny, has := live.Domains["go"].Expressions.Find("to_any"); has {
-			withGoExpr(t, toAny)
-		}
-	}
-	return nil
-}
-
 // annotateOutputs assigns a @go output to every namespaced type in a frozen emission
 // table, resolving each to its versions/vN directory. A hand-written type lives there
 // too, since hand-ness is version-local.
 func annotateOutputs(
-	ctx context.Context,
 	req *plugin.Request,
 	table *resolution.Table,
 	origPath, ownLive string,
@@ -395,25 +354,8 @@ func annotateOutputs(
 		goRoot := origPath
 		if lp != ownLive {
 			var err error
-			if goRoot, ok, err = versionedGoRoot(ctx, req, lp); err != nil {
+			if goRoot, err = dependencyGoRoot(req, t, lp, v, ownLive); err != nil {
 				return err
-			} else if !ok {
-				return errors.Newf(
-					"%s pins %s, which has no versioned Go output in the live schemas",
-					ownLive, lp,
-				)
-			}
-			// A dependency chain may span several Go outputs (task and
-			// task/config); a member with its own live output resolves there,
-			// not at the chain's first output. That package is generated from
-			// the live declaration, so its @go name comes along.
-			if lt, has := liveType(req, lp, t.Name); has {
-				if p := output.GetPath(lt, "go"); p != "" {
-					goRoot = p
-				}
-				if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
-					withGoName(t, n)
-				}
 			}
 		}
 		withGoOutput(t, versioning.VersionedPath(goRoot, v))
@@ -421,14 +363,67 @@ func annotateOutputs(
 	return nil
 }
 
+// dependencyGoRoot returns the Go root of the type t that a frozen table pins from
+// version v of the dependency livePath, and gives t the live @go name when v is
+// current.
+func dependencyGoRoot(
+	req *plugin.Request,
+	t *resolution.Type,
+	livePath string,
+	v int,
+	ownLive string,
+) (string, error) {
+	goRoot, ok, err := versionedGoRoot(req, livePath)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errors.Newf(
+			"%s pins %s, which has no versioned Go output in the live schemas",
+			ownLive, livePath,
+		)
+	}
+	current, err := isCurrentVersion(req, livePath, v)
+	if err != nil {
+		return "", err
+	}
+	// Only the current package renders from the live file, so only a pin of it takes
+	// the live @go output and name. A frozen package declares every member at the
+	// chain root under its version file's name.
+	if lt, has := liveType(req, livePath, t.Name); current && has {
+		if p := output.GetPath(lt, "go"); p != "" {
+			goRoot = p
+		}
+		if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
+			withGoName(t, n)
+		}
+	}
+	return goRoot, nil
+}
+
+// isCurrentVersion reports whether v is the current version of livePath's chain.
+func isCurrentVersion(
+	req *plugin.Request, livePath string, v int,
+) (bool, error) {
+	chain, ok := req.Versions.Chains()[livePath]
+	if !ok || chain.Current() != v {
+		return false, nil
+	}
+	ended, err := req.Versions.Ended(livePath)
+	if err != nil {
+		return false, err
+	}
+	return !ended, nil
+}
+
 // versionedGoRoot finds the @go output path a live schema file's versions
 // directories append to: the path the chain's current-surface members name,
 // or — for a chainless dependency — the file's plain output.
 func versionedGoRoot(
-	ctx context.Context, req *plugin.Request, livePath string,
+	req *plugin.Request, livePath string,
 ) (string, bool, error) {
 	if chain, ok := req.Versions.Chains()[livePath]; ok {
-		return memberGoPath(ctx, req, livePath, chain)
+		return memberGoPath(req, livePath, chain)
 	}
 	for _, t := range req.Resolutions.Types {
 		if t.FilePath != livePath+".oracle" {
@@ -478,4 +473,31 @@ func withGoExpr(t *resolution.Type, expr resolution.Expression) {
 	dom.Expressions = exprs
 	domains["go"] = dom
 	t.Domains = domains
+}
+
+// allEmbeddedTypes returns the embeddedTypes of the live table, the current version
+// table, and every frozen version table, since a later version can embed a type that
+// an earlier package declares.
+func allEmbeddedTypes(
+	req *plugin.Request,
+	current *resolution.Table,
+) (set.Set[string], error) {
+	tables := []*resolution.Table{req.Resolutions, current}
+	entries, err := chainEntries(req)
+	if err != nil {
+		return nil, err
+	}
+	for origPath, e := range entries {
+		for _, k := range e.chain.Numbers {
+			if k >= e.version {
+				break
+			}
+			table, _, err := ChainFrozenTable(req, origPath, e.livePath, k)
+			if err != nil {
+				return nil, err
+			}
+			tables = append(tables, table)
+		}
+	}
+	return embeddedTypes(tables...), nil
 }

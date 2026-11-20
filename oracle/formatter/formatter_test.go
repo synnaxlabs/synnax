@@ -137,6 +137,23 @@ var _ = Describe("Format", func() {
 			Expect(format(once)).To(Equal(once))
 		})
 
+		It("should format an action that aliases a struct", func() {
+			source := "Node struct {\n  action Set  =  patch.Set\n  action B {}\n}\n"
+			Expect(format(source)).To(Equal(
+				"Node struct {\n    action Set = patch.Set\n\n    action B {}\n}\n",
+			))
+		})
+
+		It("should format the doc body of an action alias", func() {
+			source := "Node struct {\n  action Set = patch.Set {\n" +
+				"  @doc value \"sets a cell.\"\n  }\n  action B {}\n}\n"
+			Expect(format(source)).To(Equal(
+				"Node struct {\n    action Set = patch.Set {\n" +
+					"        @doc value \"sets a cell.\"\n    }\n\n" +
+					"    action B {}\n}\n",
+			))
+		})
+
 		It("should preserve a single extends clause on an action", func() {
 			source := "Node struct {\n  name string\n\n  action Rename extends Named {\n    key string\n  }\n}\n"
 			result := format(source)
@@ -401,6 +418,43 @@ var _ = Describe("Format", func() {
 		It("should collapse repeated blank lines between leading comments", func() {
 			result := format("// Copyright 2026\n\n\n\n// Tombstone: removed.\n")
 			Expect(result).To(Equal("// Copyright 2026\n\n// Tombstone: removed.\n"))
+		})
+
+		It("should preserve a comment on its own line before a field", func() {
+			source := "User struct {\n    // is the name.\n    name string\n}\n"
+			Expect(format(source)).To(Equal(source))
+		})
+
+		It("should preserve a comment on its own line before a definition", func() {
+			source := "A struct {}\n\n// B is a struct.\nB struct {}\n"
+			Expect(format(source)).To(Equal(source))
+		})
+
+		It("should preserve the comment of a field that follows an omission", func() {
+			source := "U struct extends P {\n    /* n */ name string\n    -key\n}\n"
+			Expect(format(source)).To(ContainSubstring("/* n */"))
+		})
+
+		It("should preserve the comment of a domain that precedes a field", func() {
+			source := "V struct {\n    /* g */ @go output \"x\"\n    name string\n}\n"
+			Expect(format(source)).To(ContainSubstring("/* g */"))
+		})
+
+		It("should not move a trailing field comment onto the next field", func() {
+			source := "User struct {\n    name string // the name\n    age int32\n}\n"
+			Expect(format(source)).ToNot(ContainSubstring("// the name\n    age"))
+		})
+
+		It("should not move a trailing definition comment onto the next one", func() {
+			source := "A struct {} // deprecated\n\nB struct {}\n"
+			Expect(format(source)).ToNot(ContainSubstring("// deprecated\nB"))
+		})
+
+		It("should keep the comment of an import with that import", func() {
+			source := "import \"a\"\nimport \"c\"\n// about b\nimport \"b\"\n"
+			Expect(format(source)).To(Equal(
+				"import \"a\"\n// about b\nimport \"b\"\nimport \"c\"\n",
+			))
 		})
 
 		It("should leave glued leading comments glued", func() {
@@ -724,6 +778,44 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Filter Definitions", func() {
+		It("should format an empty filter", func() {
+			Expect(
+				format("Where filter Range {}\n"),
+			).To(Equal("Where filter Range {}\n"))
+		})
+
+		It("should align bare and typed lines", func() {
+			source := "Where   filter   Range {\n  key\n  name\n" +
+				"  overlaps telem.TimeRange\n  labels label.Key[]\n}\n"
+			Expect(format(source)).To(Equal("Where filter Range {\n" +
+				"    key\n" +
+				"    name\n" +
+				"    overlaps telem.TimeRange\n" +
+				"    labels   label.Key[]\n" +
+				"}\n"))
+		})
+
+		It("should format line and filter domains", func() {
+			source := "Where filter Range {\n  overlaps telem.TimeRange {\n" +
+				"    @doc value \"matches overlaps.\"\n  }\n" +
+				"  @response type APIRange\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"    overlaps telem.TimeRange {\n" +
+					"        @doc value \"matches overlaps.\"\n    }\n",
+			))
+			Expect(result).To(ContainSubstring("\n\n    @response type APIRange\n}"))
+		})
+
+		It("should be idempotent", func() {
+			source := "Where filter Range {\n  key\n  labels label.Key[] {\n" +
+				"    @doc value \"matches labels.\"\n  }\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+	})
+
 	Describe("Union Definitions", func() {
 		It("should format an empty union", func() {
 			Expect(
@@ -755,6 +847,23 @@ var _ = Describe("Format", func() {
 			source := "Base struct {\n  k string\n}\nA struct {}\nB struct {}\nFoo union on type extends Base {\n  a A\n  b B\n}\n"
 			result := format(source)
 			Expect(result).To(ContainSubstring("Foo union on type extends Base {"))
+		})
+
+		It("should format actions after the variants of a union", func() {
+			source := "A struct {}\nFoo union on type {\n  action Rename {\n    name string\n  }\n  a A\n  action Reset {}\n  @doc value \"is a foo.\"\n}\n"
+			Expect(format(source)).To(Equal(
+				"A struct {}\n\nFoo union on type {\n    a A\n\n" +
+					"    action Rename {\n        name string\n    }\n\n" +
+					"    action Reset {}\n\n" +
+					"    @doc value \"is a foo.\"\n}\n",
+			))
+		})
+
+		It("should format a union that holds only actions", func() {
+			source := "Foo union on type {\n  action Reset {}\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type {\n    action Reset {}\n}\n",
+			))
 		})
 
 		It("should format a union with multiple bases", func() {

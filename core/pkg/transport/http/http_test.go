@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -61,12 +62,17 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Storage:         node.Storage,
 		RootCredentials: creds,
 		License:         license.ServiceConfig{Anchors: signer.Anchors},
+		SecretsKey:      secret.NewEncryptionKey(),
 	}))
+	errs := api.NewErrorCodec()
 	layer := MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,
+		Errors:       errs,
 	}))
-	router := MustSucceed(fhttp.NewRouter())
+	router := MustSucceed(
+		fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+	)
 	thttp.Bind(layer, router)
 	app := fiber.New()
 	router.BindTo(app)
@@ -100,11 +106,25 @@ func postJSON(
 	}))
 }
 
+// A browser sends back the name and value only, for every Core on the host.
+func withCookie(host string, cs ...*http.Cookie) map[string]string {
+	pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
+		return c.Name + "=" + c.Value
+	})
+	return map[string]string{
+		fiber.HeaderHost:   host,
+		fiber.HeaderCookie: strings.Join(pairs, "; "),
+	}
+}
+
 var _ = Describe("HTTP", func() {
 	Describe("Bind", func() {
 		var app *fiber.App
 		BeforeEach(func() {
-			router := MustSucceed(fhttp.NewRouter())
+			errs := api.NewErrorCodec()
+			router := MustSucceed(
+				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+			)
 			thttp.Bind(apiLayer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -118,14 +138,96 @@ var _ = Describe("HTTP", func() {
 			},
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
+			Entry(
+				"unary channel count limited",
+				http.MethodPost,
+				"/api/v1/channel/count-limited",
+			),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
-			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
-			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
-			Entry("unary rack rename", http.MethodPost, "/api/v1/rack/rename"),
+			Entry("unary task dispatch", http.MethodPost, "/api/v1/task/dispatch"),
+			Entry("unary device dispatch", http.MethodPost, "/api/v1/device/dispatch"),
+			Entry("unary rack dispatch", http.MethodPost, "/api/v1/rack/dispatch"),
+			Entry(
+				"unary NI device create",
+				http.MethodPost,
+				"/api/v1/ni/device/create",
+			),
+			Entry(
+				"unary NI device retrieve",
+				http.MethodPost,
+				"/api/v1/ni/device/retrieve",
+			),
+			Entry(
+				"unary NI device update",
+				http.MethodPost,
+				"/api/v1/ni/device/update",
+			),
+			Entry(
+				"unary NI device delete",
+				http.MethodPost,
+				"/api/v1/ni/device/delete",
+			),
+			Entry(
+				"unary NI chassis create",
+				http.MethodPost,
+				"/api/v1/ni/chassis/create",
+			),
+			Entry(
+				"unary NI chassis retrieve",
+				http.MethodPost,
+				"/api/v1/ni/chassis/retrieve",
+			),
+			Entry(
+				"unary NI chassis update",
+				http.MethodPost,
+				"/api/v1/ni/chassis/update",
+			),
+			Entry(
+				"unary NI chassis delete",
+				http.MethodPost,
+				"/api/v1/ni/chassis/delete",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
-			Entry("unary view rename", http.MethodPost, "/api/v1/view/rename"),
+			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
+			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
+			Entry(
+				"unary secret grant create",
+				http.MethodPost,
+				"/api/v1/secret/grant/create",
+			),
+			Entry("unary certificate set", http.MethodPost, "/api/v1/certificate/set"),
+		)
+
+		DescribeTable("Should not register a route for a deleted edit endpoint",
+			func(path string) {
+				res := MustSucceed(app.Test(
+					httptest.NewRequest(http.MethodPost, "/api/v1"+path, nil),
+				))
+				Expect(res.StatusCode).To(Equal(http.StatusNotFound))
+			},
+			Entry("user rename", "/user/rename"),
+			Entry("user change username", "/user/change-username"),
+			Entry("user set role", "/user/set-role"),
+			Entry("channel rename", "/channel/rename"),
+			Entry("channel set group", "/channel/set-group"),
+			Entry("range rename", "/range/rename"),
+			Entry("range set end", "/range/set-end"),
+			Entry("group rename", "/group/rename"),
+			Entry("group set parent", "/group/set-parent"),
+			Entry("project rename", "/project/rename"),
+			Entry("project set group", "/project/set-group"),
+			Entry("schematic symbol rename", "/schematic/symbol/rename"),
+			Entry("schematic symbol set group", "/schematic/symbol/set-group"),
+			Entry("rack rename", "/rack/rename"),
+			Entry("rack set group", "/rack/set-group"),
+			Entry("device rename", "/device/rename"),
+			Entry("device set group", "/device/set-group"),
+			Entry("task rename", "/task/rename"),
+			Entry("view rename", "/view/rename"),
+			Entry("arc directory rename", "/arc/directory/rename"),
+			Entry("arc move", "/arc/move"),
 		)
 
 		It("Should not register a route for an unknown path", func() {
@@ -154,12 +256,17 @@ var _ = Describe("HTTP", func() {
 				Storage:         node.Storage,
 				RootCredentials: creds,
 				License:         license.ServiceConfig{Anchors: signer.Anchors},
+				SecretsKey:      secret.NewEncryptionKey(),
 			}))
+			errs := api.NewErrorCodec()
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,
 				Distribution: node.Layer,
+				Errors:       errs,
 			}))
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(
+				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+			)
 			thttp.Bind(layer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -190,33 +297,37 @@ var _ = Describe("HTTP", func() {
 			return res.Token
 		}
 
-		It("Should log in with a MessagePack session request", func() {
-			body := MustSucceed(
-				msgpack.Codec.Encode(context.Background(), map[string]any{
-					"proof": map[string]string{
-						"method":   "password",
-						"username": creds.Username,
-						"password": creds.Password,
-					},
-				}),
-			)
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/v1/auth/session/create",
-				bytes.NewReader(body),
-			)
-			req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
-			req.Header.Set(fiber.HeaderAccept, msgpack.Codec.ContentType())
-			res := MustSucceed(app.Test(req, fiber.TestConfig{
-				Timeout:       10 * time.Second,
-				FailOnTimeout: true,
+		DescribeTable(
+			"Should reject a MessagePack request",
+			func(path string) {
+				req := httptest.NewRequest(
+					http.MethodPost,
+					path,
+					bytes.NewReader(
+						MustSucceed(msgpack.Codec.Encode(map[string]any{})),
+					),
+				)
+				req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
+				res := MustSucceed(app.Test(req, fiber.TestConfig{
+					Timeout:       10 * time.Second,
+					FailOnTimeout: true,
+				}))
+				Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+			},
+			Entry("session create", "/api/v1/auth/session/create"),
+			Entry("schematic create", "/api/v1/schematic/create"),
+			Entry("frame read", "/api/v1/frame/read"),
+		)
+
+		It("Should list the accepted methods without a session", func() {
+			status, body := post("/api/v1/auth/methods", "", struct{}{})
+			Expect(status).To(Equal(http.StatusOK), string(body))
+			var res apiauth.MethodsResponse
+			Expect(json.Unmarshal(body, &res)).To(Succeed())
+			Expect(res.Methods).To(Equal([]auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodPassword,
 			}))
-			raw := MustSucceed(io.ReadAll(res.Body))
-			Expect(res.StatusCode).To(Equal(http.StatusOK), string(raw))
-			var created apiauth.SessionCreateResponse
-			Expect(msgpack.Codec.Decode(context.Background(), raw, &created)).
-				To(Succeed())
-			Expect(created.Token).To(HavePrefix("sys_"))
 		})
 
 		DescribeTable(
@@ -251,9 +362,7 @@ var _ = Describe("HTTP", func() {
 			),
 		)
 
-		It("Should refuse a gated endpoint while no license is active", func(
-			ctx SpecContext,
-		) {
+		It("Should refuse a gated endpoint while no license is active", func() {
 			status, body := post(
 				"/api/v1/channel/retrieve",
 				login(),
@@ -262,7 +371,7 @@ var _ = Describe("HTTP", func() {
 			Expect(status).To(Equal(http.StatusBadRequest))
 			var pld errors.Payload
 			Expect(json.Unmarshal(body, &pld)).To(Succeed())
-			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrMissing))
+			Expect(api.NewErrorCodec().Decode(pld)).To(MatchError(license.ErrMissing))
 		})
 
 		It("Should keep a cookie's token out of a refused response", func() {
@@ -327,16 +436,6 @@ var _ = Describe("HTTP", func() {
 			).To(Equal(int(auth.DefaultIdleTimeout / time.Second)))
 			return cookies[0]
 		}
-		// a browser sends back the name and value only, for every Core on the host
-		withCookie := func(host string, cs ...*http.Cookie) map[string]string {
-			pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
-				return c.Name + "=" + c.Value
-			})
-			return map[string]string{
-				fiber.HeaderHost:   host,
-				fiber.HeaderCookie: strings.Join(pairs, "; "),
-			}
-		}
 		It("Should authenticate a request that carries only the cookie", func() {
 			cookie := loginWithCookie("localhost:9090")
 			res := post(
@@ -364,6 +463,16 @@ var _ = Describe("HTTP", func() {
 			Expect(refreshed[0].Value).To(Equal(cookie.Value))
 			Expect(refreshed[0].MaxAge).
 				To(Equal(int(auth.DefaultIdleTimeout / time.Second)))
+		})
+		It("Should set no cookie when a request fails", func() {
+			cookie := loginWithCookie("localhost:9090")
+			res := post(
+				"/api/v1/channel/retrieve",
+				withCookie("localhost:9090", cookie),
+				map[string]int{"unknown": 1},
+			)
+			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(res.Cookies()).To(BeEmpty())
 		})
 		It("Should not set a cookie when a header client renews", func() {
 			cookie := loginWithCookie("localhost:9090")
@@ -426,6 +535,9 @@ var _ = Describe("HTTP", func() {
 		It("Should refuse a request with neither header nor cookie", func() {
 			res := post("/api/v1/auth/session/renew", nil, struct{}{})
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(MustSucceed(io.ReadAll(res.Body))).To(
+				ContainSubstring("sy.auth.missing_credentials"),
+			)
 		})
 		It("Should read the cookie on every unary route", func() {
 			const unauthenticated = "no authentication token"
@@ -587,7 +699,7 @@ var _ = Describe("HTTP", func() {
 					"/api/v1/auth/key/create",
 					rootToken,
 					apiauth.KeyCreateRequest{
-						Subject: rack.OntologyIDs([]rack.Key{r.Key})[0],
+						Subject: rack.ResourceIDs([]rack.Key{r.Key})[0],
 					},
 					&created,
 				)).To(Equal(http.StatusOK))

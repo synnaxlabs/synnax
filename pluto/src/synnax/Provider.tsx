@@ -12,58 +12,47 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
-import { migrate, record } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { record } from "@synnaxlabs/x";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
 import { Errors } from "@/errors";
 import { synnax } from "@/synnax/aether";
 
-export interface ContextValue extends synnax.ContextValue {
+interface State {
+  client: Synnax | null;
   status: connection.Status;
 }
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
-  ...synnax.ZERO_CONTEXT_VALUE,
-  status: connection.DEFAULT_STATUS,
-};
+const ZERO_STATE: State = { client: null, status: connection.DEFAULT_STATUS };
 
-const [Context, useContext] = context.create({
-  defaultValue: ZERO_CONTEXT_VALUE,
-  displayName: "Synnax.Context",
+// The status changes on each connection check. Its own context keeps that change from
+// re-rendering every reader of the client.
+const [ClientContext, useClientContext] = context.create<Synnax | null>({
+  defaultValue: null,
+  displayName: "Synnax.ClientContext",
 });
 
-export const use = () => useContext().client;
+const [StatusContext, useStatusContext] = context.create<connection.Status>({
+  defaultValue: connection.DEFAULT_STATUS,
+  displayName: "Synnax.StatusContext",
+});
 
-export const useConnectionStatus = () => useContext().status;
+export const use = (): Synnax | null => useClientContext();
+
+export const useConnectionStatus = (): connection.Status => useStatusContext();
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxParams;
 }
 
-export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 export const CLOCK_SKEW_EXCEEDED = "clockSkewExceeded";
-
-export const statusDetailsSchema = z.object({
-  type: z.string(),
-  oldServer: z.boolean(),
-  nodeVersion: z.string().optional(),
-  clientVersion: z.string(),
-});
 
 export const clockSkewDetailsSchema = z.object({
   type: z.string(),
   clockSkew: z.number(),
 });
-
-export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
 const addClockSkewStatus = (
   addStatus: Status.Adder,
@@ -88,26 +77,6 @@ const addClockSkewStatus = (
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
   status.variant === "error" ? status.details.reason : undefined;
 
-const addVersionMismatchStatus = (
-  addStatus: Status.Adder,
-  status: connection.Status,
-): void => {
-  const oldServer =
-    status.details.nodeVersion == null ||
-    migrate.semVerOlder(status.details.nodeVersion, status.details.clientVersion);
-  addStatus<typeof statusDetailsSchema>({
-    variant: "warning",
-    message: "Incompatible Core version",
-    description: `Core version ${status.details.nodeVersion != null ? `${status.details.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${status.details.clientVersion}. Compatibility issues may arise.`,
-    details: {
-      type: SERVER_VERSION_MISMATCH,
-      oldServer,
-      nodeVersion: status.details.nodeVersion,
-      clientVersion: status.details.clientVersion,
-    },
-  });
-};
-
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
   status?: connection.Status;
@@ -123,15 +92,12 @@ export const TestProvider = ({
     schema: synnax.Provider.stateZ,
     state: { props: null },
   });
-  const value = {
-    ...ZERO_CONTEXT_VALUE,
-    client,
-    status: status ?? ZERO_CONTEXT_VALUE.status,
-  };
   return (
-    <Context value={value}>
-      <Aether.Composite path={path}>{children}</Aether.Composite>
-    </Context>
+    <ClientContext value={client}>
+      <StatusContext value={status ?? connection.DEFAULT_STATUS}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </StatusContext>
+    </ClientContext>
   );
 };
 
@@ -142,8 +108,7 @@ export const Provider = ({
   // The client's lifetime keys on param content: a content-equal rewrite of
   // the params object (state hydration) must not tear down the connection.
   const connParams = useMemoDeepEqual(connParamsProp);
-  const [state, setState, ref] =
-    useCombinedStateAndRef<ContextValue>(ZERO_CONTEXT_VALUE);
+  const [state, setState, ref] = useCombinedStateAndRef<State>(ZERO_STATE);
   // Advances whenever the cluster may answer differently than it just did, which is
   // the cue for latched error boundaries to try again.
   const [resetKey, setResetKey] = useState(0);
@@ -174,7 +139,6 @@ export const Provider = ({
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const versionWarned = useRef(false);
 
   const handleChange = (connStatus: connection.Status) => {
     const prev = ref.current.status;
@@ -184,14 +148,8 @@ export const Provider = ({
       reasonOf(prev) !== reasonOf(connStatus)
     )
       addStatus(connStatus);
-    if (connStatus.variant === "success") {
-      if (connStatus.details.clockSkewExceeded)
-        addClockSkewStatus(addStatus, connStatus);
-      if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
-        versionWarned.current = true;
-        addVersionMismatchStatus(addStatus, connStatus);
-      }
-    }
+    if (connStatus.variant === "success" && connStatus.details.clockSkewExceeded)
+      addClockSkewStatus(addStatus, connStatus);
     if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
     setState((prev) => ({ ...prev, status: connStatus }));
   };
@@ -201,10 +159,9 @@ export const Provider = ({
 
   useEffect(() => {
     if (connParams == null) {
-      setState(ZERO_CONTEXT_VALUE);
+      setState(ZERO_STATE);
       return;
     }
-    versionWarned.current = false;
     const heading = {
       message: "Failed to sync with Core",
       name: connParams.name ?? "",
@@ -223,15 +180,17 @@ export const Provider = ({
       // Effect cleanup cannot await. The failure is logged rather than pushed
       // through handleError: a status for a client the user already left is noise.
       client.close().catch((e: unknown) => console.error("failed to close client", e));
-      setState(ZERO_CONTEXT_VALUE);
+      setState(ZERO_STATE);
     };
   }, [connParams]);
 
   return (
-    <Context value={state}>
-      <Errors.ResetProvider value={resetKey}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
-      </Errors.ResetProvider>
-    </Context>
+    <ClientContext value={pageClient}>
+      <StatusContext value={state.status}>
+        <Errors.ResetProvider value={resetKey}>
+          <Aether.Composite path={path}>{children}</Aether.Composite>
+        </Errors.ResetProvider>
+      </StatusContext>
+    </ClientContext>
   );
 };

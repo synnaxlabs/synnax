@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type KeyboardEventHandler,
-  type MouseEventHandler,
-  type ReactElement,
-} from "react";
+import type { KeyboardEventHandler, MouseEventHandler, ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -39,10 +35,17 @@ const CHIP_BUTTON_PROPS = {
   rounded: true,
 } as const satisfies Partial<Button.ButtonProps<"div">>;
 
+const TEXT_BUTTON_PROPS = {
+  variant: "text",
+  bordered: false,
+  rounded: "medium",
+} as const satisfies Partial<Button.ButtonProps<"div">>;
+
 const BUTTON_PROPS = {
   default: DEFAULT_BUTTON_PROPS,
   pill: PILL_BUTTON_PROPS,
   chip: CHIP_BUTTON_PROPS,
+  text: TEXT_BUTTON_PROPS,
 } as const satisfies Record<Variant, Partial<Button.ButtonProps<"div">>>;
 
 export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {

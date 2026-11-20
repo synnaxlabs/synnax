@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record } from "@synnaxlabs/x";
+import { type destructor, map, type record, search } from "@synnaxlabs/x";
 import { useLayoutEffect, useReducer, useRef, useSyncExternalStore } from "react";
 
 import { context } from "@/context";
@@ -18,17 +18,24 @@ import { Store } from "@/store";
 interface FixedItem {
   element: HTMLElement | null;
   text: string | undefined;
+  pinned: boolean;
   hidden: boolean;
 }
 
-const matches = (text: string, term: string): boolean =>
-  term === "" || text.toLowerCase().includes(term.toLowerCase());
+/** How a fixed item takes part in the search. */
+export interface ItemOptions {
+  /** The text the search matches. Without it, the search reads the element's text. */
+  text?: string;
+  /** Whether the item sits outside the list, so the search never hides it. */
+  pinned?: boolean;
+}
 
 const isHidden = (
   element: HTMLElement | null,
-  text: string | undefined,
+  { text, pinned = false }: ItemOptions,
   term: string,
-): boolean => element != null && !matches(text ?? element.textContent, term);
+): boolean =>
+  !pinned && element != null && !search.matches(text ?? element.textContent, term);
 
 /**
  * Registry tracks the parts of a select that live outside its data: fixed items, the
@@ -36,10 +43,14 @@ const isHidden = (
  */
 export interface Registry {
   /**
-   * Records a fixed item's element and plain text, hiding it when the text misses the
-   * search term. Without text, the search reads the element's text.
+   * Records a fixed item's element, hiding it when its text misses the search term. A
+   * pinned item is never hidden.
    */
-  setItem: (key: record.Key, element: HTMLElement | null, text?: string) => void;
+  setItem: (
+    key: record.Key,
+    element: HTMLElement | null,
+    options?: ItemOptions,
+  ) => void;
   removeItem: (key: record.Key) => void;
   setBlock: (element: HTMLElement | null) => void;
   /**
@@ -53,8 +64,13 @@ export interface Registry {
   getText: (key: record.Key) => string | undefined;
   /** @returns whether the search term hides the fixed item with the given key. */
   isHidden: (key: record.Key) => boolean;
+  /** @returns the number of unpinned fixed items the search has not hidden. */
   countVisible: () => number;
-  /** Hides the fixed items whose text does not contain the term. */
+  /** @returns whether an unpinned fixed item has the name as its text, in any case. */
+  hasName: (name: string) => boolean;
+  /** @returns the search term. */
+  getTerm: () => string;
+  /** Sets the search term and hides the unpinned fixed items whose text misses it. */
   setTerm: (term: string) => void;
   /** @returns the element a fixed item's label renders into, created on first use. */
   getLabel: (key: record.Key) => HTMLElement;
@@ -74,12 +90,18 @@ const useRegistry = (): Registry => {
   const blockRef = useRef<HTMLElement | null>(null);
   const termRef = useRef("");
   return {
-    setItem: (key, element, text) => {
+    setItem: (key, element, options = {}) => {
+      const { text, pinned = false } = options;
       const prev = itemsRef.current.get(key);
-      const hidden = isHidden(element, text, termRef.current);
-      if (prev?.element === element && prev?.text === text && prev?.hidden === hidden)
+      const hidden = isHidden(element, options, termRef.current);
+      if (
+        prev?.element === element &&
+        prev?.text === text &&
+        prev?.pinned === pinned &&
+        prev?.hidden === hidden
+      )
         return;
-      itemsRef.current.set(key, { element, text, hidden });
+      itemsRef.current.set(key, { element, text, pinned, hidden });
       notifyListeners(key);
     },
     removeItem: (key) => {
@@ -113,31 +135,37 @@ const useRegistry = (): Registry => {
     hasItem: (key) => itemsRef.current.has(key),
     getText: (key) => itemsRef.current.get(key)?.text,
     isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
+    getTerm: () => termRef.current,
     setTerm: (term) => {
+      if (term === termRef.current) return;
       termRef.current = term;
       const changed: record.Key[] = [];
       itemsRef.current.forEach((item, key) => {
-        const hidden = isHidden(item.element, item.text, term);
+        const hidden = isHidden(item.element, item, term);
         if (hidden === item.hidden) return;
         item.hidden = hidden;
         changed.push(key);
       });
-      if (changed.length > 0) notifyListeners(changed);
+      notifyListeners(changed);
     },
     countVisible: () => {
       let count = 0;
-      for (const { hidden } of itemsRef.current.values()) if (!hidden) count++;
+      for (const { hidden, pinned } of itemsRef.current.values())
+        if (!hidden && !pinned) count++;
       return count;
     },
-    getLabel: (key) => {
-      let label = labelsRef.current.get(key);
-      if (label == null) {
-        label = document.createElement("span");
-        label.className = CSS.BE("select", "fixed-label");
-        labelsRef.current.set(key, label);
-      }
-      return label;
+    hasName: (name) => {
+      const lower = name.toLowerCase();
+      for (const { text, pinned } of itemsRef.current.values())
+        if (!pinned && text?.toLowerCase() === lower) return true;
+      return false;
     },
+    getLabel: (key) =>
+      map.getOrInsert(labelsRef.current, key, () => {
+        const label = document.createElement("span");
+        label.className = CSS.BE("select", "fixed-label");
+        return label;
+      }),
     subscribe,
   };
 };
@@ -180,6 +208,8 @@ const getText = (registry: Registry, key?: record.Key): string | undefined =>
 
 const countVisible = (registry: Registry): number => registry.countVisible();
 
+const getTerm = (registry: Registry): string => registry.getTerm();
+
 const isHiddenItem = (registry: Registry, key?: record.Key): boolean =>
   key != null && registry.isHidden(key);
 
@@ -192,11 +222,21 @@ export const useText = (key: record.Key | undefined): string | undefined =>
   useRegistryValue("Select.useText", getText, key);
 
 /**
- * @returns the number of fixed items the search has not hidden. It re-renders the
- * caller whenever an item registers, unregisters, or changes visibility.
+ * @returns the number of unpinned fixed items the search has not hidden. It re-renders
+ * the caller whenever an item registers, unregisters, or changes visibility.
  */
 export const useVisibleCount = (): number =>
   useRegistryValue("Select.useVisibleCount", countVisible);
+
+/** @returns the search term. It re-renders the caller whenever the term changes. */
+export const useTerm = (): string => useRegistryValue("Select.useTerm", getTerm);
+
+/**
+ * @returns whether an unpinned fixed item has the name as its text, in any case. It
+ * re-renders the caller whenever an item registers, unregisters, or changes.
+ */
+export const useHasName = (name: string): boolean =>
+  useRegistryValue("Select.useHasName", (registry) => registry.hasName(name));
 
 /** @returns whether the search term hides the fixed item with the given key. */
 export const useIsHidden = (key: record.Key): boolean =>

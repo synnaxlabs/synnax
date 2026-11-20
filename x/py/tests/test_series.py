@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import operator
+import subprocess
+import sys
 import uuid
 from collections.abc import Callable
 from datetime import timedelta, timezone
@@ -17,8 +19,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 
 from x import telem
@@ -608,6 +609,104 @@ class TestVariableLengthSeries:
         encoded = json.dumps({"a": 1}).encode("utf-8")
         assert s.size == 4 + len(encoded)
 
+    def test_bytes_from_list(self) -> None:
+        """Should build a bytes series from a list of bytes"""
+        values = [b"ab", b"", b"\x00\xff"]
+        s = telem.Series(values)
+        assert s.data_type == telem.DataType.BYTES
+        assert len(s) == 3
+        assert s[0] == b"ab"
+        assert s[-1] == b"\x00\xff"
+        assert list(s) == values
+
+    def test_bytes_rejects_non_bytes(self) -> None:
+        """Should reject a sample that is not bytes in a bytes series"""
+        with pytest.raises(TypeError, match="accepts only bytes"):
+            telem.Series(["a"], data_type=telem.DataType.BYTES)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesSlice:
+    @pytest.mark.parametrize(
+        "values",
+        [
+            [1.0, 2.0, 3.0, 4.0],
+            ["a", "bc", "", "def"],
+            [b"a", b"bc", b"", b"def"],
+            [{"a": 1}, {"b": 2}, {}, {"c": [3]}],
+            [uuid.UUID(int=i) for i in range(4)],
+        ],
+    )
+    @pytest.mark.parametrize(
+        "index",
+        [
+            slice(None),
+            slice(1, 3),
+            slice(-2, None),
+            slice(None, -1),
+            slice(3, 1),
+            slice(10, 20),
+            slice(None, None, 2),
+            slice(1, None, 3),
+            slice(1, 3, 2),
+            slice(3, 1, 2),
+        ],
+    )
+    def test_slice_matches_list(self, values: list[Any], index: slice) -> None:
+        """Should hold the samples that the same slice of a list holds"""
+        s = telem.Series(values)
+        sliced = s[index]
+        assert isinstance(sliced, telem.Series)
+        assert sliced.data_type == s.data_type
+        assert list(sliced) == values[index]
+        assert len(sliced) == len(values[index])
+
+    def test_slice_offsets_alignment(self) -> None:
+        """Should offset the alignment by the start times the alignment multiple"""
+        tr = telem.TimeRange(0, 10)
+        s = telem.Series(
+            ["a", "b", "c"], time_range=tr, alignment=(1, 10), alignment_multiple=2
+        )
+        sliced = s[1:]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 2
+        assert sliced.time_range == tr
+
+    @pytest.mark.parametrize("values", [[1, 2, 3, 4, 5, 6, 7], list("abcdefg")])
+    def test_slice_step_scales_alignment_multiple(self, values: list[Any]) -> None:
+        """Should multiply the alignment multiple by the step"""
+        s = telem.Series(values, alignment=(1, 10), alignment_multiple=2)
+        sliced = s[1::3]
+        assert list(sliced) == values[1::3]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 6
+        assert sliced.alignment_bounds.upper == int(telem.Alignment(1, 12)) + 2 * 6
+
+    def test_slice_step_survives_payload_round_trip(self) -> None:
+        """Should keep the alignment multiple of a stepped slice in a payload"""
+        adapter = TypeAdapter(telem.Series)
+        sliced = telem.Series([1.0, 2.0, 3.0, 4.0], alignment_multiple=2)[::2]
+        decoded = adapter.validate_python(adapter.dump_python(sliced))
+        assert list(decoded) == [1.0, 3.0]
+        assert decoded.alignment_multiple == 4
+
+    @pytest.mark.parametrize(
+        "data_type",
+        [telem.DataType.FLOAT64, telem.DataType.UUID, telem.DataType.STRING],
+    )
+    def test_slice_empty_series(self, data_type: telem.DataType) -> None:
+        """Should slice an empty series into another empty series"""
+        s = telem.Series(b"", data_type=data_type)
+        assert len(s[:]) == 0
+        assert len(s[::2][1:]) == 0
+
+    @pytest.mark.parametrize("step", [-1, -2])
+    def test_slice_rejects_negative_step(self, step: int) -> None:
+        """Should reject a negative slice step"""
+        with pytest.raises(ValueError, match="increasing alignments"):
+            telem.Series([1, 2, 3])[::step]
+
 
 @pytest.mark.telem
 @pytest.mark.series
@@ -620,6 +719,22 @@ class TestMultiSeries:
         s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
         s = telem.MultiSeries([s1, s2])
         assert len(s) == 6
+
+    def test_construction_from_tuple(self) -> None:
+        """Should accept a tuple and keep the series in order"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
+        s = telem.MultiSeries((s1, s2))
+        assert s.series == (s1, s2)
+
+    def test_series_snapshot(self) -> None:
+        """Should not change when the source list changes after construction"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        source = [s1]
+        s = telem.MultiSeries(source)
+        source.append(telem.Series([4, 5, 6], data_type=telem.DataType.INT8))
+        assert s.series == (s1,)
+        assert len(s) == 3
 
     def test_construction_mismatched_data_types(self) -> None:
         """Should throw a ValueError"""
@@ -1265,3 +1380,50 @@ class TestSeriesProperties:
         s = telem.Series(np.array(values, dtype="datetime64[ns]"))
         assert s.data_type == telem.DataType.TIMESTAMP
         assert np.asarray(s).tolist() == values
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy imports need Python 3.15")
+class TestPandasLoading:
+    def test_series_without_pandas(self) -> None:
+        """Should build series and timestamps without loading pandas."""
+        script = (
+            "import sys\n"
+            "from x import telem\n"
+            "telem.Series([1.0, 2.0])\n"
+            "telem.Series(__import__('numpy').array([1, 2]))\n"
+            "telem.TimeStamp.now() + telem.TimeSpan.from_seconds(1)\n"
+            "print('pandas' in sys.modules)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+
+@pytest.mark.series
+class TestIsCrudeSeries:
+    def test_scalar(self) -> None:
+        """Should treat a single sample as one series"""
+        assert telem.is_crude_series(1.0)
+
+    def test_list_of_samples(self) -> None:
+        """Should treat a list of samples as one series"""
+        assert telem.is_crude_series([1, 2, 3])
+
+    def test_numpy_array(self) -> None:
+        """Should treat a numpy array as one series"""
+        assert telem.is_crude_series(np.array([1, 2, 3], dtype=np.int32))
+
+    def test_series(self) -> None:
+        """Should treat a Series as one series"""
+        assert telem.is_crude_series(telem.Series([1.0, 2.0]))
+
+    def test_list_of_series(self) -> None:
+        """Should not treat a list of series as one series"""
+        series: list[telem.CrudeSeries] = [telem.Series([1.0]), telem.Series([2.0])]
+        assert not telem.is_crude_series(series)
+
+    def test_empty_list(self) -> None:
+        """Should treat an empty list as one empty series"""
+        assert telem.is_crude_series([])

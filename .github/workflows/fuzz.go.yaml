@@ -66,10 +66,12 @@ jobs:
             fuzztime: 20s
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: ${{ matrix.module }}/go.mod
           cache-dependency-path: |
@@ -78,6 +80,12 @@ jobs:
 
       - name: Download the Go modules
         run: .github/scripts/go_mod_download.sh ${{ matrix.module }}
+
+      # The module cache comes from an earlier run, and a download checks go.sum only
+      # for modules it fetches.
+      - name: Verify the Go module cache
+        working-directory: ${{ matrix.module }}
+        run: go mod verify
 
       - name: Fuzz
         working-directory: ${{ matrix.module }}
@@ -114,7 +122,18 @@ jobs:
 
       - name: Upload crash corpus
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: fuzz-crashes-${{ matrix.artifact }}-${{ matrix.shard }}
           path: ${{ matrix.module }}/**/testdata/fuzz/
+
+  relay-failure:
+    name: Relay the failure
+    needs: [fuzz]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

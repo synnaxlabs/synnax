@@ -14,22 +14,25 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for the task API service.
 type ServiceConfig struct {
+	// DB runs the reads of a delete and of a dispatch response.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Task stores and retrieves tasks.
 	//
 	// [REQUIRED]
@@ -38,10 +41,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of delete requests, and the read access that a dispatch
+	// response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Stopper stops the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Stopper *task.Stopper
 }
 
 var (
@@ -52,25 +60,31 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Stopper = override.Nil(c.Stopper, other.Stopper)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.task")
+	v.NotNil("db", c.DB)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("stopper", c.Stopper)
 	return v.Error()
 }
 
 type Service struct {
-	access *rbac.Service
-	task   *task.Service
-	status *status.Service
+	db      *gorp.DB
+	access  *rbac.Service
+	task    *task.Service
+	status  *status.Service
+	stopper *task.Stopper
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -79,9 +93,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		task:   cfg.Task,
-		status: cfg.Status,
-		access: cfg.RBAC,
+		db:      cfg.DB,
+		task:    cfg.Task,
+		status:  cfg.Status,
+		access:  cfg.RBAC,
+		stopper: cfg.Stopper,
 	}, nil
 }
 
@@ -102,18 +118,13 @@ type (
 	}
 )
 
+// Create creates the tasks. It returns an error wrapping validate.ErrValidation when a
+// task with the key of one exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.task.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Tasks); err != nil {
@@ -131,174 +142,104 @@ type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
 // config hash, after a set of the stored config when storing changed it.
 type DispatchResponse = actions.DispatchResponse[task.Action]
 
-// Dispatch applies the action sequence to the target task atomically. Subscribers to
-// the task action signals receive the sequence after the transaction commits. The
-// response holds no actions for a subject that cannot read the task, because they can
-// carry its stored config.
+// Dispatch applies the action sequence to the target task in tx. Subscribers to the
+// task action signals receive the sequence after the transaction commits. The response
+// holds no actions for a subject that cannot read the task, because they can carry its
+// stored config.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	request := access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{task.OntologyID(req.Key)},
-	}
-	if err := enforcer.Enforce(ctx, request); err != nil {
-		return DispatchResponse{}, err
-	}
-	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	computed, err := s.task.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
-	request.Action = access.ActionRetrieve
-	if err = enforcer.Enforce(ctx, request); err != nil {
+	// Committed policies decide, as in bind.Write.
+	if err = s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: []resource.ID{task.ResourceID(req.Key)},
+	}); err != nil {
 		return DispatchResponse{}, errors.Skip(err, access.ErrDenied)
 	}
 	return DispatchResponse{Actions: computed}, nil
 }
 
-type (
-	RetrieveRequest struct {
-		Internal            *bool      `json:"internal"               msgpack:"internal"`
-		Snapshot            *bool      `json:"snapshot"               msgpack:"snapshot"`
-		SearchTerm          string     `json:"search_term"            msgpack:"search_term"`
-		Keys                []task.Key `json:"keys"                   msgpack:"keys"`
-		Names               []string   `json:"names"                  msgpack:"names"`
-		Types               []string   `json:"types"                  msgpack:"types"`
-		Limit               int        `json:"limit"                  msgpack:"limit"`
-		Offset              int        `json:"offset"                 msgpack:"offset"`
-		Rack                rack.Key   `json:"rack"                   msgpack:"rack"`
-		IncludeStatus       bool       `json:"include_status"         msgpack:"include_status"`
-		IgnoreNotFoundError bool       `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
-	}
-)
+var _ bind.Named = RetrieveRequest{}
 
+// Named implements bind.Named. It returns the tasks that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, task.ResourceID)
+}
+
+// Retrieve returns the tasks that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch = len(req.SearchTerm) > 0
-		hasKeys   = len(req.Keys) > 0
-		hasNames  = len(req.Names) > 0
-		hasTypes  = len(req.Types) > 0
-		hasLimit  = req.Limit > 0
-		hasOffset = req.Offset > 0
-	)
-	q := s.task.NewRetrieve()
-	if req.Internal != nil {
-		q = q.Where(task.MatchInternal(*req.Internal))
-	}
-	if req.Snapshot != nil {
-		q = q.Where(task.MatchSnapshot(*req.Snapshot))
-	}
-	if hasNames {
-		q = q.Where(task.MatchNames(req.Names...))
-	}
-	if hasKeys {
-		q = q.Where(task.MatchKeys(req.Keys...))
-	}
-	if hasTypes {
-		q = q.Where(task.MatchTypes(req.Types...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if !req.Rack.IsZero() {
-		q = q.Where(task.MatchRacks(req.Rack))
-	}
 	var res RetrieveResponse
-	err := q.Entries(&res.Tasks).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	q, err := ApplyRetrieve(req, s.task.NewRetrieve().Entries(&res.Tasks))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-
-	if req.IncludeStatus {
-		ids := task.OntologyIDsFromTasks(res.Tasks)
-		statuses := make([]task.Status, 0, len(res.Tasks))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
-			return RetrieveResponse{}, err
-		}
-		statusByKey := make(map[status.Key]*task.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			res.Tasks[i].Status = statusByKey[id.String()]
-		}
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: task.OntologyIDsFromTasks(res.Tasks),
-	}); err != nil {
+	if err := q.Where(bind.Filter(snap, task.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, nil
-}
-
-// RenameRequest names the task to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the task to rename.
-	Key task.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the task. It requires update access on it.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{task.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
+	if req.IncludeStatus {
+		statuses, err := s.status.Join[task.StatusDetails](
+			ctx,
+			snap,
+			task.ResourceIDsFromTasks(res.Tasks),
+		)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		for i, st := range statuses {
+			res.Tasks[i].Status = st
+		}
 	}
-	_, err := s.task.Dispatch(ctx, req.Key, "", []task.Action{
-		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	})
-	return struct{}{}, err
+	return res, nil
 }
 
 type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
+// PrepareDelete stops the running tasks in req and waits for them to stop, for at most
+// the timeout of the Stopper in total. A task that does not stop in time can hold its
+// channels open until its Driver removes it. PrepareDelete returns access.ErrDenied,
+// and stops nothing, when the subject cannot delete a task in req.
+func (s *Service) PrepareDelete(
+	ctx context.Context,
+	req DeleteRequest,
+) (struct{}, error) {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: task.ResourceIDs(req.Keys),
+		})
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.stopper.Stop(ctx, req.Keys)
+}
+
+// Delete deletes the tasks in req. Run PrepareDelete first to stop them.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
+	_ struct{},
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: task.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.task.NewWriter(tx)
 	for _, k := range req.Keys {
 		if err := w.Delete(ctx, k, false); err != nil {
@@ -310,36 +251,27 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Name     string   `json:"name"     msgpack:"name"`
-		Key      task.Key `json:"key"      msgpack:"key"`
-		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
+		Name string   `json:"name" msgpack:"name"`
+		Key  task.Key `json:"key"  msgpack:"key"`
 	}
 	CopyResponse struct {
 		Task task.Task `json:"task" msgpack:"task"`
 	}
 )
 
+// Sources implements bind.Copy.
+func (r CopyRequest) Sources() []resource.ID {
+	return []resource.ID{task.ResourceID(r.Key)}
+}
+
+// Copy copies a task.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CopyRequest,
 ) (CopyResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{task.OntologyID(req.Key)},
-	}); err != nil {
-		return CopyResponse{}, err
-	}
-	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot)
+	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name)
 	if err != nil {
-		return CopyResponse{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{t.OntologyID()},
-	}); err != nil {
 		return CopyResponse{}, err
 	}
 	return CopyResponse{Task: t}, nil

@@ -106,12 +106,11 @@ Doc = record
 
 var _ = Describe("C++ PB aliases", func() {
 	DescribeTable("Should translate a use of an alias as a use of its target",
-		func(ctx SpecContext, use string, expected ...string) {
+		func(use string, expected ...string) {
 			loader := NewMockFileLoader().
 				Add("schemas/x/telem", aliasTelem).
 				Add("schemas/base", aliasBase)
 			resp := MustGenerate(
-				ctx,
 				aliasHead+use,
 				"test",
 				loader,
@@ -254,7 +253,7 @@ var _ = Describe("C++ PB aliases", func() {
 				crate Crate<string>
 			}
 		`,
-			"auto [v, err] = Box<std::string>::from_proto(pb.crate());",
+			"auto [v, err] = string_box_from_proto(pb.crate());",
 		),
 		Entry("an alias of a struct", `
 			Panel struct {

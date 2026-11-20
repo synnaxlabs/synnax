@@ -9,13 +9,14 @@
 
 import "@/dialog/Trigger.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { useContext } from "@/dialog/Frame";
-import { type Icon } from "@/icon";
+import { useCombinedRefs } from "@/hooks";
+import type { Icon } from "@/icon";
 
 /** Props for {@link Trigger}. */
 export interface TriggerProps extends Button.ButtonProps {
@@ -27,15 +28,16 @@ export interface TriggerProps extends Button.ButtonProps {
  * turns with the dialog.
  */
 export const Trigger = ({
+  ref,
   onClick,
   className,
   hideCaret = false,
   children,
-  variant: triggerVariant,
   preview,
   ...rest
 }: TriggerProps): ReactElement => {
-  const { toggle, visible, variant } = useContext();
+  const { toggle, visible, variant, triggerRef } = useContext();
+  const combinedRef = useCombinedRefs(ref, triggerRef);
   let endIcon: Icon.ReactElement | undefined;
   const opensDialog = preview !== true;
   if (preview === true) hideCaret = true;
@@ -45,13 +47,13 @@ export const Trigger = ({
     );
   return (
     <Button.Button
+      ref={combinedRef}
       className={CSS.cls(CSS.BE("dialog", "trigger"), className)}
       onClick={(e) => {
         onClick?.(e);
         toggle();
       }}
       full="x"
-      variant={triggerVariant}
       preview={preview}
       aria-haspopup={opensDialog ? "dialog" : undefined}
       aria-expanded={opensDialog ? visible : undefined}

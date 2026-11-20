@@ -18,10 +18,14 @@ import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 type Performance = versions.Performance
 
 const (
-	PerformanceAuto   Performance = versions.PerformanceAuto
-	PerformanceLow    Performance = versions.PerformanceLow
+	// PerformanceAuto spins the timer for the default time of the platform.
+	PerformanceAuto Performance = versions.PerformanceAuto
+	// PerformanceLow never spins the timer.
+	PerformanceLow Performance = versions.PerformanceLow
+	// PerformanceMedium spins the timer for up to 1 millisecond before a deadline.
 	PerformanceMedium Performance = versions.PerformanceMedium
-	PerformanceHigh   Performance = versions.PerformanceHigh
+	// PerformanceHigh spins the timer for the whole of each wait.
+	PerformanceHigh Performance = versions.PerformanceHigh
 )
 
 // Config configures an Arc task, which runs a compiled Arc module.

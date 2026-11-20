@@ -11,6 +11,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type destructor,
   errors,
+  map,
   type Reduction,
   scheduler,
   type Series,
@@ -20,9 +21,9 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { isConnectionError, NotFoundError, UnexpectedError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import {
   align,
   countBefore,
@@ -33,8 +34,8 @@ import {
   split,
 } from "@/framer/cache/block";
 import { indexes, tileRange } from "@/framer/cache/grid";
-import { type Store } from "@/framer/cache/store";
-import { type Frame } from "@/framer/frame";
+import type { Store } from "@/framer/cache/store";
+import type { Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
 export interface RemoteReader {
@@ -306,10 +307,7 @@ export class Reader {
     const stale = (k: channel.Key): boolean => rewritten.has(null) || rewritten.has(k);
     const grouped = new Map<channel.Key, Series[]>();
     frame.forEach((k, s) => {
-      const key = k as channel.Key;
-      const existing = grouped.get(key);
-      if (existing == null) grouped.set(key, [s]);
-      else existing.push(s);
+      map.getOrInsert(grouped, k as channel.Key, () => []).push(s);
     });
     indexOf.forEach((idx, key) => {
       const series = grouped.get(key) ?? [];

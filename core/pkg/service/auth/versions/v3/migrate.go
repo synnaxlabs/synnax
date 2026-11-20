@@ -26,7 +26,7 @@ import (
 // version of its credential, which version reads within the migration's transaction.
 // It deletes each session whose credential is gone.
 func NewMigration(
-	version func(context.Context, gorp.Tx, uuid.UUID) (telem.TimeStamp, error),
+	version func(context.Context, gorp.Snapshot, uuid.UUID) (telem.TimeStamp, error),
 ) gorp.Migration {
 	return migrate.New(
 		"v3_session_credential_version",

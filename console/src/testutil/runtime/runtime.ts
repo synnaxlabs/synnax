@@ -7,31 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { Runtime } from "@/session/runtime";
+
 /**
  * EngineRef is the mutable engine handle a spec creates via vi.hoisted and flips
  * between tests to drive the web/tauri branches.
  */
 export interface EngineRef {
   engine: "web" | "tauri";
+  /** Overrides CORE_EMBEDDED when set, to drive the Synnax Desktop branches. */
+  coreEmbedded?: boolean;
 }
 
 /**
- * mockRuntimeEngine builds the module shape for mocking the session runtime's ENGINE
- * constant. It spreads the real module and overrides ONLY ENGINE with a getter reading
- * the given ref, so Drift and every other export stay real. vi.mock factories are
- * hoisted above imports, so the spec must reach this helper through a dynamic import
- * inside the factory and create the ref via vi.hoisted: const mocks = vi.hoisted((): {
- * engine: "web" | "tauri" } => ({ engine: "web" }));
- * vi.mock("@/session/runtime/runtime", async (importOriginal) => { const {
- * mockRuntimeEngine } = await import("@/testutil/runtime"); return await
- * mockRuntimeEngine(importOriginal, mocks); });
+ * Mocks the `Runtime` namespace of `@/session/runtime`, so that ENGINE, CORE_EMBEDDED,
+ * and isMainWindow read the ref on each call. Every other export stays real. A browser
+ * mock reads each export of a module once, so only a namespace property can change
+ * between tests. vi.mock factories run before imports: create the ref with vi.hoisted,
+ * and load this helper with a dynamic import inside the factory.
  */
 export const mockRuntimeEngine = async (
-  importOriginal: () => Promise<unknown>,
+  importOriginal: () => Promise<{ Runtime: typeof Runtime }>,
   ref: EngineRef,
-): Promise<Record<string, unknown>> => ({
-  ...((await importOriginal()) as Record<string, unknown>),
-  get ENGINE() {
-    return ref.engine;
-  },
-});
+): Promise<{ Runtime: typeof Runtime }> => {
+  const { Runtime: original } = await importOriginal();
+  return {
+    Runtime: {
+      ...original,
+      get ENGINE() {
+        return ref.engine;
+      },
+      get CORE_EMBEDDED() {
+        return ref.coreEmbedded ?? original.CORE_EMBEDDED;
+      },
+      isMainWindow: () => original.isMainWindow(ref.engine),
+    },
+  };
+};

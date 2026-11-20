@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Access, type Control, type Properties, Schematic } from "@synnaxlabs/pluto";
-import { type control, type record } from "@synnaxlabs/x";
+import type { control, record } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
 
 import {
@@ -140,10 +140,8 @@ export const useSelectEditable = (args?: {
   key?: schematic.Key;
 }): UseSelectEditableReturn => {
   const key = Schematic.useKey(args?.key);
-  const isSnapshot = Schematic.useIsSnapshot({ key });
-  const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(schematic.resourceID(key));
   const editable = useSelectEditableBase(args);
-  const canEdit = hasUpdatePermission && !isSnapshot;
-  const isCurrentlyEditable = canEdit && editable;
-  return { canEdit, isCurrentlyEditable };
+  const isCurrentlyEditable = hasUpdatePermission && editable;
+  return { canEdit: hasUpdatePermission, isCurrentlyEditable };
 };

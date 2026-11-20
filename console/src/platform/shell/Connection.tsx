@@ -7,25 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection } from "@synnaxlabs/client";
+import type { connection } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Connection as PlatformConnection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Island } from "@/platform/shell/Island";
 
-/* Rejected credentials and an unlicensed Core mean the Core answered, so the island
-   stays nominal and the surface behind it carries the error. */
-const ANSWERED: connection.Reason[] = ["auth", "unlicensed"];
+/* Rejected credentials, an unlicensed Core, and an incompatible Core mean the Core
+   answered, so the island stays nominal and the surface behind it carries the error. */
+const ANSWERED: connection.Reason[] = ["auth", "unlicensed", "incompatible"];
 
-const variantOf = (status?: connection.Status | null): connection.Status["variant"] => {
-  if (status == null) return "loading";
+interface Summary {
+  variant: connection.Status["variant"];
+  label: string;
+}
+
+const summarize = (status?: connection.Status | null): Summary => {
+  if (status == null)
+    return { variant: "loading", label: PlatformConnection.VARIANT_LABELS.loading };
   if (status.variant === "error" && ANSWERED.includes(status.details.reason))
-    return "success";
-  return status.variant;
+    return { variant: "success", label: PlatformConnection.VARIANT_LABELS.success };
+  return { variant: status.variant, label: PlatformConnection.label(status) };
 };
 
 export interface ConnectionCore {
@@ -60,7 +66,7 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
       : { host: core.host, port: core.port, secure: core.secure },
   );
   if (core == null) return null;
-  const variant = variantOf(isActive ? live : checked);
+  const { variant, label } = summarize(isActive ? live : checked);
   return (
     <Island
       gap="medium"
@@ -87,7 +93,7 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
         {core.host}:{core.port}
       </Text.Text>
       <Text.Text status={variant} className={CSS.BE("shell", "connection-status")}>
-        {PlatformConnection.STATUS_LABELS[variant]}
+        {label}
       </Text.Text>
     </Island>
   );

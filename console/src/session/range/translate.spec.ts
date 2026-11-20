@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
@@ -22,6 +22,8 @@ const payload = (
   key,
   name,
   timeRange: new TimeRange(new TimeStamp(start), new TimeStamp(end)),
+  labels: [],
+  hasChildren: false,
 });
 
 describe("range translate", () => {

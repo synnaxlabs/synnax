@@ -15,21 +15,21 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/x/compare"
 )
 
-// Retrieve is used to retrieve User records from the database using a
-// builder pattern for constructing queries.
-type Retrieve struct {
-	baseTX  gorp.Tx
-	gorp    gorp.Retrieve[Key, User]
-	indexes indexes
-}
+// tableName names the User table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "user"
 
 // indexes bundles the per-Service secondary indexes registered on the
 // User table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, User, string]
+	role   *gorp.KeyReference[Key, User, role.Key]
 	search *gorp.SearchIndex[Key, User]
 }
 
@@ -38,6 +38,19 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, User, string](
+			"name",
+			func(e *User) string { return compare.TextKey(string(e.Name)) },
+		),
+		role: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, User, role.Key]{
+			Name:     "role",
+			Table:    "role",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
+			Targets: func(e *User) []role.Key {
+				return []role.Key{e.Role}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, User](
 			"search",
 			func(e *User) []string {
@@ -51,7 +64,55 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, User] {
 	return []gorp.Index[Key, User]{
+		i.name,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, User] {
+	return []gorp.Reference[Key, User]{
+		i.role,
+	}
+}
+
+// MatchSearch matches the users whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, User] {
+		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, User]
+
+// OrderBy walks the users in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, User] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, User] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -93,8 +154,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -115,6 +175,15 @@ func MatchRootUser(v bool) Filter {
 		return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
 			return e.RootUser == v, nil
 		})
+	}
+}
+
+// MatchRoles returns a filter for users
+// whose Role matches any of the provided
+// values.
+func MatchRoles(vals ...role.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, User] {
+		return r.indexes.role.Filter(vals...)
 	}
 }
 
@@ -145,24 +214,33 @@ func (r Retrieve) Entries(es *[]User) Retrieve {
 // Limit sets the maximum number of users to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the users to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// SkipMissingKeys makes Exec treat a key with no user as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
 }
 
-// Count returns the number of users matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Exists checks whether any users match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of users in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
+}
+
+// Exists checks whether any users in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

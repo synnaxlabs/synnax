@@ -148,14 +148,33 @@ func compileWithAnalyzer(
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
+	resolver := resolve.NewResolver()
+	for i, t := range []types.Type{types.I64(), types.U64()} {
+		resolver.RegisterLocal(resolve.IndexFromName(t), uint32(i))
+	}
 	compilerCtx := ccontext.NewRoot(
 		bCtx,
 		analyzerCtx.Scope,
 		analyzerCtx.TypeMap,
-		resolve.NewResolver(),
+		resolver,
 	)
+	compilerCtx.FmtStrings = analyzerCtx.FmtStrings
 	exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 	return FinalizeContext(compilerCtx), exprType
+}
+
+// expectAnalyzedExpression analyzes and compiles expression, asserting its type and
+// opcodes.
+func expectAnalyzedExpression(
+	bCtx SpecContext,
+	expression string,
+	expectedType types.Type,
+	expectedOpcodes ...any,
+) {
+	GinkgoHelper()
+	bytecode, exprType := compileWithAnalyzer(bCtx, expression, nil)
+	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
+	Expect(exprType).To(Equal(expectedType))
 }
 
 // expectSeriesExpression is a test helper for series operations that require symbol
@@ -173,7 +192,7 @@ func expectSeriesExpression(
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 }
 
-// seriesSymbol creates a symbol for a series variable
+// seriesSymbol creates a symbol for a series variable.
 func seriesSymbol(name string, elemType types.Type, id int) symbol.Symbol {
 	return symbol.Symbol{
 		Name: name,

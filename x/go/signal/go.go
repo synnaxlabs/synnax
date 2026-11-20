@@ -16,10 +16,11 @@ import (
 
 // Go is the core interface for forking a new goroutine.
 type Go interface {
-	// Go starts a new goroutine with the provided key under the given Context.
-	// When the Context is canceled, the goroutine should abort its work and exit.
-	// Additional parameters can be passed to the goroutine to modify its behavior.
-	// See the RoutineOption documentation for more.
+	// Go starts a new goroutine with the provided key under the given Context. The
+	// goroutine runs even if the Context is already canceled, so that it can release
+	// what it owns. When the Context is canceled, the goroutine should abort its work
+	// and exit. Additional parameters can be passed to the goroutine to modify its
+	// behavior. See the RoutineOption documentation for more.
 	Go(f func(ctx context.Context) error, opts ...RoutineOption)
 }
 

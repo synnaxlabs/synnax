@@ -8,59 +8,109 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
-import { type query } from "@/query";
-import { createPanelParent, createTestClient, expectLive } from "@/testutil";
+import type { project } from "@/project";
+import {
+  createEmptyRole,
+  createPanelProject,
+  createTestClient,
+  expectLive,
+} from "@/testutil";
+import type { user } from "@/user";
 
 const client = createTestClient();
 
 describe("Panel Client", () => {
-  // Panel creation requires a parent; every panel here shares this one.
-  let parent: ontology.ID;
+  // Every panel here shares this project.
+  let proj: project.Key;
 
   beforeAll(async () => {
-    parent = await createPanelParent(client);
+    proj = await createPanelProject(client);
   });
 
   const createPanel = async (): Promise<panel.Panel> =>
-    await client.panels.create({ name: `panel-${id.create()}`, parent });
+    await client.panels.create({ name: `panel-${id.create()}`, project: proj });
 
-  describe("optimistic rename", () => {
-    const WRITE_FAILED = new Error("write failed");
-    const fail = () => {
-      throw WRITE_FAILED;
+  describe("retrieve", () => {
+    it("should combine a project filter with a where", async () => {
+      const scope = await createPanelProject(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, project: scope },
+        { name: `panel-${id.create()}`, project: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        where: { projects: [scope], key: { in: [kept.key, outsider.key] } },
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+
+    it("should combine a project filter with a flat filter", async () => {
+      const scope = await createPanelProject(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, project: scope },
+        { name: `panel-${id.create()}`, project: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        projects: [scope],
+        key: [kept.key, outsider.key],
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+  });
+
+  describe("drafts", () => {
+    const createOwner = async (): Promise<user.Key> => {
+      const role = await createEmptyRole(client);
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        name: "owner",
+        role: role.key,
+      });
+      return u.key;
     };
 
-    it("should cache the new name before the write commits", async () => {
+    it("should match the panels visible to one user", async () => {
+      const scope = await createPanelProject(client);
+      const [mine, theirs] = await Promise.all([createOwner(), createOwner()]);
+      const where = panel.visibleTo(scope, mine);
+      const list = client.panels.watch({ where });
+      const off = list.onChange(vi.fn());
+      expect((await list.retrieve()).records).toEqual([]);
+      const created = await client.panels.create([
+        { name: `panel-${id.create()}`, project: scope },
+        { name: `panel-${id.create()}`, project: scope, owner: mine },
+        { name: `panel-${id.create()}`, project: scope, owner: theirs },
+      ]);
+      const expected = [created[0].key, created[1].key].sort();
+      const cached = expectLive(list.getCached()).records.map((p) => p.key);
+      expect(cached.sort()).toEqual(expected);
+      const retrieved = await client.panels.retrieve({ where });
+      expect(retrieved.map((p) => p.key).sort()).toEqual(expected);
+      off();
+    });
+  });
+
+  describe("rename", () => {
+    it("should cache the new name before the send resolves", async () => {
       const pan = await createPanel();
-      let duringWrite: query.Cached<panel.Panel> | undefined;
-      await client.panels.rename(pan.key, "renamed", {
-        onOptimistic: () => {
-          duringWrite = client.panels.getCached(pan.key);
-        },
-      });
-      expect(expectLive(duringWrite).name).toEqual("renamed");
+      const renamed = client.panels.rename(pan.key, "renamed");
+      expect(expectLive(client.panels.watch(pan.key).getCached()).name).toEqual(
+        "renamed",
+      );
+      await renamed;
     });
 
-    it("should restore the previous name when the write fails", async () => {
+    it("should restore the previous name when the Core rejects it", async () => {
       const pan = await createPanel();
-      await expect(
-        client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
-      ).rejects.toBe(WRITE_FAILED);
-      expect(expectLive(client.panels.getCached(pan.key)).name).toEqual(pan.name);
-    });
-
-    it("should restore the ontology resource name when the write fails", async () => {
-      const pan = await createPanel();
-      const panelID = panel.ontologyID(pan.key);
-      await client.ontology.retrieve(panelID);
-      await expect(
-        client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
-      ).rejects.toBe(WRITE_FAILED);
-      expect(expectLive(client.ontology.getCached(panelID)).name).toEqual(pan.name);
+      await expect(client.panels.rename(pan.key, "")).rejects.toThrow("name: required");
+      expect(expectLive(client.panels.watch(pan.key).getCached()).name).toEqual(
+        pan.name,
+      );
     });
   });
 });

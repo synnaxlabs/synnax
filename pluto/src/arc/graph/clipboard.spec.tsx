@@ -11,14 +11,14 @@ import { arc } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/arc";
 import { useClipboard } from "@/arc/graph/clipboard";
 import { Errors } from "@/errors";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 
 const client = createTestClient();
 let wrapper: FC<PropsWithChildren>;
@@ -34,24 +34,26 @@ const EDGE_KEY = "edge-n1-n2";
 const createGraphArc = async (): Promise<arc.Arc> =>
   await client.arcs.create({
     name: `clipboard_${id.create()}`,
-    mode: "graph",
-    graph: {
-      nodes: [
-        { key: N1, position: { x: 0, y: 0 } },
-        { key: N2, position: { x: 10, y: 10 } },
-      ],
-      edges: [
-        {
-          key: EDGE_KEY,
-          source: { node: N1, param: "out" },
-          target: { node: N2, param: "in" },
-          kind: arc.ir.EdgeKind.continuous,
-        },
-      ],
-      inputs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
-      functions: [],
+    type: "automation",
+    source: {
+      mode: "graph",
+      graph: {
+        nodes: [
+          { key: N1, position: { x: 0, y: 0 } },
+          { key: N2, position: { x: 10, y: 10 } },
+        ],
+        edges: [
+          {
+            key: EDGE_KEY,
+            source: { node: N1, param: "out" },
+            target: { node: N2, param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+        inputs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
+        functions: [],
+      },
     },
-    text: { raw: "" },
   });
 
 // loadArc primes the client cache with the arc at key via the suspending

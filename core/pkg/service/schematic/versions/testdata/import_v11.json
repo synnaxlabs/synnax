@@ -1,0 +1,27 @@
+{
+  "version": 11,
+  "type": "schematic",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Server v11",
+  "snapshot": false,
+  "nodes": [
+    { "key": "n1", "position": { "x": 1, "y": 2 }, "z_index": 4 },
+    { "key": "n2", "position": { "x": 3, "y": 4 }, "z_index": 0 }
+  ],
+  "edges": [
+    {
+      "key": "e1",
+      "source": { "node": "n1", "param": "out" },
+      "target": { "node": "n2", "param": "in" }
+    }
+  ],
+  "configs": {
+    "n1": { "variant": "valve", "scale": 2 },
+    "n2": { "variant": "tank" },
+    "e1": {
+      "variant": "pipe",
+      "stroke_color": { "r": 255, "g": 0, "b": 0, "a": 1 },
+      "segments": []
+    }
+  }
+}

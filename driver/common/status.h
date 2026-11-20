@@ -17,6 +17,7 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/strings/strings.h"
 
@@ -24,10 +25,9 @@
 #include "driver/task/task.h"
 
 namespace driver::common {
-const std::string STOP_CMD_TYPE = "stop";
 const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks. A status that answers no
-/// command is sent at most once per window.
+/// command is sent at most once per window, and only when it changes.
 struct StatusHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
     const std::shared_ptr<driver::task::Context> ctx;
@@ -46,7 +46,7 @@ struct StatusHandler {
         window(window.chrono()),
         sent_at(std::chrono::steady_clock::now() - this->window) {
         this->status.name = task.name;
-        this->status.details.task = task.key;
+        this->status.owner = synnax::task::resource_id(task.key);
         // The revision this instance was built from. A difference against the stored
         // hash is what the Console renders as drift.
         this->status.details.config_hash = task.config_hash;
@@ -96,7 +96,6 @@ struct StatusHandler {
     /// @brief registers err like error(), then sends it right away.
     void send_error(const x::errors::Error &err, const std::string &message) {
         if (!this->error(err, message)) return;
-        this->status.key = synnax::task::status_key(this->task);
         this->status.details.running = false;
         this->set_text(message, err.data);
         this->maybe_set_status();
@@ -105,13 +104,24 @@ struct StatusHandler {
     /// @brief sends a warning to the task. If the task is in error state, the error is
     /// communicated instead.
     void send_warning(const std::string &message, const std::string &description) {
-        this->status.key = synnax::task::status_key(this->task);
         if (!this->accumulated_err) {
             this->status.variant = synnax::status::VARIANT_WARNING;
             this->set_text(message, description);
         } else
             this->set_text(this->accumulated_msg, this->accumulated_err.data);
         this->maybe_set_status();
+    }
+
+    /// @brief shows warning while the task runs with no warning or error of its own. An
+    /// empty warning stops showing it. A warning or error of the task hides it, and
+    /// clear_warning does not clear it. The flusher thread sends the change, so the
+    /// caller never writes to the Core, but it can wait for a write in progress. Safe
+    /// to call from any thread.
+    void set_background_warning(const Warning &warning) {
+        std::lock_guard lock(this->mu);
+        if (this->closed || this->background == warning) return;
+        this->background = warning;
+        if (this->last.has_value()) this->defer(this->shown(*this->last));
     }
 
     void clear_warning() {
@@ -125,9 +135,15 @@ struct StatusHandler {
     /// as part of the state. If an error has been accumulated, then the error will be
     /// sent as part of the state. If the error is nil, then the task will be marked as
     /// running. Skips the window because the Console waits for command acknowledgments
-    /// keyed by cmd.
+    /// keyed by cmd. A start that failed with x::errors::CANCELLED sends nothing and
+    /// clears the error, since its operation answers it as stopped.
     void send_start(const std::string &cmd_key) {
-        this->status.key = synnax::task::status_key(this->task);
+        // A start ended by its cancel is answered as stopped, and its error must not
+        // answer the stop that follows.
+        if (this->accumulated_err.matches(x::errors::CANCELLED)) {
+            this->reset();
+            return;
+        }
         this->status.details.cmd = cmd_key;
         if (!this->accumulated_err) {
             this->status.details.running = true;
@@ -146,7 +162,6 @@ struct StatusHandler {
     /// not running. Skips the window because the Console waits for command
     /// acknowledgments keyed by cmd.
     void send_stop(const std::string &cmd_key) {
-        this->status.key = synnax::task::status_key(this->task);
         this->status.details.cmd = cmd_key;
         this->status.details.running = false;
         if (this->accumulated_err) {
@@ -163,7 +178,6 @@ struct StatusHandler {
     /// that needs no work. Skips the window because the Console waits for command
     /// acknowledgments keyed by cmd.
     void ack(const std::string &cmd_key, const bool running) {
-        this->status.key = synnax::task::status_key(this->task);
         this->status.details.running = running;
         this->status.details.cmd = cmd_key;
         this->set_status();
@@ -176,7 +190,8 @@ private:
     std::string accumulated_msg;
     /// @brief the shortest time between two statuses that answer no command.
     const std::chrono::nanoseconds window;
-    /// @brief guards pending, sent, sent_at, and closed, and orders writes to ctx.
+    /// @brief guards pending, sent, sent_at, closed, background, and last, and orders
+    /// writes to ctx.
     std::mutex mu;
     /// @brief wakes the flusher when a status starts to wait or the handler closes.
     std::condition_variable cv;
@@ -188,6 +203,10 @@ private:
     std::chrono::steady_clock::time_point sent_at;
     /// @brief true once close is called.
     bool closed = false;
+    /// @brief the warning that set_background_warning shows.
+    Warning background;
+    /// @brief the last status the task sent, before background is applied.
+    std::optional<synnax::task::Status> last;
     /// @brief sends the pending status when its window ends. Started on first use.
     std::thread flusher;
 
@@ -196,6 +215,36 @@ private:
     void set_text(const std::string &message, const std::string &description = "") {
         this->status.message = message;
         this->status.description = description;
+    }
+
+    [[nodiscard]] static bool
+    same(const synnax::task::Status &a, const synnax::task::Status &b) {
+        return a.variant == b.variant && a.message == b.message &&
+               a.description == b.description && a.details.running == b.details.running;
+    }
+
+    /// @brief returns status with background applied. Requires mu.
+    [[nodiscard]] synnax::task::Status shown(synnax::task::Status status) const {
+        if (this->background.empty() || !status.details.running ||
+            status.variant != synnax::status::VARIANT_SUCCESS)
+            return status;
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.message = this->background.message;
+        status.description = this->background.description;
+        return status;
+    }
+
+    /// @brief hands status to the flusher, unless it equals the last one sent.
+    /// Requires mu.
+    void defer(synnax::task::Status status) {
+        if (same(status, this->sent)) {
+            this->pending.reset();
+            return;
+        }
+        this->pending = std::move(status);
+        if (!this->flusher.joinable())
+            this->flusher = std::thread([this] { this->flush(); });
+        this->cv.notify_one();
     }
 
     /// @brief writes status to ctx. Requires mu.
@@ -213,6 +262,10 @@ private:
             std::lock_guard lock(this->mu);
             this->pending.reset();
             this->write(this->status);
+            this->last = this->status;
+            this->last->details.cmd = driver::task::NO_COMMAND;
+            // A command answer never shows background, so show it again after.
+            if (!this->closed) this->defer(this->shown(*this->last));
         }
         // The key answers one command. Later unsolicited updates reuse this status
         // object and must not claim it.
@@ -221,28 +274,20 @@ private:
 
     /// @brief sends the current status, at most once per window. A status inside the
     /// window waits for the window to end, and only the latest one is sent. A status
-    /// equal to the last one sent is not sent again inside the window.
+    /// equal to the last one sent is not sent again.
     void maybe_set_status() {
         std::lock_guard lock(this->mu);
         if (this->closed) return;
+        this->last = this->status;
+        auto status = this->shown(this->status);
         const auto now = std::chrono::steady_clock::now();
-        if (now - this->sent_at >= this->window) {
-            this->pending.reset();
-            this->sent_at = now;
-            this->write(this->status);
+        if (same(status, this->sent) || now - this->sent_at < this->window) {
+            this->defer(std::move(status));
             return;
         }
-        if (this->status.variant == this->sent.variant &&
-            this->status.message == this->sent.message &&
-            this->status.description == this->sent.description &&
-            this->status.details.running == this->sent.details.running) {
-            this->pending.reset();
-            return;
-        }
-        this->pending = this->status;
-        if (!this->flusher.joinable())
-            this->flusher = std::thread([this] { this->flush(); });
-        this->cv.notify_one();
+        this->pending.reset();
+        this->sent_at = now;
+        this->write(std::move(status));
     }
 
     /// @brief sends each pending status when its window ends, until the handler closes.
@@ -282,21 +327,28 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, empty at boot. A boot configure that does not
-/// auto-start logs its failures instead of reporting them. A successful configure
-/// writes no status: the start that follows it answers the command.
+/// command driving the deploy, or NO_COMMAND at boot. A failed configure writes an
+/// error status, except at boot for a task that another rack runs. A successful
+/// configure writes no status: the start that follows it answers the command. Only a
+/// configure with no command auto-starts the task, because a start command that drives
+/// a deploy starts the task with its own key. An auto-start first writes a loading
+/// status, which the task replaces when it answers the start. cancel is passed to the
+/// auto-start. A configure that fails with x::errors::CANCELLED writes no status, so
+/// the start is answered as stopped.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     std::pair<common::ConfigureResult, x::errors::Error> res,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
-    const bool boot = cmd_key == driver::task::NO_COMMAND;
+    const bool commanded = cmd_key != driver::task::NO_COMMAND;
+    if (res.second.matches(x::errors::CANCELLED))
+        return {std::move(res.first.task), true};
     if (res.second) {
         synnax::task::Status status;
-        status.key = synnax::task::status_key(task);
+        status.owner = synnax::task::resource_id(task.key);
         status.name = task.name;
-        status.details.task = task.key;
         status.details.config_hash = task.config_hash;
         status.details.running = false;
         status.variant = synnax::status::VARIANT_ERROR;
@@ -304,19 +356,31 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.description = config_err_description(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
-        if (boot && !res.first.auto_start)
+        // A task moved here runs on its old Driver until a start arrives.
+        const bool moved = task.status.has_value() && task.status->details.running &&
+                           task.status->details.rack != task.rack;
+        if (!commanded && moved)
             LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
                          << res.second;
         else
             ctx->set_status(status);
         return {std::move(res.first.task), true};
     }
-    if (res.first.auto_start) {
+    if (!commanded && res.first.auto_start) {
+        // A task may answer the start later, from its own thread. Until then, this
+        // status replaces the one stored by the last run.
+        synnax::task::Status starting;
+        starting.owner = synnax::task::resource_id(task.key);
+        starting.name = task.name;
+        starting.variant = synnax::status::VARIANT_LOADING;
+        starting.message = "Starting task";
+        starting.details.config_hash = task.config_hash;
+        ctx->set_status(starting);
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,
         };
-        res.first.task->exec(start_cmd);
+        res.first.task->exec(start_cmd, cancel);
     }
     return {std::move(res.first.task), true};
 }

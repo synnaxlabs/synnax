@@ -16,15 +16,33 @@ from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.notifications import click_past
+from x.control import Authority
+from x.notation import Notation
 
-PropertyDict = dict[str, float | str | bool]
+
+class Properties(TypedDict, total=False):
+    """The values a schematic or one of its symbols shows in its Console forms. Forms
+    show channels by name, not by key."""
+
+    channel: str
+    state_channel: str
+    command_channel: str
+    activation_delay: float
+    show_control_chip: bool
+    mode: sy.schematic.ButtonMode
+    notation: Notation
+    precision: int
+    averaging_window: int
+    stale_color: str
+    stale_timeout: int
+    control_authority: Authority
+    show_control_legend: bool
 
 
-class Option(TypedDict):
-    """An option of a select or state indicator symbol."""
-
-    name: str
-    value: float
+def option_text(value: float) -> str:
+    """Return the text of an option value, with no digits lost and no trailing ".0"."""
+    return repr(value).removesuffix(".0")
 
 
 """ Symbol Box helpers """
@@ -78,10 +96,9 @@ class Symbol(ABC):
         The symbol is not yet attached to a schematic. Call
         schematic.create_symbol(symbol) to add it to the schematic.
 
-        Args:
-            label: Display label for the symbol
-            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
-            rotatable: Whether the symbol can be rotated (default: False)
+        :param label: Display label for the symbol
+        :param symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
+        :param rotatable: Whether the symbol can be rotated (default: False)
         """
         if label.strip() == "":
             raise ValueError("Label cannot be empty")
@@ -96,8 +113,7 @@ class Symbol(ABC):
 
         This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
-        Args:
-            layout: LayoutClient for UI interactions (includes notifications)
+        :param layout: LayoutClient for UI interactions (includes notifications)
         """
         from console.schematic.symbol_toolbar import SymbolToolbar
 
@@ -119,28 +135,30 @@ class Symbol(ABC):
         """
 
     def _disable_edit_mode(self) -> None:
+        # Callers press or hold the symbol next, which goes through the hit test.
         self.notifications.close_all()
         disable_btn = self.page.get_by_role(
             "button", name="Disable editing", exact=True
         )
         if disable_btn.count() > 0:
-            disable_btn.click()
+            click_past(disable_btn)
             self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
                 state="visible", timeout=3000
             )
 
     def _enable_edit_mode(self) -> None:
+        # Callers then click or drag the symbol through the hit test.
         self.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
-            enable_editing_link.click()
+            click_past(enable_editing_link)
             self.page.get_by_role(
                 "button", name="Disable editing", exact=True
             ).wait_for(state="visible", timeout=2000)
             return
         enable_btn = self.page.get_by_role("button", name="Enable editing", exact=True)
         if enable_btn.count() > 0:
-            enable_btn.click()
+            click_past(enable_btn)
 
     def click(self) -> None:
         """Click the symbol to select it."""
@@ -160,7 +178,7 @@ class Symbol(ABC):
         self.layout.show_visualization_toolbar()
         style_tab = self.page.get_by_text("Style", exact=True).first
         style_tab.wait_for(state="visible", timeout=5000)
-        style_tab.click()
+        click_past(style_tab)
         self.layout.fill_input_field("Label", label)
         self.label = label
 
@@ -170,7 +188,7 @@ class Symbol(ABC):
 
     def set_channel(self, *, section: str, channel_name: str) -> None:
         if channel_name is not None:
-            self.layout.click(self.channel_trigger(section))
+            click_past(self.channel_trigger(section))
             self.layout.select_from_dropdown(
                 channel_name, placeholder="Search", exact=True
             )
@@ -219,8 +237,7 @@ class Symbol(ABC):
     def position(self) -> FloatRect:
         """Get the symbol's bounding box for alignment checks.
 
-        Raises:
-            RuntimeError: If the symbol's bounding box cannot be retrieved
+        :raises RuntimeError: If the symbol's bounding box cannot be retrieved
         """
         box = self.locator.bounding_box()
         if not box:
@@ -234,6 +251,11 @@ class Symbol(ABC):
         """The element that carries the symbol's `--pluto-symbol-color` style."""
         return self.locator.locator(".lyra-symbol-colored").first
 
+    @property
+    def stale_indicator(self) -> Locator:
+        """The indicator the symbol shows while its data is stale."""
+        return self.locator.get_by_role("img", name="Stale")
+
     def delete(self) -> None:
         self.click()
         self.layout.press_delete()
@@ -246,7 +268,7 @@ class Symbol(ABC):
         control_chip = self.locator.locator(".pluto-control-chip").first
         self.layout.click(control_chip)
 
-    def get_properties(self, *, tab: str = "Symbols") -> PropertyDict:
+    def get_properties(self, *, tab: str = "Symbols") -> Properties:
         """
         Get the current properties of the symbol.
 
@@ -254,23 +276,17 @@ class Symbol(ABC):
         Subclasses should call super().get_properties(tab="TabName") to open the correct
         tab.
 
-        Args:
-            tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
-
-        Returns:
-            Empty dict - subclasses should populate with actual properties
+        :param tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
+        :returns: Empty dict - subclasses should populate with actual properties
         """
         self.click()
         self.open_properties_tab()
         if tab:
-            self.page.get_by_text(tab).last.click()
+            click_past(self.page.get_by_text(tab).last)
         return {}
 
     def open_properties_tab(self) -> None:
-        """Open the symbol Properties tab.
-
-        Toasts stack over the tab strip and swallow coordinate clicks, so the
-        click is dispatched on the tab itself.
-        """
+        """Open the symbol Properties tab."""
+        # The setters that follow click the form through the hit test.
         self.notifications.close_all()
-        self.page.get_by_text("Properties").dispatch_event("click")
+        click_past(self.page.get_by_text("Properties"))

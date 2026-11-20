@@ -11,30 +11,73 @@ import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
+import { strings, unique } from "@synnaxlabs/x";
 
-import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
+import {
+  useEnabledState,
+  useSlavesByKeys,
+  useToggleEnabled,
+} from "@/feature/ethercat/device/queries";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
 
-const TASK_CONTEXT_MENU_ITEMS = [
-  Device.createTaskContextMenuItem({
-    itemKey: "ethercat.readTask",
-    label: "Create read task",
-    useCreate: Task.useCreateRead,
-  }),
-  Device.createTaskContextMenuItem({
-    itemKey: "ethercat.writeTask",
-    label: "Create write task",
-    useCreate: Task.useCreateWrite,
-  }),
-];
+interface ConfigureItemProps extends Pick<Device.ContextMenuItemsProps, "onConfigure"> {
+  deviceKey: device.Key;
+}
+
+const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
+  <Menu.Item itemKey="ethercat.configure" onClick={() => onConfigure(deviceKey)}>
+    <Icon.Hardware />
+    Configure
+  </Menu.Item>
+);
+
+const CONFIGURE_MANY = {
+  zeroProperties: {},
+  suggestIdentifiers: ({ name }: device.Device) => strings.createShortIdentifiers(name),
+};
+
+const READ_TASK_ITEM = Device.createTaskContextMenuItem({
+  itemKey: "ethercat.readTask",
+  label: "Create read task",
+  useCreate: Task.useCreateRead,
+  configureMany: CONFIGURE_MANY,
+});
+
+const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
+  itemKey: "ethercat.writeTask",
+  label: "Create write task",
+  useCreate: Task.useCreateWrite,
+  configureMany: CONFIGURE_MANY,
+});
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
-  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
+  const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
+  const slaves = useSlavesByKeys(keys) ?? [];
+  // A task takes only the slaves with entries on its side, all on one network.
+  const selectionOf = (side: Task.PDOType) => {
+    const used = slaves.filter(({ properties }) => properties.pdos[side].length > 0);
+    if (unique.unique(used.map(({ properties }) => properties.network)).length !== 1)
+      return null;
+    const usedKeys = new Set(used.map(({ key }) => key));
+    return {
+      ...props.selection,
+      ids: props.selection.ids.filter(({ key }) => usedKeys.has(key)),
+    };
+  };
+  const taskItems = (
+    [
+      [READ_TASK_ITEM, "inputs"],
+      [WRITE_TASK_ITEM, "outputs"],
+    ] as const
+  ).flatMap(([item, side]) => {
+    const selection = selectionOf(side);
+    return selection == null ? [] : [{ item, selection }];
+  });
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
@@ -46,11 +89,23 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} />
-      <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      {hasUpdatePermission && keys.length === 1 && (
+        <ConfigureItem deviceKey={keys[0]} onConfigure={props.onConfigure} />
+      )}
       <Menu.Divider />
-      <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
-      <Menu.Divider />
+      {taskItems.length > 0 && (
+        <>
+          {taskItems.map(({ item, selection }) => (
+            <Device.TaskContextMenuItems
+              key={item.itemKey}
+              {...props}
+              selection={selection}
+              items={[item]}
+            />
+          ))}
+          <Menu.Divider />
+        </>
+      )}
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />

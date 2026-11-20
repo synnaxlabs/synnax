@@ -435,8 +435,8 @@ describe("connector", () => {
       it(spec.name, () => {
         const actual = Segmented.createConnector(spec.props);
         expect(actual).toEqual(spec.expected);
-        // We also want to do a sanity check to make sure that the connector actually gets to the target from the
-        // source.
+        // We also want to do a sanity check to make sure that the connector actually
+        // gets to the target from the source.
         const target = Segmented.travelSegments(spec.props.source.position, ...actual);
         expect(target).toEqual(spec.props.target.position);
       });
@@ -654,11 +654,85 @@ describe("connector", () => {
     // Expected:
     // |--S
     // |T
+    // Props:
+    //   T
+    //   |
+    // S-|
+    //
+    // Expected:
+    //   T--|
+    //      |
+    // S----|
+    const COLLINEAR_TARGET_STUMP: Spec = {
+      name: "collinear target stump",
+      props: {
+        segments: [
+          { direction: "x", length: 10 },
+          { direction: "y", length: -80 },
+          { direction: "y", length: 10 },
+        ],
+        index: 1,
+        magnitude: 46,
+      },
+      expected: [
+        { direction: "x", length: 56 },
+        { direction: "y", length: -80 },
+        { direction: "x", length: -46 },
+        { direction: "y", length: 10 },
+      ],
+    };
+
+    const COLLINEAR_SOURCE_STUMP: Spec = {
+      name: "collinear source stump",
+      props: {
+        segments: [
+          { direction: "y", length: 10 },
+          { direction: "y", length: -80 },
+          { direction: "x", length: 10 },
+        ],
+        index: 1,
+        magnitude: 46,
+      },
+      expected: [
+        { direction: "y", length: 10 },
+        { direction: "x", length: 46 },
+        { direction: "y", length: -80 },
+        { direction: "x", length: -36 },
+      ],
+    };
+
+    const COLLINEAR_BOTH_NEIGHBORS: Spec = {
+      name: "collinear both neighbors",
+      props: {
+        segments: [
+          { direction: "x", length: 10 },
+          { direction: "y", length: 10 },
+          { direction: "y", length: -80 },
+          { direction: "y", length: 10 },
+          { direction: "x", length: 10 },
+        ],
+        index: 2,
+        magnitude: 46,
+      },
+      expected: [
+        { direction: "x", length: 10 },
+        { direction: "y", length: 10 },
+        { direction: "x", length: 46 },
+        { direction: "y", length: -80 },
+        { direction: "x", length: -46 },
+        { direction: "y", length: 10 },
+        { direction: "x", length: 10 },
+      ],
+    };
+
     const SPECS: Spec[] = [
       SINGLE_MOVE_UP,
       U_SHAPED_DRAG_UP_NO_COMPRESSION,
       U_SHAPED_DRAG_UP_COMPRESSION,
       ADD_SOURCE_STUMP,
+      COLLINEAR_TARGET_STUMP,
+      COLLINEAR_SOURCE_STUMP,
+      COLLINEAR_BOTH_NEIGHBORS,
     ];
 
     for (const spec of SPECS)

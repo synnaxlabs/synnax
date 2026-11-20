@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { bounds, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { type Element } from "@/vis/diagram/aether/Diagram";
+import type { Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-const gaugeState = staleness.configZ.extend({
+const gaugeState = staleness.drawnStateZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
-  color: color.colorZ.default(color.ZERO),
-  stalenessColor: color.colorZ.optional(),
+  color: color.colorZ.optional(),
   precision: z.number().default(2),
   minWidth: z.number().default(60),
   width: z.number().optional(),
@@ -36,9 +36,14 @@ const gaugeState = staleness.configZ.extend({
   barWidth: z.number().default(12), // Width of the gauge bar in pixels
 });
 
-/** @returns the stroke color a gauge paints while its color is absent. */
-export const colorFallback = (theme: theme.Theme): color.Color =>
-  theme.colors.visualization.palettes.default[0];
+/**
+ * @returns the stroke color a gauge paints while its color is absent: the first series
+ * color, or transparent while the series colors load.
+ */
+export const colorFallback = (
+  _theme: theme.Theme,
+  colors: color.Color[],
+): color.Color => colors.at(0) ?? color.TRANSPARENT;
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
 
@@ -49,8 +54,6 @@ interface InternalState {
   draw2d: Draw2D;
   stopListening?: () => void;
   staleness: staleness.Registration;
-  // Staleness stays on the worker here, which draws the gauge itself.
-  stale: boolean;
   requestRender: render.Requestor | null;
   textColor: color.Color;
   strokeColor: color.Color;
@@ -76,21 +79,16 @@ export class Gauge
 {
   static readonly TYPE = "gauge";
   static readonly z = gaugeState;
-  schema = Gauge.z;
+  override schema = Gauge.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l9;
-    else i.textColor = this.state.color;
+    i.textColor = this.state.color ?? i.theme.colors.gray.l9;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useInternalRegistration(
-      ctx,
-      i.staleness,
-      this,
-      i.telem,
-      () => this.requestRender(),
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem, () =>
+      this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
@@ -99,9 +97,8 @@ export class Gauge
     });
     i.requestRender = render.useOptionalRequestor(ctx);
 
-    i.strokeColor = color.isZero(this.state.color)
-      ? colorFallback(i.theme)
-      : this.state.color;
+    i.strokeColor =
+      this.state.color ?? colorFallback(i.theme, aetherColor.useSeries(ctx));
 
     const b = this.state.box;
     const baseRadius = box.width(b) / 2;
@@ -141,7 +138,7 @@ export class Gauge
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.staleness?.cleanup();
@@ -165,13 +162,11 @@ export class Gauge
 
     const { lower, upper } = this.state.bounds;
     const valueNum = Number(value);
-    const clampedValue = bounds.clamp(this.state.bounds, valueNum);
+    const clampedValue = bounds.clamp(bounds.construct(this.state.bounds), valueNum);
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
     const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
-    const staleColor = this.internal.stale
-      ? staleness.resolveColor(this.state.stalenessColor, i.theme)
-      : undefined;
+    const staleColor = staleness.drawnColor(this.state, i.theme);
 
     draw2d.text({
       align: "center",

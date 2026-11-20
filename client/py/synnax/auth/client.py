@@ -22,7 +22,7 @@ from freighter import (
     Next,
     UnaryClient,
 )
-from synnax import ontology
+from synnax import resource
 from synnax.auth.types_gen import Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
@@ -49,6 +49,10 @@ def api_key_id(token: str) -> UUID:
     return UUID(bytes=raw[:16])
 
 
+class _MethodsResponse(BaseModel):
+    methods: list[str]
+
+
 class _SessionCreateRequest(BaseModel):
     proof: Proof
 
@@ -65,7 +69,7 @@ class _SessionRenewResponse(BaseModel):
 
 
 class _SessionRetrieveRequest(BaseModel):
-    subjects: list[ontology.ID] = []
+    subjects: list[resource.ID] = []
 
 
 class _SessionRetrieveResponse(BaseModel):
@@ -81,7 +85,7 @@ class APIKey(BaseModel):
 
     key: UUID
     """The unique identifier for this API key."""
-    subject: ontology.ID
+    subject: resource.ID
     """The user or rack the key logs in as."""
     name: str
     """A label that tells the subject's keys apart."""
@@ -90,7 +94,7 @@ class APIKey(BaseModel):
 
 
 class _KeyCreateRequest(BaseModel):
-    subject: ontology.ID | None = None
+    subject: resource.ID | None = None
     name: str
 
 
@@ -100,7 +104,7 @@ class _KeyCreateResponse(BaseModel):
 
 
 class _KeyRetrieveRequest(BaseModel):
-    subjects: list[ontology.ID] = []
+    subjects: list[resource.ID] = []
 
 
 class _KeyRetrieveResponse(BaseModel):
@@ -111,6 +115,7 @@ class _KeyDeleteRequest(BaseModel):
     keys: list[UUID] = []
 
 
+_METHODS_ENDPOINT = "/auth/methods"
 _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
 _SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
@@ -167,8 +172,14 @@ class Client:
         self.user = res.user
         self.authenticated = True
 
+    def retrieve_methods(self) -> list[str]:
+        """Returns the login methods the Core accepts. Needs no session."""
+        return send_required(
+            self.client, _METHODS_ENDPOINT, Empty(), _MethodsResponse
+        ).methods
+
     @property
-    def subject(self) -> ontology.ID | None:
+    def subject(self) -> resource.ID | None:
         """The subject the client logged in as, once logged in."""
         return None if self.session is None else self.session.subject
 
@@ -184,7 +195,7 @@ class Client:
         return res.session
 
     def retrieve_sessions(
-        self, subjects: list[ontology.ID] | None = None
+        self, subjects: list[resource.ID] | None = None
     ) -> list[Session]:
         """Lists the caller's sessions, or those of the given subjects when the caller
         may retrieve them.
@@ -207,7 +218,7 @@ class Client:
         )
 
     def create_key(
-        self, name: str, subject: ontology.ID | None = None
+        self, name: str, subject: resource.ID | None = None
     ) -> tuple[str, APIKey]:
         """Creates an API key for the subject, or for the caller when none is given.
 
@@ -223,7 +234,7 @@ class Client:
         )
         return res.token, res.key
 
-    def retrieve_keys(self, subjects: list[ontology.ID] | None = None) -> list[APIKey]:
+    def retrieve_keys(self, subjects: list[resource.ID] | None = None) -> list[APIKey]:
         """Lists the caller's API keys, or those of the given subjects when the caller
         may retrieve them.
         """
@@ -266,8 +277,8 @@ class Client:
     def _prepare(self, ctx: Context) -> bool:
         """Attaches the token and reports whether a rejected token may log in again."""
         target = ctx.target.rstrip("/")
-        # The login request itself carries no token, and must not trigger a login.
-        if target.endswith(_SESSION_CREATE_ENDPOINT):
+        # The Core serves these without a token, so they must not trigger a login.
+        if target.endswith((_METHODS_ENDPOINT, _SESSION_CREATE_ENDPOINT)):
             return False
         # A logout ends the session its token belongs to; a dead one must not log in
         # again.

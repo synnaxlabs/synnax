@@ -11,36 +11,36 @@ import "@/color/HexText.css";
 
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { CSS } from "@/css";
 import { Input } from "@/input";
 
-const HEX_DIGITS = /^#?[0-9a-f]+$/i;
 const HEX_WITHOUT_ALPHA = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const COMPLETE_HEX = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 /**
- * Parses what the user typed or pasted into a hex box. Bare hex digits need no `#`,
- * and any other CSS color also parses. A hex with no alpha digits keeps `alpha`, or is
- * opaque when `alpha` is 0, so a new color never lands invisible.
+ * Parses what the user typed or pasted into a hex box: a color name, or a hex, rgb(),
+ * or hsl() color. A hex with no alpha digits keeps `alpha`, or is opaque when `alpha`
+ * is 0, so a new color never lands invisible.
  */
 export const parseHexInput = (text: string, alpha: number): color.Color | undefined => {
   const trimmed = text.trim();
-  const isHex = HEX_DIGITS.test(trimmed);
-  const parsed = color.fromCSS(
-    isHex && !trimmed.startsWith("#") ? `#${trimmed}` : trimmed,
-  );
-  if (parsed == null) return undefined;
+  const res = color.colorZ.safeParse(trimmed);
+  if (!res.success) return undefined;
+  const parsed = res.data;
   if (!HEX_WITHOUT_ALPHA.test(trimmed)) return parsed;
-  return color.setAlpha(parsed, alpha === 0 ? 1 : alpha);
+  return color.setOpacity(parsed, alpha === 0 ? 1 : alpha);
 };
 
 export interface HexTextProps extends Omit<
   Input.TextProps,
   "value" | "onChange" | "onBlur" | "onKeyDown" | "onPaste"
 > {
-  /** The hex digits to show while the user is not editing. */
+  /** The hex digits, or a name, to show while the user is not editing. */
   text: string;
+  /** If true, `text` is a name, shown in the text font until the user edits it. */
+  named?: boolean;
   /** The alpha a hex without alpha digits keeps. */
   alpha: number;
   onChange: (value: color.Color) => void;
@@ -51,10 +51,12 @@ export interface HexTextProps extends Omit<
 /**
  * A text box for a hex color. A complete 6 or 8 digit hex applies as the user types,
  * a paste applies at once, and anything else applies on Enter or blur. With
- * `onlyChangeOnBlur`, everything applies on Enter or blur.
+ * `onlyChangeOnBlur`, everything applies on Enter or blur. Escape discards an edit that
+ * has not applied yet.
  */
 export const HexText = ({
   text,
+  named = false,
   alpha,
   onChange,
   onClear,
@@ -71,7 +73,11 @@ export const HexText = ({
   };
   return (
     <Input.Text
-      className={CSS.cls(CSS.B("color-hex-text"), className)}
+      className={CSS.cls(
+        CSS.B("color-hex-text"),
+        named && draft == null && CSS.M("named"),
+        className,
+      )}
       value={draft ?? text}
       onChange={(raw) => {
         setDraft(raw);
@@ -85,6 +91,8 @@ export const HexText = ({
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" && draft != null) commit(draft);
+        // The input blurs on Escape after this returns, so the blur must see no draft.
+        if (e.key === "Escape") flushSync(() => setDraft(null));
       }}
       onPaste={(e) => {
         const parsed = parseHexInput(e.clipboardData.getData("text"), alpha);

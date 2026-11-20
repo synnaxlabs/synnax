@@ -10,8 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <string_view>
 
 #include "driver/ethercat/slave/slave.h"
 
@@ -28,10 +26,8 @@ bool lookup_device_pdos(
 /// registry lists at the same address and bit length. Leaves other entries unchanged.
 void fill_known_entries(slave::Properties &slave);
 
-/// @brief returns the vendor name for a given vendor ID.
-std::optional<std::string_view> vendor_name(uint32_t vendor_id);
-
-/// @brief checks if a device is in the registry (any revision).
-bool is_device_known(uint32_t vendor_id, uint32_t product_code);
+/// @brief names the entries of a known device. Gives a known device whose discovery
+/// found no entries the layout the registry lists, and clears its discovery error.
+void fill(slave::DiscoveryResult &slave);
 
 }

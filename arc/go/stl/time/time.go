@@ -11,12 +11,14 @@ package time
 
 import (
 	"context"
-	"reflect"
+	stdtime "time"
 
+	acodes "github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -24,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/tz"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/tetratelabs/wazero"
 )
@@ -32,10 +35,19 @@ const (
 	intervalSymbolName = "interval"
 	waitSymbolName     = "wait"
 	nowSymbolName      = "now"
+	formatSymbolName   = "format"
+	formatInputParam   = "format"
+	tzInputParam       = "tz"
+	formatFailed       = "Failed to format timestamp"
+	invalidHandle      = "The Arc runtime passed an invalid string handle."
 	periodInputParam   = "period"
 	durationInputParam = "duration"
 	name               = "time"
 )
+
+// iso8601Layout is time.RFC3339Nano. Trailing fraction zeros are trimmed, so the
+// output matches the C++ runtime's TimeStamp::iso8601 byte for byte.
+const iso8601Layout = "2006-01-02T15:04:05.999999999Z07:00"
 
 var (
 	intervalDoc = doc.New(
@@ -53,9 +65,20 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "t := time.now()"),
 	)
+	formatDoc = doc.New(
+		doc.Paragraph(
+			"Formats a timestamp with strftime codes, in UTC or IANA time zone. "+
+				"Without a format, prints ISO 8601.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "t_str := time.format(time.now())\n"+
+			"day := time.format(time.now(), \"%Y-%m-%d\")\n"+
+			"clock := time.format(time.now(), \"%H:%M %Z\", \"America/Denver\")"),
+	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
-			"Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations.",
+			"Time-related primitives: reading the current timestamp, string " +
+				"formatting, firing periodic intervals, and waiting fixed durations.",
 		),
 	)
 )
@@ -64,30 +87,8 @@ var (
 // contributes: the time module plus the deprecated bare aliases (interval,
 // wait, now) whose Deprecated fields point at the canonical members.
 func NewSymbols() []*symbol.Symbol {
-	interval := &symbol.Symbol{
-		Name: intervalSymbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: periodInputParam, Type: types.TimeSpan()}},
-		}),
-		Trigger:          symbol.TriggerOnly,
-		Doc:              intervalDoc,
-		AnalyzeArguments: rejectNonPositiveSpan(periodInputParam),
-	}
-	wait := &symbol.Symbol{
-		Name: waitSymbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: durationInputParam, Type: types.TimeSpan()}},
-		}),
-		Trigger:          symbol.TriggerOnly,
-		Doc:              waitDoc,
-		AnalyzeArguments: rejectNonPositiveSpan(durationInputParam),
-	}
+	interval := triggerSymbol(intervalSymbolName, periodInputParam, intervalDoc)
+	wait := triggerSymbol(waitSymbolName, durationInputParam, waitDoc)
 	now := &symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
@@ -100,8 +101,25 @@ func NewSymbols() []*symbol.Symbol {
 		Trigger: symbol.TriggerOnly,
 		Doc:     nowDoc,
 	}
+	format := &symbol.Symbol{
+		Name: formatSymbolName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.TimeStamp()},
+				{Name: formatInputParam, Type: types.String(), Value: ""},
+				{Name: tzInputParam, Type: types.String(), Value: ""},
+			},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.String()},
+			},
+		}),
+		Trigger: symbol.TriggerOnly,
+		Doc:     formatDoc,
+	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
-	mod.AddChild(interval, wait, now)
+	mod.AddChild(interval, wait, now, format)
 	intervalBare := *interval
 	intervalBare.Deprecated = interval
 	waitBare := *wait
@@ -109,6 +127,23 @@ func NewSymbols() []*symbol.Symbol {
 	nowBare := *now
 	nowBare.Deprecated = now
 	return []*symbol.Symbol{mod, &intervalBare, &waitBare, &nowBare}
+}
+
+// triggerSymbol returns a flow function that takes one positive span input and
+// fires a u8 output.
+func triggerSymbol(symbolName, param string, d doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name: symbolName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(types.FunctionProperties{
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Inputs:  types.Params{{Name: param, Type: types.TimeSpan()}},
+		}),
+		Trigger:          symbol.TriggerOnly,
+		Doc:              d,
+		AnalyzeArguments: rejectNonPositiveSpan(param),
+	}
 }
 
 // rejectNonPositiveSpan returns an AnalyzeArguments hook that rejects a
@@ -145,7 +180,7 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 				span = -span
 			}
 			if span <= 0 {
-				diags.Add(diagnostics.Errorf(
+				diags.Add(acodes.FuncArgValue.Atf(
 					arg.AST, "%s must be positive, got %s", param, span,
 				))
 			}
@@ -154,35 +189,86 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 }
 
 // Host is the runtime host-side support for the time module: it registers
-// the `now` WASM host function and acts as the node factory for interval
-// and wait.
+// the `now` and `format` WASM host functions and acts as the node factory for
+// interval, wait, and now.
 type Host struct {
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
 	// The `now` WASM binding is called from guest code, which has no node Context
 	// to read, so the value is pushed here instead.
-	now telem.TimeStamp
+	now     telem.TimeStamp
+	strings *strings.ProgramState
+	report  Reporter
+	// zones resolves the zone names passed to `format`.
+	zones *tz.Database
 }
+
+// Reporter sends a warning to the task that runs the program.
+type Reporter func(ctx context.Context, message, description string)
 
 // SetNow binds the cycle stamp the `now` host function returns for the coming pass.
 // The runtime loop calls it before every Scheduler.Next.
 func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
-// NewHost registers the time module's `now` WASM host binding with rt and
-// returns a Host handle that acts as the node factory for interval / wait.
-func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
-	h := &Host{}
+// NewHost registers the time module's `now` and `format` WASM host bindings with
+// rt and returns a Host handle that acts as the node factory for interval / wait /
+// now. stringState backs the `format` return value, and report receives the warnings
+// `format` raises. Both are required when rt is set.
+func NewHost(
+	ctx context.Context,
+	rt wazero.Runtime,
+	stringState *strings.ProgramState,
+	report Reporter,
+) (*Host, error) {
+	h := &Host{strings: stringState, report: report}
 	if rt == nil {
 		return h, nil
 	}
+	v := validate.New("arc.time")
+	v.NotNil("strings", stringState)
+	v.NotNil("report", report)
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
+	zones, err := tz.Open()
+	if err != nil {
+		return nil, err
+	}
+	h.zones = zones
 	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
 			return uint64(h.now)
-		}).Export("now")
+		}).Export(nowSymbolName)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(ctx context.Context, v int64, format, zone uint32) uint32 {
+			f, fOK := h.strings.Get(format)
+			z, zOK := h.strings.Get(zone)
+			if !fOK || !zOK {
+				h.report(ctx, formatFailed, invalidHandle)
+				return 0
+			}
+			loc := stdtime.UTC
+			if z != "" {
+				var err error
+				if loc, err = h.zones.Load(z); err != nil {
+					h.report(ctx, formatFailed, `The time zone "`+z+`" is invalid.`)
+					return 0
+				}
+			}
+			return h.strings.Create(formatTimeStamp(telem.TimeStamp(v), f, loc))
+		}).Export(formatSymbolName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
 	return h, nil
+}
+
+// formatTimeStamp renders ts in loc. An empty format selects ISO 8601.
+func formatTimeStamp(ts telem.TimeStamp, format string, loc *stdtime.Location) string {
+	if format == "" {
+		return ts.Time().In(loc).Format(iso8601Layout)
+	}
+	return strftime(ts, format, loc)
 }
 
 func (h *Host) Create(cfg node.Config) (node.Node, error) {
@@ -191,16 +277,16 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err := validateSpan(cfg.Node.Inputs, periodInputParam); err != nil {
 			return nil, err
 		}
-		return &Interval{State: cfg.State}, nil
+		return &interval{State: cfg.State}, nil
 
 	case waitSymbolName:
 		if err := validateSpan(cfg.Node.Inputs, durationInputParam); err != nil {
 			return nil, err
 		}
-		return &Wait{State: cfg.State, startTime: -1}, nil
+		return &wait{State: cfg.State, startTime: -1}, nil
 
 	case nowSymbolName:
-		return &Now{State: cfg.State}, nil
+		return &now{State: cfg.State}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -208,25 +294,28 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 }
 
 // validateSpan returns query.ErrNotFound when the named span input is missing, and a
-// validation error when its value is not a telem.TimeSpan or, unless var-bound, is not
-// positive. The runtime guard covers the live values of var-bound inputs.
+// validation error when a compile-time value is not a positive telem.TimeSpan. A
+// var-bound input passes; the runtime guard covers its live values.
 func validateSpan(inputs types.Params, name string) error {
 	p, ok := inputs.Get(name)
 	if !ok {
 		return query.ErrNotFound
+	}
+	if p.Type.Kind == types.KindVarRef {
+		return nil
 	}
 	span, ok := p.Value.(telem.TimeSpan)
 	if !ok {
 		return validate.PathedError(
 			errors.Wrapf(
 				validate.ErrInvalidType,
-				"expected type telem.TimeSpan, received %s",
-				reflect.TypeOf(p.Value).Name(),
+				"expected type telem.TimeSpan, received %T",
+				p.Value,
 			),
 			p.Name,
 		)
 	}
-	if p.Type.Kind == types.KindVarRef || span > 0 {
+	if span > 0 {
 		return nil
 	}
 	return validate.PathedError(
@@ -263,8 +352,8 @@ func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) 
 
 func (g *spanGuard) reset() { g.reported = false }
 
-// Interval is a node that fires repeatedly at a specified period.
-type Interval struct {
+// interval is a node that fires repeatedly at a specified period.
+type interval struct {
 	*node.State
 	// lastFired is the elapsed time of the last scheduled fire. It is valid only when
 	// started is true.
@@ -273,9 +362,7 @@ type Interval struct {
 	guard     spanGuard
 }
 
-func (i *Interval) Init(_ node.Context) {}
-
-func (i *Interval) Next(ctx node.Context) {
+func (i *interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
 	// A non-positive period would keep the deadline permanently in the past,
 	// spinning the scheduler loop. Park without a deadline until the node runs
@@ -303,31 +390,29 @@ func (i *Interval) Next(ctx node.Context) {
 	ctx.SetDeadline(i.lastFired + period)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
-	output.Resize(1)
-	outputTime.Resize(1)
+	*output = output.Resized(1)
+	*outputTime = outputTime.Resized(1)
 	output.SetValueAt(0, uint8(1))
 	outputTime.SetValueAt(0, ctx.Now)
 	i.Emit(ctx, 0)
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
-func (i *Interval) Reset(ctx node.Context) {
+func (i *interval) Reset(ctx node.Context) {
 	i.State.Reset(ctx)
 	i.started = false
 	i.guard.reset()
 }
 
-// Wait is a one-shot timer that fires once after a specified duration.
-type Wait struct {
+// wait is a one-shot timer that fires once after a specified duration.
+type wait struct {
 	*node.State
 	startTime telem.TimeSpan
 	fired     bool
 	guard     spanGuard
 }
 
-func (w *Wait) Init(_ node.Context) {}
-
-func (w *Wait) Next(ctx node.Context) {
+func (w *wait) Next(ctx node.Context) {
 	if w.fired {
 		return
 	}
@@ -351,36 +436,34 @@ func (w *Wait) Next(ctx node.Context) {
 	w.fired = true
 	output := w.Output(0)
 	outputTime := w.OutputTime(0)
-	output.Resize(1)
-	outputTime.Resize(1)
+	*output = output.Resized(1)
+	*outputTime = outputTime.Resized(1)
 	output.SetValueAt(0, uint8(1))
 	outputTime.SetValueAt(0, ctx.Now)
 	w.Emit(ctx, 0)
 }
 
-func (w *Wait) Reset(ctx node.Context) {
+func (w *wait) Reset(ctx node.Context) {
 	w.State.Reset(ctx)
 	w.startTime = -1
 	w.fired = false
 	w.guard.reset()
 }
 
-// Now outputs the current wall-clock timestamp when triggered.
-type Now struct {
+// now outputs the current wall-clock timestamp when triggered.
+type now struct {
 	*node.State
 }
 
-func (n *Now) Init(_ node.Context) {}
-
-func (n *Now) Next(ctx node.Context) {
+func (n *now) Next(ctx node.Context) {
 	ts := ctx.Now
 	output := n.Output(0)
 	outputTime := n.OutputTime(0)
-	output.Resize(1)
-	outputTime.Resize(1)
+	*output = output.Resized(1)
+	*outputTime = outputTime.Resized(1)
 	output.SetValueAt(0, ts)
 	outputTime.SetValueAt(0, ts)
 	n.Emit(ctx, 0)
 }
 
-func (n *Now) Reset(ctx node.Context) { n.State.Reset(ctx) }
+func (n *now) Reset(ctx node.Context) { n.State.Reset(ctx) }

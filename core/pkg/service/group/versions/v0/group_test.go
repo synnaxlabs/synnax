@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,16 +32,11 @@ var _ = Describe("Group", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Group{}.SetOptions()).To(BeNil())
-		})
-	})
-	Describe("OntologyID", func() {
-		It("Should return the group ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the group resource identifier", func() {
 			k := uuid.New()
-			Expect(v0.Group{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeGroup, Key: k.String(),
+			Expect(v0.Group{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeGroup, Key: k.String(),
 			}))
 		})
 	})
@@ -53,6 +48,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Group{Key: uuid.New(), Name: "Devices"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -70,7 +66,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[v0.Key, v0.Group](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

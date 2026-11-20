@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 
-import { type PageNavNode } from "@/components/nav/tree";
+import type { Nav } from "@/components/nav";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { type Page, PAGES, POSTS } from "@/util/pages";
 import { normalizeRoute } from "@/util/route";
@@ -21,11 +21,13 @@ const INTRO = `# Synnax
 > Synnax is mission control and data review for hardware operations: one platform for
 > real-time data acquisition, hardware control, visualization, and analysis.
 
-Synnax has a Core (a time-series database and server), the Console (a desktop app for
-live plots, schematics, and tables), the Driver (data acquisition and control for
-National Instruments, LabJack, EtherCAT, and HTTP devices, and OPC UA and Modbus
-servers), Arc (a reactive language for control sequences, alarms, and calculated
-channels), and Python and TypeScript client libraries.
+Synnax has a Core (a time-series database and server, which also connects to MQTT
+brokers and Kafka clusters), the Console (the interface for live plots, schematics, and
+tables), the Driver (data acquisition and control for National Instruments, LabJack,
+EtherCAT, and HTTP devices, and OPC UA and Modbus servers), Arc (a reactive language for
+control sequences, alarms, and calculated channels), and Python and TypeScript client
+libraries. A Python script on the same computer as Synnax Desktop connects to it with
+\`sy.Synnax()\` and no arguments.
 
 Synnax Desktop is free for any use, including commercial use, up to 50 channels. It
 runs on macOS (Apple silicon) and Windows, and includes a Console, a Core, and a Driver
@@ -41,7 +43,7 @@ interface Entry {
   group?: string;
 }
 
-const entries = (nodes: PageNavNode[], group?: string): Entry[] =>
+const entries = (nodes: Nav.PageNavNode[], group?: string): Entry[] =>
   nodes.flatMap((node) => {
     if (node.children != null)
       return entries(
@@ -59,7 +61,7 @@ export const GET: APIRoute = ({ site }) => {
   const item = ({ page, group }: Entry): string => {
     const label = group == null ? page.title : `${group}: ${page.title}`;
     const link = `- [${label}](${new URL(`${page.route}.md`, site).href})`;
-    return page.description == null ? link : `${link}: ${page.description}`;
+    return `${link}: ${page.description}`;
   };
   const sections: Array<[string, Entry[]]> = [
     [

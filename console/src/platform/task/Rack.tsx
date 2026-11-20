@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
+import type { rack } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Rack as PRack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
+import { formPath } from "@/platform/task/types";
 
 interface ContentProps {
   rackKey: rack.Key;
@@ -32,7 +33,13 @@ const Content = ({ rackKey }: ContentProps): ReactElement => {
       <Text.Text level="small" color={10} weight={450}>
         Task is deployed to {name}
       </Text.Text>
-      <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
+      <Text.Text
+        className={CSS.B("rack-name")}
+        level="small"
+        color={9}
+        weight={350}
+        overflow="fade"
+      >
         <Icon.Rack />
         {name}
       </Text.Text>
@@ -41,7 +48,7 @@ const Content = ({ rackKey }: ContentProps): ReactElement => {
 };
 
 export const Rack = (): ReactElement | null => {
-  const rackKey = PForm.useFieldValue<rack.Key>("rack", { optional: true }) ?? 0;
+  const rackKey = PForm.useFieldValue(formPath.rack, { optional: true }) ?? 0;
   if (primitive.isZero(rackKey)) return null;
   return (
     <Errors.SuspenseBoundary>

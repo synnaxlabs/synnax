@@ -9,7 +9,7 @@
 
 import { destructor, type record } from "@synnaxlabs/x";
 
-import { type FrameProps, type GetItem } from "@/list/Frame";
+import type { FrameProps, GetItem } from "@/list/Frame";
 
 export interface UseCombinedDataParams<
   K extends record.Key,
@@ -20,8 +20,9 @@ export interface UseCombinedDataParams<
 }
 
 /**
- * Concatenates two list data sources into one, `first` before `second`. Reads and
- * subscriptions hit both.
+ * Concatenates two list data sources into one, `first` before `second`. Reads try both.
+ * A subscription goes to `first` for a key it lists, and to `second` for any other key,
+ * since a remote source fetches a key it does not hold.
  */
 export const useCombinedData = <
   K extends record.Key,
@@ -45,10 +46,9 @@ export const useCombinedData = <
     }
     return firstGetItem?.(key) ?? secondGetItem?.(key);
   }) as GetItem<K, E>;
-  const subscribe = (callback: () => void, key: K) => {
-    const firstUnsub = firstSubscribe?.(callback, key);
-    const secondUnsub = secondSubscribe?.(callback, key);
-    return () => destructor.unwind(firstUnsub, secondUnsub);
-  };
+  const firstKeys = new Set(firstData);
+  const subscribe = (callback: () => void, key: K): destructor.Destructor =>
+    (firstKeys.has(key) ? firstSubscribe : secondSubscribe)?.(callback, key) ??
+    destructor.NOOP;
   return { data, getItem, subscribe };
 };

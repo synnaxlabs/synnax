@@ -10,6 +10,7 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 import freighter
 import synnax as sy
@@ -40,7 +41,7 @@ class TestClusterAuth:
         Should raise a ValidationError
         """
         host, port, username, _ = login_info
-        with pytest.raises(sy.PathError):
+        with pytest.raises(ValidationError):
             sy.Synnax(
                 host=host,
                 port=port,
@@ -59,11 +60,11 @@ class TestAuthRetry:
             token="abc",
             session=sy.auth.Session(
                 key=uuid4(),
-                subject=sy.ontology.ID(key=str(user_key), type="user"),
+                subject=sy.resource.ID(key=str(user_key), type="user"),
                 credential=uuid4(),
                 last_active=sy.TimeStamp(0),
             ),
-            user=sy.User(key=user_key, name="Synnax Labs"),
+            user=sy.User(key=user_key, name="Synnax Labs", role=uuid4()),
         )
         mock_login_client = MockUnaryClient(
             responses=[res, res], response_errors=[None, None]
@@ -122,7 +123,7 @@ class TestAuthRetry:
         """Should keep a session logged in while a request on an older one fails."""
         session = sy.auth.Session(
             key=uuid4(),
-            subject=sy.ontology.ID(key=str(uuid4()), type="user"),
+            subject=sy.resource.ID(key=str(uuid4()), type="user"),
             credential=uuid4(),
             last_active=sy.TimeStamp(0),
         )
@@ -154,6 +155,27 @@ class TestAuthRetry:
 
 
 @pytest.mark.auth
+class TestMethods:
+    def test_retrieve_methods(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should list the login methods the Core accepts."""
+        host, port, username, password = login_info
+        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
+        client.close()
+
+    def test_retrieve_methods_logged_out(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should list the methods after logout without logging in again."""
+        host, port, username, password = login_info
+        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client.auth.logout()
+        assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
+        assert not client.auth.authenticated
+        client.close()
+
+
+@pytest.mark.auth
 class TestSessions:
     def test_session_lifecycle(self, login_info: tuple[str, int, str, str]) -> None:
         """Should open a session on login, renew it, list it, and end it on logout."""
@@ -176,7 +198,7 @@ class TestSessions:
         client.close()
 
     def test_logout_after_session_ended(
-        self, login_info: tuple[str, int, str, str]
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
     ) -> None:
         """Should not open a new session when logging out of a session the Core
         already ended.
@@ -184,7 +206,7 @@ class TestSessions:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon")
+        admin.users.create(username=user_name, password="seldon", role=empty_role.key)
         ending = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert ending.auth.session is not None
@@ -199,7 +221,7 @@ class TestSessions:
         admin.close()
 
     def test_close_leaves_no_session(
-        self, login_info: tuple[str, int, str, str]
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
     ) -> None:
         """Should end the client's only session on close, so none stays open behind
         the connectivity thread.
@@ -207,7 +229,7 @@ class TestSessions:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon")
+        admin.users.create(username=user_name, password="seldon", role=empty_role.key)
         closing = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert other.auth.session is not None
@@ -229,6 +251,21 @@ class TestSessions:
         proxied_client.close()
         assert not proxied_client.connectivity._thread.is_alive()
 
+    def test_close_when_logout_times_out(
+        self, login_info: tuple[str, int, str, str], proxy: Proxy
+    ) -> None:
+        """Should close without error when logout gets no response in time."""
+        _, _, username, password = login_info
+        client = sy.Synnax(
+            host="localhost",
+            port=proxy.port,
+            username=username,
+            password=password,
+            read_timeout=0.5,
+        )
+        assert proxy.blackhole() > 0
+        client.close()
+
 
 @pytest.mark.auth
 class TestAPIKeys:
@@ -244,17 +281,16 @@ class TestAPIKeys:
                 api_key="syk_key",
             )
 
-    def test_key_without_host(self) -> None:
-        """Should reject an API key given without a host."""
-        with pytest.raises(sy.ValidationError):
-            sy.Synnax(api_key="syk_key")
-
-    def test_lifecycle(self, login_info: tuple[str, int, str, str]) -> None:
+    def test_lifecycle(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
         """Should create a key, log in with it, list it, and delete it."""
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         new_username = str(uuid4())
-        admin.users.create(username=new_username, password="seldon")
+        admin.users.create(
+            username=new_username, password="seldon", role=empty_role.key
+        )
         owner = sy.Synnax(
             host=host, port=port, username=new_username, password="seldon"
         )

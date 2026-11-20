@@ -9,12 +9,13 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Session } from "@/session";
-import { resolveFocusedTab, uniqueName } from "@/testutil";
+import { resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
@@ -32,7 +33,7 @@ describe("PagerDuty Task Commands", () => {
     await selectCommand("Create PagerDuty alert task");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(PagerDuty.Task.ALERT_TYPE);
   });

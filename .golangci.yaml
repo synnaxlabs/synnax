@@ -8,18 +8,64 @@
 # included in the file licenses/APL.txt.
 
 version: "2"
+# Reports only issues on lines changed since the merge base with main, so a function
+# that grows without a change to its func line is not caught. Pass
+# --new-from-merge-base= to lint the whole module. The setting stays until the existing
+# complexity findings reach zero (SY-6110).
+issues:
+  new-from-merge-base: origin/main
 linters:
+  default: all
   enable:
-    - ginkgolinter
-    - modernize
-    - revive
     - must
     - set
     - goroutineleak
     - suiteconfig
     - errmatch
-    - depguard
-    - forbidigo
+    - teardown
+  disable:
+    # Deprecated: replaced by exhaustruct_v5, gomodguard_v2, and wsl_v5.
+    - exhaustruct
+    - gomodguard
+    - wsl
+    # Our style differs.
+    - cyclop # gocognit measures complexity better.
+    - gocyclo # gocognit measures complexity better.
+    - dogsled # Calls such as runtime.Caller need several blanks.
+    - dupl # Table-driven specs repeat on purpose.
+    - dupword # Arc and Oracle spec sources repeat words on purpose.
+    - embeddedstructfieldcheck # Embedded fields go where they read best.
+    - err113 # depguard already routes errors through x/errors.
+    - errname # The namespace names the type: diagnostics.Diagnostics.
+    - exhaustruct_v5 # Zero values are meaningful defaults.
+    - funcorder # Methods follow reading order, not export status.
+    # The code holds no mutable globals. AGENTS.md allows package vars that are never
+    # mutated, and gochecknoglobals cannot tell them from mutable ones.
+    - gochecknoglobals
+    - gomoddirectives # Sibling replace directives link the modules.
+    - goconst # Repeated literals in specs and codegen read better inline.
+    - gosmopolitan # Specs check Unicode text on purpose.
+    - interfacebloat # Iterator and config interfaces are wide by design.
+    - ireturn # Constructors return interfaces for runtime polymorphism.
+    - lll # golines enforces 88 columns.
+    - mnd # Literal numbers are clear in context.
+    - musttag # It does not see encoding/json/v2 MarshalJSONTo methods.
+    - nilnil # go/analysis, LSP handlers, and optional values return nil, nil.
+    - nlreturn # gofumpt sets our blank lines.
+    - noinlineerr # if err := f(); err != nil is idiomatic.
+    - nonamedreturns # Named results let a defer set the error.
+    - paralleltest # Ginkgo runs specs in parallel, not t.Parallel.
+    - protogetter # We read fields of messages we know are not nil.
+    - spancheck # alamos Tracer.Trace returns its span for the caller to end.
+    - tagliatelle # Wire formats set the tag case.
+    - varnamelen # Short names in small scopes are idiomatic Go.
+    - wrapcheck # x/errors decides where to wrap.
+    - wsl_v5 # gofumpt sets our blank lines.
+    # Not yet adopted. Each issue tracks the work to enable it.
+    - containedctx # SY-6109
+    - contextcheck # SY-6109
+    - fatcontext # SY-6109
+    - noctx # SY-6109
   settings:
     depguard:
       rules:
@@ -34,6 +80,16 @@ linters:
               desc: use github.com/synnaxlabs/x/errors
             - pkg: "github.com/pkg/errors"
               desc: use github.com/synnaxlabs/x/errors
+    errcheck:
+      check-blank: true
+    exhaustive:
+      # Kind and ASN.1 tag enums; each switch handles a subset on purpose.
+      # golangci-lint v2 renamed ignore-enum-types to ignore-types
+      # (pkg/config/linters_settings.go).
+      ignore-types:
+        - ^reflect\.Kind$
+        - ^encoding/json/jsontext\.Kind$
+        - ^golang\.org/x/crypto/cryptobyte/asn1\.Tag$
     forbidigo:
       forbid:
         - pattern: ^fmt\.Errorf$
@@ -43,6 +99,42 @@ linters:
       force-expect-to: true
       validate-async-intervals: true
       force-tonot: true
+    gocritic:
+      disabled-checks:
+        - unlambda # Entries build before BeforeEach, so method values bind too early.
+    gosec:
+      excludes:
+        - G103 # Codecs and key encoders use unsafe on purpose to skip copies.
+        - G115 # Binary codecs and telemetry convert integer widths on purpose.
+        - G124 # Insecure mode serves sessions over HTTP, which drops a Secure cookie.
+        - G204 # Each exec runs a known tool or binary with an argument list, no shell.
+        - G401 # SHA-1 makes v5 UUIDs and certificate fingerprints, not security checks.
+        - G402 # Broker trust is a user setting: MQTT can skip certificate checks.
+        - G404 # Seeded specs need a reproducible math/rand; no secret comes from it.
+        - G407 # gosec reads the nil nonce that NewGCMWithRandomNonce requires as fixed.
+        - G505 # SHA-1 makes v5 UUIDs and certificate fingerprints, not security checks.
+        - G710 # Redirects keep the request path; gosec flags any path from a request.
+      config:
+        # Sources, executables, and directories can be world-readable, not writable.
+        G301: "0755"
+        G302: "0755"
+        G306: "0755"
+    misspell:
+      # Specs use these typos on purpose.
+      ignore-rules:
+        - performnace
+        - teh
+    recvcheck:
+      # Decode and patch methods write to their receiver, so they take a pointer even
+      # on a value type. MarshalJSONTo takes a value even on a pointer type, as the
+      # built-in rule allows for MarshalJSON, so that it also runs on a value.
+      exclusions:
+        - "*.DecodeMsgpack"
+        - "*.DecodeOrc"
+        - "*.MarshalJSONTo"
+        - "*.Patch"
+        - "*.UnmarshalJSON"
+        - "*.UnmarshalJSONFrom"
     govet:
       enable-all: true
       disable:
@@ -63,8 +155,8 @@ linters:
       must:
         type: "module"
         description: >
-          Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
-          MustSucceed.
+          Detects errors that a test captures in a variable before it asserts on them,
+          which MustSucceed or Expect(f()).Error() replace.
       set:
         type: "module"
         description: >
@@ -85,6 +177,18 @@ linters:
         description: >
           Forbids error assertions that do not identify the error: HaveOccurred(),
           Not(Succeed()), and Not(BeNil()) on an error.
+      teardown:
+        type: "module"
+        description: >
+          Forbids Close calls in AfterEach, JustAfterEach, AfterAll, AfterSuite, and
+          SynchronizedAfterSuite. MustOpen or DeferClose registers the cleanup next to
+          the open.
+  exclusions:
+    rules:
+      # golangci-lint loads a module plugin only through register.Plugin in init().
+      - path: analyzers/[^/]+/plugin\.go$
+        linters:
+          - gochecknoinits
 formatters:
   enable:
     - gci

@@ -10,8 +10,6 @@
  */
 
 .console-device-find {
-    width: 155rem;
-
     .console-device-find__empty {
         padding: 6rem 4rem;
         text-align: center;

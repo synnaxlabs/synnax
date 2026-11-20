@@ -12,8 +12,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color, TimeSpan } from "@synnaxlabs/x";
 
 import { Base, type HandleSpec } from "@/arc/graph/node/Base";
-import { type Config } from "@/arc/graph/node/stable/config";
-import { type types } from "@/arc/graph/node/types";
+import type { Config } from "@/arc/graph/node/stable/config";
+import type { types } from "@/arc/graph/node/types";
 
 export type SymbolProps = types.SymbolProps<Config>;
 
@@ -27,7 +27,7 @@ export const StableFor = ({ config: { duration } }: SymbolProps) => (
   <Base
     type="Stable for"
     Icon={<Icon.Time />}
-    color={color.cssString(color.setAlpha(PURPLE_HEX, 0.2))}
+    color={color.cssString(color.setOpacity(PURPLE_HEX, 0.2))}
     textColor={color.cssString(PURPLE_HEX)}
     sinks={SINKS}
     sources={SOURCES}

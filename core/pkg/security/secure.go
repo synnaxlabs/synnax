@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// secureProvider implements the Provider interface for use in a secure cluster.
+// secureProvider implements the Provider interface for a Core that serves TLS.
 type secureProvider struct {
 	loader   *cert.Loader
 	tls      *tls.Certificate
@@ -75,28 +75,12 @@ func (p *secureProvider) TLSConfigFor(src cert.Source) *tls.Config {
 	return p.baseTLSConfig(src.GetCertificate)
 }
 
-func (p *secureProvider) NodeClientConfig() *tls.Config {
-	return p.baseTLSConfig(p.getNodeCert)
-}
-
 func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
 	leaf, _, err := chainOf(src)
 	if err != nil {
 		return err
 	}
 	return leaf.VerifyHostname(host)
-}
-
-func (p *secureProvider) VerifyCertCoreCA(src cert.Source) error {
-	leaf, intermediates, err := chainOf(src)
-	if err != nil {
-		return err
-	}
-	_, err = leaf.Verify(x509.VerifyOptions{
-		Roots:         p.certPool,
-		Intermediates: intermediates,
-	})
-	return err
 }
 
 func (p *secureProvider) VerifyCertTrustAnchors(src cert.Source) error {
@@ -152,10 +136,6 @@ func (p *secureProvider) baseTLSConfig(
 		MinVersion:           tls.VersionTLS13,
 		NextProtos:           []string{"http/1.1", "h2"},
 	}
-}
-
-func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return p.tls, nil
 }
 
 func (p *secureProvider) getClientCert(

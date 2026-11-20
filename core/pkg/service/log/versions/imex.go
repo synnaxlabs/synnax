@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -30,22 +31,15 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 	if env.Version > legacy.LastVersion {
 		l, err = autoDecodeEnvelope(ctx, env)
 	} else {
-		// Console states embed the body inline: ride the storage lift, which decodes
-		// the body through the legacy chain.
-		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
-			if err = imex.RequireFields(body, "a log", "channels"); err == nil {
-				var l2 v2.Log
-				if l2, err = v2.MigrateLog(
-					ctx, v0.Log{Name: env.Name, Data: body},
-				); err == nil {
-					l, err = liftFirst(ctx, l2)
-				}
-			}
-		}
+		l, err = decodeConsoleEnvelope(ctx, env)
 	}
 	if err != nil {
 		return Log{}, err
+	}
+	// A Console state lifts through Go code that cannot tell an absent field from a
+	// zero one, so its zero fields take their defaults.
+	if env.Version <= legacy.LastVersion {
+		l = defaults.Fill(l)
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
@@ -55,4 +49,22 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 	// here for every path.
 	l.Name = env.Name
 	return l, nil
+}
+
+// decodeConsoleEnvelope lifts a Console-written log envelope to a current-version Log.
+// Console states embed the body inline, so it rides the storage lift, which decodes the
+// body through the legacy chain.
+func decodeConsoleEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
+	body, err := env.Decode[msgpack.EncodedJSON]()
+	if err != nil {
+		return Log{}, err
+	}
+	if err = imex.RequireFields(body, "a log", "channels"); err != nil {
+		return Log{}, err
+	}
+	l2, err := v2.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})
+	if err != nil {
+		return Log{}, err
+	}
+	return liftFirst(ctx, l2)
 }

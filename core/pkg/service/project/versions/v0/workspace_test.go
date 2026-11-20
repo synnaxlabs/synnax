@@ -24,10 +24,4 @@ var _ = Describe("Workspace", func() {
 			Expect(v0.Workspace{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Workspace{}.SetOptions()).To(BeNil())
-		})
-	})
 })

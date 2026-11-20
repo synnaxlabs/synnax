@@ -14,17 +14,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// tabResource is the ontology ID the tab helper derives from a tab key, so each
+// tabResource is the resource ID the tab helper derives from a tab key, so each
 // tab in a fixture backs a distinct resource.
-func tabResource(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: "lineplot", Key: key.String()}
+func tabResource(key uuid.UUID) resource.ID {
+	return resource.ID{Type: "lineplot", Key: key.String()}
 }
 
 // tab constructs a resource Tab with a fixed UUID and a key-derived resource. Tests
@@ -114,11 +114,55 @@ var _ = Describe("Actions", func() {
 		tab3 = uuid.New()
 	})
 
-	Describe("Rename", func() {
+	Describe("SetPayload", func() {
 		It("Should replace the panel's name", func() {
 			p := panel.Panel{Name: "Before", Root: leafNode()}
-			next := MustSucceed(panel.RenamePayload{Name: "After"}.Handle(p))
+			next := MustSucceed(panel.SetPayload{
+				Path:  []string{"name"},
+				Value: "After",
+			}.Handle(p))
 			Expect(next.Name).To(Equal("After"))
+			Expect(next.Root).To(Equal(p.Root))
+		})
+
+		It("Should reject a path to another field", func() {
+			p := panel.Panel{Name: "Before", Root: leafNode()}
+			Expect(panel.SetPayload{Path: []string{"icon"}, Value: "valve"}.Handle(p)).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`unknown object member name "icon"`)),
+			))
+		})
+	})
+
+	Describe("RemovePayload", func() {
+		It("Should reject a remove of the name", func() {
+			p := panel.Panel{Name: "Before", Root: leafNode()}
+			Expect(panel.RemovePayload{Key: "name"}.Handle(p)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("[name]: the document requires a value")),
+			))
+		})
+	})
+
+	Describe("InsertPayload", func() {
+		It("Should reject an insert into the name", func() {
+			p := panel.Panel{Name: "Before", Root: leafNode()}
+			Expect(panel.InsertPayload{
+				Path:  []string{"name"},
+				Value: map[string]any{"key": "a"},
+			}.Handle(p)).Error().To(MatchError(
+				ContainSubstring("[name]: the value is not a list"),
+			))
+		})
+	})
+
+	Describe("MovePayload", func() {
+		It("Should reject a move in the name", func() {
+			p := panel.Panel{Name: "Before", Root: leafNode()}
+			Expect(panel.MovePayload{Path: []string{"name"}, Key: "a"}.Handle(p)).
+				Error().
+				To(MatchError(ContainSubstring("[name]: the value is not a list")))
 		})
 	})
 
@@ -139,14 +183,13 @@ var _ = Describe("Actions", func() {
 	Describe("SetColor", func() {
 		It("Should set the color of the panel's icon", func() {
 			p := panel.Panel{Root: leafNode()}
-			c := MustSucceed(color.FromHex("#dc136c"))
-			next := MustSucceed(panel.SetColorPayload{Color: &c}.Handle(p))
-			Expect(next.Color).To(HaveValue(Equal(c)))
+			c := fixedColor("#dc136c")
+			next := MustSucceed(panel.SetColorPayload{Color: c}.Handle(p))
+			Expect(next.Color).To(Equal(c))
 		})
 
 		It("Should reset the color when the payload holds none", func() {
-			c := MustSucceed(color.FromHex("#dc136c"))
-			p := panel.Panel{Root: leafNode(), Color: &c}
+			p := panel.Panel{Root: leafNode(), Color: fixedColor("#dc136c")}
 			next := MustSucceed(panel.SetColorPayload{}.Handle(p))
 			Expect(next.Color).To(BeNil())
 		})
@@ -952,22 +995,6 @@ var _ = Describe("Actions", func() {
 				panel.Panel{Root: leafNode(tab(uuid.New()))},
 				panel.ResizeSplitPayload{Split: 1, Size: 0.5},
 				"node at path is not a split",
-			),
-			Entry(
-				"size above 1",
-				panel.Panel{
-					Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
-				},
-				panel.ResizeSplitPayload{Split: 1, Size: 1.5},
-				"split size must be in [0, 1]",
-			),
-			Entry(
-				"size below 0",
-				panel.Panel{
-					Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
-				},
-				panel.ResizeSplitPayload{Split: 1, Size: -0.1},
-				"split size must be in [0, 1]",
 			),
 		)
 	})

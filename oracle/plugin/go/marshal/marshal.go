@@ -12,7 +12,6 @@
 package marshal
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -81,13 +80,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// types/vN; the rewrite shifts every affected path at once so cross-package codec
 	// references stay version-pinned.
 	rewritten, _, _, err := versioning.RewriteCurrent(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
 	pins, err := versioning.NewPins(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
@@ -96,9 +95,48 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	versionedReq.Resolutions = rewritten
 	req = &versionedReq
 
-	// Collect all entry types. Codecs are explicit: a struct or union gets one iff it
-	// declares @go marshal; references never pull a codec in.
-	var entryTypes []resolution.Type
+	merged, err := groupEntries(req, aliased)
+	if err != nil {
+		return nil, err
+	}
+	flexByPkg := groupFlexCodecs(req.Resolutions, aliased)
+
+	// Collect all packages that need a codec file (from structs or flex types).
+	allPkgs := make(set.Set[string])
+	for goPath := range merged {
+		allPkgs.Add(goPath)
+	}
+	for goPath := range flexByPkg {
+		allPkgs.Add(goPath)
+	}
+	if p.Options.RequireVersioned {
+		if err := checkVersioned(allPkgs, merged, flexByPkg); err != nil {
+			return nil, err
+		}
+	}
+	codecs, err := p.codecFiles(allPkgs, merged, flexByPkg, req, pins)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, codecs...)
+	if p.Options.GenerateTests {
+		tests, err := p.testFiles(merged, req, pins)
+		if err != nil {
+			return nil, err
+		}
+		resp.Files = append(resp.Files, tests...)
+	}
+	return resp, nil
+}
+
+// groupEntries groups the struct and union types that get a codec by their Go output
+// path, keyed by qualified name. A type gets a codec iff it declares @go marshal;
+// references never pull a codec in.
+func groupEntries(
+	req *plugin.Request,
+	aliased set.Set[string],
+) (map[string]map[string]resolution.Type, error) {
+	merged := make(map[string]map[string]resolution.Type)
 	for _, entry := range append(
 		req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...,
 	) {
@@ -115,12 +153,25 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				return nil, errors.Wrapf(err, "invalid output path for %s", entry.Name)
 			}
 		}
-		entryTypes = append(entryTypes, entry)
+		if aliased.Contains(entry.QualifiedName) {
+			continue
+		}
+		if merged[goPath] == nil {
+			merged[goPath] = make(map[string]resolution.Type)
+		}
+		merged[goPath][entry.QualifiedName] = entry
 	}
+	return merged, nil
+}
 
-	// Collect DistinctForm types with @go marshal flex.
+// groupFlexCodecs groups the distinct types with @go marshal flex by their Go output
+// path.
+func groupFlexCodecs(
+	table *resolution.Table,
+	aliased set.Set[string],
+) map[string][]flexCodec {
 	flexByPkg := make(map[string][]flexCodec)
-	for _, dt := range req.Resolutions.DistinctTypes() {
+	for _, dt := range table.DistinctTypes() {
 		if aliased.Contains(dt.QualifiedName) {
 			continue
 		}
@@ -132,7 +183,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		form := dt.Form.(resolution.DistinctForm)
+		form := resolution.MustForm[resolution.DistinctForm](dt)
 		goName := naming.GetGoName(dt)
 		flexByPkg[goPath] = append(flexByPkg[goPath], flexCodec{
 			GoName:   goName,
@@ -140,57 +191,51 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			BaseType: form.Base.Name,
 		})
 	}
+	return flexByPkg
+}
 
-	// Group the tagged entries per package.
-	merged := make(map[string]map[string]resolution.Type)
-	for _, entry := range entryTypes {
-		if aliased.Contains(entry.QualifiedName) {
+// checkVersioned fails when a codec package is not a versions/vN package. A codec pins
+// a persisted wire format to a type shape, so every marshalled type must live where
+// that shape is immutable. A codec target outside versions/vN means the type (or one it
+// persists) is not a member of its resource's current version file.
+func checkVersioned(
+	allPkgs set.Set[string],
+	merged map[string]map[string]resolution.Type,
+	flexByPkg map[string][]flexCodec,
+) error {
+	for goPath := range allPkgs {
+		if isVersionedPath(goPath) {
 			continue
 		}
-		goPath := output.GetPath(entry, "go")
-		if merged[goPath] == nil {
-			merged[goPath] = make(map[string]resolution.Type)
+		names := make([]string, 0, len(merged[goPath])+len(flexByPkg[goPath]))
+		for _, t := range merged[goPath] {
+			names = append(names, naming.GetGoName(t))
 		}
-		merged[goPath][entry.QualifiedName] = entry
-	}
-
-	// Collect all packages that need a codec file (from structs or flex types).
-	allPkgs := make(set.Set[string])
-	for goPath := range merged {
-		allPkgs.Add(goPath)
-	}
-	for goPath := range flexByPkg {
-		allPkgs.Add(goPath)
-	}
-
-	// A codec pins a persisted wire format to a type shape, so every marshalled type
-	// must live in a versions/vN package where that shape is immutable. A codec target
-	// outside versions/vN means the type (or one it persists) is not a member of its
-	// resource's current version file.
-	if p.Options.RequireVersioned {
-		for goPath := range allPkgs {
-			if isVersionedPath(goPath) {
-				continue
-			}
-			names := make([]string, 0, len(merged[goPath])+len(flexByPkg[goPath]))
-			for _, t := range merged[goPath] {
-				names = append(names, naming.GetGoName(t))
-			}
-			for _, f := range flexByPkg[goPath] {
-				names = append(names, f.GoName)
-			}
-			sort.Strings(names)
-			return nil, errors.Newf(
-				"cannot generate a codec for %s in %s: @go marshal types must be versioned; declare them in the current version file",
-				strings.Join(names, ", "),
-				goPath,
-			)
+		for _, f := range flexByPkg[goPath] {
+			names = append(names, f.GoName)
 		}
+		sort.Strings(names)
+		return errors.Newf(
+			"cannot generate a codec for %s in %s: @go marshal types must be versioned; declare them in the current version file",
+			strings.Join(names, ", "),
+			goPath,
+		)
 	}
+	return nil
+}
 
-	// Generate one file per package in sorted order for deterministic output.
+// codecFiles generates one codec file per package, in sorted order for deterministic
+// output.
+func (p *Plugin) codecFiles(
+	allPkgs set.Set[string],
+	merged map[string]map[string]resolution.Type,
+	flexByPkg map[string][]flexCodec,
+	req *plugin.Request,
+	pins versioning.Pins,
+) ([]plugin.File, error) {
 	sortedPkgs := allPkgs.Slice()
 	sort.Strings(sortedPkgs)
+	var files []plugin.File
 	for _, goPath := range sortedPkgs {
 		packageName := naming.DerivePackageName(goPath)
 		entries := buildCodecEntries(merged[goPath])
@@ -210,47 +255,52 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate codec for %s", goPath)
 		}
-		resp.Files = append(resp.Files, plugin.File{
+		files = append(files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", goPath, p.Options.FileNamePattern),
 			Content: content,
 		})
 	}
+	return files, nil
+}
 
-	if p.Options.GenerateTests {
-		sortedMergedPkgs := make([]string, 0, len(merged))
-		for goPath := range merged {
-			sortedMergedPkgs = append(sortedMergedPkgs, goPath)
-		}
-		sort.Strings(sortedMergedPkgs)
-		for _, goPath := range sortedMergedPkgs {
-			typeMap := merged[goPath]
-			packageName := naming.DerivePackageName(goPath)
-			entries := buildCodecEntries(typeMap)
-			testContent, testErr := generateTestCodecFile(
-				packageName, goPath, entries, req.Resolutions, req.RepoRoot,
-				pins,
+// testFiles generates one codec test file per package with struct or union codecs.
+func (p *Plugin) testFiles(
+	merged map[string]map[string]resolution.Type,
+	req *plugin.Request,
+	pins versioning.Pins,
+) ([]plugin.File, error) {
+	sortedMergedPkgs := make([]string, 0, len(merged))
+	for goPath := range merged {
+		sortedMergedPkgs = append(sortedMergedPkgs, goPath)
+	}
+	sort.Strings(sortedMergedPkgs)
+	var files []plugin.File
+	for _, goPath := range sortedMergedPkgs {
+		packageName := naming.DerivePackageName(goPath)
+		entries := buildCodecEntries(merged[goPath])
+		testContent, err := generateTestCodecFile(
+			packageName, goPath, entries, req.Resolutions, req.RepoRoot,
+			pins,
+		)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"failed to generate codec tests for %s",
+				goPath,
 			)
-			if testErr != nil {
-				return nil, errors.Wrapf(
-					testErr,
-					"failed to generate codec tests for %s",
+		}
+		if testContent != nil {
+			files = append(files, plugin.File{
+				Path: fmt.Sprintf(
+					"%s/%s",
 					goPath,
-				)
-			}
-			if testContent != nil {
-				resp.Files = append(resp.Files, plugin.File{
-					Path: fmt.Sprintf(
-						"%s/%s",
-						goPath,
-						p.Options.TestFileNamePattern,
-					),
-					Content: testContent,
-				})
-			}
+					p.Options.TestFileNamePattern,
+				),
+				Content: testContent,
+			})
 		}
 	}
-
-	return resp, nil
+	return files, nil
 }
 
 type codecEntry struct {
@@ -297,8 +347,8 @@ func sortedImports(m map[string]string) []importEntry {
 	return entries
 }
 
-func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
+func resolveGoImportPath(outputPath, repoRoot string) string {
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
 }
 
 // isVersionedPath reports whether goPath is a versions/vN package (its parent directory

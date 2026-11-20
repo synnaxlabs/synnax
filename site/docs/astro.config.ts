@@ -12,20 +12,22 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { CDN } from "@synnaxlabs/site-common/cdn";
+import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
-import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
-import { type AstroIntegration } from "astro";
-import { defineConfig } from "astro/config";
-import fs from "fs";
-import matter from "gray-matter";
-import path from "path";
+import { defineConfig, envField } from "astro/config";
 
-import { schema } from "./src/util/env";
+import { ORIGIN as ALGOLIA } from "./src/components/search/algolia";
+import { HASHES } from "./src/inline";
+import { tokenSource } from "./src/util/githubApp";
+import { IMAGES } from "./src/util/images";
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
 import { listReleaseNotes } from "./src/util/releaseNotes";
+import { Releases } from "./src/util/releases";
+import { NEXT, parse, resolve, withSites } from "./src/util/version";
 
 // Each version's notes render only inside /releases, so their old routes point at the
 // version's anchor there.
@@ -36,40 +38,54 @@ const RELEASE_REDIRECTS = Object.fromEntries(
   ]),
 );
 
-// A page behind a flag renders per request, so it can answer 404 while the flag is off.
-const flaggedPages: AstroIntegration = {
-  name: "flagged-pages",
-  hooks: {
-    "astro:route:setup": ({ route }) => {
-      if (!/\.mdx?$/.test(route.component)) return;
-      const source = fs.readFileSync(
-        path.join(import.meta.dirname, route.component),
-        "utf8",
+// One resolution serves every page, so a deployment never mixes statuses, and a page
+// that renders per request never asks GitHub for its version.
+const releases = new Releases({
+  token: tokenSource({
+    appID: process.env.DOCS_GITHUB_APP_ID,
+    privateKey: process.env.DOCS_GITHUB_APP_PRIVATE_KEY,
+    token: process.env.GITHUB_TOKEN,
+  }),
+});
+const versionName = parse(process.env.DOCS_VERSION);
+const version =
+  versionName == null
+    ? null
+    : resolve(
+        versionName,
+        withSites(await releases.trains("core")),
+        versionName === NEXT ? null : await releases.onTrain("core", versionName),
       );
-      if (matter(source).data.flag != null) route.prerender = false;
-    },
-  },
-};
+
+/** A GitHub credential. Without one, the docs ask GitHub with no token. */
+const SECRET = envField.string({
+  context: "server",
+  access: "secret",
+  optional: true,
+});
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [integration(), react(), mdx(), flaggedPages],
-  env: { schema },
-  adapter: vercel(),
-  vite: {
-    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
-    // SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
-    css: {
-      postcss: {
-        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+  integrations: [integration(), react(), mdx(), jitless()],
+  adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
+  image: { domains: IMAGES.domains },
+  security: {
+    csp: policy({
+      sources: {
+        "connect-src": ["'self'", ALGOLIA, "https://formspree.io"],
+        "img-src": ["'self'", "data:", CDN],
+        "media-src": ["'self'", CDN],
       },
-    },
-    // An inlined font ships in the render-blocking stylesheet whether or not a page
-    // needs its characters.
-    build: {
-      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
-    },
+      hashes: HASHES,
+      posthogAllowed: true,
+      // Shiki colors code with style attributes, and transitions add style elements
+      // that differ by page while the client router keeps the first page's policy.
+      inlineStylesAllowed: true,
+      vercelEnv: process.env.VERCEL_ENV,
+    }),
+  },
+  vite: {
+    define: { __DOCS_VERSION__: JSON.stringify(version) },
   },
   markdown: {
     processor: satteri({ hastPlugins: [outline, inlineCode, quantities] }),
@@ -86,14 +102,6 @@ export default defineConfig({
     "/reference/client/working-with-data/streaming-data":
       "/reference/client/stream-data",
     "/concepts/write": "/reference/client/write-data",
-    "/guides/comparison/performance/one-billion-rows": "/blog/one-billion-rows",
-    "/guides/get-started/installation": "/reference/enterprise",
-    "/guides/": "/reference/",
-    "/guides/get-started": "/reference/",
-    "/guides/analyst": "/reference/",
-    "/guides/sys-admin": "/reference/",
-    "/guides/operations": "/reference/",
-    "/guides/comparison": "/reference/",
     "/reference/client/advanced": "/reference/client/write-data",
     "/reference/client/advanced/delete-data": "/reference/client/delete-data",
     "/reference/client/advanced/auto-commit": "/reference/client/write-data",
@@ -136,6 +144,7 @@ export default defineConfig({
     "/reference/control/arc/how-to/unit-conversions":
       "/reference/control/arc/compute-values",
     "/reference/control/arc/introduction": "/reference/control/arc",
+    "/reference/control/arc/graph-editor": "/reference/control/arc/automations",
     "/reference/control/arc/concepts/stateful-variables":
       "/reference/control/arc/reference/variables",
     "/reference/control/arc/reference/built-ins":
@@ -215,6 +224,8 @@ export default defineConfig({
     "/reference/enterprise/clusters": "/reference/enterprise",
     "/reference/concepts/overview": "/reference/channels",
     "/reference/concepts/ranges": "/reference/ranges",
+    "/reference/ranges/aliases": "/reference/ranges",
+    "/reference/ranges/snapshots": "/reference/ranges",
     "/reference/concepts/reads": "/reference/client/read-data",
     "/reference/concepts/streams": "/reference/client/stream-data",
     "/reference/concepts/writes": "/reference/client/write-data",
@@ -285,6 +296,15 @@ export default defineConfig({
     "/reference/driver/task-basics": "/reference/hardware/tasks",
     "/reference/installation": "/reference/enterprise",
     ...RELEASE_REDIRECTS,
+  },
+  // The middleware reads these. The config runs before Astro loads them, so it reads
+  // process.env.
+  env: {
+    schema: {
+      DOCS_GITHUB_APP_ID: SECRET,
+      DOCS_GITHUB_APP_PRIVATE_KEY: SECRET,
+      GITHUB_TOKEN: SECRET,
+    },
   },
   site: "https://docs.synnaxlabs.com",
 });

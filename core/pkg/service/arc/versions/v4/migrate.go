@@ -11,31 +11,97 @@ package v4
 
 import (
 	"context"
+	"uuid"
 
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	"go.uber.org/zap"
 )
 
-// MigrateArc lifts a v3 Arc, rewriting its text from the grammar that wrote inputs in
-// braces and triggers in parens. A stored Arc carries its text as a document and an
-// exported one as raw; either way the result carries a fresh document and no raw.
+// MigrateArc lifts a v3 Arc, keeping only the body its mode selects. A blank mode, from
+// files written before modes, is graph. Text is rewritten from the grammar that wrote
+// inputs in braces and triggers in parens, then its mixed-type range() calls get the
+// casts of CastRanges. A stored Arc carries text as a document and an exported one as
+// raw, and either way the result carries a fresh document and no raw. Every Arc stored
+// before v4 is an automation. Names lex with dashed names off.
 func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
-	a, err := autoMigrateArc(ctx, old)
-	if err != nil {
-		return Arc{}, err
-	}
-	raw := a.Text.Raw
-	if len(a.Text.Doc.Inserts) > 0 {
-		raw = a.Text.Materialize().Raw
-	}
-	if raw == "" {
-		return a, nil
-	}
-	a.Text.Doc = text.Create(SwapBrackets(raw))
-	a.Text.Raw = ""
-	return a, nil
+	return migrateArc(ctx, old, parser.Config{})
 }
 
-// Migration rewrites the text of every stored Arc for the bracket swap.
-var Migration = migrate.NewEntry("v61_swap_brackets", MigrateArc)
+func migrateArc(ctx context.Context, old v3.Arc, cfg parser.Config) (Arc, error) {
+	b := Base{Key: old.Key, Name: old.Name}
+	if old.Mode != v3.ModeText {
+		b.Source.Variant = GraphSource{Graph: old.Graph}
+		return Arc{Variant: AutomationArc{Base: b}}, nil
+	}
+	t := old.Text
+	raw := t.Raw
+	if len(t.Doc.Inserts) > 0 {
+		raw = t.Materialize().Raw
+	}
+	if raw != "" {
+		t.Doc = text.Create(CastRanges(ctx, SwapBrackets(raw, cfg), cfg))
+		t.Raw = ""
+	}
+	b.Source.Variant = TextSource{Text: t}
+	return Arc{Variant: AutomationArc{Base: b}}, nil
+}
+
+// NewMigration returns the migration that rewrites the text of every stored Arc for the
+// bracket swap and the casts of CastRanges. cfg must match the parser config the Core
+// that stored the Arcs ran with, since a dashed name lexes as subtraction without it.
+func NewMigration(cfg parser.Config) gorp.Migration {
+	return migrate.NewInstrumentedEntry(
+		"v61_swap_brackets",
+		func(ctx context.Context, old v3.Arc, ins alamos.Instrumentation) (Arc, error) {
+			a, err := migrateArc(ctx, old, cfg)
+			if err != nil {
+				return Arc{}, err
+			}
+			src, ok := a.Base().Source.Variant.(TextSource)
+			if !ok {
+				return a, nil
+			}
+			if _, diag := parser.Parse(src.Text.Materialize().Raw, cfg); diag != nil {
+				ins.L.Warn(
+					"left the range() calls of an Arc that does not parse unchanged",
+					zap.Stringer("arc", old.Key),
+					zap.Error(diag),
+				)
+			}
+			return a, nil
+		},
+	)
+}
+
+// NewRootMigration returns the migration that puts every stored Arc in no directory
+// into the directory root.
+func NewRootMigration(root uuid.UUID) gorp.Migration {
+	return migrate.NewEntry(
+		"v61_arcs_root_directory",
+		func(_ context.Context, a Arc) (Arc, error) {
+			if b := a.Base(); b.Directory == nil {
+				b.Directory = &root
+				a.SetBase(b)
+			}
+			return a, nil
+		},
+	)
+}
+
+// NameMigration names each stored Arc that has an empty name "Arc <key>", where <key>
+// is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, a Arc) (Arc, error) {
+		if b := a.Base(); b.Name == "" {
+			b.Name = "Arc " + b.Key.String()[:8]
+			a.SetBase(b)
+		}
+		return a, nil
+	},
+)

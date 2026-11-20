@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -295,7 +296,7 @@ var _ = Describe("setNode.Next", func() {
 		newKey := cfg.State.Output(0).Unmarshal[string]()[0]
 		var st status.Status[any]
 		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](newKey)).
-			Entry(&st).Exec(ctx, nil)).To(Succeed())
+			Entry(&st).Exec(ctx, db)).To(Succeed())
 		Expect(st.Message).To(Equal("live message"))
 		Expect(rep.get()).To(BeEmpty())
 	})
@@ -319,7 +320,7 @@ var _ = Describe("setNode.Next", func() {
 				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](newKey)).
 					Entry(&s).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(s.Key).To(Equal(newKey))
 			Expect(s.Name).To(Equal(name))
@@ -365,7 +366,7 @@ var _ = Describe("setNode.Next", func() {
 			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](existingKey)).
 				Entry(&s).
-				Exec(ctx, nil),
+				Exec(ctx, db),
 		).To(Succeed())
 		Expect(s.Variant).To(Equal(status.VariantWarning))
 		Expect(s.Message).To(Equal("updated"))
@@ -391,7 +392,7 @@ var _ = Describe("setNode.Next", func() {
 			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](key)).
 				Entry(&s).
-				Exec(ctx, nil),
+				Exec(ctx, db),
 		).To(Succeed())
 		Expect(s.Variant).To(Equal(status.VariantError))
 		Expect(s.Message).To(Equal("via uuid"))
@@ -424,7 +425,7 @@ var _ = Describe("setNode.Next", func() {
 
 		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 			Entry(&status.Status[any]{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 
 		// On invalid variant, Output(0) carries a single empty-string sample.
 		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
@@ -484,19 +485,12 @@ var _ = Describe("setNode.Next", func() {
 				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](k1, k2)).
 					Entries(&rows).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
-			warning, info := 0, 0
-			for _, r := range rows {
-				switch r.Variant {
-				case status.VariantWarning:
-					warning++
-				case status.VariantInfo:
-					info++
-				}
-			}
-			Expect(warning).To(Equal(1))
-			Expect(info).To(Equal(1))
+			Expect(rows).To(ConsistOf(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Variant", status.VariantInfo),
+			))
 		},
 	)
 
@@ -557,6 +551,7 @@ var _ = Describe("Analyzer hooks", func() {
 		for _, e := range errs {
 			if regexp.MustCompile(regexp.QuoteMeta(badVariant) + `.*not a valid status variant`).
 				MatchString(e.Message) {
+				Expect(e.Code).To(Equal(codes.FuncArgValue.Code))
 				found = true
 				break
 			}
@@ -762,7 +757,7 @@ var _ = Describe("WASM host functions", func() {
 					statSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](newKey)).
 						Entry(&s).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(s.Name).To(Equal(name))
 				Expect(s.Variant).To(Equal(status.VariantInfo))

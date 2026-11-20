@@ -7,19 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, type ontology, panel, ranger } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { act, renderHook } from "@testing-library/react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { Session } from "@/session";
 import { LinePlot } from "@/session/lineplot";
 import { createSliceStore, inWindow } from "@/session/window/testutil";
-import { assertDefined, createConsoleWrapper, uniqueName } from "@/testutil";
 
 const KEY = "plot-1";
 
@@ -138,99 +133,5 @@ describe("lineplot selector stability under dispatch", () => {
     expect(result.current).toBe("annotations");
     rerender({ key: "plot-2" });
     expect(result.current).toBe("axes");
-  });
-});
-
-describe("focused line plot", () => {
-  const client = createTestClient();
-
-  const tabFor = (resource: ontology.ID): panel.Tab => ({
-    variant: "resource",
-    key: uuid.create(),
-    resource,
-  });
-
-  const createPanelWith = async (tabs: panel.Tab[]) =>
-    await client.panels.create({
-      name: uniqueName("panel"),
-      root: { variant: "leaf", tabs },
-      parent: await createPanelParent(client),
-    });
-
-  interface Focused {
-    select: lineplot.Key | undefined;
-    get: () => lineplot.Key | undefined;
-    focus: (tabKey: panel.TabKey) => void;
-  }
-
-  const renderFocused = async (tabs: panel.Tab[], focus = true) => {
-    const pan = tabs.length > 0 ? await createPanelWith(tabs) : undefined;
-    const { wrapper, store } = await createConsoleWrapper({ client });
-    if (pan != null) store.dispatch(Session.Panel.select({ key: pan.key }));
-    const { result } = renderHook(
-      (): Focused => ({
-        select: Session.LinePlot.useSelectFocusedKey(),
-        get: Session.LinePlot.useGetFocusedKey(),
-        focus: Session.Panel.useSelectTab(pan?.key),
-      }),
-      { wrapper },
-    );
-    if (pan != null && focus)
-      act(() => {
-        result.current.focus(tabs[0].key);
-      });
-    return { result, store, pan };
-  };
-
-  it("should report the key when the focused tab shows a line plot", async () => {
-    const plot = lineplot.ontologyID(uuid.create());
-    const { result } = await renderFocused([tabFor(plot)]);
-    await waitFor(() => expect(result.current.select).toBe(plot.key));
-    expect(result.current.get()).toBe(plot.key);
-  });
-
-  it("should report nothing when the focused tab shows another resource", async () => {
-    const { result } = await renderFocused([tabFor(ranger.ontologyID(uuid.create()))]);
-    await waitFor(() => expect(result.current.select).toBeUndefined());
-    expect(result.current.get()).toBeUndefined();
-  });
-
-  it("should report nothing when no panel is selected", async () => {
-    const { result } = await renderFocused([]);
-    expect(result.current.select).toBeUndefined();
-    expect(result.current.get()).toBeUndefined();
-  });
-
-  it("should follow focus as it moves between a plot and another resource", async () => {
-    const plot = lineplot.ontologyID(uuid.create());
-    const plotTab = tabFor(plot);
-    const rangeTab = tabFor(ranger.ontologyID(uuid.create()));
-    const { result } = await renderFocused([plotTab, rangeTab]);
-    await waitFor(() => expect(result.current.select).toBe(plot.key));
-    act(() => {
-      result.current.focus(rangeTab.key);
-    });
-    await waitFor(() => expect(result.current.select).toBeUndefined());
-    expect(result.current.get()).toBeUndefined();
-    act(() => {
-      result.current.focus(plotTab.key);
-    });
-    await waitFor(() => expect(result.current.select).toBe(plot.key));
-    expect(result.current.get()).toBe(plot.key);
-  });
-
-  it("should follow the focused tab when its content changes in place", async () => {
-    const tab = tabFor(ranger.ontologyID(uuid.create()));
-    const { result, pan } = await renderFocused([tab]);
-    assertDefined(pan);
-    await waitFor(() => expect(result.current.select).toBeUndefined());
-    const plot = lineplot.ontologyID(uuid.create());
-    await act(async () => {
-      await client.panels.dispatch(
-        pan.key,
-        panel.setTabResource({ key: tab.key, resource: plot }),
-      );
-    });
-    await waitFor(() => expect(result.current.select).toBe(plot.key));
   });
 });

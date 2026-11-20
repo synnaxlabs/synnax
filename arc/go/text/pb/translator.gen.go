@@ -14,6 +14,7 @@ package pb
 import (
 	"github.com/synnaxlabs/arc/text"
 	crdtpb "github.com/synnaxlabs/x/crdt/pb"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 // DocumentToPB converts Document to Document.
@@ -91,17 +92,24 @@ func TextToPB(r text.Text) (*Text, error) {
 }
 
 // TextFromPB converts Text to Text.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func TextFromPB(pb *Text) (text.Text, error) {
 	var r text.Text
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
-	r.Doc, err = DocumentFromPB(pb.Doc)
-	if err != nil {
-		return text.Text{}, err
+	if pb.Doc != nil {
+		r.Doc, err = DocumentFromPB(pb.Doc)
+		if err != nil {
+			return text.Text{}, err
+		}
 	}
 	r.Raw = pb.Raw
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

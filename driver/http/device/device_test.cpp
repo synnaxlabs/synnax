@@ -339,7 +339,7 @@ TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     auto r = synnax::rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     synnax::device::Device dev{
-        .key = "retrieve-conn-test-secure",
+        .key = make_unique_channel_name("retrieve-conn-test-secure"),
         .rack = r.key,
         .location = "192.168.1.100:8080",
         .make = "http",
@@ -359,7 +359,7 @@ TEST(RetrieveConnectionTest, InsecureBaseURL) {
     auto r = synnax::rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     synnax::device::Device dev{
-        .key = "retrieve-conn-test-insecure",
+        .key = make_unique_channel_name("retrieve-conn-test-insecure"),
         .rack = r.key,
         .location = "10.0.0.1:9090",
         .make = "http",
@@ -391,6 +391,24 @@ TEST(BuildRequestTest, MergesURLAndPath) {
     EXPECT_EQ(r.method, Method::GET);
     EXPECT_EQ(r.timeout, conn.timeout);
     EXPECT_EQ(r.verify_ssl, true);
+}
+
+/// @brief it should append the request path to the base URL's path.
+TEST(BuildRequestTest, AppendsPathToBasePath) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com/v2"}})
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
+}
+
+/// @brief it should join a base path with a trailing slash using one slash.
+TEST(BuildRequestTest, AppendsPathToBasePathWithTrailingSlash) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com/v2/"}})
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
 }
 
 TEST(BuildRequestTest, CarriesBaseURLAndCap) {

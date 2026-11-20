@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
 import { id } from "@synnaxlabs/x";
-import { act, screen, waitFor } from "@testing-library/react";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -21,8 +22,9 @@ import {
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
 } from "@/platform/task/testutil";
-import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
+import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const client = createTestClient();
 
@@ -56,17 +58,18 @@ const renderDigitalWrite = async (
   config: task.Payload<NI.Task.DigitalWriteSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.DigitalWrite, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.DIGITAL_WRITE_TYPE], {
     client,
     taskKey: draft.key,
   });
   return { ...rendered, draft };
 };
 
-const createConfig = (
-  channels: NI.Task.DOChannel[],
-  device = "placeholder_device",
-) => ({ ...NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}), device, channels });
+const createConfig = (channels: NI.Task.DOChannel[], device = "") => ({
+  ...NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}),
+  device,
+  channels,
+});
 
 describe("DigitalWrite", () => {
   it("should write edits to a channel's line number back into the form", async () => {
@@ -269,5 +272,51 @@ describe("DigitalWrite disabled channels", () => {
     first.unmount();
     const second = await renderDigitalWrite(config);
     await deployAndAwaitTask(client, second.container, second.draft.key);
+  });
+});
+
+describe("DigitalWrite channel names", () => {
+  it("should show the names deploying gives each channel in the list", async () => {
+    const dev = await createNIDevice(client);
+    await renderDigitalWrite(createConfig([createChannel(0, 2)], dev.key));
+    const { identifier } = dev.properties;
+    const item = await findChannelListItem(`${identifier}_do_0_2_cmd`);
+    expect(within(item).getByText(`${identifier}_do_0_2_state`)).toBeTruthy();
+    expect(within(item).getAllByRole("img", { name: "New channel" })).toHaveLength(2);
+  });
+
+  it("should let a disabled channel be renamed", async () => {
+    const dev = await createNIDevice(client);
+    const ch = createChannel(0, 2, { disabled: true });
+    const { draft } = await renderDigitalWrite(createConfig([ch], dev.key));
+    await findChannelListItem(`${dev.properties.identifier}_do_0_2_cmd`);
+    const editID = Task.getChannelNameID(ch.key, "cmd");
+    act(() => Text.edit(editID));
+    const el = await awaitTextEditing(editID);
+    act(() => commitTextEdit(el, "spare_cmd"));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].cmdChannelName).toBe("spare_cmd");
+    });
+  });
+
+  it("should not mark a disabled channel on a line another channel uses as new", async () => {
+    const dev = await createNIDevice(client);
+    await renderDigitalWrite(
+      createConfig(
+        [
+          createChannel(0, 2, { disabled: true, cmdChannelName: "spare_cmd" }),
+          createChannel(0, 2, { cmdChannelName: "main_cmd" }),
+        ],
+        dev.key,
+      ),
+    );
+    const main = await findChannelListItem("main_cmd");
+    expect(within(main).getAllByRole("img", { name: "New channel" })).toHaveLength(2);
+    const spare = await findChannelListItem("spare_cmd");
+    expect(within(spare).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

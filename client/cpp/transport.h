@@ -11,18 +11,26 @@
 
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/certificate/certificate.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
+#include "client/cpp/icd/icd.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
+#include "client/cpp/secret/secret.h"
 #include "client/cpp/status/status.h"
+#include "freighter/cpp/grpc/grpc.h"
 
 namespace synnax::details {
 struct Transport {
-    Transport(uint16_t port, const std::string &ip, bool secure);
+    Transport(
+        uint16_t port,
+        const std::string &ip,
+        const std::shared_ptr<freighter::grpc::Pool> &pool
+    );
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;
 
@@ -39,26 +47,36 @@ struct Transport {
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
     std::unique_ptr<ranger::RetrieveClient> range_retrieve;
     std::unique_ptr<ranger::CreateClient> range_create;
-    std::unique_ptr<ranger::SetEndClient> range_set_end;
+    std::unique_ptr<ranger::DispatchClient> range_dispatch;
     std::shared_ptr<ranger::kv::DeleteClient> range_kv_delete;
     std::shared_ptr<ranger::kv::GetClient> range_kv_get;
     std::shared_ptr<ranger::kv::SetClient> range_kv_set;
     std::unique_ptr<rack::CreateClient> rack_create_client;
     std::unique_ptr<rack::RetrieveClient> rack_retrieve;
     std::unique_ptr<rack::DeleteClient> rack_delete;
+    std::unique_ptr<rack::DispatchClient> rack_dispatch;
     std::shared_ptr<task::CreateClient> task_create;
     std::shared_ptr<task::RetrieveClient> task_retrieve;
     std::shared_ptr<task::DeleteClient> task_delete;
+    std::shared_ptr<task::DispatchClient> task_dispatch;
     std::unique_ptr<device::CreateClient> device_create;
     std::unique_ptr<device::RetrieveClient> device_retrieve;
     std::unique_ptr<device::DeleteClient> device_delete;
+    std::unique_ptr<device::DispatchClient> device_dispatch;
     std::shared_ptr<status::RetrieveClient> status_retrieve;
     std::shared_ptr<status::SetClient> status_set;
     std::shared_ptr<status::DeleteClient> status_delete;
     std::shared_ptr<status::SetByKeyOrNameClient> status_set_by_key_or_name;
+    std::shared_ptr<secret::RetrieveClient> secret_retrieve;
+    std::shared_ptr<secret::ResolveClient> secret_resolve;
+    std::shared_ptr<certificate::RetrieveClient> certificate_retrieve;
+    std::shared_ptr<certificate::SetClient> certificate_set;
+    std::shared_ptr<certificate::RefreshClient> certificate_refresh;
     std::shared_ptr<arc::CreateClient> arc_create;
     std::shared_ptr<arc::RetrieveClient> arc_retrieve;
     std::shared_ptr<arc::DeleteClient> arc_delete;
+    std::shared_ptr<icd::CreateClient> icd_create;
+    std::shared_ptr<icd::RetrieveClient> icd_retrieve;
     std::unique_ptr<connection::CheckClient> connectivity_check;
     std::shared_ptr<control::RetrieveClient> control_retrieve;
 };

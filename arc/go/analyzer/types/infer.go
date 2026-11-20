@@ -10,6 +10,9 @@
 package types
 
 import (
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -40,14 +43,14 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if series := ctx.SeriesType(); series != nil {
 		return inferSeriesType(series)
 	}
-	return types.Type{}, errors.New("could not determine type")
+	return types.Type{}, codes.UnresolvedType.Errorf("could not determine type")
 }
 
 func applyUnitSuffix(t types.Type, ctx parser.IUnitSuffixContext) (types.Type, error) {
 	unitName := ctx.IDENTIFIER().GetText()
 	unit, ok := units.Resolve(unitName)
 	if !ok {
-		return types.Type{}, errors.Newf("unknown unit: %s", unitName)
+		return types.Type{}, codes.UnknownUnit.Errorf("unknown unit: %s", unitName)
 	}
 	t.Unit = unit
 	return t, nil
@@ -63,9 +66,7 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if ctx.BOOL() != nil {
 		return types.Bool(), nil
 	}
-	return types.Type{}, errors.New(
-		"unknown type: expected a primitive (i32, f64, str, etc.)",
-	)
+	panic(errors.New("unknown type: expected a primitive (i32, f64, str, etc.)"))
 }
 
 func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
@@ -75,9 +76,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	return types.Type{}, errors.New(
-		"unknown type: expected a numeric type (i32, f64, etc.)",
-	)
+	panic(errors.New("unknown type: expected a numeric type (i32, f64, etc.)"))
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
@@ -100,7 +99,7 @@ func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
 	case "u64":
 		return types.U64(), nil
 	default:
-		return types.Type{}, errors.Newf("unknown integer type: %s", text)
+		panic(errors.Newf("unknown integer type: %s", text))
 	}
 }
 
@@ -112,7 +111,7 @@ func inferFloatType(ctx parser.IFloatTypeContext) (types.Type, error) {
 	case "f64":
 		return types.F64(), nil
 	default:
-		return types.Type{}, errors.Newf("unknown float type: %s", text)
+		panic(errors.Newf("unknown float type: %s", text))
 	}
 }
 
@@ -153,9 +152,7 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 		}
 		return types.Series(valueType), nil
 	}
-	return types.Type{}, errors.New(
-		"series elements must be a primitive type (i32, f64, str, etc.)",
-	)
+	panic(errors.New("series elements must be a primitive type (i32, f64, str, etc.)"))
 }
 
 // Compatible returns true if t1 and t2 have compatible base types after unwrapping
@@ -198,16 +195,30 @@ func AssignmentCompatible(varType, exprType types.Type) bool {
 	}
 	varType = varType.Unwrap()
 	exprType = exprType.Unwrap()
-	if varType.Kind == types.KindVariable || exprType.Kind == types.KindVariable {
+	if exprType.Kind == types.KindVariable {
+		return untypedFits(varType, exprType)
+	}
+	if varType.Kind == types.KindVariable {
 		return true
 	}
 	return varType.Kind == exprType.Kind
 }
 
+// untypedFits reports whether an untyped value of type variable t, such as a literal or
+// a constant, fits a target of type target. A float one does not fit an integer, or an
+// untyped integer.
+func untypedFits(target, t types.Type) bool {
+	integer := target.IsInteger() || constrainedTo(target, types.KindIntegerConstant)
+	return !integer || !constrainedTo(t, types.KindFloatConstant)
+}
+
 // LiteralAssignmentCompatible returns true if a literal of literalType can be assigned
-// to variableType with implicit numeric widening.
+// to variableType with implicit numeric widening. An element type variable, as in a
+// series literal, is bound to the element type of variableType in cs.
 func LiteralAssignmentCompatible(
+	cs *constraints.System,
 	variableType, literalType types.Type,
+	source antlr.ParserRuleContext,
 ) bool {
 	if variableType.Kind == types.KindInvalid || literalType.Kind == types.KindInvalid {
 		return false
@@ -215,16 +226,63 @@ func LiteralAssignmentCompatible(
 	if !types.StructuralMatch(variableType, literalType) {
 		return false
 	}
-	variableType = variableType.Unwrap()
+	series := literalType.Kind == types.KindSeries
+	variableType = cs.ApplySubstitutions(variableType).Unwrap()
 	literalType = literalType.Unwrap()
 	if literalType.Kind == types.KindVariable {
-		return true
+		return untypedFits(variableType, literalType) && cs.AddEquality(
+			variableType,
+			literalType,
+			source,
+			"literal element type",
+		) == nil
 	}
 	if variableType.String() == literalType.String() {
 		return true
+	}
+	// A typed series element, such as a variable read, is stored without conversion,
+	// so it takes the scalar rule for a typed value: the same kind, units aside.
+	if series {
+		return Compatible(variableType, literalType)
 	}
 	if variableType.IsInteger() && literalType.IsSignedInteger() {
 		return true
 	}
 	return variableType.IsFloat() && literalType.IsNumeric()
+}
+
+// Bool reports whether t, or the element of t, is bool. An unconstrained type variable,
+// such as the element of an empty series literal, is bound to bool in cs and passes.
+func Bool(cs *constraints.System, t types.Type, source antlr.ParserRuleContext) bool {
+	if t.IsBool() {
+		return true
+	}
+	elem := t.Unwrap()
+	if elem.Kind != types.KindVariable || elem.Constraint != nil {
+		return false
+	}
+	return cs.AddEquality(elem, types.Bool(), source, "bool operand") == nil
+}
+
+// Numeric reports whether t, or the element of t, is numeric. An unconstrained type
+// variable, such as the element of an empty series literal, is bound to a numeric type
+// in cs and passes.
+func Numeric(
+	cs *constraints.System,
+	t types.Type,
+	source antlr.ParserRuleContext,
+) bool {
+	if t.IsNumeric() {
+		return true
+	}
+	elem := t.Unwrap()
+	if elem.Kind != types.KindVariable || elem.Constraint != nil {
+		return false
+	}
+	return cs.AddCompatible(
+		elem,
+		cs.OpenNumeric(elem),
+		source,
+		"numeric operand",
+	) == nil
 }

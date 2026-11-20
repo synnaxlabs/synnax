@@ -17,10 +17,13 @@ from synnax.opcua.types import (
     WriteTask,
 )
 from synnax.opcua.types_gen import (
+    ArraySampling,
     BaseChannel,
     ReadChannel,
     ReadConfig,
+    Sampling,
     ScanConfig,
+    UnarySampling,
     WriteChannel,
     WriteConfig,
 )
@@ -28,14 +31,17 @@ from synnax.opcua.types_gen import (
 __all__ = [
     "MAKE",
     "MODEL",
+    "ArraySampling",
     "BaseChannel",
     "Device",
     "ReadChannel",
     "ReadConfig",
     "ReadTask",
+    "Sampling",
     "ScanConfig",
     "SecurityMode",
     "SecurityPolicy",
+    "UnarySampling",
     "WriteChannel",
     "WriteConfig",
     "WriteTask",

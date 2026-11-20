@@ -8,54 +8,75 @@
 // included in the file licenses/APL.txt.
 
 import {
-  group,
   label,
+  lineplot,
   NotFoundError,
   panel,
-  project,
   ranger,
   type Synnax as Client,
   view,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
+import { TAB_TYPE } from "@/feature/range/explorer/external";
+import { createSiftDevice } from "@/feature/sift/testutil";
+import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
-import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
+import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
+import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   awaitTextEditing,
+  awaitTextEditingElement,
   commitTextEdit,
-  countEditableText,
-  createConsoleWrapper,
   createTestClientWithGrants,
-  getBySelector,
-  type Grants,
-  queryIconButton,
+  createTestStore,
+  isPlutoDisabled,
+  openContextMenu,
+  openSubmenu,
   renderSuspended,
   resolveFocusedTab,
+  selectRange,
   selectTestProject,
   type TestStore,
+  uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const expectFocusedRange = async (store: TestStore, key: string): Promise<void> => {
-  const tab = await resolveFocusedTab(store, client);
-  if (tab.variant !== "resource")
-    throw new Error("focused tab is not a range resource");
-  expect(tab.resource.type).toBe(ranger.TYPE_ONTOLOGY_ID.type);
-  expect(tab.resource.key).toBe(key);
-};
+interface RenderOptions {
+  /** The Core a copied link names. */
+  core?: Session.Core.Core;
+  /** The saved view the tab shows. The tab shows all ranges when absent. */
+  shown?: view.View;
+}
 
-const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }> => {
-  const { wrapper, store } = await createConsoleWrapper({ client: as });
-  await selectTestProject(store, client);
+/** Renders the explorer in a tab. */
+const renderExplorer = async (
+  as: Client = client,
+  { core, shown }: RenderOptions = {},
+): Promise<TestStore> => {
+  const { wrapper, store } = await createTabWrapper({
+    client,
+    as,
+    tab:
+      shown == null
+        ? { variant: "view", type: TAB_TYPE }
+        : { variant: "resource", resource: view.resourceID(shown.key) },
+    store:
+      core == null
+        ? undefined
+        : await createTestStore({ preloadedState: createCoreState([core], core.key) }),
+  });
   await renderSuspended(
     <>
       <Explorer />
@@ -64,216 +85,1004 @@ const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }
     { wrapper },
   );
   await screen.findByText("All ranges");
-  return { store };
+  return store;
 };
 
-// The shared Core accumulates ranges across runs, so a fresh range may fall outside the
-// list's first page. Narrow to it through the view search before interacting.
-const revealRange = async (name: string): Promise<HTMLElement> => {
-  await enableEditing();
-  const search = await waitFor(() =>
-    screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
-  );
-  fireEvent.change(search, { target: { value: name } });
-  return await screen.findByText(name);
+const createRange = async (
+  name: string,
+  extra: Partial<ranger.New> = {},
+): Promise<ranger.Range> => await createTestRange(client, { name, ...extra });
+
+/** Creates a label, one range with it, and one without it, each named after token. */
+const createLabeled = async (
+  token: string,
+): Promise<{
+  label: label.Label;
+  labeled: ranger.Range;
+  other: ranger.Range;
+}> => {
+  const label = await createTestLabel(client, {
+    name: uniqueName("label"),
+    color: "#000000",
+  });
+  const labeled = await createRange(`${token} labeled`, { labels: [label.key] });
+  const other = await createRange(`${token} other`);
+  return { label, labeled, other };
 };
 
-const rowOf = (el: HTMLElement): HTMLElement => {
-  const row = el.closest<HTMLElement>(".lyra-list__item");
-  if (row == null) throw new Error("list item not found");
-  return row;
+/** @returns the time as the date time editor reads it, such as 2026-08-23 14:05. */
+const localMinute = (time: TimeStamp): string => {
+  const d = time.date();
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
 };
 
-const checkboxOf = (el: HTMLElement): HTMLInputElement => {
-  const box = rowOf(el).querySelector<HTMLInputElement>("input[type='checkbox']");
-  if (box == null) throw new Error("checkbox not found");
-  return box;
+const search = async (term: string): Promise<void> => {
+  const input =
+    await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+  fireEvent.change(input, { target: { value: term } });
 };
 
+/** @returns the list item of the named range. */
+const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { name });
+
+/** Waits for the list item of the named range. A search tints its term in names. */
+const findItem = async (name: string): Promise<HTMLElement> =>
+  await screen.findByRole("listitem", { name });
+
+/**
+ * Waits for the list item of the named range once the search for term lands. The item
+ * mounts again when the search lands, which closes a picker or swatch opened before.
+ */
+const findSearchedItem = async (name: string, term: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const item = itemOf(name);
+    within(item).getByText(term, { selector: "mark" });
+    return item;
+  });
+
+/** @returns the keys of the tabs that the selected panel shows. */
 const focusedTabs = (store: TestStore): string[] => {
   const state = store.getState();
   const panelKey = Session.Panel.selectSelected(state);
-  if (panelKey == null) return [];
-  return Session.Panel.selectSelectedTabs(state, panelKey);
+  return panelKey == null ? [] : Session.Panel.selectSelectedTabs(state, panelKey);
 };
 
-describe("range/Explorer", () => {
-  it("lists ranges stored on the Core", async () => {
-    const rng = await createTestRange(client);
-    await renderExplorer();
-    expect(await revealRange(rng.name)).toBeTruthy();
-  });
+const checkboxOf = (name: string): HTMLInputElement =>
+  within(itemOf(name)).getByRole<HTMLInputElement>("checkbox", { name: "Select" });
 
-  it("opens the create range modal from the toolbar button", async () => {
-    await renderExplorer();
-    await enableEditing();
-    fireEvent.click(await findToolbarIconButton("add"));
-    expect(await screen.findByText("Save locally")).toBeTruthy();
-  });
+/** Searches for the range, then opens the context menu on it. */
+const openMenuOf = async (rng: ranger.Range): Promise<void> => {
+  await search(rng.name);
+  await findItem(rng.name);
+  await openContextMenu(() => itemOf(rng.name));
+};
 
-  it("opens the overview tab when a range is clicked", async () => {
-    const rng = await createTestRange(client);
-    const { store } = await renderExplorer();
-    fireEvent.click(await revealRange(rng.name));
-    await expectFocusedRange(store, rng.key);
-  });
+const menuItem = async (name: string): Promise<HTMLElement> =>
+  await screen.findByRole("menuitem", { name });
 
-  describe("selection", () => {
-    it.each([
-      ["shift", { shiftKey: true }],
-      ["control", { ctrlKey: true }],
-      ["command", { metaKey: true }],
-    ])("selects rather than opens when %s is held", async (_, modifier) => {
-      const rng = await createTestRange(client);
-      const { store } = await renderExplorer();
-      const name = await revealRange(rng.name);
-      const before = focusedTabs(store);
-      fireEvent.click(name, modifier);
-      await waitFor(() => expect(checkboxOf(name).checked).toBe(true));
-      expect(focusedTabs(store)).toEqual(before);
+describe("range/explorer/Explorer", () => {
+  describe("filter", () => {
+    it("should keep the ranges with a picked label and restore the rest when its chip goes", async () => {
+      const token = uniqueToken();
+      const { label, labeled, other } = await createLabeled(token);
+      await renderExplorer();
+      // Other specs make ranges that sort above these, so a search shows them alone.
+      await search(token);
+      await findItem(other.name);
+      await openFilterProperty("Labels");
+      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+        target: { value: label.name },
+      });
+      fireEvent.click(await screen.findByRole("option", { name: label.name }));
+      await waitFor(() => {
+        expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
+        expect(itemOf(labeled.name)).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Remove Labels filter" }));
+      await findItem(other.name);
     });
 
-    it("selects without opening when the checkbox is clicked", async () => {
-      const rng = await createTestRange(client);
-      const { store } = await renderExplorer();
-      const name = await revealRange(rng.name);
-      const before = focusedTabs(store);
-      fireEvent.click(checkboxOf(name));
-      await waitFor(() => expect(checkboxOf(name).checked).toBe(true));
-      expect(focusedTabs(store)).toEqual(before);
+    it("should keep the ranges in a picked stage and name the stage in its chip", async () => {
+      const token = uniqueToken();
+      const running = await createRange(`${token} running`, {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const end = TimeStamp.now().sub(TimeSpan.days(1));
+      const done = await createRange(`${token} done`, {
+        timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+      });
+      await renderExplorer();
+      await search(token);
+      await findItem(done.name);
+      const stage = await openFilterProperty("Stage");
+      fireEvent.click(within(stage).getByRole("option", { name: /In progress$/ }));
+      await waitFor(() => {
+        expect(screen.queryByRole("listitem", { name: done.name })).toBeNull();
+        expect(itemOf(running.name)).toBeTruthy();
+      });
+      expect(screen.getByRole("button", { name: /In progress$/ })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Remove Stage filter" })).toBeTruthy();
     });
 
-    it("leaves the range unselected when clicked without a modifier", async () => {
-      const rng = await createTestRange(client);
-      const { store } = await renderExplorer();
-      const name = await revealRange(rng.name);
-      fireEvent.click(name);
-      await expectFocusedRange(store, rng.key);
-      expect(checkboxOf(name).checked).toBe(false);
+    /** Filters the ranges named with token to In progress, and waits for the answer. */
+    const filterInProgress = async (token: string): Promise<void> => {
+      const start = TimeStamp.now().sub(TimeSpan.minutes(2));
+      const done = await createRange(`${token} done`, {
+        timeRange: new TimeRange(start, start.add(TimeSpan.MINUTE)),
+      });
+      await search(token);
+      await findItem(done.name);
+      const stage = await openFilterProperty("Stage");
+      fireEvent.click(within(stage).getByRole("option", { name: /In progress$/ }));
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: done.name })).toBeNull(),
+      );
+    };
+
+    it("should list a range created after its stage filter is set", async () => {
+      const token = uniqueToken();
+      await renderExplorer();
+      await filterInProgress(token);
+      const created = await createRange(`${token} created`, {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      await findItem(created.name);
+    });
+
+    it("should list a planned range once it starts", async () => {
+      const token = uniqueToken();
+      await renderExplorer();
+      await filterInProgress(token);
+      const start = TimeStamp.now().add(TimeSpan.seconds(2));
+      const planned = await createRange(`${token} planned`, {
+        timeRange: new TimeRange(start, TimeStamp.MAX),
+      });
+      expect(screen.queryByRole("listitem", { name: planned.name })).toBeNull();
+      await waitFor(() => expect(itemOf(planned.name)).toBeTruthy(), {
+        timeout: 10_000,
+      });
+    });
+
+    it("should drop a running range once an end set later passes", async () => {
+      const token = uniqueToken();
+      const running = await createRange(`${token} running`, {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await filterInProgress(token);
+      await findItem(running.name);
+      const end = TimeStamp.now().add(TimeSpan.seconds(2));
+      expect(
+        await client.ranges.dispatch(
+          running.key,
+          ranger.set({ path: ["time_range", "end"], value: end.valueOf().toString() }),
+        ),
+      ).toBe(true);
+      await waitFor(
+        () => expect(screen.queryByRole("listitem", { name: running.name })).toBeNull(),
+        { timeout: 10_000 },
+      );
+    });
+
+    it("should drop a range from its stage filter once the range ends", async () => {
+      const token = uniqueToken();
+      const start = TimeStamp.now();
+      const ending = await createRange(`${token} ending`, {
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(3))),
+      });
+      const running = await createRange(`${token} running`, {
+        timeRange: new TimeRange(start, TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await search(token);
+      const stage = await openFilterProperty("Stage");
+      fireEvent.click(within(stage).getByRole("option", { name: /In progress$/ }));
+      await findItem(ending.name);
+      await waitFor(
+        () => expect(screen.queryByRole("listitem", { name: ending.name })).toBeNull(),
+        { timeout: 10_000 },
+      );
+      expect(itemOf(running.name)).toBeTruthy();
+    });
+
+    it("should keep the ranges in a time preset and name the preset in its chip", async () => {
+      const token = uniqueToken();
+      const recent = await createRange(`${token} recent`);
+      const start = TimeStamp.now().sub(TimeSpan.days(30));
+      const old = await createRange(`${token} old`, {
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+      });
+      await renderExplorer();
+      await search(token);
+      await findItem(old.name);
+      const time = await openFilterProperty("Time");
+      fireEvent.click(within(time).getByRole("option", { name: "Last 7 days" }));
+      await waitFor(() => {
+        expect(screen.queryByRole("listitem", { name: old.name })).toBeNull();
+        expect(itemOf(recent.name)).toBeTruthy();
+      });
+      expect(screen.getByRole("button", { name: "last 7 days" })).toBeTruthy();
+    });
+
+    it("should keep the ranges in a custom time range and show it in its chip", async () => {
+      const token = uniqueToken();
+      // The editor reads minutes, so the bounds fall on whole minutes.
+      const date = new Date(TimeStamp.now().sub(TimeSpan.days(60)).date());
+      date.setSeconds(0, 0);
+      const from = new TimeStamp(date);
+      const to = from.add(TimeSpan.hours(1));
+      const inside = await createRange(`${token} inside`, {
+        timeRange: new TimeRange(from.add(TimeSpan.minutes(10)), to),
+      });
+      const outside = await createRange(`${token} outside`);
+      await renderExplorer();
+      await search(token);
+      await findItem(outside.name);
+      const time = await openFilterProperty("Time");
+      const setBound = async (name: string, value: TimeStamp): Promise<void> => {
+        fireEvent.click(within(time).getByRole("button", { name }));
+        const field = await waitFor(() => {
+          const el = document.activeElement;
+          if (!(el instanceof HTMLInputElement)) throw new Error("no open editor");
+          return el;
+        });
+        fireEvent.change(field, { target: { value: localMinute(value) } });
+        fireEvent.keyDown(field, { key: "Enter" });
+      };
+      await setBound("From", from);
+      await setBound("To", to);
+      await waitFor(() => {
+        expect(screen.queryByRole("listitem", { name: outside.name })).toBeNull();
+        expect(itemOf(inside.name)).toBeTruthy();
+      });
+      const shown = new TimeRange(from, to).toPrettyString();
+      expect(screen.getByRole("button", { name: shown })).toBeTruthy();
+    });
+
+    it("should keep the children of a picked parent", async () => {
+      const token = uniqueToken();
+      const parent = await createRange(`${token} parent`);
+      const child = await createRange(`${token} child`, { parent: parent.key });
+      const other = await createRange(`${token} other`);
+      await renderExplorer();
+      await search(token);
+      await findItem(other.name);
+      const picker = await openFilterProperty("Parent");
+      fireEvent.change(within(picker).getByPlaceholderText("Search ranges..."), {
+        target: { value: parent.name },
+      });
+      fireEvent.click(await within(picker).findByRole("option", { name: parent.name }));
+      await waitFor(() => {
+        expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
+        expect(itemOf(child.name)).toBeTruthy();
+      });
+    });
+
+    it("should show the chip of a stored view that filters by one label", async () => {
+      const { label, labeled, other } = await createLabeled(uniqueToken());
+      // A 0.61 view stores a sole labels filter outside an and.
+      const stored = await client.views.create({
+        name: uniqueName("view"),
+        type: "range",
+        where: { labels: [label.key] },
+      });
+      await renderExplorer(client, { shown: stored });
+      await screen.findByText(labeled.name);
+      expect(screen.getByRole("button", { name: "Remove Labels filter" })).toBeTruthy();
+      expect(screen.queryByText(other.name)).toBeNull();
+    });
+  });
+
+  describe("search", () => {
+    it("should show a match under its parent and leave out the other children", async () => {
+      const token = uniqueToken();
+      const parent = await createRange(uniqueName("parent"));
+      const match = await createRange(`${token} match`, { parent: parent.key });
+      const sibling = await createRange(uniqueName("sibling"), {
+        parent: parent.key,
+      });
+      await renderExplorer();
+      await search(token);
+      await findItem(match.name);
+      // The list reads no page for the tree until it reads the term.
+      within(itemOf(parent.name)).getByRole("button", { name: "Collapse" });
+      expect(screen.queryByText(sibling.name)).toBeNull();
+    });
+
+    it("should hide the matches of a range that collapses and show them on expand", async () => {
+      const token = uniqueToken();
+      const parent = await createRange(uniqueName("parent"));
+      const match = await createRange(`${token} match`, { parent: parent.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(match.name);
+      fireEvent.click(
+        within(itemOf(parent.name)).getByRole("button", { name: "Collapse" }),
+      );
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: match.name })).toBeNull(),
+      );
+      fireEvent.click(
+        within(itemOf(parent.name)).getByRole("button", { name: "Expand" }),
+      );
+      await findItem(match.name);
+    });
+
+    it("should show the error of a search whose ranges above fail to read, not the last matches", async () => {
+      const [first, second] = [uniqueToken(), uniqueToken()];
+      const holder = await createRange(uniqueName("holder"));
+      const shown = await createRange(`${first} shown`, { parent: holder.key });
+      const top = await createRange(uniqueName("top"));
+      const parent = await createRange(uniqueName("parent"), { parent: top.key });
+      await createRange(`${second} match`, { parent: parent.key });
+      const as = createTestClient();
+      // Only the read of the range above the second match fails. The tree lists the top
+      // range, so the range under it is not cached.
+      const spy = rejectRequests(
+        as,
+        (target, req) =>
+          target === "/range/retrieve" && JSON.stringify(req).includes(parent.key),
+        new Error("parent read failed"),
+      );
+      onTestFinished(() => spy.mockRestore());
+      await renderExplorer(as);
+      await search(first);
+      await findItem(shown.name);
+      await search(second);
+      await screen.findByText("Failed to search ranges");
+      expect(screen.queryByRole("listitem", { name: shown.name })).toBeNull();
+    });
+
+    it("should drop a deleted range that holds matches", async () => {
+      const token = uniqueToken();
+      const holder = await createRange(uniqueName("holder"));
+      const other = await createRange(uniqueName("other"));
+      const gone = await createRange(`${token} gone`, { parent: holder.key });
+      const kept = await createRange(`${token} kept`, { parent: other.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(gone.name);
+      within(itemOf(holder.name)).getByRole("button", { name: "Collapse" });
+      await findItem(kept.name);
+      await client.ranges.delete([gone.key, holder.key]);
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: holder.name })).toBeNull(),
+      );
+      expect(itemOf(kept.name)).toBeTruthy();
+    });
+
+    it("should regroup a match when another client moves the range above it", async () => {
+      const token = uniqueToken();
+      const first = await createRange(uniqueName("first"));
+      const second = await createRange(uniqueName("second"));
+      const holder = await createRange(uniqueName("holder"), {
+        parent: first.key,
+      });
+      const match = await createRange(`${token} match`, { parent: holder.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(match.name);
+      await findItem(first.name);
+      expect(screen.queryByRole("listitem", { name: second.name })).toBeNull();
+      const remote = createTestClient();
+      // A dispatch applies only to a range that the client holds.
+      await remote.ranges.retrieve(holder.key);
+      await remote.ranges.dispatch(
+        holder.key,
+        ranger.set({ path: ["parent"], value: second.key }),
+      );
+      await findItem(second.name);
+      expect(screen.queryByRole("listitem", { name: first.name })).toBeNull();
+    });
+
+    it("should reorder the ranges above the matches when another client retimes one", async () => {
+      const token = uniqueToken();
+      const now = TimeStamp.now();
+      const older = await createRange(uniqueName("older"), {
+        timeRange: new TimeRange(now.sub(TimeSpan.hours(1)), now),
+      });
+      const newer = await createRange(uniqueName("newer"));
+      await createRange(`${token} a`, { parent: older.key });
+      await createRange(`${token} b`, { parent: newer.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(`${token} b`);
+      await findItem(`${token} a`);
+      const holders = () =>
+        screen
+          .getAllByRole("listitem")
+          .map((el) => el.getAttribute("aria-label"))
+          .filter((name) => name === older.name || name === newer.name);
+      expect(holders()).toEqual([newer.name, older.name]);
+      const remote = createTestClient();
+      // A dispatch applies only to a range that the client holds.
+      await remote.ranges.retrieve(newer.key);
+      await remote.ranges.dispatch(
+        newer.key,
+        ranger.set({
+          path: ["timeRange"],
+          value: new TimeRange(now.sub(TimeSpan.hours(2)), now.sub(TimeSpan.hours(1)))
+            .numeric,
+        }),
+      );
+      await waitFor(() => expect(holders()).toEqual([older.name, newer.name]));
+    });
+
+    it("should show the first 100 matches and say so", async () => {
+      const token = uniqueToken();
+      // Ended long ago, so the ranges never crowd the running or recent ranges that
+      // specs in parallel read from the shared Core.
+      const start = TimeStamp.now().sub(TimeSpan.days(365));
+      const matches = await client.ranges.create(
+        Array.from({ length: 101 }, (_, i) => ({
+          name: `${token} ${i}`,
+          timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+        })),
+      );
+      onTestFinished(async () => await client.ranges.delete(matches.map((r) => r.key)));
+      await renderExplorer();
+      await search(token);
+      await screen.findByText(/Showing the first 100 matches\./);
     });
   });
 
   describe("context menu", () => {
-    it("opens the overview tab from View details", async () => {
-      const rng = await createTestRange(client);
-      const { store } = await renderExplorer();
-      fireEvent.contextMenu(await revealRange(rng.name));
-      fireEvent.click(await screen.findByText("View details"));
-      await expectFocusedRange(store, rng.key);
+    it("should open the overview of the range", async () => {
+      const rng = await createRange(uniqueName("open"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Open"));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource).toEqual(ranger.resourceID(rng.key));
     });
 
-    it("favorites the range into the session slice", async () => {
-      const rng = await createTestRange(client);
-      const { store } = await renderExplorer();
-      fireEvent.contextMenu(await revealRange(rng.name));
-      fireEvent.click(await screen.findByText("Favorite"));
-      await waitFor(() => {
-        const state = Session.Range.selectState(store.getState(), rng.key);
-        expect(state?.variant).toBe("persisted");
-      });
-    });
-
-    it("renames the range in place from the context menu", async () => {
-      const rng = await createTestRange(client);
+    it("should rename the range in place", async () => {
+      const rng = await createRange(uniqueName("rename"));
       await renderExplorer();
-      fireEvent.contextMenu(await revealRange(rng.name));
-      fireEvent.click(await screen.findByText("Rename"));
-      const el = await awaitTextEditing(List.itemNameID(rng.key));
-      const renamed = uniqueRangeName("renamed");
-      commitTextEdit(el, renamed);
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Rename"));
+      const renamed = uniqueName("renamed");
+      commitTextEdit(await awaitTextEditing(List.itemNameID(rng.key)), renamed);
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
       );
     });
 
-    it("opens the create modal for a child range", async () => {
-      const rng = await createTestRange(client);
-      await renderExplorer();
-      fireEvent.contextMenu(await revealRange(rng.name));
-      fireEvent.click(await screen.findByText("Create child range"));
-      expect(await screen.findByText("Save locally")).toBeTruthy();
+    it("should rename the copy that was right-clicked when two lists show the range", async () => {
+      const rng = await createRange(uniqueName("rename"));
+      const { wrapper } = await createTabWrapper({
+        client,
+        tab: { variant: "view", type: TAB_TYPE },
+      });
+      await renderSuspended(
+        <>
+          <Explorer />
+          <Explorer />
+        </>,
+        { wrapper },
+      );
+      for (const input of await screen.findAllByPlaceholderText("Search ranges..."))
+        fireEvent.change(input, { target: { value: rng.name } });
+      // A list can replace the node of a line as its reads land, so each step finds the
+      // second copy again.
+      const second = (): HTMLElement => {
+        const copies = screen.getAllByRole("listitem", { name: rng.name });
+        expect(copies).toHaveLength(2);
+        return copies[1];
+      };
+      await waitFor(second);
+      await openContextMenu(second);
+      fireEvent.click(await menuItem("Rename"));
+      const editing = await awaitTextEditingElement();
+      expect(second().contains(editing)).toBe(true);
     });
 
-    it("deletes the range from the Core after confirmation", async () => {
-      const rng = await createTestRange(client);
-      const { store } = await renderExplorer();
+    it("should start a planned range now with no end", async () => {
+      const planned = await createPlannedTestRange(client, uniqueName("planned"));
+      await renderExplorer();
+      await openMenuOf(planned);
+      fireEvent.click(await menuItem("Start"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(planned.key);
+        expect(timeRange.start.before(TimeStamp.now())).toBe(true);
+        expect(timeRange.end.equals(TimeStamp.MAX)).toBe(true);
+      });
+    });
+
+    it("should start a planned range now and keep its end", async () => {
+      // A whole second reads the same as a float, as the stage moves read time.
+      const end = TimeStamp.seconds(Math.floor(TimeStamp.now().seconds) + 7200);
+      const planned = await createRange(uniqueName("planned"), {
+        timeRange: new TimeRange(end.sub(TimeSpan.HOUR), end),
+      });
+      await renderExplorer();
+      await openMenuOf(planned);
+      fireEvent.click(await menuItem("Start"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(planned.key);
+        expect(timeRange.start.before(TimeStamp.now())).toBe(true);
+        expect(timeRange.end).toEqual(end);
+      });
+    });
+
+    it("should stop a running range", async () => {
+      const running = await createRange(uniqueName("running"), {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await openMenuOf(running);
+      fireEvent.click(await menuItem("Stop"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(running.key);
+        expect(timeRange.end.equals(TimeStamp.MAX)).toBe(false);
+      });
+    });
+
+    it("should open the Sift upload modal on Upload to Sift", async () => {
+      await createSiftDevice(client);
+      const rng = await createRange(uniqueName("sift"));
+      await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Upload to Sift"));
+      expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
+    });
+
+    it("should copy a link to the range on Copy > Link", async () => {
+      const writeText = stubClipboardWriteText();
+      const rng = await createRange(uniqueName("linked"));
+      await renderExplorer(client, { core: createCore("test") });
+      await openMenuOf(rng);
+      const copy = await openSubmenu("Copy");
+      fireEvent.click(within(copy).getByRole("menuitem", { name: "Link" }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(writeText.mock.calls[0][0]).toContain(`range/${rng.key}`);
+    });
+
+    it("should open a new line plot of the range on Plot", async () => {
+      const rng = await createRange(uniqueName("plotted"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Plot"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) =>
+          t.variant === "resource" &&
+          t.resource.type === lineplot.TYPE_RESOURCE_ID.type,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+      expect(plot.name).toBe(`Plot for ${rng.name}`);
+      expect(plot.ranges).toEqual([{ variant: "key", key: rng.key }]);
+    });
+
+    it("should add the range to a plot in the panel, and check a plot that shows it", async () => {
+      const shown = await createRange(uniqueName("shown"));
+      const added = await createRange(uniqueName("added"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await openMenuOf(shown);
+      fireEvent.click(await menuItem("Plot"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) =>
+          t.variant === "resource" &&
+          t.resource.type === lineplot.TYPE_RESOURCE_ID.type,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      const plotName = `Plot for ${shown.name}`;
+      await openMenuOf(shown);
+      const shownPlots = await openSubmenu("Add to plot");
+      await waitFor(() =>
+        expect(
+          isPlutoDisabled(within(shownPlots).getByRole("menuitem", { name: plotName })),
+        ).toBe(true),
+      );
+      await openMenuOf(added);
+      const addedPlots = await openSubmenu("Add to plot");
+      fireEvent.click(
+        await within(addedPlots).findByRole("menuitem", { name: plotName }),
+      );
+      await waitFor(async () => {
+        const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+        expect(plot.ranges).toEqual([
+          { variant: "key", key: shown.key },
+          { variant: "key", key: added.key },
+        ]);
+      });
+    });
+
+    it("should add a label that the menu search finds", async () => {
+      const lbl = await createTestLabel(client, {
+        name: uniqueName("found"),
+        color: "#000000",
+      });
+      const rng = await createRange(uniqueName("found"));
+      await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.keyDown(screen.getByRole("menu"), { key: lbl.name[0] });
+      fireEvent.change(await screen.findByPlaceholderText("Search..."), {
+        target: { value: lbl.name },
+      });
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: new RegExp(lbl.name) }),
+      );
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([lbl.key]),
+      );
+    });
+
+    it("should favorite the range, then offer Unfavorite", async () => {
+      const rng = await createRange(uniqueName("favorite"));
+      const store = await renderExplorer();
+      await openMenuOf(rng);
+      expect(screen.queryByRole("menuitem", { name: "Unfavorite" })).toBeNull();
+      fireEvent.click(await menuItem("Favorite"));
+      await waitFor(() =>
+        expect(selectRange(store.getState(), rng.key)?.variant).toBe("persisted"),
+      );
+      await openContextMenu(() => itemOf(rng.name));
+      fireEvent.click(await menuItem("Unfavorite"));
+      await waitFor(() =>
+        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
+      );
+    });
+
+    it("should open the create modal under the range on Start child range", async () => {
+      const parent = await createRange(uniqueName("parent"));
+      await renderExplorer();
+      await openMenuOf(parent);
+      fireEvent.click(await menuItem("Start child range"));
+      const name = await screen.findByLabelText("Range name");
+      const modal = name.closest<HTMLElement>(".console-range-create-layout");
+      if (modal == null) throw new Error("create modal not found");
+      // The parent select of the modal names the range.
+      await within(modal).findByText(parent.name);
+    });
+
+    it("should delete the range after the confirm", async () => {
+      const rng = await createRange(uniqueName("delete"));
+      const store = await renderExplorer();
       store.dispatch(Session.Range.add({ variant: "persisted", key: rng.key }));
-      fireEvent.contextMenu(await revealRange(rng.name));
-      fireEvent.click(await screen.findByText("Delete"));
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Delete"));
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
       fireEvent.click(findButton("Delete"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
+        expect(screen.queryByRole("listitem", { name: rng.name })).toBeNull(),
       );
+      expect(selectRange(store.getState(), rng.key)).toBeUndefined();
+      await waitFor(
+        async () =>
+          await expect(client.ranges.retrieve(rng.key)).rejects.toThrow(NotFoundError),
+      );
+    });
+  });
+
+  describe("item", () => {
+    it("should open the overview of the range on a plain click", async () => {
+      const rng = await createRange(uniqueName("click"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await search(rng.name);
+      fireEvent.click(await findItem(rng.name));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource).toEqual(ranger.resourceID(rng.key));
+      expect(checkboxOf(rng.name).checked).toBe(false);
+    });
+
+    it.each([
+      ["Shift", { shiftKey: true }],
+      ["Ctrl", { ctrlKey: true }],
+      ["Cmd", { metaKey: true }],
+    ])("should select the range without opening it on a %s click", async (_, key) => {
+      const rng = await createRange(uniqueName("modifier"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await search(rng.name);
+      const before = focusedTabs(store);
+      fireEvent.click(await findItem(rng.name), key);
+      await waitFor(() => expect(checkboxOf(rng.name).checked).toBe(true));
+      expect(focusedTabs(store)).toEqual(before);
+    });
+
+    it("should select the range without opening it on a click of its checkbox", async () => {
+      const rng = await createRange(uniqueName("checkbox"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await search(rng.name);
+      await findItem(rng.name);
+      const before = focusedTabs(store);
+      fireEvent.click(checkboxOf(rng.name));
+      await waitFor(() => expect(checkboxOf(rng.name).checked).toBe(true));
+      expect(focusedTabs(store)).toEqual(before);
+    });
+
+    it("should show no start for a range with no start", async () => {
+      const planned = await createPlannedTestRange(client, uniqueName("planned"));
+      await renderExplorer();
+      const item = await findItem(planned.name);
+      const when = within(item).getByRole("group", { name: "Time range" });
+      expect(when.textContent).toBe("Planned");
+    });
+  });
+
+  describe("labels", () => {
+    it("should add and remove a label from the picker of an item", async () => {
+      const token = uniqueToken();
+      const label = await createTestLabel(client, {
+        name: uniqueName("label"),
+        color: "#000000",
+      });
+      const rng = await createRange(`${token} labeled`);
+      await renderExplorer();
+      await search(token);
+      const item = await findSearchedItem(rng.name, token);
+      fireEvent.click(within(item).getByRole("button", { name: "Labels" }));
+      await searchAndClickLabelOption(label.name);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([label.key]),
+      );
+      fireEvent.click(await within(item).findByLabelText(`Remove ${label.name}`));
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([]),
+      );
+    });
+  });
+
+  describe("color", () => {
+    it("should set the color of a range from the swatch of its item", async () => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} colored`);
+      await renderExplorer();
+      await search(token);
+      const item = await findSearchedItem(rng.name, token);
+      fireEvent.click(within(item).getByRole("button", { name: "Color" }));
+      const hex = await screen.findByLabelText("Hex");
+      fireEvent.change(hex, { target: { value: "123456" } });
+      fireEvent.keyDown(hex, { code: "Escape" });
       await waitFor(async () => {
-        await expect(client.ranges.retrieve(rng.key)).rejects.toSatisfy((e) =>
-          NotFoundError.matches(e),
-        );
+        const { color: stored } = await client.ranges.retrieve(rng.key);
+        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
       });
     });
   });
-});
 
-describe("range/Explorer permissions", () => {
-  const createEditor = async (grants: Grants = {}) =>
-    await createTestClientWithGrants(client, {
-      ...grants,
-      retrieve: [
-        ranger.TYPE_ONTOLOGY_ID,
-        view.TYPE_ONTOLOGY_ID,
-        label.TYPE_ONTOLOGY_ID,
-        group.TYPE_ONTOLOGY_ID,
-        project.TYPE_ONTOLOGY_ID,
-        panel.TYPE_ONTOLOGY_ID,
-      ],
-      update: [view.TYPE_ONTOLOGY_ID, ...(grants.update ?? [])],
-      create: [view.TYPE_ONTOLOGY_ID, ...(grants.create ?? [])],
+  describe("timeline", () => {
+    it("should leave a range with no start out of the default window", async () => {
+      const token = uniqueToken();
+      const planned = await createPlannedTestRange(client, `${token} planned`);
+      const running = await createRange(`${token} running`);
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      // The search keeps the ranges of other specs off the axis.
+      await search(token);
+      await waitFor(() =>
+        expect(
+          screen
+            .getAllByRole("listitem")
+            .map((el) => el.getAttribute("aria-label"))
+            .toSorted(),
+        ).toEqual([planned.name, running.name].toSorted()),
+      );
+      // A window that reached the unset start would mark years on its axis.
+      expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
     });
 
-  it("should withhold the create button from a subject who cannot create ranges", async () => {
-    await renderExplorer(await createEditor({}));
-    await enableEditing();
-    await waitFor(() =>
-      expect(
-        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
-      ).toBeTruthy(),
-    );
-    expect(
-      queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
-    ).toBeNull();
-  });
-
-  it("should offer the create button to a subject who may create ranges", async () => {
-    await renderExplorer(await createEditor({ create: [ranger.TYPE_ONTOLOGY_ID] }));
-    await enableEditing();
-    expect(await findToolbarIconButton("add")).toBeTruthy();
-  });
-
-  describe("context menu", () => {
-    it("should offer reads but no writes to a subject with no range grants", async () => {
-      const rng = await createTestRange(client);
-      await renderExplorer(await createEditor({}));
-      fireEvent.contextMenu(await revealRange(rng.name));
-      expect(await screen.findByText("View details")).toBeTruthy();
-      expect(screen.queryByText("Rename")).toBeNull();
-      expect(screen.queryByText("Create child range")).toBeNull();
-      expect(screen.queryByText("Delete")).toBeNull();
-      expect(countEditableText(List.itemNameID(rng.key))).toBe(0);
+    it("should zoom to a range on a click of its bar", async () => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} zoomed`);
+      await renderExplorer();
+      await search(token);
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(await screen.findByLabelText(`Zoom to ${rng.name}`));
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
     });
 
-    it("should offer every write to a subject granted them", async () => {
-      const rng = await createTestRange(client);
+    it("should pan the window on a drag of the axis", async () => {
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      const axis = await screen.findByRole("group", { name: "Time axis" });
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.pointerDown(axis, { clientX: 50, pointerId: 1 });
+      fireEvent.pointerMove(axis, { clientX: 20, pointerId: 1 });
+      fireEvent.pointerUp(axis, { clientX: 20, pointerId: 1 });
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
+    });
+
+    it("should pan the window on a sideways wheel", async () => {
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      const axis = await screen.findByRole("group", { name: "Time axis" });
+      fireEvent.wheel(axis, { deltaY: 30, clientX: 50 });
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.wheel(axis, { deltaX: 30, clientX: 50 });
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
+    });
+
+    it("should offer Fit all once a zoom or Now moves the window", async () => {
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      const zoomIn = await screen.findByRole("button", { name: "Zoom in" });
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(zoomIn);
+      fireEvent.click(screen.getByRole("button", { name: "Fit all" }));
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Now" }));
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
+    });
+  });
+
+  describe("layout", () => {
+    it("should keep the children of an expanded range in sort order in a list", async () => {
+      const start = TimeStamp.now().add(TimeSpan.days(30));
+      const at = (days: number) => ({
+        timeRange: new TimeRange(start.sub(TimeSpan.days(days)), start),
+      });
+      const parent = await createRange(uniqueName("parent"), at(0));
+      const other = await createRange(uniqueName("other"), at(1));
+      const child = await createRange(uniqueName("child"), {
+        ...at(2),
+        parent: parent.key,
+      });
+      const names = [parent.name, other.name, child.name];
+      const listed = () =>
+        screen
+          .getAllByRole("listitem")
+          .map((el) => el.getAttribute("aria-label"))
+          .filter((name) => name != null && names.includes(name));
+      await renderExplorer();
+      await findItem(parent.name);
+      fireEvent.click(
+        within(itemOf(parent.name)).getByRole("button", { name: "Expand" }),
+      );
+      await findItem(child.name);
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await waitFor(() => expect(listed()).toEqual(names));
+    });
+  });
+
+  describe("stored view", () => {
+    it("should save the sort and the layout to the view", async () => {
+      const stored = await client.views.create({
+        name: uniqueName("view"),
+        type: "range",
+      });
+      await renderExplorer(client, { shown: stored });
+      fireEvent.click(await screen.findByRole("button", { name: /Newest first/ }));
+      fireEvent.click(await screen.findByText("Name"));
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await waitFor(async () => {
+        const saved = await client.views.retrieve({ key: stored.key });
+        if (saved.type !== "range") throw new Error("not a range view");
+        expect([saved.sort, saved.layout]).toEqual(["name", "list"]);
+      });
+    });
+  });
+
+  describe("permissions", () => {
+    /** @returns a client whose subject may read views but not update them. */
+    const createReader = async (): Promise<Client> =>
+      await createTestClientWithGrants(client, {
+        retrieve: [
+          ranger.TYPE_RESOURCE_ID,
+          view.TYPE_RESOURCE_ID,
+          label.TYPE_RESOURCE_ID,
+          panel.TYPE_RESOURCE_ID,
+        ],
+        create: [ranger.TYPE_RESOURCE_ID],
+      });
+
+    it("should withhold the range writes from a subject with no range grants", async () => {
+      const rng = await createRange(uniqueName("read"));
       await renderExplorer(
-        await createEditor({
-          create: [ranger.TYPE_ONTOLOGY_ID],
-          update: [ranger.TYPE_ONTOLOGY_ID],
-          delete: [ranger.TYPE_ONTOLOGY_ID],
+        await createTestClientWithGrants(client, {
+          retrieve: [
+            ranger.TYPE_RESOURCE_ID,
+            view.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+          ],
+          create: [lineplot.TYPE_RESOURCE_ID],
         }),
       );
-      fireEvent.contextMenu(await revealRange(rng.name));
-      expect(await screen.findByText("Rename")).toBeTruthy();
-      expect(await screen.findByText("Create child range")).toBeTruthy();
-      expect(await screen.findByText("Delete")).toBeTruthy();
+      await openMenuOf(rng);
+      // The same policy read answers every grant, so Plot shows that it landed.
+      await menuItem("Plot");
+      expect(screen.queryByRole("menuitem", { name: "Rename" })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: "Start child range" })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: "Delete" })).toBeNull();
+    });
+
+    it("should offer the range writes to a subject granted them", async () => {
+      const rng = await createRange(uniqueName("write"));
+      await renderExplorer(
+        await createTestClientWithGrants(client, {
+          retrieve: [
+            ranger.TYPE_RESOURCE_ID,
+            view.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+          ],
+          create: [ranger.TYPE_RESOURCE_ID],
+          update: [ranger.TYPE_RESOURCE_ID],
+          delete: [ranger.TYPE_RESOURCE_ID],
+        }),
+      );
+      await openMenuOf(rng);
+      expect(await menuItem("Rename")).toBeTruthy();
+      expect(await menuItem("Start child range")).toBeTruthy();
+      expect(await menuItem("Delete")).toBeTruthy();
+    });
+
+    it("should hide the create range button from a subject who cannot create ranges", async () => {
+      await renderExplorer(
+        await createTestClientWithGrants(client, {
+          retrieve: [
+            ranger.TYPE_RESOURCE_ID,
+            view.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+          ],
+          create: [view.TYPE_RESOURCE_ID],
+          update: [ranger.TYPE_RESOURCE_ID],
+          delete: [ranger.TYPE_RESOURCE_ID],
+        }),
+      );
+      // Both grants answer from one policy read, so this button shows that it landed.
+      await screen.findByRole("button", { name: "Create view" });
+      expect(screen.queryByRole("button", { name: "Create range" })).toBeNull();
+    });
+
+    it("should let a subject who cannot update views sort and lay out all ranges", async () => {
+      await renderExplorer(await createReader());
+      fireEvent.click(await screen.findByRole("button", { name: /Newest first/ }));
+      fireEvent.click(await screen.findByText("Name"));
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await waitFor(() => expect(screen.queryByText("Newest first")).toBeNull());
+      expect(screen.getByRole("button", { name: /List/ }).className).toContain(
+        "lyra--selected",
+      );
+      expect(screen.getByRole("button", { name: "Filter" })).toBeTruthy();
+      expect(screen.getByPlaceholderText("Search ranges...")).toBeTruthy();
+    });
+
+    it("should show a stored view read-only to a subject who cannot update views", async () => {
+      const { label: lbl, labeled } = await createLabeled(uniqueToken());
+      const stored = await client.views.create({
+        name: uniqueName("view"),
+        type: "range",
+        where: { labels: [lbl.key] },
+      });
+      await renderExplorer(await createReader(), { shown: stored });
+      await screen.findByText(labeled.name);
+      await screen.findByRole("button", { name: "Create range" });
+      await act(async () => {});
+      expect(screen.getByText("Labels")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Remove Labels filter" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Filter" })).toBeNull();
+      expect(screen.getByPlaceholderText("Search ranges...")).toBeTruthy();
+      fireEvent.click(screen.getByText("Newest first"));
+      expect(screen.queryByText("Oldest first")).toBeNull();
+      expect(screen.getByText("Tree")).toBeTruthy();
+      expect(screen.queryByText("List")).toBeNull();
+    });
+
+    it("should give a reader's labels the room of the labels column", async () => {
+      const token = uniqueToken();
+      const { labeled } = await createLabeled(token);
+      await renderExplorer(await createReader());
+      await search(token);
+      const item = await findItem(labeled.name);
+      expect(
+        item.querySelector(".console-range-item__labels > .console-range-item__tags"),
+      ).not.toBeNull();
     });
   });
 });

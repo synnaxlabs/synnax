@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator, type Page } from "playwright";
+import type { Locator, Page } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -83,12 +83,12 @@ export const openAutomation = async (
     await pressTask.stop();
     const { key } = await client.arcs.create({
       name,
-      mode: "text",
-      text: { raw: text },
+      type: "automation",
+      source: { mode: "text", text: { raw: text } },
     });
     if (running) await fixtures.startArc(client, key);
     else {
-      const [rack] = await client.racks.retrieve({ integration: "arc" });
+      const [rack] = await client.racks.retrieve({ integrations: "arc" });
       await client.arcs.updateTask(key, { rack: rack.key });
     }
   } finally {

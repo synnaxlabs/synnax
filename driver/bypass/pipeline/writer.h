@@ -47,12 +47,21 @@ public:
             this->bus->publish(fr);
         } else {
             auto filtered = this->states->filter(fr, this->cfg.subject);
+            LOG_FIRST_N(WARNING, 10)
+                << "[bus.writer] dropped " << fr.size() - filtered.size() << " of "
+                << fr.size() << " channels from bus for " << this->cfg.subject.name
+                << ": no authority. This is normal when another writer holds control.";
             if (!filtered.empty()) {
                 VLOG(1) << "[bus.writer] publishing filtered frame with "
                         << filtered.size() << " channels to bus";
                 this->bus->publish(filtered);
             }
         }
+        return this->server->write(fr);
+    }
+
+    /// @brief the bus already has the frame, so it goes to the Core only.
+    [[nodiscard]] x::errors::Error rewrite(const x::telem::Frame &fr) override {
         return this->server->write(fr);
     }
 

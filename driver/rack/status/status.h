@@ -9,10 +9,12 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include "absl/log/log.h"
 
+#include "client/cpp/connection/checker.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -32,6 +34,42 @@ const auto EMISSION_RATE = x::telem::HERTZ * 1;
 /// of the rack as stopped.
 const auto LATE_GAP = EMISSION_RATE.period() * 3;
 
+/// @brief the variant, message, and description that each heartbeat reports.
+struct Health {
+    /// @brief the status variant, such as success or error.
+    std::string variant = ::synnax::status::VARIANT_SUCCESS;
+    /// @brief what the heartbeat reports, in one short line.
+    std::string message = "Driver is running";
+    /// @brief why, and what to do now. Empty when the Driver is healthy.
+    std::string description;
+};
+
+const std::string CLOCK_TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/"
+                                              "enterprise/troubleshooting"
+                                              "#clock-out-of-sync-with-the-core";
+
+/// @brief returns a warning when the clock skew in conn exceeds its threshold, and
+/// health otherwise. A health that is not a success takes precedence.
+inline Health
+with_clock_skew(const Health &health, const synnax::connection::State &conn) {
+    if (health.variant != ::synnax::status::VARIANT_SUCCESS ||
+        !conn.clock_skew_exceeded)
+        return health;
+    const auto *const direction = conn.clock_skew > x::telem::TimeSpan::ZERO()
+                                    ? "ahead of"
+                                    : "behind";
+    return Health{
+        .variant = ::synnax::status::VARIANT_WARNING,
+        .message = "Clock out of sync with the Core",
+        .description = "The clock of this host is " +
+                       conn.clock_skew.abs().to_string() + " " + direction +
+                       " the Core, more than the " +
+                       conn.clock_skew_threshold.to_string() +
+                       " limit. Synchronize both clocks with NTP. See " +
+                       CLOCK_TROUBLESHOOTING_URL + ".",
+    };
+}
+
 class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
     const synnax::rack::Key rack_key;
@@ -39,12 +77,14 @@ class Source final : public driver::pipeline::Base {
     /// @brief the loop used to control the emission rate of the heartbeat.
     x::loop::Timer loop;
     std::shared_ptr<task::Context> ctx;
+    const Health health;
 
 public:
     Source(
         const synnax::rack::Rack &rack,
         synnax::task::Task task,
-        const std::shared_ptr<task::Context> &ctx
+        const std::shared_ptr<task::Context> &ctx,
+        Health health
     ):
         Base(
             x::breaker::Config{
@@ -59,37 +99,36 @@ public:
         rack_key(rack.key),
         task(std::move(task)),
         loop(x::loop::Timer(EMISSION_RATE)),
-        ctx(ctx) {}
+        ctx(ctx),
+        health(std::move(health)) {}
+
+    /// @brief writes the started status, then starts the heartbeat. The status is in
+    /// place when this returns, so a status that the last run left is never kept.
+    bool start() override {
+        auto stat = this->task_status("Started", true);
+        this->ctx->set_status(stat);
+        return Base::start();
+    }
 
     void run() override {
-        synnax::task::Status stat{
-            .key = synnax::task::status_key(this->task),
-            .name = this->task.name,
-            .variant = ::synnax::status::VARIANT_SUCCESS,
-            .message = "Started",
-            .time = x::telem::TimeStamp::now(),
-            .details = synnax::task::StatusDetails{
-                .task = this->task.key,
-                .running = true,
-                .config_hash = this->task.config_hash,
-            }
-        };
-        this->ctx->set_status(stat);
         bool resend_pending = false;
         auto last_beat = x::telem::TimeStamp::now();
         while (breaker.running()) {
             this->loop.wait(breaker);
+            const auto health = with_clock_skew(
+                this->health,
+                this->ctx->client->connectivity->state()
+            );
             synnax::rack::Status status{
-                .key = synnax::rack::ontology_id(this->rack_key).string(),
                 .name = this->ctx->rack_name(),
-                .variant = ::synnax::status::VARIANT_SUCCESS,
-                .message = "Driver is running",
+                .variant = health.variant,
+                .message = health.message,
+                .description = health.description,
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::rack::StatusDetails{.rack = this->rack_key}
+                .details = synnax::rack::StatusDetails{.running = true},
+                .owner = synnax::rack::resource_id(this->rack_key),
             };
-            if (const auto err = this->ctx->client->statuses
-                                     .set<synnax::rack::StatusDetails>(status);
-                err) {
+            if (const auto err = this->ctx->client->statuses.set(status); err) {
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
                 // Task status writes also fail while the Core is out of reach.
                 resend_pending = true;
@@ -101,7 +140,7 @@ public:
             const auto now = x::telem::TimeStamp::now();
             if (now - last_beat > LATE_GAP) resend_pending = true;
             last_beat = now;
-            if (!resend_pending) continue;
+            if (!resend_pending && !this->ctx->statuses_stale()) continue;
             if (const auto resend_err = this->ctx->resend_statuses()) {
                 LOG(ERROR) << "[rack_status] failed to send task statuses again: "
                            << resend_err;
@@ -109,11 +148,43 @@ public:
             }
             resend_pending = false;
         }
-        stat.message = "Stopped";
-        stat.time = x::telem::TimeStamp::now();
-        stat.details.running = false;
+        auto stat = this->task_status("Stopped", false);
         this->ctx->set_status(stat);
     };
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        synnax::task::Status stat{
+            .name = this->task.name,
+            .variant = ::synnax::status::VARIANT_ERROR,
+            .message = "Failed to report Driver status",
+            .description = err.data,
+            .time = x::telem::TimeStamp::now(),
+            .details =
+                synnax::task::StatusDetails{
+                    .running = false,
+                    .config_hash = this->task.config_hash,
+                },
+            .owner = synnax::task::resource_id(this->task.key),
+        };
+        this->ctx->set_status(stat);
+    }
+
+private:
+    [[nodiscard]] synnax::task::Status
+    task_status(const std::string &message, const bool running) const {
+        return synnax::task::Status{
+            .name = this->task.name,
+            .variant = ::synnax::status::VARIANT_SUCCESS,
+            .message = message,
+            .time = x::telem::TimeStamp::now(),
+            .details =
+                synnax::task::StatusDetails{
+                    .running = running,
+                    .config_hash = this->task.config_hash,
+                },
+            .owner = synnax::task::resource_id(this->task.key),
+        };
+    }
 };
 
 /// @brief a task that periodically
@@ -125,9 +196,10 @@ public:
     Task(
         const synnax::rack::Rack &rack,
         const synnax::task::Task &task,
-        const std::shared_ptr<task::Context> &ctx
+        const std::shared_ptr<task::Context> &ctx,
+        Health health = {}
     ):
-        pipe(rack, task, ctx) {
+        pipe(rack, task, ctx, std::move(health)) {
         this->pipe.start();
     }
 
@@ -140,42 +212,48 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        Health health = {}
     ) {
         auto rack_key = task.rack;
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
             synnax::task::Status stat{
-                .key = synnax::task::status_key(task),
                 .name = TASK_NAME,
                 .variant = ::synnax::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
                 .description = rack_err.data,
-                .details = synnax::task::StatusDetails{
-                    .task = task.key,
-                }
+                .owner = synnax::task::resource_id(task.key),
             };
             ctx->set_status(stat);
             return nullptr;
         }
-        return std::make_unique<Task>(rack, task, ctx);
+        return std::make_unique<Task>(rack, task, ctx, std::move(health));
     }
 };
 
 struct Factory final : task::Factory {
+    /// @brief what the heartbeat of each configured task reports.
+    const Health health;
+
+    explicit Factory(Health health = {}): health(std::move(health)) {}
+
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
-        if (task.type == TASK_TYPE) return {Task::configure(ctx, task), true};
+        if (task.type == TASK_TYPE)
+            return {Task::configure(ctx, task, this->health), true};
         return {nullptr, false};
     }
 
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         common::delete_legacy_task_by_type(
             rack,
@@ -188,7 +266,8 @@ struct Factory final : task::Factory {
             rack,
             TASK_NAME,
             TASK_TYPE,
-            INTEGRATION_NAME
+            INTEGRATION_NAME,
+            cancel
         );
     }
 

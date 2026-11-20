@@ -22,7 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -37,6 +37,7 @@ import {
   cellsInRegion,
   findCellPosition,
   nextCellPosition,
+  type RowLayout,
   useColumns,
   useDispatch,
   useRedo,
@@ -67,7 +68,7 @@ const BASE_COL_SIZE = table.columnZ.parse({}).size;
 const NONE_HIDDEN: string[] = [];
 
 // fullySelectedRows returns the keys of the rows whose every cell is selected.
-const fullySelectedRows = (rows: table.Row[], selected: string[]): string[] => {
+const fullySelectedRows = (rows: RowLayout[], selected: string[]): string[] => {
   const set = new Set(selected);
   return rows.flatMap((row) =>
     row.cells.length > 0 && row.cells.every((k) => set.has(k)) ? [row.key] : [],
@@ -76,7 +77,7 @@ const fullySelectedRows = (rows: table.Row[], selected: string[]): string[] => {
 
 // fullySelectedCols returns the keys of the columns whose every cell is selected.
 const fullySelectedCols = (
-  rows: table.Row[],
+  rows: RowLayout[],
   columns: table.Column[],
   selected: string[],
 ): string[] => {
@@ -88,7 +89,7 @@ const fullySelectedCols = (
 
 // displacedCells returns the keys of the cells a move shifts out of place.
 const displacedCells = (
-  rows: table.Row[],
+  rows: RowLayout[],
   rowShifts: number[] | undefined,
   colShifts: number[] | undefined,
 ): string[] => {
@@ -325,9 +326,9 @@ export const Table = ({
   const consumeColMoved = colMove.consumeMoved;
 
   const rowSizes = rows.map((r) => r.size);
-  const totalRow = rowSizes.reduce((a, s) => a + s, 0);
+  const totalRow = math.sum(rowSizes);
   const colSizes = columns.map((c) => c.size);
-  const totalCol = colSizes.reduce((a, s) => a + s, 0);
+  const totalCol = math.sum(colSizes);
   const rowShifts = rowMove.move == null ? undefined : shifts(rows, rowMove.move);
   const colShifts = colMove.move == null ? undefined : shifts(columns, colMove.move);
   // The canvas does not slide, so value cells a move displaces draw nothing until it
@@ -396,7 +397,7 @@ export const Table = ({
         const cells: string[] = [];
         for (let y = minY; y <= maxY; y++)
           for (const k of rowsRef.current[y]?.cells ?? []) cells.push(k);
-        lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
+        lastSelectedRef.current = row.cells.at(-1) ?? null;
         onSelectionChange?.(cells);
         return;
       }
@@ -404,11 +405,11 @@ export const Table = ({
     if (ctrlKey || metaKey) {
       const next = new Set(selectedRef.current);
       for (const k of row.cells) next.add(k);
-      lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
+      lastSelectedRef.current = row.cells.at(-1) ?? null;
       onSelectionChange?.(Array.from(next));
       return;
     }
-    lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
+    lastSelectedRef.current = row.cells.at(-1) ?? null;
     onSelectionChange?.(row.cells);
   };
 
@@ -435,7 +436,7 @@ export const Table = ({
             const k = row.cells[x];
             if (k != null) cells.push(k);
           }
-        lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
+        lastSelectedRef.current = colCells.at(-1) ?? null;
         onSelectionChange?.(cells);
         return;
       }
@@ -443,11 +444,11 @@ export const Table = ({
     if (ctrlKey || metaKey) {
       const next = new Set(selectedRef.current);
       for (const k of colCells) next.add(k);
-      lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
+      lastSelectedRef.current = colCells.at(-1) ?? null;
       onSelectionChange?.(Array.from(next));
       return;
     }
-    lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
+    lastSelectedRef.current = colCells.at(-1) ?? null;
     onSelectionChange?.(colCells);
   };
 
@@ -464,7 +465,7 @@ export const Table = ({
     tableElRef.current?.focus({ preventScroll: true });
     const all: string[] = [];
     for (const row of rowsRef.current) for (const k of row.cells) all.push(k);
-    lastSelectedRef.current = all[all.length - 1] ?? null;
+    lastSelectedRef.current = all.at(-1) ?? null;
     onSelectionChange?.(all);
   };
 

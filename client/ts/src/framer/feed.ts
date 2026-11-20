@@ -8,14 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type MultiSeries,
+  disposable,
   scheduler,
   type Size,
   type TimeRange,
   TimeStamp,
+  unique,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
@@ -32,10 +33,10 @@ import {
 } from "@/framer/cache/streamer";
 import { Handle } from "@/framer/cache/subscription";
 import { TileReader } from "@/framer/cache/tile";
-import { type Frame } from "@/framer/frame";
+import type { Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
-import { type StreamOpener } from "@/framer/streamer";
-import { type SubscribeRequest, type Subscription } from "@/framer/subscription";
+import type { StreamOpener } from "@/framer/streamer";
+import type { SubscribeRequest, Subscription } from "@/framer/subscription";
 import { historyChangeZ } from "@/framer/types.gen";
 
 /** Reads the newest count stored samples of each channel in the time range. */
@@ -47,12 +48,12 @@ export interface RemoteLatestReader {
 const HISTORY_CHANGE_CHANNEL = "sy_history_change";
 
 interface LatestQuery {
-  key: channel.Key;
+  keys: channel.Key[];
   count: number;
   tr: TimeRange;
 }
 
-type LatestEntry = scheduler.BatcherEntry<LatestQuery, MultiSeries>;
+type LatestEntry = scheduler.BatcherEntry<LatestQuery, Frame>;
 
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
@@ -62,6 +63,8 @@ export interface FeedProps
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: RemoteLatestReader;
+  /** Reads the first stored sample of each channel. */
+  readFirst: (keys: channel.Key[]) => Promise<Frame>;
   /**
    * The key of the Core node the client connects to, once known. History signals keep
    * the blocks of only the channels stored on it.
@@ -81,7 +84,13 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "retrieveChannels" | "openStreamer" | "readLatest" | "onRetry" | "node"
+  | "readRemote"
+  | "retrieveChannels"
+  | "openStreamer"
+  | "readLatest"
+  | "readFirst"
+  | "onRetry"
+  | "node"
 > {}
 
 /**
@@ -90,13 +99,18 @@ export interface FeedOptions extends Omit<
  * byte budget.
  */
 export class Feed {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
   private readonly store: Store;
   private readonly joins: Joins;
   private readonly joiner: Joiner;
-  private readonly latest: scheduler.Batcher<LatestQuery, MultiSeries>;
+  private readonly latest: scheduler.Batcher<LatestQuery, Frame>;
   private readonly props: FeedProps;
   private readonly handles = new Set<Handle>();
   // listening is true once a subscription asked for the history changes, and signals
@@ -188,16 +202,16 @@ export class Feed {
   private async fetchLatest(entries: LatestEntry[]): Promise<void> {
     const { count, tr } = entries[0].req;
     try {
-      const keys = [...new Set(entries.map(({ req }) => req.key))];
+      const keys = unique.unique(entries.flatMap(({ req }) => req.keys));
       const frame = await this.props.readLatest(keys, count, tr);
-      entries.forEach(({ req, resolve }) => resolve(frame.get(req.key)));
+      entries.forEach(({ resolve }) => resolve(frame));
     } catch (e) {
-      const byChannel = Map.groupBy(entries, ({ req }) => req.key);
-      // One channel's error fails a read of several, so each channel reads again alone
+      const byKeys = Map.groupBy(entries, ({ req }) => req.keys.join());
+      // One channel's error fails a read of several, so each request reads again alone
       // and gets its own result.
-      if (byChannel.size > 1 && !isConnectionError(e))
+      if (byKeys.size > 1 && !isConnectionError(e))
         await Promise.all(
-          [...byChannel.values()].map(async (group) => await this.fetchLatest(group)),
+          [...byKeys.values()].map(async (group) => await this.fetchLatest(group)),
         );
       else entries.forEach(({ reject }) => reject(e));
     }
@@ -205,6 +219,21 @@ export class Feed {
 
   private get now(): () => TimeStamp {
     return this.props.now ?? (() => TimeStamp.now());
+  }
+
+  /**
+   * @returns the start of the oldest stored domain of the channels, or null when they
+   * store no samples.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel.
+   */
+  async firstTime(keys: channel.Key[]): Promise<TimeStamp | null> {
+    const frame = await this.props.readFirst(keys);
+    const firsts = keys.flatMap((key) => {
+      const series = frame.get(key);
+      return series.series.length === 0 ? [] : [series.timeRange.start];
+    });
+    return firsts.length === 0 ? null : firsts.reduce((a, b) => TimeStamp.min(a, b));
   }
 
   /**
@@ -226,8 +255,8 @@ export class Feed {
         streamer: this.streamer,
         joiner: this.joiner,
         retrieveChannels: this.props.retrieveChannels,
-        readLatest: async (key, count, tr) =>
-          await this.latest.enqueue({ key, count, tr }),
+        readLatest: async (keys, count, tr) =>
+          await this.latest.enqueue({ keys, count, tr }),
         now: this.now,
         breaker: this.props.breaker,
         onClose: () => this.handles.delete(handle),
@@ -269,9 +298,10 @@ export class Feed {
 
   /**
    * Closes the feed and every open subscription, releasing the stream and all cached
-   * buffers.
+   * buffers. Closing a closed feed does nothing.
    */
   async close(): Promise<void> {
+    if (this.closed) return;
     this.closed = true;
     this.handles.forEach((h) => h.close());
     this.latest.close(new UnexpectedError("telemetry feed is closed"));

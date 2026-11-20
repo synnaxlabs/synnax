@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+import type { Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -17,23 +18,30 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
+  awaitTare,
+  clickFailedDeploy,
   commitFieldInput,
   createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
   reportTaskStopped,
   selectFromDropdown,
+  START_FAILURE,
 } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
+import { findIconButton, getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(Modbus.Task.Read, options);
+  const rendered = await renderTaskFormTab(
+    Modbus.Task.FORMS[Modbus.Task.READ_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };
@@ -58,6 +66,33 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createModbusDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const entry = Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+      type: "holding_register",
+      key: id.create(),
+      address: 0,
+      dataType: "float32",
+      channel: float.key,
+    });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [entry],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should build channels in the form and create them on the Core on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
@@ -212,7 +247,7 @@ describe("Read", () => {
       ],
     });
     const { container } = await renderRead({ client, taskKey: draft.key });
-    await selectFromDropdown("uint16", "String");
+    await selectFromDropdown("Input register", "Input register string");
     commitFieldInput(
       await screen.findByLabelText<HTMLInputElement>("String length"),
       "6",
@@ -224,7 +259,7 @@ describe("Read", () => {
       Modbus.Task.READ_SCHEMAS,
     );
     const [str] = created.config.channels;
-    expect(str).toMatchObject({ dataType: "string", stringLength: 6 });
+    expect(str).toMatchObject({ type: "input_register_string", length: 6 });
     const ch = await client.channels.retrieve(str.channel);
     expect(ch.name).toBe(`${dev.name}_register_input_305_str`);
     expect(ch.dataType.toString()).toBe("string");
@@ -305,6 +340,28 @@ describe("Read", () => {
     expect(address.getAttribute("aria-invalid")).toBeNull();
   });
 
+  it("should leave an address that two channels read to its field on Start", async () => {
+    const dev = await createModbusDevice(client);
+    const holding = () =>
+      Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+        type: "holding_register",
+        key: id.create(),
+        address: 10,
+        dataType: "uint16",
+      });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [holding(), holding()],
+    });
+    const onStatuses = vi.fn();
+    const { container } = await renderRead({ client, taskKey: draft.key, onStatuses });
+    await clickFailedDeploy(container);
+    const addresses = screen.getAllByLabelText("Address");
+    expect(addresses[1].getAttribute("aria-invalid")).toBe("true");
+    expect(onStatuses.mock.calls.flat(2)).not.toContainEqual(START_FAILURE);
+  });
+
   describe("byte and word order", () => {
     const createRegisterDraft = async (dataType: string, swapWords: boolean) => {
       const dev = await createModbusDevice(client, {
@@ -370,7 +427,7 @@ describe("Read", () => {
 
     it("should not open the order options without permission to update the task", async () => {
       const { draft } = await createRegisterDraft("float32", true);
-      await renderTaskFormTab(Modbus.Task.Read, {
+      await renderTaskFormTab(Modbus.Task.FORMS[Modbus.Task.READ_TYPE], {
         client,
         taskKey: draft.key,
         as: await createTaskReadOnlyClient(client),
@@ -458,7 +515,7 @@ describe("Read", () => {
       expect(within(getItems()[0]).getByText("400011")).toBeTruthy();
     });
 
-    it("should add a channel at the free address the map is clicked at", async () => {
+    it("should add and select a channel at the free address the map is clicked at", async () => {
       const { container } = await renderChannels([
         holding(0, "uint16"),
         holding(3, "uint16"),
@@ -475,6 +532,11 @@ describe("Read", () => {
         name: "Address",
       });
       expect(address.value).toBe("1");
+      expect(getItems().map((item) => item.getAttribute("aria-selected"))).toEqual([
+        "false",
+        "false",
+        "true",
+      ]);
     });
 
     it("should not add a channel from the map of a read-only task", async () => {
@@ -484,11 +546,14 @@ describe("Read", () => {
         device: dev.key,
         channels: [holding(0, "uint16"), holding(3, "uint16")],
       });
-      const { container } = await renderTaskFormTab(Modbus.Task.Read, {
-        client,
-        taskKey: draft.key,
-        as: await createTaskReadOnlyClient(client),
-      });
+      const { container } = await renderTaskFormTab(
+        Modbus.Task.FORMS[Modbus.Task.READ_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+          as: await createTaskReadOnlyClient(client),
+        },
+      );
       await waitFor(() => expect(getItems()).toHaveLength(2));
       const track = container.querySelector<HTMLElement>(".console-modbus__track");
       if (track == null) throw new Error("no track");
@@ -507,6 +572,23 @@ describe("Read", () => {
       if (segment == null) throw new Error("no segment");
       fireEvent.click(segment);
       expect(getItems()).toHaveLength(2);
+    });
+
+    it("should select a channel when its segment in the map is clicked", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      fireEvent.click(container.querySelectorAll(".console-modbus__segment")[1]);
+      expect(getItems().map((item) => item.getAttribute("aria-selected"))).toEqual([
+        "false",
+        "true",
+      ]);
+    });
+
+    it("should mark a channel's item while the pointer is on its segment", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      fireEvent.pointerEnter(container.querySelectorAll(".console-modbus__segment")[1]);
+      expect(
+        getItems().map((item) => item.classList.contains("lyra--hovered")),
+      ).toEqual([false, true]);
     });
 
     it("should open a channel's menu from its segment in the map", async () => {
@@ -585,11 +667,10 @@ describe("Read", () => {
       },
       {
         last: "a string of seven characters",
-        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
-          type: "input_register",
+        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register_string.parse({
+          type: "input_register_string",
           address: 10,
-          dataType: "string",
-          stringLength: 7,
+          length: 7,
         }),
         next: { address: 14 },
       },

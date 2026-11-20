@@ -1,0 +1,86 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Posts to Slack when a scheduled run fails: on the first failure of a streak, then on
+# the first failure of each UTC day while it lasts. A failed scheduled run of a watched
+# workflow starts this from its last job, through relay.failure.yaml. A self-reporting
+# workflow posts its own failures, so it does not start this.
+name: Report - Failures
+run-name: Report run ${{ inputs.run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run:
+        description: "Run to report"
+        type: string
+        required: true
+      attempt:
+        description: "Attempt of the run to report"
+        type: string
+        required: true
+
+permissions:
+  actions: read
+
+jobs:
+  report:
+    name: Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN: ${{ inputs.run }}
+      ATTEMPT: ${{ inputs.attempt }}
+    steps:
+      - name: Wait for the attempt to complete
+        id: run
+        run: |
+          for _ in $(seq 120); do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/attempts/$ATTEMPT" \
+              > "$RUNNER_TEMP/run"
+            if [ "$(jq -r .status "$RUNNER_TEMP/run")" = completed ]; then
+              jq -r '"event=\(.event)", "conclusion=\(.conclusion)", "name=\(.name)",
+                "workflow=\(.workflow_id)", "created=\(.created_at)",
+                "url=\(.html_url)"' "$RUNNER_TEMP/run" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Attempt $ATTEMPT of run $RUN did not complete in 30 minutes."
+          exit 1
+
+      - name: Post the failure to Slack
+        if:
+          steps.run.outputs.event == 'schedule' && contains(fromJSON('["failure",
+          "timed_out"]'), steps.run.outputs.conclusion)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          WORKFLOW: ${{ steps.run.outputs.name }}
+          WORKFLOW_ID: ${{ steps.run.outputs.workflow }}
+          CREATED: ${{ steps.run.outputs.created }}
+          CONCLUSION: ${{ steps.run.outputs.conclusion }}
+          RUN_URL: ${{ steps.run.outputs.url }}
+        run: |
+          # Earlier scheduled runs, newest first.
+          runs="repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs"
+          posted=$(gh api "$runs" -X GET -f event=schedule -f created="<$CREATED" -F per_page=100 |
+            jq --arg day "${CREATED:0:10}" '
+              def failed: .conclusion | IN("failure", "timed_out");
+              .workflow_runs as $runs
+              | ($runs[0] // {} | failed)
+                and any($runs[]; failed and .created_at[:10] == $day)')
+          if [ "$posted" = true ]; then
+            echo "$WORKFLOW already reported a failure today"
+            exit 0
+          fi
+          text="Scheduled run of $WORKFLOW ended in $CONCLUSION: $RUN_URL"
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"

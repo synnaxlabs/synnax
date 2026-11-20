@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { border, box, type dimensions, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale } from "@/schematic/node/common/scale";
-import { type NodeProps } from "@/schematic/node/spec";
+import { Stale } from "@/schematic/node/common/stale";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Scale as VisScale } from "@/vis/scale";
+import { Staleness } from "@/vis/staleness";
 
 const STROKE_WIDTH = 2;
 // The canvas fill and the DOM wall round to device pixels independently, so the fill is
@@ -44,55 +47,24 @@ const cornerRadii = (
   };
 };
 
-interface FillProps {
-  nodeKey: string;
-  position?: xy.XY;
-  config: schematic.TankNodeConfig;
+interface BodyProps extends NodeProps<schematic.TankNodeConfig> {
+  staleIndicated: boolean;
 }
 
-const Fill = ({ nodeKey, position, config }: FillProps): null => {
-  const {
-    channel,
-    rollingAverage,
-    borderRadius,
-    caretVisible,
-    scaleVisible,
-    dimensions: dims = Border.DEFAULT_DIMENSIONS,
-  } = config;
-  const telem = Scale.source({ channel, rollingAverage });
-  VisScale.use({
-    ...Scale.visProps({
-      ...config,
-      caretHidden: !caretVisible,
-      scaleHidden: !scaleVisible,
-    }),
-    telem,
-    aetherKey: nodeKey,
-    box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {
-      width: dims.width - OVERLAP * 2,
-      height: dims.height - OVERLAP * 2,
-    }),
-    direction: "y",
-    externalScale: true,
-    cornerRadii: cornerRadii(borderRadius, dims),
-  });
-  return null;
-};
-
-export const Symbol = ({
+const Body = ({
   nodeKey,
-  position,
   onConfigChange,
   selected,
   config,
-}: NodeProps<schematic.TankNodeConfig>): ReactElement => {
+  staleIndicated,
+}: BodyProps): ReactElement => {
+  const resolve = Color.useResolve();
   const {
     label,
     fillColor,
     strokeColor,
     dimensions = Border.DEFAULT_DIMENSIONS,
     borderRadius,
-    channel,
   } = config;
   return (
     <Grid.Grid
@@ -103,15 +75,67 @@ export const Symbol = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {channel != null && (
-        <Fill nodeKey={nodeKey} position={position} config={config} />
-      )}
+      {staleIndicated && <Stale.Indicator />}
       <Tank
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         dimensions={dimensions}
         borderRadius={borderRadius}
-        fillColor={fillColor}
+        fillColor={resolve(fillColor)}
       />
     </Grid.Grid>
+  );
+};
+
+// Filled draws the level of the tank's channel and reports when it goes stale.
+const Filled = (props: NodeProps<schematic.TankNodeConfig>): ReactElement => {
+  const { nodeKey, position, config } = props;
+  const {
+    channel,
+    rollingAverage,
+    borderRadius,
+    caretVisible,
+    scaleVisible,
+    dimensions: dims = Border.DEFAULT_DIMENSIONS,
+  } = config;
+  const badged = Staleness.useBadged();
+  const telem = Scale.source({ channel, rollingAverage });
+  const vis = Scale.useVisProps({
+    ...config,
+    caretHidden: !caretVisible,
+    scaleHidden: !scaleVisible,
+  });
+  const { stale } = VisScale.use({
+    ...vis,
+    telem,
+    aetherKey: nodeKey,
+    box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {
+      width: dims.width - OVERLAP * 2,
+      height: dims.height - OVERLAP * 2,
+    }),
+    direction: "y",
+    externalScale: true,
+    cornerRadii: cornerRadii(borderRadius, dims),
+    staleColorHidden: badged,
+  });
+  return <Body {...props} staleIndicated={stale && badged} />;
+};
+
+export const Symbol = (props: NodeProps<schematic.TankNodeConfig>): ReactElement =>
+  primitive.isNonZero(props.config.channel) ? (
+    <Filled {...props} />
+  ) : (
+    <Body {...props} staleIndicated={false} />
+  );
+
+/** Renders the tank in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  fillColor,
+  dimensions: _dimensions,
+  ...rest
+}: schematic.TankNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Tank {...rest} strokeColor={resolve(strokeColor)} fillColor={resolve(fillColor)} />
   );
 };

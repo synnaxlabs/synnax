@@ -15,8 +15,9 @@ from examples.mqtt_sim.server import (
 
 import synnax as sy
 from synnax import mqtt
-from tests.driver.mqtt_task import MQTTReadTaskCase
+from tests.driver.mqtt_task import MQTTReadTaskCase, create_plain_entry
 from tests.driver.task import create_channel, create_index
+from x import payload
 
 
 class MQTTReadJSON(MQTTReadTaskCase):
@@ -46,25 +47,31 @@ class MQTTReadJSON(MQTTReadTaskCase):
             index=idx.key,
         )
         return [
-            mqtt.PlainReadEntry(
+            create_plain_entry(
+                client,
                 topic="plant/sensors",
-                fields=[
-                    mqtt.ReadField(
-                        pointer="/temperature",
-                        channel=temperature,
-                        data_type=sy.DataType.FLOAT64,
+                bindings=[
+                    (
+                        sy.icd.FloatJSONField(
+                            name="temperature", pointer="/temperature"
+                        ),
+                        temperature,
                     ),
-                    mqtt.ReadField(
-                        pointer="/count", channel=count, data_type=sy.DataType.INT64
-                    ),
-                    mqtt.ReadField(
-                        pointer="/state",
-                        channel=running,
-                        data_type=sy.DataType.UINT8,
-                        enum_values=[
-                            mqtt.EnumEntry(label="idle", value=0),
-                            mqtt.EnumEntry(label="running", value=1),
-                        ],
+                    (sy.icd.IntegerJSONField(name="count", pointer="/count"), count),
+                    (
+                        sy.icd.UnsignedJSONField(
+                            name="state",
+                            pointer="/state",
+                            enum_values=[
+                                payload.UnsignedEntry(
+                                    label="idle", value=payload.Unsigned(0)
+                                ),
+                                payload.UnsignedEntry(
+                                    label="running", value=payload.Unsigned(1)
+                                ),
+                            ],
+                        ),
+                        running,
                     ),
                 ],
             ),
@@ -93,30 +100,23 @@ class MQTTReadMultipleTopics(MQTTReadTaskCase):
             data_type=sy.DataType.FLOAT64,
             index=timed_idx.key,
         )
-        stamp = mqtt.ReadField(
-            pointer="/timestamp",
-            channel=timed_idx.key,
-            data_type=sy.DataType.TIMESTAMP,
-            time_format="unix_ns",
+        stamp = sy.icd.TimestampJSONField(
+            name="timestamp", pointer="/timestamp", time_format="unix_ns"
         )
         return [
-            mqtt.PlainReadEntry(
+            create_plain_entry(
+                client,
                 topic="plant/scalar",
                 qos="at_least_once",
-                fields=[
-                    mqtt.ReadField(
-                        pointer="", channel=scalar, data_type=sy.DataType.FLOAT32
-                    )
-                ],
+                bindings=[(sy.icd.FloatJSONField(name="value", pointer=""), scalar)],
             ),
-            mqtt.PlainReadEntry(
+            create_plain_entry(
+                client,
                 topic="plant/timed",
-                index=stamp.key,
-                fields=[
-                    stamp,
-                    mqtt.ReadField(
-                        pointer="/value", channel=timed, data_type=sy.DataType.FLOAT64
-                    ),
+                index=stamp,
+                bindings=[
+                    (stamp, timed_idx.key),
+                    (sy.icd.FloatJSONField(name="value", pointer="/value"), timed),
                 ],
             ),
         ]

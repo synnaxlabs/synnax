@@ -25,26 +25,31 @@ namespace driver::rack {
 /// @brief stands in for an integration that this Driver does not run. A configure of a
 /// task of the integration fails with the reason. A non-empty legacy_scanner_type names
 /// the scanner that a Driver built with the integration left on the rack. The factory
-/// deletes it at boot.
+/// deletes it at boot. A boot configure only logs the failure, unless reported_at_boot
+/// is true: then it writes a stopped error status for the task.
 class UnavailableFactory final : public task::Factory {
     const std::string integration;
     const std::string reason;
     const std::string legacy_scanner_type;
+    const bool reported_at_boot;
 
 public:
     UnavailableFactory(
         std::string integration,
         std::string reason,
-        std::string legacy_scanner_type = ""
+        std::string legacy_scanner_type = "",
+        const bool reported_at_boot = false
     ):
         integration(std::move(integration)),
         reason(std::move(reason)),
-        legacy_scanner_type(std::move(legacy_scanner_type)) {}
+        legacy_scanner_type(std::move(legacy_scanner_type)),
+        reported_at_boot(reported_at_boot) {}
 
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         if (this->legacy_scanner_type.empty()) return {};
         if (const auto err = common::delete_legacy_task_by_type(
@@ -60,17 +65,24 @@ public:
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         if (task.type != this->integration &&
             !task.type.starts_with(this->integration + "_"))
             return {nullptr, false};
+        if (cmd_key == task::NO_COMMAND && !this->reported_at_boot) {
+            LOG(WARNING) << "[" << this->integration << "] failed to configure task "
+                         << task.name << ": " << this->reason;
+            return {nullptr, true};
+        }
         return common::handle_config_err(
             ctx,
             task,
             {common::ConfigureResult{},
              x::errors::Error(errors::CONFIGURATION_ERROR, this->reason)},
-            cmd_key
+            cmd_key,
+            cancel
         );
     }
 

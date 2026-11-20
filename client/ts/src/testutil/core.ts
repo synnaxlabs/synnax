@@ -13,6 +13,7 @@ import {
   array,
   type CrudeRate,
   DataType,
+  disposable,
   Rate,
   type Reduction,
   Series,
@@ -24,7 +25,7 @@ import {
 
 import { channel } from "@/channel";
 import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { Feed, type FeedProps } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import {
@@ -80,6 +81,8 @@ export interface SyntheticCoreProps {
    * stamps its samples late.
    */
   lag?: TimeSpan;
+  /** When the writer stops, as when a test ends. No sample at or after it exists. */
+  end?: TimeStamp;
 }
 
 // A span of a channel's samples rewritten with values moved by delta.
@@ -134,6 +137,7 @@ export class SyntheticCore {
   private readonly dataMisaligned: boolean;
   private readonly text: (i: number) => string;
   private readonly lag: TimeSpan;
+  private end?: TimeStamp;
   private readonly denied = new Set<channel.Key>();
 
   constructor({
@@ -148,6 +152,7 @@ export class SyntheticCore {
     dataMisaligned = false,
     text = (i) => String(i),
     lag = TimeSpan.ZERO,
+    end,
   }: SyntheticCoreProps) {
     this.start = start.valueOf();
     this.period = new Rate(rate).period.valueOf();
@@ -158,6 +163,7 @@ export class SyntheticCore {
     this.dataMisaligned = dataMisaligned;
     this.text = text;
     this.lag = lag;
+    this.end = end;
     this.index = new channel.Channel({
       key: INDEX_KEY,
       name: "time",
@@ -242,6 +248,15 @@ export class SyntheticCore {
     this.stream(new Frame(this.historyChange.key, signal));
   }
 
+  /** Deletes every index and data sample from the time on, and streams the change. */
+  truncate(from: TimeStamp): void {
+    this.end = this.end == null ? from : TimeStamp.min(this.end, from);
+    const timeRange = new TimeRange(from, TimeStamp.MAX);
+    const changes = [this.index, ...this.data].map(({ key }) => ({ key, timeRange }));
+    const signal = new Series({ data: [changes], dataType: DataType.JSON });
+    this.stream(new Frame(this.historyChange.key, signal));
+  }
+
   /** Streams the frame to every open streamer. Reads never return its samples. */
   stream(frame: Frame): void {
     this.streamers.forEach((s) => s.push(frame));
@@ -275,6 +290,7 @@ export class SyntheticCore {
       retrieveChannels: this.retrieveChannels,
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
+      readFirst: async (keys) => this.readFirst(keys),
       node: () => this.node,
       ...props,
     });
@@ -322,10 +338,7 @@ export class SyntheticCore {
       const { key } = this.virtual;
       // The Core streams each frame of a free channel with no index at alignment 0.
       this.raw(key, from, to).forEach((s) =>
-        index.push(
-          key,
-          new Series({ ...seriesProps(s), timeRange: TimeRange.ZERO, alignment: 0n }),
-        ),
+        index.push(key, new Series({ ...seriesProps(s), alignment: 0n })),
       );
     }
     this.streamers.forEach((s) => {
@@ -368,6 +381,15 @@ export class SyntheticCore {
         this.reduced(key, tr, first, last, size, reduction?.aggregation ?? "min_max"),
       );
     }
+    return frame;
+  }
+
+  /** Reads the first sample of each channel. */
+  readFirst(keys: channel.Key[]): Frame {
+    this.checkConnected();
+    const frame = new Frame();
+    if (this.samplesBefore(TimeStamp.MAX) > 0)
+      keys.forEach((key) => this.raw(key, 0, 1).forEach((s) => frame.push(key, s)));
     return frame;
   }
 
@@ -421,7 +443,9 @@ export class SyntheticCore {
   }
 
   private written(): number {
-    const elapsed = this.clock.valueOf() - this.lag.valueOf() - this.start;
+    let until = this.clock.valueOf() - this.lag.valueOf();
+    if (this.end != null && this.end.valueOf() < until) until = this.end.valueOf();
+    const elapsed = until - this.start;
     if (elapsed <= 0n) return 0;
     return Number((elapsed + this.period - 1n) / this.period);
   }
@@ -530,8 +554,8 @@ export class SyntheticCore {
 
   // reduced returns the samples in [first, last) in groups of size samples anchored at
   // sample zero. A group cut by the read reduces the samples inside it. The index
-  // reduces exactly: min_max keeps each group's first and last times, decimate its first,
-  // and average its midpoint.
+  // reduces exactly: min_max keeps each group's first and last times, decimate its
+  // first, and average its midpoint.
   private reduced(
     key: channel.Key,
     tr: TimeRange,
@@ -587,6 +611,12 @@ const groupSize = (count: number, limit: number, aggregation: Aggregation): numb
 };
 
 class SyntheticStreamer implements Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   keys: channel.Key[];
   private readonly queue: Frame[] = [];
   // waiting resolves the pending pull with the next frame, or with null on close.

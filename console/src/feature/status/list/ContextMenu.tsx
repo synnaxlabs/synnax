@@ -20,17 +20,11 @@ import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  /** Builds the DOM id of a row's editable name. Lists rendering the same statuses
-   * under different ids (e.g. the favorites toolbar) pass their own builder. */
-  nameID?: (key: status.Key) => string;
-}
-
-const Internal = ({ keys, nameID = List.itemNameID }: ContextMenuProps) => {
+const Internal = ({ keys, target }: Menu.ContextMenuMenuProps) => {
   const statuses = Status.useMultiple({ keys });
   const dispatch = Session.useDispatch();
   const favoriteSet = Session.Status.useSelectFavoriteSet();
-  const ids = status.ontologyID(keys);
+  const ids = status.resourceID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
 
@@ -48,7 +42,9 @@ const Internal = ({ keys, nameID = List.itemNameID }: ContextMenuProps) => {
   return (
     <Base.Menu>
       {hasUpdatePermission && isSingle && (
-        <Base.RenameItem onClick={() => Text.edit(nameID(statuses[0].key))} />
+        <Base.RenameItem
+          onClick={() => Text.edit(List.itemNameID(statuses[0].key), target)}
+        />
       )}
       <Menu.Divider />
       <Base.FavoriteItems
@@ -84,7 +80,7 @@ const Internal = ({ keys, nameID = List.itemNameID }: ContextMenuProps) => {
   );
 };
 
-export const ContextMenu = (props: ContextMenuProps) => (
+const ContextMenu = (props: Menu.ContextMenuMenuProps) => (
   <Errors.SuspenseBoundary loading={null}>
     <Internal {...props} />
   </Errors.SuspenseBoundary>

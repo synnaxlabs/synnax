@@ -24,6 +24,8 @@ Before running this example:
 This example reads from two analog input channels at 100 Hz.
 """
 
+import sys
+
 import numpy as np
 
 import synnax as sy
@@ -72,14 +74,12 @@ tsk = sy.labjack.ReadTask(
             port="AIN0",
             channel=ain0.key,
             range=10.0,
-            neg_chan=199,  # 199 = single-ended (GND)
         ),
         # Analog input channel AIN1 with ±10V range
         sy.labjack.AnalogReadChannel(
             port="AIN1",
             channel=ain1.key,
             range=10.0,
-            neg_chan=199,  # 199 = single-ended (GND)
         ),
     ],
 )
@@ -90,7 +90,7 @@ try:
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")
-    exit(1)
+    sys.exit(1)
 
 print("=" * 70)
 print("Starting LabJack Read Task")

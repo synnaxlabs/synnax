@@ -9,7 +9,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { channels, filename, term } from "@/server/license/limits";
+import {
+  channels,
+  desktopCap,
+  filename,
+  MAX_LABEL_LENGTH,
+  MAX_NAME_LENGTH,
+  term,
+} from "@/server/license/limits";
 import { LICENSE } from "@/server/license/testutil";
 
 describe("limits", () => {
@@ -33,6 +40,12 @@ describe("limits", () => {
 
     it("should leave out a machine with no name", () => {
       expect(filename("Test rig", null)).toBe("Test-rig.lic");
+    });
+
+    it("should keep a long label and its machine under the file system limit", () => {
+      const name = filename("x".repeat(MAX_LABEL_LENGTH), "y".repeat(MAX_NAME_LENGTH));
+      expect(name.length).toBeLessThan(255);
+      expect(name).toContain("y".repeat(MAX_NAME_LENGTH));
     });
   });
 
@@ -61,6 +74,17 @@ describe("limits", () => {
 
     it("should give any other cap as a number", () => {
       expect(channels(500)).toBe("500");
+    });
+  });
+
+  describe("desktopCap", () => {
+    it("should give 55 channels to an organization with no cap", () => {
+      expect(desktopCap({ desktopChannels: null })).toBe(55);
+    });
+
+    it("should give the cap that is set, 0 included", () => {
+      expect(desktopCap({ desktopChannels: 200 })).toBe(200);
+      expect(desktopCap({ desktopChannels: 0 })).toBe(0);
     });
   });
 });

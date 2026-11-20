@@ -13,24 +13,33 @@ on:
   workflow_call:
     inputs: &inputs
       core:
-        description: "Stable Core tag (default: the newest the candidate contains)"
+        description: "Stable Core tag (default: the candidate's stable baseline)"
         type: string
         default: ""
       console:
-        description: "Stable Console tag (default: the newest the candidate contains)"
+        description: "Stable Console tag (default: the candidate's stable baseline)"
         type: string
         default: ""
       driver:
-        description: "Stable Driver tag (default: the newest the candidate contains)"
+        description: "Stable Driver tag (default: the candidate's stable baseline)"
         type: string
         default: ""
       agent:
         description: "Agent to run, claude or codex (default: AGENT_DEFAULT)"
         type: string
         default: ""
+    secrets:
+      CLAUDE_CODE_APP_PRIVATE_KEY:
+        required: false
+      CODEX_APP_PRIVATE_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
 
   workflow_dispatch:
     inputs: *inputs
+
+permissions: {}
 
 jobs:
   prompt:
@@ -40,11 +49,13 @@ jobs:
       contents: read
     outputs:
       prompt: ${{ steps.prompt.outputs.prompt }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -53,12 +64,19 @@ jobs:
           CONSOLE: ${{ inputs.console }}
           DRIVER: ${{ inputs.driver }}
           CANDIDATE: ${{ github.sha }}
+          REF: ${{ github.ref_name }}
         run: |
-          # The release notes use the same baseline: the newest stable tag of the
-          # product that the candidate contains.
+          # The newest stable tag the candidate contains. Off a release branch, a newer
+          # hotfix tagged on that tag's train counts too.
           stable() {
-            git tag --list "$1/v*" --merged HEAD |
-              grep -E "^$1/v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -1
+            local base
+            base=$(git tag --list "$1/v*" --merged HEAD |
+              sed -nE "s#^$1/v([0-9]+\.[0-9]+\.[0-9]+)\$#\1#p" | sort -V | tail -1)
+            [ -n "$base" ] || return 0
+            if [[ $REF != release/* ]]; then
+              base=$(.github/scripts/latest_version.sh "$1" "${base%.*}")
+            fi
+            echo "$1/v$base"
           }
           CORE=${CORE:-$(stable core)}
           CONSOLE=${CONSOLE:-$(stable console)}
@@ -82,20 +100,24 @@ jobs:
     permissions:
       actions: read
       contents: read
-      id-token: write
     uses: ./.github/workflows/agent.yaml
     with:
       prompt: ${{ needs.prompt.outputs.prompt }}
       agent: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
       output: report
       timeout-minutes: 120
-    secrets: inherit
+      licensed: true
+    secrets:
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   verdict:
     name: Verdict
     needs: audit
     runs-on: ubuntu-latest
     permissions: {}
+    timeout-minutes: 10
     steps:
       - name: Check the verdict
         env:

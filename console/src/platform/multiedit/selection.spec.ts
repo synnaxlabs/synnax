@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/client";
+import { color as xcolor, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -16,7 +17,8 @@ import { MultiEdit } from "@/platform/multiedit";
 const SCHEMAS = {
   gauge: z.object({
     variant: z.literal("gauge"),
-    fillColor: color.colorZ.optional(),
+    fillColor: color.refZ.optional(),
+    strokeColor: xcolor.colorZ.optional(),
     precision: z.number(),
   }),
   label: z.object({ variant: z.literal("label"), text: z.string() }),
@@ -25,15 +27,21 @@ const SCHEMAS = {
 type Config = z.infer<(typeof SCHEMAS)[keyof typeof SCHEMAS]>;
 
 const FIELDS = MultiEdit.fieldsByVariant(SCHEMAS);
+const VALUE_COLOR_FIELDS = { gauge: { strokeColor: true } } as const;
 
-const RED = color.construct("#ff0000");
-const BLUE = color.construct("#0000ff");
+const RED = xcolor.construct("#ff0000");
+const BLUE = xcolor.construct("#0000ff");
+const FIXED_RED: color.Ref = { type: "fixed", value: RED };
+const FIXED_BLUE: color.Ref = { type: "fixed", value: BLUE };
+const NAMED_KEY = uuid.create();
+const NAMED: color.Ref = { type: "named", key: NAMED_KEY };
 
 const create = (configs: Array<[string, Config]>) => {
   const updates: Array<Array<[string, Config]>> = [];
   const selection = MultiEdit.selection<Config>({
     configs: new Map(configs),
     fields: FIELDS,
+    valueColorFields: VALUE_COLOR_FIELDS,
     onChange: (u) => updates.push(u.map(({ key, next }) => [key, next])),
   });
   return { selection, updates };
@@ -41,7 +49,7 @@ const create = (configs: Array<[string, Config]>) => {
 
 describe("selection", () => {
   const { selection, updates } = create([
-    ["a", { variant: "gauge", fillColor: RED, precision: 2 }],
+    ["a", { variant: "gauge", fillColor: FIXED_RED, strokeColor: RED, precision: 2 }],
     ["b", { variant: "label", text: "hi" }],
     ["c", { variant: "gauge", precision: 4 }],
   ]);
@@ -60,9 +68,45 @@ describe("selection", () => {
     expect(
       selection.colors("fillColor", (c) => (c.variant === "gauge" ? BLUE : RED)),
     ).toEqual([
-      { value: RED, fallback: BLUE },
+      { value: FIXED_RED, fallback: BLUE },
       { value: undefined, fallback: BLUE },
     ]);
+  });
+
+  it("should read a color value as a fixed reference", () => {
+    expect(selection.colors("strokeColor", () => BLUE)).toEqual([
+      { value: FIXED_RED, fallback: BLUE },
+      { value: undefined, fallback: BLUE },
+    ]);
+  });
+
+  it("should report the color fields an element stores as values", () => {
+    expect(selection.valueOnly("strokeColor")).toBe(true);
+    expect(selection.valueOnly("fillColor")).toBe(false);
+  });
+
+  it("should store a reference in a field that holds references", () => {
+    updates.length = 0;
+    selection.setColor("fillColor", NAMED);
+    expect(updates[0].map(([, c]) => c.variant === "gauge" && c.fillColor)).toEqual([
+      NAMED,
+      NAMED,
+    ]);
+  });
+
+  it("should store the color of a reference in a field that holds values", () => {
+    updates.length = 0;
+    selection.setColor("strokeColor", FIXED_BLUE);
+    expect(updates[0].map(([, c]) => c.variant === "gauge" && c.strokeColor)).toEqual([
+      BLUE,
+      BLUE,
+    ]);
+  });
+
+  it("should throw when a named color goes in a field that holds values", () => {
+    expect(() => selection.setColor("strokeColor", NAMED)).toThrow(
+      `[multiedit] - named color ${NAMED_KEY} in a color value field`,
+    );
   });
 
   it("should set a field only on elements that declare it", () => {
@@ -70,7 +114,10 @@ describe("selection", () => {
     selection.set("precision", 3);
     expect(updates).toEqual([
       [
-        ["a", { variant: "gauge", fillColor: RED, precision: 3 }],
+        [
+          "a",
+          { variant: "gauge", fillColor: FIXED_RED, strokeColor: RED, precision: 3 },
+        ],
         ["c", { variant: "gauge", precision: 3 }],
       ],
     ]);
@@ -79,31 +126,45 @@ describe("selection", () => {
   it("should remove a field set to undefined", () => {
     updates.length = 0;
     selection.set("fillColor", undefined);
-    expect(updates[0][0]).toEqual(["a", { variant: "gauge", precision: 2 }]);
+    expect(updates[0][0]).toEqual([
+      "a",
+      { variant: "gauge", strokeColor: RED, precision: 2 },
+    ]);
   });
 
   it("should update a field from each element's own value", () => {
     updates.length = 0;
     selection.update("precision", (p) => (p ?? 0) + 1);
     expect(updates[0].map(([, c]) => c)).toEqual([
-      { variant: "gauge", fillColor: RED, precision: 3 },
+      { variant: "gauge", fillColor: FIXED_RED, strokeColor: RED, precision: 3 },
       { variant: "gauge", precision: 5 },
     ]);
   });
 
   it("should set every referenced color", () => {
     updates.length = 0;
-    selection.setColors([{ key: "a", path: "fillColor", value: RED }], BLUE);
+    selection.setColors(
+      [
+        { key: "a", path: "fillColor", value: FIXED_RED },
+        { key: "a", path: "strokeColor", value: FIXED_RED, valueOnly: true },
+      ],
+      FIXED_BLUE,
+    );
     expect(updates).toEqual([
-      [["a", { variant: "gauge", fillColor: BLUE, precision: 2 }]],
+      [
+        [
+          "a",
+          { variant: "gauge", fillColor: FIXED_BLUE, strokeColor: BLUE, precision: 2 },
+        ],
+      ],
     ]);
   });
 
   it("should write every color an element holds in one update", () => {
     const schema = z.object({
       variant: z.literal("state"),
-      fillColor: color.colorZ,
-      options: z.array(z.object({ color: color.colorZ })),
+      fillColor: xcolor.colorZ,
+      options: z.array(z.object({ color: xcolor.colorZ })),
     });
     const config: z.infer<typeof schema> = {
       variant: "state",
@@ -117,10 +178,10 @@ describe("selection", () => {
       onChange: (u) => updates.push(u.map(({ key, next }) => [key, next])),
     }).setColors(
       [
-        { key: "a", path: "fillColor", value: RED },
-        { key: "a", path: "options.0.color", value: RED },
+        { key: "a", path: "fillColor", value: FIXED_RED, valueOnly: true },
+        { key: "a", path: "options.0.color", value: FIXED_RED, valueOnly: true },
       ],
-      BLUE,
+      FIXED_BLUE,
     );
     expect(updates).toEqual([
       [["a", { variant: "state", fillColor: BLUE, options: [{ color: BLUE }] }]],
@@ -151,7 +212,10 @@ describe("selection", () => {
 
   it("should throw when a reference names an element outside the selection", () => {
     expect(() =>
-      selection.setColors([{ key: "z", path: "fillColor", value: RED }], BLUE),
+      selection.setColors(
+        [{ key: "z", path: "fillColor", value: FIXED_RED }],
+        FIXED_BLUE,
+      ),
     ).toThrow("[multiedit] - no config for z");
   });
 

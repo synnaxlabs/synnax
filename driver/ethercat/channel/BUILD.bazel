@@ -12,12 +12,14 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "channel",
+    srcs = ["channel.cpp"],
     hdrs = ["channel.h"],
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/ethercat",
-        "//driver/ethercat/master",
+        "//driver/ethercat/pdo",
+        "//driver/ethercat/slave",
         "//driver/ethercat/telem",
         "//x/cpp/json",
         "//x/cpp/telem",
@@ -29,6 +31,7 @@ cc_test(
     srcs = ["channel_test.cpp"],
     deps = [
         ":channel",
+        "//client/cpp/ethercat",
         "@googletest//:gtest_main",
     ],
 )

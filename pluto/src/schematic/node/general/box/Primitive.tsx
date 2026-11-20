@@ -7,18 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
+import { Border } from "@/schematic/node/common/border";
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
-interface RenderProps extends Omit<
-  schematic.BoxNodeConfig,
-  "variant" | "label" | "scale"
+interface RenderProps extends Partial<
+  Omit<
+    schematic.BoxNodeConfig,
+    "variant" | "label" | "scale" | "strokeColor" | "fillColor"
+  >
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
 }
 
-export const Box = ({ borderRadius, ...rest }: RenderProps): ReactElement => (
+export const Box = ({
+  borderRadius = Border.DEFAULT_BOX_RADIUS,
+  ...rest
+}: RenderProps): ReactElement => (
   <TankPrimitive {...rest} boxBorderRadius={borderRadius} />
 );

@@ -9,10 +9,9 @@
 
 import json
 
-import msgpack
 from pydantic import BaseModel, ConfigDict, Field
 
-from x.codec import Bytes, JSONCodec, MessagePackCodec
+from x.codec import Bytes, JSONCodec
 
 
 class PayloadWithAlias(BaseModel):
@@ -81,35 +80,4 @@ class TestJSONCodec:
         codec = JSONCodec()
         encoded = codec.encode(PayloadWithBytes(data=BINARY))
         assert json.loads(encoded) == {"data": "AGFzbf8="}
-        assert codec.decode(encoded, PayloadWithBytes).data == BINARY
-
-
-class TestMessagePackCodec:
-    def test_encode_decode_basic(self) -> None:
-        """Should encode and decode a basic payload."""
-        codec = MessagePackCodec()
-        original = PayloadWithAlias(from_="source", to="destination")
-        encoded = codec.encode(original)
-        decoded = codec.decode(encoded, PayloadWithAlias)
-        assert decoded.from_ == "source"
-        assert decoded.to == "destination"
-
-    def test_encode_uses_alias(self) -> None:
-        """Should serialize field with alias name, not Python attribute name."""
-
-        codec = MessagePackCodec()
-        payload = PayloadWithAlias(from_="source", to="destination")
-        encoded = codec.encode(payload)
-        data = msgpack.unpackb(encoded)
-        assert isinstance(data, dict)
-        # The key should be "from" (the alias), not "from_" (the Python attribute)
-        assert "from" in data
-        assert "from_" not in data
-        assert data["from"] == "source"
-
-    def test_bytes_cross_raw(self) -> None:
-        """Should send binary data as raw bytes and decode it unchanged."""
-        codec = MessagePackCodec()
-        encoded = codec.encode(PayloadWithBytes(data=BINARY))
-        assert msgpack.unpackb(encoded) == {"data": BINARY}
         assert codec.decode(encoded, PayloadWithBytes).data == BINARY

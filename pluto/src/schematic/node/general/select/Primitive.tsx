@@ -9,24 +9,26 @@
 
 import "@/schematic/node/general/select/select.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
-import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import type { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { color, TimeSpan } from "@synnaxlabs/x";
+import type { CSSProperties, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface RenderProps extends Partial<
   Pick<
     schematic.SelectNodeConfig,
-    "fillColor" | "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
+    "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
   >
 > {
+  fillColor?: color.Crude;
   options: schematic.SelectNodeConfig["options"];
   className?: string;
   /** value is the key of the last sent option, or null when none is known. */
@@ -52,7 +54,7 @@ export const Select = ({
   readback,
   onSend,
   options,
-  size,
+  size = "medium",
   disabled,
   inlineSize,
   onClickDelay,
@@ -114,7 +116,11 @@ export const Select = ({
             onChange={draft.edit}
             disabled={disabled}
             resourceName="option"
-            triggerProps={{ size, className: CSS.BE("symbol-field", "control") }}
+            triggerProps={{
+              size,
+              level: SIZE_LEVELS[size],
+              className: CSS.BE("symbol-field", "control"),
+            }}
             dialogProps={DIALOG_PROPS}
           >
             {options.map((o) => (
@@ -126,12 +132,13 @@ export const Select = ({
           <BaseButton.Button
             variant="filled"
             size={size}
+            level={SIZE_LEVELS[size]}
             onClick={() => {
               if (matched == null) return;
               onSend(matched.value);
               draft.send();
             }}
-            onClickDelay={onClickDelay}
+            onClickDelay={new TimeSpan(onClickDelay ?? 0)}
             disabled={disabled}
           >
             Set

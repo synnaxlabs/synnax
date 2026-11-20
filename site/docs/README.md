@@ -1,8 +1,8 @@
 # Synnax docs site
 
 The documentation site at [docs.synnaxlabs.com](https://docs.synnaxlabs.com), built with
-Astro and served by Vercel. Pages render at build time. The 404 page, the updater
-routes, and pages behind a flag render per request.
+Astro and served by Vercel. Pages render at build time. The 404 page and the updater
+routes render per request.
 
 ## Commands
 
@@ -15,6 +15,17 @@ pnpm lint                                # eslint
 pnpm check-site:build && pnpm check-site # static build + link and media crawler
 ```
 
+`pnpm check-site` fails on a broken internal link. A broken external link is a warning,
+because the cause can be the host. With `--strict`, which the nightly run and the CI of
+a release set, a broken external link fails too.
+
+## Pages
+
+The pages live in `src/docs`: the reference under `reference/` and the blog under
+`blog/`. The `reference` and `blog` collections in `src/content.config.ts` set the
+frontmatter fields of each, and `src/pages/[...slug].astro` renders every page at its
+path. A file that starts with an underscore is a partial, not a page.
+
 ## Release lookups
 
 Download links and the version in the header read the per-product GitHub releases
@@ -22,27 +33,52 @@ Download links and the version in the header read the per-product GitHub release
 `src/util/releases.ts`, so a release shows on the site after the next deploy. The
 release workflows redeploy the docs after each stable release. The updater routes under
 `/releases/` read the releases per request, and a warm function caches the listing for
-five minutes. `DOCS_GITHUB_TOKEN` in the Vercel project raises the GitHub API rate
-limit; the site works without it.
+five minutes. `DOCS_GITHUB_APP_ID` and `DOCS_GITHUB_APP_PRIVATE_KEY` in the Vercel
+project hold the ID and the PEM private key of the "Synnax Docs" GitHub App. The site
+makes installation tokens from them, which raise the GitHub API rate limit. The site
+works without them at a lower rate limit. Set both or neither. Without the App, the site
+uses `GITHUB_TOKEN` if set, as CI does. Keep `DOCS_GITHUB_TOKEN` in the Vercel project:
+older trains build from release refs whose code reads only that variable.
 
-## Feature flags
+Each file in `src/releases` holds the notes of one version. Its frontmatter sets the
+`title`, `version`, and the other fields of the `releases` collection in
+`src/content.config.ts`, and `/releases` lists the notes newest first. The notes take
+their date from the release listing above: the day, in Mountain Time, that the stable
+`core/vX.Y.0` release was published. Notes with no stable Core release show "Unreleased"
+and no links. Never set a `date` in the notes of 0.59 or later. Earlier notes keep it,
+because their tags are `synnax-v*`.
 
-A flag is a static build-time boolean that hides unfinished docs in production. Flags
-are off by default, and preview deploys turn every flag on so reviewers see dark work. A
-flip is an environment variable plus a redeploy.
+Draft notes for an unreleased version go in `src/releases/X-Y-Z.draft.md`. The site, the
+search index, and the redirects read only `.mdx` files, so a draft is not served. To
+publish a draft, rename it to `.mdx` and copy the imports, export, and frontmatter of
+the newest `.mdx` notes.
 
-To add a flag named `example`:
+## Versions
 
-1. Declare `FLAG_EXAMPLE` in the `env.schema` block of `astro.config.ts` as a public
-   client boolean with `default: false`.
-2. Register it in `src/flags.ts` as `example: flag(FLAG_EXAMPLE)`, with a comment naming
-   the owner and the release that removes the flag.
-3. Put `flag: "example"` in the frontmatter of each page behind it. The page renders per
-   request and returns 404 while the flag is off. Give the page's `PageNavNode` the same
-   `flag`, and the nav hides the node and its children while the flag is off.
-4. To turn it on in production, set `FLAG_EXAMPLE=true` in the Vercel project's
-   Production environment and redeploy. Set the same name as a repository variable in
-   GitHub Actions, or the search index job drops the flagged pages.
-5. When the work ships, delete the flag from all four places.
+`DOCS_VERSION` names the version a build describes: a train such as `0.61`, or `next`
+for `main`. Trains before 0.60 predate versioned docs and have no site. The newest train
+with a stable Core release is the latest and lives at `docs.synnaxlabs.com`. An earlier
+train lives at `v0-60.docs.synnaxlabs.com`, and `next` at `next.docs.synnaxlabs.com`.
+Old and next builds show a banner, ask search engines not to index them, and send the
+blog, release notes, reliability, and legal pages to the root. Download links keep to
+the build's train. Each version has its own search index. A build without
+`DOCS_VERSION`, such as a dev server or a preview, shows no menu and searches the index
+of `next`. A site other than the newest names the root as Latest, not by its train,
+because a newer train does not always rebuild it.
 
-An unknown flag name throws at render time, so a typo cannot hide a page silently.
+To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
+
+To deploy, run the `Deploy - Docs` workflow with one or more versions: a train such as
+`0.62`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
+its newest stable Core tag, or from its `release/X.Y` branch if the branch holds that
+tag. 0.60 and 0.61 get no more patches, so their sites keep their last deploy. They
+shipped while `main` held the docs, so they build only from a given `ref`, and `latest`,
+`previous`, and a release skip them. Set `ref` to build one version from another ref. A
+push to `main` deploys `next`. A stable release deploys `next`, `latest`, `previous`,
+and the train it released. An older site keeps the download links of its last deploy.
+
+To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
+train's release branch, and deploy the train. If the branch does not exist, first cut
+`release/X.Y` from the train's newest stable Core tag. If a patch of the train shipped
+from `main`, first merge its tag into the branch. Only the root serves release notes, so
+a note for a patch of an older train also goes onto the newest train's branch.

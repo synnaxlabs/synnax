@@ -19,7 +19,7 @@ import {
 import { deep, errors } from "@synnaxlabs/x";
 
 import { configureMiddleware, type Middlewares } from "@/middleware";
-import { type Runtime } from "@/runtime";
+import type { Runtime } from "@/runtime";
 import {
   type Action,
   closeWindow,
@@ -54,7 +54,9 @@ export interface ConfigureStoreOptions<
   defaultWindowProps?: Omit<WindowProps, "key">;
 }
 
-/* The internal function. We export with a strict type annotation so TS doesn't complain */
+/*
+ * The internal function. We export with a strict type annotation so TS doesn't complain
+ */
 const configureStoreInternal = async <
   S extends StoreState,
   A extends BaseAction = UnknownAction,

@@ -17,26 +17,24 @@ import "github.com/synnaxlabs/synnax/pkg/service/http/versions"
 type Method = versions.Method
 
 const (
-	MethodGet     Method = versions.MethodGet
-	MethodHead    Method = versions.MethodHead
-	MethodPost    Method = versions.MethodPost
-	MethodPut     Method = versions.MethodPut
-	MethodDelete  Method = versions.MethodDelete
-	MethodPatch   Method = versions.MethodPatch
+	// MethodGet reads a resource.
+	MethodGet Method = versions.MethodGet
+	// MethodHead reads the headers of a resource, with no body.
+	MethodHead Method = versions.MethodHead
+	// MethodPost submits data to a resource.
+	MethodPost Method = versions.MethodPost
+	// MethodPut replaces a resource.
+	MethodPut Method = versions.MethodPut
+	// MethodDelete removes a resource.
+	MethodDelete Method = versions.MethodDelete
+	// MethodPatch changes part of a resource.
+	MethodPatch Method = versions.MethodPatch
+	// MethodOptions asks which communication options a resource supports.
 	MethodOptions Method = versions.MethodOptions
-	MethodTrace   Method = versions.MethodTrace
+	// MethodTrace asks the server to echo the request it receives.
+	MethodTrace Method = versions.MethodTrace
+	// MethodConnect opens a tunnel to the server.
 	MethodConnect Method = versions.MethodConnect
-)
-
-// TimeFormat is the encoding of a timestamp value within a JSON body.
-type TimeFormat = versions.TimeFormat
-
-const (
-	TimeFormatISO8601 TimeFormat = versions.TimeFormatISO8601
-	TimeFormatUnixSec TimeFormat = versions.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = versions.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = versions.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = versions.TimeFormatUnixNs
 )
 
 // Header is a single HTTP header sent with a request.
@@ -44,10 +42,6 @@ type Header = versions.Header
 
 // QueryParam is a single URL query parameter sent with a request.
 type QueryParam = versions.QueryParam
-
-// EnumEntry maps a string label in a JSON body to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = versions.EnumEntry
 
 // ReadField is a single value extracted from an endpoint's JSON response.
 type ReadField = versions.ReadField
@@ -59,23 +53,6 @@ type ReadEndpoint = versions.ReadEndpoint
 // server device and writes extracted JSON values to Synnax channels.
 type ReadConfig = versions.ReadConfig
 
-// JSONType is the JSON type a channel value is serialized as in a request body.
-type JSONType = versions.JSONType
-
-const (
-	JSONTypeNumber  JSONType = versions.JSONTypeNumber
-	JSONTypeString  JSONType = versions.JSONTypeString
-	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
-)
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = versions.GeneratorType
-
-const (
-	GeneratorTypeUUID      GeneratorType = versions.GeneratorTypeUUID
-	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
-)
-
 // ChannelField is the command channel value placed into a write endpoint's body.
 type ChannelField = versions.ChannelField
 
@@ -85,7 +62,11 @@ type BaseWriteField = versions.BaseWriteField
 // WriteField is an additional body field on a write endpoint. The type field selects
 // whether the value is fixed or generated per request.
 type WriteField = versions.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant = versions.WriteFieldVariant
+
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType = versions.WriteFieldType
 
 const (

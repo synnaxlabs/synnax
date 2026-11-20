@@ -9,175 +9,20 @@
 
 import "@/platform/version/Info.css";
 
-import { status } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Logo } from "@synnaxlabs/lyra/logo";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { Progress } from "@synnaxlabs/lyra/progress";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Size, sleep, TimeSpan } from "@synnaxlabs/x";
-import { relaunch } from "@tauri-apps/plugin-process";
-import { check, type Update } from "@tauri-apps/plugin-updater";
-import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
-import { isDevBuild } from "@/platform/version/build";
-import { useInstallMiddleware } from "@/platform/version/Install";
+import { Update } from "@/platform/version/Update";
 import { Session } from "@/session";
-
-type UpdateCheck =
-  | { variant: "loading" }
-  | { variant: "error"; status: status.Status }
-  | { variant: "success"; update: Update | null };
-
-const checkForUpdate = async (): Promise<Update | null> => {
-  if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;
-  await sleep.sleep(TimeSpan.milliseconds(500));
-  return await check();
-};
-
-const useUpdateCheck = (): UpdateCheck => {
-  const [result, setResult] = useState<UpdateCheck>({ variant: "loading" });
-  useAsyncEffect(async (signal) => {
-    let next: UpdateCheck;
-    try {
-      next = { variant: "success", update: await checkForUpdate() };
-    } catch (error) {
-      next = {
-        variant: "error",
-        status: status.fromException(error, "Failed to check for updates"),
-      };
-    }
-    if (!signal.aborted) setResult(next);
-  }, []);
-  return result;
-};
-
-interface Download {
-  variant: "idle" | "loading" | "error";
-  total: Size;
-  progress: Size;
-  status?: status.Status;
-}
-
-const ZERO_DOWNLOAD: Download = {
-  variant: "idle",
-  total: Size.bytes(0),
-  progress: Size.bytes(0),
-};
-
-interface UseDownloadReturn {
-  download: Download;
-  start: (update: Update) => void;
-}
-
-const useDownload = (): UseDownloadReturn => {
-  const [download, setDownload] = useState<Download>(ZERO_DOWNLOAD);
-  const addStatus = Status.useAdder();
-  const installMiddleware = useInstallMiddleware();
-  const start = (update: Update): void =>
-    void (async () => {
-      setDownload({ ...ZERO_DOWNLOAD, variant: "loading" });
-      try {
-        await update.download((prog) => {
-          switch (prog.event) {
-            case "Started":
-              setDownload((p) => ({
-                ...p,
-                total: Size.bytes(prog.data.contentLength ?? 0),
-              }));
-              break;
-            case "Progress":
-              setDownload((p) => ({
-                ...p,
-                progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
-              }));
-              break;
-            case "Finished":
-              setDownload((p) => ({ ...p, progress: p.total }));
-              break;
-          }
-        });
-        await installMiddleware(async () => await update.install());
-        if (Session.Runtime.ENGINE === "tauri") await relaunch();
-      } catch (error) {
-        const st = status.fromException(error, "Failed to update Console");
-        addStatus(st);
-        setDownload((p) => ({ ...p, variant: "error", status: st }));
-      }
-    })();
-  return { download, start };
-};
 
 const Info = () => {
   const version = Session.Version.use();
-  const available = useUpdateCheck();
-  const { download, start } = useDownload();
-  const total = download.total.valueOf();
-  const progressPercent = total === 0 ? 0 : (download.progress.valueOf() / total) * 100;
-
-  let updateContent = (
-    <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
-      Checking for updates
-    </Status.Summary>
-  );
-  if (available.variant === "error")
-    updateContent = <Status.Summary level="h4" status={available.status} />;
-  else if (download.variant === "error" && download.status != null)
-    updateContent = <Status.Summary level="h4" status={download.status} />;
-  else if (download.variant === "loading")
-    if (progressPercent === 100)
-      updateContent = (
-        <Status.Summary level="h4" variant="loading" gap="medium">
-          Update downloaded. Restarting
-        </Status.Summary>
-      );
-    else
-      updateContent = (
-        <Flex.Box y gap="medium">
-          <Status.Summary variant="loading" level="h4" gap="medium">
-            Downloading update
-          </Status.Summary>
-          <Flex.Box
-            className={CSS.BE("version-info", "download")}
-            x
-            gap="medium"
-            align="center"
-          >
-            <Progress.Progress value={progressPercent} />
-            <Text.Text color={10} overflow="nowrap">
-              {Math.ceil(download.progress.megabytes)} /{" "}
-              {Math.ceil(download.total.megabytes)} MB
-            </Text.Text>
-          </Flex.Box>
-        </Flex.Box>
-      );
-  else if (available.variant === "success")
-    if (available.update != null) {
-      const { update } = available;
-      updateContent = (
-        <>
-          <Status.Summary level="h4" variant="success">
-            Version {update.version} available
-          </Status.Summary>
-          <Button.Button variant="filled" onClick={() => start(update)}>
-            Update and restart
-          </Button.Button>
-        </>
-      );
-    } else
-      updateContent = (
-        <Status.Summary level="h4" variant="success">
-          Up to date
-        </Status.Summary>
-      );
-
   return (
     <Modal.Frame className={CSS.B("version-info")}>
       <Modal.Header icon={<Icon.Info />}>About.Version</Modal.Header>
@@ -195,7 +40,7 @@ const Info = () => {
             Console v{version}
           </Text.Text>
         </Flex.Box>
-        {updateContent}
+        <Update />
         <License.Details />
         <Text.Text
           className={CSS.BE("version-info", "footer-note")}

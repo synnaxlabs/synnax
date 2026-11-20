@@ -15,6 +15,3 @@ var _ gorp.Entry[Key] = APIKey{}
 
 // GorpKey implements gorp.Entry.
 func (k APIKey) GorpKey() Key { return k.Key }
-
-// SetOptions implements gorp.Entry.
-func (APIKey) SetOptions() []any { return nil }

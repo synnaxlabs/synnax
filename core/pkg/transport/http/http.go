@@ -12,28 +12,37 @@ package http
 import (
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
+	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -45,14 +54,24 @@ import (
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
 // layer's handlers and middleware to them. The frame codec resolves channel keys
-// through the API layer's channel service.
+// through the API layer's channel service. Frame reads open their iterators under the
+// router's context, so a streamed body can outlive its request.
 func Bind(layer *api.Layer, router *http.Router) {
-	framerServerOption := framer.WithCodec(layer.Channel)
+	ctx := router.Context()
+	framerServerOption := framer.WithCodec(
+		layer.Channel,
+		router.StreamMessageSizeLimit(),
+	)
+	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](
 			router,
 			"/api/v1/auth/login",
+		),
+		AuthMethods: unary[struct{}, auth.MethodsResponse](
+			router,
+			"/api/v1/auth/methods",
 		),
 		AuthChangePassword: unary[auth.ChangePasswordRequest, struct{}](
 			router,
@@ -92,14 +111,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// USER
-		UserRename: unary[user.RenameRequest, struct{}](
-			router,
-			"/api/v1/user/rename",
-		),
-		UserChangeUsername: unary[user.ChangeUsernameRequest, struct{}](
-			router,
-			"/api/v1/user/change-username",
-		),
 		UserCreate: unary[user.CreateRequest, user.CreateResponse](
 			router,
 			"/api/v1/user/create",
@@ -111,6 +122,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		UserRetrieve: unary[user.RetrieveRequest, user.RetrieveResponse](
 			router,
 			"/api/v1/user/retrieve",
+		),
+		UserDispatch: unary[user.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathUserDispatch,
 		),
 
 		// CHANNEL
@@ -126,13 +141,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/delete",
 		),
-		ChannelRename: unary[channel.RenameRequest, struct{}](
+		ChannelCountLimited: unary[
+			channel.CountLimitedRequest,
+			channel.CountLimitedResponse,
+		](router, "/api/v1/channel/count-limited"),
+		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
 			router,
-			"/api/v1/channel/rename",
-		),
-		ChannelRetrieveGroup: unary[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse](
-			router,
-			"/api/v1/channel/retrieve-group",
+			"/api/v1"+api.PathChannelDispatch,
 		),
 
 		// CONNECTIVITY
@@ -179,14 +194,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.FrameEncoder,
-				framer.CSVEncoder,
-				framer.TDMSEncoder,
+				framer.NewFrameEncoder(ctx, layer.Errors()),
+				csvEncoder,
+				framer.NewTDMSEncoder(ctx),
 			),
 			// CSV is decimal text and compresses by 70% or more. Frame and TDMS
 			// bodies are binary samples: gzip shrinks them by under 10% and costs more
 			// time than the smaller body saves on all but a slow link.
-			http.WithStreamingResponse(framer.CSVEncoder),
+			http.WithStreamingResponse(csvEncoder),
 		),
 
 		// CONTROL
@@ -195,40 +210,40 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/control/retrieve",
 		),
 
-		// ONTOLOGY
-		OntologyRetrieve: unary[ontology.RetrieveRequest, ontology.RetrieveResponse](
+		// RESOURCE
+		ResourceSearch: unary[apiresource.SearchRequest, apiresource.SearchResponse](
 			router,
-			"/api/v1/ontology/retrieve",
+			"/api/v1/resource/search",
 		),
-		OntologyAddChildren: unary[ontology.AddChildrenRequest, struct{}](
+		ResourceRetrieve: unary[apiresource.RetrieveRequest, apiresource.RetrieveResponse](
 			router,
-			"/api/v1/ontology/add-children",
-		),
-		OntologyRemoveChildren: unary[ontology.RemoveChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/remove-children",
-		),
-		OntologyMoveChildren: unary[ontology.MoveChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/move-children",
+			"/api/v1/resource/retrieve",
 		),
 
 		// GROUP
 		GroupCreate: unary[group.CreateRequest, group.CreateResponse](
 			router,
-			"/api/v1/ontology/create-group",
+			"/api/v1"+api.PathGroupCreate,
 		),
 		GroupDelete: unary[group.DeleteRequest, struct{}](
 			router,
-			"/api/v1/ontology/delete-group",
+			"/api/v1"+api.PathGroupDelete,
 		),
-		GroupRename: unary[group.RenameRequest, struct{}](
+		GroupDispatch: unary[group.DispatchRequest, struct{}](
 			router,
-			"/api/v1/ontology/rename-group",
+			"/api/v1"+api.PathGroupDispatch,
 		),
 		GroupRetrieve: unary[group.RetrieveRequest, group.RetrieveResponse](
 			router,
-			"/api/v1/ontology/retrieve-group",
+			"/api/v1/group/retrieve",
+		),
+		GroupRetrieveAncestors: unary[
+			group.RetrieveAncestorsRequest,
+			group.RetrieveAncestorsResponse,
+		](router, "/api/v1/group/retrieve-ancestors"),
+		Batch: unary[batch.ExecRequest, batch.ExecResponse](
+			router,
+			"/api/v1/batch",
 		),
 
 		// RANGE
@@ -244,44 +259,18 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/range/delete",
 		),
-		RangeRename: unary[ranger.RenameRequest, struct{}](
-			router,
-			"/api/v1/range/rename",
-		),
-		RangeSetEnd: unary[ranger.SetEndRequest, struct{}](
-			router,
-			"/api/v1/range/set-end",
-		),
 		RangeDispatch: unary[ranger.DispatchRequest, struct{}](
 			router,
-			"/api/v1/range/dispatch",
+			"/api/v1"+api.PathRangeDispatch,
 		),
 
 		// KV
 		KVGet:    unary[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
 		KVSet:    unary[kv.SetRequest, struct{}](router, "/api/v1/range/kv/set"),
 		KVDelete: unary[kv.DeleteRequest, struct{}](router, "/api/v1/range/kv/delete"),
-
-		// ALIAS
-		AliasSet: unary[alias.SetRequest, struct{}](
+		KVDispatch: unary[kv.DispatchRequest, struct{}](
 			router,
-			"/api/v1/range/alias/set",
-		),
-		AliasResolve: unary[alias.ResolveRequest, alias.ResolveResponse](
-			router,
-			"/api/v1/range/alias/resolve",
-		),
-		AliasRetrieve: unary[alias.RetrieveRequest, alias.RetrieveResponse](
-			router,
-			"/api/v1/range/alias/retrieve",
-		),
-		AliasList: unary[alias.ListRequest, alias.ListResponse](
-			router,
-			"/api/v1/range/alias/list",
-		),
-		AliasDelete: unary[alias.DeleteRequest, struct{}](
-			router,
-			"/api/v1/range/alias/delete",
+			"/api/v1"+api.PathRangeKVDispatch,
 		),
 
 		// PROJECT
@@ -297,9 +286,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/project/delete",
 		),
-		ProjectRename: unary[project.RenameRequest, struct{}](
+		ProjectDispatch: unary[project.DispatchRequest, struct{}](
 			router,
-			"/api/v1/project/rename",
+			"/api/v1"+api.PathProjectDispatch,
 		),
 		ProjectExport: unary[project.ExportRequest, project.ExportResponse](
 			router,
@@ -325,9 +314,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/delete",
 		),
-		SchematicDispatch: unary[schematic.DispatchRequest, struct{}](
+		SchematicDispatch: unary[schematic.DispatchRequest, schematic.DispatchResponse](
 			router,
-			"/api/v1/schematic/dispatch",
+			"/api/v1"+api.PathSchematicDispatch,
 		),
 		SchematicCopy: unary[schematic.CopyRequest, schematic.CopyResponse](
 			router,
@@ -347,13 +336,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/symbol/delete",
 		),
-		SchematicSymbolRename: unary[symbol.RenameRequest, struct{}](
+		SchematicSymbolDispatch: unary[symbol.DispatchRequest, struct{}](
 			router,
-			"/api/v1/schematic/symbol/rename",
-		),
-		SchematicSymbolRetrieveGroup: unary[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
-			router,
-			"/api/v1/schematic/symbol/retrieve-group",
+			"/api/v1"+api.PathSchematicSymbolDispatch,
 		),
 		SchematicSymbolExportGroup: unary[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,
@@ -383,10 +368,33 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/lineplot/delete",
 		),
-		LinePlotDispatch: unary[lineplot.DispatchRequest, struct{}](
+		LinePlotDispatch: unary[lineplot.DispatchRequest, lineplot.DispatchResponse](
 			router,
-			"/api/v1/lineplot/dispatch",
+			"/api/v1"+api.PathLinePlotDispatch,
 		),
+
+		// ICD
+		ICDCreate: unary[icd.CreateRequest, icd.CreateResponse](
+			router,
+			"/api/v1/icd/create",
+		),
+		ICDRetrieve: unary[icd.RetrieveRequest, icd.RetrieveResponse](
+			router,
+			"/api/v1/icd/retrieve",
+		),
+		ICDCheck: unary[icd.CheckRequest, icd.CheckResponse](
+			router,
+			"/api/v1/icd/check",
+		),
+		ICDDispatch: unary[icd.DispatchRequest, struct{}](
+			router,
+			"/api/v1/icd/dispatch",
+		),
+		ICDImport: unary[icd.ImportRequest, icd.ImportResponse](
+			router,
+			"/api/v1/icd/import",
+		),
+		ICDDelete: unary[icd.DeleteRequest, struct{}](router, "/api/v1/icd/delete"),
 
 		// PANEL
 		PanelCreate: unary[panel.CreateRequest, panel.CreateResponse](
@@ -401,9 +409,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/panel/delete",
 		),
-		PanelDispatch: unary[panel.DispatchRequest, struct{}](
+		PanelDispatch: unary[panel.DispatchRequest, panel.DispatchResponse](
 			router,
-			"/api/v1/panel/dispatch",
+			"/api/v1"+api.PathPanelDispatch,
 		),
 
 		// LOG
@@ -416,9 +424,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/log/retrieve",
 		),
 		LogDelete: unary[log.DeleteRequest, struct{}](router, "/api/v1/log/delete"),
-		LogDispatch: unary[log.DispatchRequest, struct{}](
+		LogDispatch: unary[log.DispatchRequest, log.DispatchResponse](
 			router,
-			"/api/v1/log/dispatch",
+			"/api/v1"+api.PathLogDispatch,
 		),
 
 		// TABLE
@@ -434,9 +442,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/table/delete",
 		),
-		TableDispatch: unary[table.DispatchRequest, struct{}](
+		TableDispatch: unary[table.DispatchRequest, table.DispatchResponse](
 			router,
-			"/api/v1/table/dispatch",
+			"/api/v1"+api.PathTableDispatch,
 		),
 
 		// LABEL
@@ -452,15 +460,63 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/label/delete",
 		),
-		LabelAdd: unary[label.AddRequest, struct{}](router, "/api/v1/label/set"),
+		LabelAdd: unary[label.AddRequest, struct{}](router, "/api/v1"+api.PathLabelSet),
 		LabelRemove: unary[label.RemoveRequest, struct{}](
 			router,
-			"/api/v1/label/remove",
+			"/api/v1"+api.PathLabelRemove,
 		),
 		LabelDispatch: unary[label.DispatchRequest, struct{}](
 			router,
-			"/api/v1/label/dispatch",
+			"/api/v1"+api.PathLabelDispatch,
 		),
+
+		// COLOR
+		ColorCreate: unary[color.CreateRequest, color.CreateResponse](
+			router,
+			"/api/v1/color/create",
+		),
+		ColorRetrieve: unary[color.RetrieveRequest, color.RetrieveResponse](
+			router,
+			"/api/v1/color/retrieve",
+		),
+		ColorDelete: unary[color.DeleteRequest, struct{}](
+			router,
+			"/api/v1"+api.PathColorDelete,
+		),
+		ColorDispatch: unary[color.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathColorDispatch,
+		),
+		ColorRetrieveBuiltins: unary[struct{}, color.RetrieveBuiltinsResponse](
+			router,
+			"/api/v1/color/retrieve-builtins",
+		),
+
+		// ENUMERATION
+		EnumerationCreate: unary[
+			enumeration.CreateRequest,
+			enumeration.CreateResponse,
+		](router, "/api/v1/enumeration/create"),
+		EnumerationRetrieve: unary[
+			enumeration.RetrieveRequest,
+			enumeration.RetrieveResponse,
+		](router, "/api/v1/enumeration/retrieve"),
+		EnumerationDelete: unary[enumeration.DeleteRequest, struct{}](
+			router,
+			"/api/v1"+api.PathEnumerationDelete,
+		),
+		EnumerationDispatch: unary[enumeration.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathEnumerationDispatch,
+		),
+		EnumerationRetrieveBuiltins: unary[
+			struct{},
+			enumeration.RetrieveBuiltinsResponse,
+		](router, "/api/v1/enumeration/retrieve-builtins"),
+		EnumerationRetrieveDependents: unary[
+			enumeration.RetrieveDependentsRequest,
+			enumeration.RetrieveDependentsResponse,
+		](router, "/api/v1/enumeration/retrieve-dependents"),
 
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](
@@ -475,9 +531,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/rack/delete",
 		),
-		RackRename: unary[rack.RenameRequest, struct{}](
+		RackDispatch: unary[rack.DispatchRequest, struct{}](
 			router,
-			"/api/v1/rack/rename",
+			"/api/v1"+api.PathRackDispatch,
 		),
 
 		// TASK
@@ -497,13 +553,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/task/copy",
 		),
-		TaskRename: unary[task.RenameRequest, struct{}](
-			router,
-			"/api/v1/task/rename",
-		),
 		TaskDispatch: unary[task.DispatchRequest, task.DispatchResponse](
 			router,
-			"/api/v1/task/dispatch",
+			"/api/v1"+api.PathTaskDispatch,
 		),
 
 		// DEVICE
@@ -519,43 +571,79 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/device/delete",
 		),
-		DeviceRename: unary[device.RenameRequest, struct{}](
+		DeviceDispatch: unary[device.DispatchRequest, struct{}](
 			router,
-			"/api/v1/device/rename",
+			"/api/v1"+api.PathDeviceDispatch,
+		),
+
+		// NI DEVICE
+		NIDeviceCreate: unary[nidevice.CreateRequest, nidevice.CreateResponse](
+			router,
+			"/api/v1/ni/device/create",
+		),
+		NIDeviceRetrieve: unary[nidevice.RetrieveRequest, nidevice.RetrieveResponse](
+			router,
+			"/api/v1/ni/device/retrieve",
+		),
+		NIDeviceUpdate: unary[nidevice.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ni/device/update",
+		),
+		NIDeviceDelete: unary[nidevice.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ni/device/delete",
+		),
+
+		// NI CHASSIS
+		NIChassisCreate: unary[nichassis.CreateRequest, nichassis.CreateResponse](
+			router,
+			"/api/v1/ni/chassis/create",
+		),
+		NIChassisRetrieve: unary[nichassis.RetrieveRequest, nichassis.RetrieveResponse](
+			router,
+			"/api/v1/ni/chassis/retrieve",
+		),
+		NIChassisUpdate: unary[nichassis.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ni/chassis/update",
+		),
+		NIChassisDelete: unary[nichassis.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ni/chassis/delete",
 		),
 
 		// ACCESS
-		AccessCreatePolicy: unary[access.CreatePolicyRequest, access.CreatePolicyResponse](
+		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](
 			router,
 			"/api/v1/access/policy/create",
 		),
-		AccessDeletePolicy: unary[access.DeletePolicyRequest, struct{}](
+		AccessDeletePolicy: unary[policy.DeleteRequest, struct{}](
 			router,
 			"/api/v1/access/policy/delete",
 		),
-		AccessRetrievePolicy: unary[access.RetrievePolicyRequest, access.RetrievePolicyResponse](
+		AccessRetrievePolicy: unary[policy.RetrieveRequest, policy.RetrieveResponse](
 			router,
 			"/api/v1/access/policy/retrieve",
 		),
-		AccessCreateRole: unary[access.CreateRoleRequest, access.CreateRoleResponse](
+		AccessCreateRole: unary[role.CreateRequest, role.CreateResponse](
 			router,
 			"/api/v1/access/role/create",
 		),
-		AccessDeleteRole: unary[access.DeleteRoleRequest, struct{}](
+		AccessDeleteRole: unary[role.DeleteRequest, struct{}](
 			router,
 			"/api/v1/access/role/delete",
 		),
-		AccessRetrieveRole: unary[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
+		AccessRetrieveRole: unary[role.RetrieveRequest, role.RetrieveResponse](
 			router,
 			"/api/v1/access/role/retrieve",
 		),
-		AccessAssignRole: unary[access.AssignRoleRequest, struct{}](
+		AccessDispatchPolicy: unary[policy.DispatchRequest, struct{}](
 			router,
-			"/api/v1/access/role/assign",
+			"/api/v1"+api.PathPolicyDispatch,
 		),
-		AccessUnassignRole: unary[access.UnassignRoleRequest, struct{}](
+		AccessDispatchRole: unary[role.DispatchRequest, struct{}](
 			router,
-			"/api/v1/access/role/unassign",
+			"/api/v1"+api.PathRoleDispatch,
 		),
 
 		// ARC
@@ -570,11 +658,27 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 		ArcDispatch: unary[arc.DispatchRequest, struct{}](
 			router,
-			"/api/v1/arc/dispatch",
+			"/api/v1"+api.PathArcDispatch,
 		),
 		ArcUpdateTask: unary[arc.UpdateTaskRequest, arc.UpdateTaskResponse](
 			router,
 			"/api/v1/arc/update-task",
+		),
+		ArcRetrieveDirectory: unary[
+			arcdirectory.RetrieveRequest,
+			arcdirectory.RetrieveResponse,
+		](router, "/api/v1/arc/directory/retrieve"),
+		ArcCreateDirectory: unary[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse](
+			router,
+			"/api/v1/arc/directory/create",
+		),
+		ArcDispatchDirectory: unary[arc.DispatchDirectoryRequest, struct{}](
+			router,
+			"/api/v1"+api.PathArcDirectoryDispatch,
+		),
+		ArcDeleteDirectory: unary[arc.DeleteDirectoryRequest, struct{}](
+			router,
+			"/api/v1/arc/directory/delete",
 		),
 		ArcLSP: stream[arc.LSPMessage, arc.LSPMessage](
 			router,
@@ -584,7 +688,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// STATUS
 		StatusSet: unary[status.SetRequest, status.SetResponse](
 			router,
-			"/api/v1/status/set",
+			"/api/v1"+api.PathStatusSet,
 		),
 		StatusRetrieve: unary[status.RetrieveRequest, status.RetrieveResponse](
 			router,
@@ -616,9 +720,57 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/view/delete",
 		),
-		ViewRename: unary[view.RenameRequest, struct{}](
+		ViewDispatch: unary[view.DispatchRequest, struct{}](
 			router,
-			"/api/v1/view/rename",
+			"/api/v1"+api.PathViewDispatch,
+		),
+
+		// SECRET
+		SecretSet: unary[secret.SetRequest, secret.SetResponse](
+			router,
+			"/api/v1/secret/set",
+		),
+		SecretRetrieve: unary[secret.RetrieveRequest, secret.RetrieveResponse](
+			router,
+			"/api/v1/secret/retrieve",
+		),
+		SecretDelete: unary[secret.DeleteRequest, struct{}](
+			router,
+			"/api/v1/secret/delete",
+		),
+		SecretDispatch: unary[secret.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathSecretDispatch,
+		),
+		SecretGrantCreate: unary[secret.GrantCreateRequest, secret.GrantCreateResponse](
+			router,
+			"/api/v1/secret/grant/create",
+		),
+		SecretResolve: unary[secret.ResolveRequest, secret.ResolveResponse](
+			router,
+			"/api/v1/secret/resolve",
+		),
+
+		// CERTIFICATE
+		CertificateSet: unary[certificate.SetRequest, certificate.SetResponse](
+			router,
+			"/api/v1/certificate/set",
+		),
+		CertificateRetrieve: unary[certificate.RetrieveRequest, certificate.RetrieveResponse](
+			router,
+			"/api/v1/certificate/retrieve",
+		),
+		CertificateDelete: unary[certificate.DeleteRequest, struct{}](
+			router,
+			"/api/v1/certificate/delete",
+		),
+		CertificateDispatch: unary[certificate.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathCertificateDispatch,
+		),
+		CertificateRefresh: unary[certificate.RefreshRequest, struct{}](
+			router,
+			"/api/v1/certificate/refresh",
 		),
 
 		// IMPORT/EXPORT

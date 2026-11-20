@@ -19,9 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -32,12 +30,11 @@ func TestFramer(t *testing.T) {
 }
 
 var (
-	node          testutil.Node
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
-	channelGraph  *calcgraph.Graph
-	framerSvc     *framer.Service
-	validCfg      framer.ServiceConfig
+	node         testutil.Node
+	channelSvc   *channel.Service
+	channelGraph *calcgraph.Graph
+	framerSvc    *framer.Service
+	validCfg     framer.ServiceConfig
 )
 
 // newFramerConfig opens the label, status, and channel services backing a framer
@@ -47,29 +44,17 @@ var (
 // channel).
 func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: n.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       n.DB,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       n.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: n.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       n.DB,
-		Label:    labelSvc,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: n.DB,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      n.Channel,
-		DB:           n.DB,
-		HostProvider: n.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: n.Channel,
+		DB:      n.DB,
+		HostKey: n.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      n.DB,
@@ -89,7 +74,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node = testutil.NewNode(ctx)
 	validCfg = newFramerConfig(ctx, node)
 	channelSvc = validCfg.Channel
-	channelWriter = channelSvc.NewWriter(nil)
 	channelGraph = validCfg.ChannelGraph
 	framerSvc = MustOpen(framer.OpenService(ctx, validCfg))
 })

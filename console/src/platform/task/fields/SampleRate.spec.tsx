@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -16,6 +17,8 @@ import {
   renderInTaskForm,
 } from "@/platform/task/testutil";
 
+const path = deep.path<{ config: { sampleRate: number } }>();
+
 describe("fields.SampleRate", () => {
   it("should seed the input from config.sampleRate and write changes back", async () => {
     const { form } = await renderInTaskForm(<Task.Fields.SampleRate />, {
@@ -24,6 +27,6 @@ describe("fields.SampleRate", () => {
     const input = findFieldInput();
     expect(input.value).toBe("25");
     commitFieldInput(input, "50");
-    expect(form.current?.get("config.sampleRate").value).toBe(50);
+    expect(form.current?.get(path.config.sampleRate).value).toBe(50);
   });
 });

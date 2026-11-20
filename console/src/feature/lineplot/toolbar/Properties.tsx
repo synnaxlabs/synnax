@@ -11,7 +11,7 @@ import { lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { LinePlot } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

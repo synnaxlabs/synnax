@@ -5373,7 +5373,7 @@ private:
         GetReadTotalSampPerChanAcquiredPtr GetReadTotalSampPerChanAcquired;
     };
 
-    FunctionPointers function_pointers_{};
+    FunctionPointers function_pointers{};
     std::unique_ptr<x::lib::Shared> lib;
 };
 }

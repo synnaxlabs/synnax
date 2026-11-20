@@ -111,19 +111,31 @@ def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
 def get_fixture_path(filename: str) -> str:
     """Get the full path for a test fixture file.
 
-    Args:
-        filename: Name of the fixture file (e.g., "test_valve.svg")
-
-    Returns:
-        Full path to the fixture file.
-
-    Raises:
-        FileNotFoundError: If the fixture file doesn't exist.
+    :param filename: Name of the fixture file (e.g., "test_valve.svg")
+    :returns: Full path to the fixture file.
+    :raises FileNotFoundError: If the fixture file doesn't exist.
     """
     path = os.path.join(_FIXTURES_DIR, filename)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Test fixture not found: {path}")
     return path
+
+
+def hold(duration: sy.CrudeTimeSpan, *, reason: str) -> None:
+    """Block for a fixed duration.
+
+    This is the one sleep that tests may call. Use it only when a test needs the time
+    itself: to check that nothing changes over a window, to pace writes, or to sample
+    for a set period. To wait for a condition, poll with a helper such as wait_for_eq.
+
+    :param duration: The time to block. A float or int is a number of seconds.
+    :param reason: Why the test needs a fixed time and not a condition. It is required
+        so that every fixed wait states its purpose where a reviewer reads the call.
+    :raises ValueError: If reason is blank.
+    """
+    if not reason.strip():
+        raise ValueError("hold needs a reason")
+    sy.sleep(duration)
 
 
 def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:

@@ -9,7 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Access, Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 
 import {
   type GraphState,
@@ -76,7 +76,7 @@ export const useSelectEditable = (args?: {
   key?: arc.Key;
 }): UseSelectEditableReturn => {
   const key = Arc.useKey(args?.key);
-  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(arc.resourceID(key));
   const editable = useSelectEditableBase(args);
   const canEdit = hasUpdatePermission;
   const isCurrentlyEditable = hasUpdatePermission && editable;

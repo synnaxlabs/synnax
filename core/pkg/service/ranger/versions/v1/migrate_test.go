@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -29,6 +29,7 @@ var _ = Describe("v0 -> v1 Range migration", func() {
 	migrateColors := func(ctx SpecContext, seeds ...v0.Range) map[v1.Key]v1.Range {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db}))
 		for i := range seeds {
 			Expect(gorp.NewCreate[v0.Key, v0.Range]().Entry(&seeds[i]).Exec(ctx, db)).

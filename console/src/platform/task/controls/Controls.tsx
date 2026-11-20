@@ -9,17 +9,22 @@
 
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Flex } from "@synnaxlabs/lyra/flex";
+import type { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import { deep, type TimeStamp } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
-import { useStatus } from "@/platform/task/useStatus";
+import { useIsRunning, useStatus } from "@/platform/task/useStatus";
+
+const path = deep.path<{
+  config: { dataSavingDisabled: boolean; autoStart: boolean };
+}>();
 
 interface SettingProps {
   label: string;
@@ -47,10 +52,10 @@ const Setting = ({ label, onIcon, offIcon, value, onChange }: SettingProps) => {
 
 // The task-wide settings of the form, for a config that carries them.
 const Settings = () => {
-  const dataSaving = Form.useField<boolean>("config.dataSavingDisabled", {
+  const dataSaving = Form.useField(path.config.dataSavingDisabled, {
     optional: true,
   });
-  const autoStart = Form.useField<boolean>("config.autoStart", { optional: true });
+  const autoStart = Form.useField(path.config.autoStart, { optional: true });
   return (
     <>
       {dataSaving != null && (
@@ -75,7 +80,18 @@ const Settings = () => {
   );
 };
 
+/** A deploy that failed before the task took its start command. */
+export interface DeployFailure {
+  status: status.Status;
+  /** The time of the task status when the deploy failed. Absent for no status. */
+  taskStatusTime?: TimeStamp;
+}
+
 export interface ControlsProps extends Flex.BoxProps {
+  /** Whether a deploy runs and has not sent its start command yet. */
+  configuring?: boolean;
+  /** Shown in place of the task status until the Core sends a new task status. */
+  failure?: DeployFailure;
   /** Runs the deploy pipeline: configure, save the row, issue start. */
   onDeploy: () => void;
   /** Issues a stop command to the live instance. */
@@ -83,9 +99,15 @@ export interface ControlsProps extends Flex.BoxProps {
 }
 
 /** Task controls bar wired to the surrounding task Form context. */
-export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
+export const Controls = ({
+  configuring = false,
+  failure,
+  onDeploy,
+  onStop,
+  ...props
+}: ControlsProps) => {
   const taskStatus = useStatus();
-  const isSnapshot = Form.useFieldValue<boolean>("snapshot");
+  const running = useIsRunning();
   const key = useKey();
   const drifted = useDrifted();
   const canControl = Framer.useCanCommand();
@@ -99,13 +121,31 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
     onStop();
   };
 
+  let shownStatus: status.Status | undefined = taskStatus;
+  // The start command goes out only after the config saves, which can take seconds.
+  if (configuring)
+    shownStatus = status.create({
+      name: taskStatus?.name ?? "",
+      variant: "loading",
+      message: "Configuring task",
+    });
+  else if (
+    failure != null &&
+    failure.taskStatusTime?.valueOf() === taskStatus?.time.valueOf()
+  )
+    shownStatus = failure.status;
+  let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
+  // On a running task, a loading variant disables Redeploy and keeps Stop enabled.
+  if (configuring) startStopVariant = running ? "loading" : undefined;
+
   return (
     <Bar
-      status={taskStatus}
-      running={taskStatus.details.running}
+      status={shownStatus}
+      running={running}
       drifted={drifted}
-      hideActions={isSnapshot || !canControl}
-      startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
+      hideActions={!canControl}
+      disabled={configuring && !running}
+      startStopVariant={startStopVariant}
       settings={<Settings />}
       onDeploy={handleDeploy}
       onStop={handleStop}

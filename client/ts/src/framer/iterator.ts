@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import type { Stream, WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
+  disposable,
   errors,
   reductionZ,
   TimeRange,
@@ -76,6 +77,11 @@ export interface IteratorConfig extends z.input<typeof iteratorConfigZ> {}
  * the segment client's read method instead.
  */
 export class Iterator {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly stream: StreamProxy<typeof iteratorReqZ, typeof iteratorResZ>;
   private readonly adapter: ReadAdapter;
   value: Frame;
@@ -210,9 +216,9 @@ export class Iterator {
   }
 
   /**
-   * Closes the iterator. An iterator MUST be closed after use, and this method
-   * should probably be placed in a 'finally' block. If the iterator is not closed,
-   * it may leak resources.
+   * Closes the iterator. An iterator MUST be closed after use: declare it with
+   * `await using`, or close it in a `finally` block. If the iterator is not closed, it
+   * may leak resources.
    * @throws the error that stopped the iterator, if a read failed.
    */
   async close(): Promise<void> {
@@ -224,7 +230,7 @@ export class Iterator {
   }
 
   private async execute(request: IteratorRequest): Promise<boolean> {
-    this.stream.send(request);
+    await this.stream.send(request);
     this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();

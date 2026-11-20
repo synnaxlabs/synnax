@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -19,27 +20,27 @@ class Accelerometer(Analog):
 
     Supported kwargs (in addition to Analog base kwargs):
         sensitivity (float): Accelerometer sensitivity value
-        units (str): "mV/g" or "V/g"
+        units (str): "mVoltsPerG" or "VoltsPerG"
         excitation_source (str): "Internal", "External", or "None"
         excitation_value (float): Current excitation value
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         sensitivity: float | None = None,
-        units: Literal["mV/g", "V/g"] | None = None,
-        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        units: sy.ni.AccelSensitivityUnits | None = None,
+        excitation_source: sy.ni.ExcitationSource | None = None,
         current_excitation_value: float | None = None,
         **kwargs: Unpack[Options],
     ) -> None:

@@ -21,7 +21,7 @@ import {
   Ranger,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
+import type { lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
 import { box, location, scale, TimeRange, TimeSpan, type xy } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useRef, useState } from "react";
 
@@ -30,11 +30,14 @@ import {
   type DownloadLine,
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
+import { useResetZoomOnRangeChange } from "@/feature/lineplot/useResetZoomOnRangeChange";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
+import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
@@ -42,7 +45,7 @@ const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
-  range: ranger.Payload;
+  range: Base.Range.MenuProps;
 }
 
 const RangeAnnotationContextMenu = ({
@@ -50,32 +53,26 @@ const RangeAnnotationContextMenu = ({
   range,
 }: RangeAnnotationContextMenuProps): ReactElement => {
   const downloadAsCSV = useDownloadAsCSV();
-  const handleDownloadAsCSV = () =>
-    downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
-  const addRangeToNewPlot = Range.useAddToNewPlot();
-  const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
-  const openTab = Panel.useOpenTab();
-  const handleViewDetails = () => {
-    openTab({ variant: "resource", resource: ranger.ontologyID(range.key) });
-  };
   return (
-    <ContextMenu.Menu>
-      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
-        <Icon.Annotate />
-        View details
-      </Menu.Item>
-      <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
-        <Icon.LinePlot />
-        Open in new plot
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.CSV />
-        Download as CSV
-      </Menu.Item>
-      <Menu.Divider />
-      <ContextMenu.ReloadConsoleItem />
-    </ContextMenu.Menu>
+    <Range.ContextMenu
+      keys={[range.key]}
+      primaryMenuItems={
+        <Menu.Item itemKey="zoom" onClick={range.onZoom}>
+          {range.zoomed ? <Icon.Expand /> : <Icon.Zoom />}
+          {range.zoomed ? "Zoom out" : "Zoom to range"}
+        </Menu.Item>
+      }
+      onDownloadCSV={(ranges) =>
+        downloadAsCSV({
+          timeRanges: ranges.map((r) => r.timeRange),
+          lines,
+          name: range.name,
+        })
+      }
+      extraMenuItems={
+        <Sift.Range.UploadMenuItem rangeKey={range.key} rangeName={range.name} />
+      }
+    />
   );
 };
 
@@ -95,7 +92,7 @@ const ContextMenuContent = ({
   const { redo, canRedo } = Base.useRedo({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
-  const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = async (): Promise<TimeRange> => {
@@ -109,7 +106,7 @@ const ContextMenuContent = ({
   const handleCreateRange = () =>
     handleError(async () => {
       const tr = await getTimeRange();
-      openCreateRange({ timeRange: tr.numeric });
+      await openCreateRange({ timeRange: tr.numeric });
     }, "Failed to create range from selection");
   const handleDownloadCSV = () =>
     handleError(async () => {
@@ -168,6 +165,7 @@ const ContextMenuContent = ({
           <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
             <Icon.CSV /> Download region as CSV
           </Menu.Item>
+          <Sift.Range.UploadRegionMenuItem name={name} getTimeRange={getTimeRange} />
           <Menu.Divider />
         </>
       )}
@@ -181,7 +179,7 @@ const Internal = (): ReactElement => {
   const visible = Session.Panel.useSelectIsTabVisible();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.resourceID(key));
   const windows = Session.Range.useResolveWindows(Base.useRanges());
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
@@ -206,6 +204,7 @@ const Internal = (): ReactElement => {
   );
 
   useTriggerHold({ key, enabled: hasUpdatePermission });
+  useResetZoomOnRangeChange({ key });
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
@@ -242,7 +241,7 @@ const Internal = (): ReactElement => {
   const rangeProviderProps = {
     visible: vis.annotations.visible,
     onHasAnnotationsChange: setHasAnnotations,
-    menu: (p: ranger.Payload) => (
+    menu: (p: Base.Range.MenuProps) => (
       <RangeAnnotationContextMenu lines={csvLines} range={p} />
     ),
   };
@@ -292,8 +291,10 @@ const Internal = (): ReactElement => {
 export const LinePlot: Panel.Content = () => {
   const { key } = PlutoPanel.useTabResource();
   return (
-    <Base.Suspended linePlotKey={key}>
-      <Internal />
-    </Base.Suspended>
+    <Vis.GPUBoundary name="Line plots">
+      <Base.Suspended linePlotKey={key}>
+        <Internal />
+      </Base.Suspended>
+    </Vis.GPUBoundary>
   );
 };

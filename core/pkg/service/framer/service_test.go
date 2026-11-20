@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -35,13 +36,17 @@ var _ = Describe("Service", func() {
 			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}
-		Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &idxCh)
+		})).To(Succeed())
 		dataCh := channel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
 			LocalIndex: idxCh.LocalKey,
 		}
-		Expect(channelWriter.Create(ctx, &dataCh)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &dataCh)
+		})).To(Succeed())
 		return idxCh, dataCh
 	}
 
@@ -151,7 +156,7 @@ var _ = Describe("Service", func() {
 				Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
 					Keys: []channel.Key{
-						distchannel.NewKey(node.Cluster.HostKey(), 9999),
+						distchannel.NewKey(node.Identity.HostKey, 9999),
 					},
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
@@ -201,7 +206,7 @@ var _ = Describe("Service", func() {
 				Expect(framerSvc.NewStreamWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
 					Keys: []channel.Key{
-						distchannel.NewKey(node.Cluster.HostKey(), 9999),
+						distchannel.NewKey(node.Identity.HostKey, 9999),
 					},
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
@@ -254,7 +259,9 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),

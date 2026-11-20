@@ -7,8 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Core pull requests reuse the go test results and builds that main saves. Only this
-# workflow runs go test on main, so each merge refreshes them.
+# Core pull requests and merge groups reuse the go test results and builds that main
+# saves, and the Ginkgo runs of the Core on Ubuntu reuse the builds. Only this workflow
+# runs go test on main, so each merge refreshes them.
 name: Warm - Go
 
 on:
@@ -18,7 +19,6 @@ on:
     paths:
       - alamos/go/**
       - arc/go/**
-      - aspen/**
       - cesium/**
       - core/**
       - freighter/go/**
@@ -45,24 +45,15 @@ jobs:
       cached: true
       coverage_flag: core
       directory: core
-    secrets: inherit
+      os_specific: true
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # Pull requests restore only the newest cache, so the older ones only evict others.
+  # A failed test job does not stop the lint jobs, which save caches too.
   prune:
     name: Prune older caches
     needs: core
-    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
     permissions:
       actions: write
-    steps:
-      - name: Delete older Core caches
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for prefix in go-test-Linux-core- go-lint-linux-core- \
-            go-lint-windows-core- go-lint-darwin-core-; do
-            gh cache list --ref refs/heads/main --key "$prefix" --sort created_at \
-              --order desc --limit 100 --json id --jq '.[1:][].id' |
-              xargs -r -n1 gh cache delete
-          done
+    uses: ./.github/workflows/prune.caches.yaml

@@ -12,11 +12,10 @@
 Designed for multiple inheritance with TestCase subclasses.
 """
 
-from typing import Any
+from typing import Unpack
 
 import synnax as sy
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
-from framework.test_case import TestCase
+from framework.test_case import Config, TestCase
 
 
 class HardwareCase(TestCase):
@@ -27,14 +26,8 @@ class HardwareCase(TestCase):
     deletes its status.
     """
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: Any,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self._test_rack_keys: list[int] = []
         self._test_device_keys: list[str] = []
         self._test_task_keys: list[sy.task.Key] = []
@@ -62,9 +55,23 @@ class HardwareCase(TestCase):
         """Mark existing devices for deletion in teardown."""
         self._test_device_keys.extend(d.key for d in devices)
 
+    def track_test_racks(self, racks: list[sy.Rack]) -> None:
+        """Mark existing racks for deletion in teardown."""
+        self._test_rack_keys.extend(r.key for r in racks)
+
     def track_test_tasks(self, tasks: list[sy.Task]) -> None:
         """Mark existing tasks for deletion in teardown."""
         self._test_task_keys.extend(t.key for t in tasks)
+
+    def delete_racks(self, keys: list[int]) -> None:
+        """Deletes the racks with the tasks and devices on them. The Core refuses to
+        delete a rack while either is attached."""
+        for key in keys:
+            if tasks := self.client.tasks.list(rack=key):
+                self.client.tasks.delete([t.key for t in tasks])
+            if devices := self.client.devices.retrieve(rack=key):
+                self.client.devices.delete([d.key for d in devices])
+        self.client.racks.delete(keys)
 
     def teardown(self) -> None:
         """Run the chained teardown, then delete tracked tasks, devices, and racks.
@@ -76,18 +83,16 @@ class HardwareCase(TestCase):
             super().teardown()
         finally:
             with self._try_to("delete test tasks"):
-                if self._test_task_keys:
-                    self.client.tasks.delete(self._test_task_keys)
+                # The Core refuses to delete a device or rack that a task uses, and the
+                # Console persists a created task onto its rack at once.
+                keys = list(self._test_task_keys)
+                for rack_key in self._test_rack_keys:
+                    keys.extend(t.key for t in self.client.tasks.list(rack=rack_key))
+                if keys:
+                    self.client.tasks.delete(list(dict.fromkeys(keys)))
             with self._try_to("delete test devices"):
                 if self._test_device_keys:
                     self.client.devices.delete(self._test_device_keys)
             with self._try_to("delete test racks"):
                 if self._test_rack_keys:
-                    # The Core refuses to delete a rack while user tasks are
-                    # attached, and the Console persists a created task onto its
-                    # rack immediately, so delete those tasks first.
-                    for rack_key in self._test_rack_keys:
-                        tasks = self.client.tasks.list(rack=rack_key)
-                        if tasks:
-                            self.client.tasks.delete([t.key for t in tasks])
-                    self.client.racks.delete(self._test_rack_keys)
+                    self.delete_racks(self._test_rack_keys)

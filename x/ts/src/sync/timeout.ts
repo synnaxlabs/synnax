@@ -11,8 +11,8 @@ import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 /**
  * @returns the value of the promise, if it settles within the timeout. The timeout does
- * not cancel the promise, so a caller that holds a resource for it releases the resource
- * in a `finally`.
+ * not cancel the promise, so a caller that holds a resource for it releases the
+ * resource in a `finally`.
  * @param error - Returns the error thrown when the timeout passes.
  * @throws the error that `error` returns, if the timeout passes before the promise
  * settles.

@@ -9,9 +9,14 @@
 
 from __future__ import annotations
 
+# On Python 3.15 and later, pandas loads on first use. Older versions ignore this.
+__lazy_modules__ = ["pandas", "pandas.api.extensions"]
+
+import sys
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TypeAlias, overload
+from functools import cache
+from typing import TypeIs, TypeVar, overload, override
 
 import numpy as np
 import numpy.typing as npt
@@ -19,7 +24,6 @@ import pandas as pd
 from pandas import DataFrame
 from pandas.api.extensions import ExtensionDtype
 from pydantic import BaseModel, Field
-from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
 from synnax.exceptions import MultipleFoundError, ValidationError
@@ -32,7 +36,7 @@ class FramePayload(BaseModel):
 
     def __init__(
         self,
-        keys: list[int] | None = None,
+        keys: list[channel.Key] | None = None,
         series: list[Series] | None = None,
     ):
         if series is None:
@@ -112,7 +116,7 @@ class Frame:
         elif isinstance(channels, FramePayload):
             self.channels = list(channels.keys)
             self.series = channels.series
-        elif isinstance(channels, DataFrame):
+        elif is_dataframe(channels):
             self.channels = list(channels.columns)
             self.series = [Series(data=channels[k]) for k in self.channels]
         elif isinstance(channels, Mapping):
@@ -127,6 +131,7 @@ class Frame:
                 and {series}.
             """)
 
+    @override
     def __str__(self) -> str:
         return self.to_df().__str__()
 
@@ -248,7 +253,7 @@ class Frame:
             Cannot convert a frame that contains channel names to a payload.
             The following channels are invalid: {diff}
             """)
-        keys: list[int] = [k for k in self.channels if isinstance(k, int)]
+        keys: list[channel.Key] = [k for k in self.channels if isinstance(k, int)]
         return FramePayload(keys=keys, series=self.series)
 
     def to_df(self) -> DataFrame:
@@ -289,7 +294,7 @@ class Frame:
         for k in cols:
             if k in index_cols.values():
                 continue
-            t = _time_index(times[indexes[k]])
+            t = _time_index(_sample_times(self[k], self[indexes[k]]))
             values = _column_values(self[k])
             if len(t) == len(merged):
                 data[names[k]] = pd.Series(values, index=t)
@@ -318,21 +323,53 @@ def _column_values(series: MultiSeries) -> npt.NDArray[np.generic] | list[object
     return list(series)
 
 
+def _alignments(series: MultiSeries) -> npt.NDArray[np.uint64]:
+    return np.concatenate(
+        [
+            np.empty(0, dtype=np.uint64),
+            *(
+                np.uint64(int(s.alignment))
+                + np.arange(len(s), dtype=np.uint64) * np.uint64(s.alignment_multiple)
+                for s in series.series
+            ),
+        ]
+    )
+
+
+def _sample_times(series: MultiSeries, index: MultiSeries) -> npt.NDArray[np.int64]:
+    """Returns the timestamp of each sample in series. A channel can hold fewer samples
+    than its index, so samples match index samples by alignment.
+    """
+    stamps = index.to_numpy()
+    alignments = _alignments(series)
+    index_alignments = _alignments(index)
+    if np.array_equal(alignments, index_alignments):
+        return stamps
+    shared, _, positions = np.intersect1d(
+        alignments, index_alignments, return_indices=True
+    )
+    if len(shared) != len(alignments):
+        raise ValueError("A channel has samples at alignments its index does not hold.")
+    return stamps[positions]
+
+
 def _time_index(stamps: npt.NDArray[np.int64]) -> pd.DatetimeIndex:
     return pd.to_datetime(stamps, unit="ns", utc=True)
 
 
 # A blank in a NumPy integer column makes it float64, which corrupts values above 2^53.
-_NULLABLE_INTS: Mapping[np.dtype, ExtensionDtype] = {
-    np.dtype(np.int8): pd.Int8Dtype(),
-    np.dtype(np.int16): pd.Int16Dtype(),
-    np.dtype(np.int32): pd.Int32Dtype(),
-    np.dtype(np.int64): pd.Int64Dtype(),
-    np.dtype(np.uint8): pd.UInt8Dtype(),
-    np.dtype(np.uint16): pd.UInt16Dtype(),
-    np.dtype(np.uint32): pd.UInt32Dtype(),
-    np.dtype(np.uint64): pd.UInt64Dtype(),
-}
+@cache
+def _nullable_ints() -> Mapping[np.dtype, ExtensionDtype]:
+    return {
+        np.dtype(np.int8): pd.Int8Dtype(),
+        np.dtype(np.int16): pd.Int16Dtype(),
+        np.dtype(np.int32): pd.Int32Dtype(),
+        np.dtype(np.int64): pd.Int64Dtype(),
+        np.dtype(np.uint8): pd.UInt8Dtype(),
+        np.dtype(np.uint16): pd.UInt16Dtype(),
+        np.dtype(np.uint32): pd.UInt32Dtype(),
+        np.dtype(np.uint64): pd.UInt64Dtype(),
+    }
 
 
 def _nullable_dtype(
@@ -340,7 +377,7 @@ def _nullable_dtype(
 ) -> ExtensionDtype | None:
     if isinstance(values, list):
         return None
-    return _NULLABLE_INTS.get(values.dtype)
+    return _nullable_ints().get(values.dtype)
 
 
 # Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.
@@ -349,4 +386,12 @@ K = TypeVar(
     bound=channel.Key | str | channel.Payload,
     default=channel.Key | str | channel.Payload,
 )
-CrudeFrame: TypeAlias = Frame | FramePayload | Mapping[K, CrudeSeries] | DataFrame
+type CrudeFrame[
+    K: channel.Key | str | channel.Payload = channel.Key | str | channel.Payload
+] = Frame | FramePayload | Mapping[K, CrudeSeries] | DataFrame
+
+
+def is_dataframe(value: object) -> TypeIs[DataFrame]:
+    """Returns whether value is a pandas DataFrame, without loading pandas."""
+    # A value cannot be a DataFrame while pandas is not loaded.
+    return "pandas" in sys.modules and isinstance(value, DataFrame)

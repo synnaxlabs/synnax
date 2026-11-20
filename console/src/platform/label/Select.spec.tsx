@@ -9,12 +9,17 @@
 
 import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Label } from "@/platform/label";
-import { searchAndClickLabel } from "@/platform/label/testutil";
+import {
+  createTestLabel,
+  createTestLabelName,
+  searchAndClickLabel,
+} from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import {
   createConsoleWrapper,
@@ -22,10 +27,17 @@ import {
   findDialogTrigger,
   getIconButton,
   type Grants,
-  uniqueName,
+  uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
+
+const openAndSearch = async (term: string): Promise<void> => {
+  fireEvent.click(await findDialogTrigger());
+  fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+    target: { value: term },
+  });
+};
 
 const renderSelect = async (ui: ReactElement, as: Client = client) => {
   const { wrapper } = await createConsoleWrapper({ client: as });
@@ -38,15 +50,9 @@ const renderSelect = async (ui: ReactElement, as: Client = client) => {
   );
 };
 
-const openAddModal = async (): Promise<void> => {
-  fireEvent.click(await findDialogTrigger());
-  const addIcon = await waitFor(() => getIconButton(document.body, "add"));
-  fireEvent.click(addIcon);
-};
-
 describe("Label.Select", () => {
   it("should pass the clicked label's key to onChange in SelectMultiple", async () => {
-    const label = await client.labels.create({
+    const label = await createTestLabel(client, {
       name: uniqueName("label"),
       color: "#00FF00",
     });
@@ -57,12 +63,144 @@ describe("Label.Select", () => {
     expect(onChange.mock.calls[0][0]).toEqual([label.key]);
   });
 
-  it("should open the label editor from the SelectMultiple add action", async () => {
-    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
-    await openAddModal();
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
+  it("should show the labels of its value before it first opens", async () => {
+    const label = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#FF0000",
+    });
+    await renderSelect(<Label.SelectMultiple value={[label.key]} onChange={vi.fn()} />);
+    expect(await screen.findByText(label.name)).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Search labels...")).toBeNull();
+  });
+
+  it("should remove a label from its tag before it first opens", async () => {
+    const label = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#FF0000",
+    });
+    const onChange = vi.fn();
+    await renderSelect(
+      <Label.SelectMultiple value={[label.key]} onChange={onChange} />,
     );
+    fireEvent.click(await screen.findByLabelText(`Remove ${label.name}`));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls[0][0]).toEqual([]);
+  });
+
+  it("should keep the tag that first opens it, so it can open beside it", async () => {
+    const label = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#FF0000",
+    });
+    await renderSelect(<Label.SelectMultiple value={[label.key]} onChange={vi.fn()} />);
+    const tag = await screen.findByText(label.name);
+    fireEvent.click(tag);
+    await screen.findByPlaceholderText("Search labels...");
+    expect(tag.isConnected).toBe(true);
+  });
+
+  it("should keep its class name before it first opens", async () => {
+    const { container } = await renderSelect(
+      <Label.SelectMultiple value={[]} onChange={vi.fn()} className="labels" />,
+    );
+    expect(container.querySelector(".labels")).not.toBeNull();
+  });
+
+  it("should add a created label to the value the field holds when it closes", async () => {
+    const createdBefore = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    const addedMeanwhile = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#0000FF",
+    });
+    const onChange = vi.fn();
+    const renderField = (value: label.Key[]): ReactElement => (
+      <>
+        <Label.SelectMultiple value={value} onChange={onChange} />
+        <Modals.Stack />
+      </>
+    );
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { rerender } = render(renderField([createdBefore.key]), { wrapper });
+    fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
+    fireEvent.click(await screen.findByText("New label"));
+    const name = createTestLabelName(client);
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: name },
+    });
+    rerender(renderField([createdBefore.key, addedMeanwhile.key]));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const [created] = await client.labels.retrieve({ name: [name] });
+    expect(onChange.mock.calls[0][0]).toEqual([
+      createdBefore.key,
+      addedMeanwhile.key,
+      created.key,
+    ]);
+  });
+
+  it("should add a label created from the field to the selection", async () => {
+    const existing = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    const onChange = vi.fn();
+    await renderSelect(
+      <Label.SelectMultiple value={[existing.key]} onChange={onChange} />,
+    );
+    // A trigger that holds labels opens through its add button.
+    fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
+    fireEvent.click(await screen.findByText("New label"));
+    const name = createTestLabelName(client);
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: name },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const [created] = await client.labels.retrieve({ name: [name] });
+    expect(onChange.mock.calls[0][0]).toEqual([existing.key, created.key]);
+  });
+
+  it("should create a label named after the search text in the create modal", async () => {
+    const existing = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    const onChange = vi.fn();
+    await renderSelect(
+      <Label.SelectMultiple value={[existing.key]} onChange={onChange} />,
+    );
+    fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
+    const name = createTestLabelName(client);
+    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+      target: { value: name },
+    });
+    fireEvent.click(await screen.findByText(`Create label "${name}"`));
+    const input = await screen.findByPlaceholderText("Label name");
+    expect(input).toHaveProperty("value", name);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const [created] = await client.labels.retrieve({ name: [name] });
+    expect(onChange.mock.calls[0][0]).toEqual([existing.key, created.key]);
+  });
+
+  it("should hide the create option while the search matches a label name in any case", async () => {
+    const existing = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
+    await openAndSearch(existing.name.toUpperCase());
+    await screen.findByText(existing.name);
+    expect(screen.queryByText(/^Create label/)).toBeNull();
   });
 });
 
@@ -70,34 +208,35 @@ describe("Label.Select permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
       ...grants,
-      retrieve: [label.TYPE_ONTOLOGY_ID],
+      retrieve: [label.TYPE_RESOURCE_ID],
     });
 
+  // A search that lists a label but names none shows the create option to a subject who
+  // may create, so its absence proves the gate and not a list still in flight.
   const renderPicker = async (as: Client): Promise<string> => {
-    const { name } = await client.labels.create({
-      name: uniqueName("label"),
+    const token = uniqueToken();
+    const { name } = await createTestLabel(client, {
+      name: `${token} listed`,
       color: "#0000FF",
     });
     await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />, as);
-    fireEvent.click(await findDialogTrigger());
-    const search = await screen.findByPlaceholderText("Search labels...");
-    fireEvent.change(search, { target: { value: name } });
-    return name;
+    await openAndSearch(token);
+    await screen.findByText(name);
+    return token;
   };
 
-  it("should withhold the new-label action from a subject who cannot create labels", async () => {
-    const name = await renderPicker(await createSubject({}));
-    // The listed label proves the picker resolved its data, so the missing action
-    // is the gate and not a list still in flight.
-    await screen.findByText(name);
-    expect(screen.queryByText("New label")).toBeNull();
+  it("should withhold the create option from a subject who cannot create labels", async () => {
+    const token = await renderPicker(await createSubject({}));
+    expect(screen.queryByText(`Create label "${token}"`)).toBeNull();
     // A footer that renders null still counts as a footer, which moves the border
     // off the list onto an empty wrapper.
     expect(document.querySelector(".lyra-select__body")).toBeNull();
   });
 
-  it("should offer the new-label action to a subject who may create labels", async () => {
-    await renderPicker(await createSubject({ create: [label.TYPE_ONTOLOGY_ID] }));
-    expect(await screen.findByText("New label")).toBeTruthy();
+  it("should offer the create option to a subject who may create labels", async () => {
+    const token = await renderPicker(
+      await createSubject({ create: [label.TYPE_RESOURCE_ID] }),
+    );
+    expect(await screen.findByText(`Create label "${token}"`)).toBeTruthy();
   });
 });

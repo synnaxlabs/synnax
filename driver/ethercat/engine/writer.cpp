@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <format>
+#include <string>
+
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
@@ -26,7 +29,7 @@ x::errors::Error Engine::Writer::Transaction::write(
     const size_t pdo_index,
     const x::telem::SampleValue &value
 ) const {
-    auto &out = *this->writer.output;
+    const auto &out = *this->writer.output;
     if (pdo_index >= out.entries.size())
         return x::errors::Error(
             errors::PDO_MAPPING_ERROR,
@@ -42,18 +45,35 @@ x::errors::Error Engine::Writer::Transaction::write(
         entry.data_type,
         value
     );
-    out.commands[pdo_index] = Command{value, ++this->engine.command_seq};
     return x::errors::NIL;
 }
 
 Engine::Writer::Transaction Engine::Writer::open_tx() const {
+    for (auto &slave: this->output->slaves)
+        slave.returned.store(false, std::memory_order_relaxed);
     return Transaction(*this);
 }
 
-x::errors::Error Engine::Writer::write(
-    const size_t pdo_index,
-    const x::telem::SampleValue &value
-) const {
-    return this->open_tx().write(pdo_index, value);
+std::string Engine::Writer::warning() const {
+    std::string msg;
+    for (const auto &slave: this->output->slaves) {
+        std::string sentence;
+        if (slave.out.load(std::memory_order_relaxed))
+            sentence = out_of_op(
+                slave.position,
+                slave.name,
+                slave.silent.load(std::memory_order_relaxed)
+            );
+        else if (slave.returned.load(std::memory_order_relaxed))
+            sentence = std::format(
+                "Module {} ({}) returned and took the last commanded values.",
+                slave.position,
+                slave.name
+            );
+        else
+            continue;
+        msg += (msg.empty() ? "" : " ") + sentence;
+    }
+    return msg;
 }
 }

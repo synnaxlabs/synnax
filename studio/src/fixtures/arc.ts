@@ -19,7 +19,7 @@ const START_TIMEOUT = TimeSpan.seconds(10);
  * Throws when the Core has no Arc rack or the task reports an error on start.
  */
 export const startArc = async (client: Synnax, key: arc.Key): Promise<task.Task> => {
-  const [rack] = await client.racks.retrieve({ integration: "arc" });
+  const [rack] = await client.racks.retrieve({ integrations: "arc" });
   if (rack == null) throw new Error("the Core has no rack that runs Arc");
   const tsk = await client.arcs.updateTask(key, { rack: rack.key });
   if (tsk == null)
@@ -56,7 +56,11 @@ export const runArc = async ({
   ...opts
 }: ArcOptions): Promise<ArcFixture> => {
   const client = connect(opts);
-  const { key } = await client.arcs.create({ name, mode: "text", text: { raw: text } });
+  const { key } = await client.arcs.create({
+    name,
+    type: "automation",
+    source: { mode: "text", text: { raw: text } },
+  });
   const tsk = await startArc(client, key);
   return {
     key,

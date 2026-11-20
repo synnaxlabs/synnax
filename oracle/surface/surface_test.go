@@ -10,7 +10,6 @@
 package surface_test
 
 import (
-	"context"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,10 +18,10 @@ import (
 	"github.com/synnaxlabs/oracle/testutil"
 )
 
-func report(ctx context.Context, source string) string {
+func report(source string) string {
 	GinkgoHelper()
 	table, diag := testutil.Analyze(
-		ctx, source, "widget", testutil.NewMockFileLoader(),
+		source, "widget", testutil.NewMockFileLoader(),
 	)
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	var b strings.Builder
@@ -31,8 +30,8 @@ func report(ctx context.Context, source string) string {
 }
 
 var _ = Describe("Write", func() {
-	It("Should write structs, fields, enums, and unions", func(ctx SpecContext) {
-		Expect(report(ctx, `
+	It("Should write structs, fields, enums, and unions", func() {
+		Expect(report(`
 Size enum {
 	small = "small"
 	large = "large"
@@ -65,8 +64,8 @@ widget.Valve.size widget.Size
 
 	It(
 		"Should write aliases, distinct types, actions, and defaults",
-		func(ctx SpecContext) {
-			Expect(report(ctx, `
+		func() {
+			Expect(report(`
 Key uint32
 
 ID = Key
@@ -100,8 +99,41 @@ widget.Valve!Rename.name string
 		},
 	)
 
-	It("Should write omitted fields and borrowed enums", func(ctx SpecContext) {
-		Expect(report(ctx, `
+	It("Should write the actions of a union", func() {
+		Expect(report(`
+Valve union on type {
+	open {}
+
+	action Rename {
+		name string
+	}
+}
+`)).To(ContainSubstring(`widget.Valve action Rename
+widget.Valve!Rename.name string
+`))
+	})
+
+	It("Should write an action that aliases a struct", func() {
+		Expect(report(`
+Set struct {
+	path string[]
+}
+
+Valve struct {
+	key uuid
+
+	action Set = Set
+}
+`)).To(Equal(`widget.Set struct
+widget.Set.path Array<string>
+widget.Valve struct
+widget.Valve.key uuid
+widget.Valve action Set = widget.Set
+`))
+	})
+
+	It("Should write omitted fields and borrowed enums", func() {
+		Expect(report(`
 Method enum {
 	password = "password"
 }
@@ -130,8 +162,8 @@ widget.Proof|password widget.Parent
 `))
 	})
 
-	It("Should write type parameters and struct defaults", func(ctx SpecContext) {
-		Expect(report(ctx, `
+	It("Should write type parameters and struct defaults", func() {
+		Expect(report(`
 Kind enum {
 	a = "a"
 }
@@ -161,18 +193,18 @@ widget.Point.y int32
 `))
 	})
 
-	It("Should ignore docs and formatting", func(ctx SpecContext) {
-		Expect(report(ctx, `
+	It("Should ignore docs and formatting", func() {
+		Expect(report(`
 // A thing that holds a name.
 Valve struct {
 	// The name of the valve.
 	name   string
 }
-`)).To(Equal(report(ctx, "Valve struct { name string }")))
+`)).To(Equal(report("Valve struct { name string }")))
 	})
 
-	It("Should change when a field changes", func(ctx SpecContext) {
-		Expect(report(ctx, "Valve struct { name string }")).
-			ToNot(Equal(report(ctx, "Valve struct { name string? }")))
+	It("Should change when a field changes", func() {
+		Expect(report("Valve struct { name string }")).
+			ToNot(Equal(report("Valve struct { name string? }")))
 	})
 })

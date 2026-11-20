@@ -13,6 +13,7 @@
           "enum_values": [],
           "key": "fld-list-ts",
           "name": "fixture_http_list_timestamp",
+          "optional": false,
           "pointer": "/data/timestamp",
           "time_format": "iso8601"
         },
@@ -36,6 +37,7 @@
           ],
           "key": "fld-list-mode",
           "name": "fixture_http_list_mode",
+          "optional": false,
           "pointer": "/data/modeLabel"
         }
       ],
@@ -74,6 +76,7 @@
           "enum_values": [],
           "key": "fld-list-temp",
           "name": "fixture_http_list_temperature",
+          "optional": false,
           "pointer": "/results/0/tempC"
         }
       ],

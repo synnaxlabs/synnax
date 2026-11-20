@@ -16,12 +16,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
-	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -61,7 +62,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should rewrite resource references to bundle paths", func() {
 		first, second := tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{
+		refs := map[resource.ID]string{
 			mustResource(first):  "chamber_pressure.json",
 			mustResource(second): "propulsion/pressurization.json",
 		}
@@ -73,13 +74,15 @@ var _ = Describe("EncodeBundle", func() {
 		}
 		root := rootOf(MustSucceed(panel.EncodeBundle(p, refs)))
 		Expect(root).To(HaveKeyWithValue("variant", "split"))
-		firstLeaf := root["first"].(map[string]any)
+		firstLeaf, ok := root["first"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(firstLeaf["tabs"]).To(ConsistOf(SatisfyAll(
 			HaveKeyWithValue("variant", "resource"),
 			HaveKeyWithValue("resource", "chamber_pressure.json"),
 			HaveKeyWithValue("key", first.Key().String()),
 		)))
-		lastLeaf := root["last"].(map[string]any)
+		lastLeaf, ok := root["last"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(lastLeaf["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "propulsion/pressurization.json"),
 		))
@@ -98,7 +101,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should strip resource tabs whose target is not a member", func() {
 		member, stranger := tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(member): "kept.json"}
+		refs := map[resource.ID]string{mustResource(member): "kept.json"}
 		p := panel.Panel{Name: "Controls", Root: leafNode(member, stranger)}
 		root := rootOf(MustSucceed(panel.EncodeBundle(p, refs)))
 		Expect(root["tabs"]).To(ConsistOf(
@@ -108,7 +111,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should collapse a leaf emptied by stripping", func() {
 		member, stranger := tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(member): "kept.json"}
+		refs := map[resource.ID]string{mustResource(member): "kept.json"}
 		p := panel.Panel{
 			Name: "Controls",
 			Root: splitNode(
@@ -137,7 +140,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should collapse nested splits emptied by stripping", func() {
 		member, s1, s2 := tab(uuid.New()), tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(member): "kept.json"}
+		refs := map[resource.ID]string{mustResource(member): "kept.json"}
 		p := panel.Panel{
 			Name: "Controls",
 			Root: splitNode(
@@ -161,9 +164,9 @@ var _ = Describe("EncodeBundle", func() {
 })
 
 var _ = Describe("DecodeBundle", func() {
-	It("Should resolve resource paths back to ontology IDs", func(ctx SpecContext) {
+	It("Should resolve resource paths back to resource IDs", func(ctx SpecContext) {
 		first, second := tab(uuid.New()), tab(uuid.New())
-		encodeRefs := map[ontology.ID]string{
+		encodeRefs := map[resource.ID]string{
 			mustResource(first):  "chamber_pressure.json",
 			mustResource(second): "propulsion/pressurization.json",
 		}
@@ -174,12 +177,12 @@ var _ = Describe("DecodeBundle", func() {
 			),
 		}
 		env := MustSucceed(panel.EncodeBundle(p, encodeRefs))
-		minted := map[string]ontology.ID{
+		minted := map[string]resource.ID{
 			"chamber_pressure.json": {
-				Type: ontology.ResourceTypeLineplot, Key: uuid.New().String(),
+				Type: resource.TypeLineplot, Key: uuid.New().String(),
 			},
 			"propulsion/pressurization.json": {
-				Type: ontology.ResourceTypeSchematic, Key: uuid.New().String(),
+				Type: resource.TypeSchematic, Key: uuid.New().String(),
 			},
 		}
 		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), minted))
@@ -199,14 +202,14 @@ var _ = Describe("DecodeBundle", func() {
 	})
 
 	It("Should keep the panel's icon and color", func(ctx SpecContext) {
-		c := MustSucceed(color.FromHex("#dc136c"))
+		c := fixedColor("#dc136c")
 		p := panel.Panel{
-			Name: "Controls", Root: leafNode(), Icon: new("valve"), Color: &c,
+			Name: "Controls", Root: leafNode(), Icon: new("valve"), Color: c,
 		}
 		env := MustSucceed(panel.EncodeBundle(p, nil))
 		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
 		Expect(decoded.Icon).To(HaveValue(Equal("valve")))
-		Expect(decoded.Color).To(HaveValue(Equal(c)))
+		Expect(decoded.Color).To(Equal(c))
 	})
 
 	It("Should import a v1 member, which holds no icon or color", func(
@@ -222,6 +225,32 @@ var _ = Describe("DecodeBundle", func() {
 		Expect(decoded.Color).To(BeNil())
 	})
 
+	It("Should migrate a v2 member's color to a fixed color with a byte alpha", func(
+		ctx SpecContext,
+	) {
+		env := imex.Envelope{Version: 2, Type: "panel", Name: "Controls"}
+		Expect(env.Encode(map[string]any{
+			"root":  map[string]any{"variant": "leaf", "tabs": []any{}},
+			"color": map[string]any{"r": 220, "g": 19, "b": 108, "a": 0.5},
+		})).To(Succeed())
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Color).To(Equal(&color.Ref{
+			Variant: color.FixedRef{Value: xcolor.Color{R: 220, G: 19, B: 108, A: 128}},
+		}))
+	})
+
+	It("Should migrate a v5 member's color to a fixed color", func(ctx SpecContext) {
+		env := imex.Envelope{Version: 5, Type: "panel", Name: "Controls"}
+		Expect(env.Encode(map[string]any{
+			"root":  map[string]any{"variant": "leaf", "tabs": []any{}},
+			"color": xcolor.Color{R: 220, G: 19, B: 108, A: 128},
+		})).To(Succeed())
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Color).To(Equal(&color.Ref{
+			Variant: color.FixedRef{Value: xcolor.Color{R: 220, G: 19, B: 108, A: 128}},
+		}))
+	})
+
 	It("Should pass view tabs through unchanged", func(ctx SpecContext) {
 		view := viewTab(uuid.New(), "docs")
 		p := panel.Panel{Name: "Controls", Root: leafNode(view)}
@@ -235,11 +264,22 @@ var _ = Describe("DecodeBundle", func() {
 		Expect(v.Type).To(Equal("docs"))
 	})
 
+	It("Should remove Arc explorer tabs", func(ctx SpecContext) {
+		docs := viewTab(uuid.New(), "docs")
+		p := panel.Panel{
+			Name: "Controls",
+			Root: leafNode(viewTab(uuid.New(), "arc_explorer"), docs),
+		}
+		env := MustSucceed(panel.EncodeBundle(p, nil))
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Root).To(Equal(leafNode(docs)))
+	})
+
 	It("Should reject a path the reference table does not hold", func(
 		ctx SpecContext,
 	) {
 		t := tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(t): "missing.json"}
+		refs := map[resource.ID]string{mustResource(t): "missing.json"}
 		env := MustSucceed(panel.EncodeBundle(
 			panel.Panel{Name: "Controls", Root: leafNode(t)}, refs,
 		))
@@ -286,10 +326,10 @@ var _ = Describe("DecodeBundle", func() {
 })
 
 var _ = Describe("ResourceRefs", func() {
-	taskID := func() ontology.ID {
-		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.New().String()}
+	taskID := func() resource.ID {
+		return resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
 	}
-	taskTab := func(id ontology.ID) panel.Tab {
+	taskTab := func(id resource.ID) panel.Tab {
 		return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}
 	}
 
@@ -320,8 +360,8 @@ var _ = Describe("ResourceRefs", func() {
 	})
 })
 
-// mustResource returns the ontology ID behind a resource tab fixture.
-func mustResource(t panel.Tab) ontology.ID {
+// mustResource returns the resource ID behind a resource tab fixture.
+func mustResource(t panel.Tab) resource.ID {
 	GinkgoHelper()
 	r, ok := t.Variant.(panel.ResourceTab)
 	Expect(ok).To(BeTrue())

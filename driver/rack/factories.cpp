@@ -16,31 +16,84 @@
 #endif
 #include "driver/arc/arc.h"
 #include "driver/ethercat/ethercat.h"
+#include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/modbus/names.h"
 #include "driver/rack/factories.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
+#include "driver/secret/secret.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 bool Config::integration_enabled(const std::string &i) const {
     return std::ranges::find(integrations, i) != integrations.end();
 }
 
-void configure_opcua(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, opcua::INTEGRATION_NAME, [&config]() {
-        auto [host, _] = x::os::get_hostname();
-        return std::make_unique<opcua::Factory>(
-            std::make_shared<opcua::certificate::Store>(opcua::certificate::StoreConfig{
-                .dir = config.state_dir / OPCUA_STATE_DIR / "pki",
-                .host = host,
-            })
-        );
-    });
+void configure_opcua(
+    const Config &config,
+    FactoryList &factories,
+    const std::shared_ptr<secret::Reader> &reader
+) {
+    configure_integration(
+        config,
+        factories,
+        opcua::INTEGRATION_NAME,
+        [&config, &reader]() {
+            auto [host, _] = x::os::get_hostname();
+            return std::make_unique<opcua::Factory>(
+                std::make_shared<opcua::certificate::Store>(
+                    opcua::certificate::StoreConfig{
+                        .dir = config.state_dir / OPCUA_STATE_DIR / "pki",
+                        .host = host,
+                    }
+                ),
+                reader
+            );
+        }
+    );
 }
 
-void configure_state(FactoryList &factories) {
-    factories.push_back(std::make_unique<status::Factory>());
+constexpr auto MISMATCH_DESCRIPTION = "Install the Driver release that matches the "
+                                      "Core, then restart the Driver.";
+
+std::string mismatch_message(const std::string &core_version) {
+    return "Driver " + std::string(SYNNAX_DRIVER_VERSION) + " cannot work with Core " +
+           core_version;
+}
+
+/// @brief adds the rack status, which reports an error when the Core runs another
+/// minor.
+void configure_state(const Config &config, FactoryList &factories) {
+    if (!config.incompatible_core_version) {
+        factories.push_back(std::make_unique<status::Factory>());
+        return;
+    }
+    const auto message = mismatch_message(*config.incompatible_core_version);
+    LOG(ERROR) << message << ". " << MISMATCH_DESCRIPTION;
+    factories.push_back(
+        std::make_unique<status::Factory>(status::Health{
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = message,
+            .description = MISMATCH_DESCRIPTION,
+        })
+    );
+}
+
+void configure_mismatch(
+    const std::string &core_version,
+    const std::string &integration_name,
+    FactoryList &factories
+) {
+    // A task can still hold the running status that an earlier Driver wrote.
+    factories.push_back(
+        std::make_unique<UnavailableFactory>(
+            integration_name,
+            mismatch_message(core_version) + ". " + MISMATCH_DESCRIPTION,
+            "",
+            true
+        )
+    );
 }
 
 #ifdef SYNNAX_NILINUXRT
@@ -74,14 +127,32 @@ void configure_arc(
 void configure_ethercat(
     const Config &config,
     FactoryList &factories,
+    const std::shared_ptr<synnax::Synnax> &client,
     const std::shared_ptr<x::thread::rt::Manager> &rt_manager
 ) {
     configure_integration(
         config,
         factories,
         ethercat::INTEGRATION_NAME,
-        [&rt_manager]() { return std::make_unique<ethercat::Factory>(rt_manager); }
+        [&config, &client, &rt_manager]() {
+            return std::make_unique<ethercat::Factory>(
+                client,
+                config.rack.key,
+                rt_manager,
+                config.manager.op_timeout
+            );
+        }
     );
+}
+
+void configure_file(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, file::INTEGRATION_NAME, [&config]() {
+        return std::make_unique<file::Factory>(file::Config{
+            .roots = file::roots(),
+            .home = file::home(),
+            .secrets_dir = config.secrets_dir,
+        });
+    });
 }
 
 void configure_http(const Config &config, FactoryList &factories) {
@@ -90,16 +161,23 @@ void configure_http(const Config &config, FactoryList &factories) {
     });
 }
 
-std::unique_ptr<task::Factory>
-Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const {
+std::unique_ptr<task::Factory> Config::new_factory(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+) const {
     FactoryList factories;
-    configure_state(factories);
-    configure_opcua(*this, factories);
+    const auto reader = std::make_shared<secret::Reader>(
+        client,
+        secret::Config{.secrets_dir = this->secrets_dir, .rack = this->rack.key}
+    );
+    configure_state(*this, factories);
+    configure_opcua(*this, factories, reader);
     configure_ni(*this, factories);
     configure_labjack(*this, factories);
     configure_arc(*this, factories, rt_manager);
-    configure_ethercat(*this, factories, rt_manager);
+    configure_ethercat(*this, factories, client, rt_manager);
     configure_http(*this, factories);
+    configure_file(*this, factories);
     configure_modbus(*this, factories);
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }

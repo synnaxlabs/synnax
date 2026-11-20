@@ -13,7 +13,7 @@ import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Command } from "@/platform/command";
 
-const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
 
 const CreateCommand = Command.create({
   key: "create_channel",

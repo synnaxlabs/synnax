@@ -49,12 +49,14 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
   return (nodeId: string, dblClick: boolean) => {
     const ui = getSchematic({ key: schematicKey });
     if (ui == null || ui.editable || client == null) return;
-    const cached = client.schematics.getCached(schematicKey);
-    const config = query.isLive(cached) ? cached.configs?.[nodeId] : undefined;
+    const cached = client.schematics.watch(schematicKey).getCached();
+    const config = query.isLive(cached)
+      ? cached.nodes.find((n) => n.key === nodeId)?.config
+      : undefined;
     if (config?.variant !== "off_page_reference") return;
     const { page } = config;
-    if (page == null || page.key.length === 0) return;
-    const navigatesOnDblClick = !config.dblClickNavDisabled;
+    if (page.key.length === 0) return;
+    const navigatesOnDblClick = !config.doubleClickNavigationDisabled;
     if (dblClick !== navigatesOnDblClick) return;
     const target = PAGE_TARGETS[page.type];
     const { label } = config.label;

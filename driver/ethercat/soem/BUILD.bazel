@@ -52,9 +52,14 @@ cc_library(
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
         "@platforms//os:macos": ["api_darwin.cpp"],
+        "@platforms//os:windows": ["api_windows.cpp"],
         "//conditions:default": ["api_noop.cpp"],
     }),
     hdrs = ["api.h"],
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//driver/ethercat/errors",
@@ -62,15 +67,80 @@ cc_library(
         "//x/cpp/errors",
     ] + select({
         "@platforms//os:macos": [":bpf"],
+        "@platforms//os:windows": [":util"],
         "//conditions:default": [],
     }),
+)
+
+cc_library(
+    name = "filter",
+    srcs = select({
+        "@platforms//os:windows": ["filter_windows.cpp"],
+        "//conditions:default": ["filter_noop.cpp"],
+    }),
+    hdrs = ["filter.h"],
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//x/cpp/errors",
+    ] + select({
+        "@platforms//os:windows": [
+            ":util",
+            "//x/cpp/base64",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "filter_test",
+    srcs = select({
+        "@platforms//os:windows": ["filter_windows_test.cpp"],
+        "//conditions:default": ["filter_noop_test.cpp"],
+    }),
+    deps = [
+        ":filter",
+        "//driver/ethercat/errors",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "api_linux_test",
+    srcs = ["api_linux_test.cpp"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "api_windows_test",
+    srcs = ["api_windows_test.cpp"],
+    linkopts = ["/DEFAULTLIB:iphlpapi.lib"],
+    target_compatible_with = ["@platforms//os:windows"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_library(
     name = "soem_mock_api",
     hdrs = ["mock_api.h"],
     visibility = ["//driver/ethercat:__subpackages__"],
-    deps = [":soem_api"],
+    deps = [
+        ":soem_api",
+        "//x/cpp/binary",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
+    ],
 )
 
 cc_library(
@@ -81,12 +151,21 @@ cc_library(
     deps = [
         ":soem_api",
         ":util",
+        "//driver/ethercat/coe",
+        "//driver/ethercat/dc",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/esi:settings",
         "//driver/ethercat/master",
+        "//driver/ethercat/master:dc",
+        "//driver/ethercat/sii",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",
+        "//x/cpp/binary",
+        "//x/cpp/breaker",
         "//x/cpp/errors",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
         "@abseil-cpp//absl/log",
     ],
 )
@@ -97,8 +176,14 @@ cc_test(
     deps = [
         ":soem",
         ":soem_mock_api",
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/esi:settings",
+        "//driver/ethercat/master:contract",
+        "//driver/ethercat/testutil:stg",
+        "//x/cpp/bench:alloc",
+        "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

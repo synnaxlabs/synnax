@@ -18,12 +18,14 @@ import { Status as Base } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Status } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Access, Label, Status } from "@synnaxlabs/pluto";
+import type { ReactElement } from "react";
 
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
+
+const LABELS: Tag.TagsProps["noun"] = { one: "label", other: "labels" };
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
@@ -35,11 +37,11 @@ export const Item = (props: ItemProps): ReactElement | null => {
     dispatch(Session.Status.toggleFavorite(itemKey));
   };
   const item = List.useItem<status.Key, status.Status>(itemKey);
-  const canRename = Access.useUpdateGranted(status.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(status.resourceID(itemKey));
   const { update: rename } = Status.useRename();
 
   if (item == null) return null;
-  const { name, time, variant, message, labels } = item;
+  const { name, time, variant, message } = item;
 
   return (
     <Select.Item<status.Key>
@@ -48,9 +50,16 @@ export const Item = (props: ItemProps): ReactElement | null => {
       checkable
       justify="between"
     >
-      <Flex.Box x grow>
-        <Text.Text level="p" weight={450}>
-          <Base.Indicator variant={variant} />
+      <Flex.Box x grow className={CSS.BE("status", "list-item-summary")}>
+        <Text.Text
+          level="p"
+          weight={450}
+          className={CSS.BE("status", "list-item-text")}
+        >
+          <Base.Indicator
+            variant={variant}
+            className={CSS.BE("status", "list-item-indicator")}
+          />
           <Text.MaybeEditable
             id={List.itemNameID(itemKey)}
             value={name}
@@ -65,14 +74,14 @@ export const Item = (props: ItemProps): ReactElement | null => {
           </Text.Text>
         </Text.Text>
       </Flex.Box>
-      <Flex.Box x align="center">
-        {labels != null && labels.length > 0 && (
-          <Tag.Tags variant="text">
-            {labels.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small">
-                {name}
-              </Tag.Tag>
-            ))}
+      <Flex.Box x align="center" className={CSS.BE("status", "list-item-meta")}>
+        {item.labels.length > 0 && (
+          <Tag.Tags
+            variant="text"
+            noun={LABELS}
+            className={CSS.BE("status", "list-item-labels")}
+          >
+            <Label.Tags keys={item.labels} />
           </Tag.Tags>
         )}
         <Text.Text x>

@@ -177,11 +177,11 @@ func (ec EdgeConfig) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (ec *EdgeConfig) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "pipe":
 		var v PipeEdgeConfig
 		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
@@ -1371,11 +1371,11 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "cap":
 		var v CapElementConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
@@ -4375,11 +4375,11 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "cap":
 		var v CapNodeConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {

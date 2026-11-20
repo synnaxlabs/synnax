@@ -12,6 +12,7 @@ Unicode True
 !include "MUI2.nsh"
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
 
 ; Variables for service installation options
 Var InstallService
@@ -78,20 +79,73 @@ Section "MainSection" SEC01
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
 
-    ; Stop and remove existing service if present
-    DetailPrint "Checking for existing service..."
-    nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service stop'
+    ; An installed service updates through the update of the new Core, which waits
+    ; until the new Core commits the update and starts the old Core if it fails.
+    nsExec::ExecToStack 'sc query SynnaxCore'
     Pop $0
-    ; Wait for graceful shutdown (service has 30s timeout, we wait 10s)
-    Sleep 10000
-    nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service uninstall'
-    Pop $0
+    Pop $1
+    ${If} $0 == 0
+    ${AndIf} $InstallService == ${BST_CHECKED}
+        ; The update replaces the binary of the service, so the install goes in its
+        ; folder. The service manager quotes a path with spaces.
+        ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Services\SynnaxCore" "ImagePath"
+        StrCpy $2 $1 1
+        ${If} $2 == '"'
+            StrCpy $1 $1 "" 1
+            StrCpy $1 $1 -1
+        ${EndIf}
+        ${GetParent} $1 $INSTDIR
+        DetailPrint "Updating the Synnax service in $INSTDIR..."
+        InitPluginsDir
+        SetOutPath "$PLUGINSDIR"
+        File /oname=synnax-update.exe "synnax-server.exe"
+        nsExec::ExecToLog '"$PLUGINSDIR\synnax-update.exe" update --file "$PLUGINSDIR\synnax-update.exe"'
+        Pop $0
+        ${If} $0 != 0
+            MessageBox MB_ICONSTOP "The update of the Synnax Core failed. The details list the cause and the state of the Synnax service." /SD IDOK
+            Abort
+        ${EndIf}
+        SetOutPath "$INSTDIR"
+    ${Else}
+        ; Stop and remove existing service if present
+        DetailPrint "Checking for existing service..."
+        nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service stop'
+        Pop $0
+        ; Wait for graceful shutdown (service has 30s timeout, we wait 10s)
+        Sleep 10000
+        nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service uninstall'
+        Pop $0
 
-    Delete "$INSTDIR\synnax-server.exe"
+        Delete "$INSTDIR\synnax-server.exe"
+
+        SetOutPath "$INSTDIR"
+        File /oname=synnax-server.exe "synnax-server.exe"
+
+        # Install as service if selected
+        ${If} $InstallService == ${BST_CHECKED}
+            DetailPrint "Installing Synnax as Windows Service..."
+
+            ${If} $ServiceAutoStart == ${BST_CHECKED}
+                nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --auto-start --insecure'
+            ${Else}
+                nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --insecure'
+            ${EndIf}
+            Pop $0
+
+            ${If} $0 == 0
+                DetailPrint "Service installed successfully"
+
+                ; Start the service
+                DetailPrint "Starting Synnax service..."
+                nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service start'
+                Pop $0
+            ${Else}
+                DetailPrint "Warning: Service installation returned: $0"
+            ${EndIf}
+        ${EndIf}
+    ${EndIf}
+
     Delete "$INSTDIR\synnax.bat"
-
-    SetOutPath "$INSTDIR"
-    File /oname=synnax-server.exe "synnax-server.exe"
 
     # Create batch file alias
     FileOpen $0 "$INSTDIR\synnax.bat" w
@@ -108,29 +162,6 @@ Section "MainSection" SEC01
     EnVar::AddValue "PATH" "$INSTDIR"
     Pop $0
     DetailPrint "EnVar::AddValue (system PATH) returned: $0"
-
-    # Install as service if selected
-    ${If} $InstallService == ${BST_CHECKED}
-        DetailPrint "Installing Synnax as Windows Service..."
-
-        ${If} $ServiceAutoStart == ${BST_CHECKED}
-            nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --auto-start --insecure'
-        ${Else}
-            nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --insecure'
-        ${EndIf}
-        Pop $0
-
-        ${If} $0 == 0
-            DetailPrint "Service installed successfully"
-
-            ; Start the service
-            DetailPrint "Starting Synnax service..."
-            nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service start'
-            Pop $0
-        ${Else}
-            DetailPrint "Warning: Service installation returned: $0"
-        ${EndIf}
-    ${EndIf}
 
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
@@ -168,6 +199,7 @@ Section "Uninstall"
     DetailPrint "EnVar::DeleteValue (system PATH) returned: $0"
 
     Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax-server.exe.old"
     Delete "$INSTDIR\synnax.bat"
     Delete "$INSTDIR\uninstall.exe"
     Delete "$DESKTOP\Synnax.lnk"

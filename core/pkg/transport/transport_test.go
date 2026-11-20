@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fhttp "github.com/synnaxlabs/freighter/http"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,8 +28,11 @@ var _ = Describe("Transport", func() {
 			"Should return a validation error when a required field is missing",
 			func(field string, omit func(*transport.LayerConfig)) {
 				cfg := transport.LayerConfig{
-					API:    apiLayer,
-					Router: MustSucceed(fhttp.NewRouter()),
+					API: apiLayer,
+					Router: MustSucceed(fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: api.NewErrorCodec()},
+					)),
 				}
 				omit(&cfg)
 				Expect(transport.NewLayer(cfg)).Error().
@@ -43,13 +47,16 @@ var _ = Describe("Transport", func() {
 		)
 
 		It("Should bind the API layer to both transport protocols", func() {
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(fhttp.NewRouter(
+				GinkgoT().Context(),
+				fhttp.RouterConfig{Errors: api.NewErrorCodec()},
+			))
 			tl := MustSucceed(transport.NewLayer(transport.LayerConfig{
 				API:    apiLayer,
 				Router: router,
 			}))
 
-			Expect(tl.GRPC).To(HaveLen(13))
+			Expect(tl.GRPC).To(HaveLen(17))
 
 			app := fiber.New()
 			defer func() { Expect(app.Shutdown()).To(Succeed()) }()

@@ -10,15 +10,57 @@
 import argparse
 
 import pytest
+import synnax as sy
 from botocore.exceptions import ClientError
 
-from common import add_connection_args, instance_for, instance_prefix, secret
+from common import (
+    ChannelCreateError,
+    Channels,
+    add_connection_args,
+    instance_for,
+    instance_prefix,
+    secret,
+)
+from conftest import Client
 
 
 def parse(*argv: str) -> argparse.Namespace:
     p = argparse.ArgumentParser()
     add_connection_args(p)
     return p.parse_args(argv)
+
+
+class TestChannels:
+    """Tests for the channels the scripts create on the Core."""
+
+    def test_should_rewrite_the_expression_of_a_calculated_channel(self) -> None:
+        client = Client()
+        channels = Channels(client=client, enabled=True)
+        channels.calculated("cost", expression="return a")
+        channels.calculated("cost", expression="return a + b")
+        assert client.channels.stored["cost"].expression == "return a + b"
+
+    def test_should_keep_an_unchanged_calculated_channel(self) -> None:
+        client = Client()
+        channels = Channels(client=client, enabled=True)
+        channels.calculated("cost", expression="return a")
+        channels.calculated("cost", expression="return a")
+        assert len(client.channels.created) == 2
+        assert client.channels.stored["cost"].expression == "return a"
+
+    def test_should_raise_when_the_core_refuses_the_expression(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client = Client()
+        channels = Channels(client=client, enabled=True)
+        channels.calculated("cost", expression="return a")
+
+        def refuse(key: int, expression: str) -> None:
+            raise sy.ValidationError("bad expression")
+
+        monkeypatch.setattr(client.channels, "set_expression", refuse)
+        with pytest.raises(ChannelCreateError, match="calculated cost"):
+            channels.calculated("cost", expression="return a + b")
 
 
 class TestConnectionArgs:
@@ -66,9 +108,9 @@ class SSM:
 
 @pytest.fixture
 def ssm(monkeypatch: pytest.MonkeyPatch) -> SSM:
-    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("GH_APP_KEY", raising=False)
     monkeypatch.delenv("SYNNAX_PASSWORD", raising=False)
-    return SSM({"/runners/gh-token": "stored"})
+    return SSM({"/runners/gh-app-key": "stored"})
 
 
 class TestSecret:
@@ -77,13 +119,13 @@ class TestSecret:
     def test_should_prefer_the_environment(
         self, ssm: SSM, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("GH_TOKEN", "from-env")
-        assert secret("GH_TOKEN", store=ssm) == "from-env"
+        monkeypatch.setenv("GH_APP_KEY", "from-env")
+        assert secret("GH_APP_KEY", store=ssm) == "from-env"
         assert ssm.requests == []
 
     def test_should_read_the_decrypted_parameter(self, ssm: SSM) -> None:
-        assert secret("GH_TOKEN", store=ssm) == "stored"
-        assert ssm.requests == [("/runners/gh-token", True)]
+        assert secret("GH_APP_KEY", store=ssm) == "stored"
+        assert ssm.requests == [("/runners/gh-app-key", True)]
 
     def test_should_raise_when_the_parameter_is_missing(self, ssm: SSM) -> None:
         with pytest.raises(ClientError):

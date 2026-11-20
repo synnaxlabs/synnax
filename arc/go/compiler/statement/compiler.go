@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Compile compiles a statement and returns whether execution diverged
-// (return/break/etc)
-func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err error) {
+// compile compiles a statement and returns whether execution diverged
+// (return/break/etc).
+func compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err error) {
 	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
 		return false, compileVariableDeclaration(ctx.Child(varDecl))
 	}
@@ -42,13 +42,13 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 		return true, compileReturnStatement(ctx.Child(retStmt))
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		_, err = compileExpressionStatement(ctx.Child(expr))
+		err = compileExpressionStatement(ctx.Child(expr))
 		return false, err
 	}
 	return false, errors.New("unknown statement type")
 }
 
-// CompileBlock compiles a block and returns whether all paths diverged
+// CompileBlock compiles a block and returns whether all paths diverged.
 func CompileBlock(
 	ctx context.Context[parser.IBlockContext],
 ) (diverged bool, err error) {
@@ -62,7 +62,7 @@ func CompileBlock(
 	blockCtx := ctx.WithScope(blockScope)
 	for _, stmt := range ctx.AST.AllStatement() {
 		var stmtDiverged bool
-		stmtDiverged, err = Compile(blockCtx.Child(stmt))
+		stmtDiverged, err = compile(blockCtx.Child(stmt))
 		if err != nil {
 			return false, err
 		}

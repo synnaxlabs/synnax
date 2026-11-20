@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type record, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   AccessDeniedError,
+  AuthError,
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
 } from "@/index";
 import { query } from "@/query";
 import { Space, type SpaceHooks } from "@/query/query";
-
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const expectDeleted = <D extends query.Data>(
   value: query.Cached<D> | undefined,
@@ -355,7 +354,10 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("should stay silent when the change stream is denied", async () => {
+    it.each([
+      ["denied", AccessDeniedError],
+      ["refused for a failed login", AuthError],
+    ])("should stay silent when the change stream is %s", async (_, StreamError) => {
       const table = newTable();
       const onError = vi.fn();
       const answers = singleSpace(
@@ -366,13 +368,13 @@ describe("Answers", () => {
         },
         {
           ensureStreaming: async () => {
-            throw new AccessDeniedError("no permission to stream");
+            throw new StreamError("refused");
           },
           onError,
         },
       );
       expect(await answers.retrieve(qA)).toEqual(1);
-      await wait(5);
+      await sleep.sleep(TimeSpan.milliseconds(5));
       expect(onError).not.toHaveBeenCalled();
     });
 
@@ -398,7 +400,7 @@ describe("Answers", () => {
           },
         );
         expect(await answers.retrieve(qA)).toEqual(1);
-        await wait(5);
+        await sleep.sleep(TimeSpan.milliseconds(5));
         expect(onError).not.toHaveBeenCalled();
       },
     );
@@ -709,7 +711,7 @@ describe("Answers", () => {
       off();
       answers.onChange({ min: 3 }, vi.fn());
       // Past the refetch debounce: a scheduled reconfirm would have landed.
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
@@ -730,7 +732,7 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it("tears down after the grace window and reconfirms on the next remount", async () => {
+    it("tears down after the grace window and reconfirms a changed answer on the next remount", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
         table.set("a", rec("a", 5));
@@ -741,9 +743,390 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3 });
       off();
       // The sweep runs at half-grace cadence; well past the window by now.
-      await wait(120);
+      await sleep.sleep(TimeSpan.milliseconds(120));
+      table.set("b", rec("b", 1));
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("leaves an idle answer stale instead of refetching it", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = new Space<{ searchTerm: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          serverFields: ["searchTerm"],
+        },
+        { teardownGrace: TimeSpan.seconds(5) },
+      );
+      const off = answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      off();
+      table.set("a", rec("a", 1));
+      // Past the refetch debounce: a scheduled refetch would have landed.
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches a stale idle answer on read", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = new Space<{ searchTerm: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          serverFields: ["searchTerm"],
+        },
+        { teardownGrace: TimeSpan.seconds(5) },
+      );
+      const off = answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      off();
+      table.set("a", rec("a", 1));
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      await answers.retrieve({ searchTerm: "x" });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("refetchMatching", () => {
+    type SearchQ = { searchTerm: string };
+    const searchSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: SearchQ) => Promise<string[]>,
+    ) =>
+      new Space<SearchQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          serverFields: ["searchTerm"],
+        },
+        { teardownGrace: TimeSpan.seconds(5) },
+      );
+
+    it("refetches only the subscribed answers that match", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async (_: SearchQ): Promise<string[]> => []);
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      answers.onChange({ searchTerm: "y" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      await answers.retrieve({ searchTerm: "y" });
+      answers.refetchMatching((q) => q.searchTerm === "x");
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch.mock.calls.map(([q]) => q.searchTerm)).toEqual(["x", "y", "x"]);
+    });
+
+    it("refetches an idle answer on its next read", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = searchSpace(table, fetch);
+      const off = answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      off();
+      answers.refetchMatching(() => true);
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await answers.retrieve({ searchTerm: "x" });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("leaves an answer that nothing maintains alone", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = searchSpace(table, fetch);
+      await answers.retrieve({ searchTerm: "x" });
+      answers.refetchMatching(() => true);
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("entry coverage (covers)", () => {
+    const coveringSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: Q) => Promise<string[]>,
+      hooks?: SpaceHooks,
+    ) =>
+      new Space<Q, number, string, Rec>(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (records) => records[0]?.value ?? 0,
+          keyOf: (query) => query.k,
+          covers: (record) => record.value > 0,
+          single: true,
+        },
+        hooks,
+      );
+
+    it("does not answer from an entry that does not cover the query", () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      expect(space.getCached(qA)).toBeUndefined();
+    });
+
+    it("answers from an entry that covers the query", () => {
+      const table = newTable();
+      table.set(rec("a", 1));
+      const space = coveringSpace(table, async () => ["a"]);
+      expect(space.getCached(qA)).toEqual(1);
+    });
+
+    it("holds a fetched answer its entry does not cover", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      await space.retrieve(qA);
+      expect(space.getCached(qA)).toEqual(0);
+    });
+
+    it("delivers a deletion regardless of coverage", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      table.delete("a");
+      expect(expectDeleted(space.getCached(qA)).corpse).toEqual(0);
+    });
+
+    it("fetches for a subscriber instead of seeding from the entry", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi.fn(async () => {
+        table.set(rec("a", 1));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      await vi.waitFor(() => expect(seen).toContain(1));
+      expect(seen).not.toContain(0);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("fetches when a subscriber gets an entry that does not cover it", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set(rec("a", 1));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      table.set(rec("a", 0));
+      await vi.waitFor(() => expect(seen).toContain(1));
+      expect(seen).not.toContain(0);
+      stop();
+    });
+
+    it("shares one fetch between a subscriber and a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi.fn(async () => ["a"]);
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await space.retrieve(qA);
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("joins a subscriber's fetch from a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
+      const fetch = vi.fn(async () => {
+        await held;
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      const reading = space.retrieve(qA);
+      release();
+      await reading;
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("reports a failed subscriber fetch and retries on the next read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue(["a"]);
+      const onError = vi.fn();
+      const space = new Space<Q, number, string, Rec>(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (records) => records[0]?.value ?? 0,
+          keyOf: (query) => query.k,
+          covers: (record) => record.value > 0,
+          single: true,
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      await expect(space.retrieve(qA)).resolves.toEqual(0);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      stop();
+    });
+
+    it("does not report a subscriber fetch that finds the record deleted", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async () =>
+          await table.track(async (since) => {
+            table.ingestDeletes(["a"], since);
+            throw new NotFoundError("thing not found");
+          }),
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it("reports a subscriber fetch that finds no record the table holds", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async () => {
+          throw new NotFoundError("thing not found");
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("leaves an entry written during a fetch to that fetch", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        await scheduler.nextTask();
+        table.set(rec("a", 0));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await space.retrieve(qA);
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("keeps notifying a ready query that its entry no longer covers", async () => {
+      const table = newTable();
+      table.set(rec("a", 1));
+      const space = coveringSpace(table, async () => ["a"]);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      table.set(rec("a", 0));
+      expect(seen.at(-1)).toEqual(0);
+      stop();
+    });
+
+    describe("after an unmaintained gap", () => {
+      // The fetch answers with the server's current value, which the table never
+      // receives while nothing maintains the query.
+      const gapSpace = (table: query.Table<string, Rec>) => {
+        const server = { value: 0 };
+        const fetch = vi.fn(async () => {
+          table.set(rec("a", server.value));
+          return ["a"];
+        });
+        const space = coveringSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+        return { server, fetch, space };
+      };
+
+      it("refetches a changed uncovered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { server, fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        server.value = -1;
+        table.set(rec("b", 1));
+        const seen: query.Cached<number>[] = [];
+        const stopAgain = space.onChange(qA, (result) => {
+          if (result !== undefined) seen.push(result);
+        });
+        await expect.poll(() => space.getCached(qA)).toEqual(-1);
+        expect(seen.at(-1)).toEqual(-1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        stopAgain();
+      });
+
+      it("does not refetch an unchanged uncovered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        const stopAgain = space.onChange(qA, () => {});
+        // Past the refetch debounce: a scheduled reconfirm would have landed.
+        await sleep.sleep(TimeSpan.milliseconds(150));
+        expect(fetch).toHaveBeenCalledTimes(1);
+        stopAgain();
+      });
+
+      it("refetches an uncovered answer for a new read", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { server, fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        server.value = -1;
+        await expect(space.retrieve(qA)).resolves.toEqual(-1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+      });
+
+      it("does not refetch a covered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 1));
+        const { fetch, space } = gapSpace(table);
+        space.onChange(qA, () => {})();
+        const stop = space.onChange(qA, () => {});
+        // Past the refetch debounce: a scheduled reconfirm would have landed.
+        await sleep.sleep(TimeSpan.milliseconds(150));
+        expect(fetch).not.toHaveBeenCalled();
+        expect(space.getCached(qA)).toEqual(1);
+        stop();
+      });
     });
   });
 
@@ -851,6 +1234,44 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("invalidates and refetches when a second record matches", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = evictingSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      table.set("b", rec("b", 2));
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+      expect(answers.getCached(qA)).toBeUndefined();
+      await answers.retrieve(qA);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    // Regression: a second match that raced the fetch left the answer unfetched, and
+    // the fetch returned its stale key, so the caller never saw the ambiguity.
+    it("refetches when a second record matches while the fetch is in flight", async () => {
+      const table = newTable();
+      let release = (_: string[]): void => {};
+      const fetch = vi.fn(async (_: Q): Promise<string[]> => {
+        throw new Error("found 2 things");
+      });
+      fetch.mockImplementationOnce(async () => {
+        table.set("a", rec("a", 1));
+        return await new Promise<string[]>((resolve) => (release = resolve));
+      });
+      const answers = evictingSpace(table, fetch);
+      answers.onChange(qA, vi.fn());
+      const pending = answers.retrieve(qA);
+      table.set("b", rec("b", 2));
+      release(["a"]);
+      await expect(pending).rejects.toThrow("found 2 things");
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("flips to deleted when the last member's entry is tombstoned", async () => {
       const table = newTable();
       const answers = evictingSpace(table, async () => {
@@ -862,6 +1283,23 @@ describe("Answers", () => {
       await answers.retrieve(qA);
       table.delete("a");
       expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
+    });
+
+    it("revives a deleted answer when a new record matches", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 6));
+        return ["a"];
+      });
+      const answers = evictingSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      table.delete("a");
+      table.set("b", rec("b", 7));
+      expect(handler).toHaveBeenLastCalledWith(7);
+      expect(await answers.retrieve(qA)).toEqual(7);
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("does not notify while the query is unfetched", () => {
@@ -905,6 +1343,48 @@ describe("Answers", () => {
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
     });
 
+    it("refetches for a record that matches cannot decide", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => (r.value < 0 ? null : r.value >= q.min),
+      });
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      members = [rec("a", -1)];
+      table.set("a", rec("a", -1));
+      expect(answers.getCached({ min: 3 })).toEqual([]);
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", -1)]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("notifies an edit to a member that matches cannot decide", async () => {
+      const table = newTable();
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 5));
+          return ["a"];
+        },
+        compose: (records) => records,
+        matches: (r, q) => (r.value < 0 ? null : r.value >= q.min),
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      table.set("a", rec("a", -1));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", -1)]);
+    });
+
     // Regression: membership is patched from table events, and an unmaintained
     // query received none, so a member that appeared during the gap is missing
     // from the answer a remount is served.
@@ -912,7 +1392,7 @@ describe("Answers", () => {
       const table = newTable();
       let members: Rec[] = [];
       const fetch = vi.fn(async () => {
-        table.set(members);
+        table.ingest(members);
         return members.map(({ key }) => key);
       });
       const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
@@ -920,8 +1400,275 @@ describe("Answers", () => {
       expect(await answers.retrieve({ min: 3 })).toEqual([]);
       unsubscribe();
       members = [rec("a", 5)];
+      table.set(members);
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    // Regression: a plain read settles an answer that no maintenance watched, so a
+    // member that appeared before the first subscriber was missing from its answer.
+    it("refetches an answer read before the first subscriber", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.ingest(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch);
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      members = [rec("a", 5)];
+      table.set(members);
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("fetches a read that beats the refetch after an unmaintained gap", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.ingest(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      unsubscribe();
+      members = [rec("a", 5)];
+      table.set(members);
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("cancels the refetch after an unmaintained gap when a read fetches", async () => {
+      const table = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce([])
+        .mockImplementationOnce(async () => {
+          await sleep.sleep(TimeSpan.milliseconds(250));
+          table.ingest([rec("a", 5)]);
+          return ["a"];
+        })
+        .mockRejectedValue(new Error("refetch failed"));
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      unsubscribe();
+      table.set("b", rec("b", 1));
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+    });
+
+    it("fetches once when the table did not change between the read and the first subscriber", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      const fetch = vi.fn(async () => {
+        table.ingest("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = listSpace(table, fetch);
+      await answers.retrieve({ min: 3 });
+      answers.onChange({ min: 3 }, vi.fn());
+      // Past the refetch debounce: a scheduled reconfirm would have landed.
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches an answer a watched table changed before the first subscriber", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      const foreign = newTable();
+      const fetch = vi.fn(async () => {
+        table.ingest("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => r.value >= q.min,
+        triggers: [query.trigger(foreign, () => "refetch")],
+      });
+      await answers.retrieve({ min: 3 });
+      foreign.set("f", rec("f", 1));
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches an answer that settled before change delivery was live", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      let epoch = 0;
+      const fetch = vi.fn(async () => {
+        table.ingest("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = listSpace(table, fetch, { epoch: () => epoch });
+      await answers.retrieve({ min: 3 });
+      epoch = 1;
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches an answer that a write raced before the first subscriber", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      let members = [rec("a", 5)];
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+      const fetch = vi.fn(async () => {
+        const read = members;
+        await gate;
+        table.ingest(read);
+        return read.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch);
+      const answer = answers.retrieve({ min: 3 });
+      members = [rec("a", 5), rec("b", 5)];
+      table.set("b", rec("b", 5));
+      release();
+      expect(await answer).toEqual([rec("a", 5)]);
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect
+        .poll(() => answers.getCached({ min: 3 }))
+        .toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
+    it("refetches an answer that another read changed before the first subscriber", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      const fetch = vi.fn(async () => table.keys());
+      const answers = listSpace(table, fetch);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      table.ingest("b", rec("b", 5));
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect
+        .poll(() => answers.getCached({ min: 3 }))
+        .toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
+    it("refetches when a write raced a read that the first subscriber joins", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      let members = [rec("a", 5)];
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+      const fetch = vi.fn(async () => {
+        const read = members;
+        await gate;
+        table.ingest(read);
+        return read.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch);
+      const answer = answers.retrieve({ min: 3 });
+      members = [rec("a", 5), rec("b", 5)];
+      table.set("b", rec("b", 5));
+      answers.onChange({ min: 3 }, vi.fn());
+      release();
+      expect(await answer).toEqual([rec("a", 5)]);
+      await expect
+        .poll(() => answers.getCached({ min: 3 }))
+        .toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
+    it("fetches a read made while a reconfirm runs", async () => {
+      const table = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockImplementationOnce(async () => [])
+        .mockImplementationOnce(async () => {
+          await sleep.sleep(TimeSpan.milliseconds(250));
+          return ["a"];
+        })
+        .mockImplementation(async () => ["a"]);
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      unsubscribe();
+      table.set("a", rec("a", 5));
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("fetches once for a subscriber that joins a read that reconfirms the answer", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        const read = members;
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        table.ingest(read);
+        return read.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      unsubscribe();
+      members = [rec("a", 5)];
+      table.set(members);
+      answers.onChange({ min: 3 }, vi.fn());
+      const answer = answers.retrieve({ min: 3 });
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(await answer).toEqual([rec("a", 5)]);
+      // Past the refetch debounce: a queued refetch would have run.
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("fetches a read after a refetch that a change asked for failed", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockImplementationOnce(async () => {
+          table.ingest("a", rec("a", 5));
+          return ["a"];
+        })
+        .mockRejectedValueOnce(new Error("refetch failed"))
+        .mockImplementation(async () => {
+          table.ingest([rec("a", 5), rec("b", 5)]);
+          return ["a", "b"];
+        });
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => r.value >= q.min,
+        triggers: [query.trigger(foreign, () => "refetch")],
+      });
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
+      foreign.set("f", rec("f", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5), rec("b", 5)]);
+    });
+
+    it("fetches a read after a reconfirm that failed", async () => {
+      const table = newTable();
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockImplementationOnce(async () => {
+          table.ingest("a", rec("a", 5));
+          return ["a"];
+        })
+        .mockRejectedValueOnce(new Error("refetch failed"))
+        .mockImplementation(async () => {
+          table.ingest([rec("a", 5), rec("b", 5)]);
+          return ["a", "b"];
+        });
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      unsubscribe();
+      table.set("c", rec("c", 1));
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5), rec("b", 5)]);
     });
 
     // Regression: membership is patched only on a ready query, so a record that
@@ -1222,7 +1969,7 @@ describe("Answers", () => {
   });
 
   describe("limited queries (rule 2)", () => {
-    type LimitQ = { min: number; limit?: number; offset?: number };
+    type LimitQ = { min: number; limit?: number; searchTerm?: string };
     const limitSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: LimitQ) => Promise<string[]>,
@@ -1233,7 +1980,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        serverFields: ["limit", "offset"],
+        serverFields: ["limit", "searchTerm"],
       });
     const fetchOf = (table: query.Table<string, Rec>, members: Rec[]) =>
       vi.fn(async () => {
@@ -1250,7 +1997,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3, limit: 2 });
       table.set("b", rec("b", 4));
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -1276,7 +2023,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3, limit: 2 });
       handler.mockClear();
       table.set("c", rec("c", 6));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(handler).not.toHaveBeenCalled();
       expect(fetch).toHaveBeenCalledTimes(1);
     });
@@ -1290,7 +2037,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3, limit: 3 });
       table.set("a", rec("a", 1));
       expect(handler).toHaveBeenLastCalledWith([rec("b", 4)]);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -1323,7 +2070,7 @@ describe("Answers", () => {
         rec("b", 4),
         rec("c", 6),
       ]);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -1333,8 +2080,7 @@ describe("Answers", () => {
       const answers = limitSpace(table, fetch);
       answers.onChange({ min: 3, limit: 2 }, vi.fn());
       await answers.retrieve({ min: 3, limit: 2 });
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       fetch.mockImplementationOnce(async () => {
         await gate;
         return ["b"];
@@ -1353,6 +2099,79 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
+    it("applies a change that raced a refetch over its answer", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      let bump = (_: number): void => {};
+      const answers = new Space<LimitQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { onEpoch: (callback) => ((bump = callback), () => {}) },
+      );
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      const refetched = Promise.withResolvers<string[]>();
+      fetch.mockImplementationOnce(async () => await refetched.promise);
+      bump(2);
+      table.set("b", rec("b", 2));
+      refetched.resolve(["a", "b"]);
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    describe("reconnect during the first fetch", () => {
+      const setup = () => {
+        const table = newTable();
+        const fetches: Array<PromiseWithResolvers<string[]>> = [];
+        let bump = (_: number): void => {};
+        const answers = new Space<LimitQ, Rec[], string, Rec>(
+          {
+            name: "things",
+            table,
+            fetch: async () => {
+              const fetched = Promise.withResolvers<string[]>();
+              fetches.push(fetched);
+              return await fetched.promise;
+            },
+            compose: (records) => records,
+            matches: (r, q) => r.value >= q.min,
+          },
+          { onEpoch: (callback) => ((bump = callback), () => {}) },
+        );
+        const handler = vi.fn();
+        answers.onChange({ min: 3 }, handler);
+        const pending = answers.retrieve({ min: 3 });
+        bump(1);
+        table.set("a", rec("a", 5));
+        return { answers, fetches, handler, pending };
+      };
+
+      it("refetches after the first fetch settles", async () => {
+        const { answers, fetches, handler, pending } = setup();
+        fetches[0].resolve([]);
+        expect(await pending).toEqual([rec("a", 5)]);
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
+        await expect.poll(() => handler.mock.calls.length).toBe(2);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+        expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      });
+
+      it("refetches after the first fetch fails", async () => {
+        const { answers, fetches, handler, pending } = setup();
+        fetches[0].reject(new Error("unreachable"));
+        await expect(pending).rejects.toThrow("unreachable");
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
+        await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+      });
+    });
+
     it("ignores a change to a record that never matched", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
@@ -1360,7 +2179,7 @@ describe("Answers", () => {
       answers.onChange({ min: 3, limit: 2 }, vi.fn());
       await answers.retrieve({ min: 3, limit: 2 });
       table.set("z", rec("z", 1));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -1378,8 +2197,8 @@ describe("Answers", () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5)]);
       const answers = limitSpace(table, fetch);
-      answers.onChange({ min: 3, limit: 2, offset: 1 }, vi.fn());
-      await answers.retrieve({ min: 3, limit: 2, offset: 1 });
+      answers.onChange({ min: 3, limit: 2, searchTerm: "a" }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, searchTerm: "a" });
       table.set("z", rec("z", 1));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
@@ -1436,6 +2255,31 @@ describe("Answers", () => {
       expect(handler).toHaveBeenCalledWith([]);
     });
 
+    it("keeps the newer of two refetches when the older lands first", async () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2), rec("c", 3)]);
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      const older = Promise.withResolvers<string[]>();
+      const newer = Promise.withResolvers<string[]>();
+      fetch
+        .mockImplementationOnce(async () => await older.promise)
+        .mockImplementationOnce(async () => await newer.promise);
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.set("z", rec("z", 10));
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      older.resolve(["b"]);
+      await scheduler.nextTask();
+      expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
+      newer.resolve(["c"]);
+      await expect
+        .poll(() => answers.getCached({ searchTerm: "x" }))
+        .toEqual([rec("c", 3)]);
+    });
+
     it("does not notify for a change to a non-member entry", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
@@ -1451,6 +2295,20 @@ describe("Answers", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    it("refetches an empty search term on a new record", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "" }, vi.fn());
+      await answers.retrieve({ searchTerm: "" });
+      table.set("z", rec("z", 9));
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("refetches wholesale after a debounced table change", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
@@ -1462,6 +2320,26 @@ describe("Answers", () => {
       answers.onChange({ searchTerm: "x" }, handler);
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(1);
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches wholesale when serverComputed holds", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = new Space<{ regex?: string }, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: () => true,
+        serverComputed: (q) => q.regex != null,
+      });
+      answers.onChange({ regex: "^a" }, vi.fn());
+      await answers.retrieve({ regex: "^a" });
       table.set("z", rec("z", 9));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
@@ -1481,6 +2359,7 @@ describe("Answers", () => {
       expect(await answers.retrieve({ searchTerm: "x" })).toEqual([]);
       unsubscribe();
       members = ["a"];
+      table.set("a", rec("a", 1));
       answers.onChange({ searchTerm: "x" }, vi.fn());
       await expect
         .poll(() => answers.getCached({ searchTerm: "x" }))
@@ -1506,7 +2385,7 @@ describe("Answers", () => {
       const pending = answers.retrieve({ searchTerm: "x" });
       members = ["a"];
       table.set("z", rec("z", 9));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       release();
       await pending;
@@ -1522,7 +2401,7 @@ describe("Answers", () => {
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(1);
       answers.onChange({ searchTerm: "x" }, vi.fn());
-      await wait(30);
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -1543,6 +2422,45 @@ describe("Answers", () => {
       expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
     });
 
+    it("fetches once when its own fetch finds new records", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.ingest(rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not refetch when another fetch finds new records", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => ["a"]);
+      table.set("a", rec("a", 1));
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      table.ingest([rec("b", 2), rec("c", 3)]);
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches when the stream sets a record another fetch found", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => ["a"]);
+      table.set("a", rec("a", 1));
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      table.ingest(rec("b", 2));
+      table.mirrorSet("b", rec("b", 2));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("coalesces rapid table changes into a single refetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
@@ -1556,7 +2474,7 @@ describe("Answers", () => {
       table.set("z2", rec("z2", 2));
       table.set("z3", rec("z3", 3));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
-      await wait(30);
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(fetch).toHaveBeenCalledTimes(2);
     });
   });
@@ -1565,6 +2483,30 @@ describe("Answers", () => {
     interface Rel extends record.Keyed<string> {
       key: string;
     }
+
+    it("notifies a server-computed answer of a content-only change without a fetch", async () => {
+      const primary = new query.Table<string, Rec>({ onError: () => {} });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      primary.set("a", rec("a", 1));
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>({
+        name: "things",
+        table: primary,
+        fetch,
+        compose: (records) => records,
+        triggers: [
+          query.trigger(foreign, (event) => [event.key], { contentOnly: true }),
+        ],
+      });
+      const handler = vi.fn();
+      answers.onChange({ tag: "t" }, handler);
+      await answers.retrieve({ tag: "t" });
+      handler.mockClear();
+      foreign.set("a", { key: "a" });
+      expect(handler).toHaveBeenCalled();
+      await sleep.sleep(TimeSpan.milliseconds(150));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
 
     it("rechecks and backfills keys surfaced by a foreign-table projection", async () => {
       const primary = new query.Table<string, Rec>({
@@ -1582,7 +2524,7 @@ describe("Answers", () => {
         },
         compose: (records) => records,
         matches: (r) => foreign.has(r.key),
-        watch: [query.watch(foreign, (event) => [event.key])],
+        triggers: [query.trigger(foreign, (event) => [event.key])],
       });
       const handler = vi.fn();
       answers.onChange({ tag: "t" }, handler);
@@ -1639,7 +2581,7 @@ describe("Answers", () => {
           fetch: async () => [],
           compose: (records) => records,
           matches: (r) => foreign.has(r.key),
-          watch: [query.watch(foreign, (event) => [event.key, "gone"])],
+          triggers: [query.trigger(foreign, (event) => [event.key, "gone"])],
         },
         { onError },
       );
@@ -1670,7 +2612,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records[0]?.value ?? 0,
         keyOf: (query) => query.k,
-        watch: [query.watch(foreign, () => "refetch")],
+        triggers: [query.trigger(foreign, () => "refetch")],
       });
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
@@ -1714,7 +2656,7 @@ describe("Answers", () => {
       });
       await answers.retrieve(qA);
       bump(2);
-      await wait(10);
+      await sleep.sleep(TimeSpan.milliseconds(10));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -1734,7 +2676,7 @@ describe("Answers", () => {
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
       bump(0);
-      await wait(10);
+      await sleep.sleep(TimeSpan.milliseconds(10));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
   });
@@ -1781,8 +2723,8 @@ describe("referential stability", () => {
       single: true,
     });
 
-  /** Query-dependent compose: the answer is assembled per read, as the channel
-   *  alias, device status, and rack status composes are. */
+  /** Query-dependent compose: the answer is assembled per read, as the device status
+   *  and rack status composes are. */
   const composingSpace = (
     table: query.Table<string, Doc>,
     suffix: () => string,
@@ -1848,7 +2790,7 @@ describe("referential stability", () => {
       compose: (records) => ({ ...records[0], name: `${records[0].name}${suffix}` }),
       keyOf: (query) => query.k,
       single: true,
-      watch: [query.watch(foreign, () => ["a"])],
+      triggers: [query.trigger(foreign, () => ["a"])],
     });
     const off = answers.onChange(qA, vi.fn());
     try {

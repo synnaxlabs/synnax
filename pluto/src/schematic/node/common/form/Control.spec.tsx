@@ -8,24 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Control } from "@/schematic/node/common/control";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
 
-const schema = z.object({ control: Control.stateConfigZ.optional() });
+const schema = z.object({ control: Control.stateConfigZ });
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const Stored = (): ReactElement => {
-  const control = Form.useFieldValue<Control.StateConfig | undefined>("control", {
-    optional: true,
-  });
-  return <div data-testid="stored">{JSON.stringify(control ?? null)}</div>;
+  const control = Form.useFieldValue(path.control);
+  return <div data-testid="stored">{JSON.stringify(control)}</div>;
 };
 
-const renderField = (control?: Control.StateConfig) => {
+const renderField = (control: Control.StateConfig) => {
   const Harness = (): ReactElement => {
     const methods = Form.use({ values: { control }, schema });
     return (
@@ -38,20 +39,19 @@ const renderField = (control?: Control.StateConfig) => {
   return render(<Harness />);
 };
 
-const stored = (c: ReturnType<typeof render>): Control.StateConfig | null =>
-  JSON.parse(c.getByTestId("stored").textContent ?? "null");
+const stored = (c: ReturnType<typeof render>): Control.StateConfig =>
+  Control.stateConfigZ.parse(JSON.parse(c.getByTestId("stored").textContent ?? ""));
 
 describe("ControlChipField", () => {
-  it("should read as on for a symbol with no control state", () => {
-    const c = renderField(undefined);
+  it("should read as on for the default control state", () => {
+    const c = renderField(Control.stateConfigZ.parse({}));
     expect(c.getByRole("checkbox")).toHaveProperty("checked", true);
-    expect(stored(c)).toBeNull();
   });
 
-  it("should hide the control state of a symbol with none when turned off", () => {
-    const c = renderField(undefined);
+  it("should hide the default control state when turned off", () => {
+    const c = renderField(Control.stateConfigZ.parse({}));
     fireEvent.click(c.getByRole("checkbox"));
-    expect(stored(c)?.hidden).toBe(true);
+    expect(stored(c)).toEqual(Control.stateConfigZ.parse({ hidden: true }));
   });
 
   it("should keep the rest of the control state when turned off", () => {

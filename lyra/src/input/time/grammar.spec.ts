@@ -46,10 +46,21 @@ describe("parseTimeSpan", () => {
     expect(parseTimeSpan("0.5")?.value.equals(TimeSpan.milliseconds(500))).toBe(true);
   });
 
+  it("should read a bare number in the given unit", () => {
+    expect(
+      parseTimeSpan("250", TimeSpan.MILLISECOND)?.value.equals(
+        TimeSpan.milliseconds(250),
+      ),
+    ).toBe(true);
+    expect(
+      parseTimeSpan("2s", TimeSpan.MILLISECOND)?.value.equals(TimeSpan.seconds(2)),
+    ).toBe(true);
+  });
+
   it("should say which form the duration took", () => {
     expect(parseTimeSpan("2h 30m")?.kind).toBe("units");
     expect(parseTimeSpan("1:30:00")?.kind).toBe("clock");
-    expect(parseTimeSpan("45")?.kind).toBe("seconds");
+    expect(parseTimeSpan("45")?.kind).toBe("number");
   });
 
   it("should reject text that is not a duration", () => {
@@ -95,6 +106,8 @@ describe("parseTimeStamp", () => {
       ["1756000000000", { kind: "epoch", unit: "milliseconds" }],
       ["1756000000000000000", { kind: "epoch", unit: "nanoseconds" }],
       ["2026-08-23T14:05:00Z", { kind: "iso" }],
+      ["2026-08-23 14:05:00Z", { kind: "iso" }],
+      ["2026-08-23 16:05+02:00", { kind: "iso" }],
       ["14:05", { kind: "clock" }],
       ["14:05:00.250 137", { kind: "clock" }],
       ["2026-08-23", { kind: "local" }],
@@ -203,6 +216,13 @@ describe("roundNumeric", () => {
     expect(roundNumeric(-1000)).toBe(-1000n);
     expect(roundNumeric(-400)).toBe(0n);
     expect(roundNumeric(-1600)).toBe(-2000n);
+  });
+
+  it("should round to the nearest step", () => {
+    expect(roundNumeric(62_500, TimeSpan.NANOSECOND)).toBe(62_500n);
+    expect(roundNumeric(-62_500, TimeSpan.NANOSECOND)).toBe(-62_500n);
+    expect(roundNumeric(15_000, TimeSpan.microseconds(10))).toBe(20_000n);
+    expect(roundNumeric(-14_000, TimeSpan.microseconds(10))).toBe(-10_000n);
   });
 });
 

@@ -16,14 +16,15 @@ import {
   type dimensions,
   direction,
   location,
+  map,
   type text,
   xy,
 } from "@synnaxlabs/x";
 
 import { text as aetherText } from "@/text/aether";
-import {
-  type FillTextOptions,
-  type SugaredOffscreenCanvasRenderingContext2D,
+import type {
+  FillTextOptions,
+  SugaredOffscreenCanvasRenderingContext2D,
 } from "@/vis/draw2d/canvas";
 
 export interface Draw2DLineProps {
@@ -68,13 +69,15 @@ export interface DrawTextProps extends Pick<FillTextOptions, "useAtlas"> {
   justify?: CanvasTextAlign;
   /**
    * Vertical placement. The canvas baselines place the em box, which the engines
-   * disagree on, so "center" centers the ink instead, for glyphs sitting on the
-   * baseline.
+   * disagree on, so "center" centers the font's cap height instead. Texts centered on
+   * one point share a baseline, whatever letters they hold.
    */
   align?: CanvasTextBaseline | "center";
   weight?: text.Weight;
   shade?: theme.Shade;
   maxWidth?: number;
+  /** fade fades text cut at maxWidth over this many pixels, in place of a hard cut. */
+  fade?: number;
   code?: boolean;
   color?: ColorSpec;
 }
@@ -118,6 +121,8 @@ export interface DrawList {
   root?: location.Corner;
   offset?: xy.XY;
   padding?: xy.XY;
+  /** The box the list stays inside. A list taller than it starts at its top. */
+  bound?: box.Box;
 }
 
 type ColorSpec = color.Crude | ((t: theme.Theme) => color.Color);
@@ -126,6 +131,7 @@ export class Draw2D {
   readonly canvas: SugaredOffscreenCanvasRenderingContext2D;
   readonly theme: theme.Theme;
   private charWidthCache: Partial<Record<text.Level, number>> = {};
+  private readonly capHeights = new Map<string, number>();
 
   constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theme.Theme) {
     this.canvas = canvas;
@@ -360,6 +366,7 @@ export class Draw2D {
     root = location.TOP_LEFT,
     offset = xy.ZERO,
     padding = xy.ZERO,
+    bound,
   }: DrawList): void {
     const height = length * itemHeight + padding.y * 2 + spacing * (length - 1);
     const wid = width + padding.x * 2;
@@ -368,6 +375,10 @@ export class Draw2D {
     else pos.x += offset.x;
     if (root.y === "top") pos.y -= height + offset.y * 2;
     else pos.y += offset.y;
+    if (bound != null) {
+      pos.x = Math.max(box.left(bound), Math.min(pos.x, box.right(bound) - wid));
+      pos.y = Math.max(box.top(bound), Math.min(pos.y, box.bottom(bound) - height));
+    }
     this.container({
       region: box.construct(pos, { width: wid, height }),
       backgroundColor: (t) => t.colors.gray.l1,
@@ -424,6 +435,7 @@ export class Draw2D {
     justify = "left",
     align = "top",
     useAtlas,
+    fade,
     color: colorVal,
   }: DrawTextProps): void {
     this.canvas.font = theme.fontString(this.theme, { level, weight, code });
@@ -435,11 +447,64 @@ export class Draw2D {
     const centered = align === "center";
     this.canvas.textBaseline = centered ? "alphabetic" : align;
     let y = position.y;
-    if (centered) y += this.canvas.textDimensions(text, { useAtlas }).height / 2;
+    if (centered) y += this.capHeight() / 2;
     let removeScissor: destructor.Destructor | undefined;
-    if (maxWidth != null)
+    if (maxWidth != null && fade != null) {
+      if (this.canvas.textDimensions(text).width > maxWidth)
+        return this.canvas.fillText(text, position.x, y, undefined, {
+          fade: { end: maxWidth, width: fade },
+        });
+    } else if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
     this.canvas.fillText(text, position.x, y, undefined, { useAtlas });
     removeScissor?.();
+  }
+
+  /**
+   * @returns text broken at spaces into lines no wider than width. A word wider than
+   * width breaks between letters.
+   */
+  wrap({
+    text,
+    width,
+    level,
+    weight,
+    code,
+  }: Pick<DrawTextProps, "text" | "level" | "weight" | "code"> & {
+    width: number;
+  }): string[] {
+    this.canvas.font = theme.fontString(this.theme, { level, weight, code });
+    const fits = (v: string): boolean => this.canvas.measureText(v).width <= width;
+    const lines: string[] = [];
+    let line = "";
+    text
+      .split(/\s+/)
+      .filter((word) => word.length > 0)
+      .forEach((word) => {
+        const next = line === "" ? word : `${line} ${word}`;
+        if (fits(next)) {
+          line = next;
+          return;
+        }
+        if (line !== "") lines.push(line);
+        let rest = word;
+        while (rest.length > 1 && !fits(rest)) {
+          let n = rest.length - 1;
+          while (n > 1 && !fits(rest.slice(0, n))) n--;
+          lines.push(rest.slice(0, n));
+          rest = rest.slice(n);
+        }
+        line = rest;
+      });
+    if (line !== "" || lines.length === 0) lines.push(line);
+    return lines;
+  }
+
+  private capHeight(): number {
+    return map.getOrInsert(
+      this.capHeights,
+      this.canvas.font,
+      () => this.canvas.measureText("H").actualBoundingBoxAscent,
+    );
   }
 }

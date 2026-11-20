@@ -20,6 +20,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/x/set"
 )
 
 const (
@@ -54,8 +55,9 @@ func Format(source string) (string, error) {
 	}
 
 	f := &formatter{
-		tokens: stream,
-		sb:     &strings.Builder{},
+		tokens:  stream,
+		sb:      &strings.Builder{},
+		emitted: make(set.Set[int]),
 	}
 
 	f.formatSchema(tree)
@@ -79,9 +81,10 @@ func (e *errorListener) SyntaxError(
 }
 
 type formatter struct {
-	tokens        *antlr.CommonTokenStream
-	sb            *strings.Builder
-	lastTokenIdx  int
+	tokens *antlr.CommonTokenStream
+	sb     *strings.Builder
+	// emitted holds the token indices of the comments already written.
+	emitted       set.Set[int]
 	currentIndent int
 	// currentDomain is the name of the domain whose content is being emitted ("doc",
 	// "go", ...); doc strings get prose layout rules.
@@ -93,7 +96,7 @@ func (f *formatter) write(s string) { f.sb.WriteString(s) }
 func (f *formatter) writeLine(s string) { f.sb.WriteString(s); f.sb.WriteString("\n") }
 
 func (f *formatter) writeIndent() {
-	for i := 0; i < f.currentIndent; i++ {
+	for range f.currentIndent {
 		f.sb.WriteString(indent)
 	}
 }
@@ -118,7 +121,7 @@ func (f *formatter) emitLeadingComments() bool {
 				}
 				f.writeLine(tok.GetText())
 				prevEndLine = tok.GetLine() + strings.Count(tok.GetText(), "\n")
-				f.lastTokenIdx = tok.GetTokenIndex()
+				f.emitted.Add(tok.GetTokenIndex())
 				emitted = true
 			}
 		} else if tok.GetChannel() == antlr.TokenDefaultChannel {
@@ -135,16 +138,37 @@ func (f *formatter) emitLeadingComments() bool {
 
 // emitCommentsBefore emits any comments that appear before the given token index.
 func (f *formatter) emitCommentsBefore(tokenIdx int) {
-	hiddenTokens := f.tokens.GetHiddenTokensToLeft(tokenIdx, hiddenChan)
-	for _, tok := range hiddenTokens {
-		if tok.GetTokenIndex() <= f.lastTokenIdx {
+	for _, tok := range f.commentsBefore(tokenIdx) {
+		if f.emitted.Contains(tok.GetTokenIndex()) {
 			continue
 		}
-		text := tok.GetText()
 		f.writeIndent()
-		f.writeLine(text)
-		f.lastTokenIdx = tok.GetTokenIndex()
+		f.writeLine(tok.GetText())
+		f.emitted.Add(tok.GetTokenIndex())
 	}
+}
+
+// commentsBefore returns, in source order, the comments between tokenIdx and the
+// previous token that is neither a comment nor a newline. It excludes trailing
+// comments on the line of that previous token.
+func (f *formatter) commentsBefore(tokenIdx int) []antlr.Token {
+	var comments, pending []antlr.Token
+	for i := tokenIdx - 1; i >= 0; i-- {
+		tok := f.tokens.Get(i)
+		if tok.GetChannel() == hiddenChan {
+			pending = append(pending, tok)
+			continue
+		}
+		if tok.GetTokenType() != parser.OracleLexerNEWLINE {
+			pending = nil
+			break
+		}
+		comments = append(comments, pending...)
+		pending = nil
+	}
+	comments = append(comments, pending...)
+	slices.Reverse(comments)
+	return comments
 }
 
 func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
@@ -161,24 +185,17 @@ func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 		f.newline()
 	}
 
-	// Format imports in alphabetical order. Comments in the import region are emitted
-	// up front so reordering cannot drop or duplicate them.
+	// Format imports in alphabetical order.
 	imports := ctx.AllImportStmt()
 	if len(imports) > 0 {
-		f.emitCommentsBefore(imports[len(imports)-1].GetStart().GetTokenIndex())
 		sorted := make([]parser.IImportStmtContext, len(imports))
 		copy(sorted, imports)
 		sort.Slice(sorted, func(i, j int) bool {
 			return sorted[i].STRING_LIT().GetText() < sorted[j].STRING_LIT().GetText()
 		})
-		maxStop := f.lastTokenIdx
 		for _, imp := range sorted {
 			f.formatImport(imp)
-			if stop := imp.GetStop().GetTokenIndex(); stop > maxStop {
-				maxStop = stop
-			}
 		}
-		f.lastTokenIdx = maxStop
 	}
 
 	// Blank line after imports
@@ -215,7 +232,6 @@ func (f *formatter) formatImport(ctx parser.IImportStmtContext) {
 	f.write("import ")
 	f.write(ctx.STRING_LIT().GetText())
 	f.newline()
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
@@ -251,7 +267,6 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 			)
 		}
 		f.newline()
-		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
 	}
 }
 
@@ -298,14 +313,17 @@ func (f *formatter) formatExpressionAligned(
 }
 
 func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
-	if ctx.StructDef() != nil {
+	switch {
+	case ctx.StructDef() != nil:
 		f.formatStructDef(ctx.StructDef())
-	} else if ctx.EnumDef() != nil {
+	case ctx.EnumDef() != nil:
 		f.formatEnumDef(ctx.EnumDef())
-	} else if ctx.TypeDefDef() != nil {
+	case ctx.TypeDefDef() != nil:
 		f.formatTypeDefDef(ctx.TypeDefDef())
-	} else if ctx.UnionDef() != nil {
+	case ctx.UnionDef() != nil:
 		f.formatUnionDef(ctx.UnionDef())
+	case ctx.FilterDef() != nil:
+		f.formatFilterDef(ctx.FilterDef())
 	}
 }
 
@@ -344,7 +362,6 @@ func (f *formatter) formatStructFull(ctx *parser.StructFullContext) {
 	body := ctx.StructBody()
 	if isEmptyStructBody(body) {
 		f.writeLine(" {}")
-		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}
 
@@ -353,7 +370,6 @@ func (f *formatter) formatStructFull(ctx *parser.StructFullContext) {
 	f.formatStructBody(body)
 	f.currentIndent--
 	f.writeLine("}")
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func isEmptyStructBody(ctx parser.IStructBodyContext) bool {
@@ -376,7 +392,6 @@ func (f *formatter) formatStructAlias(ctx *parser.StructAliasContext) {
 	} else {
 		f.newline()
 	}
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func (f *formatter) formatAliasBody(ctx parser.IAliasBodyContext) {
@@ -390,6 +405,7 @@ func (f *formatter) formatAliasBody(ctx parser.IAliasBodyContext) {
 	f.currentIndent++
 	f.formatDomains(domains)
 	f.currentIndent--
+	f.writeIndent()
 	f.writeLine("}")
 }
 
@@ -543,6 +559,17 @@ func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
 	f.write("action ")
 	f.write(ctx.IDENT().GetText())
 
+	if tr := ctx.TypeRef(); tr != nil {
+		f.write(" = ")
+		f.formatTypeRef(tr)
+		if body := ctx.AliasBody(); body != nil {
+			f.formatAliasBody(body)
+		} else {
+			f.newline()
+		}
+		return
+	}
+
 	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
 		f.write(" extends ")
 		typeRefs := ctx.TypeRefList().AllTypeRef()
@@ -557,7 +584,6 @@ func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
 	body := ctx.ActionBody()
 	if body == nil || isEmptyActionBody(body) {
 		f.writeLine(" {}")
-		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}
 
@@ -567,7 +593,6 @@ func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
 	f.currentIndent--
 	f.writeIndent()
 	f.writeLine("}")
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func isEmptyActionBody(ctx parser.IActionBodyContext) bool {
@@ -575,9 +600,28 @@ func isEmptyActionBody(ctx parser.IActionBodyContext) bool {
 }
 
 func (f *formatter) formatActionBody(ctx parser.IActionBodyContext) {
-	fields := ctx.AllFieldDef()
-	domains := ctx.AllDomain()
+	f.formatFieldsAndDomains(ctx.AllFieldDef(), ctx.AllDomain())
+}
 
+func (f *formatter) formatFilterDef(ctx parser.IFilterDefContext) {
+	idents := ctx.AllIDENT()
+	f.write(idents[0].GetText() + " " + idents[1].GetText() + " ")
+	f.formatTypeRef(ctx.TypeRef())
+	body := ctx.FilterBody()
+	if body == nil || len(body.AllFieldDef())+len(body.AllDomain()) == 0 {
+		f.writeLine(" {}")
+		return
+	}
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatFieldsAndDomains(body.AllFieldDef(), body.AllDomain())
+	f.currentIndent--
+	f.writeLine("}")
+}
+
+func (f *formatter) formatFieldsAndDomains(
+	fields []parser.IFieldDefContext, domains []parser.IDomainContext,
+) {
 	maxNameLen := 0
 	maxTypeLen := 0
 	for _, field := range fields {
@@ -608,7 +652,6 @@ func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
 	f.write("-")
 	f.write(ctx.IDENT().GetText())
 	f.newline()
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func (f *formatter) formatFieldDefAligned(
@@ -673,8 +716,6 @@ func (f *formatter) formatFieldDefAligned(
 	} else {
 		f.newline()
 	}
-
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func (f *formatter) writePadding(n int) {
@@ -989,12 +1030,10 @@ func (f *formatter) formatFieldWithBraces(
 	f.currentIndent++
 
 	// Inline domains convert to body lines here, so both kinds sort as one group.
-	// Body-sourced lines keep their comment and watermark handling; the max keeps the
-	// watermark monotone when sorting emits them out of source order.
+	// Body-sourced lines keep their comments.
 	type fieldDomain struct {
 		domainLine
 		body bool
-		stop antlr.Token
 	}
 	var domains []fieldDomain
 	for _, dom := range inlineDomains {
@@ -1004,7 +1043,7 @@ func (f *formatter) formatFieldWithBraces(
 		for _, dom := range fieldBody.AllDomain() {
 			domains = append(
 				domains,
-				fieldDomain{domainLine: dom, body: true, stop: dom.GetStop()},
+				fieldDomain{domainLine: dom, body: true},
 			)
 		}
 	}
@@ -1040,9 +1079,6 @@ func (f *formatter) formatFieldWithBraces(
 			)
 		}
 		f.newline()
-		if dom.body {
-			f.lastTokenIdx = max(f.lastTokenIdx, dom.stop.GetTokenIndex())
-		}
 	}
 
 	// Domain removals (-@name): field-level markers first, then body markers.
@@ -1059,7 +1095,6 @@ func (f *formatter) formatFieldWithBraces(
 			f.write("-@")
 			f.write(om.IDENT().GetText())
 			f.newline()
-			f.lastTokenIdx = om.GetStop().GetTokenIndex()
 		}
 	}
 
@@ -1094,19 +1129,15 @@ func domainCommand(content parser.IDomainContentContext) string {
 }
 
 // sortDomainLines returns the lines ordered by domain name, then leading command
-// ("@go marshal" before "@go migrate"), with a stable sort. A group with an attached
-// comment keeps source order: emission tracks a comment watermark, and reordering
-// across a comment would drop it.
+// ("@go marshal" before "@go migrate"), with a stable sort. A group with an unwritten
+// comment keeps source order, so the comment stays beside the lines it describes.
 func (f *formatter) sortDomainLines[T domainLine](domains []T) []T {
 	if len(domains) < 2 {
 		return domains
 	}
 	for _, dom := range domains {
-		hidden := f.tokens.GetHiddenTokensToLeft(
-			dom.GetStart().GetTokenIndex(), hiddenChan,
-		)
-		for _, tok := range hidden {
-			if tok.GetTokenIndex() > f.lastTokenIdx {
+		for _, tok := range f.commentsBefore(dom.GetStart().GetTokenIndex()) {
+			if !f.emitted.Contains(tok.GetTokenIndex()) {
 				return domains
 			}
 		}
@@ -1157,7 +1188,6 @@ func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 			)
 		}
 		f.newline()
-		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
 	}
 }
 
@@ -1354,17 +1384,18 @@ func (f *formatter) writeWrappedDoc(value string) {
 }
 
 func (f *formatter) formatExpressionValue(ctx parser.IExpressionValueContext) {
-	if ctx.TRIPLE_STRING_LIT() != nil {
+	switch {
+	case ctx.TRIPLE_STRING_LIT() != nil:
 		f.write(ctx.TRIPLE_STRING_LIT().GetText())
-	} else if ctx.STRING_LIT() != nil {
+	case ctx.STRING_LIT() != nil:
 		f.write(ctx.STRING_LIT().GetText())
-	} else if ctx.INT_LIT() != nil {
+	case ctx.INT_LIT() != nil:
 		f.write(ctx.INT_LIT().GetText())
-	} else if ctx.FLOAT_LIT() != nil {
+	case ctx.FLOAT_LIT() != nil:
 		f.write(ctx.FLOAT_LIT().GetText())
-	} else if ctx.BOOL_LIT() != nil {
+	case ctx.BOOL_LIT() != nil:
 		f.write(ctx.BOOL_LIT().GetText())
-	} else if ctx.QualifiedIdent() != nil {
+	case ctx.QualifiedIdent() != nil:
 		f.formatQualifiedIdent(ctx.QualifiedIdent())
 	}
 }
@@ -1446,7 +1477,6 @@ func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 
 	if len(values) == 0 && len(domains) == 0 {
 		f.writeLine(" {}")
-		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}
 
@@ -1478,7 +1508,6 @@ func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 
 	f.currentIndent--
 	f.writeLine("}")
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
@@ -1528,14 +1557,12 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 				)
 			}
 			f.newline()
-			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
 		}
 		f.currentIndent--
 		f.writeIndent()
 		f.write("}")
 	}
 	f.newline()
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
@@ -1564,7 +1591,6 @@ func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
 	body := ctx.UnionBody()
 	if isEmptyUnionBody(body) {
 		f.writeLine(" {}")
-		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}
 
@@ -1573,11 +1599,11 @@ func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
 	f.formatUnionBody(body)
 	f.currentIndent--
 	f.writeLine("}")
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func isEmptyUnionBody(ctx parser.IUnionBodyContext) bool {
-	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 && len(ctx.AllDomain()) == 0)
+	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 &&
+		len(ctx.AllActionDef()) == 0 && len(ctx.AllDomain()) == 0)
 }
 
 func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
@@ -1598,7 +1624,19 @@ func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
 		f.formatUnionVariant(v, maxNameLen)
 	}
 
-	if len(variants) > 0 && len(domains) > 0 {
+	actions := ctx.AllActionDef()
+	if len(variants) > 0 && len(actions) > 0 {
+		f.newline()
+	}
+	for i, action := range actions {
+		f.emitCommentsBefore(action.GetStart().GetTokenIndex())
+		f.formatActionDef(action)
+		if i < len(actions)-1 {
+			f.newline()
+		}
+	}
+
+	if (len(variants) > 0 || len(actions) > 0) && len(domains) > 0 {
 		f.newline()
 	}
 	f.formatDomains(domains)
@@ -1624,7 +1662,6 @@ func (f *formatter) formatNamedVariant(ctx *parser.NamedVariantContext, nameWidt
 	body := ctx.UnionVariantBody()
 	if body == nil || len(body.AllDomain()) == 0 {
 		f.newline()
-		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}
 
@@ -1634,7 +1671,6 @@ func (f *formatter) formatNamedVariant(ctx *parser.NamedVariantContext, nameWidt
 	f.currentIndent--
 	f.writeIndent()
 	f.writeLine("}")
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 // formatInlineVariant renders an inline variant body with struct-body formatting: name,
@@ -1657,7 +1693,6 @@ func (f *formatter) formatInlineVariant(ctx *parser.InlineVariantContext) {
 		(len(body.AllFieldDef()) == 0 && len(body.AllDomain()) == 0 &&
 			len(body.AllFieldOmit()) == 0 && len(body.AllActionDef()) == 0) {
 		f.writeLine(" {}")
-		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}
 
@@ -1667,7 +1702,6 @@ func (f *formatter) formatInlineVariant(ctx *parser.InlineVariantContext) {
 	f.currentIndent--
 	f.writeIndent()
 	f.writeLine("}")
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
 func (f *formatter) formatTypeDefDef(ctx parser.ITypeDefDefContext) {
@@ -1682,7 +1716,6 @@ func (f *formatter) formatTypeDefDef(ctx parser.ITypeDefDefContext) {
 	body := ctx.TypeDefBody()
 	if body == nil || len(body.AllDomain()) == 0 {
 		f.newline()
-		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}
 
@@ -1692,5 +1725,4 @@ func (f *formatter) formatTypeDefDef(ctx parser.ITypeDefDefContext) {
 	f.formatDomains(body.AllDomain())
 	f.currentIndent--
 	f.writeLine("}")
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }

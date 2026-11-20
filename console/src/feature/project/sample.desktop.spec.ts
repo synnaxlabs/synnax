@@ -9,10 +9,10 @@
 
 import {
   type arc,
-  lineplot,
+  type lineplot,
   type panel,
   project,
-  schematic,
+  type schematic,
   TimeStamp,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
@@ -45,7 +45,7 @@ const resourceKeys = (node: panel.Node): string[] => {
 };
 
 const retrieveSample = async (key: project.Key): Promise<Sample> => {
-  const panels = await client.panels.retrieve({ parent: project.ontologyID(key) });
+  const panels = await client.panels.retrieve({ projects: [key] });
   expect(panels).toHaveLength(1);
   const { key: panelKey, root } = panels[0];
   if (root.variant !== "split" || root.first.variant !== "split")
@@ -147,14 +147,16 @@ describe("Sample project", () => {
     const [time, pt, cmd, state] = names.map(
       (name) => channels.find((ch) => ch.name === name)?.key,
     );
-    const sch = await client.schematics.retrieve({ key: sample.schematic });
-    expect(sch.configs.press_vlv).toMatchObject({
+    const configs = client.schematics.configsOf(
+      await client.schematics.retrieve({ key: sample.schematic }),
+    );
+    expect(configs.press_vlv).toMatchObject({
       variant: "valve",
       commandChannel: cmd,
       stateChannel: state,
     });
-    expect(sch.configs.tank).toMatchObject({ variant: "tank", channel: pt });
-    expect(sch.configs.tank_pt).toMatchObject({ variant: "value", channel: pt });
+    expect(configs.tank).toMatchObject({ variant: "tank", channel: pt });
+    expect(configs.tank_pt).toMatchObject({ variant: "value", channel: pt });
     const plot = await client.lineplots.retrieve({ key: sample.linePlot });
     expect(plot.channels.x1).toBe(time);
     expect(plot.channels.y1).toEqual([pt]);
@@ -218,25 +220,43 @@ describe("Sample project", () => {
 
   it("should reset the sample after the user confirms", async () => {
     const { sample, open, waitForOpened } = await openFromPalette();
-    await client.projects.rename(sample.project, "My tank");
     const sequence = await retrieveSequence(sample);
-    await client.arcs.create({
-      ...sequence,
-      text: { raw: sequence.text.raw.replace("duration=10s", "duration=20s") },
-    });
+    await client.projects.rename(sample.project, "My tank");
+    await client.schematics.rename(sample.schematic, "My schematic");
+    await client.arcs.rename(sequence.key, "My sequence");
     await open();
     expect(await screen.findByText(CONFIRM)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
-    await waitFor(async () =>
+    await waitFor(async () => {
       expect((await client.projects.retrieve({ key: sample.project })).name).toBe(
         "Sample project",
-      ),
-    );
-    await waitFor(async () =>
-      expect((await retrieveSequence(sample)).text.raw).toContain("duration=10s"),
-    );
+      );
+      expect((await client.schematics.retrieve(sample.schematic)).name).toBe("Tank");
+      expect((await client.arcs.retrieve(sequence.key)).name).toBe("Press sequence");
+    });
     await waitForOpened(sample);
     expect((await retrieveSample(sample.project)).arcs).toEqual(sample.arcs);
+  });
+
+  it("should keep the visualizations that the user added on a reset", async () => {
+    const { sample, open, waitForOpened } = await openFromPalette();
+    const own = await client.lineplots.create({
+      project: sample.project,
+      name: "My plot",
+    });
+    try {
+      await open();
+      fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
+      await waitForOpened(sample);
+      await waitFor(async () => {
+        const plots = await client.lineplots.retrieve({ projects: [sample.project] });
+        expect(plots.map(({ key }) => key).sort()).toEqual(
+          [own.key, sample.linePlot].sort(),
+        );
+      });
+    } finally {
+      await client.lineplots.delete(own.key);
+    }
   });
 
   it("should keep the sample when the user cancels the reset", async () => {
@@ -280,17 +300,37 @@ describe("Sample project", () => {
     }
   });
 
+  it("should move the schematic out of its group on a reset", async () => {
+    const { sample, open, waitForOpened } = await openFromPalette();
+    const folder = await client.groups.create({
+      parent: project.resourceID(sample.project),
+      name: "Folder",
+    });
+    await client.batch.send(
+      client.schematics.setGroupRequest(sample.schematic, folder.key),
+    );
+    await open();
+    fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
+    await waitFor(async () =>
+      expect(
+        (await client.schematics.retrieve(sample.schematic)).group,
+      ).toBeUndefined(),
+    );
+    await waitForOpened(sample);
+    await client.groups.delete(folder.key);
+  });
+
   it("should relink the schematic and plot after a project delete", async () => {
     const { sample, open, waitForOpened } = await openFromPalette();
     await client.projects.delete(sample.project);
     await open();
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: project.ontologyID(sample.project),
+      const schematics = await client.schematics.retrieve({
+        projects: [sample.project],
       });
-      const ids = children.map(({ id }) => id);
-      expect(ids).toContainEqual(schematic.ontologyID(sample.schematic));
-      expect(ids).toContainEqual(lineplot.ontologyID(sample.linePlot));
+      const plots = await client.lineplots.retrieve({ projects: [sample.project] });
+      expect(schematics.map(({ key }) => key)).toContain(sample.schematic);
+      expect(plots.map(({ key }) => key)).toContain(sample.linePlot);
     });
     await waitForOpened(sample);
   });

@@ -21,6 +21,21 @@ const renderSVG = (props: Icon.IconProps): SVGSVGElement => {
 };
 
 describe("Icon", () => {
+  describe("createFromPath", () => {
+    it("should fill the path in the icon's color under the icon's name", () => {
+      const Glyph = Icon.createFromPath("glyph", "M2,2h20v20h-20z");
+      const { container } = render(<Glyph color="#dc136c" />);
+      const svg = container.querySelector("svg");
+      expect(svg?.getAttribute("class")).toContain(CSS.BM("icon", "glyph"));
+      expect(svg?.getAttribute("viewBox")).toEqual("0 0 24 24");
+      expect(svg?.getAttribute("fill")).toEqual("currentColor");
+      expect(svg?.getAttribute("color")).toEqual("#dc136c");
+      expect(container.querySelector("path")?.getAttribute("d")).toEqual(
+        "M2,2h20v20h-20z",
+      );
+    });
+  });
+
   describe("tint", () => {
     it("should leave the icon's color alone without a color", () => {
       const svg = renderSVG(Icon.tint());
@@ -43,6 +58,45 @@ describe("Icon", () => {
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toEqual(
         "220, 19, 108",
       );
+    });
+  });
+
+  describe("Dot", () => {
+    it("should put its color on its svg, as the other icons do", () => {
+      const { container } = render(
+        <>
+          <Icon.Dot color="#3774d0" />
+          <Icon.Circle color="#3774d0" />
+        </>,
+      );
+      const [dot, circle] = container.querySelectorAll("svg");
+      expect(dot.getAttribute("color")).not.toBeNull();
+      expect(dot.getAttribute("color")).toEqual(circle.getAttribute("color"));
+    });
+  });
+
+  describe("resolve", () => {
+    it("should render the icon at a path in the registry", () => {
+      const { container } = render(Icon.resolve("Arrow.Up"));
+      expect(container.querySelector("svg")?.getAttribute("class")).toContain(
+        CSS.BM("icon", "arrow-up"),
+      );
+    });
+
+    it("should throw for a path the registry does not hold", () => {
+      expect(() => Icon.resolve("Arrow.Sideways")).toThrow(
+        "Unable to find icon with path Arrow.Sideways in registry",
+      );
+    });
+
+    it("should throw for a path under a group the registry does not hold", () => {
+      expect(() => Icon.resolve("Missing.Up")).toThrow(
+        "Unable to find icon with path Missing.Up in registry",
+      );
+    });
+
+    it("should return undefined for no icon", () => {
+      expect(Icon.resolve()).toBeUndefined();
     });
   });
 });

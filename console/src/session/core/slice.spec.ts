@@ -124,10 +124,51 @@ describe("setClusterKey", () => {
 });
 
 describe("defaults", () => {
-  it("should start with the local and demo Cores under their own keys", () => {
-    expect(Object.keys(Core.ZERO_SLICE_STATE.cores).sort()).toEqual(
-      ["DEMO", "LOCAL"].sort(),
-    );
+  it("should start with only the local Core", () => {
+    expect(Object.keys(Core.ZERO_SLICE_STATE.cores)).toEqual(["LOCAL"]);
+  });
+});
+
+describe("sliceStateZ", () => {
+  const DEMO: Core.Core = {
+    ...BASE,
+    key: "DEMO",
+    name: "Demo",
+    host: "demo.synnaxlabs.com",
+    secure: true,
+  };
+
+  it("should drop the retired demo Core from saved state", () => {
+    const state = Core.sliceStateZ.parse({
+      version: 0,
+      selected: ALPHA.key,
+      cores: { [ALPHA.key]: ALPHA, DEMO },
+    });
+    expect(state).toEqual({
+      version: 0,
+      selected: ALPHA.key,
+      cores: { [ALPHA.key]: ALPHA },
+    });
+  });
+
+  it("should clear the selection when it named the retired demo Core", () => {
+    const state = Core.sliceStateZ.parse({
+      version: 0,
+      selected: "DEMO",
+      cores: { [ALPHA.key]: ALPHA, DEMO },
+    });
+    expect(state.selected).toBeUndefined();
+  });
+
+  it("should keep a demo record repointed at another host", () => {
+    const repointed = { ...DEMO, host: "mine.example.com" };
+    const state = Core.sliceStateZ.parse({
+      version: 0,
+      selected: "DEMO",
+      cores: { DEMO: repointed },
+    });
+    expect(state.cores.DEMO).toEqual(repointed);
+    expect(state.selected).toBe("DEMO");
   });
 });
 
@@ -162,12 +203,12 @@ describe("remove", () => {
 
 describe("select / clearSelected", () => {
   it("should set the selected key", () => {
-    const state = reduce(Core.ZERO_SLICE_STATE, Core.select("DEMO"));
-    expect(state.selected).toBe("DEMO");
+    const state = reduce(withCores(ALPHA), Core.select(ALPHA.key));
+    expect(state.selected).toBe(ALPHA.key);
   });
 
   it("should clear the selected key", () => {
-    let state = reduce(Core.ZERO_SLICE_STATE, Core.select("DEMO"));
+    let state = reduce(withCores(ALPHA), Core.select(ALPHA.key));
     state = reduce(state, Core.clearSelected());
     expect(state.selected).toBeUndefined();
   });

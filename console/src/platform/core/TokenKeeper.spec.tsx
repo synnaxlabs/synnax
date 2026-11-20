@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Synnax as Client } from "@synnaxlabs/client";
+import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
@@ -17,7 +17,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -75,11 +75,9 @@ describe("Core.TokenKeeper", () => {
   it("should save the new token after the user sets its own password", async () => {
     const calls = recordKeychain();
     const username = `keeper-${id.create()}`;
-    await createTestClient().users.create({
-      username,
-      password: "old",
-      name: "Keeper",
-    });
+    const admin = createTestClient();
+    const { key: role } = await createEmptyRole(admin);
+    await admin.users.create({ username, password: "old", name: "Keeper", role });
     const core = createCore("Local", { username, password: "old" });
     const grabbed: { client?: Client | null } = {};
     const Grab = (): null => {

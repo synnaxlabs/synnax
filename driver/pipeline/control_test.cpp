@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <future>
 #include <thread>
 
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
@@ -177,5 +180,110 @@ TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
     control.stop();
     ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
     ASSERT_EQ(sink->opens.load(), 0);
+}
+
+namespace {
+/// @brief answers each open with the next scripted error.
+class ScriptedStreamerFactory final : public StreamerFactory {
+    std::vector<x::errors::Error> errors;
+
+public:
+    std::atomic<size_t> opens{0};
+
+    explicit ScriptedStreamerFactory(std::vector<x::errors::Error> errors):
+        errors(std::move(errors)) {}
+
+    std::pair<std::unique_ptr<Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        return {nullptr, this->errors.at(this->opens.fetch_add(1))};
+    }
+};
+}
+
+/// @brief it should open the streamer again while the Core is unreachable, past the
+/// retry limit of the breaker, and stop on another error.
+TEST(ControlPipeline, RetriesOpenWhileCoreUnreachable) {
+    const auto factory = std::make_shared<ScriptedStreamerFactory>(std::vector{
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        x::errors::UNKNOWN,
+    });
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 1,
+        }
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
+}
+
+/// @brief it should retry a hardware error right after the Core comes back from an
+/// outage longer than the retry limit of the breaker.
+TEST(ControlPipeline, RetriesHardwareErrorAfterCoreOutage) {
+    auto fr_1 = x::telem::Frame(1);
+    fr_1.emplace(1, x::telem::Series(1.0));
+    auto fr_2 = x::telem::Frame(1);
+    fr_2.emplace(1, x::telem::Series(2.0));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    reads->push_back(std::move(fr_1));
+    reads->push_back(std::move(fr_2));
+    const auto factory = std::make_shared<testutil::StreamerFactory>(
+        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL},
+        std::make_shared<std::vector<testutil::StreamerConfig>>(
+            std::vector{testutil::StreamerConfig{reads, nullptr, x::errors::NIL}}
+        )
+    );
+    const auto sink = std::make_shared<testutil::Sink>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>(
+            std::vector{x::errors::Error(errors::TEMPORARY_HARDWARE_ERROR)}
+        )
+    );
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{.channels = {1}},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 1,
+        }
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
+    control.stop();
+    ASSERT_NIL(sink->stop_err);
+}
+
+/// @brief it should stop with the license error when the Core stays unlicensed past
+/// the retry limit of the breaker.
+TEST(ControlPipeline, StopsOnLicenseErrorPastLimit) {
+    const auto factory = std::make_shared<ScriptedStreamerFactory>(std::vector{
+        synnax::errors::LICENSE_MISSING,
+        synnax::errors::LICENSE_MISSING,
+        x::errors::UNKNOWN,
+    });
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 1,
+        }
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_FALSE(control.running());
+    control.stop();
+    ASSERT_EQ(factory->opens.load(), 2);
+    ASSERT_MATCHES(sink->stop_err, synnax::errors::LICENSE_MISSING);
 }
 }

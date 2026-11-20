@@ -13,13 +13,13 @@ import "@synnaxlabs/lyra/dist/tree/Item.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Caret } from "@synnaxlabs/lyra/caret";
-import { type CSS } from "@synnaxlabs/lyra/css";
+import type { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { SECTION_ICONS } from "@/components/nav/icons";
 import { ancestry, type PageNavNode } from "@/components/nav/tree";
-import { InlineCode } from "@/components/text/InlineCode";
+import { Text as DocsText } from "@/components/text";
 import { normalizeRoute } from "@/util/route";
 
 const ITEM_CLASS = "lyra-tree__item lyra--margin lyra-list__item";
@@ -80,7 +80,7 @@ const Section = ({ node }: Row): ReactElement => (
     {caret(true)}
     {SECTION_ICONS[idOf(node)]}
     <Text.Text level="p" weight={500}>
-      <InlineCode text={node.name} />
+      <DocsText.InlineCode text={node.name} />
     </Text.Text>
   </Button.Button>
 );
@@ -117,7 +117,7 @@ const Item = ({
     >
       {parent && caret(expanded)}
       <Text.Text weight={450}>
-        <InlineCode text={node.name} />
+        <DocsText.InlineCode text={node.name} />
       </Text.Text>
     </Button.Button>
   );

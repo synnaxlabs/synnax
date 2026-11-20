@@ -15,29 +15,27 @@
 
 #include "client/cpp/ethercat/json.gen.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/write_task.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
-#include "driver/ethercat/topology/topology.h"
+#include "driver/ethercat/slaves.h"
+#include "driver/ethercat/steps.h"
 
 namespace driver::ethercat {
 /// @brief configuration for EtherCAT write tasks.
 struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
-    /// @brief network interface name for the EtherCAT master.
-    /// Dynamically populated from device properties.
-    std::string interface_name;
+    /// @brief the slaves that the channels name.
+    Slaves slaves;
     /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> outputs;
-    /// @brief cached device properties for topology validation.
-    std::unordered_map<std::string, slave::Properties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         ::synnax::ethercat::WriteConfig(std::move(other)),
-        interface_name(std::move(other.interface_name)),
-        outputs(std::move(other.outputs)),
-        device_cache(std::move(other.device_cache)) {}
+        slaves(std::move(other.slaves)),
+        outputs(std::move(other.outputs)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
     const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
@@ -48,52 +46,25 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
     ):
         ::synnax::ethercat::WriteConfig(::synnax::ethercat::WriteConfig::parse(cfg)) {
         if (cfg.error()) return;
-        std::unordered_map<std::string, slave::Properties> slave_cache;
-        std::string first_network;
-
         channel::Claims claims;
         for (std::size_t i = 0; i < this->channels.size(); ++i) {
+            const auto &base = ::synnax::ethercat::base(this->channels[i]);
+            if (base.disabled) continue;
             const auto path = "channels." + std::to_string(i) + ".";
-            const auto &slave_key = channel::base(this->channels[i]).device;
-            if (!slave_cache.contains(slave_key)) {
-                auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
-                if (slave_err) {
-                    cfg.field_err(path + "device", slave_err.data);
-                    continue;
-                }
-                auto props_parser = x::json::Parser(slave_dev.properties);
-                auto props = slave::Properties::parse(props_parser);
-                if (props_parser.error()) {
-                    cfg.field_err(
-                        path + "device",
-                        common::config_err_description(props_parser.error())
-                    );
-                    continue;
-                }
-                slave_cache.emplace(slave_key, std::move(props));
-                const auto &network = slave_cache.at(slave_key).network;
-                if (first_network.empty())
-                    first_network = network;
-                else if (network != first_network) {
-                    cfg.field_err(
-                        path + "device",
-                        "all slaves must be on the same network"
-                    );
-                    continue;
-                }
-            }
-
-            const auto &slave = slave_cache.at(slave_key);
-            auto output = channel::make_output(this->channels[i], slave, cfg, path);
-            if (!output->enabled) continue;
-            claims.claim(*output, slave, cfg, path);
+            const auto *slave = this->slaves.resolve(*client, base.device, cfg, path);
+            if (slave == nullptr) continue;
+            auto output = channel::make_output(this->channels[i], *slave, cfg, path);
+            if (output == nullptr) continue;
+            claims.claim(output->entry, *slave, cfg, path);
             this->outputs.push_back(std::move(output));
         }
 
         if (cfg.error()) return;
 
-        this->interface_name = first_network;
-        this->device_cache = std::move(slave_cache);
+        if (this->outputs.empty()) {
+            cfg.field_err("channels", "task must have at least one enabled channel");
+            return;
+        }
 
         channel::sort_by_position(this->outputs);
         std::vector<synnax::channel::Key> state_keys;
@@ -137,25 +108,46 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
 class WriteTaskSink final : public common::Sink {
     WriteTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
+    std::unique_ptr<StartSteps> steps;
     std::unique_ptr<engine::Engine::Writer> writer;
 
 public:
-    explicit WriteTaskSink(std::shared_ptr<engine::Engine> eng, WriteTaskConfig cfg):
+    /// @param steps sends the steps of each start of the task.
+    explicit WriteTaskSink(
+        std::shared_ptr<engine::Engine> eng,
+        WriteTaskConfig cfg,
+        std::unique_ptr<StartSteps> steps = std::make_unique<StartSteps>()
+    ):
         Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
-        engine(std::move(eng)) {}
+        engine(std::move(eng)),
+        steps(std::move(steps)) {}
 
-    x::errors::Error start() override {
-        if (auto err = this->engine->ensure_initialized(); err) return err;
-        const auto slaves = slave::discovered_properties(this->engine->slaves());
-        if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
-            return err;
+    x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
+        const auto start = this->engine->begin_start(
+            cancel,
+            this->steps->begin(cmd_key)
+        );
+        // The task answers the start once this returns, so no step may follow.
+        x::defer::defer flushed([this] { this->steps->flush(); });
+        const auto [slaves, discover_err] = this->engine->discover(start);
+        if (discover_err) return discover_err;
+        const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
+        if (bind_err) return bind_err;
+        for (const auto &ch: this->cfg.outputs)
+            ch->entry.slave_position = moves.at(ch->entry.slave_position);
 
-        std::vector<pdo::Entry> entries;
+        std::vector<engine::Engine::Writer::Entry> entries;
         entries.reserve(this->cfg.outputs.size());
         for (const auto &ch: this->cfg.outputs)
-            entries.push_back(*ch);
-        auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
+            entries.push_back({.entry = ch->entry, .stop_value = ch->stop_value});
+        auto [wtr, err] = this->engine->open_writer(
+            entries,
+            this->cfg.execution_rate,
+            start,
+            [this] { this->warning_changed(); }
+        );
         if (err) return err;
         this->writer = std::move(wtr);
         return x::errors::NIL;
@@ -164,6 +156,15 @@ public:
     x::errors::Error stop() override {
         this->writer.reset();
         return x::errors::NIL;
+    }
+
+    [[nodiscard]] common::Warning held_warning() override {
+        if (auto description = this->writer->warning(); !description.empty())
+            return {
+                .message = "Interrupted outputs",
+                .description = std::move(description)
+            };
+        return unapplied_warning(this->writer->unapplied());
     }
 
     x::errors::Error write(x::telem::Frame &frame) override {

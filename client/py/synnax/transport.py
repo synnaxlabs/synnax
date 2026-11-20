@@ -8,7 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import ssl
+from collections.abc import Sequence
 
+from pydantic import BaseModel, SerializeAsAny
 from urllib3 import Retry, Timeout
 
 from alamos import Instrumentation
@@ -16,6 +18,7 @@ from freighter import (
     URL,
     AsyncMiddleware,
     AsyncWebsocketClient,
+    Empty,
     FileTransport,
     HTTPClient,
     Middleware,
@@ -24,7 +27,7 @@ from freighter import (
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
-from synnax.telem import Size, TimeSpan
+from synnax.telem import CrudeTimeSpan, Size, TimeSpan
 from x.codec import JSONCodec
 from x.exceptions import Registry
 
@@ -43,9 +46,9 @@ class Transport:
         instrumentation: Instrumentation,
         registry: Registry,
         secure: bool = False,
-        open_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        read_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        keep_alive: TimeSpan = TimeSpan.SECOND * 30,
+        open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         ca_cert: str | None = None,
     ) -> None:
@@ -53,12 +56,19 @@ class Transport:
         :param registry: Decodes the errors that the Core returns.
         :param secure: Whether to use TLS. The client then verifies the Core's
             certificate against ca_cert, or the system trust roots when ca_cert is None.
+        :param open_timeout: The time to wait for a connection. A bare number is
+            seconds.
+        :param read_timeout: The time to wait for a response. A bare number is seconds.
+        :param keep_alive: The time between keep alive pings. A bare number is seconds.
         :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
             certificate.
         :raises ValueError: If ca_cert is set and secure is False.
         """
         if ca_cert is not None and not secure:
             raise ValueError("ca_cert requires secure=True")
+        open_timeout = TimeSpan.from_seconds(open_timeout)
+        read_timeout = TimeSpan.from_seconds(read_timeout)
+        keep_alive = TimeSpan.from_seconds(keep_alive)
         ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
         self.url = url.child("/api/v1/")
         codec = JSONCodec()
@@ -104,3 +114,42 @@ class Transport:
 
     def use_async(self, *middleware: AsyncMiddleware) -> None:
         self.stream_async.use(*middleware)
+
+
+class _BatchEntry(BaseModel):
+    endpoint: str
+    payload: SerializeAsAny[BaseModel]
+
+
+class _BatchRequest(BaseModel):
+    requests: list[_BatchEntry]
+
+
+def send_batch(
+    client: UnaryClient, endpoint: str, payloads: Sequence[BaseModel]
+) -> None:
+    """Sends one request to endpoint for each payload, in order, in one transaction.
+    The first failure fails the batch, and nothing commits.
+
+    :param client: The client to send the batch with.
+    :param endpoint: The endpoint of each request, such as ``/user/dispatch``.
+    :param payloads: The payload of each request.
+    :raises ValidationError: If the batch does not accept the endpoint, or if a
+        request is invalid.
+    """
+    send_requests(client, [(endpoint, p) for p in payloads])
+
+
+def send_requests(
+    client: UnaryClient, requests: Sequence[tuple[str, BaseModel]]
+) -> None:
+    """Sends each request to its endpoint, in order, in one transaction. The first
+    failure fails the batch, and nothing commits.
+
+    :param client: The client to send the batch with.
+    :param requests: The endpoint and payload of each request.
+    :raises ValidationError: If the batch does not accept an endpoint, or if a request
+        is invalid.
+    """
+    entries = [_BatchEntry(endpoint=e, payload=p) for e, p in requests]
+    client.send("/batch", _BatchRequest(requests=entries), Empty)

@@ -46,14 +46,22 @@ func main() {
 
 	if configPath != "" {
 		if _, err := os.Stat(configPath); err != nil {
-			fmt.Fprintf(os.Stderr, "E [mock] [main.go] config file not found: %s\n", configPath)
+			fmt.Fprintf(
+				os.Stderr,
+				"E [mock] [main.go] config file not found: %s\n",
+				configPath,
+			)
 			os.Exit(1)
 		}
 	}
 
 	if statePath != "" {
 		if err := os.WriteFile(statePath, []byte("{}"), 0o644); err != nil {
-			fmt.Fprintf(os.Stderr, "E [mock] [main.go] failed to write state file: %v\n", err)
+			fmt.Fprintf(
+				os.Stderr,
+				"E [mock] [main.go] failed to write state file: %v\n",
+				err,
+			)
 			os.Exit(1)
 		}
 	}
@@ -62,10 +70,34 @@ func main() {
 	if path := os.Getenv("MOCK_ENV_DUMP_FILE"); path != "" {
 		env := []byte(strings.Join(os.Environ(), "\n"))
 		if err := os.WriteFile(path, env, 0o644); err != nil {
-			fmt.Fprintf(os.Stderr, "E [mock] [main.go] failed to dump environment: %v\n", err)
+			fmt.Fprintf(
+				os.Stderr,
+				"E [mock] [main.go] failed to dump environment: %v\n",
+				err,
+			)
 			os.Exit(1)
 		}
 	}
+
+	// MOCK_LOADER_ERROR fails as a dynamic loader does: one unformatted line on stderr.
+	// MOCK_LOADER_ERROR_FILE does the same once the file it names exists.
+	_, loaderErrFileErr := os.Stat(os.Getenv("MOCK_LOADER_ERROR_FILE"))
+	if os.Getenv("MOCK_LOADER_ERROR") == "1" || loaderErrFileErr == nil {
+		fmt.Fprintln(
+			os.Stderr,
+			"driver: version `GLIBC_2.39' not found (required by driver)",
+		)
+		os.Exit(1)
+	}
+
+	// MOCK_CRASH_BANNER crashes before the first log line, as x::crash does.
+	if os.Getenv("MOCK_CRASH_BANNER") == "1" {
+		fmt.Fprintln(os.Stderr, "*** driver crashed: SIGSEGV (segmentation fault) ***")
+		os.Exit(1)
+	}
+
+	// The real Driver logs before it registers its rack.
+	fmt.Fprintln(os.Stdout, "I [mock] [main.go] loaded")
 
 	if os.Getenv("MOCK_FAIL_START") == "1" {
 		fmt.Fprintln(os.Stdout, "E [mock] [main.go] startup failure")
@@ -82,12 +114,24 @@ func main() {
 			remaining, _ = strconv.Atoi(strings.TrimSpace(string(b)))
 		}
 		if remaining > 0 {
-			if err := os.WriteFile(path, []byte(strconv.Itoa(remaining-1)), 0o644); err != nil {
-				fmt.Fprintf(os.Stderr, "E [mock] [main.go] failed to update crash count: %v\n", err)
+			if err := os.WriteFile(
+				path,
+				[]byte(strconv.Itoa(remaining-1)),
+				0o644,
+			); err != nil {
+				fmt.Fprintf(
+					os.Stderr,
+					"E [mock] [main.go] failed to update crash count: %v\n",
+					err,
+				)
 			}
 			fmt.Fprintln(os.Stdout, "E [mock] [main.go] simulated startup crash")
 			os.Exit(1)
 		}
+	}
+
+	if os.Getenv("MOCK_LOG_ERROR") == "1" {
+		fmt.Fprintln(os.Stdout, "E [mock] [main.go] task failed to configure")
 	}
 
 	if delayStr := os.Getenv("MOCK_DELAY_MS"); delayStr != "" {

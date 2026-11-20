@@ -37,10 +37,63 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/base64",
         "//x/cpp/date",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
         "@nlohmann_json//:json",
+    ],
+)
+
+cc_library(
+    name = "read",
+    srcs = [
+        "decimal.h",
+        "extract.cpp",
+        "field.cpp",
+        "literal.h",
+        "number.cpp",
+        "pointer.cpp",
+        "text.cpp",
+        "timestamp.cpp",
+        "timestamp.h",
+    ],
+    hdrs = [
+        "extract.h",
+        "field.h",
+        "number.h",
+        "pointer.h",
+        "text.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":convert",
+        "//x/cpp/base64",
+        "//x/cpp/date",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+    ],
+)
+
+cc_test(
+    name = "read_test",
+    srcs = [
+        "extract_test.cpp",
+        "field_test.cpp",
+        "number_test.cpp",
+        "pointer_test.cpp",
+        "text_test.cpp",
+    ],
+    deps = [
+        ":convert",
+        ":read",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -55,11 +108,13 @@ cc_test(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/base64",
         "//x/cpp/json",
         "//x/cpp/json:convert",
         "//x/cpp/json/testutil",
         "//x/cpp/telem",
         "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
         "@protobuf",

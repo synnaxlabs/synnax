@@ -7,52 +7,62 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { channel, schematic } from "@synnaxlabs/client";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { color, xy } from "@synnaxlabs/x";
+import type { ReactElement, RefCallback } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { Input } from "@/schematic/node/general/input/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Input as InputTelem } from "@/vis/input";
+import { Staleness } from "@/vis/staleness";
 import { StringValue } from "@/vis/stringValue";
 
-interface ReadbackProps {
+interface UseReadbackProps {
   nodeKey: string;
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
   stalenessColor?: color.Color;
   stalenessTimeout?: number;
+  staleColorHidden: boolean;
 }
 
-const Readback = ({
+interface UseReadbackReturn {
+  stale: boolean;
+  valueRef: RefCallback<HTMLParagraphElement>;
+}
+
+const useReadback = ({
   nodeKey,
   position,
   channel,
   size,
   stalenessColor,
   stalenessTimeout,
-}: ReadbackProps): ReactElement => {
+  staleColorHidden,
+}: UseReadbackProps): UseReadbackReturn => {
   const theme = Theming.use();
   const cell = Primitive.useCanvasBox<HTMLParagraphElement>(position);
-  StringValue.use({
+  const { stale } = StringValue.use({
     aetherKey: `${nodeKey}-readback`,
     box: cell.box,
     telem: telem.streamChannelStringValue({ channel }),
-    level: Primitive.readoutLevel(size),
+    level: Primitive.READOUT_LEVELS[size],
     color: theme.colors.gray.l10,
     stalenessColor,
     stalenessTimeout,
+    staleColorHidden,
   });
-  return <Primitive.Readout size={size} valueRef={cell.ref} />;
+  return { stale, valueRef: cell.ref };
 };
 
 export const Symbol = ({
@@ -69,12 +79,24 @@ export const Symbol = ({
     stalenessTimeout,
     size,
     inlineSize,
+    fillColor,
     ...rest
   },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const sink = Telem.stringSink(commandChannel);
-  const source = telem.streamChannelStringValue({ channel: commandChannel ?? 0 });
+  const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
+  const badged = Staleness.useBadged();
+  const { stale, valueRef } = useReadback({
+    nodeKey,
+    position,
+    channel: stateChannel,
+    size,
+    stalenessColor,
+    stalenessTimeout,
+    staleColorHidden: badged,
+  });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );
@@ -84,25 +106,18 @@ export const Symbol = ({
         config={control}
         channel={commandChannel}
         onChange={onConfigChange}
-      />
+      >
+        {stale && badged ? <Staleness.Badge /> : null}
+      </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
       <Input
         onSend={set}
+        fillColor={resolve(fillColor)}
         value={value}
         size={size}
         inlineSize={inlineSize}
         readback={
-          stateChannel != null &&
-          stateChannel !== 0 && (
-            <Readback
-              nodeKey={nodeKey}
-              position={position}
-              channel={stateChannel}
-              size={size}
-              stalenessColor={stalenessColor}
-              stalenessTimeout={stalenessTimeout}
-            />
-          )
+          stateChannel !== 0 && <Primitive.Readout size={size} valueRef={valueRef} />
         }
         {...rest}
       />

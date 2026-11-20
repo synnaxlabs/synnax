@@ -15,10 +15,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/analyzers/must"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
 var _ = Describe("Analyzer", func() {
+	It("Should keep a nil-accepting matcher's meaning through Error()", func() {
+		succeed := func() (int, error) { return 1, nil }
+		Expect(succeed()).Error().To(Or(Succeed(), MatchError("unreachable")))
+	})
+
 	It("Should detect Expect(err).ToNot(HaveOccurred()) patterns", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
@@ -44,6 +50,38 @@ var _ = Describe("Analyzer", func() {
 				}
 			}
 		}
+	})
+
+	It("Should qualify MustSucceed with a testutil import that has no dot", func() {
+		analysistest.RunWithSuggestedFixes(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "namedimport",
+		)
+	})
+
+	It("Should qualify MustSucceed and MustSucceed2 with a testutil alias", func() {
+		analysistest.RunWithSuggestedFixes(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "aliasimport",
+		)
+	})
+
+	It("Should add a dot import when testutil is only a blank import", func() {
+		results := analysistest.Run(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "blankimport",
+		)
+		var texts []string
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						texts = append(texts, string(edit.NewText))
+					}
+				}
+			}
+		}
+		Expect(texts).To(ContainElements(
+			"result := MustSucceed(returnsValErr())",
+			"\t. \"github.com/synnaxlabs/x/testutil\"\n",
+		))
 	})
 
 	It("Should add testutil import when it does not exist", func() {
@@ -154,6 +192,32 @@ var _ = Describe("Analyzer", func() {
 		},
 	)
 
+	It("Should assert a captured error inline", func() {
+		testdata := analysistest.TestData()
+		results := analysistest.Run(
+			GinkgoT(), testdata, must.Analyzer, "example",
+		)
+		var texts []string
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						texts = append(texts, string(edit.NewText))
+					}
+				}
+			}
+		}
+		Expect(texts).To(ContainElements(
+			"Expect(returnsValErr()).Error().To(MatchError(errSentinel))",
+			"Expect(returnsErr()).Should(Equal(errSentinel))",
+			"Expect(returnsErr()).To(Succeed())",
+			"Expect(returnsValErr()).Error().To(SatisfyAll(MatchError(errSentinel)))",
+			"Expect(returnsValErr()).Error().To(SatisfyAny(MatchError(errSentinel), Equal(errSentinel)))",
+			"Expect(returnsValErr()).Error().To(And(MatchError(errSentinel)))",
+			"Expect(returnsValErr()).Error().Should(Or(Succeed(), MatchError(errSentinel)))",
+		))
+	})
+
 	It("Should remove LHS and assignment when all LHS vars are blank", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
@@ -175,5 +239,37 @@ var _ = Describe("Analyzer", func() {
 			}
 		}
 		Expect(foundBlankFix).To(BeTrue())
+	})
+
+	It("Should assign a result that is already declared with =", func() {
+		results := analysistest.Run(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "example",
+		)
+		var texts []string
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						texts = append(texts, string(edit.NewText))
+					}
+				}
+			}
+		}
+		Expect(texts).To(ContainElement("r = MustSucceed(returnsValErr())"))
+	})
+
+	It("Should not treat Expect on a Gomega value as the global Expect", func() {
+		analysistest.Run(GinkgoT(), analysistest.TestData(), must.Analyzer, "gomega")
+	})
+
+	It("Should report without a fix when deleting the binding breaks the code", func() {
+		results := analysistest.Run(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "kept",
+		)
+		var diagnostics []analysis.Diagnostic
+		for _, r := range results {
+			diagnostics = append(diagnostics, r.Diagnostics...)
+		}
+		Expect(diagnostics).To(HaveEach(HaveField("SuggestedFixes", BeEmpty())))
 	})
 })

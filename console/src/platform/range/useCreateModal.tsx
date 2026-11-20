@@ -9,7 +9,7 @@
 
 import "@/platform/range/Create.css";
 
-import { TimeStamp } from "@synnaxlabs/client";
+import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -18,40 +18,35 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
+import { primitive, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
-import { Session } from "@/session";
+
+const path = Ranger.createFormPath;
 
 export type CreateModalParams = Omit<
   Partial<z.infer<typeof Ranger.createFormSchema>>,
   "key"
 >;
 
-const ParentRangeIcon = Icon.createComposite(Icon.Range, {
-  bottomRight: Icon.Arrow.Up,
-});
-
 // A parent is a range, but "Range" alone would not say which one, so this trigger
 // names itself. It reads as content, like the timeline above it.
 const PARENT_TRIGGER_PROPS = { placeholder: "Parent range", variant: "text" as const };
 
 const TimelineField = (): ReactElement => {
-  const parentKey = Form.useFieldValue<string>("parent");
-  const parent = Ranger.useResult(parentKey === "" ? null : { key: parentKey });
+  const parentKey = Form.useFieldValue(path.parent);
+  const parent = Ranger.useResult(
+    primitive.isNonZero(parentKey) ? { key: parentKey } : null,
+  );
   const parentRange = parent.data?.timeRange.numeric;
   return (
-    <Form.Field<NumericTimeRange>
-      path="timeRange"
-      showLabel={false}
-      padHelpText={false}
-    >
+    <Form.Field path={path.timeRange} showLabel={false} padHelpText={false}>
       {(p) => (
         <Ranger.Timeline level="h4" variant="shadow" parent={parentRange} {...p} />
       )}
@@ -59,9 +54,11 @@ const TimelineField = (): ReactElement => {
   );
 };
 
-const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, void>) => {
+const Create = ({
+  close,
+  ...params
+}: Modals.ContentProps<CreateModalParams, ranger.Key>) => {
   const [now] = useState(() => Number(TimeStamp.now().valueOf()));
-  const dispatch = Session.useDispatch();
   const { capture } = Analytics.use();
 
   const client = Synnax.use();
@@ -79,29 +76,10 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
     },
     afterSave: (form) => {
       capture("range_created", {});
-      close();
-      const { key } = form.value();
-      if (key == null) return;
-      dispatch(Session.Range.add({ variant: "persisted", key }));
+      close(form.value().key);
     },
   });
-
-  const saveLocal = () => {
-    if (!form.validate()) return;
-    const { name, key, timeRange } = form.value();
-    if (key == null) return;
-    dispatch(
-      Session.Range.add({
-        variant: "static",
-        key,
-        name,
-        timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
-      }),
-    );
-    close();
-  };
-
-  const saveName = "Save to Core";
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>
@@ -109,7 +87,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       <Modal.Body>
         <Form.Form<typeof Ranger.createFormSchema> {...form}>
           <Flex.Box y gap="huge">
-            <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+            <Form.Field path={path.name} showLabel={false} padHelpText={false}>
               {(p) => (
                 <Input.Text
                   autoFocus
@@ -123,8 +101,8 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
             </Form.Field>
             <TimelineField />
             <Flex.Box x align="center">
-              <Form.Field<string>
-                path="parent"
+              <Form.Field
+                path={path.parent}
                 visible
                 showLabel={false}
                 showHelpText={false}
@@ -137,18 +115,14 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
                     // absent parent as "". Null fails validation on a field that
                     // hides itself when null, so the save would stall unexplained.
                     onChange={(v: string | null) => onChange(v ?? "")}
-                    icon={<ParentRangeIcon />}
+                    icon={<Ranger.ParentIcon />}
                     triggerProps={PARENT_TRIGGER_PROPS}
                     allowNone
                   />
                 )}
               </Form.Field>
-              <Form.Field<string[]>
-                path="labels"
-                showLabel={false}
-                showHelpText={false}
-              >
-                {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
+              <Form.Field path={path.labels} showLabel={false} showHelpText={false}>
+                {(p) => <Label.SelectMultiple {...p} />}
               </Form.Field>
             </Flex.Box>
           </Flex.Box>
@@ -156,9 +130,6 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End>
-          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
-            Save locally
-          </Button.Button>
           <Button.Button
             variant="filled"
             onClick={() => save()}
@@ -167,7 +138,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
             trigger={Triggers.SAVE}
             triggerIndicator
           >
-            {saveName}
+            Create
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
@@ -175,4 +146,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
   );
 };
 
-export const useCreateModal = Modals.create<CreateModalParams>(Create);
+/** Opens a dialog that creates a range, and resolves with its key. */
+export const useCreateModal = Modals.createPrompt<ranger.Key, CreateModalParams>(
+  Create,
+);

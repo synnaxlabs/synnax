@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useContext as useCtx } from "@/platform/view/context";
+import { useContext as useCtx, useSearchContext } from "@/platform/view/context";
 
-export * from "@/platform/view/FilterChip";
-export * from "@/platform/view/FilterMenu";
+export * from "@/platform/view/filter";
 export * from "@/platform/view/Form";
 export * from "@/platform/view/Frame";
 export * from "@/platform/view/Items";
-export * from "@/platform/view/Search";
+export * from "@/platform/view/tab";
 export * from "@/platform/view/Toolbar";
+export * from "@/platform/view/tooltip";
 
 export const useContext = () => useCtx("View.useContext");
+
+/** Returns the search term of the enclosing frame, which changes on each key. */
+export const useSearch = () => useSearchContext("View.useSearch");

@@ -7,42 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/session/range";
+import { createMinimalStore } from "@/testutil";
 
-const STATIC: Range.StaticState = {
-  variant: "static",
-  key: "static-1",
-  name: "Static 1",
-  timeRange: { start: 0, end: 1000 },
-};
+const PERSISTED: Range.PersistedState = { variant: "persisted", key: "persisted-1" };
 
-const DYNAMIC: Range.DynamicState = {
-  variant: "dynamic",
-  key: "dynamic-1",
-  name: "Dynamic 1",
-  span: 1000,
-};
-
-const EMPTY_STATE: Range.SliceState = { version: 0, selected: undefined, ranges: [] };
-
-const stateWith = (ranges: Range.State[], selected?: string): Range.SliceState => ({
-  version: 0,
-  selected,
-  ranges,
-});
-
-const storeWith = (ranges: Range.State[], selected?: string): Range.StoreState => ({
-  [Range.SLICE_NAME]: stateWith(ranges, selected),
-});
-
-const createStore = (initial: Range.SliceState = EMPTY_STATE) =>
-  configureStore({
+const createStore = (initial: Range.SliceState = Range.ZERO_SLICE_STATE) =>
+  createMinimalStore({
     reducer: { [Range.SLICE_NAME]: Range.reducer },
     preloadedState: { [Range.SLICE_NAME]: initial },
   });
@@ -58,72 +34,61 @@ const createWrapper = (
 };
 
 describe("range selectors", () => {
-  describe("raw selectors", () => {
-    describe("selectState", () => {
-      it("should resolve a range by explicit key", () => {
-        expect(Range.selectState(storeWith([STATIC, DYNAMIC]), STATIC.key)).toEqual(
-          STATIC,
-        );
+  describe("useSelectState", () => {
+    it("should resolve a range by key", () => {
+      const store = createStore();
+      const { result } = renderHook(() => Range.useSelectState(PERSISTED.key), {
+        wrapper: createWrapper(store),
       });
+      expect(result.current).toBeUndefined();
+      act(() => {
+        store.dispatch(Range.add(PERSISTED));
+      });
+      expect(result.current).toEqual(PERSISTED);
+    });
 
-      it("should fall back to the selected range when no key is given", () => {
-        expect(Range.selectState(storeWith([STATIC, DYNAMIC], STATIC.key))).toEqual(
-          STATIC,
-        );
+    it("should offer the rolling ranges whatever the session holds", () => {
+      const store = createStore();
+      const { result } = renderHook(() => Range.useSelectState(Range.BUILT_IN[0].key), {
+        wrapper: createWrapper(store),
       });
-
-      it("should return undefined when no range matches", () => {
-        expect(Range.selectState(storeWith([STATIC]), "missing")).toBeUndefined();
+      expect(result.current).toEqual(Range.BUILT_IN[0]);
+      act(() => {
+        store.dispatch(Range.remove({ keys: [Range.BUILT_IN[0].key] }));
       });
+      expect(result.current).toEqual(Range.BUILT_IN[0]);
     });
   });
 
-  describe("getters", () => {
-    it("should read the whole slice state on demand across dispatches", () => {
+  describe("useSelectFavoriteKeys", () => {
+    it("should list the added Core ranges and leave out the rolling ones", () => {
       const store = createStore();
-      const { result } = renderHook(() => Range.useGetSliceState(), {
+      const { result } = renderHook(() => Range.useSelectFavoriteKeys(), {
         wrapper: createWrapper(store),
       });
-      const get = result.current;
-      expect(get().ranges).toEqual([]);
+      expect(result.current).toEqual([]);
       act(() => {
-        store.dispatch(Range.add(STATIC));
+        store.dispatch(Range.add(PERSISTED));
       });
-      expect(get().ranges).toEqual([STATIC]);
+      expect(result.current).toEqual([PERSISTED.key]);
     });
+  });
 
-    it("should read the current selected key on demand across dispatches", () => {
-      const store = createStore(stateWith([STATIC, DYNAMIC]));
-      const { result } = renderHook(() => Range.useGetSelectedKey(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toBeUndefined();
-      act(() => {
-        store.dispatch(Range.select(STATIC.key));
-      });
-      expect(get()).toEqual(STATIC.key);
-      act(() => {
-        store.dispatch(Range.select(DYNAMIC.key));
-      });
-      expect(get()).toEqual(DYNAMIC.key);
-    });
-
-    it("should resolve a range by key and fall back to the selection on demand", () => {
+  describe("useSelectGroupCollapsed", () => {
+    it("should follow the toolbar group it names", () => {
       const store = createStore();
-      const { result } = renderHook(() => Range.useGetState(), {
+      const { result } = renderHook(() => Range.useSelectGroupCollapsed("recent"), {
         wrapper: createWrapper(store),
       });
-      const get = result.current;
-      expect(get(STATIC.key)).toBeUndefined();
+      expect(result.current).toBe(false);
       act(() => {
-        store.dispatch(Range.add([STATIC, DYNAMIC]));
+        store.dispatch(Range.setGroupCollapsed({ group: "recent", collapsed: true }));
       });
-      expect(get(STATIC.key)).toEqual(STATIC);
+      expect(result.current).toBe(true);
       act(() => {
-        store.dispatch(Range.select(DYNAMIC.key));
+        store.dispatch(Range.setGroupCollapsed({ group: "running", collapsed: true }));
       });
-      expect(get()).toEqual(DYNAMIC);
+      expect(result.current).toBe(true);
     });
   });
 });

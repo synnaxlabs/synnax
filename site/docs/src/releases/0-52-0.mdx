@@ -1,22 +1,17 @@
 ---
-title: "Version 0.52 release notes"
+title: "HTTP Driver"
+version: "0.52.0"
+npmVersion: "0.52.3"
+date: "Feb 22, 2026"
 ---
 
-import { Image } from "@/components/media/Media";
-import Release from "@/components/releases/Release.astro";
+import Image from "@/components/media/Image.astro";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import HTTP from "@/components/releases/HTTP.astro";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.52.0"
-    npmVersion="0.52.3"
-    date="Feb 22, 2026"
-    title="HTTP Driver"
->
 
 <HTTP />
 
@@ -66,5 +61,3 @@ before upgrading.
 
 - Fixed a crash (`0xc0000005`) that occurred when starting the Driver on older Windows
   versions.
-
-</Release>

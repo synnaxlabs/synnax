@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package control makes the control state of a Synnax cluster readable and observable
-// from any node. Control is arbitrated by the storage engine on each channel's
-// leaseholder, so the Service fans retrieves out to leaseholders and merges peer
-// subscriptions into a single cluster-wide stream of transfers.
+// Package control makes the control state of channels readable and observable. The
+// storage engine arbitrates control.
 package control
 
 import (
@@ -65,37 +63,4 @@ func statesFromStorage(u ts.ControlUpdate) []State {
 		}
 	}
 	return states
-}
-
-// diff returns the transfers that carry prev to next. Both maps are keyed by the
-// channel each state controls. A channel present in next but absent or held by a
-// different subject in prev yields an acquire or transfer; a channel absent from next
-// yields a release.
-func diff(prev, next map[channel.Key]State) []Transfer {
-	transfers := make([]Transfer, 0, len(next))
-	for key, to := range next {
-		from, ok := prev[key]
-		if ok && from == to {
-			continue
-		}
-		t := Transfer{To: &to}
-		if ok {
-			t.From = &from
-		}
-		transfers = append(transfers, t)
-	}
-	for key, from := range prev {
-		if _, ok := next[key]; !ok {
-			transfers = append(transfers, Transfer{From: &from})
-		}
-	}
-	return transfers
-}
-
-func statesByChannel(states []State) map[channel.Key]State {
-	m := make(map[channel.Key]State, len(states))
-	for _, s := range states {
-		m[s.Resource] = s
-	}
-	return m
 }

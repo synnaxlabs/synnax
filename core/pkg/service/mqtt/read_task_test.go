@@ -11,28 +11,37 @@ package mqtt_test
 
 import (
 	"context"
+	"encoding/json/v2"
+	"maps"
 	"strconv"
 	"sync"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// field returns the config of one read field.
+// field returns the config of one read field, of the kind that ch takes.
 func field(key string, ch channel.Channel, pointer string) map[string]any {
+	GinkgoHelper()
 	return map[string]any{
+		"type":    string(MustBeOk(payload.KindOf(ch.DataType))),
 		"key":     key,
 		"name":    key,
 		"channel": ch.Key(),
@@ -64,12 +73,82 @@ func stampedEntry(topic string, idx, data channel.Channel) map[string]any {
 	return entry
 }
 
-func readConfig(dev device.Device, entries ...map[string]any) msgpack.EncodedJSON {
+// readConfig returns the config of a read task on dev. A plain entry that holds fields,
+// as plainEntry builds it, reads them as the one message of a new ICD.
+func readConfig(
+	ctx context.Context,
+	dev device.Device,
+	entries ...map[string]any,
+) msgpack.EncodedJSON {
+	GinkgoHelper()
 	list := make([]any, len(entries))
 	for i, e := range entries {
+		if _, ok := e["fields"]; ok {
+			e = messageEntry(ctx, e)
+		}
 		list[i] = e
 	}
 	return msgpack.EncodedJSON{"device": dev.Key, "entries": list}
+}
+
+// messageEntry returns entry, as plainEntry builds it, with its fields moved into the
+// one message of a new ICD. A disabled field gets no binding.
+func messageEntry(ctx context.Context, entry map[string]any) map[string]any {
+	GinkgoHelper()
+	specs, ok := entry["fields"].([]any)
+	Expect(ok).To(BeTrue())
+	var (
+		fields   = make([]icd.JSONField, len(specs))
+		keys     = make(map[string]icd.FieldKey, len(specs))
+		bindings = make([]any, 0, len(specs))
+	)
+	for i, s := range specs {
+		spec, ok := s.(map[string]any)
+		Expect(ok).To(BeTrue())
+		specKey, ok := spec["key"].(string)
+		Expect(ok).To(BeTrue())
+		key := uuid.New()
+		keys[specKey] = key
+		f := map[string]any{"key": key, "scale": 1}
+		for _, option := range []string{
+			"type", "name", "pointer", "enum_values", "time_format",
+		} {
+			if v, ok := spec[option]; ok {
+				f[option] = v
+			}
+		}
+		if v, ok := spec["fill"]; ok {
+			f["default"] = v
+		}
+		Expect(json.Unmarshal(MustSucceed(json.Marshal(f)), &fields[i])).To(Succeed())
+		if disabled, _ := spec["disabled"].(bool); !disabled {
+			bindings = append(
+				bindings,
+				map[string]any{"field": key, "channel": spec["channel"]},
+			)
+		}
+	}
+	topic, ok := entry["topic"].(string)
+	Expect(ok).To(BeTrue())
+	m := jsonMessage(
+		lo.CoalesceOrEmpty(topic, "Untitled"),
+		nil,
+		fields...,
+	)
+	read := map[string]any{"message": m.Key, "bindings": bindings}
+	if index, _ := entry["index"].(string); index != "" {
+		key, ok := keys[index]
+		if !ok {
+			key = uuid.New()
+		}
+		read["index"] = key
+	}
+	moved := maps.Clone(entry)
+	delete(moved, "fields")
+	delete(moved, "index")
+	moved["icd"] = createICD(ctx, m).Key
+	moved["messages"] = []any{read}
+	return moved
 }
 
 var _ = Describe("Read task", func() {
@@ -101,7 +180,7 @@ var _ = Describe("Read task", func() {
 	// start configures and starts a new read task, and waits for its subscriptions.
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 		run(ctx, t)
 		return t
 	}
@@ -111,7 +190,7 @@ var _ = Describe("Read task", func() {
 			func(ctx SpecContext) {
 				idx, data := createIndexed(ctx, telem.Float64T, telem.Int32T)
 				before := telem.Now()
-				t := start(ctx, readConfig(dev, plainEntry(
+				t := start(ctx, readConfig(ctx, dev, plainEntry(
 					"plant/line1",
 					field("temperature", data[0], "/temperature"),
 					field("count", data[1], "/stats/count"),
@@ -140,7 +219,7 @@ var _ = Describe("Read task", func() {
 				"plant/line2", time, field("pressure", data[0], "/pressure"),
 			)
 			entry["index"] = "time"
-			start(ctx, readConfig(dev, entry))
+			start(ctx, readConfig(ctx, dev, entry))
 			broker.publish("plant/line2", `{"ts":1000,"pressure":1.5}`, false)
 			broker.publish("plant/line2", `{"ts":2000,"pressure":2.5}`, false)
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
@@ -161,7 +240,7 @@ var _ = Describe("Read task", func() {
 					map[string]any{"label": "OFF", "value": 0},
 				}
 				start(ctx, readConfig(
-					dev,
+					ctx, dev,
 					plainEntry("sensors/level", field("level", number[0], "")),
 					plainEntry("pumps/1/state", label),
 				))
@@ -178,10 +257,75 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
+		It("Should write the fill of a field whose value is absent",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T, telem.Int32T)
+				count := field("count", data[1], "/count")
+				count["fill"] = "-1"
+				start(ctx, readConfig(ctx, dev, plainEntry(
+					"plant/fill", field("v", data[0], "/v"), count,
+				)))
+				broker.publish("plant/fill", `{"v": 1}`, false)
+				broker.publish("plant/fill", `{"v": 2, "count": null}`, false)
+				broker.publish("plant/fill", `{"v": 3, "count": ""}`, false)
+				broker.publish("plant/fill", `{"v": 4, "count": 5}`, false)
+				Eventually(func() int64 { return stored(ctx, data[1]).Len() }).
+					Should(BeEquivalentTo(4))
+				Expect(stored(ctx, data[1])).
+					To(telem.MatchSeriesData(telem.NewSeriesV[int32](-1, -1, -1, 5)))
+			},
+		)
+
+		It("Should store a string, and a JSON value as the payload spells it",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.StringT, telem.JSONT)
+				start(ctx, readConfig(ctx, dev, plainEntry(
+					"plant/line9",
+					field("s", data[0], "/s"),
+					field("j", data[1], "/j"),
+				)))
+				payload := `{"s":"a\nb","j":{ "z": 1.0, "a": [] }}`
+				broker.publish("plant/line9", payload, false)
+				Eventually(func() int64 { return stored(ctx, data[1]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(string(stored(ctx, data[0]).At(0))).To(Equal("a\nb"))
+				Expect(string(stored(ctx, data[1]).At(0))).To(Equal(`{"z":1.0,"a":[]}`))
+			},
+		)
+
+		It("Should store null and an empty string on JSON, and empty bytes",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.JSONT, telem.BytesT)
+				start(ctx, readConfig(ctx, dev, plainEntry(
+					"plant/line11",
+					field("j", data[0], "/j"),
+					field("b", data[1], "/b"),
+				)))
+				broker.publish("plant/line11", `{"j":null,"b":""}`, false)
+				broker.publish("plant/line11", `{"j":"","b":""}`, false)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(2))
+				Expect(string(stored(ctx, data[0]).At(0))).To(Equal("null"))
+				Expect(string(stored(ctx, data[0]).At(1))).To(Equal(`""`))
+				Expect(stored(ctx, data[1]).At(0)).To(BeEmpty())
+			},
+		)
+
+		It("Should store bytes from base64", func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.BytesT)
+			start(ctx, readConfig(ctx, dev, plainEntry(
+				"plant/line10", field("b", data[0], "/b"),
+			)))
+			broker.publish("plant/line10", `{"b":"AP8/"}`, false)
+			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+				Should(BeEquivalentTo(1))
+			Expect(stored(ctx, data[0]).At(0)).To(Equal([]byte{0x00, 0xff, 0x3f}))
+		})
+
 		It("Should stream and not store when data saving is disabled",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
-				cfg := readConfig(dev, plainEntry(
+				cfg := readConfig(ctx, dev, plainEntry(
 					"plant/line3", field("temperature", data[0], ""),
 				))
 				cfg["data_saving_disabled"] = true
@@ -200,7 +344,7 @@ var _ = Describe("Read task", func() {
 		It("Should warn and write nothing for a payload that lacks a field",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
-				t := start(ctx, readConfig(dev, plainEntry(
+				t := start(ctx, readConfig(ctx, dev, plainEntry(
 					"plant/line4",
 					field("a", data[0], "/a"),
 					field("b", data[1], "/b"),
@@ -209,11 +353,15 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("Failed to read some data"))
+					g.Expect(stat.Message).To(Equal("Skipped 1 of 1 message"))
 					g.Expect(stat.Description).To(Equal(
-						"rejected a message on topic plant/line4: " +
-							"field b: no value at /b",
+						"Message on topic plant/line4: field b: no value at /b: " +
+							"validation error",
 					))
+					g.Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
+						HaveKeyWithValue("read", BeNumerically("==", 1)),
+						HaveKeyWithValue("skipped", BeNumerically("==", 1)),
+					)))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				broker.publish("plant/line4", `{"a":1,"b":2}`, false)
@@ -223,11 +371,40 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
+		DescribeTable("Should warn and write nothing for a value that does not convert",
+			func(ctx SpecContext, dt telem.DataType, payload, message string) {
+				_, data := createIndexed(ctx, dt)
+				t := start(ctx, readConfig(ctx, dev, plainEntry(
+					"plant/convert", field("v", data[0], "/v"),
+				)))
+				broker.publish("plant/convert", payload, false)
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Description).To(SatisfyAll(
+						HavePrefix("Message on topic plant/convert: "),
+						ContainSubstring(message),
+					))
+				}).Should(Succeed())
+				Expect(stored(ctx, data[0]).Len()).To(BeZero())
+			},
+			Entry("a number into a string channel", telem.StringT, `{"v":1}`,
+				"field v: expected a string, got a number"),
+			Entry("a string into a number channel", telem.Float64T, `{"v":"1"}`,
+				`field v: unknown enum label "1"`),
+			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
+				"duplicate value at /v"),
+			Entry("a payload that is not UTF-8", telem.StringT, "\xff",
+				"invalid UTF-8"),
+			Entry("text that is not base64 into a bytes channel", telem.BytesT,
+				`{"v":"a*b="}`, "field v: illegal base64 data at input byte 1"),
+		)
+
 		It("Should reject a timestamp that is not after the last one written",
 			func(ctx SpecContext) {
 				idx, data := createIndexed(ctx, telem.Float64T)
 				entry := stampedEntry("plant/line5", idx, data[0])
-				t := start(ctx, readConfig(dev, entry))
+				t := start(ctx, readConfig(ctx, dev, entry))
 				broker.publish("plant/line5", `{"ts":10,"v":1}`, false)
 				broker.publish("plant/line5", `{"ts":10,"v":2}`, false)
 				broker.publish("plant/line5", `{"ts":11,"v":3}`, false)
@@ -248,7 +425,7 @@ var _ = Describe("Read task", func() {
 				broker.publish("plant/line6", "1", true)
 				entry := plainEntry("plant/line6", field("v", data[0], ""))
 				entry["retained_ignored"] = true
-				start(ctx, readConfig(dev, entry))
+				start(ctx, readConfig(ctx, dev, entry))
 				broker.publish("plant/line6", "2", false)
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -261,7 +438,12 @@ var _ = Describe("Read task", func() {
 			func(ctx SpecContext) {
 				idx, data := createIndexed(ctx, telem.Float64T)
 				entry := stampedEntry("plant/line7", idx, data[0])
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, entry))
+				t := newTask(
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(ctx, dev, entry),
+				)
 				first := run(ctx, t)
 				broker.publish("plant/line7", `{"ts":10,"v":1}`, false)
 				broker.publish("plant/line7", `{"ts":20,"v":2}`, true)
@@ -281,17 +463,13 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
-		DescribeTable("Should skip a retained message that the stored data holds when "+
-			"another Core holds an index with no data",
-			func(ctx SpecContext, dataOnPeer bool) {
-				full, empty := host, peer
-				if dataOnPeer {
-					full, empty = peer, host
-				}
-				idx, data := createIndexedOn(ctx, full, telem.Float64T)
-				emptyIdx, emptyData := createIndexedOn(ctx, empty, telem.Float64T)
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(
-					dev,
+		It("Should skip a retained message that the stored data holds when another "+
+			"index has no data",
+			func(ctx SpecContext) {
+				idx, data := createIndexed(ctx, telem.Float64T)
+				emptyIdx, emptyData := createIndexed(ctx, telem.Float64T)
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
+					ctx, dev,
 					stampedEntry("plant/line8", idx, data[0]),
 					stampedEntry("plant/line9", emptyIdx, emptyData[0]),
 				))
@@ -310,8 +488,6 @@ var _ = Describe("Read task", func() {
 					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
 				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
 			},
-			Entry("with the data on the host", false),
-			Entry("with the data on a peer", true),
 		)
 	})
 
@@ -332,7 +508,7 @@ var _ = Describe("Read task", func() {
 					broker.publish(topic, strconv.Itoa(i), true)
 				}
 				streamer := stream(ctx, keys)
-				start(ctx, readConfig(dev, entries...))
+				start(ctx, readConfig(ctx, dev, entries...))
 				var frames, samples int
 				for samples < topics {
 					for series := range streamer.receive().Series() {
@@ -351,7 +527,7 @@ var _ = Describe("Read task", func() {
 			func(ctx SpecContext) {
 				factory = newFactory(1)
 				_, data := createIndexed(ctx, telem.Int64T)
-				t := start(ctx, readConfig(dev, plainEntry(
+				t := start(ctx, readConfig(ctx, dev, plainEntry(
 					"plant/burst", field("v", data[0], ""),
 				)))
 				const burst = 500
@@ -390,15 +566,15 @@ var _ = Describe("Read task", func() {
 					configure(
 						ctx,
 						factory,
-						newTask(rackKey, mqtt.ReadTaskType, readConfig(
-							dev, plainEntry("plant/a", field("v", ch, "")),
+						newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
+							ctx, dev, plainEntry("plant/a", field("v", ch, "")),
 						)),
 					),
 					configure(
 						ctx,
 						factory,
-						newTask(rackKey, mqtt.ReadTaskType, readConfig(
-							otherDev, plainEntry("plant/b", field("v", ch, "")),
+						newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
+							ctx, otherDev, plainEntry("plant/b", field("v", ch, "")),
 						)),
 					),
 				}
@@ -430,11 +606,11 @@ var _ = Describe("Read task", func() {
 				_, b := createIndexed(ctx, telem.Float64T)
 				start(
 					ctx,
-					readConfig(dev, plainEntry("shared/a", field("a", a[0], ""))),
+					readConfig(ctx, dev, plainEntry("shared/a", field("a", a[0], ""))),
 				)
 				start(
 					ctx,
-					readConfig(dev, plainEntry("shared/b", field("b", b[0], ""))),
+					readConfig(ctx, dev, plainEntry("shared/b", field("b", b[0], ""))),
 				)
 				Eventually(broker.subscriptions).
 					Should(Equal(2))
@@ -451,7 +627,7 @@ var _ = Describe("Read task", func() {
 		It("Should warn while the broker is down and read again when it returns",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
-				t := start(ctx, readConfig(dev, plainEntry(
+				t := start(ctx, readConfig(ctx, dev, plainEntry(
 					"plant/line7", field("v", data[0], ""),
 				)))
 				port := broker.port
@@ -486,9 +662,14 @@ var _ = Describe("Read task", func() {
 				_, data := createIndexed(ctx, telem.Float64T)
 				port := broker.port
 				broker.stop()
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, plainEntry(
-					"plant/line8", field("v", data[0], ""),
-				)))
+				t := newTask(
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(ctx, dev, plainEntry(
+						"plant/line8", field("v", data[0], ""),
+					)),
+				)
 				configured := configure(ctx, factory, t)
 				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -525,21 +706,31 @@ var _ = Describe("Read task", func() {
 					port:    port,
 					refused: []string{"plant/denied"},
 				})
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, plainEntry(
-					"plant/denied", field("v", data[0], ""),
-				)))
+				t := newTask(
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(ctx, dev, plainEntry(
+						"plant/denied", field("v", data[0], ""),
+					)),
+				)
 				configured := configure(ctx, factory, t)
 				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-					To(MatchError(ContainSubstring(
-						"the broker refused the subscription to plant/denied",
-					)))
+					To(Succeed())
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(ContainSubstring(
+					"the broker refused the subscription to plant/denied",
+				))
+				Expect(stat.Details.Cmd).To(Equal("start"))
 			},
 		)
 
 		It("Should warn when the broker refuses a topic after it reconnects",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
-				t := start(ctx, readConfig(dev, plainEntry(
+				t := start(ctx, readConfig(ctx, dev, plainEntry(
 					"plant/line9", field("v", data[0], ""),
 				)))
 				port := broker.port
@@ -568,7 +759,7 @@ var _ = Describe("Read task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(message)),
@@ -608,7 +799,9 @@ var _ = Describe("Read task", func() {
 						Make:     "ni",
 						Model:    "9205",
 					}
-					Expect(deviceSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return deviceSvc.NewWriter(tx).Create(ctx, &other)
+					})).To(Succeed())
 					return msgpack.EncodedJSON{"device": other.Key},
 						"device: Card is not an MQTT broker"
 				},
@@ -618,7 +811,7 @@ var _ = Describe("Read task", func() {
 					_, data := createIndexed(ctx, telem.Float64T)
 					entry := plainEntry("plant/x", field("v", data[0], ""))
 					entry["disabled"] = true
-					return readConfig(dev, entry),
+					return readConfig(ctx, dev, entry),
 						"entries: the task has no enabled entries"
 				},
 			),
@@ -630,63 +823,78 @@ var _ = Describe("Read task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						dev, plainEntry("plant/+/temp", field("v", data[0], "")),
+						ctx, dev, plainEntry("plant/+/temp", field("v", data[0], "")),
 					), "topic plant/+/temp: must not hold the wildcards + or #"
+				},
+			),
+			Entry("an unknown QoS",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					entry := plainEntry("plant/x", field("v", data[0], ""))
+					entry["qos"] = "bogus"
+					return readConfig(ctx, dev, entry), `qos: unknown value "bogus"`
 				},
 			),
 			Entry("a topic that appears two times",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
 					return readConfig(
-						dev,
+						ctx, dev,
 						plainEntry("plant/x", field("a", data[0], "/a")),
 						plainEntry("plant/x", field("b", data[1], "/b")),
 					), "entries: topic plant/x appears more than once"
 				},
 			),
 			Entry("a channel that does not exist",
-				func(context.Context) (msgpack.EncodedJSON, string) {
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					missing := map[string]any{
-						"key": "v", "name": "v", "channel": 4000000, "pointer": "",
+						"type":    "float",
+						"key":     "v",
+						"name":    "v",
+						"channel": 4000000,
+						"pointer": "",
 					}
-					return readConfig(dev, plainEntry("plant/x", missing)),
-						"field v of topic plant/x: channel 4000000 does not exist"
+					return readConfig(ctx, dev, plainEntry("plant/x", missing)),
+						"message plant/x: channel 4000000 does not exist"
 				},
 			),
-			Entry("a channel of a data type that a field cannot write",
+			Entry("an enum value that does not fit the channel",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.UUIDT)
-					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
-						"field v of topic plant/x: channel " + ch.Name +
-							": cannot convert a JSON value to uuid"
+					_, data := createIndexed(ctx, telem.Int8T)
+					f := field("v", data[0], "")
+					f["enum_values"] = []any{
+						map[string]any{"label": "BIG", "value": 200},
+					}
+					return readConfig(ctx, dev, plainEntry("plant/x", f)),
+						`field v: enum label "BIG": 200 is out of range for int8`
+				},
+			),
+			Entry("a kind that the channel does not take",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Int8T)
+					f := field("v", data[0], "")
+					f["type"] = "float"
+					return readConfig(ctx, dev, plainEntry("plant/x", f)),
+						"field v: cannot write float values to int8 channels"
 				},
 			),
 			Entry("fields of one topic on different indexes",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, a := createIndexed(ctx, telem.Float64T)
 					_, b := createIndexed(ctx, telem.Float64T)
-					return readConfig(dev, plainEntry(
+					return readConfig(ctx, dev, plainEntry(
 						"plant/x", field("a", a[0], "/a"), field("b", b[0], "/b"),
-					)), "every channel of a topic must share one index channel"
+					)), "every channel must share one index channel"
 				},
 			),
 			Entry("two topics that write to one channel",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						dev,
+						ctx, dev,
 						plainEntry("plant/x", field("v", data[0], "")),
 						plainEntry("plant/y", field("v", data[0], "")),
 					), "write to the same channel"
-				},
-			),
-			Entry("a timestamp field with no time format",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					idx, _ := createIndexed(ctx)
-					entry := plainEntry("plant/x", field("time", idx, "/ts"))
-					entry["index"] = "time"
-					return readConfig(dev, entry),
-						"a timestamp channel requires a time format"
 				},
 			),
 			Entry("an index field that does not exist",
@@ -694,8 +902,8 @@ var _ = Describe("Read task", func() {
 					_, data := createIndexed(ctx, telem.Float64T)
 					entry := plainEntry("plant/x", field("v", data[0], "/v"))
 					entry["index"] = "time"
-					return readConfig(dev, entry),
-						"topic plant/x: index field time does not exist or is disabled"
+					return readConfig(ctx, dev, entry),
+						"message plant/x: the index field has no channel"
 				},
 			),
 			Entry("an index field that is disabled",
@@ -706,8 +914,8 @@ var _ = Describe("Read task", func() {
 					time["disabled"] = true
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
 					entry["index"] = "time"
-					return readConfig(dev, entry),
-						"topic plant/x: index field time does not exist or is disabled"
+					return readConfig(ctx, dev, entry),
+						"message plant/x: the index field has no channel"
 				},
 			),
 			Entry("an index field on a channel that is not an index",
@@ -715,9 +923,8 @@ var _ = Describe("Read task", func() {
 					_, data := createIndexed(ctx, telem.Float64T)
 					entry := plainEntry("plant/x", field("v", data[0], "/v"))
 					entry["index"] = "v"
-					return readConfig(dev, entry),
-						"field v of topic plant/x: " +
-							"the index field must write to an index channel"
+					return readConfig(ctx, dev, entry),
+						"message plant/x: the index field must write to an index channel"
 				},
 			),
 			Entry("an index channel field on a topic with arrival timing",
@@ -726,9 +933,8 @@ var _ = Describe("Read task", func() {
 					time := field("time", idx, "/ts")
 					time["time_format"] = "unix_ms"
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
-					return readConfig(dev, entry),
-						"field time of topic plant/x: " +
-							"only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry),
+						"message plant/x: only the index field can write to an index channel"
 				},
 			),
 			Entry("a second index channel field",
@@ -742,24 +948,25 @@ var _ = Describe("Read task", func() {
 						"plant/x", time, again, field("v", data[0], "/v"),
 					)
 					entry["index"] = "time"
-					return readConfig(dev, entry),
-						"field again of topic plant/x: " +
-							"only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry),
+						"message plant/x: only the index field can write to an index channel"
 				},
 			),
 			Entry("an invalid JSON Pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						dev, plainEntry("plant/x", field("v", data[0], "no-slash")),
-					), "field v of topic plant/x"
+						ctx,
+						dev,
+						plainEntry("plant/x", field("v", data[0], "no-slash")),
+					), `field v: json pointer "no-slash" must be empty or start with "/"`
 				},
 			),
 		)
 
 		It("Should not handle a task type of another integration",
 			func(ctx SpecContext) {
-				t := newTask(rackKey, "opc_read", msgpack.EncodedJSON{})
+				t := newTask(ctx, rackKey, "opc_read", msgpack.EncodedJSON{})
 				Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 					To(MatchError(driver.ErrTaskNotHandled))
 			},
@@ -769,9 +976,13 @@ var _ = Describe("Read task", func() {
 	Describe("Auto start", func() {
 		It("Should start a task that is configured to start", func(ctx SpecContext) {
 			_, data := createIndexed(ctx, telem.Float64T)
-			cfg := readConfig(dev, plainEntry("plant/auto", field("v", data[0], "")))
+			cfg := readConfig(
+				ctx,
+				dev,
+				plainEntry("plant/auto", field("v", data[0], "")),
+			)
 			cfg["auto_start"] = true
-			t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 			configured := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(configured.Stop(false)).To(Succeed()) })
 			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())

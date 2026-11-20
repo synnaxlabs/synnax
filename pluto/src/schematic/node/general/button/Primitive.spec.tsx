@@ -8,15 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { color, deep } from "@synnaxlabs/x";
-import { act, fireEvent, render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { color, deep, TimeSpan } from "@synnaxlabs/x";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Preview } from "@/schematic/node/general/button/Symbol";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
   const el = container.querySelector<HTMLElement>(".lyra-btn");
@@ -45,17 +47,67 @@ describe("button symbol", () => {
   });
 
   it("should carry the alpha channel so a translucent button stays translucent", () => {
-    const { container } = render(<Button fillColor={[255, 0, 0, 0.5]} />);
+    const { container } = render(<Button fillColor={[255, 0, 0, 51]} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "255, 0, 0, 0.5",
+      "255, 0, 0, 0.2",
+    );
+  });
+
+  it("should paint the preview with a named color from the library", async () => {
+    const client = createTestClient();
+    const wrapper = await createAsyncSynnaxWrapper({ client });
+    await waitForStreamLive(client.connection);
+    const named = await client.colors.create({ name: "Fuel", light: "#00ff00" });
+    const { container } = render(
+      <Preview
+        {...schematic.buttonNodeConfigZ.parse({
+          variant: "button",
+          fillColor: { type: "named", key: named.key },
+        })}
+      />,
+      { wrapper },
+    );
+    await waitFor(() =>
+      expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+        "0, 255, 0, 1",
+      ),
     );
   });
 
   it("should pass a fully transparent color through as a choice", () => {
-    const { container } = render(<Button fillColor={color.ZERO} />);
+    const { container } = render(<Button fillColor={color.TRANSPARENT} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
     );
+  });
+
+  describe("label text", () => {
+    const parseLabel = (label: Partial<schematic.LabelConfig>): schematic.LabelConfig =>
+      schematic.labelConfigZ.parse(label);
+
+    it("should keep newlines in the text", () => {
+      const { container } = render(
+        <Button label={parseLabel({ label: "LAUNCH\nPUMP VC" })} />,
+      );
+      expect(getButton(container).textContent).toBe("LAUNCH\nPUMP VC");
+    });
+
+    it("should align the text", () => {
+      const { container } = render(<Button label={parseLabel({ align: "start" })} />);
+      expect(getButton(container).style.textAlign).toBe("start");
+    });
+
+    it("should cap the button at a chosen wrap width", () => {
+      const { container } = render(
+        <Button label={parseLabel({ maxInlineSize: 80 })} />,
+      );
+      expect(getButton(container).style.maxInlineSize).toBe("80px");
+    });
+
+    it("should cap the button at the default wrap width", () => {
+      const { container } = render(<Button label={parseLabel({})} />);
+      expect(getButton(container).style.maxInlineSize).toBe("150px");
+    });
   });
 
   describe("handler routing", () => {
@@ -132,7 +184,11 @@ describe("button symbol", () => {
       it("should swallow a fire-mode click shorter than the delay", () => {
         const onClick = vi.fn();
         const { container } = render(
-          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+          <Button
+            mode="fire"
+            onClick={onClick}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
@@ -145,7 +201,11 @@ describe("button symbol", () => {
       it("should fire after the delay while the button stays held", () => {
         const onClick = vi.fn();
         const { container } = render(
-          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+          <Button
+            mode="fire"
+            onClick={onClick}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         fireEvent.mouseDown(getButton(container));
         vi.advanceTimersByTime(499);
@@ -159,7 +219,11 @@ describe("button symbol", () => {
       it("should gate a delayed pulse behind the hold", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="pulse"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
@@ -173,7 +237,11 @@ describe("button symbol", () => {
       it("should swallow a pulse click shorter than the delay", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="pulse"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
@@ -185,7 +253,11 @@ describe("button symbol", () => {
       it("should ignore a secondary-button hold in fire mode", () => {
         const onClick = vi.fn();
         const { container } = render(
-          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+          <Button
+            mode="fire"
+            onClick={onClick}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
         vi.advanceTimersByTime(1000);
@@ -195,7 +267,11 @@ describe("button symbol", () => {
       it("should ignore a secondary-button hold for a delayed pulse", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="pulse"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
         vi.advanceTimersByTime(1000);
@@ -205,7 +281,11 @@ describe("button symbol", () => {
       it("should ignore the delay for momentary mode", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="momentary" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="momentary"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
@@ -256,5 +336,16 @@ describe("ButtonForm", () => {
     expect(getByText("Size")).toBeDefined();
     expect(queryByText("Label size")).toBeNull();
     expect(queryByText("Label direction")).toBeNull();
+  });
+
+  it("should render the wrap width and alignment fields", () => {
+    const { getByText } = render(
+      <FormWrapper>
+        <ButtonForm />
+      </FormWrapper>,
+    );
+    fireEvent.click(getByText("Style"));
+    expect(getByText("Wrap width")).toBeDefined();
+    expect(getByText("Alignment")).toBeDefined();
   });
 });

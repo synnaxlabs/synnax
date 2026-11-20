@@ -10,11 +10,12 @@
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import {
@@ -23,12 +24,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  renderSuspended,
-  resolveFocusedTab,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, renderSuspended, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
@@ -47,7 +43,7 @@ const renderContextMenu = async () => {
   });
   store.dispatch(Session.Project.select(proj.key));
   const dev = await createTestDevice(client, { name: uniqueName("ni_dev") });
-  const resource = createDeviceResource({ ...dev, configured: true });
+  const resource = createDeviceResource(dev);
   const props: Device.ContextMenuItemsProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
@@ -65,7 +61,7 @@ const renderContextMenu = async () => {
   return { store, deviceKey: dev.key };
 };
 
-describe("device ontology context menu", () => {
+describe("device tree context menu", () => {
   it("should offer every NI task type and create the clicked one bound to the device", async () => {
     const { store, deviceKey } = await renderContextMenu();
     for (const label of TASK_LABELS)
@@ -73,7 +69,7 @@ describe("device ontology context menu", () => {
     fireEvent.click(screen.getByText("Create digital write task"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(NI.Task.DIGITAL_WRITE_TYPE);
     expect(created.config).toMatchObject({ device: deviceKey });
@@ -84,7 +80,7 @@ describe("device ontology context menu", () => {
     fireEvent.click(await screen.findByText("Create analog read task"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
     expect(created.config).toMatchObject({ channels: [{ device: deviceKey }] });

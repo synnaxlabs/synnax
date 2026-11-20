@@ -34,14 +34,12 @@ var _ = Describe("Reader", func() {
 	It("Should return error on EOF", func() {
 		r := xbinary.NewReader(bytes.NewReader([]byte{1, 2}), binary.LittleEndian)
 		Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-		_, err := r.Uint32()
-		Expect(err).To(MatchError(io.ErrUnexpectedEOF))
+		Expect(r.Uint32()).Error().To(MatchError(io.ErrUnexpectedEOF))
 	})
 	It("Should return EOF when no data remains", func() {
 		r := xbinary.NewReader(bytes.NewReader([]byte{1}), binary.LittleEndian)
 		Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-		_, err := r.Uint8()
-		Expect(err).To(MatchError(io.EOF))
+		Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 	})
 	It("Should read arbitrary bytes", func() {
 		data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -66,8 +64,7 @@ var _ = Describe("Reader", func() {
 		It("Should reset to use a new reader", func() {
 			r := xbinary.NewReader(bytes.NewReader([]byte{1}), binary.LittleEndian)
 			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-			_, err := r.Uint8()
-			Expect(err).To(MatchError(io.EOF))
+			Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 			r.Reset(bytes.NewReader([]byte{42, 1, 0, 0, 0}))
 			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(42)))
 			Expect(MustSucceed(r.Uint32())).To(Equal(uint32(1)))

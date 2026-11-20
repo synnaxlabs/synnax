@@ -61,6 +61,12 @@ var _ = Describe("Bool", func() {
 			Expect(dest).To(BeFalse())
 		})
 
+		Specify("unsigned integer 1", func() {
+			var dest bool
+			Expect(zyn.Bool().Parse(uint8(1), &dest)).To(Succeed())
+			Expect(dest).To(BeTrue())
+		})
+
 		Specify("float 1.0", func() {
 			var dest bool
 			Expect(zyn.Bool().Parse(1.0, &dest)).To(Succeed())
@@ -216,6 +222,10 @@ var _ = Describe("Bool", func() {
 			Expect(result).To(BeFalse())
 		})
 
+		Specify("unsigned integer 1", func() {
+			Expect(MustSucceed(zyn.Bool().Dump(uint(1)))).To(BeTrue())
+		})
+
 		Specify("float 1.0", func() {
 			result := MustSucceed(zyn.Bool().Dump(1.0))
 			Expect(result).To(BeTrue())
@@ -227,28 +237,26 @@ var _ = Describe("Bool", func() {
 		})
 
 		Specify("invalid string", func() {
-			_, err := zyn.Bool().Dump("invalid")
 			Expect(
-				err,
-			).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
+				zyn.Bool().Dump("invalid"),
+			).Error().
+				To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
 		})
 
 		Specify("nil value", func() {
-			_, err := zyn.Bool().Dump(nil)
-			Expect(err).To(MatchError(validate.ErrRequired))
+			Expect(zyn.Bool().Dump(nil)).Error().To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("nil pointer", func() {
 			var b *bool
-			_, err := zyn.Bool().Dump(b)
-			Expect(err).To(MatchError(validate.ErrRequired))
+			Expect(zyn.Bool().Dump(b)).Error().To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("invalid type", func() {
-			_, err := zyn.Bool().Dump(struct{}{})
 			Expect(
-				err,
-			).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
+				zyn.Bool().Dump(struct{}{}),
+			).Error().
+				To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
 		})
 
 		Specify("custom type", func() {

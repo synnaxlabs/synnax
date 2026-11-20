@@ -183,7 +183,7 @@ var _ = Describe("MigrateLinePlot", func() {
 			out := migrate(ctx, v7.LinePlot{Ranges: v7.Ranges{
 				X1: []string{"custom"},
 				Custom: &v7.CustomRange{
-					Variant: v7.DynamicCustomRange{Span: telem.TimeSpan(telem.Hour)},
+					Variant: v7.DynamicCustomRange{Span: telem.Hour},
 				},
 			}})
 			Expect(out.Ranges).To(Equal([]ranger.Ref{dynamicRef(telem.Hour)}))
@@ -296,7 +296,7 @@ var _ = Describe("MigrateLinePlot", func() {
 
 	It("Should lift a stored v6 entry through v7", func(ctx SpecContext) {
 		var stored v6.LinePlot
-		Expect(orc.Codec.Decode(ctx, loadWire("v6_released.hex"), &stored)).
+		Expect(orc.Codec.Decode(loadWire("v6_released.hex"), &stored)).
 			To(Succeed())
 		old := MustSucceed(v7.MigrateLinePlot(ctx, stored))
 		out := migrate(ctx, old)

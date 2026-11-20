@@ -25,49 +25,49 @@ bool has_rt_scheduling() {
 
 class PollingLoop final : public Loop {
 public:
-    explicit PollingLoop(const Config &config): config_(config) {
-        if (this->config_.rt_priority > 0) {
+    explicit PollingLoop(const Config &config): config(config) {
+        if (this->config.rt_priority > 0) {
             LOG(WARNING) << "[arc.loop] RT priority not supported in polling mode";
         }
-        if (this->config_.cpu_affinity >= 0) {
+        if (this->config.cpu_affinity >= 0) {
             LOG(WARNING) << "[arc.loop] CPU affinity not supported in polling mode";
         }
-        if (this->config_.memory_locked) {
+        if (this->config.memory_locked) {
             LOG(WARNING) << "[arc.loop] Memory locking not supported in polling mode";
         }
 
-        if (this->config_.mode == ExecutionMode::RT_EVENT ||
-            this->config_.mode == ExecutionMode::EVENT_DRIVEN ||
-            this->config_.mode == ExecutionMode::HYBRID) {
+        if (this->config.mode == ExecutionMode::RT_EVENT ||
+            this->config.mode == ExecutionMode::EVENT_DRIVEN ||
+            this->config.mode == ExecutionMode::HYBRID) {
             LOG(INFO) << "[arc.loop] Falling back to HIGH_RATE mode for "
                       << "unsupported execution mode in polling implementation";
         }
     }
 
-    ~PollingLoop() override { this->timer_.reset(); }
+    ~PollingLoop() override { this->timer.reset(); }
 
     WakeReason wait(
         x::breaker::Breaker &breaker,
         x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
         x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
-        if (!this->started_) return WakeReason::Shutdown;
+        if (!this->started) return WakeReason::Shutdown;
 
-        if (this->config_.interval.nanoseconds() > 0 && this->timer_) {
+        if (this->config.interval.nanoseconds() > 0 && this->timer) {
             const auto now = std::chrono::steady_clock::now();
             const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                     now - this->last_tick_
+                                     now - this->last_tick
             )
                                      .count();
 
-            auto interval_ns = this->config_.interval.nanoseconds();
+            auto interval_ns = this->config.interval.nanoseconds();
             if (max_timeout.nanoseconds() > 0)
                 interval_ns = std::min(interval_ns, max_timeout.nanoseconds());
 
             if (elapsed < interval_ns) {
                 const int64_t remaining_ns = interval_ns - elapsed;
 
-                switch (this->config_.mode) {
+                switch (this->config.mode) {
                     case ExecutionMode::BUSY_WAIT:
                         this->busy_wait(remaining_ns, breaker);
                         break;
@@ -76,18 +76,18 @@ public:
                     case ExecutionMode::RT_EVENT:
                     case ExecutionMode::EVENT_DRIVEN:
                     case ExecutionMode::HYBRID:
-                        this->timer_->wait(breaker);
+                        this->timer->wait(breaker);
                         break;
                 }
 
-                this->last_tick_ = std::chrono::steady_clock::now();
+                this->last_tick = std::chrono::steady_clock::now();
             } else {
-                this->last_tick_ = now;
+                this->last_tick = now;
             }
         } else {
             if (max_timeout.nanoseconds() > 0) {
                 std::this_thread::sleep_for(max_timeout.chrono());
-            } else if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
+            } else if (this->config.mode == ExecutionMode::BUSY_WAIT) {
                 std::this_thread::sleep_for(x::telem::MICROSECOND.chrono());
             } else {
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
@@ -97,14 +97,14 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->started_) return x::errors::NIL;
+        if (this->started) return x::errors::NIL;
 
-        if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_ = std::make_unique<::x::loop::Timer>(this->config_.interval);
+        if (this->config.interval.nanoseconds() > 0) {
+            this->timer = std::make_unique<::x::loop::Timer>(this->config.interval);
         }
 
-        this->last_tick_ = std::chrono::steady_clock::now();
-        this->started_ = true;
+        this->last_tick = std::chrono::steady_clock::now();
+        this->started = true;
 
         return x::errors::NIL;
     }
@@ -138,10 +138,10 @@ private:
         }
     }
 
-    Config config_;
-    std::unique_ptr<::x::loop::Timer> timer_;
-    std::chrono::steady_clock::time_point last_tick_;
-    bool started_ = false;
+    Config config;
+    std::unique_ptr<::x::loop::Timer> timer;
+    std::chrono::steady_clock::time_point last_tick;
+    bool started = false;
 };
 
 std::unique_ptr<Loop>

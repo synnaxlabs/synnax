@@ -13,6 +13,8 @@ import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
@@ -40,6 +42,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				RequestTranslator:  requestBackwardTranslator{},
 				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Errors:             errorCodec(),
 				Internal:           true,
 			}
 			uServer.BindTo(reg)
@@ -53,6 +56,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				ResponseTranslator: responseTranslator{},
 				Pool:               pool,
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Errors:             errorCodec(),
 				Exec: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
@@ -70,5 +74,14 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		address.Address,
 	) {
 		return server, client, addr
+	})
+
+	It("Should report the gRPC protocol and the protobuf encoding", func() {
+		for _, rep := range []alamos.Report{server.Report(), client.Report()} {
+			Expect(rep).To(Equal(alamos.Report{
+				"protocol":  "grpc",
+				"encodings": []string{"protobuf"},
+			}))
+		}
 	})
 })

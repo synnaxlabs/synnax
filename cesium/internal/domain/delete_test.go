@@ -64,12 +64,9 @@ var _ = Describe("Delete", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(
+				db = MustOpen(
 					domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}),
 				)
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Context("Single Pointer", func() {
@@ -566,6 +563,24 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					},
 				)
+
+				It(
+					"Should step past a domain whose start was deleted",
+					func(ctx SpecContext) {
+						iter := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(db.Delete(
+							ctx,
+							(10 * telem.SecondTS).Range(12*telem.SecondTS),
+							fixedOffsetAndTimeStamp(0, 200*telem.SecondTS),
+							fixedOffset(1),
+						)).To(Succeed())
+						Expect(iter.Next()).To(BeTrue())
+						Expect(iter.TimeRange()).
+							To(Equal((22 * telem.SecondTS).SpanRange(8 * telem.Second)))
+						Expect(iter.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Context("Edge cases", func() {
@@ -615,7 +630,7 @@ var _ = Describe("Delete", Ordered, func() {
 					It(
 						"Should return errors when the startOffset is after the endOffset for same pointer deletion",
 						func(ctx SpecContext) {
-							err := db.Delete(
+							Expect(db.Delete(
 								ctx,
 								telem.TimeRange{
 									Start: 26 * telem.SecondTS,
@@ -623,10 +638,7 @@ var _ = Describe("Delete", Ordered, func() {
 								},
 								fixedOffset(7),
 								fixedOffset(5),
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
+							)).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
 						},
 					)
 

@@ -33,6 +33,9 @@ type FmtStrSegment struct {
 	End int
 	// Body byte offset of `:`, or -1 if no spec.
 	SpecOffset int
+	// Offsets holds the body byte offset of each byte of a placeholder's Text, and one
+	// past its end. FmtStrSplit sets it.
+	Offsets []int
 }
 
 // FmtStrHasPlaceholder reports whether any segment is a placeholder.
@@ -88,57 +91,111 @@ func StripQuotes(text string) (body string, flags StringFlags, ok bool) {
 // pass through verbatim. Literal-brace escapes ({{ and }}) are handled by
 // FmtStrParse. Errors only on a trailing backslash or an incomplete \uXXXX escape.
 func UnescapeString(body string, multi bool) (string, error) {
+	value, _, err := unescape(body, multi)
+	return value, err
+}
+
+// unescape applies the escape table to body. It also returns, for each byte of the
+// result and one past its end, the offset in body that byte came from.
+func unescape(body string, multi bool) (string, []int, error) {
 	var b strings.Builder
 	b.Grow(len(body))
+	offsets := make([]int, 0, len(body)+1)
 	for i := 0; i < len(body); {
 		c := body[i]
 		if c != '\\' {
 			b.WriteByte(c)
+			offsets = append(offsets, i)
 			i++
 			continue
 		}
-		if i+1 >= len(body) {
-			return "", errors.New("trailing backslash in string literal")
+		value, width, known, err := decodeEscape(body, i, multi)
+		if err != nil {
+			return "", nil, err
 		}
-		next := body[i+1]
-		switch {
-		case next == 'b':
-			b.WriteByte('\b')
-		case next == 't':
-			b.WriteByte('\t')
-		case next == 'n':
-			b.WriteByte('\n')
-		case next == 'f':
-			b.WriteByte('\f')
-		case next == 'r':
-			b.WriteByte('\r')
-		case next == '"' && !multi:
-			b.WriteByte('"')
-		case next == '`' && multi:
-			b.WriteByte('`')
-		case next == '\\':
-			b.WriteByte('\\')
-		case next == 'u':
-			if i+6 > len(body) {
-				return "", errors.New(`incomplete \u escape in string literal`)
-			}
-			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
-			if err != nil {
-				return "", errors.Newf(
-					`invalid \u escape %q in string literal`,
-					body[i:i+6],
-				)
-			}
-			b.WriteRune(rune(cp))
-			i += 6
-			continue
-		default:
-			b.WriteByte('\\')
-			b.WriteByte(next)
+		b.WriteString(value)
+		if !known {
+			// The escape passes through, so each byte keeps its own offset.
+			offsets = append(offsets, i, i+1)
 		}
-		i += 2
+		for len(offsets) < b.Len() {
+			offsets = append(offsets, i)
+		}
+		i += width
 	}
-	return b.String(), nil
+	return b.String(), append(offsets, len(body)), nil
+}
+
+// decodeEscape returns the text of the escape that starts at body[i] and its width in
+// body. It returns false when the escape is unknown and passes through verbatim.
+func decodeEscape(body string, i int, multi bool) (string, int, bool, error) {
+	if i+1 >= len(body) {
+		return "", 0, false, errors.New("trailing backslash in string literal")
+	}
+	switch next := body[i+1]; {
+	case next == 'b':
+		return "\b", 2, true, nil
+	case next == 't':
+		return "\t", 2, true, nil
+	case next == 'n':
+		return "\n", 2, true, nil
+	case next == 'f':
+		return "\f", 2, true, nil
+	case next == 'r':
+		return "\r", 2, true, nil
+	case next == '"' && !multi:
+		return `"`, 2, true, nil
+	case next == '`' && multi:
+		return "`", 2, true, nil
+	case next == '\\':
+		return `\`, 2, true, nil
+	case next == 'u':
+		if i+6 > len(body) {
+			return "", 0, false, errors.New(`incomplete \u escape in string literal`)
+		}
+		cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
+		if err != nil {
+			return "", 0, false, errors.Newf(
+				`invalid \u escape %q in string literal`,
+				body[i:i+6],
+			)
+		}
+		return string(rune(cp)), 6, true, nil
+	default:
+		return body[i : i+2], 2, false, nil
+	}
+}
+
+// FmtStrSplit applies the escapes in body, unless flags.Raw, and then splits the
+// result into segments as FmtStrParse does. Each segment's Text has its escapes
+// applied, and its Start, End, and SpecOffset index body as written.
+func FmtStrSplit(body string, flags StringFlags) ([]FmtStrSegment, error) {
+	value, offsets := body, make([]int, len(body)+1)
+	for i := range offsets {
+		offsets[i] = i
+	}
+	if !flags.Raw {
+		var err error
+		if value, offsets, err = unescape(body, flags.Multi); err != nil {
+			return nil, err
+		}
+	}
+	segments, err := FmtStrParse(value)
+	if err != nil {
+		return nil, err
+	}
+	for i := range segments {
+		seg := &segments[i]
+		if seg.IsPlaceholder {
+			text := seg.Start + 1
+			seg.Offsets = slices.Clone(offsets[text : text+len(seg.Text)+1])
+		}
+		seg.Start, seg.End = offsets[seg.Start], offsets[seg.End]
+		if seg.SpecOffset >= 0 {
+			seg.SpecOffset = offsets[seg.SpecOffset]
+		}
+	}
+	return segments, nil
 }
 
 // FmtStrParse splits a format-string body into ordered segments at `{...}`
@@ -160,11 +217,11 @@ func FmtStrParse(body string) ([]FmtStrSegment, error) {
 		if open == len(body) {
 			return segments, nil
 		}
-		close, err := findPlaceholderClose(body, open)
+		closeIdx, err := findPlaceholderClose(body, open)
 		if err != nil {
 			return nil, err
 		}
-		expr := body[open+1 : close]
+		expr := body[open+1 : closeIdx]
 		exprPart, spec, err := splitSpec(expr)
 		if err != nil {
 			return nil, err
@@ -178,10 +235,10 @@ func FmtStrParse(body string) ([]FmtStrSegment, error) {
 			Spec:          spec,
 			IsPlaceholder: true,
 			Start:         open,
-			End:           close + 1,
+			End:           closeIdx + 1,
 			SpecOffset:    specOffset,
 		})
-		pos = close + 1
+		pos = closeIdx + 1
 	}
 	return segments, nil
 }

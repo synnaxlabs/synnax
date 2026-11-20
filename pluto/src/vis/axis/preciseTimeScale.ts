@@ -105,7 +105,9 @@ export class PreciseTimeScale {
     }).filter((ts) => ts.afterEq(this._domain[0]) && ts.beforeEq(this._domain[1]));
   }
 
-  /** @returns the smallest {@link TIME_SCALE_STEPS} entry that fits targetCount ticks. */
+  /**
+   * @returns the smallest {@link TIME_SCALE_STEPS} entry that fits targetCount ticks.
+   */
   private calculateOptimalStep(targetCount: number): TimeSpan {
     const rawStepNanoseconds = this._span.valueOf() / BigInt(Math.ceil(targetCount));
     let bestStep = TIME_SCALE_STEPS[0];

@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { http, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
+import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
   commitFieldInput,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -29,13 +32,12 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getHeaderIconButton,
-  uniqueName,
 } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(HTTP.Task.Write, {
+  const rendered = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE], {
     task: ZERO_DRAFT,
     ...options,
   });
@@ -162,7 +164,8 @@ describe("Write", () => {
 
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
-    const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [createWriteEndpoint("ep1", "/seeded")]);
     const draft = await createDraft(client, config);
     await renderWrite({ client, taskKey: draft.key });
     await screen.findByRole("option", { name: /\/seeded/ });
@@ -177,7 +180,8 @@ describe("Write", () => {
       dataType,
       virtual: true,
     });
-    const config = createWriteConfig("dev_1", [
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [
       createWriteEndpoint("ep1", "/cmd", { channel: ch.key }),
     ]);
     const draft = await createDraft(client, config);
@@ -285,11 +289,16 @@ describe("Write", () => {
           }),
       ),
     );
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/cmd": cmdCh.key, "/other": otherCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createWriteConfig(dev.key, [
@@ -320,11 +329,16 @@ describe("Write", () => {
       dataType: "string",
       virtual: true,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/cmd": storedCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createWriteConfig(dev.key, [
@@ -354,11 +368,16 @@ describe("Write", () => {
       dataType: "string",
       virtual: true,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/stored": storedCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const config = createWriteConfig(dev.key, [
       createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
       createWriteEndpoint("ep2", "/stored"),
@@ -379,5 +398,24 @@ describe("Write", () => {
     });
     expect(updated.properties.write["/cmd"]).toBe(configuredCh.key);
     expect(updated.properties.write["/stored"]).toBe(storedCh.key);
+  });
+});
+
+describe("Write channel names", () => {
+  const client = createTestClient();
+
+  it("should show the name deploying gives each command channel in the list", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [
+      createWriteEndpoint("ep1", "/valve", { dataType: "uint8" }),
+      { ...createWriteEndpoint("ep2", "/off", { dataType: "uint8" }), disabled: true },
+    ]);
+    const draft = await createDraft(client, config);
+    await renderWrite({ client, taskKey: draft.key });
+    const escape = channel.escapeInvalidName;
+    const on = await findChannelListItem(`${escape(dev.name)}${escape("/valve")}_cmd`);
+    expect(within(on).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const off = await findChannelListItem(`${escape(dev.name)}${escape("/off")}_cmd`);
+    expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

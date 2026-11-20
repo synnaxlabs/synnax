@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, query, schematic } from "@synnaxlabs/client";
+import { query, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Schematic as Base } from "@synnaxlabs/pluto";
 
 import { Selectable } from "@/feature/schematic/Selectable";
 import { Panel } from "@/platform/panel";
-import { type Range } from "@/platform/range";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export * from "@/feature/schematic/commands";
 export * from "@/feature/schematic/link";
@@ -23,7 +22,7 @@ export * from "@/feature/schematic/symbol";
 export * from "@/feature/schematic/tree";
 export * from "@/platform/schematic/external";
 
-const TAB_TYPE = schematic.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = schematic.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
@@ -37,14 +36,22 @@ const TAB: Panel.Tab = {
     "Toolbar",
   ),
   Icon: Icon.Schematic,
+  iconKey: "schematic",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.Schematic />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
-    await client.schematics.create(project, corpse);
+    const corpse = query.requireCorpse(
+      client.schematics.watch(resource.key).getCached(),
+    );
+    // A restored record comes back in the project, as its group may be gone.
+    await client.schematics.create({
+      ...corpse,
+      project,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
@@ -52,19 +59,4 @@ const TAB: Panel.Tab = {
 
 export const TABS: Panel.Tabs = {
   [TAB_TYPE]: TAB,
-};
-
-export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
-  [TAB_TYPE]: {
-    icon: <Icon.Schematic />,
-    onClick: async ({ id }, { client, openTab }) => {
-      if (client == null) throw new DisconnectedError();
-      await client.schematics.retrieve(id.key);
-      openTab({ variant: "resource", resource: id });
-    },
-    onDelete: async ({ id: { key } }, { client }) => {
-      if (client == null) throw new DisconnectedError();
-      await client.schematics.delete(key);
-    },
-  },
 };

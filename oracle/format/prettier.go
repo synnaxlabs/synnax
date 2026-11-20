@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 )
 
-// prettier is a Formatter that runs prettier over its input via stdin.
+// prettier is a formatter that runs prettier over its input via stdin.
 // `--stdin-filepath=<absPath>` is passed so prettier can resolve the surrounding
 // .prettierrc / prettier.config.* and pick the right parser from the file extension.
 // The command runs from the nearest package.json directory so `pnpm exec` resolves the

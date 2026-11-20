@@ -53,8 +53,7 @@ describe("Toolbar.Body", () => {
   afterEach(() => consoleSpy.mockRestore());
 
   it("keeps the header painted while the body's read is pending", async () => {
-    let resolve!: () => void;
-    const promise = new Promise<void>((r) => (resolve = r));
+    const { promise, resolve } = Promise.withResolvers<void>();
     await renderToolbar(<Read promise={promise} />);
     expect(screen.getByText("Ranges")).toBeTruthy();
     expect(screen.queryByText("body")).toBeNull();
@@ -66,5 +65,17 @@ describe("Toolbar.Body", () => {
     await renderToolbar(<Throw />);
     expect(screen.getByText("Ranges")).toBeTruthy();
     expect(screen.getByText("boom", { exact: false })).toBeTruthy();
+  });
+});
+
+describe("Toolbar.Title", () => {
+  it("fades a long title on one line instead of wrapping it", async () => {
+    await renderWithConsole(
+      <Toolbar.Header>
+        <Toolbar.Title>Ranges</Toolbar.Title>
+      </Toolbar.Header>,
+    );
+    const { classList } = screen.getByText("Ranges");
+    expect(classList.contains("lyra-text--overflow-fade")).toBe(true);
   });
 });

@@ -8,22 +8,35 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement } from "react";
+import { Input } from "@synnaxlabs/lyra/input";
+import { deep, TimeSpan } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
-  endContent: "ms",
-  min: 0,
-};
+const path = deep.path<{ onClickDelay?: number }>();
 
-export const ActivationDelayField = (
-  props: Partial<Form.NumericFieldProps>,
-): ReactElement => (
-  <Form.NumericField
+// A browser timer fires at once past 2^31 - 1 ms, which would skip the hold. The Core
+// stores the same bound.
+const MAX_DELAY = TimeSpan.milliseconds(2 ** 31 - 1);
+
+const checkDelay = (span: TimeSpan): string | null =>
+  span.greaterThan(MAX_DELAY) ? `Delay must be ${MAX_DELAY.toString()} or less` : null;
+
+/** Edits the click delay in nanoseconds. A number typed alone is milliseconds. */
+export const ActivationDelayField = (): ReactElement => (
+  <Form.Field<number | undefined>
     label="Delay"
-    path="onClickDelay"
-    inputProps={ACTIVATION_DELAY_INPUT_PROPS}
+    path={path.onClickDelay}
     padHelpText={false}
-    {...props}
-  />
+  >
+    {({ value, onChange, ...p }) => (
+      <Input.TimeSpan
+        {...p}
+        inline
+        unit={TimeSpan.MILLISECOND}
+        value={value}
+        onChange={onChange}
+        check={checkDelay}
+      />
+    )}
+  </Form.Field>
 );

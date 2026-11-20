@@ -114,21 +114,19 @@ static std::string validate_health_response(
 
 void Scanner::set_device_status(
     synnax::device::Device &dev,
+    const bool connected,
     const std::string &variant,
     const std::string &message,
     const std::string &description
 ) const {
     dev.status = synnax::device::Status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = variant,
         .message = message,
         .description = description,
         .time = x::telem::TimeStamp::now(),
-        .details = {
-            .rack = this->task.rack,
-            .device = dev.key,
-        },
+        .details = {.rack = this->task.rack, .connected = connected},
+        .owner = synnax::device::resource_id(dev.key),
     };
 }
 
@@ -146,6 +144,7 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
     if (parser.error()) {
         this->set_device_status(
             dev,
+            false,
             synnax::status::VARIANT_WARNING,
             "Invalid device properties",
             common::config_err_description(parser.error())
@@ -168,9 +167,21 @@ void Scanner::process_health_response(
     const Response &resp,
     const x::errors::Error &err
 ) const {
+    // A status code means the server answered before the transfer failed.
+    if (err && resp.status_code != 0) {
+        this->set_device_status(
+            dev,
+            true,
+            synnax::status::VARIANT_ERROR,
+            "Health check failed",
+            err.data
+        );
+        return;
+    }
     if (err) {
         this->set_device_status(
             dev,
+            false,
             synnax::status::VARIANT_WARNING,
             "Failed to reach server",
             err.data
@@ -180,6 +191,7 @@ void Scanner::process_health_response(
     if (const auto status_err = errors::from_status(resp.status_code)) {
         this->set_device_status(
             dev,
+            true,
             synnax::status::VARIANT_ERROR,
             "Health check failed",
             rejection_description(resp)
@@ -190,28 +202,34 @@ void Scanner::process_health_response(
         !v_err.empty()) {
         this->set_device_status(
             dev,
+            true,
             synnax::status::VARIANT_ERROR,
             "Health check failed",
             v_err
         );
         return;
     }
-    this->set_device_status(dev, synnax::status::VARIANT_SUCCESS, "Device connected");
+    this->set_device_status(
+        dev,
+        true,
+        synnax::status::VARIANT_SUCCESS,
+        "Device connected"
+    );
 }
 
 void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";

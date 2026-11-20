@@ -17,7 +17,7 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Static completion items for Oracle schema language
+// Static completion items for Oracle schema language.
 var (
 	keywordCompletions = []protocol.CompletionItem{
 		{
@@ -34,6 +34,13 @@ var (
 			Label:  "union",
 			Kind:   protocol.CompletionItemKindKeyword,
 			Detail: protocol.NewOptional("Declare a discriminated union"),
+		},
+		{
+			Label: "filter",
+			Kind:  protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional(
+				"Declare the filter tree of a struct or union",
+			),
 		},
 		{
 			Label:  "import",
@@ -144,7 +151,7 @@ var (
 		{
 			Label:  "key",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Marks the field as the primary key"),
+			Detail: protocol.NewOptional("Marks the primary key field, or a key type"),
 		},
 		{
 			Label:  "validate",
@@ -157,9 +164,9 @@ var (
 			Detail: protocol.NewOptional("Retrieve requests can filter on the field"),
 		},
 		{
-			Label:  "ontology",
+			Label:  "resource",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Ontology resource type"),
+			Detail: protocol.NewOptional("Resource type"),
 		},
 		{
 			Label:  "create",
@@ -177,9 +184,36 @@ var (
 			Detail: protocol.NewOptional("Retrieve requests can search the field"),
 		},
 		{
+			Label:  "patch",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Path actions can edit the field"),
+		},
+		{
 			Label:  "index",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Index configuration for the field"),
+		},
+		{
+			Label:  "ref",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("The field holds the keys of other resources"),
+		},
+		{
+			Label:  "group",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Which groups can hold the record"),
+		},
+		{
+			Label:  "response",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Record type of a filter's response"),
+		},
+		{
+			Label: "include",
+			Kind:  protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional(
+				"Retrieve requests can ask the Core to fill the field",
+			),
 		},
 		{
 			Label:  "go",
@@ -235,6 +269,11 @@ var (
 			Detail: protocol.NewOptional("Minimum numeric value"),
 		},
 		{
+			Label:  "gt",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Exclusive minimum numeric value"),
+		},
+		{
 			Label:  "max",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Maximum numeric value"),
@@ -243,6 +282,11 @@ var (
 			Label:  "pattern",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Regex pattern constraint"),
+		},
+		{
+			Label:  "finite",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Refuse NaN and infinite floats"),
 		},
 	}
 
@@ -276,13 +320,18 @@ var (
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Generate ToAny on a generic struct"),
 		},
+		protocol.CompletionItem{
+			Label:  "request_output",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Output path for a filter's retrieve request"),
+		},
 	)
 
-	ontologyExpressionCompletions = []protocol.CompletionItem{
+	resourceExpressionCompletions = []protocol.CompletionItem{
 		{
 			Label:  "type",
 			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Ontology type name"),
+			Detail: protocol.NewOptional("Resource type name"),
 		},
 	}
 
@@ -352,8 +401,8 @@ func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
 			return validateExpressionCompletions
 		case strings.HasPrefix(rest, "ts "):
 			return tsExpressionCompletions
-		case strings.HasPrefix(rest, "ontology "):
-			return ontologyExpressionCompletions
+		case strings.HasPrefix(rest, "resource "):
+			return resourceExpressionCompletions
 		case strings.HasPrefix(rest, "go "):
 			return goExpressionCompletions
 		case strings.HasPrefix(rest, "py "),
@@ -367,10 +416,7 @@ func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
 	if strings.TrimSpace(trimmed) == "" {
 		return keywordCompletions
 	}
-	all := make([]protocol.CompletionItem, 0)
-	all = append(all, keywordCompletions...)
-	all = append(all, primitiveTypeCompletions...)
-	return all
+	return slices.Concat(keywordCompletions, primitiveTypeCompletions)
 }
 
 func extractPrefix(linePrefix string) string {

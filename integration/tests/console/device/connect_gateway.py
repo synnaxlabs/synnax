@@ -10,6 +10,7 @@
 import re
 
 from examples.modbus import ModbusGatewaySim
+from pydantic import JsonValue
 
 import synnax as sy
 from tests.console.device.connect_network import NETWORK
@@ -35,7 +36,6 @@ class ConnectGateway(ModbusCase):
 
     def fill_unit(self, unit_id: int) -> None:
         modal = self.console.devices.modal
-        modal.get_by_role("tab", name="Unit", exact=True).click(timeout=5000)
         modal.get_by_label(re.compile(r"^Unit ID\b")).fill(str(unit_id))
 
     def test_silent_unit(self, name: str) -> None:
@@ -60,8 +60,7 @@ class ConnectGateway(ModbusCase):
         layout = self.console.layout
         self.fill_unit(2)
         layout.click_btn("Byte order")
-        layout.select_from_dropdown("Big-endian (ABCD)", exact=True)
-        devices.modal.get_by_role("tab", name="Advanced", exact=True).click()
+        layout.select_from_dropdown("Big-endian")
         devices.modal.get_by_label(re.compile(r"^Timeout\b")).fill("300")
         devices.fill_connect(
             name=name, host=ModbusGatewaySim.host, port=ModbusGatewaySim.port
@@ -70,7 +69,7 @@ class ConnectGateway(ModbusCase):
         dev = self.client.devices.retrieve(name=name)
         self.track_test_devices([dev])
         connection = sy.device.ensure_object(dev.properties, "connection")
-        expected = {
+        expected: dict[str, JsonValue] = {
             "unit_id": 2,
             "swap_bytes": False,
             "swap_words": True,
@@ -80,16 +79,13 @@ class ConnectGateway(ModbusCase):
         assert stored == expected, f"'{name}' should store {expected}, got {stored}"
 
     def test_diagnostics(self, name: str) -> None:
-        """The diagnostics tab shows the requests the Driver counted for the unit."""
+        """The diagnostics show the requests the Driver counted for the unit."""
         self.log("Testing: Diagnostics show the request counts")
         self.wait_for_stats(name)
         devices = self.console.devices
         layout = self.console.layout
         devices.ctx_menu.action(devices.get(name), "Edit connection")
         devices.modal.wait_for(state="visible", timeout=5000)
-        devices.modal.get_by_role("tab", name="Diagnostics", exact=True).click(
-            timeout=5000
-        )
         shown = {
             label: devices.modal.locator(f"dt:text-is('{label}') + dd").inner_text()
             for label in ("Requests", "Timeouts", "Exceptions", "Last response")
@@ -101,11 +97,11 @@ class ConnectGateway(ModbusCase):
 
     def wait_for_stats(self, name: str) -> None:
         """Wait for the Driver to report the counters of a device in its status."""
-        timer = sy.Timer()
-        while timer.elapsed() < 15 * sy.TimeSpan.SECOND:
+
+        def reported() -> bool | None:
             dev = self.client.devices.retrieve(name=name, include_status=True)
             details = None if dev.status is None else dev.status.details
-            if details is not None and details.data is not None:
-                return
-            sy.sleep(0.5)
-        raise AssertionError(f"'{name}' should report its request counters")
+            return True if details is not None and details.data is not None else None
+
+        if sy.poll(reported, timeout=15, interval=0.5) is None:
+            raise AssertionError(f"'{name}' should report its request counters")

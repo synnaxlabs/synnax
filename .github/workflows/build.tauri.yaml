@@ -22,6 +22,12 @@ on:
         description: JSON list of runner labels
         type: string
         required: true
+      stage:
+        description: >-
+          all builds and bundles the app in one job. compile builds the app binary and
+          uploads it. bundle makes the bundles from that binary.
+        type: string
+        default: all
       version:
         description: Version of the Core this run built, which Desktop bundles
         type: string
@@ -44,6 +50,33 @@ on:
         description: Updater channel the app polls, stable or next
         type: string
         default: stable
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      POSTHOG_CLI_API_KEY:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      TAURI_PRIVATE_KEY:
+        required: false
+      TURBO_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -64,7 +97,20 @@ jobs:
       APP: ${{ inputs.desktop && 'Synnax Desktop' || 'Synnax' }}
       PRODUCT: ${{ inputs.desktop && 'desktop' || 'console' }}
       OS_NAME: ${{ startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
+      EXECUTABLE: ${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+      POSTHOG_CLI_VERSION: 0.18.9
+      BINARY_DIR: console/src-tauri/target/release
       BUNDLE_DIR: console/src-tauri/target/release/bundle
+      # The bundle stage has the compiled app, so it only bundles. tauri bundle takes no
+      # features from the config, and without desktop it leaves out the key helper.
+      TAURI:
+        ${{ inputs.stage == 'bundle' && format('pnpm exec tauri bundle{0}',
+        inputs.desktop && ' --features desktop' || '') || 'pnpm build' }}
+      # The name must not start with synnax-desktop-, which release.yaml downloads as
+      # the bundles.
+      BINARY_ARTIFACT:
+        unbundled-synnax-${{ inputs.desktop && 'desktop' || 'console' }}-${{
+        startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,12 +119,17 @@ jobs:
     defaults:
       run:
         shell: bash
+    timeout-minutes: 90
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Import Apple Developer Certificate
-        if: startsWith(matrix.os, 'macos') && inputs.sign_binaries
+        if:
+          startsWith(matrix.os, 'macos') && inputs.sign_binaries && inputs.stage !=
+          'compile'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -139,16 +190,18 @@ jobs:
           echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        if: inputs.stage != 'bundle'
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+          rust-src-dir: console/src-tauri
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
 
       - name: Download Core binary
-        if: inputs.desktop
-        uses: actions/download-artifact@v8
+        if: inputs.desktop && inputs.stage != 'compile'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -158,6 +211,9 @@ jobs:
 
       - name: Install Core as the Desktop sidecar
         if: inputs.desktop
+        env:
+          VERSION: ${{ inputs.version }}
+          STAGE: ${{ inputs.stage }}
         run: |
           # Tauri resolves a sidecar by the Rust host triple.
           TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
@@ -165,24 +221,111 @@ jobs:
           case "$TRIPLE" in *windows*) EXT=".exe" ;; esac
           mkdir -p console/src-tauri/binaries
           SIDECAR="console/src-tauri/binaries/synnax-core-${TRIPLE}${EXT}"
-          cp "core-artifact/synnax-v${{ inputs.version }}${EXT}" "$SIDECAR"
+          # The app compiles only when the sidecar file exists. The compile stage
+          # uploads the app binary alone, so the empty file goes into no bundle.
+          if [ "$STAGE" = compile ]; then
+            : > "$SIDECAR"
+            exit 0
+          fi
+          cp "core-artifact/synnax-v${VERSION}${EXT}" "$SIDECAR"
           chmod +x "$SIDECAR"
+
+      # The Console's version guard reads the TypeScript client's version. Desktop
+      # checks against the Core it embeds.
+      - name: Stamp package versions
+        if: inputs.stage != 'bundle' && (inputs.desktop || inputs.app_version != '')
+        env:
+          VERSION: ${{ inputs.desktop && inputs.version || inputs.app_version }}
+        run: .github/scripts/stamp_versions.sh ts "$VERSION"
 
       # Only the dependencies build here. The Console's own vite build runs inside
       # tauri build, where VITE_DESKTOP reaches it.
       - name: Build workspace packages
+        if: inputs.stage != 'bundle'
         run: pnpm exec turbo build --filter "@synnaxlabs/console^..."
 
-      - name: Install PostHog CLI
-        if: steps.config.outputs.release == 'true'
-        run: npm install -g @posthog/cli@0.18.9
+      - name: Install PostHog CLI (macOS)
+        if:
+          inputs.stage != 'bundle' && steps.config.outputs.release == 'true' &&
+          startsWith(matrix.os, 'macos')
+        env:
+          ASSET: posthog-cli-aarch64-apple-darwin
+          SHA256: 831d3a8f16f95fc7cdbff7c9e83a32f012e8bd5af983646582f52e3ca4221d01
+        run: |
+          base=https://github.com/PostHog/posthog/releases/download
+          curl -fsSLo "$RUNNER_TEMP/$ASSET.tar.gz" \
+            "$base/posthog-cli/v$POSTHOG_CLI_VERSION/$ASSET.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/$ASSET.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/$ASSET.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$ASSET" >> "$GITHUB_PATH"
 
-      - name: Install trusted-signing-cli
-        if: matrix.os == 'windows-latest' && inputs.sign_binaries
-        run: cargo install trusted-signing-cli
+      - name: Install PostHog CLI (Windows)
+        if:
+          inputs.stage != 'bundle' && steps.config.outputs.release == 'true' &&
+          startsWith(matrix.os, 'windows')
+        shell: powershell
+        env:
+          ASSET: posthog-cli-x86_64-pc-windows-msvc
+          SHA256: fec1624f8a8d232ae314a9391e266884e8cacb238719262e652696a1f96708b2
+        run: |
+          $base = "https://github.com/PostHog/posthog/releases/download"
+          $zip = "$env:RUNNER_TEMP\$env:ASSET.zip"
+          $url = "$base/posthog-cli/v$env:POSTHOG_CLI_VERSION/$env:ASSET.zip"
+          Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
+          if ((Get-FileHash -Algorithm SHA256 $zip).Hash -ne $env:SHA256) {
+            throw "$zip does not match its checksum"
+          }
+          $dir = "$env:RUNNER_TEMP\posthog-cli"
+          Expand-Archive -Force $zip $dir
+          Add-Content $env:GITHUB_PATH $dir
+
+      - name: Set up trusted-signing-cli
+        id: signer
+        if:
+          matrix.os == 'windows-latest' && inputs.sign_binaries && inputs.stage !=
+          'compile'
+        uses: ./.github/actions/setup-trusted-signing-cli
+
+      # The compile stage signs nothing, so it gets no signing key.
+      - name: Compile app
+        if: inputs.stage == 'compile'
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: "621680"
+          VITE_RELEASE: ${{ steps.config.outputs.release }}
+        working-directory: console
+        run: pnpm build --config src-tauri/release.tauri.conf.json --no-bundle
+
+      - name: Upload app binary as artifact
+        if: inputs.stage == 'compile'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ env.BINARY_ARTIFACT }}
+          # Only Desktop builds the key helper.
+          path: |
+            ${{ env.BINARY_DIR }}/synnax-console${{ env.EXECUTABLE }}
+            ${{ env.BINARY_DIR }}/synnax-desktop-key${{ env.EXECUTABLE }}
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Download app binary
+        if: inputs.stage == 'bundle'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ${{ env.BINARY_ARTIFACT }}
+          path: ${{ env.BINARY_DIR }}
+
+      # An artifact does not keep the executable bit.
+      - name: Make app binaries executable
+        if: inputs.stage == 'bundle'
+        run: |
+          chmod +x "$BINARY_DIR/synnax-console$EXECUTABLE"
+          if [ "$PRODUCT" = desktop ]; then
+            chmod +x "$BINARY_DIR/synnax-desktop-key$EXECUTABLE"
+          fi
 
       - name: Build app (signed)
-        if: inputs.sign_binaries
+        if: inputs.sign_binaries && inputs.stage != 'compile'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -193,6 +336,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          # Read by src-tauri/scripts/Sign.ps1.
+          SIGNER: ${{ steps.signer.outputs.path }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
@@ -200,18 +345,19 @@ jobs:
           # Only a release reports to analytics as production.
           VITE_RELEASE: ${{ steps.config.outputs.release }}
         working-directory: console
-        run: pnpm build --config src-tauri/release.tauri.conf.json
+        run: $TAURI --config src-tauri/release.tauri.conf.json
 
       - name: Build app (unsigned)
-        if: ${{ !inputs.sign_binaries }}
+        if: ${{ !inputs.sign_binaries && inputs.stage != 'compile' }}
         env:
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_PROJECT_ID: "621680"
           VITE_RELEASE: ${{ steps.config.outputs.release }}
         working-directory: console
-        run: pnpm build --config src-tauri/release.tauri.conf.json --no-sign
+        run: $TAURI --config src-tauri/release.tauri.conf.json --no-sign
 
       - name: Stage bundles
+        if: inputs.stage != 'compile'
         env:
           APP_VERSION: ${{ steps.config.outputs.app_version }}
         run: |
@@ -239,7 +385,8 @@ jobs:
           fi
 
       - name: Upload bundles as artifact
-        uses: actions/upload-artifact@v7
+        if: inputs.stage != 'compile'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-{0}-{1}',
@@ -250,8 +397,8 @@ jobs:
           if-no-files-found: error
 
       - name: Upload release assets
-        if: inputs.release_tag != ''
-        uses: nick-fields/retry@v4
+        if: inputs.stage != 'compile' && inputs.release_tag != ''
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           shell: bash
           timeout_minutes: 5

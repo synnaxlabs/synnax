@@ -10,6 +10,7 @@
 import argparse
 import threading
 from abc import abstractmethod
+from typing import override
 
 import synnax as sy
 from examples.simulators.simulator import Simulator
@@ -27,6 +28,7 @@ class SimDAQ(Simulator):
         self._thread: threading.Thread | None = None
         self._end_cmd_thread: threading.Thread | None = None
 
+    @override
     def start(self) -> None:
         """Create channels and start simulation loop in background thread."""
         self._create_channels()
@@ -53,6 +55,7 @@ class SimDAQ(Simulator):
                         self._running = False
                         return
 
+    @override
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
         """Stop simulation and wait for threads to finish."""
         self._running = False

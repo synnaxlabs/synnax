@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
@@ -36,6 +37,13 @@ const bufGenerateStampKey = "buf-generate"
 // _grpc.pb.go file on disk is stored. Required to detect on-disk drift across
 // buf-version bumps and hand edits when the input proto contents have not changed.
 const bufOutputStampKey = "buf-output"
+
+// RunBufGenerateResult is the outcome of RunBufGenerate.
+type RunBufGenerateResult struct {
+	// Cached is true when both input and output stamps matched and no `buf generate`
+	// invocation was needed.
+	Cached bool
+}
 
 // RunBufGenerate runs `buf generate` if and only if BOTH of the following match the
 // previous successful run:
@@ -51,12 +59,6 @@ const bufOutputStampKey = "buf-output"
 // changedProtos contains repo-relative paths to generated `.proto` files that the
 // format step actually wrote. When non-empty the run is scoped via `--path` so protoc
 // only runs over the slice that changed.
-type RunBufGenerateResult struct {
-	// Cached is true when both input and output stamps matched and no `buf generate`
-	// invocation was needed.
-	Cached bool
-}
-
 func RunBufGenerate(
 	ctx context.Context,
 	repoRoot string,
@@ -108,7 +110,7 @@ func RunBufGenerate(
 // bufOutputStamp returns a content-derived stamp covering every .pb.go and _grpc.pb.go
 // file under repoRoot. Same skip-list as bufInputStamp.
 func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
-	files, err := findPbGoFiles(repoRoot)
+	files, err := FindPbGoFiles(repoRoot)
 	if err != nil {
 		return "", err
 	}
@@ -121,12 +123,15 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			b, err := os.ReadFile(p)
+			b, err := paths.ReadFile(p, repoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read %s", p)
 			}
 			h := sha256.Sum256(b)
-			rel, _ := filepath.Rel(repoRoot, p)
+			rel, err := filepath.Rel(repoRoot, p)
+			if err != nil {
+				return err
+			}
 			hashes[i] = rel + ":" + hex.EncodeToString(h[:])
 			return nil
 		})
@@ -147,11 +152,7 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 // repoRoot. We hash the file contents (not just mtimes) so a `git checkout` of
 // identical bytes doesn't trigger an unnecessary regeneration.
 func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
-	configs, err := readIfExists(
-		filepath.Join(repoRoot, "buf.yaml"),
-		filepath.Join(repoRoot, "buf.gen.yaml"),
-		filepath.Join(repoRoot, "buf.lock"),
-	)
+	configs, err := readIfExists(repoRoot, "buf.yaml", "buf.gen.yaml", "buf.lock")
 	if err != nil {
 		return "", err
 	}
@@ -169,12 +170,15 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			b, err := os.ReadFile(p)
+			b, err := paths.ReadFile(p, repoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read %s", p)
 			}
 			h := sha256.Sum256(b)
-			rel, _ := filepath.Rel(repoRoot, p)
+			rel, err := filepath.Rel(repoRoot, p)
+			if err != nil {
+				return err
+			}
 			hashes[i] = rel + ":" + hex.EncodeToString(h[:])
 			return nil
 		})
@@ -195,10 +199,10 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 	return hex.EncodeToString(rollup.Sum(nil)), nil
 }
 
-func readIfExists(paths ...string) ([][]byte, error) {
-	out := make([][]byte, len(paths))
-	for i, p := range paths {
-		b, err := os.ReadFile(p)
+func readIfExists(repoRoot string, names ...string) ([][]byte, error) {
+	out := make([][]byte, len(names))
+	for i, p := range names {
+		b, err := paths.ReadFile(p, repoRoot)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -216,10 +220,10 @@ func findProtoFiles(repoRoot string) ([]string, error) {
 	return walkExtensions(repoRoot, []string{".proto"}, nil)
 }
 
-// findPbGoFiles walks repoRoot for the .pb.go and _grpc.pb.go outputs `buf generate`
-// emits next to their .proto sources, skipping the same vendor / build / .git
-// directories findProtoFiles skips.
-func findPbGoFiles(repoRoot string) ([]string, error) {
+// FindPbGoFiles returns the paths of the .pb.go and _grpc.pb.go outputs `buf generate`
+// emits next to their .proto sources under repoRoot. It skips the same vendor, build,
+// and .git directories findProtoFiles skips.
+func FindPbGoFiles(repoRoot string) ([]string, error) {
 	return walkExtensions(repoRoot, []string{".go"}, func(name string) bool {
 		return strings.HasSuffix(name, ".pb.go") ||
 			strings.HasSuffix(name, "_grpc.pb.go")
@@ -248,7 +252,7 @@ func walkExtensions(
 				return err
 			}
 			if d.IsDir() {
-				if skipDir.Contains(d.Name()) {
+				if path != repoRoot && skipDir.Contains(d.Name()) {
 					return filepath.SkipDir
 				}
 				return nil
@@ -288,7 +292,7 @@ func FormatBufOutputs(
 	formatters *format.Registry,
 	workers int,
 ) (int, error) {
-	files, err := findPbGoFiles(repoRoot)
+	files, err := FindPbGoFiles(repoRoot)
 	if err != nil {
 		return 0, errors.Wrap(err, "scan .pb.go files")
 	}
@@ -298,7 +302,7 @@ func FormatBufOutputs(
 
 	batch := make([]format.File, len(files))
 	for i, path := range files {
-		raw, err := os.ReadFile(path)
+		raw, err := paths.ReadFile(path, repoRoot)
 		if err != nil {
 			return 0, errors.Wrapf(err, "read %s", path)
 		}

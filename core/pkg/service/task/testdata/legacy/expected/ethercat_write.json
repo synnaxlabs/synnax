@@ -24,6 +24,7 @@
       "name": "fixture_ecat_manual_out",
       "state_channel": 9121,
       "state_channel_name": "fixture_ecat_manual_out_state",
+      "stop_value": 0,
       "sub_index": 2,
       "type": "entry"
     }

@@ -12,8 +12,10 @@
 package task
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/filter"
+	"uuid"
 )
 
 // Key is a unique identifier for a task.
@@ -30,6 +32,9 @@ type Status = versions.Status
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
 type Task = versions.Task
+
+// Command is a command to execute on a task in the Driver system.
+type Command = versions.Command
 
 // KeyedConfig is the base for every stored task configuration record.
 type KeyedConfig = versions.KeyedConfig
@@ -49,21 +54,66 @@ type WriteConfig = versions.WriteConfig
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig = versions.ScanConfig
 
-// Command is a command to execute on a task in the Driver system.
-type Command struct {
-	// Task is the key of the target task.
-	Task Key `json:"task" msgpack:"task"`
-	// Type is the command type (e.g., 'start', 'stop', 'configure').
-	Type string `json:"type" msgpack:"type"`
-	// Key is a unique identifier for this command instance.
-	Key string `json:"key" msgpack:"key"`
-	// ConfigHash is the config hash the sender wants running. Empty when the sender
-	// does not know it. The Driver reuses its live instance when the hash matches and
-	// redeploys when it differs.
-	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
-	// Args contains optional arguments for the command.
-	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
-	// Pinned is true when the Driver must refuse a start whose config_hash differs from
-	// the hash of the stored config.
-	Pinned bool `json:"pinned" msgpack:"pinned"`
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
+type Scale = versions.Scale
+
+// ScaleVariant is implemented by every Scale variant.
+type ScaleVariant = versions.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
+type ScaleType = versions.ScaleType
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = versions.LinearScaleType
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = versions.MapScaleType
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
+	PolynomialScaleType ScaleType = versions.PolynomialScaleType
+	// TableScaleType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleType ScaleType = versions.TableScaleType
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = versions.NoneScaleType
+)
+
+// LinearScale maps raw values to engineering units with a slope and offset.
+type LinearScale = versions.LinearScale
+
+// MapScale maps a raw range linearly onto a scaled range.
+type MapScale = versions.MapScale
+
+// PolynomialScale maps raw values to engineering units with a polynomial.
+type PolynomialScale = versions.PolynomialScale
+
+// TableScale maps raw values to engineering units by linear interpolation between the
+// breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScale = versions.TableScale
+
+// NoneScale applies no scaling; the raw value is used directly.
+type NoneScale = versions.NoneScale
+
+// Where is a filter that selects tasks.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Type selects by type.
+	Type *filter.String `json:"type,omitzero" msgpack:"type,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+	// Internal selects by internal.
+	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
+	// Arcs matches the tasks that run any of the Arcs with the given keys.
+	Arcs []uuid.UUID `json:"arcs,omitzero" msgpack:"arcs,omitempty"`
 }

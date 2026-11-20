@@ -32,9 +32,8 @@ type ObservableTransformPublisher[V Value, T Value] struct {
 func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(ts.Out)
-	// Register the handler synchronously so that any goroutines it spawns (e.g.
-	// async observer handlers) exist before Flow returns. This prevents goroutine
-	// leak false positives in tests that snapshot baselines between setup and spec.
+	// Registering before Flow returns lets a value notified right after Flow reach the
+	// outlet.
 	remove := ts.OnChange(func(_ context.Context, v V) {
 		t, ok, err := ts.Transform(ctx, v)
 		if err != nil {

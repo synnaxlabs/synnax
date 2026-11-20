@@ -8,8 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { unique } from "@synnaxlabs/x";
+
 import Portal from "@/layouts/Portal.astro";
-import { licenseFor } from "@/access";
+import { isAdmin, licenseFor } from "@/access";
 import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { Licenses } from "@/ui/licenses";
@@ -32,7 +34,7 @@ try {
     events = await listForLicense(portal.store, found.license.key);
     const machines = new Set(found.activations.map((a) => a.key));
     actors = await portal.directory.names(
-        [...new Set(events.map((e) => e.actor))].filter((a) => !machines.has(a)),
+        unique.unique(events.map((e) => e.actor)).filter((a) => !machines.has(a)),
     );
 } catch (err) {
     const f = failure(err);
@@ -59,6 +61,7 @@ try {
             events={events}
             actors={actors}
             staff={session.staff}
+            admin={isAdmin(view.organization, session)}
             now={portal.now()}
         />
     )}

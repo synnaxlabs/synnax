@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -15,8 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
 
 import { Channel } from "@/channel";
-
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 const SelectMultiple = () => {
   const [value, setValue] = useState<channel.Key[]>([]);

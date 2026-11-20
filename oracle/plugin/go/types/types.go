@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"cmp"
-	"context"
 	"fmt"
 	"math"
 	"slices"
@@ -79,165 +78,175 @@ func (p *Plugin) Requires() []string { return nil }
 // Version-laid-out packages (chain-covered output paths) emit their types into the
 // current versions/vN sub-package, with a root alias file re-exporting the surface.
 // Types whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined. Version-laid-out packages resolve persisted references through the
-// dependency version their version file imports, as a frozen package does, so a freeze
-// never moves an import. Omitted fields and declarations outside the persisted
-// closure resolve to dependency roots and track the latest version, since they never
-// reach the stored wire format. Unversioned packages reference the root re-export
-// surface.
+// re-defined. Version packages resolve every dependency reference, omitted fields and
+// transient declarations included, at the dependency version their version file pins,
+// as a frozen package does, so a freeze never moves them. Transient declarations at a
+// versioned root path resolve to dependency roots. Unversioned packages reference the
+// root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, members, err := versioning.RewriteCurrent(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
-	preds, err := chainPredecessors(context.Background(), req)
+	embedded, err := allEmbeddedTypes(req, rewritten)
 	if err != nil {
 		return nil, err
-	}
-	currentPaths := make(set.Set[string], len(pathMap))
-	for _, current := range pathMap {
-		currentPaths.Add(current)
-	}
-	pins, err := versioning.NewPins(
-		context.Background(), req.Resolutions, req.Versions,
-	)
-	if err != nil {
-		return nil, err
-	}
-	closure := PersistedClosure(rewritten)
-	versionedGen := &framework.Generator{
-		Domain:      "go",
-		FilePattern: p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{
-			preds:    preds,
-			original: req.Resolutions,
-			pathMap:  pathMap,
-			closure:  closure,
-			members:  members,
-			pins:     pins,
-		},
-		PathFilter:      currentPaths.Contains,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
 	}
 	versionedReq := *req
 	versionedReq.Resolutions = rewritten
-	resp, err := versionedGen.Generate(&versionedReq)
+	g := generation{
+		req:       req,
+		versioned: &versionedReq,
+		pattern:   p.Options.FileNamePattern,
+		pathMap:   pathMap,
+		members:   members,
+		closure:   PersistedClosure(rewritten),
+		embedded:  embedded,
+	}
+	resp, err := g.versionPackages()
 	if err != nil {
 		return nil, err
 	}
-	unversionedGen := &framework.Generator{
-		Domain:        "go",
-		FilePattern:   p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{},
-		PathFilter: func(outputPath string) bool {
-			_, versioned := pathMap[outputPath]
-			return !versioned
-		},
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-	}
-	unversionedResp, err := unversionedGen.Generate(req)
+	unversionedResp, err := g.generator(
+		g.pattern,
+		&goFileGenerator{embedded: embedded},
+		func(outputPath string) bool { return !g.isVersioned(outputPath) },
+	).Generate(req)
 	if err != nil {
 		return nil, err
 	}
 	resp.Files = append(resp.Files, unversionedResp.Files...)
 	// Ended chains have no current-surface entries, so pathMap can be empty while
 	// frozen packages still need regeneration.
-	if len(pathMap) == 0 {
-		frozen, err := chainFrozenFiles(
-			context.Background(), req, p.Options.FileNamePattern,
-		)
-		if err != nil {
+	if len(pathMap) > 0 {
+		if resp.Files, err = g.versionedRoots(resp.Files); err != nil {
 			return nil, err
 		}
-		resp.Files = append(resp.Files, frozen...)
-		return resp, nil
 	}
-	pathFilter := func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok }
-	// Transient types — those outside the current version file at a versioned path —
-	// stay at the package root, generating real declarations merged into the root alias
-	// file. Referenced enums that live in the version layout must not be re-declared
-	// there.
-	transientGen := &framework.Generator{
-		Domain:      "go",
-		FilePattern: p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{
-			original: req.Resolutions,
-			pathMap:  pathMap,
-			closure:  closure,
-			members:  members,
-		},
-		PathFilter: pathFilter,
-		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
-			filtered := make([]resolution.Type, 0, len(enums))
-			for _, e := range enums {
-				if output.GetPath(e, "go") == outputPath {
-					filtered = append(filtered, e)
-				}
-			}
-			return filtered
-		},
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-	}
-	transientResp, err := transientGen.Generate(&versionedReq)
-	if err != nil {
-		return nil, err
-	}
-	resp.Files = append(resp.Files, transientResp.Files...)
-	aliasGen := &framework.Generator{
-		Domain:          "go",
-		FilePattern:     p.Options.FileNamePattern,
-		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, members: members},
-		PathFilter:      pathFilter,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-		IncludeHand:     true,
-	}
-	aliasResp, err := aliasGen.Generate(req)
-	if err != nil {
-		return nil, err
-	}
-	resp.Files = mergeByPath(resp.Files, aliasResp.Files)
-	selectorGen := &framework.Generator{
-		Domain:      "go",
-		FilePattern: "versions/" + p.Options.FileNamePattern,
-		FileGenerator: &aliasFileGenerator{
-			pathMap: pathMap,
-			members: members,
-			pkg:     "versions",
-		},
-		PathFilter:      pathFilter,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-		IncludeHand:     true,
-	}
-	selectorResp, err := selectorGen.Generate(req)
-	if err != nil {
-		return nil, err
-	}
-	resp.Files = append(resp.Files, selectorResp.Files...)
-	frozen, err := chainFrozenFiles(
-		context.Background(), req, p.Options.FileNamePattern,
-	)
+	frozen, err := chainFrozenFiles(req, g.pattern, embedded)
 	if err != nil {
 		return nil, err
 	}
 	resp.Files = append(resp.Files, frozen...)
 	return resp, nil
+}
+
+// generation holds the state shared by the passes of one Generate call.
+type generation struct {
+	req *plugin.Request
+	// versioned is req with its resolutions rewritten to the current version layout.
+	versioned *plugin.Request
+	pattern   string
+	pathMap   map[string]string
+	members   set.Set[string]
+	closure   set.Set[string]
+	embedded  set.Set[string]
+}
+
+func (g generation) isVersioned(outputPath string) bool {
+	_, ok := g.pathMap[outputPath]
+	return ok
+}
+
+func (g generation) generator(
+	pattern string, fg framework.FileGenerator, filter func(string) bool,
+) *framework.Generator {
+	return &framework.Generator{
+		Domain:          "go",
+		FilePattern:     pattern,
+		FileGenerator:   fg,
+		PathFilter:      filter,
+		MergeByName:     false,
+		CollectTypeDefs: true,
+		CollectEnums:    true,
+		CollectUnions:   true,
+	}
+}
+
+// versionPackages generates the current versions/vN packages.
+func (g generation) versionPackages() (*plugin.Response, error) {
+	preds, err := chainPredecessors(g.req)
+	if err != nil {
+		return nil, err
+	}
+	orders, err := chainOrders(g.req)
+	if err != nil {
+		return nil, err
+	}
+	pins, err := versioning.NewPins(g.req.Resolutions, g.req.Versions)
+	if err != nil {
+		return nil, err
+	}
+	currentPaths := make(set.Set[string], len(g.pathMap))
+	for _, current := range g.pathMap {
+		currentPaths.Add(current)
+	}
+	return g.generator(g.pattern, &goFileGenerator{
+		preds:    preds,
+		orders:   orders,
+		original: g.req.Resolutions,
+		pathMap:  g.pathMap,
+		closure:  g.closure,
+		pins:     pins,
+		embedded: g.embedded,
+	}, currentPaths.Contains).Generate(g.versioned)
+}
+
+// versionedRoots adds the root files of version-laid-out packages to files: transient
+// declarations, the root alias files merged over them, and the versions selector
+// files.
+func (g generation) versionedRoots(files []plugin.File) ([]plugin.File, error) {
+	// Transient types — those outside the current version file at a versioned path —
+	// stay at the package root, generating real declarations merged into the root alias
+	// file. Referenced enums that live in the version layout must not be re-declared
+	// there.
+	transientGen := g.generator(g.pattern, &goFileGenerator{
+		original: g.req.Resolutions,
+		pathMap:  g.pathMap,
+		closure:  g.closure,
+		embedded: g.embedded,
+	}, g.isVersioned)
+	transientGen.FilterEnums = localEnums
+	transientResp, err := transientGen.Generate(g.versioned)
+	if err != nil {
+		return nil, err
+	}
+	files = append(files, transientResp.Files...)
+	aliasGen := g.generator(
+		g.pattern,
+		&aliasFileGenerator{pathMap: g.pathMap, members: g.members},
+		g.isVersioned,
+	)
+	aliasGen.IncludeHand = true
+	aliasResp, err := aliasGen.Generate(g.req)
+	if err != nil {
+		return nil, err
+	}
+	files = mergeByPath(files, aliasResp.Files)
+	selectorGen := g.generator(
+		"versions/"+g.pattern,
+		&aliasFileGenerator{pathMap: g.pathMap, members: g.members, pkg: "versions"},
+		g.isVersioned,
+	)
+	selectorGen.IncludeHand = true
+	selectorResp, err := selectorGen.Generate(g.req)
+	if err != nil {
+		return nil, err
+	}
+	return append(files, selectorResp.Files...), nil
+}
+
+// localEnums returns the enums whose Go output path is outputPath.
+func localEnums(enums []resolution.Type, outputPath string) []resolution.Type {
+	filtered := make([]resolution.Type, 0, len(enums))
+	for _, e := range enums {
+		if output.GetPath(e, "go") == outputPath {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
 }
 
 // predecessor identifies the version package that a current version package's unchanged
@@ -247,13 +256,17 @@ type predecessor struct {
 	path string
 	// aliased holds qualified names of types emitted as aliases.
 	aliased set.Set[string]
+	// names maps an aliased type's qualified name to the Go name the predecessor
+	// package declares. A frozen package declares its version file's name, which a
+	// live @go name does not change.
+	names map[string]string
 }
 
 // AliasedTypes returns the qualified names of all types that alias their predecessor
 // version package instead of being defined at the current one. Sibling plugins
 // (go/marshal) use it to skip emission for aliased types.
 func AliasedTypes(req *plugin.Request) (set.Set[string], error) {
-	preds, err := chainPredecessors(context.Background(), req)
+	preds, err := chainPredecessors(req)
 	if err != nil {
 		return nil, err
 	}
@@ -271,20 +284,22 @@ type goFileGenerator struct {
 	// preds maps current version output paths to their predecessor alias split; types
 	// in the split alias the predecessor instead of defining.
 	preds map[string]predecessor
-	// original is the unrewritten table; set only for the versioned pass, where
-	// transient declarations resolve against it (self path rewritten) so their
-	// dependency references track the latest version.
+	// orders maps current version output paths to their version file's declaration
+	// order.
+	orders map[string]map[string]int
+	// original is the unrewritten table. Transient declarations at a versioned root
+	// path resolve against it, so their dependency references hit root re-exports.
 	original *resolution.Table
 	// pathMap maps each version-laid-out root path to its current versions/vN sub-path.
 	pathMap map[string]string
 	// closure is the persisted closure of the whole table; declarations outside it at
 	// marshal-rooted paths are transient.
 	closure set.Set[string]
-	// members holds the qualified names of every chain's current-surface members.
-	members set.Set[string]
 	// pins resolves a stored reference to the dependency version its version file
 	// imports.
 	pins versioning.Pins
+	// embedded holds the embedKey of every type that a generated struct embeds.
+	embedded set.Set[string]
 }
 
 // fileLivePath returns the live schema path of the declarations ctx renders.
@@ -300,7 +315,7 @@ func fileLivePath(ctx *framework.GenerateContext) string {
 }
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	latest := latestTable(g.original, g.pathMap, g.members, ctx.OutputPath)
+	latest := latestTable(g.original, g.pathMap, ctx.OutputPath)
 	_, transient := g.pathMap[ctx.OutputPath]
 	// Every declaration a current package renders belongs to its schema's current
 	// version file, so that file's pins resolve the package's stored references.
@@ -308,41 +323,38 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	pinned := func(t resolution.Type) (string, bool) {
 		return g.pins.CurrentPath(livePath, t)
 	}
-	content, err := generateGoFile(
-		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
-		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient, nil, pinned,
-	)
+	content, err := generateGoFile(goFile{
+		outputPath:    ctx.OutputPath,
+		structs:       ctx.Structs,
+		enums:         ctx.Enums,
+		typeDefs:      ctx.TypeDefs,
+		unions:        ctx.Unions,
+		table:         ctx.Table,
+		repoRoot:      ctx.RepoRoot,
+		pred:          g.preds[ctx.OutputPath],
+		latest:        latest,
+		closure:       g.closure,
+		transientPass: transient,
+		order:         g.orders[ctx.OutputPath],
+		pinned:        pinned,
+		embedded:      g.embedded,
+	})
 	if err != nil {
 		return "", err
 	}
 	return string(content), nil
 }
 
-// latestTable returns the latest-resolution table for a current version path: the
-// original table with only this path rewritten to its version directory, so local
-// references stay in-package while dependency references resolve to the root re-export.
-// For a versioned root path (the transient pass) the original table already resolves
-// this way: versioned siblings stay local and dependencies hit their root re-exports.
-// Nil when original is nil or the path is not versioned.
+// latestTable returns the latest-resolution table for a versioned root path (the
+// transient pass): the original table, where versioned siblings stay local and
+// dependencies hit their root re-exports. A version package gets nil, so every
+// reference it renders resolves to the dependency version its version file pins, as a
+// frozen package does.
 func latestTable(
-	original *resolution.Table,
-	pathMap map[string]string,
-	members set.Set[string],
-	outputPath string,
+	original *resolution.Table, pathMap map[string]string, outputPath string,
 ) *resolution.Table {
-	if original == nil {
-		return nil
-	}
-	if _, ok := pathMap[outputPath]; ok {
+	if _, root := pathMap[outputPath]; root {
 		return original
-	}
-	for orig, current := range pathMap {
-		if current == outputPath {
-			return versioning.RewriteOutputPaths(
-				original, map[string]string{orig: outputPath}, members,
-			)
-		}
 	}
 	return nil
 }
@@ -351,18 +363,18 @@ func latestTable(
 // every chain-covered @go output path to its current version, and members
 // holds every current-surface member's qualified name.
 func Survey(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (map[string]int, set.Set[string], error) {
-	return versioning.Survey(ctx, table, res)
+	return versioning.Survey(table, res)
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,
 // resolving each side's references through its own table. It re-exports the
 // internal schemadiff judgment for the versions gate.
 func StructurallyEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
-	return schemadiff.StructurallyEqual(old, new, oldTable, newTable)
+	return schemadiff.StructurallyEqual(old, next, oldTable, newTable)
 }
 
 // PersistedClosure returns the qualified names of every type reachable from a @go
@@ -370,211 +382,157 @@ func StructurallyEqual(
 // extends, type arguments, alias targets, distinct bases, and union variants. Types
 // outside the closure never reach a table's wire format.
 func PersistedClosure(table *resolution.Table) set.Set[string] {
-	closure := make(set.Set[string])
-	var walkType func(t resolution.Type)
-	var walkRef func(ref resolution.TypeRef)
-	walkRef = func(ref resolution.TypeRef) {
-		for _, arg := range ref.TypeArgs {
-			walkRef(arg)
-		}
-		if resolved, ok := ref.Resolve(table); ok {
-			walkType(resolved)
-		}
-	}
-	walkType = func(t resolution.Type) {
-		if closure.Contains(t.QualifiedName) {
-			return
-		}
-		closure.Add(t.QualifiedName)
-		switch form := t.Form.(type) {
-		case resolution.StructForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-			for _, tp := range form.TypeParams {
-				if tp.Constraint != nil {
-					walkRef(*tp.Constraint)
-				}
-				if tp.Default != nil {
-					walkRef(*tp.Default)
-				}
-			}
-			persisted := schemadiff.PersistedFields(resolution.UnifiedFields(t, table))
-			for _, f := range persisted {
-				walkRef(f.Type)
-			}
-		case resolution.EnumForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-		case resolution.AliasForm:
-			walkRef(form.Target)
-		case resolution.DistinctForm:
-			walkRef(form.Base)
-		case resolution.UnionForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-			for _, v := range form.Variants {
-				walkRef(v.Type)
-			}
-		}
-	}
+	w := closureWalker{table: table, closure: make(set.Set[string])}
 	for _, t := range table.Types {
 		if domain.HasExprFromType(t, "go", "marshal") ||
 			domain.HasExprFromType(t, "go", "migrate") {
-			walkType(t)
+			w.walkType(t)
 		}
 	}
-	return closure
+	return w.closure
 }
 
-// generateGoFile generates a Go types file for the given structs, enums, and
-// type definitions at the specified output path. Types named in pred.aliased
-// are emitted as aliases to the predecessor version package instead of full
-// definitions.
-func generateGoFile(
-	outputPath string,
-	structs []resolution.Type,
-	enums []resolution.Type,
-	typeDefs []resolution.Type,
-	unions []resolution.Type,
-	table *resolution.Table,
-	repoRoot string,
-	pred predecessor,
-	latest *resolution.Table,
-	closure set.Set[string],
-	transientPass bool,
-	order map[string]int,
-	pinned func(resolution.Type) (string, bool),
-) ([]byte, error) {
-	content, conflicts, err := renderGoFile(
-		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, pinned, nil,
-	)
+// closureWalker adds each type it walks, and each type that type stores, to closure.
+type closureWalker struct {
+	table   *resolution.Table
+	closure set.Set[string]
+}
+
+func (w closureWalker) walkRef(ref resolution.TypeRef) {
+	for _, arg := range ref.TypeArgs {
+		w.walkRef(arg)
+	}
+	if resolved, ok := ref.Resolve(w.table); ok {
+		w.walkType(resolved)
+	}
+}
+
+func (w closureWalker) walkRefs(refs []resolution.TypeRef) {
+	for _, ref := range refs {
+		w.walkRef(ref)
+	}
+}
+
+func (w closureWalker) walkType(t resolution.Type) {
+	if w.closure.Contains(t.QualifiedName) {
+		return
+	}
+	w.closure.Add(t.QualifiedName)
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		w.walkStruct(t, form)
+	case resolution.EnumForm:
+		w.walkRefs(form.Extends)
+	case resolution.AliasForm:
+		w.walkRef(form.Target)
+	case resolution.DistinctForm:
+		w.walkRef(form.Base)
+	case resolution.UnionForm:
+		w.walkRefs(form.Extends)
+		for _, v := range form.Variants {
+			w.walkRef(v.Type)
+		}
+	}
+}
+
+func (w closureWalker) walkStruct(t resolution.Type, form resolution.StructForm) {
+	w.walkRefs(form.Extends)
+	for _, tp := range form.TypeParams {
+		if tp.Constraint != nil {
+			w.walkRef(*tp.Constraint)
+		}
+		if tp.Default != nil {
+			w.walkRef(*tp.Default)
+		}
+	}
+	persisted := schemadiff.PersistedFields(resolution.UnifiedFields(t, w.table))
+	for _, f := range persisted {
+		w.walkRef(f.Type)
+	}
+}
+
+// goFile holds the inputs of one generated types file. Types named in pred.aliased are
+// emitted as aliases to the predecessor version package instead of full definitions.
+type goFile struct {
+	outputPath    string
+	structs       []resolution.Type
+	enums         []resolution.Type
+	typeDefs      []resolution.Type
+	unions        []resolution.Type
+	table         *resolution.Table
+	repoRoot      string
+	pred          predecessor
+	latest        *resolution.Table
+	closure       set.Set[string]
+	transientPass bool
+	order         map[string]int
+	pinned        func(resolution.Type) (string, bool)
+	embedded      set.Set[string]
+}
+
+// addDecl adds t to the declarations of its form.
+func (f *goFile) addDecl(t resolution.Type) {
+	switch t.Form.(type) {
+	case resolution.StructForm:
+		f.structs = append(f.structs, t)
+	case resolution.EnumForm:
+		f.enums = append(f.enums, t)
+	case resolution.UnionForm:
+		f.unions = append(f.unions, t)
+	case resolution.DistinctForm, resolution.AliasForm:
+		f.typeDefs = append(f.typeDefs, t)
+	}
+}
+
+// generateGoFile generates the Go types file that f describes.
+func generateGoFile(f goFile) ([]byte, error) {
+	content, conflicts, err := f.render(nil)
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
-	// Two versions of one dependency derive the same alias. Rebind them by version
-	// and render again.
+	// Two versions of one dependency, or two packages with one name, derive the same
+	// alias. Rebind them and render again.
 	var conflicted []string
 	for _, paths := range conflicts {
 		conflicted = append(conflicted, paths...)
 	}
-	overrides := naming.VersionAliases(
-		conflicted, resolveGoImportPath(outputPath, repoRoot),
+	overrides := naming.ImportAliases(
+		conflicted, resolveGoImportPath(f.outputPath, f.repoRoot),
 	)
-	content, conflicts, err = renderGoFile(
-		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, pinned, overrides,
-	)
+	content, conflicts, err = f.render(overrides)
 	if err != nil {
 		return nil, err
 	}
 	if len(conflicts) > 0 {
 		return nil, errors.Newf(
-			"unresolvable import alias conflicts in %s: %v", outputPath, conflicts,
+			"unresolvable import alias conflicts in %s: %v", f.outputPath, conflicts,
 		)
 	}
 	return content, nil
 }
 
-// renderGoFile renders one generated types file. Rendered references bake
-// their import alias in, so alias collisions cannot be repaired in place: the
-// caller inspects the returned conflicts and re-renders with aliasOverrides.
-func renderGoFile(
-	outputPath string,
-	structs []resolution.Type,
-	enums []resolution.Type,
-	typeDefs []resolution.Type,
-	unions []resolution.Type,
-	table *resolution.Table,
-	repoRoot string,
-	pred predecessor,
-	latest *resolution.Table,
-	closure set.Set[string],
-	transientPass bool,
-	order map[string]int,
-	pinned func(resolution.Type) (string, bool),
+// render renders the file. Rendered references bake their import alias in, so alias
+// collisions cannot be repaired in place: the caller inspects the returned conflicts
+// and re-renders with aliasOverrides.
+func (f *goFile) render(
 	aliasOverrides map[string]string,
 ) ([]byte, map[string][]string, error) {
-	namespace := ""
-	if len(structs) > 0 {
-		namespace = structs[0].Namespace
-	} else if len(unions) > 0 {
-		namespace = unions[0].Namespace
-	} else if len(typeDefs) > 0 {
-		namespace = typeDefs[0].Namespace
-	} else if len(enums) > 0 {
-		namespace = enums[0].Namespace
-	}
-
-	pkg := naming.DerivePackageName(outputPath)
-	imports := imports.NewManager()
-
-	ctx := &resolver.Context{
-		Table:                         table,
-		OutputPath:                    outputPath,
-		Namespace:                     namespace,
-		RepoRoot:                      repoRoot,
-		DomainName:                    "go",
-		SubstituteDefaultedTypeParams: true,
-		PinnedPath:                    pinned,
-	}
-
-	importResolver := &GoImportResolver{
-		RepoRoot:       repoRoot,
-		CurrentPackage: pkg,
-		AliasOverrides: aliasOverrides,
-	}
-	r := &resolver.Resolver{
-		Formatter:       GoFormatter(),
-		ImportResolver:  importResolver,
-		ImportAdder:     imports,
-		PrimitiveMapper: primitiveMapper,
-	}
-	probeResolver := &resolver.Resolver{
-		Formatter:       GoFormatter(),
-		ImportResolver:  importResolver,
-		ImportAdder:     discardedImports{},
-		PrimitiveMapper: primitiveMapper,
-	}
-
-	data := &templateData{
-		Package:        pkg,
-		OutputPath:     outputPath,
-		Namespace:      namespace,
-		Manager:        imports,
-		table:          table,
-		repoRoot:       repoRoot,
-		resolver:       r,
-		probeResolver:  probeResolver,
-		ctx:            ctx,
-		aliasOverrides: aliasOverrides,
-	}
-
+	data := f.templateData(aliasOverrides)
 	// Transient declarations — outside the persisted closure of a marshal-rooted
 	// package — never reach the stored wire format, so their dependency references
 	// resolve against the latest table and track the dependencies' current versions
 	// instead of pinning one.
 	var latestData *templateData
-	if latest != nil && (transientPass || pathHasMarshalRoot(structs)) {
-		lctx := *ctx
-		lctx.Table = latest
-		lctx.PinnedPath = nil
-		ld := *data
-		ld.table = latest
-		ld.ctx = &lctx
-		latestData = &ld
+	if f.latest != nil && (f.transientPass || pathHasMarshalRoot(f.structs)) {
+		latestData = data.latestView(f.latest)
 		data.latest = latestData
 	}
-
 	var predAlias string
-	for _, d := range orderDecls(table, order, typeDefs, enums, structs, unions) {
-		if omit.IsSkipped(d.typ, "go") {
-			continue
-		}
-		if d.kind == declEnum && d.typ.Namespace != namespace {
+	for _, d := range orderDecls(
+		f.table, f.order, f.typeDefs, f.enums, f.structs, f.unions,
+	) {
+		if omit.IsSkipped(d.typ, "go") ||
+			(d.kind == declEnum && d.typ.Namespace != data.Namespace) {
 			continue
 		}
 		if d.kind != declStruct && domain.HasExprFromType(d.typ, "go", "to_any") {
@@ -582,44 +540,125 @@ func renderGoFile(
 				"%s: @go to_any goes on a struct", d.typ.QualifiedName,
 			)
 		}
-		if pred.aliased.Contains(d.typ.QualifiedName) {
+		if f.pred.aliased.Contains(d.typ.QualifiedName) {
 			if predAlias == "" {
-				predAlias = naming.DerivePackageName(pred.path)
-				imports.AddInternal(predAlias, resolveGoImportPath(pred.path, repoRoot))
+				predAlias = naming.DerivePackageName(f.pred.path)
+				data.AddInternal(
+					predAlias,
+					resolveGoImportPath(f.pred.path, f.repoRoot),
+				)
 			}
-			for _, a := range buildAliasDecls(d, predAlias, data) {
+			target := f.pred.names[d.typ.QualifiedName]
+			for _, a := range buildAliasDecls(d, predAlias, target, data) {
 				data.Decls = append(data.Decls, declData{Alias: &a})
 			}
 			continue
 		}
 		procData := data
-		if latestData != nil && !closure.Contains(d.typ.QualifiedName) {
+		if latestData != nil && !f.closure.Contains(d.typ.QualifiedName) {
 			procData = latestData
 		}
-		switch d.kind {
-		case declTypeDef:
-			td := processTypeDef(d.typ, procData)
-			data.Decls = append(data.Decls, declData{TypeDef: &td})
-		case declEnum:
-			e := processEnum(d.typ)
-			data.Decls = append(data.Decls, declData{Enum: &e})
-		case declStruct:
-			s, err := processStruct(d.typ, procData)
-			if err != nil {
-				return nil, nil, err
-			}
-			data.Decls = append(data.Decls, declData{Struct: &s})
-		case declUnion:
-			u := processUnion(d.typ, procData)
-			data.Decls = append(data.Decls, declData{Union: &u})
+		decl, err := processDecl(d, procData)
+		if err != nil {
+			return nil, nil, err
 		}
+		data.Decls = append(data.Decls, decl)
 	}
-
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, nil, err
 	}
-	return buf.Bytes(), imports.Conflicts(), nil
+	return buf.Bytes(), data.Conflicts(), nil
+}
+
+// templateData returns the template data of the file, with no declarations yet.
+func (f *goFile) templateData(aliasOverrides map[string]string) *templateData {
+	namespace := fileNamespace(f.structs, f.unions, f.typeDefs, f.enums)
+	pkg := naming.DerivePackageName(f.outputPath)
+	imports := imports.NewManager()
+	importResolver := &GoImportResolver{
+		RepoRoot:       f.repoRoot,
+		CurrentPackage: pkg,
+		AliasOverrides: aliasOverrides,
+	}
+	return &templateData{
+		Package:    pkg,
+		OutputPath: f.outputPath,
+		Namespace:  namespace,
+		Manager:    imports,
+		table:      f.table,
+		repoRoot:   f.repoRoot,
+		resolver: &resolver.Resolver{
+			Formatter:       GoFormatter(),
+			ImportResolver:  importResolver,
+			ImportAdder:     imports,
+			PrimitiveMapper: primitiveMapper,
+		},
+		probeResolver: &resolver.Resolver{
+			Formatter:       GoFormatter(),
+			ImportResolver:  importResolver,
+			ImportAdder:     discardedImports{},
+			PrimitiveMapper: primitiveMapper,
+		},
+		ctx: &resolver.Context{
+			Table:                         f.table,
+			OutputPath:                    f.outputPath,
+			Namespace:                     namespace,
+			RepoRoot:                      f.repoRoot,
+			DomainName:                    "go",
+			SubstituteDefaultedTypeParams: true,
+			PinnedPath:                    f.pinned,
+		},
+		aliasOverrides: aliasOverrides,
+		embedded:       f.embedded,
+	}
+}
+
+// latestView returns a copy of d that resolves references against latest and pins none
+// of them.
+func (d *templateData) latestView(latest *resolution.Table) *templateData {
+	ctx := *d.ctx
+	ctx.Table = latest
+	ctx.PinnedPath = nil
+	view := *d
+	view.table = latest
+	view.ctx = &ctx
+	return &view
+}
+
+// fileNamespace returns the namespace of the first declaration a file renders, checking
+// structs, unions, typedefs, and enums in that order.
+func fileNamespace(structs, unions, typeDefs, enums []resolution.Type) string {
+	for _, group := range [][]resolution.Type{structs, unions, typeDefs, enums} {
+		if len(group) > 0 {
+			return group[0].Namespace
+		}
+	}
+	return ""
+}
+
+func processDecl(d orderedDecl, data *templateData) (declData, error) {
+	switch d.kind {
+	case declTypeDef:
+		td := processTypeDef(d.typ, data)
+		return declData{TypeDef: &td}, nil
+	case declEnum:
+		e := processEnum(d.typ)
+		return declData{Enum: &e}, nil
+	case declStruct:
+		s, err := processStruct(d.typ, data)
+		if err != nil {
+			return declData{}, err
+		}
+		return declData{Struct: &s}, nil
+	case declUnion:
+		u, err := processUnion(d.typ, data)
+		if err != nil {
+			return declData{}, err
+		}
+		return declData{Union: &u}, nil
+	}
+	return declData{}, errors.Newf("unknown declaration kind %d", d.kind)
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) string {
@@ -702,7 +741,7 @@ func orderDecls(
 
 func processEnum(e resolution.Type) enumData {
 	name := naming.GetGoName(e)
-	form := e.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](e)
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
@@ -764,7 +803,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 }
 
 func processStruct(entry resolution.Type, data *templateData) (structData, error) {
-	form := entry.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](entry)
 	sd := structData{
 		Name:    entry.Name,
 		Doc:     doc.Get(entry.Domains),
@@ -781,73 +820,170 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
-	flatten := len(form.Extends) > 0 && !CanEmbed(form, data.table)
-	fields := resolution.UnifiedFields(entry, data.table)
-	// Fields the struct redeclares only to change an inherited default. The embedded
-	// parent already declares them, so they contribute a default fill and nothing
-	// else; declaring them again would shadow the parent's field with a duplicate
-	// JSON tag.
-	var defaultOnly set.Set[string]
-	var embeds []embeddedType
-	if len(form.Extends) > 0 && !flatten {
-		sd.HasExtends = true
-		for _, extendsRef := range form.Extends {
-			parent, ok := extendsRef.Resolve(data.table)
-			if ok {
-				rendered := resolveExtendsType(extendsRef, parent, data)
-				sd.ExtendsTypes = append(sd.ExtendsTypes, rendered)
-				embeds = append(
-					embeds,
-					embeddedType{ref: extendsRef, rendered: rendered},
-				)
-			}
-		}
-		fields = form.Fields
-		defaultOnly = resolver.DefaultOnlyOverrides(
-			form.Extends, form.Fields, data.table,
-		)
-	}
-
+	fields, embeds, defaultOnly := structMembers(&sd, entry, form, data)
 	genMethods := !sd.IsGeneric
 	if genMethods && len(embeds) > 0 {
-		sd.DefaultRecurse = append(
-			sd.DefaultRecurse,
-			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...,
-		)
 		sd.ValidateRecurse = append(
 			sd.ValidateRecurse,
-			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...,
+			embedRecurseSteps(embeds, nil, data, validateRule)...,
 		)
+	}
+	if err := checkHeld(entry.Name, sd.IsGeneric, embeds, fields, data); err != nil {
+		return structData{}, err
 	}
 	for _, field := range fields {
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
-		if !genMethods {
-			continue
-		}
-		if defaultGroupName(field) == "" {
-			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
-		}
-		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
-			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
-		}
-		if validateSkip(field, data) {
-			continue
-		}
-		if chk, ok := goEnumCheck(field, data); ok {
-			sd.EnumChecks = append(sd.EnumChecks, chk)
-		}
-		sd.ConstraintChecks = append(
-			sd.ConstraintChecks,
-			goConstraintChecks(field, data)...,
-		)
-		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
-			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+		if genMethods {
+			addFieldMethods(&sd, field, defaultOnly.Contains(field.Name), data)
 		}
 	}
 	if genMethods {
 		sd.DefaultGroups = goDefaultGroups(fields, data)
+		sd.SetSteps = setDefaultsSteps(embeds, fields, data)
+	}
+	sd.DecodeHooks = sd.SetDefaultsView().Sets() &&
+		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
+	addMethodImports(&sd, data)
+	if len(sd.Name) > 0 {
+		sd.Receiver = receiverName(sd.Name, hasSliceRecurse(sd.ValidateRecurse))
+	}
+
+	if err := applyDirectives(&sd, entry, form, data); err != nil {
+		return structData{}, err
+	}
+	return sd, nil
+}
+
+// structMembers returns the fields a struct declares, the parents it embeds, and the
+// names of the fields it redeclares only to change an inherited default. A struct that
+// cannot embed its parents flattens their fields into its own.
+func structMembers(
+	sd *structData,
+	entry resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+) ([]resolution.Field, []embeddedType, set.Set[string]) {
+	if len(form.Extends) == 0 || !CanEmbed(form, data.table) {
+		return resolution.UnifiedFields(entry, data.table), nil, nil
+	}
+	sd.HasExtends = true
+	embeds := embedExtends(sd, form, data)
+	// The embedded parent already declares a default-only field, so it contributes a
+	// default fill and nothing else. Declaring it again would shadow the parent's field
+	// with a duplicate JSON tag.
+	defaultOnly := resolver.DefaultOnlyOverrides(form.Extends, form.Fields, data.table)
+	return form.Fields, embeds, defaultOnly
+}
+
+// checkHeld checks that each field of a struct, and each parent a generic struct
+// embeds, holds an embedded type only where it may.
+func checkHeld(
+	structName string,
+	generic bool,
+	embeds []embeddedType,
+	fields []resolution.Field,
+	data *templateData,
+) error {
+	if generic {
+		for _, e := range embeds {
+			parent := resolution.Field{
+				Name:     embedFieldName(e.rendered),
+				Type:     e.ref,
+				Optional: true,
+			}
+			if err := checkHeldEmbedded(structName, parent, data); err != nil {
+				return err
+			}
+		}
+	}
+	for _, field := range fields {
+		held := field
+		// A generic struct sets no defaults, so it holds each of its fields.
+		held.Optional = field.Optional || generic
+		if err := checkHeldEmbedded(structName, held, data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyDirectives applies the @go fields, imports, and to_any directives of entry.
+func applyDirectives(
+	sd *structData,
+	entry resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+) error {
+	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
+	for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
+		data.AddExternal(imp)
+	}
+	sd.ToAny = domain.HasExprFromType(entry, "go", "to_any")
+	if sd.ToAny {
+		return validateToAny(entry, form, *sd)
+	}
+	return nil
+}
+
+// embedExtends renders each resolved parent of form as an embedded type.
+func embedExtends(
+	sd *structData,
+	form resolution.StructForm,
+	data *templateData,
+) []embeddedType {
+	var embeds []embeddedType
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(data.table)
+		if ok {
+			rendered := resolveExtendsType(extendsRef, parent, data)
+			sd.ExtendsTypes = append(sd.ExtendsTypes, rendered)
+			embeds = append(embeds, embeddedType{ref: extendsRef, rendered: rendered})
+		}
+	}
+	return embeds
+}
+
+// addFieldMethods adds the default fills and validation checks of field. defaultOnly
+// marks a field that only restates an inherited default.
+func addFieldMethods(
+	sd *structData,
+	field resolution.Field,
+	defaultOnly bool,
+	data *templateData,
+) {
+	fd := data.forField(field)
+	if defaultGroupName(field) == "" {
+		fills := goDefaultFills(field, fd)
+		if defaultOnly {
+			fills = overrideFills(field, fd)
+		}
+		sd.SetFills = append(sd.SetFills, fills...)
+	}
+	if validateSkip(field, fd) {
+		return
+	}
+	if chk, ok := goEnumCheck(field, fd); ok {
+		sd.EnumChecks = append(sd.EnumChecks, chk)
+	}
+	sd.ConstraintChecks = append(
+		sd.ConstraintChecks,
+		goConstraintChecks(field, defaultOnly, fd)...,
+	)
+	if step, ok := goRecurseStep(field, fd, validateRule); ok {
+		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+	}
+}
+
+// addMethodImports adds the imports that the struct's decode hooks and validation need.
+func addMethodImports(sd *structData, data *templateData) {
+	if sd.DecodeHooks {
+		data.AddExternal("encoding/json/v2")
+		data.AddExternal("encoding/json/jsontext")
+		data.AddExternal("reflect")
+		// The alias keeps clear of x's msgpack package and of a v5 version package.
+		data.AddInternal("vmsgpack", msgpackImportPath)
 	}
 	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
 		len(sd.ValidateRecurse) > 0 {
@@ -856,23 +992,6 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if hasSliceRecurse(sd.ValidateRecurse) {
 		data.AddExternal(strconvImportPath)
 	}
-	if len(sd.Name) > 0 {
-		sd.Receiver = receiverName(sd.Name)
-	}
-
-	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
-
-	for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-		data.AddExternal(imp)
-	}
-
-	sd.ToAny = domain.HasExprFromType(entry, "go", "to_any")
-	if sd.ToAny {
-		if err := validateToAny(entry, form, sd); err != nil {
-			return structData{}, err
-		}
-	}
-	return sd, nil
 }
 
 // validateToAny errors when @go to_any marks a struct that its ToAny method cannot
@@ -923,16 +1042,17 @@ func holdsTypeParam(ref resolution.TypeRef) bool {
 }
 
 // receiverName derives a method receiver from the type name. It widens to two letters
-// when the first would be "v", which generated Validate bodies use for their validator.
-func receiverName(name string) string {
+// when the first would be "v", which generated Validate bodies use for their validator,
+// or "i" when the methods loop over a slice with that index.
+func receiverName(name string, loops bool) string {
 	r := strings.ToLower(name[:1])
-	if r != "v" {
+	if r != "v" && (r != "i" || !loops) {
 		return r
 	}
 	if len(name) > 1 {
 		return strings.ToLower(name[:2])
 	}
-	return "vv"
+	return r + r
 }
 
 func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
@@ -969,11 +1089,18 @@ func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 	return data.resolver.ResolveTypeRef(constraint, data.ctx)
 }
 
-func processField(field resolution.Field, data *templateData) fieldData {
-	if data.latest != nil &&
-		domain.GetStringFromField(field, "go", "marshal") == "omit" {
-		data = data.latest
+// forField returns the data that resolves field. An omitted field resolves against the
+// latest table, so its type, defaults, and checks track its dependencies' current
+// versions together.
+func (d *templateData) forField(field resolution.Field) *templateData {
+	if d.latest != nil && domain.GetStringFromField(field, "go", "marshal") == "omit" {
+		return d.latest
 	}
+	return d
+}
+
+func processField(field resolution.Field, data *templateData) fieldData {
+	data = data.forField(field)
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
 	if field.Optional && !typemap.Nilable(field.Type, data.table) {
 		goType = "*" + goType
@@ -1071,11 +1198,13 @@ type templateData struct {
 	// aliasOverrides remaps specific output paths to explicit import aliases
 	// during the conflict re-render pass.
 	aliasOverrides map[string]string
-	Package        string
-	OutputPath     string
-	Namespace      string
-	repoRoot       string
-	Decls          []declData
+	// embedded holds the embedKey of every type that a generated struct embeds.
+	embedded   set.Set[string]
+	Package    string
+	OutputPath string
+	Namespace  string
+	repoRoot   string
+	Decls      []declData
 }
 
 // importAlias returns the import alias for a cross-package reference,
@@ -1100,17 +1229,24 @@ type declData struct {
 }
 
 type structData struct {
-	Name             string
-	Doc              string
-	AliasOf          string
-	Receiver         string
-	Fields           []fieldData
-	TypeParams       []typeParamData
-	ExtendsTypes     []string
-	ExtraFields      []string
-	DefaultFills     []defaultFillData
-	DefaultGroups    []defaultGroupData
-	DefaultRecurse   []recurseStepData
+	Name         string
+	Doc          string
+	AliasOf      string
+	Receiver     string
+	Fields       []fieldData
+	TypeParams   []typeParamData
+	ExtendsTypes []string
+	ExtraFields  []string
+	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
+	// the generated SetDefaults.
+	SetSteps []recurseStepData
+	SetFills []defaultFillData
+	// DefaultGroups are the struct's own `@default group`s, set only when all of
+	// their members are zero.
+	DefaultGroups []defaultGroupData
+	// DecodeHooks marks a struct whose zero value decodes JSON and msgpack over its
+	// defaults. A type that some struct embeds takes none: its embedder sets them.
+	DecodeHooks      bool
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
 	ValidateRecurse  []recurseStepData
@@ -1119,6 +1255,48 @@ type structData struct {
 	HasExtends       bool
 	// ToAny is set by @go to_any: the struct gets a ToAny method.
 	ToAny bool
+}
+
+// setDefaultsView is the template view of a generated SetDefaults method.
+type setDefaultsView struct {
+	Receiver string
+	Name     string
+	Steps    []recurseStepData
+	Fills    []defaultFillData
+	// Groups are the type's own `@default group`s, each set only when all of its
+	// members are zero.
+	Groups []defaultGroupData
+}
+
+// Sets reports whether the type emits SetDefaults.
+func (v setDefaultsView) Sets() bool {
+	return len(v.Steps) > 0 || len(v.Fills) > 0 || len(v.Groups) > 0
+}
+
+// HasGroups reports whether the type or a type it sets the defaults of has a
+// `@default group`, so it splits SetDefaults into SetUngroupedDefaults and
+// DefaultGroups.
+func (v setDefaultsView) HasGroups() bool {
+	if len(v.Groups) > 0 {
+		return true
+	}
+	for _, s := range v.Steps {
+		if s.Groups {
+			return true
+		}
+	}
+	return false
+}
+
+// SetDefaultsView returns the view of the struct's SetDefaults method.
+func (s structData) SetDefaultsView() setDefaultsView {
+	return setDefaultsView{
+		Receiver: s.Receiver,
+		Name:     s.Name,
+		Steps:    s.SetSteps,
+		Fills:    s.SetFills,
+		Groups:   s.DefaultGroups,
+	}
 }
 
 // Instance renders the struct instantiated with its own type parameters.
@@ -1284,16 +1462,23 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if $enum.IsIntEnum}}
 type {{$enum.Name}} uint8
 
-{{"//"}}go:generate stringer -type={{$enum.Name}}
+{{"//"}}go:generate go tool stringer -type={{$enum.Name}}
 {{- if eq (len $enum.Values) 1}}
 {{- with index $enum.Values 0}}
 
+{{- if .Doc}}
+
+{{formatDoc (printf "%s%s" $enum.Name .Name) .Doc}}
+{{- end}}
 const {{$enum.Name}}{{.Name}} {{$enum.Name}} = {{if $enum.StartsAtOne}}1{{else}}0{{end}}
 {{- end}}
 {{- else}}
 
 const (
 {{- range $i, $v := $enum.Values}}
+{{- if $v.Doc}}
+	{{formatFieldDoc (printf "%s%s" $enum.Name $v.Name) $v.Doc | printf "%s"}}
+{{- end}}
 {{- if eq $i 0}}
 	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = iota{{if $enum.StartsAtOne}} + 1{{end}}
 {{- else}}
@@ -1376,42 +1561,62 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 }
 {{end -}}
 {{- $s := .}}
-{{- if or .DefaultFills .DefaultGroups .DefaultRecurse}}
+{{- template "setDefaults" .SetDefaultsView}}
+{{- if .DecodeHooks}}
+{{- if .SetDefaultsView.HasGroups}}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
-{{- range $s.DefaultFills}}
-	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
-{{- range .Setup}}
-		{{.}}
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes its
+// defaults outside its default groups. After the decode, each group whose members are
+// all zero takes its defaults, so an explicit all-zero group takes them too and a group
+// the input sets in part keeps its zero members. A value that held data keeps its
+// groups as decoded. An explicit zero outside a group stays.
+{{- else}}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 {{- end}}
-		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
+func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain {{$s.Name}}
+{{- if .SetDefaultsView.HasGroups}}
+	fresh := reflect.ValueOf(*{{$s.Receiver}}).IsZero()
+	if fresh {
+		{{$s.Receiver}}.SetUngroupedDefaults()
 	}
+	if err := json.UnmarshalDecode(dec, (*plain)({{$s.Receiver}})); err != nil {
+		return err
+	}
+	if fresh {
+		{{$s.Receiver}}.DefaultGroups()
+	}
+	return nil
+{{- else}}
+	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+		{{$s.Receiver}}.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)({{$s.Receiver}}))
 {{- end}}
-{{- range $s.DefaultGroups}}
-	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$s.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
-{{- range .Fills}}
-		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
-{{- end}}
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain {{$s.Name}}
+{{- if .SetDefaultsView.HasGroups}}
+	fresh := reflect.ValueOf(*{{$s.Receiver}}).IsZero()
+	if fresh {
+		{{$s.Receiver}}.SetUngroupedDefaults()
 	}
-{{- end}}
-{{- range $s.DefaultRecurse}}
-{{- if eq (printf "%s" .Kind) "value"}}
-	{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
-{{- else if eq (printf "%s" .Kind) "pointer"}}
-	if {{$s.Receiver}}.{{.GoName}} != nil {
-		{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
+	if err := dec.Decode((*plain)({{$s.Receiver}})); err != nil {
+		return err
 	}
-{{- else if eq (printf "%s" .Kind) "slice"}}
-	for i := range {{$s.Receiver}}.{{.GoName}} {
-		{{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+	if fresh {
+		{{$s.Receiver}}.DefaultGroups()
 	}
-{{- else if eq (printf "%s" .Kind) "map"}}
-	for key, value := range {{$s.Receiver}}.{{.GoName}} {
-		value.ApplyDefaults()
-		{{$s.Receiver}}.{{.GoName}}[key] = value
+	return nil
+{{- else}}
+	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+		{{$s.Receiver}}.SetDefaults()
 	}
-{{- end}}
+	return dec.Decode((*plain)({{$s.Receiver}}))
 {{- end}}
 }
 {{- end}}
@@ -1422,7 +1627,17 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
+{{- if .MapKey}}
+	for key := range {{$s.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+		v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$s.Receiver}}.{{.GoName}})
+	}
+{{- else}}
 	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
+{{- end}}
 {{- end}}
 {{- range $s.ConstraintChecks}}
 {{- $val := printf "%s.%s" $s.Receiver .GoName}}
@@ -1437,13 +1652,17 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.MinLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "gt"}}
+	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "finite"}}
+	v.Finite("{{.FieldName}}", {{$val}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1463,6 +1682,12 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$s.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		for j := range {{$s.Receiver}}.{{.GoName}}[i] {
+			v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i][j].Validate(), "{{.JSONName}}", strconv.Itoa(i), strconv.Itoa(j)) })
+		}
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
@@ -1489,22 +1714,26 @@ func ({{$s.Receiver}} {{$s.Instance}}) ToAny() {{$s.AnyInstance}} {
 {{- $u := .}}
 {{- if not .BorrowsEnum}}
 
+{{formatDoc .DiscType .DiscDoc}}
 type {{.DiscType}} string
 {{- if eq (len .Variants) 1}}
 {{- with index .Variants 0}}
 
+{{formatDoc .ConstName .ConstDoc}}
 const {{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 {{- else}}
 
 const (
 {{- range .Variants}}
+	{{formatFieldDoc .ConstName .ConstDoc | printf "%s"}}
 	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 )
 {{- end}}
 {{- end}}
 
+{{formatDoc .InterfaceName .InterfaceDoc}}
 type {{.InterfaceName}} interface {
 	{{.Marker}}()
 }
@@ -1525,46 +1754,8 @@ type {{.TypeName}} struct {
 }
 
 func ({{.TypeName}}) {{$u.Marker}}() {}
+{{- template "setDefaults" .SetDefaultsView}}
 {{- $vt := .}}
-{{- if .NeedsApplyDefaults}}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
-{{- range $vt.DefaultFills}}
-	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
-{{- range .Setup}}
-		{{.}}
-{{- end}}
-		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
-	}
-{{- end}}
-{{- range $vt.DefaultGroups}}
-	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$vt.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
-{{- range .Fills}}
-		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
-{{- end}}
-	}
-{{- end}}
-{{- range $vt.DefaultRecurse}}
-{{- if eq (printf "%s" .Kind) "value"}}
-	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-{{- else if eq (printf "%s" .Kind) "pointer"}}
-	if {{$vt.Receiver}}.{{.GoName}} != nil {
-		{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "slice"}}
-	for i := range {{$vt.Receiver}}.{{.GoName}} {
-		{{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "map"}}
-	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
-		value.ApplyDefaults()
-		{{$vt.Receiver}}.{{.GoName}}[key] = value
-	}
-{{- end}}
-{{- end}}
-}
-{{- end}}
 {{- if .NeedsValidate}}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1572,7 +1763,17 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.EnumChecks}}
+{{- if .MapKey}}
+	for key := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+		v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$vt.Receiver}}.{{.GoName}})
+	}
+{{- else}}
 	v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$vt.Receiver}}.{{.GoName}})
+{{- end}}
 {{- end}}
 {{- range $vt.ConstraintChecks}}
 {{- $val := printf "%s.%s" $vt.Receiver .GoName}}
@@ -1587,13 +1788,17 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.MinLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "gt"}}
+	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "finite"}}
+	v.Finite("{{.FieldName}}", {{$val}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1613,6 +1818,12 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$vt.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		for j := range {{$vt.Receiver}}.{{.GoName}}[i] {
+			v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i][j].Validate(), "{{.JSONName}}", strconv.Itoa(i), strconv.Itoa(j)) })
+		}
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
@@ -1673,48 +1884,152 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
 			{{.TypeName}}
 		}
+{{- if .SetDefaultsView.HasGroups}}
+		v.{{.TypeName}}.SetUngroupedDefaults()
+{{- else if .SetDefaultsView.Sets}}
+		v.{{.TypeName}}.SetDefaults()
+{{- end}}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+{{- if .SetDefaultsView.HasGroups}}
+		v.{{.TypeName}}.DefaultGroups()
+{{- end}}
 		u.Variant = v.{{.TypeName}}
 {{- end}}
 	default:
-		return errors.Newf("{{.Name}}: unknown {{.DiscJSONName}} %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"{{.Name}}: unknown {{.DiscJSONName}} %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
-{{- if .NeedsApplyDefaults}}
+{{- if .TagMethod}}
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *{{.Name}}) ApplyDefaults() {
+{{formatDoc .TagMethod (printf "returns the %s of the active variant, or an empty %s when there is none." .DiscJSONName .DiscJSONName)}}
+func (u {{.Name}}) {{.TagMethod}}() {{.DiscType}} {
+	switch u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return {{.ConstName}}
+{{- end}}
+	}
+	return ""
+}
+{{- end}}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u {{.Name}}) Validate() error {
+	v := validate.New("{{.Name}}")
+	v.Ternary("{{.DiscJSONName}}", u.Variant == nil, "required")
+{{- if .ValidatesVariants}}
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}
-{{- if .NeedsApplyDefaults}}
+{{- if .NeedsValidate}}
 	case {{.TypeName}}:
-		variant.ApplyDefaults()
+		v.Exec(variant.Validate)
+{{- end}}
+{{- end}}
+	}
+{{- end}}
+	return v.Error()
+}
+{{- if .Base}}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u {{.Name}}) Base() {{.Base}} {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return variant.{{$u.BaseField}}
+{{- end}}
+	}
+	return {{.Base}}{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *{{.Name}}) SetBase(base {{.Base}}) {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		variant.{{$u.BaseField}} = base
 		u.Variant = variant
 {{- end}}
-{{- end}}
+	default:
+		panic(errors.Newf("{{.Name}}: cannot set the base of variant %T", variant))
 	}
 }
 {{- end}}
-{{- if .NeedsValidate}}
+{{- end}}
+{{- end}}
+{{- define "setFills"}}
+{{- $r := .Receiver}}
+{{- range .Fills}}
+{{- if .Setup}}
+	{
+{{- range .Setup}}
+		{{.}}
+{{- end}}
+		{{$r}}.{{.GoName}} = {{.Expr}}
+	}
+{{- else}}
+	{{$r}}.{{.GoName}} = {{.Expr}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- define "setDefaults"}}
+{{- $r := .Receiver}}
+{{- if .HasGroups}}
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u {{.Name}}) Validate() error {
-	switch variant := u.Variant.(type) {
-{{- range .Variants}}
-{{- if .NeedsValidate}}
-	case {{.TypeName}}:
-		return variant.Validate()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func ({{$r}} *{{.Name}}) SetDefaults() {
+	{{$r}}.SetUngroupedDefaults()
+	{{$r}}.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func ({{$r}} *{{.Name}}) SetUngroupedDefaults() {
+{{- range .Steps}}
+{{- if .Groups}}
+	{{$r}}.{{.GoName}}.SetUngroupedDefaults()
+{{- else}}
+	{{$r}}.{{.GoName}}.SetDefaults()
 {{- end}}
+{{- end}}
+{{- template "setFills" .}}
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func ({{$r}} *{{.Name}}) DefaultGroups() {
+{{- range .Groups}}
+	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$r}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
+{{- range .Fills}}
+		{{$r}}.{{.GoName}} = {{.Expr}}
 {{- end}}
 	}
-	return nil
-}
 {{- end}}
+{{- range .Steps}}
+{{- if .Groups}}
+	{{$r}}.{{.GoName}}.DefaultGroups()
+{{- end}}
+{{- end}}
+}
+{{- else if .Sets}}
+
+// SetDefaults sets every field that has a schema default to that default.
+func ({{$r}} *{{.Name}}) SetDefaults() {
+{{- range .Steps}}
+	{{$r}}.{{.GoName}}.SetDefaults()
+{{- end}}
+{{- template "setFills" .}}
+}
 {{- end}}
 {{- end}}
 `),

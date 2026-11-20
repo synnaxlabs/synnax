@@ -43,7 +43,7 @@
            takes the space that is left. */
         .console-rack-select {
             flex: 1 1 auto;
-            width: 33rem;
+            width: 40rem;
             min-width: var(--pluto-height-medium);
         }
 
@@ -54,15 +54,19 @@
     }
 }
 
+/* The default Driver name, Node 1 Embedded Driver, fits in the list at every width. */
+.console-rack-select__dialog {
+    min-width: min(40rem, var(--pluto-dialog-available-width, 100vw));
+}
+
 @container (max-width: 600px) {
     .console-arc .pluto-editor {
         padding-bottom: 21rem;
     }
 }
 
-/* Below this width the rack select would drop to its icon, so the performance select
-   shows only its glyph instead. The width counts redeploy even when it is hidden, so
-   the controls keep their layout when the program changes. */
+/* Below this width the rack name needs the room, so the performance select and redeploy
+   show only their icons. */
 @container (max-width: 450px) {
     .console-arc .console-arc-editor__controls .console-performance-select {
         width: var(--pluto-height-medium);
@@ -72,11 +76,7 @@
     .console-arc .console-performance-select__trigger {
         padding-inline: 0;
     }
-}
 
-/* Both selects show only their icons at this width, so redeploy drops its label to keep
-   the row inside the controls. */
-@container (max-width: 260px) {
     .console-arc .console-task-redeploy .lyra-btn {
         width: var(--pluto-height-medium);
         justify-content: center;
@@ -87,6 +87,19 @@
         & svg {
             font-size: var(--pluto-p-size);
         }
+    }
+}
+
+/* Below this width the rack name shows too few letters, even beside redeploy, so the
+   rack select is a square icon too. */
+@container (max-width: 280px) {
+    .console-arc .console-arc-editor__controls .console-rack-select {
+        flex: none;
+        width: var(--pluto-height-medium);
+    }
+
+    .console-arc .console-rack-select__trigger {
+        padding-inline: 0;
     }
 }
 

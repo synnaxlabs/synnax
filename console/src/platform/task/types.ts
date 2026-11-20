@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, device } from "@synnaxlabs/client";
-import { type z } from "zod";
+import { type channel, device, type task } from "@synnaxlabs/client";
+import type { Task } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import type { z } from "zod";
+
+/** The values of a form over a task with the schemas S. */
+export type Values<S extends task.Schemas = task.Schemas> = z.infer<Task.FormSchema<S>>;
+
+/** The path to the values of any task form. */
+export const formPath = deep.path<Values>();
 
 export type Command = "start" | "stop";
 
@@ -21,9 +29,25 @@ export interface Channel {
   key: string;
 }
 
-/** The channels, enabled ones first, each group in its order. */
-export const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
+const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
   channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
+
+/**
+ * @returns the first channel on each port, an enabled one if any. Channels on one port
+ * share its data channel, and deploying the task creates it from this one.
+ */
+export const firstPerPort = <C extends Channel>(
+  channels: C[],
+  portOf: (channel: C) => string,
+): C[] => {
+  const seen = new Set<string>();
+  return enabledFirst(channels).filter((c) => {
+    const port = portOf(c);
+    if (seen.has(port)) return false;
+    seen.add(port);
+    return true;
+  });
+};
 
 export const validateChannels = ({
   value: channels,
@@ -38,10 +62,25 @@ export const validateChannels = ({
     const index = keyToIndexMap.get(key) as number;
     const code = "custom";
     const message = `Key ${key} is used for multiple channels`;
-    issues.push({ code, message, path: [index, "key"], input: channels });
-    issues.push({ code, message, path: [i, "key"], input: channels });
+    issues.push({
+      continue: true,
+      code,
+      message,
+      path: [index, "key"],
+      input: channels,
+    });
+    issues.push({ continue: true, code, message, path: [i, "key"], input: channels });
   });
 };
+
+/**
+ * @returns the channel that an added channel copies: the channel with the given key, or
+ * else the last channel. Returns undefined when there are no channels.
+ */
+export const channelToCopy = <C extends Channel>(
+  channels: C[],
+  copy?: string,
+): C | undefined => channels.find(({ key }) => key === copy) ?? channels.at(-1);
 
 // Spread over a duplicated channel to reset its Synnax channel bindings.
 export const READ_CHANNEL_OVERRIDE = { channel: 0, name: "" } as const;
@@ -59,6 +98,7 @@ export const validateChannelDevices = ({
   channels.forEach(({ device }, i) => {
     if (device !== "") return;
     issues.push({
+      continue: true,
       code: "custom",
       message: "Device is required",
       path: [i, "device"],
@@ -73,6 +113,7 @@ export const validateEnabledChannel = ({
 }: z.core.ParsePayload<Channel[]>) => {
   if (channels.some(({ disabled }) => !disabled)) return;
   issues.push({
+    continue: true,
     code: "custom",
     message: "At least one enabled channel is required",
     input: channels,
@@ -89,16 +130,25 @@ export const validateReadChannels = (
   const channelToIndexMap = new Map<channel.Key, number>();
   const nameToIndexMap = new Map<string, number>();
   channels.forEach(({ channel, name, disabled }, i) => {
-    if (name !== "") {
-      if (!nameToIndexMap.has(name)) {
-        nameToIndexMap.set(name, i);
-        return;
-      }
+    if (name !== "" && !nameToIndexMap.has(name)) nameToIndexMap.set(name, i);
+    else if (name !== "") {
       const index = nameToIndexMap.get(name) as number;
       const code = "custom";
       const message = `Name ${name} is used for multiple channels`;
-      issues.push({ code, message, path: [index, "name"], input: channels });
-      issues.push({ code, message, path: [i, "name"], input: channels });
+      issues.push({
+        continue: true,
+        code,
+        message,
+        path: [index, "name"],
+        input: channels,
+      });
+      issues.push({
+        continue: true,
+        code,
+        message,
+        path: [i, "name"],
+        input: channels,
+      });
     }
     // The Driver skips a disabled channel, so it can share a Synnax channel.
     if (channel === 0 || disabled) return;
@@ -109,8 +159,20 @@ export const validateReadChannels = (
     const index = channelToIndexMap.get(channel) as number;
     const code = "custom";
     const message = `Synnax channel with key ${channel} is used for multiple channels`;
-    issues.push({ code, message, path: [index, "channel"], input: channels });
-    issues.push({ code, message, path: [i, "channel"], input: channels });
+    issues.push({
+      continue: true,
+      code,
+      message,
+      path: [index, "channel"],
+      input: channels,
+    });
+    issues.push({
+      continue: true,
+      code,
+      message,
+      path: [i, "channel"],
+      input: channels,
+    });
   });
 };
 
@@ -123,12 +185,13 @@ interface IndexAndType {
 
 export const validateWriteChannels = (
   ctx: z.core.ParsePayload<
+    // A channel type with no Synnax channels has none of the channel fields.
     {
       key: string;
-      cmdChannel: channel.Key;
-      stateChannel: channel.Key;
-      cmdChannelName: string;
-      stateChannelName: string;
+      cmdChannel?: channel.Key;
+      stateChannel?: channel.Key;
+      cmdChannelName?: string;
+      stateChannelName?: string;
       disabled: boolean;
     }[]
   >,
@@ -138,22 +201,36 @@ export const validateWriteChannels = (
   const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
   const nameToIndexMap = new Map<string, IndexAndType>();
   channels.forEach(
-    ({ cmdChannel, stateChannel, cmdChannelName, stateChannelName, disabled }, i) => {
-      if (cmdChannelName !== "") {
-        if (!nameToIndexMap.has(cmdChannelName)) {
-          nameToIndexMap.set(cmdChannelName, { index: i, type: "cmd" });
-          return;
-        }
+    (
+      {
+        cmdChannel = 0,
+        stateChannel = 0,
+        cmdChannelName = "",
+        stateChannelName = "",
+        disabled,
+      },
+      i,
+    ) => {
+      if (cmdChannelName !== "" && !nameToIndexMap.has(cmdChannelName))
+        nameToIndexMap.set(cmdChannelName, { index: i, type: "cmd" });
+      else if (cmdChannelName !== "") {
         const { index, type } = nameToIndexMap.get(cmdChannelName) as IndexAndType;
         const code = "custom";
         const message = `Name ${cmdChannelName} is used for multiple channels`;
         issues.push({
+          continue: true,
           code,
           message,
           path: [index, `${type}ChannelName`],
           input: channels,
         });
-        issues.push({ code, message, path: [i, "cmdChannelName"], input: channels });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [i, "cmdChannelName"],
+          input: channels,
+        });
       }
       // The Driver skips a disabled channel, so it can share a Synnax channel.
       if (cmdChannel !== 0 && !disabled)
@@ -162,28 +239,40 @@ export const validateWriteChannels = (
           const code = "custom";
           const message = `Synnax channel with key ${cmdChannel} is used on multiple channels`;
           issues.push({
+            continue: true,
             code,
             message,
             path: [index, `${type}Channel`],
             input: channels,
           });
-          issues.push({ code, message, path: [i, "cmdChannel"], input: channels });
+          issues.push({
+            continue: true,
+            code,
+            message,
+            path: [i, "cmdChannel"],
+            input: channels,
+          });
         } else channelsToIndexMap.set(cmdChannel, { index: i, type: "cmd" });
-      if (stateChannelName !== "") {
-        if (!nameToIndexMap.has(stateChannelName)) {
-          nameToIndexMap.set(stateChannelName, { index: i, type: "state" });
-          return;
-        }
+      if (stateChannelName !== "" && !nameToIndexMap.has(stateChannelName))
+        nameToIndexMap.set(stateChannelName, { index: i, type: "state" });
+      else if (stateChannelName !== "") {
         const { index, type } = nameToIndexMap.get(stateChannelName) as IndexAndType;
         const code = "custom";
         const message = `Name ${stateChannelName} is used for multiple channels`;
         issues.push({
+          continue: true,
           code,
           message,
           path: [index, `${type}ChannelName`],
           input: channels,
         });
-        issues.push({ code, message, path: [i, "stateChannelName"], input: channels });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [i, "stateChannelName"],
+          input: channels,
+        });
       }
       if (stateChannel === 0 || disabled) return;
       if (channelsToIndexMap.has(stateChannel)) {
@@ -191,12 +280,19 @@ export const validateWriteChannels = (
         const code = "custom";
         const message = `Synnax channel with key ${stateChannel} is used for multiple channels`;
         issues.push({
+          continue: true,
           code,
           message,
           path: [index, `${type}Channel`],
           input: channels,
         });
-        issues.push({ code, message, path: [i, "stateChannel"], input: channels });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [i, "stateChannel"],
+          input: channels,
+        });
       } else channelsToIndexMap.set(stateChannel, { index: i, type: "state" });
     },
   );
@@ -215,6 +311,7 @@ export const validateStreamRate = (
   } = ctx;
   if (sampleRate < streamRate)
     issues.push({
+      continue: true,
       code: "custom",
       message: "Stream rate must be less than or equal to the sample rate",
       path: ["streamRate"],

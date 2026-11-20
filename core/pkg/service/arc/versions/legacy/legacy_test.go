@@ -96,7 +96,12 @@ var _ = Describe("MigrateData", func() {
 
 	It("Should read an absent v0 handle as an empty param", func() {
 		state := v0State()
-		edge := state["graph"].(map[string]any)["edges"].([]any)[0].(map[string]any)
+		graph, ok := state["graph"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		edges, ok := graph["edges"].([]any)
+		Expect(ok).To(BeTrue())
+		edge, ok := edges[0].(map[string]any)
+		Expect(ok).To(BeTrue())
 		delete(edge, "sourceHandle")
 		delete(edge, "targetHandle")
 
@@ -171,7 +176,9 @@ var _ = Describe("MigrateData", func() {
 
 	It("Should leave the inputs nil when the state carries no props", func() {
 		state := v0State()
-		delete(state["graph"].(map[string]any), "props")
+		graph, ok := state["graph"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		delete(graph, "props")
 
 		Expect(MustSucceed(legacy.MigrateData(state)).Graph.Inputs).To(BeNil())
 	})

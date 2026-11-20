@@ -10,6 +10,7 @@
 import { log } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,12 +18,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Log } from "@/feature/log";
 import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
-import {
-  assertDefined,
-  renderHookWithConsole,
-  resolveFocusedTab,
-  uniqueName,
-} from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -43,7 +39,7 @@ describe("Log Commands", () => {
     await selectCommand("Create log");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(log.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(log.TYPE_RESOURCE_ID.type);
     const created = await client.logs.retrieve(tab.resource.key);
     expect(created.name).toBe("Log");
   });
@@ -65,7 +61,7 @@ describe("Log Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(log.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(log.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

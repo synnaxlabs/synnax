@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type record } from "@synnaxlabs/x";
+import { array, destructor, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -51,15 +51,15 @@ export interface MembershipItem {
 }
 
 /**
- * Membership is a created set-membership context: a provider that publishes a controlled
- * set of keys plus hooks bound to its own React context. Nesting is independent, so a
- * created membership never reads or writes the set of another.
+ * Membership is a created set-membership context: a provider that publishes a
+ * controlled set of keys plus hooks bound to its own React context. Nesting is
+ * independent, so a created membership never reads or writes the set of another.
  */
 export interface Membership<K extends record.Key = record.Key> {
   /**
    * Context distributes the controlled set to keyed consumers. It diffs value changes
-   * and notifies only the listeners whose keys entered or left the set, so item
-   * re-renders stay surgical via useItem.
+   * and notifies only the listeners whose keys entered, left, or moved in the set, so
+   * item re-renders stay surgical via useItem.
    */
   Context: (props: MembershipProps<K>) => ReactElement;
   useContext: () => ContextValue<K>;
@@ -76,19 +76,22 @@ export interface Membership<K extends record.Key = record.Key> {
   /**
    * useMemberAmong returns the member among the given keys, or undefined when none of
    * them is a member. It subscribes only to the given keys, so consumers stay isolated
-   * from changes to the rest of the set. When more than one is a member, the earliest in
-   * the set's order wins.
+   * from changes to the rest of the set. When more than one is a member, the earliest
+   * in the set's order wins.
    */
   useMemberAmong: (keys: K[]) => K | undefined;
 }
 
 const NOOP = () => {};
 
+const indexes = (value: MembershipValue): Map<record.Key, number> =>
+  new Map(array.toArray(value).map((k, i) => [k, i]));
+
 /**
  * createMembership mints a typed set-membership context: a Provider that publishes a
  * controlled set of keys and hooks that read it. Call once per use case so each set
  * carries its own React context and nests independently of other sets.
- * @param name identifies the set in the context display name.
+ * @param name - identifies the set in the context display name.
  */
 export const createMembership = (name: string): Membership => {
   const [BaseContext, useCtx] = context.create<ContextValue>({
@@ -122,11 +125,13 @@ export const createMembership = (name: string): Membership => {
       getValue,
     };
     useLayoutEffect(() => {
-      const changed = new Set(array.toArray(valueRef.current)).symmetricDifference(
-        new Set(array.toArray(value)),
+      const prev = indexes(valueRef.current);
+      const next = indexes(value);
+      const changed = [...new Set([...prev.keys(), ...next.keys()])].filter(
+        (k) => prev.get(k) !== next.get(k),
       );
       valueRef.current = value;
-      if (changed.size > 0) notifyListeners(Array.from(changed));
+      if (changed.length > 0) notifyListeners(changed);
     }, [value, notifyListeners]);
     return <BaseContext value={ctx}>{children}</BaseContext>;
   };
@@ -161,7 +166,7 @@ export const createMembership = (name: string): Membership => {
     return useSyncExternalStore(
       (onStoreChange) => {
         const destructors = keys.map((key) => subscribe(onStoreChange, key));
-        return () => destructors.forEach((d) => d());
+        return () => destructor.unwind(...destructors);
       },
       memberAmong,
       memberAmong,

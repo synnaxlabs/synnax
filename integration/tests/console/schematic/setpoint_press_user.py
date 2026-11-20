@@ -9,9 +9,9 @@
 
 from examples.simulators import PressSimDAQ, SimDAQ
 
-import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import Button, Schematic, Setpoint, Valve
+from framework.utils import hold
 from tests.driver.sim_daq_case import SimDaqCase
 
 
@@ -50,7 +50,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
         )
         start_cmd.move(delta_x=-90, delta_y=-100)
         end_cmd = schematic.create_symbol(
-            Button(label="end_test_cmd", channel_name="end_test_cmd", mode="Fire")
+            Button(label="end_test_cmd", channel_name="end_test_cmd", mode="fire")
         )
         end_cmd.move(delta_x=90, delta_y=-100)
         press_valve = schematic.create_symbol(
@@ -116,7 +116,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
             self.wait_for_eq("press_setpoint_cmd", target)
             self.wait_for_near("press_pt", target, tolerance=3.0)
             self.log("Target pressure reached")
-            sy.sleep(1)
+            hold(1, reason="holds each setpoint")
 
         end_cmd.press()
         self.console.screenshot("setpoint_press_user_passed")

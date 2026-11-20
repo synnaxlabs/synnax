@@ -9,40 +9,40 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range__explorer-list {
-    & > .lyra-list__virtualizer {
-        display: grid;
-        grid-template-columns: auto 1fr auto auto auto;
-        align-items: center;
+.console-range-explorer__more {
+    padding: 1rem 2rem;
+}
+
+.console-range-explorer__message {
+    padding: 3rem 2rem;
+}
+
+/* As the frame narrows, the layout names go first, then the sort's name. A control
+   without its name is a square, as an icon button is. */
+@container view-frame (width < 88rem) {
+    .console-range-tree__layout {
+        justify-content: center;
+        min-width: var(--pluto-height-medium);
+        padding: 0;
     }
 
-    & .console-range__list-item,
-    & .console-range__list-item-trailing {
-        display: grid;
-        grid-template-columns: subgrid;
-        align-items: center;
+    .console-range-tree__layout-name {
+        display: none;
+    }
+}
+
+@container view-frame (width < 62rem) {
+    .console-range-explorer__sort {
+        min-width: 0;
     }
 
-    & .console-range__list-item,
-    & .lyra-list__sentinel {
-        grid-column: 1 / -1;
+    .console-range-explorer__sort-trigger {
+        justify-content: center;
+        min-width: var(--pluto-height-medium);
+        padding: 0;
     }
 
-    & .console-range__list-item-trailing {
-        grid-column: 3 / -1;
-        column-gap: 0;
-    }
-
-    & .lyra-tags {
-        grid-column: 1;
-        justify-self: end;
-    }
-
-    & .console-range__time-range {
-        grid-column: 2;
-    }
-
-    & .console-range__time-range ~ * {
-        grid-column: 3;
+    .console-range-explorer__sort-name {
+        display: none;
     }
 }

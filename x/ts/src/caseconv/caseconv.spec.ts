@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { record } from "@/record";
+import { zod } from "@/zod";
 
 // Recursive record type for accessing case-converted results in tests.
 // Case conversion changes key names, so we can't use the original type.
@@ -125,81 +126,6 @@ describe("caseconv", () => {
       });
     });
   });
-  describe("toKebab", () => {
-    const SPECS: [string, string][] = [
-      ["fooBar", "foo-bar"],
-      ["fooBarBaz", "foo-bar-baz"],
-      ["foo bar", "foo-bar"],
-      ["foo bar baz", "foo-bar-baz"],
-      ["foo.bar", "foo.bar"],
-      ["foo.bar.baz", "foo.bar.baz"],
-      ["Foo Bar", "foo-bar"],
-      ["foo_bar", "foo-bar"],
-      ["foo_bar_baz", "foo-bar-baz"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toKebab(input)).toBe(expected);
-      });
-    });
-  });
-  describe("toProperNoun", () => {
-    const SPECS: [string, string][] = [
-      ["fooBar", "Foo Bar"],
-      ["foo_bar", "Foo Bar"],
-      ["foo-bar", "Foo Bar"],
-      ["FooBar", "Foo Bar"],
-      ["foo_bar_baz", "Foo Bar Baz"],
-      ["fooBarBaz", "Foo Bar Baz"],
-      ["foo-bar-baz", "Foo Bar Baz"],
-      ["XMLParser", "XML Parser"],
-      ["parseXMLDocument", "Parse XML Document"],
-      ["IODevice", "IO Device"],
-      ["temperature_sensor", "Temperature Sensor"],
-      ["pressure-gauge", "Pressure Gauge"],
-      ["flowMeter", "Flow Meter"],
-      ["my_custom_symbol", "My Custom Symbol"],
-      ["valve-actuator-v2", "Valve Actuator V2"],
-      ["PIDController", "PID Controller"],
-      ["", ""],
-      ["a", "A"],
-      ["ABC", "ABC"],
-      ["test123value", "Test123value"],
-      ["test_123_value", "Test 123 Value"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toProperNoun(input)).toBe(expected);
-      });
-    });
-  });
-
-  describe("toSentence", () => {
-    const SPECS: [string, string][] = [
-      ["sampleRate", "Sample rate"],
-      ["state_update_rate", "State update rate"],
-      ["data-type", "Data type"],
-      ["FooBar", "Foo bar"],
-      ["name", "Name"],
-      ["XMLParser", "XML parser"],
-      ["parseXMLDocument", "Parse XML document"],
-      ["IODevice", "IO device"],
-      ["apiKey", "Api key"],
-      ["cjcSource", "Cjc source"],
-      ["PIDController", "PID controller"],
-      ["valve-actuator-v2", "Valve actuator v2"],
-      ["", ""],
-      ["a", "A"],
-      ["ABC", "ABC"],
-      ["test_123_value", "Test 123 value"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toSentence(input)).toBe(expected);
-      });
-    });
-  });
-
   describe("preserveKeys", () => {
     const configZ = z.object({
       variant: z.string(),
@@ -219,9 +145,9 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.node_a1).toBeDefined();
-      expect(configs.node_a1.backgroundColor).toBe("#fff");
-      expect(configs.node_a1.strokeWidth).toBe(2);
-      expect(configs.node_a1.background_color).toBeUndefined();
+      expect(configs.node_a1?.backgroundColor).toBe("#fff");
+      expect(configs.node_a1?.strokeWidth).toBe(2);
+      expect(configs.node_a1?.background_color).toBeUndefined();
     });
 
     it("should keep record keys but convert value keys on camelToSnake", () => {
@@ -237,9 +163,9 @@ describe("caseconv", () => {
       const configs = result.configs as Record<string, R>;
       expect(configs.nodeA1).toBeDefined();
       const value = configs.nodeA1;
-      expect(value.background_color).toBe("#fff");
-      expect(value.stroke_width).toBe(2);
-      expect(value.backgroundColor).toBeUndefined();
+      expect(value?.background_color).toBe("#fff");
+      expect(value?.stroke_width).toBe(2);
+      expect(value?.backgroundColor).toBeUndefined();
     });
 
     it("should convert nested arrays inside record values", () => {
@@ -258,7 +184,7 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.edge_b2).toBeDefined();
-      expect(configs.edge_b2.textColor).toBe("#000");
+      expect(configs.edge_b2?.textColor).toBe("#000");
     });
   });
 
@@ -272,7 +198,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should resolve the value schema through pipes", () => {
@@ -284,7 +210,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should resolve the value schema through unions, skipping non-records", () => {
@@ -296,7 +222,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should preserve keys with primitive record values", () => {
@@ -319,7 +245,286 @@ describe("caseconv", () => {
     });
   });
 
+  describe("encodeWith", () => {
+    const pairZ = caseconv.encodeWith(
+      z.tuple([z.number(), z.number()]),
+      ([a, b]) => `${a}:${b}`,
+    );
+    const schema = z.object({
+      fieldPair: pairZ,
+      optionalPair: pairZ.optional(),
+      pairList: z.array(pairZ),
+      nested: z.object({ innerPair: pairZ }),
+      plain: z.array(z.number()),
+      pairs: z.record(z.string(), pairZ),
+    });
+    const value = {
+      fieldPair: [1, 2],
+      optionalPair: [3, 4],
+      pairList: [[5, 6]],
+      nested: { innerPair: [7, 8] },
+      plain: [9],
+      pairs: { someKey: [10, 11] },
+    };
+
+    it("Should encode marked values when converting to snake case", () => {
+      expect(caseconv.camelToSnake(value, { schema })).toEqual({
+        field_pair: "1:2",
+        optional_pair: "3:4",
+        pair_list: ["5:6"],
+        nested: { inner_pair: "7:8" },
+        plain: [9],
+        pairs: { some_key: "10:11" },
+      });
+    });
+
+    it("Should leave marked values as they are when converting to camel case", () => {
+      expect(caseconv.snakeToCamel(value, { schema })).toEqual(value);
+    });
+
+    it("Should encode a marked value at the end of a path", () => {
+      const { path, convert } = caseconv.camelToSnakePath(["nested", "innerPair"], {
+        schema,
+      });
+      expect(path).toEqual(["nested", "inner_pair"]);
+      expect(convert([1, 2])).toEqual("1:2");
+    });
+
+    it("Should encode each marked value of a list at the end of a path", () => {
+      const { convert } = caseconv.camelToSnakePath(["pairList"], { schema });
+      expect(
+        convert([
+          [1, 2],
+          [3, 4],
+        ]),
+      ).toEqual(["1:2", "3:4"]);
+    });
+
+    it("Should encode a marked value at a path into a record", () => {
+      const { convert } = caseconv.camelToSnakePath(["pairs", "first"], {
+        schema: z.object({ pairs: z.record(z.string(), pairZ) }),
+      });
+      expect(convert([1, 2])).toEqual("1:2");
+    });
+
+    it("Should encode the marked values of a lazy record", () => {
+      const docZ = z.object({ pairs: z.lazy(() => z.record(z.string(), pairZ)) });
+      expect(caseconv.camelToSnake({ pairs: { a: [1, 2] } }, { schema: docZ })).toEqual(
+        { pairs: { a: "1:2" } },
+      );
+    });
+
+    it("Should encode the marked values of a lazy array", () => {
+      const docZ = z.object({ pairList: z.lazy(() => z.array(pairZ)) });
+      expect(caseconv.camelToSnake({ pairList: [[1, 2]] }, { schema: docZ })).toEqual({
+        pair_list: ["1:2"],
+      });
+    });
+
+    it("Should encode a marked value inside a lazy union option", () => {
+      const docZ = z.object({
+        shape: z.discriminatedUnion("variant", [
+          z.lazy(() => z.object({ variant: z.literal("a"), pairValue: pairZ })),
+        ]),
+      });
+      expect(
+        caseconv.camelToSnake(
+          { shape: { variant: "a", pairValue: [1, 2] } },
+          { schema: docZ },
+        ),
+      ).toEqual({ shape: { variant: "a", pair_value: "1:2" } });
+    });
+
+    describe("decoding", () => {
+      const decodablePairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
+      const docZ = z.object({
+        nested: z.object({ innerPair: decodablePairZ }),
+        optionalPair: decodablePairZ.optional(),
+        pairList: z.array(decodablePairZ),
+        pairs: z.record(z.string(), decodablePairZ),
+      });
+
+      it("Should decode every marked value of a document", () => {
+        expect(
+          caseconv.snakeToCamel(
+            { nested: { inner_pair: "1:2" }, pair_list: ["3:4"], pairs: { a: "5:6" } },
+            { schema: docZ },
+          ),
+        ).toEqual({
+          nested: { innerPair: [1, 2] },
+          pairList: [[3, 4]],
+          pairs: { a: [5, 6] },
+        });
+      });
+
+      it("Should leave a rejected marked value for the caller's parse", () => {
+        expect(
+          caseconv.snakeToCamel(
+            { nested: { inner_pair: [1, 2, 3] }, pair_list: [], pairs: {} },
+            { schema: docZ },
+          ),
+        ).toEqual({ nested: { innerPair: [1, 2, 3] }, pairList: [], pairs: {} });
+      });
+
+      it("Should throw a parse error for a rejected marked value at a path", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+          schema: docZ,
+        });
+        expect(() => convert([1, 2, 3])).toThrow(zod.ParseError);
+      });
+
+      it("Should throw a parse error for a rejected marked value inside a path value", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested"], { schema: docZ });
+        expect(() => convert({ inner_pair: [1, 2, 3] })).toThrow(zod.ParseError);
+      });
+
+      it("Should pass a null value of an optional field at a path through", () => {
+        const { convert } = caseconv.snakeToCamelPath(["optional_pair"], {
+          schema: docZ,
+        });
+        expect(convert(null)).toBeNull();
+      });
+
+      it("Should throw a parse error for a null value of a required field", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+          schema: docZ,
+        });
+        expect(() => convert(null)).toThrow(zod.ParseError);
+      });
+
+      it("Should decode a marked value inside an object set at a path", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested"], { schema: docZ });
+        expect(convert({ inner_pair: "1:2" })).toEqual({ innerPair: [1, 2] });
+      });
+
+      it("Should decode each marked value of a list set at a path", () => {
+        const { convert } = caseconv.snakeToCamelPath(["pair_list"], { schema: docZ });
+        expect(convert(["1:2", "3:4"])).toEqual([
+          [1, 2],
+          [3, 4],
+        ]);
+      });
+    });
+
+    describe("discriminated unions", () => {
+      const pairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
+      const plainZ = z.object({ variant: z.literal("plain"), fillColor: pairZ });
+      const refZ = z.object({
+        variant: z.literal("ref"),
+        fillColor: z.object({ type: z.string(), value: z.string() }),
+      });
+      const docZ = z.object({
+        config: z.discriminatedUnion("variant", [refZ, z.lazy(() => plainZ)]),
+      });
+      const ref = { type: "fixed", value: "#ff0000" };
+
+      it("Should decode a field at a path by the option the data selects", () => {
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: docZ,
+          data: { config: { variant: "ref" } },
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
+      it("Should decode a marked field at a path of the option that marks it", () => {
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: docZ,
+          data: { config: { variant: "plain" } },
+        });
+        expect(convert("1:2")).toEqual([1, 2]);
+      });
+
+      it("Should select an option by a discriminator ahead of the data", () => {
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: docZ,
+          data: { config: { variant: "plain" } },
+          discriminators: [{ path: ["config", "variant"], value: "ref" }],
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
+      it("Should match a discriminator path in the case of the input path", () => {
+        const nestedZ = z.object({ nodeConfig: docZ.shape.config });
+        const { convert } = caseconv.snakeToCamelPath(["node_config", "fill_color"], {
+          schema: nestedZ,
+          data: { nodeConfig: { variant: "plain" } },
+          discriminators: [{ path: ["node_config", "variant"], value: "ref" }],
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
+      it("Should select an option by a boolean discriminator", () => {
+        const flagZ = z.object({
+          config: z.discriminatedUnion("plain", [
+            refZ.omit({ variant: true }).extend({ plain: z.literal(false) }),
+            plainZ.omit({ variant: true }).extend({ plain: z.literal(true) }),
+          ]),
+        });
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: flagZ,
+          data: { config: { plain: true } },
+        });
+        expect(convert("1:2")).toEqual([1, 2]);
+      });
+
+      it("Should encode only the marked fields of the option an object selects", () => {
+        expect(
+          caseconv.camelToSnake(
+            { config: { variant: "ref", fillColor: { type: "fixed", value: [1, 2] } } },
+            { schema: docZ },
+          ),
+        ).toEqual({
+          config: { variant: "ref", fill_color: { type: "fixed", value: [1, 2] } },
+        });
+        expect(
+          caseconv.camelToSnake(
+            { config: { variant: "plain", fillColor: [1, 2] } },
+            { schema: docZ },
+          ),
+        ).toEqual({ config: { variant: "plain", fill_color: "1:2" } });
+      });
+    });
+
+    it("Should decode a marked value at the end of a camel case path", () => {
+      const decodablePairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
+      const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+        schema: z.object({ nested: z.object({ innerPair: decodablePairZ }) }),
+      });
+      expect(convert("1:2")).toEqual([1, 2]);
+      expect(convert([3, 4])).toEqual([3, 4]);
+    });
+  });
+
   describe("preserveCase", () => {
+    it("should resolve a key two union options share to the earlier option", () => {
+      const schema = z.union([
+        z.object({ channels: caseconv.preserveCase(z.record(z.string(), z.number())) }),
+        z.object({
+          channels: z.record(z.string(), z.number()),
+          sample_rate: z.number(),
+        }),
+      ]);
+      const input = { channels: { my_channel: 1 }, sample_rate: 2 };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      expect(result.channels).toEqual({ my_channel: 1 });
+      expect(result.sampleRate).toBe(2);
+    });
+
     describe("with ZodRecord", () => {
       it("should preserve case for record keys marked with preserveCase", () => {
         const schema = z.object({
@@ -551,7 +756,7 @@ describe("caseconv", () => {
         type Schema = z.infer<typeof schema>;
         const v: Schema = { values: [{ data: { One: 1 } }] };
         const result = caseconv.snakeToCamel(v, { schema });
-        expect(result.values[0].data.One).toBe(1);
+        expect(result.values[0]?.data.One).toBe(1);
       });
 
       it("should resolve array element schema through wrapper schemas (default, optional, nullable)", () => {

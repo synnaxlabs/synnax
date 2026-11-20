@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <thread>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -18,6 +20,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/errors/errors.h"
+#include "driver/ni/daqmx/mock.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/read_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -56,7 +59,7 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -77,6 +80,39 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto p = x::json::Parser(j);
     auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
     ASSERT_NIL(p.error());
+}
+
+/// @brief it should turn off read auto start, so a read that follows an abort fails at
+/// once instead of starting the task again.
+TEST(ReadTaskConfigTest, testApplyTurnsOffReadAutoStart) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = make_unique_channel_name("ni"),
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("virtual"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    auto p = x::json::Parser(j);
+    const ni::ReadTaskConfig cfg(client, p, "ni_analog_read");
+    ASSERT_NIL(p.error());
+    const auto mock = std::make_shared<daqmx::MockAPI>();
+    ASSERT_NIL(cfg.apply(std::make_shared<daqmx::SugaredAPI>(mock), nullptr));
+    const auto calls = mock->calls_to("SetReadAttributeBool");
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls[0]["args"]["attribute"], DAQmx_Read_AutoStart);
+    EXPECT_EQ(calls[0]["args"]["value"], 0);
 }
 
 /// @brief it should return a validation error if the device does not exist.
@@ -103,7 +139,7 @@ TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -127,7 +163,7 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -157,7 +193,7 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -186,7 +222,7 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -212,6 +248,8 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
 
 class AnalogReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
@@ -243,7 +281,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         auto dev = synnax::device::Device{
-            .key = "opcua123",
+            .key = make_unique_channel_name("ni_device"),
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -327,21 +365,19 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     parse_config();
     auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(first_state.details.task, task.key);
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(second_state.details.task, task.key);
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
     ASSERT_GE(mock_factory->writes->size(), 1);
@@ -363,12 +399,11 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
             "Failed to start hardware"
         )})
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, synnax::task::status_key(task));
+    EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(state.details.cmd, "start_cmd");
-    EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Failed to start task");
     EXPECT_EQ(state.description, "Failed to start hardware");
@@ -387,16 +422,15 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
             )}
         )
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to stop task");
     EXPECT_EQ(stop_state.description, "Failed to stop hardware");
@@ -419,26 +453,52 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
-    EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(read_err_state.details.task, task.key);
+    EXPECT_EQ(read_err_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(read_err_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Failed to read data");
     EXPECT_EQ(read_err_state.description, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(stop_state.details.task, task.key);
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to read data");
     EXPECT_EQ(stop_state.description, "Failed to read hardware");
+}
+
+/// @brief it should abort a read that waits for samples when the task stops, and report
+/// a successful stop.
+TEST_F(AnalogReadTest, testStopAbortsBlockedRead) {
+    parse_config();
+    const auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{{
+                .error = x::errors::Error(daqmx::DEVICE_DISCONNECTED, "aborted"),
+                .waits_for_abort = true,
+            }}
+        )
+    );
+    rt->start("start_cmd", this->cancel);
+    ASSERT_TRUE(mock_hw->wait_until_blocked(std::chrono::seconds(5)));
+    const auto stopping = std::chrono::steady_clock::now();
+    rt->stop("stop_cmd", true);
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    EXPECT_EQ(mock_hw->abort_call_count.load(), 1);
+    EXPECT_EQ(make_hw_calls, 1);
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
 /// @brief it should correctly coerce read data types to the channel data type.
@@ -456,17 +516,16 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
 
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(stop_state.details.task, task.key);
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_GE(mock_factory->writes->size(), 1);
@@ -492,15 +551,14 @@ TEST_F(AnalogReadTest, testDoubleStart) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses.size(), 2);
     for (auto &state: ctx->statuses) {
-        EXPECT_EQ(state.key, synnax::task::status_key(task));
+        EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
         EXPECT_EQ(state.details.cmd, "start_cmd");
-        EXPECT_EQ(state.details.task, task.key);
         EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
         EXPECT_EQ(state.message, "Started task");
     }
@@ -512,7 +570,7 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     rt->stop("stop_cmd1", true);
@@ -522,15 +580,13 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     EXPECT_EQ(ctx->statuses.size(), 3);
     // Should only have two state messages (start + stop)
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd1");
-    EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Stopped task");
     const auto stop_state_2 = ctx->statuses[2];
-    EXPECT_EQ(stop_state_2.key, synnax::task::status_key(task));
+    EXPECT_EQ(stop_state_2.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state_2.details.cmd, "stop_cmd2");
-    EXPECT_EQ(stop_state_2.details.task, task.key);
     EXPECT_EQ(stop_state_2.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state_2.message, "Stopped task");
 }
@@ -542,7 +598,7 @@ TEST_F(AnalogReadTest, testStartClaimsFreshHardware) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(make_hw_calls, 1);
     // The fixture and the running source both hold the mock.
@@ -553,7 +609,7 @@ TEST_F(AnalogReadTest, testStartClaimsFreshHardware) {
     // The stop released the source's claim on the hardware.
     EXPECT_EQ(mock_hw.use_count(), 1);
 
-    rt->start("start_cmd_2");
+    rt->start("start_cmd_2", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(make_hw_calls, 2);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
@@ -585,7 +641,7 @@ TEST_F(AnalogReadTest, testHardwareBuildFailureRetriesOnNextStart) {
         }
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto failed = ctx->statuses[0];
     EXPECT_EQ(failed.details.cmd, "start_cmd");
@@ -593,7 +649,7 @@ TEST_F(AnalogReadTest, testHardwareBuildFailureRetriesOnNextStart) {
     EXPECT_EQ(failed.message, "Failed to start task");
     EXPECT_EQ(failed.description, "device not found");
 
-    rt->start("start_cmd_2");
+    rt->start("start_cmd_2", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto recovered = ctx->statuses[1];
     EXPECT_EQ(recovered.details.cmd, "start_cmd_2");
@@ -628,7 +684,7 @@ TEST_F(AnalogReadTest, testFailedInLoopRestartReclaimsOnNextRead) {
         }
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     // Read 1 hits RESOURCE_RESERVED and triggers an in-loop restart whose build
     // fails, releasing the hardware. The retried read claims build 3 and recovers.
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
@@ -646,6 +702,75 @@ TEST_F(AnalogReadTest, testFailedInLoopRestartReclaimsOnNextRead) {
     rt->stop("stop_cmd", true);
 }
 
+/// @brief it should build the hardware again after a temporary read error, such as a
+/// device that disconnects and comes back, since a read does not start a stopped task.
+TEST_F(AnalogReadTest, testTemporaryReadErrorRebuildsHardware) {
+    parse_config();
+    const auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
+                {.error = daqmx::DEVICE_DISCONNECTED},
+                {.data = {0.5}}
+            }
+        )
+    );
+    rt->start("start_cmd", this->cancel);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        mock_factory->writes->size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    rt->stop("stop_cmd", true);
+    EXPECT_EQ(make_hw_calls, 2);
+}
+
+/// @brief it should make no read with hardware that a read rebuilt after the task
+/// stopped, since the stop found no hardware to abort.
+TEST_F(AnalogReadTest, testStopDuringRebuildSkipsRead) {
+    parse_config();
+    mock_hw = std::make_shared<hardware::mock::Reader<double>>(
+        std::vector{x::errors::NIL},
+        std::vector{x::errors::NIL},
+        std::vector<hardware::mock::Reader<double>::ReadResponse>{
+            {.error = daqmx::RESOURCE_RESERVED},
+            {.data = {0.5}}
+        }
+    );
+    std::atomic<size_t> calls = 0;
+    std::atomic<bool> rebuilding = false;
+    const auto rt = create_task(
+        [&](
+            const ni::ReadTaskConfig &
+        ) -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            const auto call = ++calls;
+            if (call == 2) return {nullptr, daqmx::TEMPORARILY_UNREACHABLE};
+            if (call == 3) {
+                rebuilding = true;
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            }
+            return {
+                std::make_unique<hardware::mock::SharedReader<double>>(mock_hw),
+                x::errors::NIL
+            };
+        }
+    );
+    rt->start("start_cmd", this->cancel);
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        rebuilding.load(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    rt->stop("stop_cmd", true);
+    EXPECT_EQ(mock_hw->read_call_count, 1);
+    const auto stop_state = ctx->statuses.back();
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
+}
+
 /// @brief a reader that counts the instances currently alive.
 template<typename T>
 class CountingReader final : public hardware::Reader<T> {
@@ -661,6 +786,7 @@ public:
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error abort() override { return x::errors::NIL; }
 
     hardware::ReadResult read(size_t, std::vector<T> &) override {
         hardware::ReadResult res;
@@ -686,9 +812,9 @@ TEST_F(AnalogReadTest, testStartNeverBuildsOverALiveClaim) {
         }
     );
 
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     EXPECT_EQ(live->load(), 1);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     EXPECT_EQ(builds, 2);
     EXPECT_EQ(live_at_build, 0);
     EXPECT_EQ(live->load(), 1);
@@ -698,6 +824,8 @@ TEST_F(AnalogReadTest, testStartNeverBuildsOverALiveClaim) {
 
 class DigitalReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
@@ -728,7 +856,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("digital_rack"));
 
         auto dev = synnax::device::Device{
-            .key = "130227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = make_unique_channel_name("ni"),
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -750,7 +878,7 @@ protected:
             {"device", dev.key},
             {"channels",
              x::json::json::array({{
-                 {"key", "hCzuNC9glqc"},
+                 {"key", "output_key"},
                  {"port", 0},
                  {"disabled", false},
                  {"line", 1},
@@ -802,22 +930,20 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
 
@@ -844,7 +970,7 @@ TEST_F(DigitalReadTest, testNoSkewWarningsDuringNormalOperation) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 
@@ -867,7 +993,7 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev = synnax::device::Device{
-        .key = "device123",
+        .key = make_unique_channel_name("device123"),
         .rack = rack.key,
         .location = "cDAQ1Mod1",
         .make = "ni",
@@ -896,6 +1022,8 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
 
 class CounterReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
@@ -926,7 +1054,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("counter_rack"));
 
         auto dev = synnax::device::Device{
-            .key = "f8a9c7e6-1234-4567-890a-bcdef0123456",
+            .key = make_unique_channel_name("ni"),
             .rack = rack.key,
             .location = "Dev1",
             .make = "ni",
@@ -1011,22 +1139,20 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
 
@@ -1051,12 +1177,11 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
             x::errors::Error(errors::CRITICAL_HARDWARE_ERROR, "Counter failed to start")
         })
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, synnax::task::status_key(task));
+    EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(state.details.cmd, "start_cmd");
-    EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Failed to start task");
     EXPECT_EQ(state.description, "Counter failed to start");
@@ -1075,16 +1200,15 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
             )}
         )
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to stop task");
     EXPECT_EQ(stop_state.description, "Counter failed to stop");
@@ -1107,23 +1231,23 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
-    EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(read_err_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(read_err_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Failed to read data");
     EXPECT_EQ(read_err_state.description, "Counter read failed");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to read data");
@@ -1145,10 +1269,10 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
 
@@ -1180,7 +1304,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
 }
@@ -1191,7 +1315,7 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev = synnax::device::Device{
-        .key = "counter_dev_123",
+        .key = make_unique_channel_name("counter_dev"),
         .rack = rack.key,
         .location = "Dev1",
         .make = "ni",
@@ -1239,7 +1363,7 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev = synnax::device::Device{
-        .key = "counter_dev_456",
+        .key = make_unique_channel_name("counter_dev"),
         .rack = rack.key,
         .location = "Dev2",
         .make = "ni",
@@ -1292,7 +1416,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev1 = synnax::device::Device{
-        .key = "d1",
+        .key = make_unique_channel_name("d1"),
         .rack = rack.key,
         .location = "cDAQ1Mod1",
         .make = "ni",
@@ -1302,7 +1426,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     ASSERT_NIL(client->devices.create(dev1));
 
     auto dev2 = synnax::device::Device{
-        .key = "d2",
+        .key = make_unique_channel_name("d2"),
         .rack = rack.key,
         .location = "cDAQ1Mod2",
         .make = "ni",
@@ -1375,6 +1499,60 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     EXPECT_TRUE(unique_locs.contains("cDAQ1Mod2"));
 }
 
+/// @brief Verify a cross-device task fails to parse when a channel's device is missing.
+TEST(ReadTaskConfigTest, testCrossDeviceMissingDevice) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto dev = synnax::device::Device{
+        .key = make_unique_channel_name("missing_cross_d1"),
+        .rack = rack.key,
+        .location = "cDAQ1Mod1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "dev1",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch1"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch2"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto voltage_channel = [](const synnax::channel::Key key,
+                                    const std::string &device) {
+        return x::json::json{
+            {"type", "ai_voltage"},
+            {"key", "key" + std::to_string(key)},
+            {"port", 0},
+            {"disabled", false},
+            {"channel", key},
+            {"terminal_config", "Cfg_Default"},
+            {"min_val", -10},
+            {"max_val", 10},
+            {"custom_scale", {{"type", "none"}}},
+            {"device", device},
+        };
+    };
+    x::json::json j{
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", "cross-device"},
+        {"channels",
+         x::json::json::array(
+             {voltage_channel(ch1.key, dev.key),
+              voltage_channel(ch2.key, "missing_cross_none")}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
 /// @brief Verify a counter read config without a top-level device binds each
 /// channel's own device, the wire shape produced by per-channel-device consoles.
 TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
@@ -1382,7 +1560,7 @@ TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev1 = synnax::device::Device{
-        .key = "ci_d1",
+        .key = make_unique_channel_name("ci_d1"),
         .rack = rack.key,
         .location = "cDAQ2Mod1",
         .make = "ni",
@@ -1392,7 +1570,7 @@ TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
     ASSERT_NIL(client->devices.create(dev1));
 
     auto dev2 = synnax::device::Device{
-        .key = "ci_d2",
+        .key = make_unique_channel_name("ci_d2"),
         .rack = rack.key,
         .location = "cDAQ2Mod2",
         .make = "ni",
@@ -1500,7 +1678,7 @@ TEST_F(AnalogReadTest, testSkewWarningFiresForAnalogRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 
@@ -1532,7 +1710,7 @@ TEST_F(CounterReadTest, testSkewWarningSuppressedForCounterRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 
@@ -1552,7 +1730,7 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
-        .key = "test_device_key",
+        .key = make_unique_channel_name("test_device_key"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -1578,5 +1756,163 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// @brief a reader that blocks for one sample period, as DAQmx does. A reader that
+/// returns at once stamps samples ahead of the clock.
+class PacedReader final : public hardware::Reader<double> {
+public:
+    x::errors::Error start() override { return x::errors::NIL; }
+    x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error abort() override { return x::errors::NIL; }
+    hardware::ReadResult read(size_t, std::vector<double> &) override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        return {};
+    }
+};
+
+/// @brief runs read tasks on one device whose data channels share an index, each
+/// writing to a live Core.
+class SharedIndexReadTest : public ::testing::Test {
+protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
+    struct Run {
+        std::shared_ptr<task::MockContext> ctx;
+        std::shared_ptr<pipeline::testutil::CoreWriterFactory> writers;
+        std::unique_ptr<common::ReadTask> read_task;
+    };
+
+    std::shared_ptr<synnax::Synnax> client;
+    synnax::rack::Rack rack;
+    synnax::device::Device dev;
+    synnax::channel::Channel index;
+
+    void SetUp() override {
+        this->client = std::make_shared<synnax::Synnax>(new_test_client());
+        this->index = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("digital_input_index"),
+            x::telem::TIMESTAMP_T,
+            0,
+            true
+        ));
+        this->rack = ASSERT_NIL_P(this->client->racks.create("cat"));
+        this->dev = synnax::device::Device{
+            .key = make_unique_channel_name("shared_index_device"),
+            .rack = this->rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device",
+        };
+        ASSERT_NIL(this->client->devices.create(this->dev));
+    }
+
+    void create_task(
+        const std::string &name,
+        const int port,
+        Run &run,
+        const bool data_saving_disabled = false
+    ) {
+        const auto data = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("digital_input_data"),
+            x::telem::FLOAT64_T,
+            this->index.key,
+            false
+        ));
+        auto task = synnax::task::Task{.name = name, .type = "ni_analog_read"};
+        ASSERT_NIL(this->rack.tasks.create(task));
+        auto j = base_analog_config();
+        j["data_saving_disabled"] = data_saving_disabled;
+        j["channels"][0]["port"] = port;
+        j["channels"][0]["device"] = this->dev.key;
+        j["channels"][0]["channel"] = data.key;
+        auto p = x::json::Parser(j);
+        ni::ReadTaskConfig cfg(this->client, p, "ni_analog_read");
+        ASSERT_NIL(p.error());
+        ni::ReadTaskSource<double>::MakeHardware make_hw =
+            [](const ni::ReadTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            return {std::make_unique<PacedReader>(), x::errors::NIL};
+        };
+        run.ctx = std::make_shared<task::MockContext>(this->client);
+        run.writers = std::make_shared<pipeline::testutil::CoreWriterFactory>(
+            this->client
+        );
+        run.read_task = std::make_unique<common::ReadTask>(
+            task,
+            run.ctx,
+            x::breaker::default_config(task.name),
+            std::make_unique<ni::ReadTaskSource<double>>(
+                std::move(cfg),
+                std::move(make_hw)
+            ),
+            run.writers
+        );
+    }
+
+    /// @brief starts first, then asserts that second fails and names first.
+    static void assert_second_task_fails(Run &first, Run &second) {
+        x::breaker::Breaker cancel;
+        first.read_task->start("start_first", cancel);
+        ASSERT_EVENTUALLY_EQ(
+            first.writers->writers_open.load(std::memory_order_acquire),
+            1
+        );
+        second.read_task->start("start_second", cancel);
+        ASSERT_EVENTUALLY_GE(second.ctx->snapshot().size(), 2);
+        const auto failed = second.ctx->snapshot().back();
+        EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
+        EXPECT_FALSE(failed.details.running);
+        EXPECT_TRUE(failed.description.contains("first_task"));
+        EXPECT_TRUE(failed.description.contains("no control authority"));
+        EXPECT_EQ(second.writers->writers_open.load(), 0);
+        for (const auto &status: first.ctx->snapshot())
+            EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR);
+        first.read_task->stop("stop_first", true);
+        second.read_task->stop("stop_second", true);
+    }
+};
+
+/// @brief a second task on a running task's index should fail and name that task.
+TEST_F(SharedIndexReadTest, testSecondTaskFails) {
+    Run first, second;
+    this->create_task("first_task", 0, first);
+    this->create_task("second_task", 1, second);
+    assert_second_task_fails(first, second);
+}
+
+/// @brief a second task should fail when neither task saves data.
+TEST_F(SharedIndexReadTest, testSecondTaskFailsWithDataSavingDisabled) {
+    Run first, second;
+    this->create_task("first_task", 0, first, true);
+    this->create_task("second_task", 1, second, true);
+    assert_second_task_fails(first, second);
+}
+
+/// @brief a task should reopen its writer after a stop, and a stopped task should
+/// leave the index free for another task.
+TEST_F(SharedIndexReadTest, testRestartIgnoresReleasedWriter) {
+    Run first, second;
+    this->create_task("first_task", 0, first);
+    this->create_task("second_task", 1, second);
+    for (size_t i = 1; i <= 3; i++) {
+        first.read_task->start("start_first", this->cancel);
+        ASSERT_EVENTUALLY_EQ(
+            first.writers->writers_open.load(std::memory_order_acquire),
+            i
+        );
+        first.read_task->stop("stop_first", true);
+    }
+    second.read_task->start("start_second", this->cancel);
+    ASSERT_EVENTUALLY_EQ(
+        second.writers->writers_open.load(std::memory_order_acquire),
+        1
+    );
+    second.read_task->stop("stop_second", true);
+    for (const auto &status: first.ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
+    for (const auto &status: second.ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
 }
 }

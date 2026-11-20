@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { Status } from "@/status";
-import { type NotificationSpec } from "@/status/Aggregator";
+import type { NotificationSpec } from "@/status/Aggregator";
 import {
   stubClipboardUnavailable,
   stubClipboardWriteText,
@@ -176,6 +176,26 @@ describe("Copy", () => {
         vi.advanceTimersByTime(100);
       });
       expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
+    });
+
+    it("should leave no reset timer running after an unmount", async () => {
+      const c = render(<Button.Copy text="hello" />);
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
+      });
+      expect(vi.getTimerCount()).toBe(1);
+      c.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("should start no reset timer when the copy ends after an unmount", async () => {
+      const text = Promise.withResolvers<string>();
+      const c = render(<Button.Copy text={() => text.promise} />);
+      fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
+      c.unmount();
+      await act(async () => text.resolve("hello"));
+      expect(writeText).toHaveBeenCalledWith("hello");
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 

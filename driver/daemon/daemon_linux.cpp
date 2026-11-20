@@ -14,9 +14,12 @@
 #include <thread>
 
 #include "absl/log/log.h"
+#include <pwd.h>
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
+#include <unistd.h>
 
+#include "x/cpp/env/env.h"
 #include "x/cpp/thread/thread.h"
 
 #include "driver/daemon/common.h"
@@ -27,7 +30,13 @@ namespace fs = std::filesystem;
 namespace driver::daemon {
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
-const auto *const SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
+/// @brief the service user owns the folder of the binary, so the Driver can replace
+/// itself.
+const fs::path BINARY_DIR = "/var/lib/synnax-driver/bin";
+const fs::path BINARY_PATH = BINARY_DIR / "synnax-driver";
+const fs::path LINK_PATH = "/usr/local/bin/synnax-driver";
+
+const std::string SYSTEMD_SERVICE = R"([Unit]
 Description=Synnax Driver Service
 Documentation=https://docs.synnaxlabs.com/reference/enterprise/driver/install
 After=network-online.target
@@ -37,7 +46,8 @@ StartLimitBurst=3
 
 [Service]
 Type=notify
-ExecStart=/usr/local/bin/synnax-driver internal-start --disable-stdin-stop
+ExecStart=)" + BINARY_PATH.string() +
+                                    R"( internal-start --disable-stdin-stop
 User=synnax
 Group=synnax
 EnvironmentFile=-/etc/synnax/driver.env
@@ -49,7 +59,7 @@ AmbientCapabilities=CAP_NET_RAW
 WatchdogSec=30s
 
 # State directory
-StateDirectory=synnax
+StateDirectory=synnax synnax-driver/bin
 ConfigurationDirectory=synnax
 CacheDirectory=synnax
 LogsDirectory=synnax
@@ -128,6 +138,48 @@ x::errors::Error install_udev_rule(
     return apply_udev_rules(match);
 }
 
+/// @brief installs the running binary in BINARY_DIR, owned by the service user, and
+/// points LINK_PATH at it.
+x::errors::Error install_service_binary() {
+    const passwd *user = getpwnam("synnax");
+    if (user == nullptr) return x::errors::Error("Failed to find the synnax user");
+    std::error_code ec;
+    fs::create_directories(BINARY_DIR, ec);
+    if (ec)
+        return x::errors::Error("Failed to create binary directory: " + ec.message());
+    if (chown(BINARY_DIR.c_str(), user->pw_uid, user->pw_gid) != 0 ||
+        chmod(BINARY_DIR.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
+        return x::errors::Error("Failed to give binary directory to the synnax user");
+    if (auto err = install_binary(
+            "/proc/self/exe",
+            BINARY_PATH,
+            user->pw_uid,
+            user->pw_gid
+        ))
+        return err;
+    LOG(INFO) << "Linking " << LINK_PATH << " to " << BINARY_PATH;
+    fs::path tmp_path = LINK_PATH;
+    tmp_path += "." + std::to_string(getpid()) + ".tmp";
+    fs::create_directories(LINK_PATH.parent_path(), ec);
+    fs::remove(tmp_path, ec);
+    fs::create_symlink(BINARY_PATH, tmp_path, ec);
+    if (!ec) fs::rename(tmp_path, LINK_PATH, ec);
+    if (ec) {
+        const auto msg = ec.message();
+        fs::remove(tmp_path, ec);
+        return x::errors::Error("Failed to link binary: " + msg);
+    }
+    return x::errors::NIL;
+}
+
+bool installed() {
+    return fs::exists(SYSTEMD_SERVICE_PATH);
+}
+
+x::errors::Error load_env() {
+    return x::env::load_file(ENV_FILE);
+}
+
 x::errors::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "Checking for existing service";
@@ -143,7 +195,7 @@ x::errors::Error install_service() {
 
     if (auto err = create_system_user()) return err;
     if (auto err = create_env_file()) return err;
-    if (auto err = install_binary()) return err;
+    if (auto err = install_service_binary()) return err;
     if (auto err = install_udev_rule(LATENCY_RULE_PATH, LATENCY_RULE, LATENCY_MATCH))
         LOG(WARNING) << "Arc tasks at high performance cannot keep CPU cores awake: "
                      << err;
@@ -159,7 +211,7 @@ x::errors::Error install_service() {
     std::ofstream service_file(SYSTEMD_SERVICE_PATH.c_str());
     if (!service_file) return x::errors::Error("Failed to create service file");
 
-    service_file << SYSTEMD_SERVICE_TEMPLATE;
+    service_file << SYSTEMD_SERVICE;
     service_file.close();
 
     if (chmod(SYSTEMD_SERVICE_PATH.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)
@@ -230,7 +282,7 @@ void notify_watchdog() {
     sd_notify(0, "WATCHDOG=1");
 }
 
-void run(const Config &config) {
+int run(const Config &config) {
     std::mutex mtx;
     std::condition_variable cv;
     bool should_stop = false;
@@ -250,8 +302,9 @@ void run(const Config &config) {
     update_status(Status::READY, "Daemon ready");
 
     bool failed = false;
+    int code = 1;
     try {
-        config.callback();
+        code = config.callback();
     } catch (const std::exception &e) {
         failed = true;
         update_status(Status::ERROR_, e.what());
@@ -270,6 +323,7 @@ void run(const Config &config) {
     }
     cv.notify_all();
     watchdog.join();
+    return code;
 }
 
 x::errors::Error start_service() {

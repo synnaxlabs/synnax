@@ -15,10 +15,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -139,7 +141,7 @@ tick(period=50ms) -> sim_daq`))
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("sim_daq is not a channel"))
+				).To(Equal("channel expected: sim_daq is not a channel"))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
@@ -158,7 +160,7 @@ sensor_chan -> sim_daq`))
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("sim_daq is not a channel"))
+				).To(Equal("channel expected: sim_daq is not a channel"))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
@@ -177,7 +179,7 @@ sensor_chan > 100 -> sim_daq`))
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("sim_daq is not a channel"))
+				).To(Equal("channel expected: sim_daq is not a channel"))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
@@ -264,7 +266,7 @@ sensor_chan -> controller(100.0)`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("missing required argument for parameter 'gain' of func 'controller'"))
+				).To(Equal("missing required argument: parameter 'gain' of func 'controller'"))
 			},
 		)
 
@@ -314,7 +316,7 @@ sensor_chan -> filter() -> sink()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(
 					Equal(
-						"missing required argument for parameter 'threshold' of func 'filter'",
+						"missing required argument: parameter 'threshold' of func 'filter'",
 					),
 				)
 			},
@@ -426,7 +428,7 @@ sequence main {
 				).To(ContainSubstring("too many arguments"))
 				Expect(
 					ctx.Diagnostics.String(),
-				).To(ContainSubstring("expected at most 2"))
+				).To(ContainSubstring("takes at most 2"))
 			},
 		)
 	})
@@ -490,7 +492,7 @@ sequence main {
 		It("Should type-check the call arguments", func(bCtx SpecContext) {
 			ctx := analyze(bCtx, `src_chan -> compute() -> out_chan`)
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"missing required argument for parameter 'input' of func 'compute'",
+				"missing required argument: parameter 'input' of func 'compute'",
 			))
 		})
 
@@ -520,7 +522,9 @@ func gate() {value bool} bool { return value }
 compute(src_chan) -> gate() -> flag`)
 				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
 					"upstream value type f64 does not match func 'gate' " +
-						"trigger parameter 'value' type bool",
+						"trigger parameter 'value' type bool\n" +
+						"  note: hint: compare the value to get a bool, such as " +
+						"value != 0",
 				))
 			},
 		)
@@ -584,18 +588,18 @@ src_chan -> demux() -> {
 			},
 			Entry("unknown named argument",
 				`len(unknown=label) -> count`,
-				"unknown parameter 'unknown' for func 'len'"),
+				"[E3004]: unknown parameter: 'unknown' for func 'len'"),
 			Entry("too many positional arguments",
 				`len(label, label) -> count`,
-				"too many arguments for func 'len': expected at most 1"),
+				"too many arguments: func 'len' takes at most 1"),
 			Entry("duplicate named argument",
 				`len(input=label, input=label) -> count`,
-				"duplicate argument for parameter 'input' of func 'len'"),
+				"[E3003]: duplicate argument: parameter 'input' of func 'len'"),
 			Entry("too many positional arguments in a func body",
 				`func f() {} i64 {
     return len(label, label)
 }`,
-				"too many arguments for func 'len': expected at most 1"),
+				"too many arguments: func 'len' takes at most 1"),
 		)
 	})
 
@@ -613,8 +617,11 @@ source() -> sink()`))
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(*ctx.Diagnostics).To(HaveLen(1))
 					Expect(
+						(*ctx.Diagnostics)[0].Code,
+					).To(Equal(codes.FlowConnection.Code))
+					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("func 'source' has no return value but 'sink' expects an input parameter"))
+					).To(Equal("invalid flow connection: func 'source' has no return value but 'sink' expects an input parameter"))
 				},
 			)
 
@@ -676,7 +683,7 @@ source() -> multi()`))
 					Expect(*ctx.Diagnostics).To(HaveLen(1))
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("missing required argument for parameter 'b' of func 'multi'"))
+					).To(Equal("missing required argument: parameter 'b' of func 'multi'"))
 				},
 			)
 
@@ -735,7 +742,7 @@ my_func -> consumer()`))
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("my_func is not a channel"))
+					).To(Equal("channel expected: my_func is not a channel"))
 				},
 			)
 
@@ -756,8 +763,11 @@ int_chan -> consumer()`))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(Equal(
-						"upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64",
+						"type mismatch: upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64",
 					))
+					Expect(ctx.Diagnostics.String()).To(
+						ContainSubstring("note: hint: use f64(value) to convert"),
+					)
 				},
 			)
 		})
@@ -828,10 +838,10 @@ int_chan -> consumer()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(2))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("missing required argument for parameter 'threshold' of func 'filter'"))
+				).To(Equal("missing required argument: parameter 'threshold' of func 'filter'"))
 				Expect(
 					(*ctx.Diagnostics)[1].Message,
-				).To(Equal("missing required argument for parameter 'output' of func 'filter'"))
+				).To(Equal("missing required argument: parameter 'output' of func 'filter'"))
 			},
 		)
 
@@ -871,7 +881,7 @@ int_chan -> consumer()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("missing required argument for parameter 'setpoint' of func 'controller'"))
+				).To(Equal("missing required argument: parameter 'setpoint' of func 'controller'"))
 			},
 		)
 
@@ -890,7 +900,7 @@ int_chan -> consumer()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("unknown parameter 'extra' for func 'simple'"))
+				).To(Equal("unknown parameter: 'extra' for func 'simple'"))
 			},
 		)
 
@@ -1096,8 +1106,10 @@ sensor_chan -> {
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.RoutingTable.Code))
 					Expect(
-						(*ctx.Diagnostics)[0].Message,
+						d.Message,
 					).To(ContainSubstring("output routing table must follow a func invocation"))
 				},
 			)
@@ -1128,7 +1140,7 @@ sensor_chan -> demux() -> {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("cannot write to top-level variable 'some_var'"))
+					).To(Equal("invalid assignment: cannot reassign top-level variable 'some_var'"))
 				},
 			)
 
@@ -1174,7 +1186,7 @@ sequence main {
 						{
 							Name: "out_chan",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
@@ -1224,9 +1236,11 @@ sequence main {
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.ReadOnlyWrite.Code))
 					Expect(
-						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("cannot write to channel-read variable v; it is read-only"))
+						d.Message,
+					).To(Equal("read-only write: cannot write to channel-read variable v; it is read-only"))
 				},
 			)
 
@@ -2115,14 +2129,13 @@ sequence main {
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			var msgs []string
+			msgs := make([]string, 0, len(*ctx.Diagnostics))
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
-			Expect(msgs).To(ContainElement(SatisfyAll(
-				ContainSubstring("inline routing case body stages must be anonymous"),
-				ContainSubstring(`"my_step"`),
-			)), "diagnostics: %v", msgs)
+			Expect(msgs).To(ContainElement(
+				"an inline stage or sequence cannot have a name",
+			), "diagnostics: %v", msgs)
 		})
 
 		It("Should reject a named inline sequence case body", func(bCtx SpecContext) {
@@ -2154,16 +2167,13 @@ sequence main {
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			var msgs []string
+			msgs := make([]string, 0, len(*ctx.Diagnostics))
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
-			Expect(msgs).To(ContainElement(SatisfyAll(
-				ContainSubstring(
-					"inline routing case body sequences must be anonymous",
-				),
-				ContainSubstring(`"my_seq"`),
-			)), "diagnostics: %v", msgs)
+			Expect(msgs).To(ContainElement(
+				"an inline stage or sequence cannot have a name",
+			), "diagnostics: %v", msgs)
 		})
 
 		It(
@@ -2653,16 +2663,13 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				var msgs []string
+				msgs := make([]string, 0, len(*ctx.Diagnostics))
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}
-				Expect(msgs).To(ContainElement(SatisfyAll(
-					ContainSubstring(
-						"inline routing case body stages must be anonymous",
-					),
-					ContainSubstring(`"my_step"`),
-				)), "diagnostics: %v", msgs)
+				Expect(msgs).To(ContainElement(
+					"an inline stage or sequence cannot have a name",
+				), "diagnostics: %v", msgs)
 			},
 		)
 
@@ -2686,16 +2693,13 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				var msgs []string
+				msgs := make([]string, 0, len(*ctx.Diagnostics))
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}
-				Expect(msgs).To(ContainElement(SatisfyAll(
-					ContainSubstring(
-						"inline routing case body sequences must be anonymous",
-					),
-					ContainSubstring(`"my_seq"`),
-				)), "diagnostics: %v", msgs)
+				Expect(msgs).To(ContainElement(
+					"an inline stage or sequence cannot have a name",
+				), "diagnostics: %v", msgs)
 			},
 		)
 
@@ -3298,7 +3302,7 @@ sequence main {
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(ContainSubstring("missing required argument for parameter 'value'"))
+				).To(ContainSubstring("missing required argument: parameter 'value'"))
 			},
 		)
 
@@ -3402,7 +3406,7 @@ sequence main {
 	Describe("Numeric transition deprecation", func() {
 		DescribeTable(
 			"warns when a numeric condition feeds =>",
-			func(bCtx SpecContext, source string, warningCount int) {
+			func(bCtx SpecContext, source string, fixes ...string) {
 				customResolver := StaticResolver{
 					{
 						Name: "u8_gate",
@@ -3420,21 +3424,50 @@ sequence main {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				warnings := testutil.Warnings(ctx.Diagnostics)
-				Expect(warnings).To(HaveLen(warningCount))
-				for _, w := range warnings {
+				Expect(warnings).To(HaveLen(len(fixes)))
+				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"numeric conditions are deprecated; use an explicit " +
+						"non-boolean condition: deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
+					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))
+					Expect(w.Fixes).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits).To(Equal([]protocol.TextEdit{
+						{Range: w.Range, NewText: fixes[i]},
+					}))
 				}
 			},
+			Entry(
+				"nonzero literal gate",
+				`sequence main {
+					stage first { 1 => next }
+					stage second {}
+				}`,
+				"true",
+			),
+			Entry(
+				"string literal gate",
+				`sequence main {
+					stage first { "hello" => next }
+					stage second {}
+				}`,
+				"true",
+			),
+			Entry(
+				"zero literal gate",
+				`sequence main {
+					stage first { 0 => next }
+					stage second {}
+				}`,
+				"false",
+			),
 			Entry(
 				"numeric channel gate",
 				`sequence main {
 					stage first { u8_gate => next }
 					stage second {}
 				}`,
-				1,
+				"u8_gate != 0",
 			),
 			Entry(
 				"bool channel gate",
@@ -3442,7 +3475,6 @@ sequence main {
 					stage first { bool_gate => next }
 					stage second {}
 				}`,
-				0,
 			),
 			Entry(
 				"comparison gate",
@@ -3450,13 +3482,28 @@ sequence main {
 					stage first { u8_gate > 1 => next }
 					stage second {}
 				}`,
-				0,
 			),
 			Entry(
 				"numeric top-level entry",
 				`u8_gate => main
 				sequence main { stage first {} }`,
-				1,
+				"u8_gate != 0",
+			),
+			Entry(
+				"numeric expression in a routing entry",
+				`func split() {v u8} (a u8, b u8) {
+					a = v
+					b = v
+				}
+				sequence main {
+					stage first {
+						u8_gate -> split() -> {
+							a: u8_gate * 2 => next
+						}
+					}
+					stage second {}
+				}`,
+				"u8_gate * 2 != 0",
 			),
 		)
 	})
@@ -3511,7 +3558,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
+				"[E5009]: invalid trigger binding: parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
 			))
 		},
 	)
@@ -3526,7 +3573,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"too many arguments for func 'consumer': expected at most 0",
+				"too many arguments: func 'consumer' takes at most 0",
 			))
 		},
 	)
@@ -3541,7 +3588,7 @@ var _ = Describe("Duplicate call-site argument", func() {
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-			"duplicate argument for parameter 'v' of func 'sink'",
+			"duplicate argument: parameter 'v' of func 'sink'",
 		))
 	})
 })
@@ -3669,7 +3716,7 @@ var _ = Describe("Routing entry strictness", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"missing required argument for parameter 'value' of func 'amplify'",
+				"missing required argument: parameter 'value' of func 'amplify'",
 			))
 		},
 	)
@@ -3940,6 +3987,14 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 				"does not match channel num_u8 value type u8",
 			},
 		}),
+		Entry("channel into a channel alias", mismatchCase{
+			source: "sequence main {\n    vlv := num_u8\n    num_f64 -> vlv\n}",
+			line:   2,
+			substrings: []string{
+				"num_f64 value type f64",
+				"does not match channel vlv value type u8",
+			},
+		}),
 		Entry("qualified func output into a bool channel", mismatchCase{
 			source: "import time\ntime.wait(duration=1s) -> flag",
 			line:   1,
@@ -3994,5 +4049,137 @@ sensor_chan -> r`))
 				Expect(ctx.Diagnostics.String()).To(ContainSubstring("read-only"))
 			},
 		)
+	})
+})
+
+var _ = Describe("Module constants in flows", func() {
+	// analyze analyzes source with the standard library and channels x and y.
+	analyze := func(bCtx SpecContext, source string) context.Context[parser.IProgramContext] {
+		GinkgoHelper()
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}, &symbol.Symbol{
+			Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2,
+		}))
+		ast := MustSucceed(parser.Parse("import math\n" + source))
+		ctx := context.NewRoot(bCtx, ast, root)
+		analyzer.AnalyzeProgram(ctx)
+		return ctx
+	}
+	// constantTypes returns the type of each use of math.inf.
+	constantTypes := func(ctx context.Context[parser.IProgramContext]) []types.Type {
+		var out []types.Type
+		for node, t := range ctx.TypeMap {
+			if id, ok := node.(parser.IIdentifierContext); ok &&
+				id.GetText() == "math.inf" {
+				out = append(out, ctx.Constraints.ApplySubstitutions(t))
+			}
+		}
+		return out
+	}
+
+	DescribeTable("Should type a constant at the node it feeds",
+		func(bCtx SpecContext, source string, expected types.Type) {
+			ctx := analyze(bCtx, source)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(constantTypes(ctx)).To(Equal([]types.Type{expected}))
+		},
+		Entry("a channel sink", "x -> math.inf -> y", types.F32()),
+		Entry("a function input", `
+		func keep() {v f32} f32 {
+			return v
+		}
+		math.inf -> keep() -> y`, types.F32()),
+		Entry("a routing entry", `
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		func amplify() {signal f32} f32 {
+			return signal
+		}
+		x -> split() -> {
+			high: math.inf -> amplify() -> y
+		}`, types.F32()),
+		Entry("a transition", `
+		sequence main {
+			stage a {
+				x -> math.inf => b
+			}
+			stage b {
+			}
+		}
+		x => main`, types.F64()),
+	)
+
+	It("Should reject an unknown member in a routing entry", func(bCtx SpecContext) {
+		ctx := analyze(bCtx, `
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		func amplify() {signal f32} f32 {
+			return signal
+		}
+		x -> split() -> {
+			high: math.nope -> amplify() -> y
+		}`)
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("undefined symbol: nope"))
+	})
+})
+
+var _ = Describe("Polymorphic funcs in routing entries", func() {
+	newRoot := func(lowName string) *symbol.Symbol {
+		return symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}, &symbol.Symbol{
+			Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2,
+		}, &symbol.Symbol{
+			Name: lowName,
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.I64()),
+			ID:   3,
+		}))
+	}
+
+	DescribeTable("Should give each call its own type variables",
+		func(bCtx SpecContext, program string) {
+			ast := MustSucceed(parser.Parse(program))
+			ctx := context.NewRoot(bCtx, ast, newRoot("b"))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("single call", `
+		import math
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		x -> split() -> {
+			high: a -> math.avg() -> a,
+			low: b -> math.avg() -> b
+		}`),
+		Entry("chain of calls", `
+		import math
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		x -> split() -> {
+			high: a -> math.avg() -> math.max() -> a,
+			low: b -> math.avg() -> math.max() -> b
+		}`),
+	)
+
+	It("Should carry a chained call's type to the next node", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		import math
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		x -> split() -> {
+			high: a -> math.avg() -> math.max() -> c
+		}`))
+		ctx := context.NewRoot(bCtx, ast, newRoot("c"))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+			"func math.max output type f32 does not match channel c value type i64",
+		))
 	})
 })

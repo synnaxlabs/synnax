@@ -42,7 +42,7 @@ func (e EnumZ) Validate(data any) error {
 	return e.Parse(data, &dest)
 }
 
-// validateDestination validates that the destination is compatible with enum data
+// validateDestination validates that the destination is compatible with enum data.
 func (e EnumZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError("enum", dest)
@@ -124,21 +124,10 @@ func (e EnumZ) Parse(data, dest any) error {
 		}
 		destVal = destVal.Elem()
 	}
-	// Try to convert the value to the destination type first
-	if val.Type().ConvertibleTo(destVal.Type()) {
-		convertedVal := val.Convert(destVal.Type())
-		// Check if the converted value is in the allowed values
+	if convertedVal, ok := convertLossless(val, destVal.Type()); ok {
 		for _, v := range e.values {
-			// Try direct comparison first
-			if reflect.DeepEqual(v, convertedVal.Interface()) {
-				destVal.Set(convertedVal)
-				return nil
-			}
-			// Try comparing underlying values
-			if reflect.DeepEqual(
-				reflect.ValueOf(v).Convert(destVal.Type()).Interface(),
-				convertedVal.Interface(),
-			) {
+			enumVal, ok := convertLossless(reflect.ValueOf(v), destVal.Type())
+			if ok && reflect.DeepEqual(enumVal.Interface(), convertedVal.Interface()) {
 				destVal.Set(convertedVal)
 				return nil
 			}
@@ -164,6 +153,51 @@ func Enum[T comparable](values ...T) EnumZ {
 	}
 	e.wrapper = e
 	return e
+}
+
+// convertLossless converts v to t only when both are in the same kind family (string,
+// bool, or number) and the conversion keeps the value of v.
+func convertLossless(v reflect.Value, t reflect.Type) (reflect.Value, bool) {
+	if !v.Type().ConvertibleTo(t) {
+		return reflect.Value{}, false
+	}
+	if t.Kind() == reflect.Interface {
+		return v.Convert(t), true
+	}
+	if kindFamily(v.Kind()) != kindFamily(t.Kind()) {
+		return reflect.Value{}, false
+	}
+	converted := v.Convert(t)
+	if negative(converted) != negative(v) ||
+		!reflect.DeepEqual(converted.Convert(v.Type()).Interface(), v.Interface()) {
+		return reflect.Value{}, false
+	}
+	return converted, true
+}
+
+// negative reports whether v holds a number below zero. A same-width conversion between
+// signed and unsigned ints round-trips, so only the sign shows that it wrapped.
+func negative(v reflect.Value) bool {
+	switch {
+	case v.CanInt():
+		return v.Int() < 0
+	case v.CanFloat():
+		return v.Float() < 0
+	default:
+		return false
+	}
+}
+
+// kindFamily maps every numeric kind to reflect.Float64 and leaves other kinds as is.
+func kindFamily(k reflect.Kind) reflect.Kind {
+	switch k {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return reflect.Float64
+	default:
+		return k
+	}
 }
 
 func invalidEnumValueError(value any, allowedValues []any) error {

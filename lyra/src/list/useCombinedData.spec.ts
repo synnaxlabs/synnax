@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { map } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type FrameProps, type GetItem } from "@/list/Frame";
+import type { FrameProps, GetItem } from "@/list/Frame";
 import { useCombinedData } from "@/list/useCombinedData";
 
 interface TestItem {
@@ -150,32 +151,43 @@ describe("useCombinedData", () => {
   });
 
   describe("subscribe", () => {
-    it("should subscribe to both sources and return combined unsubscribe", () => {
+    it("should subscribe only the source that lists the key", () => {
       const callback = vi.fn();
       const firstUnsub = vi.fn();
       const secondUnsub = vi.fn();
-
       const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
         data: ["1"],
         subscribe: vi.fn(() => firstUnsub),
       };
-
       const second: Pick<FrameProps<string>, "data" | "subscribe"> = {
         data: ["2"],
         subscribe: vi.fn(() => secondUnsub),
       };
-
       const { result } = renderHook(() => useCombinedData({ first, second }));
-
-      const unsubscribe = result.current.subscribe?.(callback, "1");
-
+      result.current.subscribe?.(callback, "1")();
       expect(first.subscribe).toHaveBeenCalledWith(callback, "1");
-      expect(second.subscribe).toHaveBeenCalledWith(callback, "1");
-
-      unsubscribe?.();
-
       expect(firstUnsub).toHaveBeenCalled();
+      result.current.subscribe?.(callback, "2")();
+      expect(second.subscribe).toHaveBeenCalledWith(callback, "2");
       expect(secondUnsub).toHaveBeenCalled();
+      expect(first.subscribe).toHaveBeenCalledTimes(1);
+      expect(second.subscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it("should subscribe the second source to a key neither lists", () => {
+      const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
+        data: ["1"],
+        subscribe: vi.fn(() => () => {}),
+      };
+      const second: Pick<FrameProps<string>, "data" | "subscribe"> = {
+        data: [],
+        subscribe: vi.fn(() => () => {}),
+      };
+      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const callback = vi.fn();
+      result.current.subscribe?.(callback, "3");
+      expect(second.subscribe).toHaveBeenCalledWith(callback, "3");
+      expect(first.subscribe).not.toHaveBeenCalled();
     });
 
     it("should handle partial subscribe functions", () => {
@@ -284,9 +296,7 @@ describe("useCombinedData", () => {
           return items.get(key);
         }) as GetItem<string, TestItem>,
         subscribe: (callback, key) => {
-          if (!subscribers.has(key)) subscribers.set(key, new Set());
-
-          subscribers.get(key)!.add(callback);
+          map.getOrInsert(subscribers, key, () => new Set()).add(callback);
           return () => subscribers.get(key)?.delete(callback);
         },
       });

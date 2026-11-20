@@ -16,23 +16,28 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { type Select } from "@synnaxlabs/lyra/select";
+import type { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
 import {
   type CrudeTimeRange,
+  deep,
   type NumericTimeRange,
   numericTimeRangeZ,
   runtime,
   TimeRange,
+  TimeStamp,
 } from "@synnaxlabs/x";
+import { useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 import { Triggers } from "@/platform/triggers";
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 export interface DownloadCSVModalParams {
   timeRange: CrudeTimeRange;
@@ -41,11 +46,18 @@ export interface DownloadCSVModalParams {
   icon?: Icon.ReactElement;
 }
 
-const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  virtual: false,
-};
+const NON_VIRTUAL_CHANNEL_QUERY: Channel.ListQuery = { where: { virtual: false } };
 const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
+};
+
+// A range that has not started or still runs has no time set at that end, so the
+// modal shows now there.
+const shownRange = ({ start, end }: TimeRange): TimeRange => {
+  const now = TimeStamp.now();
+  const from = start.afterEq(TimeStamp.MAX) ? now : start;
+  const to = end.afterEq(TimeStamp.MAX) ? TimeStamp.max(from, now) : end;
+  return new TimeRange(from, to);
 };
 
 const DownloadCSV = ({
@@ -55,24 +67,27 @@ const DownloadCSV = ({
   icon,
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
-  const initialRange = new TimeRange(timeRange).numeric;
+  const [shown] = useState(() => shownRange(new TimeRange(timeRange)));
+  // Form times are floats that round nanoseconds, so a time left as shown reads the
+  // exact time behind it. An open end left as shown stays open.
+  const toRead = ({ start, end }: NumericTimeRange): TimeRange =>
+    new TimeRange(
+      start === shown.numeric.start ? shown.start : start,
+      end === shown.numeric.end ? new TimeRange(timeRange).end : end,
+    );
   const form = Form.use<typeof formSchema>({
     schema: formSchema,
     values: {
       channels,
-      timeRange: initialRange,
+      timeRange: shown.numeric,
       downsampleFactor: 1,
       name,
     },
   });
-  const range = Form.useFieldValue<
-    NumericTimeRange,
-    NumericTimeRange,
-    typeof formSchema
-  >("timeRange", { ctx: form });
+  const range = Form.useFieldValue(path.timeRange, { ctx: form });
   const footer = (
     <Nav.Bar.End x align="center">
-      <DownloadButton handleFinish={close} />
+      <DownloadButton handleFinish={close} toRead={toRead} />
     </Nav.Bar.End>
   );
   return (
@@ -86,7 +101,7 @@ const DownloadCSV = ({
           <Flex.Box y full="x" gap="medium">
             <Flex.Box x gap="medium">
               <Form.DateTimeField
-                path="timeRange.start"
+                path={path.timeRange.start}
                 padHelpText={false}
                 label="From"
                 inputProps={{
@@ -99,7 +114,7 @@ const DownloadCSV = ({
               <Icon.Arrow.Right className={CSS.BE("download-csv", "arrow")} color={9} />
               <Form.DateTimeField
                 padHelpText={false}
-                path="timeRange.end"
+                path={path.timeRange.end}
                 label="To"
                 inputProps={{
                   level: "h4",
@@ -109,18 +124,21 @@ const DownloadCSV = ({
                 }}
               />
             </Flex.Box>
-            <Form.Field<channel.Key[]> path="channels">
+            <Form.Field path={path.channels}>
               {({ value, onChange }) => (
                 <Channel.SelectMultiple
                   value={value}
                   onChange={onChange}
-                  initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+                  query={NON_VIRTUAL_CHANNEL_QUERY}
                   triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
                   full="x"
                 />
               )}
             </Form.Field>
-            <DownsampleFactorField path="downsampleFactor" label="Downsample factor" />
+            <DownsampleFactorField
+              path={path.downsampleFactor}
+              label="Downsample factor"
+            />
             {runtime.getOS() !== "Windows" && (
               <Text.Text status="warning" weight={450}>
                 Large downloads are faster when the Console runs in Google Chrome or
@@ -143,18 +161,20 @@ const DownsampleFactorField = Form.buildNumericField({
 
 interface DownloadButtonProps {
   handleFinish: () => void;
+  /** @returns the range to read for the range in the form. */
+  toRead: (range: NumericTimeRange) => TimeRange;
 }
 
-const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
+const DownloadButton = ({ handleFinish, toRead }: DownloadButtonProps) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const download = Runtime.useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {
-    const timeRange = get<TimeRange>("timeRange").value;
-    const channels = get<channel.Key[]>("channels").value;
-    const downsampleFactor = get<number>("downsampleFactor").value;
-    const name = get<string>("name").value;
+    const timeRange = toRead(get(path.timeRange).value);
+    const channels = get(path.channels).value;
+    const downsampleFactor = get(path.downsampleFactor).value;
+    const name = get(path.name).value;
     handleError(
       async () => {
         if (client == null) throw new DisconnectedError();
@@ -171,7 +191,7 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
       { message: "Failed to download CSV data", name },
     );
   };
-  const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
+  const channelKeys = Form.useFieldValue(path.channels);
   const isDisabled = channelKeys.length === 0;
   return (
     <Button.Button

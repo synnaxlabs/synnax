@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, direction, location, type spatial, type text } from "@synnaxlabs/x";
+import { color, direction, location, type text } from "@synnaxlabs/x";
 import clsx, { type ClassValue } from "clsx";
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 
 import { newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
-import { type Theming } from "@/theming";
+import type { Theming } from "@/theming";
 
 const PREFIX = "lyra";
 // Custom properties keep the prefix of the theme tokens.
@@ -52,7 +52,7 @@ export const level = (level: text.Level): string => M(`level-${level}`);
 
 export const loc = (l: location.Crude): string => M("location", location.construct(l));
 
-export const align = (position: spatial.Alignment | ""): string => M(position);
+export const align = (position: location.Alignment | ""): string => M(position);
 
 export const dir = (dir?: direction.Crude): string | false =>
   dir != null && M("direction", direction.construct(dir));
@@ -61,7 +61,7 @@ export const disabled = (disabled?: boolean): string | false =>
   disabled === true && M("disabled");
 
 export const bordered = (
-  loc?: location.Crude | spatial.Alignment | boolean,
+  loc?: location.Crude | location.Alignment | boolean,
 ): string | false => {
   if (typeof loc === "boolean") return loc && M("bordered");
   return loc != null ? M(`bordered-${loc.toString()}`) : M("bordered");

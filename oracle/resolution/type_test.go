@@ -13,7 +13,153 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/resolution"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("MustForm", func() {
+	typ := resolution.Type{
+		QualifiedName: "rack.Rack",
+		Form:          resolution.StructForm{IsRecursive: true},
+	}
+
+	It("Should return the form when it has the requested type", func() {
+		Expect(resolution.MustForm[resolution.StructForm](typ).IsRecursive).
+			To(BeTrue())
+	})
+
+	It("Should panic with the type name when the form has another type", func() {
+		Expect(func() { resolution.MustForm[resolution.EnumForm](typ) }).
+			To(PanicWith(ContainSubstring("rack.Rack is a resolution.StructForm")))
+	})
+})
+
+var _ = Describe("RetrieveKey", func() {
+	withKey := func(name string) resolution.Type {
+		return resolution.Type{
+			Namespace: "rack",
+			Domains: map[string]resolution.Domain{"retrieve": {
+				Name: "retrieve",
+				Expressions: resolution.Expressions{{
+					Name: "key",
+					Values: []resolution.ExpressionValue{{
+						Kind:        resolution.ValueKindString,
+						StringValue: name,
+					}},
+				}},
+			}},
+		}
+	}
+
+	It("Should return false for a type with no @retrieve key", func() {
+		_, ok := resolution.RetrieveKey(resolution.Type{Namespace: "rack"})
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should qualify an unqualified name with the type's namespace", func() {
+		Expect(MustBeOk(resolution.RetrieveKey(withKey("Key")))).
+			To(Equal(resolution.TypeRef{Name: "rack.Key"}))
+	})
+
+	It("Should keep a qualified name as written", func() {
+		Expect(MustBeOk(resolution.RetrieveKey(withKey("channel.Key")))).
+			To(Equal(resolution.TypeRef{Name: "channel.Key"}))
+	})
+})
+
+var _ = Describe("RetrieveNoun", func() {
+	withNoun := func(values ...resolution.ExpressionValue) resolution.Type {
+		return resolution.Type{
+			Domains: map[string]resolution.Domain{"retrieve": {
+				Name: "retrieve",
+				Expressions: resolution.Expressions{
+					{Name: "noun", Values: values},
+				},
+			}},
+		}
+	}
+
+	It("Should return the declared noun", func() {
+		Expect(MustBeOk(resolution.RetrieveNoun(withNoun(resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: "named color",
+		})))).To(Equal("named color"))
+	})
+
+	It("Should return false for a type with no @retrieve noun", func() {
+		_, ok := resolution.RetrieveNoun(resolution.Type{})
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false for a noun with no value", func() {
+		_, ok := resolution.RetrieveNoun(withNoun())
+		Expect(ok).To(BeFalse())
+	})
+})
+
+var _ = Describe("InFilterRequest", func() {
+	var table *resolution.Table
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		add := func(namespace, name string, filter *resolution.Filter) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: namespace + "." + name,
+				Namespace:     namespace,
+				Form:          resolution.StructForm{},
+				Filter:        filter,
+			})).To(Succeed())
+		}
+		add("t", "Thing", nil)
+		add("t", "Where", &resolution.Filter{
+			Target:   resolution.TypeRef{Name: "t.Thing"},
+			Request:  "t.RetrieveRequest",
+			Response: "t.RetrieveResponse",
+		})
+		add("t", "RetrieveRequest", nil)
+		add("t", "RetrieveResponse", nil)
+		add(resolution.FilterNamespace, "Set", nil)
+	})
+
+	DescribeTable("Should report whether a type is part of a filter request",
+		func(name string, in bool) {
+			typ := MustBeOk(table.Get(name))
+			Expect(resolution.InFilterRequest(typ, table)).To(Equal(in))
+		},
+		Entry("a filter", "t.Where", true),
+		Entry("the request derived from a filter", "t.RetrieveRequest", true),
+		Entry("an operator type", resolution.OperatorSet, true),
+		Entry("the response derived from a filter", "t.RetrieveResponse", false),
+		Entry("a plain struct", "t.Thing", false),
+	)
+})
+
+var _ = Describe("OperatorMembers", func() {
+	DescribeTable(
+		"Should return the members of an operator type",
+		func(op string, members []string) {
+			Expect(MustBeOk(resolution.OperatorMembers(op))).To(Equal(members))
+		},
+		Entry("a set", resolution.OperatorSet, []string{"eq", "in"}),
+		Entry(
+			"a string",
+			resolution.OperatorString,
+			[]string{
+				"eq",
+				"in",
+				"contains",
+				"starts_with",
+				"regex",
+				"case_insensitive",
+			},
+		),
+	)
+
+	It("Should return false for a type that is not an operator", func() {
+		_, ok := resolution.OperatorMembers("filter.Thing")
+		Expect(ok).To(BeFalse())
+	})
+})
 
 var _ = Describe("CollectionKind", func() {
 	var table *resolution.Table
@@ -303,6 +449,43 @@ var _ = Describe("Unified fields through aliases", func() {
 			Equal([]string{"label", "hidden", "on"}),
 		)
 	})
+	It("Should fill in the type arguments of a generic base and variant", func() {
+		param := resolution.TypeRef{TypeParam: &resolution.TypeParam{Name: "T"}}
+		generic := func(name, fieldName string) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form: resolution.StructForm{
+					TypeParams: []resolution.TypeParam{{Name: "T"}},
+					Fields: []resolution.Field{
+						{Name: fieldName, Type: param},
+					},
+				},
+			})).To(Succeed())
+		}
+		generic("Head", "head")
+		generic("Body", "body")
+		union := resolution.Type{
+			Name:          "Node",
+			QualifiedName: "t.Node",
+			Namespace:     "t",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Extends: []resolution.TypeRef{{
+					Name: "t.Head", TypeArgs: []resolution.TypeRef{ref("uint8")},
+				}},
+			},
+		}
+		variant := resolution.UnionVariant{Name: "valve", Type: resolution.TypeRef{
+			Name: "t.Body", TypeArgs: []resolution.TypeRef{ref("string")},
+		}}
+		fields := resolution.UnifiedVariantFields(union, variant, table)
+		Expect(fields).To(HaveLen(2))
+		Expect(fields[0].Type).To(Equal(ref("uint8")))
+		Expect(fields[1].Type).To(Equal(ref("string")))
+	})
 })
 
 var _ = Describe("InheritedFields", func() {
@@ -407,6 +590,23 @@ var _ = Describe("TypeArgMap", func() {
 		),
 		Entry("no arguments", nil, map[string]resolution.TypeRef{}),
 	)
+
+	It("Should give a missing argument its parameter's default", func() {
+		params := []resolution.TypeParam{
+			{Name: "K"},
+			{Name: "V", Default: &resolution.TypeRef{
+				Name: "Pair", TypeArgs: []resolution.TypeRef{{
+					TypeParam: &resolution.TypeParam{Name: "K"},
+				}},
+			}},
+		}
+		Expect(resolution.TypeArgMap(
+			params, []resolution.TypeRef{{Name: "string"}},
+		)).To(Equal(map[string]resolution.TypeRef{
+			"K": {Name: "string"},
+			"V": {Name: "Pair", TypeArgs: []resolution.TypeRef{{Name: "string"}}},
+		}))
+	})
 })
 
 var _ = Describe("MergeOverrideField", func() {
@@ -479,4 +679,44 @@ var _ = Describe("MergeOverrideField", func() {
 		Expect(merged.Domains).To(HaveKey("go"))
 		Expect(merged.Domains).ToNot(HaveKey("doc"))
 	})
+})
+
+var _ = Describe("Type.Actions", func() {
+	rename := resolution.Action{Name: "Rename"}
+	It("Should return the actions of a struct", func() {
+		typ := resolution.Type{Form: resolution.StructForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return the actions of a union", func() {
+		typ := resolution.Type{Form: resolution.UnionForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return no actions for any other form", func() {
+		Expect(resolution.Type{Form: resolution.EnumForm{}}.Actions()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Action.IsAlias", func() {
+	DescribeTable(
+		"Should report whether the action uses an existing struct as its payload",
+		func(action resolution.Action, alias bool) {
+			Expect(action.IsAlias()).To(Equal(alias))
+		},
+		Entry("an alias of a struct", resolution.Action{
+			Name:  "Set",
+			Alias: resolution.TypeRef{Name: "patch.Set"},
+		}, true),
+		Entry("an action with its own payload", resolution.Action{
+			Name: "SetUsername",
+			Fields: []resolution.Field{{
+				Name: "username",
+				Type: resolution.TypeRef{Name: "string"},
+			}},
+		}, false),
+		Entry("an action with no payload", resolution.Action{Name: "Clear"}, false),
+	)
 })

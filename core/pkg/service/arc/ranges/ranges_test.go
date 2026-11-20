@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -25,6 +26,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	arcranges "github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -98,11 +100,8 @@ func nodeCtx(ctx context.Context) node.Context {
 	return node.Context{Context: ctx, MarkChanged: func(int) {}}
 }
 
-// matchesColor reports whether a diagnostic message is a color.FromCSS rejection.
-func matchesColor(msg string) bool {
-	return strings.Contains(msg, "hex value") ||
-		strings.Contains(msg, "invalid hex color")
-}
+// matchesColor reports whether a diagnostic message is a color.Parse rejection.
+func matchesColor(msg string) bool { return strings.Contains(msg, "invalid color") }
 
 func retrieveRange(ctx context.Context, key string) (ranger.Range, error) {
 	uid, err := uuid.Parse(key)
@@ -110,7 +109,7 @@ func retrieveRange(ctx context.Context, key string) (ranger.Range, error) {
 		return ranger.Range{}, err
 	}
 	var r ranger.Range
-	err = rangeSvc.NewRetrieve().Where(ranger.MatchKeys(uid)).Entry(&r).Exec(ctx, nil)
+	err = rangeSvc.NewRetrieve().Where(ranger.MatchKeys(uid)).Entry(&r).Exec(ctx, db)
 	return r, err
 }
 
@@ -353,7 +352,7 @@ var _ = Describe("createNode.Next", func() {
 			Expect(r.TimeRange.Start).To(BeNumerically("<=", telem.Now()))
 			Expect(rep.get()).To(BeEmpty())
 
-			Expect((*state.OutputTime(0)).Len()).To(Equal(int64(1)))
+			Expect(state.OutputTime(0).Len()).To(Equal(int64(1)))
 		},
 	)
 
@@ -366,7 +365,7 @@ var _ = Describe("createNode.Next", func() {
 
 			newKey := state.Output(0).Unmarshal[string]()[0]
 			r := MustSucceed(retrieveRange(ctx, newKey))
-			Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("#DF6D38"))))
+			Expect(*r.Color).To(Equal(MustSucceed(color.Parse("#DF6D38"))))
 			Expect(rep.get()).To(BeEmpty())
 		},
 	)
@@ -377,7 +376,7 @@ var _ = Describe("createNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 		newKey := state.Output(0).Unmarshal[string]()[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
-		Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("rgb(223, 109, 56)"))))
+		Expect(*r.Color).To(Equal(MustSucceed(color.Parse("rgb(223, 109, 56)"))))
 		Expect(rep.get()).To(BeEmpty())
 	})
 
@@ -394,7 +393,7 @@ var _ = Describe("createNode.Next", func() {
 			Expect(rangeSvc.
 				NewRetrieve().
 				Where(ranger.MatchNames(name)).
-				Count(ctx, nil),
+				Count(ctx, db),
 			).To(Equal(0))
 
 			calls := rep.get()
@@ -413,7 +412,9 @@ var _ = Describe("createNode.Next", func() {
 				Name:      "parent_" + uuid.New().String(),
 				TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 			}
-			Expect(rangeSvc.NewWriter(nil).Create(ctx, &parent)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangeSvc.NewWriter(tx).Create(ctx, &parent)
+			})).To(Succeed())
 
 			n, state := build("child_"+uuid.New().String(), parent.Key.String(), "")
 			n.Next(nodeCtx(ctx))
@@ -485,7 +486,9 @@ var _ = Describe("endNode.Next", func() {
 			Name:      "end_target_" + uuid.New().String(),
 			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 		}
-		Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rangeSvc.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		return r
 	}
 
@@ -554,6 +557,7 @@ var _ = Describe("Analyzer hooks", func() {
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		for _, e := range diags.Errors() {
 			if matchesColor(e.Message) {
+				Expect(e.Code).To(Equal(codes.FuncArgValue.Code))
 				return true
 			}
 		}
@@ -689,7 +693,9 @@ var _ = Describe("WASM host functions", func() {
 						End:   telem.TimeStampMax,
 					},
 				}
-				Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangeSvc.NewWriter(tx).Create(ctx, &r)
+				})).To(Succeed())
 				keyH := strs.Create(r.Key.String())
 				before := telem.Now()
 

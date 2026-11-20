@@ -9,7 +9,7 @@
 
 import { desc, eq } from "drizzle-orm";
 
-import { type Portal } from "@/portal";
+import type { Portal } from "@/portal";
 import {
   type Activation,
   activation,
@@ -20,9 +20,9 @@ import {
 } from "@/server/db/schema";
 import { ADMIN_ROLE } from "@/server/directory";
 import { forbidden, notFound } from "@/server/errors";
-import { type Team } from "@/server/member";
+import type { Team } from "@/server/member";
 import { isMember, retrieve } from "@/server/organization";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 
 export interface LicenseView {
   license: License;
@@ -79,6 +79,11 @@ export const activationFor = async (
   if (found == null) throw notFound("Activation");
   return { activation: act, ...found };
 };
+
+/** isAdmin returns whether a user is staff or an admin of the given team. */
+export const isAdmin = (org: Organization, session: Session): boolean =>
+  session.staff ||
+  session.teams.some((t) => t.clerkOrgID === org.clerkOrgID && t.role === ADMIN_ROLE);
 
 export const requireStaff = (session: Session): void => {
   if (!session.staff) throw forbidden("Staff only");

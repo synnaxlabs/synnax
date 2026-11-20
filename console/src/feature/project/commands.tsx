@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, imex, project } from "@synnaxlabs/client";
-import { type UploadBody } from "@synnaxlabs/freighter";
+import type { UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
 
@@ -19,7 +19,7 @@ import { Import } from "@/platform/import";
 import { Project } from "@/platform/project";
 import { Session } from "@/session";
 
-const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+const useCreateVisible = () => Access.useCreateGranted(project.TYPE_RESOURCE_ID);
 
 const CreateCommand = Command.create({
   key: "project_create",
@@ -78,7 +78,7 @@ const ExportProjectCommand = Command.create({
   name: "Export current project",
   icon: <PProject.ExportIcon />,
   useOnSelect: useExportSelected,
-  useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(project.TYPE_RESOURCE_ID),
 });
 
 const useOpenSampleVisible = (): boolean => {

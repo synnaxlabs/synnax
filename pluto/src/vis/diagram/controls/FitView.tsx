@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Viewport as BaseViewport } from "@/viewport";
 import { diagram } from "@/vis/diagram/aether";
@@ -35,6 +35,7 @@ export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
         onClick?.(e);
       }}
       tooltip={tooltip}
+      aria-label="Fit view to contents"
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}

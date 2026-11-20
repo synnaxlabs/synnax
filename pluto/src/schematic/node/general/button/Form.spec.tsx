@@ -9,14 +9,21 @@
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { createConfig } from "@/schematic/node/registry";
-import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  renderForm,
+  type RenderFormResult,
+} from "@/testutil";
+
+const path = deep.path<schematic.ButtonNodeConfig>();
 
 const client = createTestClient();
 
@@ -41,6 +48,99 @@ describe("ButtonForm", () => {
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
-    await waitFor(() => expect(value("commandChannel")).toBeUndefined());
+    await waitFor(() => expect(value(path.commandChannel)).toBe(0));
+  });
+});
+
+describe("ButtonForm size", () => {
+  const renderStyle = (config: schematic.ButtonNodeConfig): RenderFormResult =>
+    renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      config,
+      schematic.buttonNodeConfigZ,
+    );
+
+  it.each([
+    ["XS", "tiny"],
+    ["S", "small"],
+    ["M", "medium"],
+    ["L", "large"],
+    ["XL", "huge"],
+  ] as const)("should set the size from %s", async (option, size) => {
+    const start = size === "huge" ? "tiny" : "huge";
+    const { getByText, value } = renderStyle(
+      createConfig({ variant: "button", size: start }),
+    );
+    fireEvent.click(getByText(option));
+    await waitFor(() => expect(value(path.size)).toBe(size));
+  });
+});
+
+describe("ButtonForm label", () => {
+  const renderStyleTab = (): RenderFormResult =>
+    renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      createConfig({ variant: "button" }),
+      schematic.buttonNodeConfigZ,
+      createSynnaxWrapper({ client: null }),
+    );
+
+  it("should keep a newline in the label", async () => {
+    const { container, value } = renderStyleTab();
+    const field = container.querySelector("textarea");
+    if (field == null) throw new Error("expected a text area");
+    fireEvent.change(field, { target: { value: "LAUNCH\nPUMP VC" } });
+    await waitFor(() => expect(value(path.label.label)).toBe("LAUNCH\nPUMP VC"));
+  });
+
+  it("should set the wrap width", async () => {
+    const { getByText, value } = renderStyleTab();
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    if (field == null) throw new Error("expected a wrap width input");
+    fireEvent.change(field, { target: { value: "80" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(80));
+  });
+
+  it("should show the default wrap width until a user sets one", () => {
+    const { getByText } = renderStyleTab();
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    expect(field?.value).toBe("150");
+  });
+
+  it("should keep the wrap width when the input is cleared", async () => {
+    const { getByText, value } = renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      createConfig({ variant: "button", label: { maxInlineSize: 80 } }),
+      schematic.buttonNodeConfigZ,
+      createSynnaxWrapper({ client: null }),
+    );
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    if (field == null) throw new Error("expected a wrap width input");
+    fireEvent.change(field, { target: { value: "" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(field.value).toBe("80"));
+    expect(value(path.label.maxInlineSize)).toBe(80);
+  });
+
+  it.each([
+    ["0", 1],
+    ["80.6", 81],
+    ["70000", 65535],
+  ])("should store a wrap width of %s as %i", async (input, stored) => {
+    const { getByText, value } = renderStyleTab();
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    if (field == null) throw new Error("expected a wrap width input");
+    fireEvent.change(field, { target: { value: input } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(stored));
+  });
+
+  it("should set the alignment", async () => {
+    const { container, value } = renderStyleTab();
+    const start = container.querySelector("button#start");
+    if (start == null) throw new Error("expected a start alignment button");
+    fireEvent.click(start);
+    await waitFor(() => expect(value(path.label.align)).toBe("start"));
   });
 });

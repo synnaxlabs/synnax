@@ -21,14 +21,18 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import { Portal } from "@/portal";
 import { position } from "@/position";
 import { getRootElement } from "@/util/rootElement";
 
 export interface FrameProps {
   /** The element the frame sits beside. */
   anchor: HTMLElement;
-  /** The preferred location relative to the anchor. Chosen by position when unset. */
-  location?: position.Location;
+  /**
+   * The anchor's corner to open at, or both the anchor's and the frame's corners.
+   * Chosen by position when unset.
+   */
+  location?: position.LocationPreference;
   id?: string;
   className?: string;
   /** Called when the anchor leaves the document or collapses to zero area. */
@@ -53,6 +57,7 @@ export const Frame = ({
   onAnchorLost,
   children,
 }: FrameProps): ReactElement => {
+  const portalTarget = Portal.useTarget();
   const ref = useRef<HTMLDivElement | null>(null);
   const prevPlacementRef = useRef<position.Preference | null>(null);
   const locationRef = useSyncedRef(locationProp);
@@ -66,6 +71,10 @@ export const Frame = ({
     let prefer = PREFERENCES;
     if (prevPlacementRef.current != null)
       prefer = [prevPlacementRef.current, ...PREFERENCES];
+    // A fixed box near the right edge shrinks to the space left there, so it is
+    // measured at the origin, where the whole window is available.
+    el.style.left = "0px";
+    el.style.top = "0px";
     const { adjustedDialog, ...placement } = position.position({
       target,
       // offset* ignores the entrance animation's scale, unlike getBoundingClientRect.
@@ -77,7 +86,8 @@ export const Frame = ({
     });
     prevPlacementRef.current = placement;
     const rounded = box.round(adjustedDialog);
-    el.style.left = CSS.px(box.left(rounded));
+    const maxLeft = Math.max(0, window.innerWidth - box.width(rounded));
+    el.style.left = CSS.px(Math.min(box.left(rounded), maxLeft));
     el.style.top = CSS.px(box.top(rounded));
     el.style.transformOrigin = `${placement.dialogCorner.x} ${placement.dialogCorner.y}`;
   };
@@ -96,6 +106,6 @@ export const Frame = ({
     >
       {children}
     </div>,
-    getRootElement(),
+    portalTarget ?? getRootElement(),
   );
 };

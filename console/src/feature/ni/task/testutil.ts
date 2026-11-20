@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type device, ni, type Synnax } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
-import { type FC } from "react";
+import type { FC } from "react";
 import { expect } from "vitest";
 
 import {
@@ -21,14 +22,13 @@ import {
   SCHEMAS,
   ZERO_PROPERTIES,
 } from "@/feature/ni/device/types";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 import {
   awaitEditableForm,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 type New = device.New<typeof SCHEMAS.properties, typeof SCHEMAS.make>;
 
@@ -70,7 +70,7 @@ export const createNIDevice = async (
 /**
  * The ports of an X Series style device. ai0 to ai7 pair with ai8 to ai15, default to
  * differential, and also take thermocouples. It has two analog outputs, two 8-line
- * digital ports, four counters, and the terminals PFI0 to PFI3.
+ * digital ports, four counters, the terminals PFI0 to PFI3, and analog ranges.
  */
 export const createHardware = (): ni.Hardware =>
   ni.hardwareZ.parse({
@@ -97,6 +97,14 @@ export const createHardware = (): ni.Hardware =>
       { port: 1, lines: 8, input: true, output: true },
     ],
     terminals: ["PFI0", "PFI1", "PFI2", "PFI3"],
+    aiMinRate: 1,
+    aiVoltageRanges: [
+      { lower: -1, upper: 1 },
+      { lower: -10, upper: 10 },
+    ],
+    aiCurrentRanges: [{ lower: -0.02, upper: 0.02 }],
+    aoVoltageRanges: [{ lower: -10, upper: 10 }],
+    aoCurrentRanges: [{ lower: 0, upper: 0.02 }],
     aiMaxSingleChannelRate: 2_000_000,
     aiMaxMultiChannelRate: 1_000_000,
   });

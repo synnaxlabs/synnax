@@ -1,0 +1,98 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Set timeout-minutes on the step that uses this action. GitHub rejects it in here.
+name: Set up browsers
+description: Installs Playwright's browsers and, on Linux, the packages they need
+
+inputs:
+  package:
+    description: The pnpm package name
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The Ubuntu mirror once took 65 minutes to send these packages. Only Linux caches,
+    # because the other runners have no apt and get browsers from Playwright's CDN.
+    - name: Key the browser cache
+      id: key
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+      run: |
+        version=$(pnpm --filter "@synnaxlabs/$PACKAGE" exec playwright --version)
+        prefix=browsers-$ImageOS-$RUNNER_ARCH-
+        echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+        echo "version=${version##* }" >> "$GITHUB_OUTPUT"
+        echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+    # A key is immutable, so the date lets main replace the cache each day. Packages
+    # from another Playwright version still save most of the download.
+    - name: Restore the browser cache
+      id: cache
+      if: runner.os == 'Linux'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/apt-archives
+        key:
+          ${{ steps.key.outputs.prefix }}${{ steps.key.outputs.version }}-${{
+          steps.key.outputs.date }}
+        restore-keys: |
+          ${{ steps.key.outputs.prefix }}${{ steps.key.outputs.version }}-
+          ${{ steps.key.outputs.prefix }}
+
+    - name: Copy the cached packages to apt
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        mkdir -p ~/.cache/apt-archives
+        find ~/.cache/apt-archives -name '*.deb' \
+          -exec sudo cp -t /var/cache/apt/archives {} +
+
+    - name: Install browsers
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+      run: |
+        args=()
+        if [ "$RUNNER_OS" = Linux ]; then args=(--with-deps); fi
+        pnpm "install-browsers:$PACKAGE" "${args[@]}"
+
+    # Main saves each new key. Elsewhere a save helps only reruns of that branch, so it
+    # happens only when main has no cache, and never in a merge group.
+    - name: Collect the packages for the cache
+      if:
+        runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' && (github.ref
+        == 'refs/heads/main' || (github.event_name != 'merge_group' &&
+        steps.cache.outputs.cache-matched-key == ''))
+      shell: bash
+      run: |
+        sudo apt-get autoclean -y
+        rm -rf ~/.cache/apt-archives
+        mkdir -p ~/.cache/apt-archives
+        find /var/cache/apt/archives -maxdepth 1 -name '*.deb' \
+          -exec cp -t ~/.cache/apt-archives {} +
+
+    - name: Save the browser cache
+      if:
+        runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' && (github.ref
+        == 'refs/heads/main' || (github.event_name != 'merge_group' &&
+        steps.cache.outputs.cache-matched-key == ''))
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/apt-archives
+        key:
+          ${{ steps.key.outputs.prefix }}${{ steps.key.outputs.version }}-${{
+          steps.key.outputs.date }}

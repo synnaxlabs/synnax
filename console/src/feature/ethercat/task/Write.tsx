@@ -10,41 +10,56 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { deep, primitive } from "@synnaxlabs/x";
+import type { FC } from "react";
 
-import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import {
+  useResultSlave,
+  useSlavesByKeys,
+  useSlavesOnRack,
+} from "@/feature/ethercat/device/queries";
+import { needsSetup } from "@/feature/ethercat/device/SetupNote";
+import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
+import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
   WriteDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
+import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
+import { slavesZ } from "@/feature/ethercat/task/checks";
 import {
+  bindOrphanedChannels,
   checkOrCreateIndex,
   findChannelsToCreate,
-  retrieveAndValidateSlaves,
+  retrieveByName,
+  retrieveSlaves,
 } from "@/feature/ethercat/task/configure";
+import { createSlaveWriteChannel } from "@/feature/ethercat/task/create";
+import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
-  addressKey,
+  bindWriteChannel,
   createWriteChannel,
   deployWriteConfigZ,
+  entryAt,
   type EntryWriteChannel,
   getEntryChannelName,
-  getPortLabel,
   hasEntry,
-  stateKey,
+  mappedChannels,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteChannel,
+  writeChannelNames,
+  writeChannelOf,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
-import { Selector } from "@/platform/selector";
+import { Device } from "@/platform/device";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<WriteSchemas>>();
+
 const Properties = () => (
-  <Flex.Box x grow>
+  <Flex.Box x grow wrap>
     <PForm.NumericField
-      path="config.executionRate"
+      path={path.config.executionRate}
       label="Execution rate"
       inputProps={EXECUTION_RATE_INPUT_PROPS}
     />
@@ -56,18 +71,28 @@ const EXECUTION_RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<WriteChannel>(path);
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
+  const names =
+    slave?.configured === true &&
+    hasEntry(ch) &&
+    entryAt(slave.properties.pdos.outputs, ch) != null
+      ? writeChannelNames(slave, ch)
+      : undefined;
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
-      port={getPortLabel(ch)}
-      status={ch.type === "unresolved" ? "error" : undefined}
-      path={path}
+      port={<PortLabel ch={ch} entries={slave?.properties.pdos.outputs ?? []} />}
+      path={entry}
       channel={ch.cmdChannel}
+      defaultName={names?.cmd}
       stateChannel={ch.stateChannel}
-      hasTareButton={false}
-      canTare={false}
+      stateDefaultName={names?.state}
+      skipped={ch.disabled}
+      warned={!ch.disabled && slave != null && needsSetup(slave)}
       nameDirection="y"
       portMaxChars={20}
     />
@@ -80,33 +105,51 @@ const detailsTitle = Component.renderProp(WriteDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
 
+const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
+  <>
+    <AddSlaveEntriesItem
+      {...props}
+      path={path.config.channels}
+      pdoType="outputs"
+      createChannel={createSlaveWriteChannel}
+    />
+    {Task.writeChannelContextMenuItems(props)}
+  </>
+);
+
+const contextMenuItems = Component.renderProp(ContextMenuItems);
+
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
+  const onRack = useSlavesOnRack(slaves?.[0]?.rack);
+  PForm.useCheck(path.config, slavesZ("outputs", slaves ?? [], onRack ?? []));
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
-    const { channels } = slave.properties.write;
     return {
-      cmdChannel: channels[addressKey(ch)] ?? 0,
-      stateChannel: channels[stateKey(ch)] ?? 0,
+      cmdChannel: writeChannelOf(slave, ch, "command"),
+      stateChannel: writeChannelOf(slave, ch, "state"),
     };
   };
   return (
-    <Task.Views.ListAndDetails<WriteChannel>
-      listItem={listItem}
-      details={channelDetails}
-      detailsTitle={detailsTitle}
-      createChannel={createWriteChannel}
-      contextMenuItems={Task.writeChannelContextMenuItems}
-      resolve={resolve}
-    />
+    <Flex.Box y grow empty>
+      <Task.Views.ListAndDetails<WriteChannel>
+        path={path.config.channels}
+        listItem={listItem}
+        details={channelDetails}
+        detailsTitle={detailsTitle}
+        createChannel={createWriteChannel}
+        contextMenuItems={contextMenuItems}
+        resolve={resolve}
+      />
+      <ChannelUsage
+        indexOptions={WRITE_INDEX_OPTIONS}
+        pdoType="outputs"
+        path={path.config.channels}
+        slaves={slaves}
+      />
+    </Flex.Box>
   );
-};
-
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (config == null) cfg.channels = [createWriteChannel([])];
-  return { name: "EtherCAT write task", type: WRITE_TYPE, config: cfg };
 };
 
 const WRITE_INDEX_OPTIONS = {
@@ -119,33 +162,59 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<WriteChannel>(client, config.channels, "outputs");
+  const { slaves, rack, channelsBySlaveKey } = await retrieveSlaves<WriteChannel>(
+    client,
+    "outputs",
+    config,
+  );
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
+    const before = deep.copy(slave.properties);
     let modified = await checkOrCreateIndex(client, slave, WRITE_INDEX_OPTIONS);
-    const existingChannels = slave.properties.write.channels;
     // The command and state of a pair are checked apart: deleting one must recreate
     // only that one, leaving the other bound where the device already maps it.
-    const cmdToCreate = await findChannelsToCreate(client, channels, existingChannels);
-    const stateToCreate = await findChannelsToCreate(
-      client,
-      channels,
-      existingChannels,
-      stateKey,
+    const cmdMissing = await findChannelsToCreate(client, channels, (ch) =>
+      writeChannelOf(slave, ch, "command"),
     );
+    const stateMissing = await findChannelsToCreate(client, channels, (ch) =>
+      writeChannelOf(slave, ch, "state"),
+    );
+    if (cmdMissing.length > 0 || stateMissing.length > 0) modified = true;
     const { identifier, pdos } = slave.properties;
-    const baseName = (ch: EntryWriteChannel) =>
-      getEntryChannelName(identifier, pdos.outputs, ch);
+    const cmdIndexName = (ch: EntryWriteChannel) =>
+      primitive.isNonZero(ch.cmdChannelName)
+        ? `${ch.cmdChannelName}_cmd_time`
+        : `${getEntryChannelName(identifier, pdos.outputs, ch)}_cmd_time`;
+    const cmdIndexNames = cmdMissing.map(cmdIndexName);
+    const orphanCmdIndexes = await retrieveByName(client, cmdIndexNames);
+    const cmdToCreate = await bindOrphanedChannels({
+      client,
+      slave: slave.key,
+      channels: cmdMissing,
+      names: cmdMissing.map((ch) => writeChannelNames(slave, ch).cmd),
+      // A custom name can be a live channel of another device. A default name holds
+      // the slave identifier, so only it is safe to reuse.
+      index: (i) =>
+        primitive.isZero(cmdMissing[i].cmdChannelName)
+          ? orphanCmdIndexes.get(cmdIndexNames[i])?.key
+          : undefined,
+      mapped: mappedChannels(slave),
+      bind: (ch, key) => bindWriteChannel(slave, ch, "command", key),
+    });
+    const stateToCreate = await bindOrphanedChannels({
+      client,
+      channels: stateMissing,
+      names: stateMissing.map((ch) => writeChannelNames(slave, ch).state),
+      index: () => slave.properties.writeStateIndex,
+      mapped: mappedChannels(slave),
+      bind: (ch, key) => bindWriteChannel(slave, ch, "state", key),
+    });
 
     if (cmdToCreate.length > 0) {
-      modified = true;
       const cmdIndexes = await client.channels.create(
         cmdToCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.cmdChannelName)
-            ? `${ch.cmdChannelName}_cmd_time`
-            : `${baseName(ch)}_cmd_time`,
+          name: cmdIndexName(ch),
           dataType: "timestamp",
           isIndex: true,
         })),
@@ -153,41 +222,36 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 
       const cmdChannels = await client.channels.create(
         cmdToCreate.map((ch, i) => ({
-          name: primitive.isNonZero(ch.cmdChannelName)
-            ? ch.cmdChannelName
-            : `${baseName(ch)}_cmd`,
+          name: writeChannelNames(slave, ch).cmd,
           dataType: ch.dataType,
           index: cmdIndexes[i].key,
         })),
       );
 
-      cmdToCreate.forEach((ch, i) => {
-        existingChannels[addressKey(ch)] = cmdChannels[i].key;
-      });
+      cmdToCreate.forEach((ch, i) =>
+        bindWriteChannel(slave, ch, "command", cmdChannels[i].key),
+      );
     }
 
     if (stateToCreate.length > 0) {
-      modified = true;
       const stateChannels = await client.channels.create(
         stateToCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.stateChannelName)
-            ? ch.stateChannelName
-            : `${baseName(ch)}_state`,
+          name: writeChannelNames(slave, ch).state,
           dataType: ch.dataType,
           index: slave.properties.writeStateIndex,
         })),
       );
 
-      stateToCreate.forEach((ch, i) => {
-        existingChannels[stateKey(ch)] = stateChannels[i].key;
-      });
+      stateToCreate.forEach((ch, i) =>
+        bindWriteChannel(slave, ch, "state", stateChannels[i].key),
+      );
     }
 
-    if (modified) await client.devices.create(slave);
+    if (modified) await Device.setProperties(client, slave, before, SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
-      ch.cmdChannel = existingChannels[addressKey(ch)];
-      ch.stateChannel = existingChannels[stateKey(ch)];
+      ch.cmdChannel = writeChannelOf(slave, ch, "command");
+      ch.stateChannel = writeChannelOf(slave, ch, "state");
     });
   }
 
@@ -201,15 +265,4 @@ export const Write = Task.wrapForm({
   deployConfigZ: deployWriteConfigZ,
   type: "ethercat_write",
   onConfigure,
-});
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "EtherCAT write task",
-  icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: useCreateWrite,
 });

@@ -28,9 +28,9 @@ const YELLOW = "#f4ca258c";
 const RED = "#f5242e73";
 const CLEAR = "#00000000";
 /** A gray that reads as a faint tint on both themes. */
-const HEADER_FILL = "#80808033";
+const HEADER_FILL = { type: "fixed", value: "#80808033" } as const;
 /** A gray legible on both themes, a step quieter than the labels. */
-const QUIET = "#8a8f98";
+const QUIET = { type: "fixed", value: "#8a8f98" } as const;
 
 /**
  * A reading and its limits. A high reading warns at or above `warning`, and a low one
@@ -166,18 +166,14 @@ const COLUMNS = [170, 150, 70, 120, 120];
 const HEADER_HEIGHT = 48;
 const ROW_HEIGHT = 78;
 
-type Cells = NonNullable<table.New["cells"]>;
-type CellConfig = Cells[string];
+type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
+type CellConfig = Cell["config"];
 
 /** limitTable lays out every reading with its live value, units, and limits. */
 const limitTable = (keys: Map<string, channel.Key>): table.New => {
-  const cells: Cells = {};
-  const add = (config: CellConfig): string => {
-    const key = `cell-${Object.keys(cells).length}`;
-    cells[key] = config;
-    return key;
-  };
-  const quiet = (value: string): string =>
+  let count = 0;
+  const add = (config: CellConfig): Cell => ({ key: `cell-${count++}`, config });
+  const quiet = (value: string): Cell =>
     add({ variant: "text", value, level: "h5", textColor: QUIET });
   const header = {
     size: HEADER_HEIGHT,
@@ -218,7 +214,6 @@ const limitTable = (keys: Map<string, channel.Key>): table.New => {
     name: NAME,
     columns: COLUMNS.map((size) => ({ size })),
     rows: [header, ...rows],
-    cells,
   };
 };
 
@@ -241,10 +236,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     if (tpc == null) throw new Error(`no project named "${world.project}"`);
     const channels = await client.channels.retrieve(LIMITS.map(([, name]) => name));
-    await client.tables.create(
-      tpc.key,
-      limitTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
-    );
+    await client.tables.create({
+      ...limitTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
+      project: tpc.key,
+    });
     await client.statuses.set(alarms(await pageNow()));
     const labels = new Map(
       (
@@ -256,7 +251,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     for (const { name, label } of ALARMS) {
       const key = labels.get(label);
       if (key == null) throw new Error(`no label named "${label}"`);
-      await client.labels.label(status.ontologyID(alarmKey(name)), [key]);
+      await client.labels.label(status.resourceID(alarmKey(name)), [key]);
     }
 
     await capture.login(session, world.project);
@@ -288,7 +283,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await writer.write({ start_sim_cmd_time: TimeStamp.now(), start_sim_cmd: 1 });
     await writer.close();
     await session.waitFor(() => world.logged.includes("OX MPV open"), 3600);
-    await session.settle(3000);
+    // The stand runs on wall time once the capture falls behind it.
+    await session.settleWall(3000);
 
     // Set again, so the time since each change reads as the alarm history says.
     await client.statuses.set(alarms(await pageNow()));

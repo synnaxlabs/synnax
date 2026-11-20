@@ -9,12 +9,12 @@
 
 import { query, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { uuid } from "@synnaxlabs/x";
-import { type ClipboardEventHandler } from "react";
+import { strings, uuid } from "@synnaxlabs/x";
+import type { ClipboardEventHandler } from "react";
 
 import { Synnax } from "@/synnax";
 import { Cell } from "@/table/cells";
-import { findCellPosition, useDispatch } from "@/table/queries";
+import { findCellPosition, layoutOf, useDispatch } from "@/table/queries";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
@@ -36,8 +36,7 @@ interface Payload {
   cells: CellPayload[];
 }
 
-const describe = (p: Payload): string =>
-  `${p.cells.length} cell${p.cells.length === 1 ? "" : "s"}`;
+const describe = (p: Payload): string => strings.count(p.cells.length, "cell");
 
 export interface UseClipboardParams {
   key: table.Key;
@@ -64,7 +63,7 @@ export const useClipboard = ({
   const selectedRef = useSyncedRef(selected ?? []);
 
   const getTable = (): table.Table | undefined => {
-    const cached = client?.tables.getCached(key);
+    const cached = client?.tables.watch(key).getCached();
     if (!query.isLive(cached)) return undefined;
     return cached;
   };
@@ -77,6 +76,7 @@ export const useClipboard = ({
     if (t == null) return;
     const sel = selectedRef.current;
     if (sel.length === 0) return;
+    const rows = layoutOf(t.rows);
     const cells: CellPayload[] = [];
     let minRow = Number.POSITIVE_INFINITY;
     let minCol = Number.POSITIVE_INFINITY;
@@ -86,9 +86,9 @@ export const useClipboard = ({
       cell: table.CellConfig;
     }> = [];
     for (const cellKey of sel) {
-      const p = findCellPosition(t.rows, cellKey);
-      const c = t.cells[cellKey];
-      if (p == null || c == null) continue;
+      const p = findCellPosition(rows, cellKey);
+      if (p == null) continue;
+      const c = t.rows[p.y].cells[p.x].config;
       if (p.y < minRow) minRow = p.y;
       if (p.x < minCol) minCol = p.x;
       intermediate.push({ row: p.y, col: p.x, cell: c });
@@ -113,11 +113,11 @@ export const useClipboard = ({
     }
     if (payload.version !== VERSION || payload.cells.length === 0) return;
     const sel = selectedRef.current;
-    const anchorKey = sel[sel.length - 1] ?? null;
+    const anchorKey = sel.at(-1) ?? null;
     if (anchorKey == null) return;
     const t = getTable();
     if (t == null) return;
-    const anchorPos = findCellPosition(t.rows, anchorKey);
+    const anchorPos = findCellPosition(layoutOf(t.rows), anchorKey);
     if (anchorPos == null) return;
     e.preventDefault();
 
@@ -144,7 +144,7 @@ export const useClipboard = ({
     const posKey = (r: number, c: number): string => `${r},${c}`;
     for (let r = 0; r < existingRows; r++)
       for (let c = 0; c < existingCols; c++) {
-        const k = t.rows[r]?.cells[c];
+        const k = t.rows[r]?.cells[c]?.key;
         if (k != null) keyAt[posKey(r, c)] = k;
       }
 

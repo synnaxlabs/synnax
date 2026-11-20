@@ -110,12 +110,10 @@ func (s *Server) Rename(
 
 // renameTextEdits walks every identifier token in doc, keeps the ones that
 // resolve to the same symbol as targetSym, and emits a TextEdit per
-// occurrence that replaces the token with newName. The block-mode column
-// shift is applied inline via toDocRange so the walk produces protocol-
-// ready edits in a single pass instead of a Location → TextEdit hop.
+// occurrence that replaces the token with newName.
 func (s *Server) renameTextEdits(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	targetSym *symbol.Symbol,
 	newName string,
 ) []protocol.TextEdit {
@@ -135,8 +133,11 @@ func (s *Server) renameTextEdits(
 		if tokenText != targetSym.Name {
 			continue
 		}
-		pos := position{Line: t.GetLine(), Col: t.GetColumn()}
-		scope := findScopeAtInternalPosition(doc.IR.Symbols, pos)
+		start := protocol.Position{
+			Line:      uint32(t.GetLine() - 1),
+			Character: uint32(t.GetColumn()),
+		}
+		scope := doc.findScopeAtPosition(start)
 		sym, err := scope.Resolve(ctx, tokenText, symbol.WithoutUsageTracking)
 		if !isRenameable(sym, err) {
 			continue
@@ -149,17 +150,10 @@ func (s *Server) renameTextEdits(
 		} else if sym.Kind != targetSym.Kind || sym.AST != nil {
 			continue
 		}
+		end := start
+		end.Character += uint32(len(tokenText))
 		edits = append(edits, protocol.TextEdit{
-			Range: doc.toDocRange(protocol.Range{
-				Start: protocol.Position{
-					Line:      uint32(pos.Line - 1),
-					Character: uint32(pos.Col),
-				},
-				End: protocol.Position{
-					Line:      uint32(pos.Line - 1),
-					Character: uint32(pos.Col + len(tokenText)),
-				},
-			}),
+			Range:   protocol.Range{Start: start, End: end},
 			NewText: newName,
 		})
 	}

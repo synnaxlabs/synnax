@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { box, direction, location, xy } from "@synnaxlabs/x";
 
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
@@ -422,8 +422,8 @@ const internalNewConnector = ({
   if (location.swap(sourceStumpOrientation) === target.orientation) {
     const dir = direction.construct(sourceStumpOrientation);
     // push three segments on
-    // first segment is in same direction as source stump orientation and half way to the
-    // target stump tip
+    // first segment is in same direction as source stump orientation and half way to
+    // the target stump tip
     const dist = (targetStumpTip[dir] - sourceStumpTip[dir]) / 2;
     segments.push({ direction: dir, length: dist });
     const swappedDir = direction.swap(dir);
@@ -502,6 +502,10 @@ const internalDragSegment = ({
     // Since we added a new stump in the same direction as the old one, we need to
     // subtract the stump length from the segment.
     next[index] = { ...next[index], length: next[index].length - stumpLength };
+  } else if (next[index - 1].direction === seg.direction) {
+    // A collinear neighbor cannot absorb the drag, so a new segment joins the two.
+    next.splice(index, 0, { direction: dir, length: magnitude });
+    index++;
   } else
     next[index - 1] = {
       direction: next[index - 1].direction,
@@ -514,7 +518,9 @@ const internalDragSegment = ({
     const stumpLength = setOrientationOnLength(orientation, STUMP_LENGTH);
     next.push({ direction: seg.direction, length: stumpLength });
     next[index] = { ...next[index], length: next[index].length - stumpLength };
-  } else
+  } else if (next[index + 1].direction === seg.direction)
+    next.splice(index + 1, 0, { direction: dir, length: -magnitude });
+  else
     next[index + 1] = {
       direction: next[index + 1].direction,
       length: next[index + 1].length - magnitude,
@@ -606,22 +612,20 @@ export interface UpdateSegmentsForPositionChangesProps {
     key: string;
     source: { node: string };
     target: { node: string };
+    config: { segments: Segment[] };
   }>;
-  props: Record<string, schematic.ElementConfig | undefined>;
   changes: NodePositionChange[];
 }
 
 export const updateSegmentsForPositionChanges = ({
   nodes,
   edges,
-  props,
   changes,
 }: UpdateSegmentsForPositionChangesProps): EdgeSegmentUpdate[] => {
   const deltas = new Map<string, xy.XY>();
   for (const change of changes) {
     const node = nodes.find((n) => n.key === change.key);
-    if (node != null)
-      deltas.set(change.key, xy.translation(node.position, change.newPos));
+    if (node != null) deltas.set(change.key, xy.sub(change.newPos, node.position));
   }
   const updates: EdgeSegmentUpdate[] = [];
   for (const edge of edges) {
@@ -634,8 +638,7 @@ export const updateSegmentsForPositionChanges = ({
       xy.equals(sourceDelta, targetDelta, 0.001)
     )
       continue;
-    const cfg = props[edge.key];
-    let segments = (cfg != null && "segments" in cfg ? cfg.segments : undefined) ?? [];
+    let { segments } = edge.config;
     if (segments.length === 0) continue;
     if (sourceDelta != null && !xy.equals(sourceDelta, xy.ZERO))
       segments = moveSourceNode({ delta: sourceDelta, segments });
@@ -731,8 +734,8 @@ const moveNodeInDirection = (
       };
     return segments;
   }
-  // This means that there is only one segment in the 'swappedDirection' direction in the whole
-  // connector, so we split it in half and add a new segment.
+  // This means that there is only one segment in the 'swappedDirection' direction in
+  // the whole connector, so we split it in half and add a new segment.
   if (idxToAdjust === -1)
     if (segments.length === 1) {
       if (segments[0].direction === dir)
@@ -820,8 +823,9 @@ export interface BuildProps extends BuildNew {
   middleSegments: Segment[];
 }
 
-/// @brief routes an edge's full segment list: a fresh orthogonal connector when there are
-/// no middle segments, otherwise the user's middle segments stitched to the endpoints.
+/// @brief routes an edge's full segment list: a fresh orthogonal connector when there
+/// are no middle segments, otherwise the user's middle segments stitched to the
+/// endpoints.
 export const build = ({ middleSegments, ...endpoints }: BuildProps): Segment[] =>
   middleSegments.length === 0
     ? createConnector(endpoints)

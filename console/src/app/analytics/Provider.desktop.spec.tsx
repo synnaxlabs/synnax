@@ -11,7 +11,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { scheduler } from "@synnaxlabs/x";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -49,7 +49,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -125,7 +125,7 @@ describe("Analytics.Provider", () => {
     const { store, sink } = await renderProvider({ link: LINK });
     sink().capture("plot_created", {});
     // Async effects start after a task queue flush, so wait one out before asserting.
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(mocks.posthog.init).not.toHaveBeenCalled();
     act(() => {
       store.dispatch(Session.Account.setAnalyticsAllowed(true));
@@ -149,7 +149,7 @@ describe("Analytics.Provider", () => {
       store.dispatch(Session.Account.setAnalyticsAllowed(false));
     });
     answer(INSTALL);
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(mocks.posthog.init).not.toHaveBeenCalled();
   });
 
@@ -276,7 +276,7 @@ describe("Analytics.Provider", () => {
         { link: LINK, analyticsAllowed: true },
         {},
       );
-      await act(async () => await scheduler.flushTaskQueue());
+      await act(async () => await scheduler.nextTask());
       expect(mocks.posthog.init).not.toHaveBeenCalled();
       act(() => {
         store.dispatch(Session.Analytics.setSessionID(SESSION));
@@ -304,6 +304,8 @@ describe("Analytics.Provider", () => {
             readyAt: null,
             timeToReadyMs: null,
             lastExit: null,
+            waits: 0,
+            lastWaitMs: null,
           };
         return undefined;
       });

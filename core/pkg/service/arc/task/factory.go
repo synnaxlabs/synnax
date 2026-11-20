@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -36,12 +37,12 @@ import (
 // Type is the type identifier for Arc tasks.
 const Type = "arc"
 
-// GetProgramFunc retrieves an Arc with its compiled Program by key.
-type GetProgramFunc func(context.Context, arc.Key) (arc.Arc, error)
+// GetProgramFunc retrieves an automation with its compiled Program by key.
+type GetProgramFunc func(context.Context, arc.Key) (arc.AutomationArc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the records that the factory reads, and stores task statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -57,7 +58,9 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// GetProgram retrieves an Arc with its compiled Program by key.
+	// GetProgram retrieves an automation with its compiled Program by key. A configure
+	// calls it again, as channel.RetryChanged does, when it returns
+	// channel.ErrLookupsChanged.
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
@@ -67,15 +70,21 @@ type FactoryConfig struct {
 	Ranger *ranger.Service
 	// Now returns the wall clock each task's runtime stamps its cycles from.
 	//
-	// [OPTIONAL] - Defaults to timer.Wall, which is precise on Windows too.
+	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
+	// LoopBudget is the loop iterations and function calls that a task's program can
+	// run in one cycle. A cycle that runs more stops the task with an error status.
+	//
+	// [OPTIONAL] - Defaults to runtime.DefaultLoopBudget.
+	LoopBudget int64
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now: func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
+		Now:        telem.Now,
+		LoopBudget: runtime.DefaultLoopBudget,
 	}
 )
 
@@ -88,6 +97,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.LoopBudget = override.Numeric(c.LoopBudget, other.LoopBudget)
 	return c
 }
 
@@ -99,6 +109,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("get_program", c.GetProgram)
 	v.NotNil("ranger", c.Ranger)
+	v.Positive("loop_budget", c.LoopBudget)
 	return v.Error()
 }
 
@@ -135,12 +146,14 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.reporter.Report(ctx, t, cmdKey, false, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
-	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
+	prog, err := channel.RetryChanged(ctx, func() (arc.AutomationArc, error) {
+		return f.cfg.GetProgram(ctx, cfg.ArcKey)
+	})
 	if err != nil {
-		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	arcTask := &impl{
@@ -151,9 +164,10 @@ func (f *factory) ConfigureTask(
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
-	// command, and a "configured" status would answer it first with running false.
+	// command, and a "configured" status would answer it first with running false. An
+	// auto-start that fails must answer it too, since no start follows.
 	if cfg.AutoStart {
-		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
+		if err := errors.Combine(arcTask.start(ctx, cmdKey)); err != nil {
 			return nil, err
 		}
 	}

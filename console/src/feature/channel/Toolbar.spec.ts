@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -18,14 +20,22 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { renderToolbar } from "@/platform/tree/testutil";
 import {
-  assertDefined,
+  findTreeRow,
+  itemName,
+  openTreeRowContextMenu,
+  renderToolbar,
+  searchTree,
+} from "@/platform/tree/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
   createTestClientWithGrants,
   getIconButton,
   getIconButtons,
   queryIcon,
   renderHookWithConsole,
+  uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -42,17 +52,24 @@ const renderChannelToolbar = async (
   await screen.findByText("Channels");
 };
 
+const createGroupedChannel = async (
+  name: string,
+): Promise<{ ch: channel.Channel; groupName: string }> => {
+  const groupName = uniqueName("grp");
+  const grp = await client.groups.create({ scope: "channel", name: groupName });
+  const ch = await client.channels.create({
+    name,
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+    group: grp.key,
+  });
+  return { ch, groupName };
+};
+
 describe("channel/Toolbar", () => {
   it("opens the create channel modal from the toolbar action", async () => {
     await renderChannelToolbar();
-    // The calculated-channel action's composite icon also contains an add glyph, so
-    // pick the add button that is not the calculated action.
-    const create = await waitFor(() => {
-      const calculated = getIconButton(document.body, "calculation");
-      const btn = getIconButtons(document.body, "add").find((b) => b !== calculated);
-      if (btn == null) throw new Error("create channel action not rendered");
-      return btn;
-    });
+    const create = await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(create);
     expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Index" })).toBeTruthy();
@@ -61,7 +78,9 @@ describe("channel/Toolbar", () => {
   it("opens the create calculated channel modal from the toolbar action", async () => {
     // Monaco cannot run in jsdom, so the expression editor's boundary catches.
     await renderChannelToolbar(() => {});
-    const button = await waitFor(() => getIconButton(document.body, "calculation"));
+    const button = await waitFor(() =>
+      getIconButton(document.body, "calculated-channel-create"),
+    );
     await act(async () => fireEvent.click(button));
     expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(await screen.findByText("Derivative")).toBeTruthy();
@@ -75,8 +94,11 @@ describe("channel/Toolbar permissions", () => {
       items: Channel.TREE_ITEMS,
     });
     await screen.findByText("Channels");
-    expect(getIconButtons(document.body, "add")).toHaveLength(0);
-    expect(queryIcon(document.body, "calculation")).toBeNull();
+    // The tree can hold calculated channels, so only the header is checked.
+    const header = document.querySelector(".console-toolbar__header");
+    assertDefined(header);
+    expect(getIconButtons(header, "add")).toHaveLength(0);
+    expect(queryIcon(header, "calculated-channel-create")).toBeNull();
   });
 
   it("should hide the toolbar itself from a subject who cannot read channels", async () => {
@@ -86,5 +108,37 @@ describe("channel/Toolbar permissions", () => {
       client: denied,
     });
     await waitFor(() => expect(result.current).toBe(false));
+  });
+});
+
+describe("channel/Toolbar search", () => {
+  it("should find a channel by name and show its group", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_flow`;
+    const { groupName } = await createGroupedChannel(name);
+    await renderChannelToolbar();
+    searchTree(tok);
+    const row = await findTreeRow(itemName(name));
+    expect(row.querySelector("mark")?.textContent).toBe(tok);
+    expect(row.textContent).toContain(groupName);
+  });
+
+  it("should rename a channel from a search result", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_flow`;
+    const { ch } = await createGroupedChannel(name);
+    await renderChannelToolbar();
+    searchTree(tok);
+    await openTreeRowContextMenu(itemName(name));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editor = await awaitTextEditingElement();
+    expect(editor.textContent).toBe(name);
+    expect(editor.querySelector("mark")).toBeNull();
+    const renamed = `${tok}_renamed`;
+    commitTextEdit(editor, renamed);
+    await waitFor(async () =>
+      expect((await client.channels.retrieve(ch.key)).name).toBe(renamed),
+    );
+    expect(await findTreeRow(itemName(renamed))).toBeTruthy();
   });
 });

@@ -19,7 +19,7 @@ const DeleteDataCommand = Command.create({
   name: "Delete data",
   icon: <Icon.Delete />,
   useOnSelect: useDeleteDataModal,
-  useVisible: () => Access.useDeleteGranted(framer.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useDeleteGranted(framer.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [DeleteDataCommand];

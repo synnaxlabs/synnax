@@ -11,13 +11,14 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
@@ -89,7 +90,7 @@ var (
 		tokenParamPrefix,
 	)
 	errNoAuthenticationParam = errors.Wrapf(
-		auth.ErrAuth,
+		auth.ErrMissingCredentials,
 		"no authentication token provided",
 	)
 )
@@ -119,13 +120,17 @@ const (
 )
 
 // GetSubject returns the subject of the request's session.
-func GetSubject(ctx context.Context) ontology.ID {
+func GetSubject(ctx context.Context) resource.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
-		return user.OntologyID(uuid.Nil())
+		return user.ResourceID(uuid.Nil())
 	}
-	return s.(ontology.ID)
+	id, ok := s.(resource.ID)
+	if !ok {
+		panic(fmt.Sprintf("subject in context is a %T", s))
+	}
+	return id
 }
 
 func getSession(ctx context.Context) auth.Session {
@@ -134,5 +139,9 @@ func getSession(ctx context.Context) auth.Session {
 		zap.S().DPanic("[api] - no session found in context")
 		return auth.Session{}
 	}
-	return s.(auth.Session)
+	session, ok := s.(auth.Session)
+	if !ok {
+		panic(fmt.Sprintf("session in context is a %T", s))
+	}
+	return session
 }

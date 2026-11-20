@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { TEXT_LEVEL_SIZES } from "@/component/text";
@@ -34,7 +34,6 @@ export const ButtonTitle = ({
       size={TEXT_LEVEL_SIZES[level]}
       onClick={onClick}
       className={CSS.cls(CSS.B("header-button-title"), className)}
-      sharp
       {...rest}
     >
       {children}

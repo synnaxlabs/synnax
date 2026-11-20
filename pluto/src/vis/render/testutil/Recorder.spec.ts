@@ -10,7 +10,15 @@
 import { box, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
+
+const REQUEST: render.Request = {
+  key: "key",
+  priority: "high",
+  canvases: ["lower2d"],
+  render: () => {},
+};
 
 interface DrawableCtx {
   fillRect(x: number, y: number, w: number, h: number): void;
@@ -67,6 +75,15 @@ describe("canvasTest.record", () => {
       ]);
     });
 
+    it("records a linear gradient and the stops added to it", () => {
+      const r = canvasTest.record();
+      r.upper2d.createLinearGradient(0, 0, 10, 0).addColorStop(1, "#fff");
+      expect(r.upper2d.calls).toEqual([
+        { op: "createLinearGradient", args: [0, 0, 10, 0] },
+        { op: "addColorStop", args: [1, "#fff"] },
+      ]);
+    });
+
     it("records textDimensions and returns a length-derived size", () => {
       const r = canvasTest.record();
       expect(r.lower2d.textDimensions("abcd")).toEqual({ width: 32, height: 12 });
@@ -93,11 +110,10 @@ describe("canvasTest.record", () => {
       ]);
     });
 
-    it("records loop.set calls with raw args", () => {
+    it("records loop.set calls with their request", () => {
       const r = canvasTest.record();
-      const fn = () => {};
-      r.loop.set("key", fn);
-      expect(r.loopCalls).toEqual([{ args: ["key", fn] }]);
+      r.loop.set(REQUEST);
+      expect(r.loopCalls).toEqual([{ args: [REQUEST] }]);
     });
   });
 
@@ -108,7 +124,7 @@ describe("canvasTest.record", () => {
       ctx.fillRect(0, 0, 1, 1);
       r.scissor(box.ZERO);
       r.erase(box.ZERO);
-      r.loop.set("k", () => {});
+      r.loop.set(REQUEST);
       r.clear();
       expect(r.upper2d.calls).toHaveLength(0);
       expect(r.scissorCalls).toHaveLength(0);

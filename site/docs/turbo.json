@@ -3,8 +3,14 @@
   "extends": ["//"],
   "tasks": {
     "build": {
+      "cache": false,
       "inputs": ["src/**", "astro.config.ts", "tsconfig*.json", "package.json"],
-      "passThroughEnv": ["DOCS_GITHUB_TOKEN"]
+      "env": ["DOCS_VERSION", "VERCEL_ENV"],
+      "passThroughEnv": [
+        "DOCS_GITHUB_APP_ID",
+        "DOCS_GITHUB_APP_PRIVATE_KEY",
+        "GITHUB_TOKEN"
+      ]
     },
     "lint": {
       "inputs": [

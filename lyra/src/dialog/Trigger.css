@@ -39,3 +39,18 @@
         transform: rotate(90deg) scale(0.8);
     }
 }
+
+/* A shadow trigger insets its text like a shadow input's. The caret keeps its space
+   while hidden, so the label never moves. */
+.lyra-btn.lyra-dialog__trigger.lyra-btn--shadow {
+    padding-inline: 1.5rem;
+
+    & .lyra-caret-animated {
+        opacity: 0;
+    }
+
+    &:is(:hover, :focus-visible, [aria-expanded="true"]):not(.lyra--disabled)
+        .lyra-caret-animated {
+        opacity: 1;
+    }
+}

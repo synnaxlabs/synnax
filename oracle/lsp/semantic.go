@@ -74,7 +74,10 @@ func extractSemanticTokens(content string) []uint32 {
 	var tokens []lsp.Token
 	// prev is the type of the previous token that is not a comment, or -1 at the start.
 	prev := -1
-	for _, t := range allTokens {
+	// prevName reports whether the previous token that is not a comment is the name of
+	// a definition, so a soft keyword can follow it.
+	var prevName bool
+	for i, t := range allTokens {
 		typ := t.GetTokenType()
 		if typ == antlr.TokenEOF {
 			continue
@@ -88,8 +91,16 @@ func extractSemanticTokens(content string) []uint32 {
 			prev == parser.OracleLexerAT,
 			nameStart,
 		)
+		// A field typed by the filter schema, such as `name filter.String`, also puts
+		// filter after a name.
+		if prevName && typ == parser.OracleLexerIDENT && t.GetText() == "filter" &&
+			!followedBy(allTokens, i, parser.OracleLexerDOT) {
+			keyword := uint32(semanticTokenTypeKeyword)
+			tokenType = &keyword
+		}
 		if typ != parser.OracleLexerLINE_COMMENT &&
 			typ != parser.OracleLexerBLOCK_COMMENT {
+			prevName = nameStart && typ == parser.OracleLexerIDENT
 			prev = typ
 		}
 		if tokenType == nil {
@@ -105,6 +116,11 @@ func extractSemanticTokens(content string) []uint32 {
 	return lsp.EncodeSemanticTokens(tokens)
 }
 
+// followedBy reports whether the token after tokens[i] has type typ.
+func followedBy(tokens []antlr.Token, i, typ int) bool {
+	return i+1 < len(tokens) && tokens[i+1].GetTokenType() == typ
+}
+
 // mapTokenType returns the semantic token type for a lexer token, or nil when the token
 // is not highlighted. An identifier at nameStart (after a newline or an opening brace)
 // is a name, so it is never a primitive type.
@@ -112,7 +128,8 @@ func mapTokenType(antlrType int, text string, prevWasAt, nameStart bool) *uint32
 	var tokenType uint32
 	switch antlrType {
 	case parser.OracleLexerSTRUCT, parser.OracleLexerENUM, parser.OracleLexerIMPORT,
-		parser.OracleLexerEXTENDS, parser.OracleLexerMAP:
+		parser.OracleLexerEXTENDS, parser.OracleLexerMAP, parser.OracleLexerUNION,
+		parser.OracleLexerACTION:
 		tokenType = semanticTokenTypeKeyword
 	case parser.OracleLexerAT:
 		tokenType = semanticTokenTypeDecorator
@@ -125,11 +142,12 @@ func mapTokenType(antlrType int, text string, prevWasAt, nameStart bool) *uint32
 	case parser.OracleLexerLINE_COMMENT, parser.OracleLexerBLOCK_COMMENT:
 		tokenType = semanticTokenTypeComment
 	case parser.OracleLexerIDENT:
-		if prevWasAt {
+		switch {
+		case prevWasAt:
 			tokenType = semanticTokenTypeFunction
-		} else if !nameStart && primitiveTypes.Contains(text) {
+		case !nameStart && primitiveTypes.Contains(text):
 			tokenType = semanticTokenTypeType
-		} else {
+		default:
 			tokenType = semanticTokenTypeProperty
 		}
 	default:

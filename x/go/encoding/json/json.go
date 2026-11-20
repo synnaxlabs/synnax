@@ -10,11 +10,13 @@
 package json
 
 import (
-	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"io"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
@@ -39,23 +41,70 @@ func NewCodec(opts ...json.Options) http.FileCodec {
 
 func (*codec) ContentType() string { return "application/json" }
 
-func (c *codec) Decode(_ context.Context, data []byte, value any) error {
+func (c *codec) Decode(data []byte, value any) error {
 	if err := json.Unmarshal(data, value, c.opts); err != nil {
-		return encoding.SugarDecodingError(data, value, err)
+		return encoding.SugarDecodingError(value, describe(err))
 	}
 	return nil
 }
 
-func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (c *codec) DecodeStream(r io.Reader, value any) error {
 	dec := jsontext.NewDecoder(r, c.opts)
 	if err := json.UnmarshalDecode(dec, value, c.opts); err != nil {
-		data, ioErr := io.ReadAll(r)
-		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
+		return encoding.SugarDecodingError(value, describe(err))
 	}
 	return nil
 }
 
-func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
+// fieldError restates a json.SemanticError by the field it failed on.
+type fieldError struct {
+	msg string
+	err *json.SemanticError
+}
+
+func (e fieldError) Error() string { return e.msg }
+
+func (e fieldError) Unwrap() error { return e.err }
+
+// describe restates a json.SemanticError as the field that failed and the type that
+// the field expects. It returns any other error as is.
+func describe(err error) error {
+	semErr, ok := errors.AsType[*json.SemanticError](err)
+	if !ok {
+		return err
+	}
+	field := strings.Join(slices.Collect(semErr.JSONPointer.Tokens()), ".")
+	switch {
+	case errors.Is(semErr.Err, json.ErrUnknownName):
+		return fieldError{msg: fmt.Sprintf("unknown field %q", field), err: semErr}
+	case field == "" && semErr.Err != nil:
+		return fieldError{msg: semErr.Err.Error(), err: semErr}
+	case field == "":
+		return fieldError{msg: "got JSON " + kindName(semErr.JSONKind), err: semErr}
+	}
+	msg := fmt.Sprintf("field %q expects %s", field, semErr.GoType)
+	if semErr.Err != nil {
+		msg += ": " + semErr.Err.Error()
+	} else {
+		msg += ", got JSON " + kindName(semErr.JSONKind)
+	}
+	return fieldError{msg: msg, err: semErr}
+}
+
+func kindName(k jsontext.Kind) string {
+	switch k {
+	case 't', 'f':
+		return "boolean"
+	case '{', '}':
+		return "object"
+	case '[', ']':
+		return "array"
+	default:
+		return k.String()
+	}
+}
+
+func (c *codec) Encode(value any) ([]byte, error) {
 	b, err := json.Marshal(value, c.opts)
 	if err != nil {
 		return nil, encoding.SugarEncodingError(value, err)
@@ -66,7 +115,7 @@ func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
 	return b, nil
 }
 
-func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (c *codec) EncodeStream(w io.Writer, value any) error {
 	if err := json.MarshalWrite(w, value, c.opts); err != nil {
 		return encoding.SugarEncodingError(value, err)
 	}

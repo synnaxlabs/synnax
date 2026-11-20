@@ -11,6 +11,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -20,6 +21,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
 
 namespace x::loop {
@@ -27,6 +29,8 @@ namespace x::loop {
 constexpr double RATE_TOLERANCE = 0.05;
 /// @brief Wall time each rate is measured over.
 constexpr int SPAN_SECONDS = 1;
+/// @brief Number of windows each rate is measured over.
+constexpr int WINDOWS = 5;
 
 /// @brief Logs the timer resolution a sleep on this machine rounds up to. Windows
 /// defaults to 15.625 ms, but any process raising it changes what every other process
@@ -97,18 +101,45 @@ measure_deviation(Wait wait, const telem::TimeSpan &target, const int count) {
     return median(periods);
 }
 
-/// @brief Logs the rate wait holds at rate_hz and checks it against the tolerance.
+/// @brief Logs the rate wait holds at rate_hz and checks it against the tolerance. A
+/// single period rounds to the tick of an OS sleep, but the timer holds its deadlines,
+/// so the mean period of a window holds the rate. The median of the windows rejects a
+/// window with a stall.
 /// @param wait the wait to measure.
 /// @param rate_hz the rate the timer holds.
 template<typename Wait>
 void expect_rate(Wait wait, const int rate_hz) {
-    const auto period = median(measure_periods(wait, rate_hz * SPAN_SECONDS));
+    const int count = std::max(1, rate_hz * SPAN_SECONDS / WINDOWS);
+    std::vector<telem::TimeSpan> windows;
+    windows.reserve(WINDOWS);
+    wait();
+    for (int i = 0; i < WINDOWS; i++) {
+        const auto start = hs_clock::now();
+        for (int j = 0; j < count; j++)
+            wait();
+        windows.emplace_back(telem::TimeSpan(hs_clock::now() - start) / count);
+    }
+    const auto period = median(windows);
     const double measured = 1 / period.seconds();
     const double error = (measured - rate_hz) / rate_hz * 100;
     std::cout << std::fixed << std::setprecision(1);
     std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
     EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
         << "at " << rate_hz << " Hz";
+}
+
+/// @brief Waits on timer 100 times from its creation.
+/// @returns the median time that a wait on time ended after its deadline.
+telem::TimeSpan median_lateness(Timer &timer, const telem::TimeSpan &interval) {
+    auto deadline = hs_clock::now() + interval.chrono();
+    std::vector<telem::TimeSpan> lateness;
+    for (int i = 0; i < 100; i++) {
+        const auto [_, on_time] = timer.wait();
+        const auto now = hs_clock::now();
+        if (on_time) lateness.emplace_back(now - deadline);
+        deadline = (on_time ? deadline : now) + interval.chrono();
+    }
+    return median(lateness);
 }
 
 /// @brief it should hold its period on each wait at a high rate.
@@ -129,6 +160,27 @@ TEST(LoopTest, testWaitLowRate) {
     Timer timer{rate};
     const auto deviation = measure_deviation([&] { timer.wait(); }, rate.period(), 10);
     EXPECT_LT(deviation, telem::MILLISECOND * 10);
+}
+
+/// @brief it should end each wait of a precise timer on its deadline at an interval
+/// that otherwise sleeps.
+TEST(LoopTest, testPreciseWaitEndsOnDeadline) {
+    const auto interval = telem::MILLISECOND * 10;
+    Timer timer{interval, true};
+    EXPECT_LT(median_lateness(timer, interval), telem::MICROSECOND * 20);
+}
+
+/// @brief it should end a long precise wait when the breaker stops.
+TEST(LoopTest, testPreciseWaitBreaker) {
+    auto brk = breaker::Breaker(breaker::default_config("test"));
+    brk.start();
+    Timer timer{telem::SECOND, true};
+    const auto start = hs_clock::now();
+    std::thread t([&] { timer.wait(brk); });
+    std::this_thread::sleep_for((telem::MILLISECOND * 10).chrono());
+    brk.stop();
+    t.join();
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 500);
 }
 
 void runBreaker(breaker::Breaker &brk) {
@@ -260,6 +312,19 @@ TEST(LoopTest, testSubMillisecondPreciseSleepSleeps) {
     brk.stop();
     EXPECT_LT(thread_cpu_time() - cpu_start, wall * 0.75);
 }
+
+/// @brief it should sleep, not spin, through a sleep.
+TEST(LoopTest, testSleepDoesNotSpin) {
+    constexpr int COUNT = 200;
+    Timer timer;
+    const auto cpu_start = thread_cpu_time();
+    const auto start = hs_clock::now();
+    for (int i = 0; i < COUNT; i++)
+        timer.sleep(telem::MILLISECOND);
+    const auto wall = telem::TimeSpan(hs_clock::now() - start);
+    EXPECT_GE(wall, telem::MILLISECOND * COUNT);
+    EXPECT_LT(thread_cpu_time() - cpu_start, wall * 0.1);
+}
 #endif
 
 /// @brief it should re-anchor after an overrun instead of catching up on the missed
@@ -276,5 +341,223 @@ TEST(LoopTest, testWaitOverrunNoCatchUp) {
     const auto next = telem::TimeSpan(hs_clock::now() - start);
     EXPECT_GT(next, telem::MILLISECOND * 15);
     EXPECT_LT(next, telem::MILLISECOND * 60);
+}
+
+/// @brief it should move the end of the next wait by the shift.
+TEST(LoopTest, testShiftMovesTheNextWait) {
+    Timer timer{telem::Rate(20)};
+    timer.wait();
+    timer.shift(telem::MILLISECOND * 30);
+    auto start = hs_clock::now();
+    timer.wait();
+    EXPECT_GT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 70);
+    timer.shift(telem::MILLISECOND * -30);
+    start = hs_clock::now();
+    timer.wait();
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 35);
+}
+
+/// @brief it should wait each interval on the given clock, with the shift, and not on
+/// the host clock.
+TEST(LoopTest, testWaitSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND * 10);
+    const auto start = clock.steady();
+    const auto host_start = hs_clock::now();
+    timer.wait();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 10);
+    timer.shift(telem::SECOND * 3);
+    timer.wait();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 23);
+    timer.shift(telem::SECOND * -4);
+    timer.wait();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 29);
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - host_start), telem::SECOND);
+}
+
+/// @brief it should wait on the given clock when the wait takes a breaker.
+TEST(LoopTest, testWaitBreakerSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND * 10);
+    const auto start = clock.steady();
+    breaker::Breaker brk;
+    brk.start();
+    timer.wait(brk);
+    timer.wait(brk);
+    brk.stop();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 20);
+}
+
+/// @brief it should sleep a precise sleep on the given clock while the breaker runs.
+TEST(LoopTest, testPreciseSleepSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND);
+    const auto start = clock.steady();
+    breaker::Breaker brk;
+    brk.start();
+    EXPECT_TRUE(timer.precise_sleep(telem::SECOND * 5, brk));
+    brk.stop();
+    EXPECT_FALSE(timer.precise_sleep(telem::SECOND * 5, brk));
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 5);
+}
+
+/// @brief it should sleep on the given clock, and not on the host clock.
+TEST(LoopTest, testSleepSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND);
+    const auto start = clock.steady();
+    const auto host_start = hs_clock::now();
+    timer.sleep(telem::SECOND * 5);
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 5);
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - host_start), telem::SECOND);
+}
+
+/// @brief it should start at one sleep step.
+TEST(StepEstimator, testStartsAtOneStep) {
+    EXPECT_EQ(StepEstimator().estimate(), RESOLUTION);
+}
+
+/// @brief it should estimate the mean plus one deviation when a step's squared
+/// deviation is past the range of an int64 of nanoseconds.
+TEST(StepEstimator, testHoldsAStallPastTheInt64Range) {
+    StepEstimator estimator;
+    estimator.add(RESOLUTION);
+    estimator.add(telem::SECOND * 10);
+    EXPECT_NEAR(
+        estimator.estimate().nanoseconds(),
+        (telem::SECOND * 10).nanoseconds(),
+        static_cast<double>(RESOLUTION.nanoseconds())
+    );
+}
+
+/// @brief adds count steps that alternate between 90 µs and 110 µs.
+void add_normal_steps(StepEstimator &estimator, const int count) {
+    for (int i = 0; i < count; i++)
+        estimator.add(telem::MICROSECOND * (i % 2 == 0 ? 90 : 110));
+}
+
+/// @brief it should hold back one stall after its distribution is set, so the stall
+/// cannot raise the estimate past every wait.
+TEST(StepEstimator, testHoldsBackAnIsolatedStall) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 1000);
+    const auto before = estimator.estimate();
+    estimator.add(telem::MILLISECOND * 50);
+    EXPECT_EQ(estimator.estimate(), before);
+    add_normal_steps(estimator, 20000);
+    estimator.add(telem::SECOND * 3);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 200);
+}
+
+/// @brief it should keep a large estimate on a host whose normal steps are large, as
+/// on the Windows sleep_for fallback, so a high-rate timer spins.
+TEST(StepEstimator, testKeepsTheEstimateOfLargeSteps) {
+    StepEstimator estimator;
+    for (int i = 0; i < 1000; i++)
+        estimator.add(telem::MILLISECOND * (i % 50 == 0 ? 31 : 1 + i % 16));
+    EXPECT_GT(estimator.estimate(), telem::MILLISECOND * 10);
+}
+
+/// @brief it should add a stall among the first steps, so a high-rate timer spins
+/// instead of trusting too low an estimate. Such a timer then takes no more steps and
+/// spins on every wait.
+TEST(StepEstimator, testAddsAStallAmongTheFirstSteps) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 3);
+    estimator.add(telem::MILLISECOND * 50);
+    EXPECT_GT(estimator.estimate(), HIGH_RES_THRESHOLD);
+}
+
+/// @brief it should hold back a stall on a host with a recurring tail of slow steps,
+/// as the tail steps are far smaller than the stall.
+TEST(StepEstimator, testHoldsBackAStallAmongARecurringTail) {
+    StepEstimator estimator;
+    const auto add_tail = [&estimator](const int count) {
+        for (int i = 1; i <= count; i++) {
+            if (i % 1000 == 0)
+                estimator.add(telem::MICROSECOND * (i % 2000 == 0 ? 1000 : 600));
+            else
+                estimator.add(telem::MICROSECOND * 100);
+        }
+    };
+    add_normal_steps(estimator, 16);
+    add_tail(20000);
+    estimator.add(telem::SECOND * 3);
+    add_tail(5000);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 300);
+}
+
+/// @brief it should drop a held stall when the next long step is far smaller than it.
+TEST(StepEstimator, testDropsAHeldStallForASmallLongStep) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 1000);
+    const auto before = estimator.estimate();
+    estimator.add(telem::SECOND * 3);
+    estimator.add(telem::MILLISECOND);
+    EXPECT_EQ(estimator.estimate(), before);
+    estimator.add(telem::MILLISECOND);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 300);
+}
+
+/// @brief it should add both long steps when a second one confirms the first, so the
+/// estimate follows a host whose steps became longer.
+TEST(StepEstimator, testFollowsALastingRiseInStepDuration) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 1000);
+    for (int i = 0; i < 10000; i++)
+        estimator.add(telem::MILLISECOND * 2);
+    EXPECT_GT(estimator.estimate(), telem::MILLISECOND * 2);
+}
+
+/// @brief it should add long steps that recur within the window, so a host with a
+/// steady tail of slow steps keeps them in its estimate.
+TEST(StepEstimator, testAddsARecurringTail) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 16);
+    for (int i = 1; i <= 1000; i++)
+        estimator.add(i % 50 == 0 ? telem::MILLISECOND : telem::MICROSECOND * 100);
+    EXPECT_GT(estimator.estimate(), telem::MICROSECOND * 200);
+}
+
+/// @brief it should read the host's wall time by default.
+TEST(HostClock, testReadsTheHostWallTimeByDefault) {
+    const HostClock clock;
+    const auto before = telem::TimeStamp::now();
+    const auto now = clock.now();
+    EXPECT_GE(now, before);
+    EXPECT_LE(now, telem::TimeStamp::now());
+}
+
+/// @brief it should read and sleep on the host's steady clock by default.
+TEST(HostClock, testSleepsOnTheHostSteadyClockByDefault) {
+    const HostClock clock;
+    const auto start = clock.steady();
+    clock.sleep(telem::MILLISECOND * 5);
+    EXPECT_GE(clock.steady() - start, std::chrono::milliseconds(5));
+}
+
+/// @brief it should return a precise timer on the host steady clock.
+TEST(HostClock, testReturnsAPreciseTimer) {
+    const auto interval = telem::MILLISECOND * 10;
+    auto timer = HostClock().timer(interval, true);
+    EXPECT_LT(median_lateness(timer, interval), telem::MICROSECOND * 20);
+}
+
+/// @brief it should move the wall time and the steady time with its source.
+TEST(HostClock, testMovesBothTimesWithItsSource) {
+    const auto clock = fake_clock();
+    const auto wall = clock.now();
+    const auto steady = clock.steady();
+    clock.sleep(telem::SECOND * 5);
+    EXPECT_EQ(clock.now() - wall, telem::SECOND * 5);
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - steady), telem::SECOND * 5);
+}
+
+/// @brief it should share one time between the copies of a fake clock on any thread.
+TEST(FakeClock, testSharesItsTimeBetweenCopies) {
+    const auto clock = fake_clock();
+    const auto start = clock.steady();
+    std::thread([copy = clock] { copy.sleep(telem::SECOND); }).join();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND);
 }
 }

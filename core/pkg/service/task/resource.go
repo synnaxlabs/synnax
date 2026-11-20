@@ -1,0 +1,53 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package task
+
+import (
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
+
+// Resources returns the resource.Provider of tasks. Searches and lists leave out
+// internal tasks.
+func (s *Service) Resources() *resource.TableProvider[Key, Task] {
+	return resource.NewTableProvider(resource.TableProviderConfig[Key, Task]{
+		Table:  s.table,
+		Search: s.indexes.search,
+		ID:     ResourceID,
+		Key:    resource.ParseUUIDKey,
+		Name:   func(t *Task) string { return t.Name },
+		Hidden: func(t *Task) bool { return t.Internal },
+	})
+}
+
+// ResourceID returns the resource ID of the task with the given key.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeTask, Key: key.String()}
+}
+
+// ResourceIDs returns the resource IDs for the given keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
+}
+
+// ResourceIDsFromTasks returns the resource ID of each task.
+func ResourceIDsFromTasks(tasks []Task) []resource.ID {
+	return lo.Map(tasks, func(task Task, _ int) resource.ID {
+		return task.ResourceID()
+	})
+}
+
+// KeysFromResourceIDs returns the key of the task that each ID names. A malformed key
+// is a validation error.
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
+		return resource.ParseUUIDKey(id)
+	})
+}

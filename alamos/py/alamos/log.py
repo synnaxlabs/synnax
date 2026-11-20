@@ -14,8 +14,7 @@ from logging import Logger as BaseLogger
 from typing import Any
 
 from alamos.meta import InstrumentationMeta
-from alamos.noop import Noop
-from alamos.noop import noop as noopd
+from alamos.noop import Noop, noop as noopd
 
 
 class Logger:

@@ -43,7 +43,12 @@ var _ = Describe("Sparkplug B browse", func() {
 	// the only client on the broker is the client of a browse.
 	scan := func(ctx context.Context) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"disabled": true})
+		t := newTask(
+			ctx,
+			rackKey,
+			mqtt.ScanTaskType,
+			msgpack.EncodedJSON{"disabled": true},
+		)
 		return configure(ctx, factory, t), t
 	}
 

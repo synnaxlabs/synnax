@@ -12,27 +12,37 @@
 package table
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/filter"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = versions.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = versions.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = versions.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = versions.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = versions.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
 )
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig = versions.CellConfig
+
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant = versions.CellConfigVariant
+
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType = versions.CellConfigType
 
 const (
@@ -48,7 +58,10 @@ type TextCellConfig = versions.TextCellConfig
 // ValueCellConfig is the configuration for live telemetry value cells.
 type ValueCellConfig = versions.ValueCellConfig
 
-// Row is a single row in a table, with a key, height, and ordered cell keys.
+// Cell is one cell of a row, with its key and config.
+type Cell = versions.Cell
+
+// Row is a single row in a table, with a key, height, and cells.
 type Row = versions.Row
 
 // Column is a single column in a table, with a key and width.
@@ -59,25 +72,20 @@ type Column = versions.Column
 // options.
 type Table = versions.Table
 
-// Cell is a keyed cell configuration used by actions that address cells explicitly.
-// Inside the table state itself, cell configurations are stored in the cells map keyed
-// by cell key.
-type Cell struct {
-	// Key is the unique identifier for this cell within the table.
-	Key string `json:"key" msgpack:"key"`
-	// Config is the cell's variant-discriminated configuration.
-	Config CellConfig `json:"config" msgpack:"config"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Cell) ApplyDefaults() {
-	c.Config.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (c Cell) Validate() error {
-	v := validate.New("Cell")
-	v.Exec(func() error { return validate.PathedError(c.Config.Validate(), "config") })
-	return v.Error()
+// Where is a filter that selects tables.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Groups matches the tables in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the tables in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
+	// Projects matches the tables in any of the given projects.
+	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
 }

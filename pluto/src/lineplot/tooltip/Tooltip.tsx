@@ -10,7 +10,7 @@
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
@@ -35,7 +35,7 @@ export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | nu
     const canvas = document.querySelector(".pluto-canvas-container");
     if (canvas == null) return;
     const topLeft = box.topLeft(canvas);
-    setState({ position: xy.translation(topLeft, xy.construct(e)) });
+    setState({ position: xy.sub(xy.construct(e), topLeft) });
   };
 
   const handleLeave = (): void => setState({ position: null });

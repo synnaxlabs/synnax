@@ -89,6 +89,19 @@ TEST(TransferTest, ParseHandoff) {
     ASSERT_EQ(transfer.to.value().subject.key, "s2");
 }
 
+/// @brief it should write an empty transfer as an empty object that parses back.
+TEST(TransferTest, RoundTripEmpty) {
+    using Resource = x::json::json::object_t;
+    const Transfer<Resource> transfer;
+    const auto j = transfer.to_json();
+    ASSERT_EQ(j, x::json::json::object());
+    x::json::Parser parser(j);
+    const auto parsed = Transfer<Resource>::parse(parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_FALSE(parsed.from.has_value());
+    ASSERT_FALSE(parsed.to.has_value());
+}
+
 TEST(UpdateTest, ParseMultipleTransfers) {
     const std::string json = R"({
         "transfers": [

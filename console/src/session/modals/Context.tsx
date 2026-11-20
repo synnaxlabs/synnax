@@ -61,8 +61,10 @@ export interface Entry {
   key: string;
   /** Renders the modal's content with its bound params and close callback. */
   render: () => ReactNode;
-  /** Dismisses the modal, resolving its caller with null. */
+  /** Dismisses the modal, resolving its caller with null. Does nothing while busy. */
   dismiss: () => void;
+  /** Marks the modal busy or idle. */
+  setBusy: (busy: boolean) => void;
 }
 
 type Listener = () => void;
@@ -93,9 +95,9 @@ export class Store {
   }
 
   /**
-   * push opens a modal that renders Component with the given params bound, appending it to
-   * the top of the stack. resolve settles the caller's promise: it receives the result the
-   * content passes to close, or null on dismissal.
+   * push opens a modal that renders Component with the given params bound, appending it
+   * to the top of the stack. resolve settles the caller's promise: it receives the
+   * result the content passes to close, or null on dismissal.
    */
   push<Params extends ReservedParams, Result>(
     Component: Content<Params, Result>,
@@ -106,26 +108,35 @@ export class Store {
     // params is only absent when every field is optional (see optional.Arg in the
     // factory), so an empty object is a valid Params.
     const bound = params ?? ({} as Params);
+    let busy = false;
     const settle = (result?: Result): void => {
       this.emit(this.stack.filter((e) => e.key !== key));
       resolve(result ?? null);
     };
-    const entry = {
+    const entry: Entry = {
       key,
       render: () => <Component {...bound} close={settle} />,
-      dismiss: settle,
+      dismiss: () => {
+        if (!busy) settle();
+      },
+      setBusy: (next) => {
+        busy = next;
+      },
     };
     this.emit([...this.stack, entry]);
   }
 
-  /** closeTop dismisses the topmost open modal, resolving its caller with null. */
+  /** closeTop dismisses the topmost open modal unless it is busy. */
   closeTop(): void {
     this.stack.at(-1)?.dismiss();
   }
 
-  /** clear dismisses every open modal, resolving each caller with null. */
+  /** clear dismisses every open modal, busy ones included. */
   clear(): void {
-    this.stack.forEach((e) => e.dismiss());
+    this.stack.forEach((e) => {
+      e.setBusy(false);
+      e.dismiss();
+    });
   }
 }
 
@@ -137,9 +148,9 @@ const [BaseContext, useStore] = context.create<Store>({
 export { useStore };
 
 /**
- * Provider creates the window-local modal store and makes it available to descendants via
- * context. Mount once near the root of each window; the store lives for the window's
- * lifetime and is never shared across windows or persisted.
+ * Provider creates the window-local modal store and makes it available to descendants
+ * via context. Mount once near the root of each window; the store lives for the
+ * window's lifetime and is never shared across windows or persisted.
  */
 export const Context = ({ children }: PropsWithChildren): ReactElement => {
   const [store] = useState(() => new Store());
@@ -151,7 +162,3 @@ export const useStack = (): readonly Entry[] => {
   const store = useStore("useStack");
   return useSyncExternalStore(store.subscribe, store.getState);
 };
-
-/** @returns a stable getter for whether any modal is open in this window. */
-export const useGetIsAnyOpen = (): (() => boolean) =>
-  useStore("useGetIsAnyOpen").isAnyOpen;

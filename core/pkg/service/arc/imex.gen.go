@@ -15,14 +15,19 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// Export retrieves the Arc identified by id and serializes it, stamping
+// Export retrieves the Arc identified by id from snap and serializes it, stamping
 // versions.Latest. It returns query.ErrNotFound if no Arc has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+func (s *Service) Export(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -31,11 +36,11 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	if err = s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&v).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
-		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
+		Version: versions.Latest, Type: string(s.Type()), Name: v.Base().Name,
 	}
 	if err = env.Encode(v); err != nil {
 		return imex.Envelope{}, err

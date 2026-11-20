@@ -7,10 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AuthError, connection } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+
+import {
+  auth,
+  AuthError,
+  connection,
+  ExpiredTokenError,
+  InvalidCredentialsError,
+  InvalidTokenError,
+  MissingCredentialsError,
+  SessionEndedError,
+} from "@synnaxlabs/client";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 
 // A serving Core skips the Core step, and detection reports one for every browser
 // build. The module is the only seam.
@@ -31,29 +43,52 @@ import {
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
-const REJECTED: connection.Status = {
+// No test Core turns passwords off, so a local server answers the methods request.
+// Null methods answer 404, as a Core older than the methods endpoint does.
+const serveMethods = async (
+  methods: string[] | null,
+  onServed?: () => void,
+): Promise<number> => {
+  const server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      if (methods == null || req.url?.endsWith("/auth/methods") !== true) {
+        res.statusCode = 404;
+        res.end(onServed);
+        return;
+      }
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ methods }), onServed);
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  onTestFinished(
+    async () => await new Promise<void>((resolve) => server.close(() => resolve())),
+  );
+  return (server.address() as AddressInfo).port;
+};
+
+const rejected = (error: Error): connection.Status => ({
   ...connection.DEFAULT_STATUS,
   variant: "error",
   name: ALPHA.name,
   message: "Failed to authenticate",
-  description: "invalid credentials",
-  details: {
-    ...connection.DEFAULT_STATUS.details,
-    reason: "auth",
-    error: new AuthError("invalid credentials"),
-  },
-};
+  description: error.message,
+  details: { ...connection.DEFAULT_STATUS.details, reason: "auth", error },
+});
 
 const BACK = ".console-login__back";
+const ERROR = ".console-login__error";
+const GHOST = "console--ghost";
 const USERNAME_PLACEHOLDER = "synnax";
 
-const renderLogin = async (): Promise<HTMLElement> => {
+const renderLogin = async (alpha = ALPHA): Promise<HTMLElement> => {
   const { wrapper } = await createSessionConsoleWrapper({
     client: null,
     preloadedState: {
       [Session.Core.SLICE_NAME]: {
         ...Session.Core.ZERO_SLICE_STATE,
-        cores: { [ALPHA.key]: ALPHA, [BETA.key]: BETA },
+        cores: { [alpha.key]: alpha, [BETA.key]: BETA },
         selected: undefined,
       },
     },
@@ -79,6 +114,46 @@ describe("auth/Login", () => {
     expect(screen.queryByText(ALPHA.name)).toBeNull();
   });
 
+  it("should keep the password form when the Core accepts passwords", async () => {
+    let served!: () => void;
+    const answered = new Promise<void>((resolve) => (served = resolve));
+    const port = await serveMethods(["password", "api_key"], () => served());
+    await renderLogin({ ...ALPHA, host: "127.0.0.1", port });
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    await answered;
+    await expectAlways(() => {
+      expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).not.toBeNull();
+      expect(screen.queryByText("Password login is off")).toBeNull();
+    });
+  });
+
+  it("should hide the password form when the Core refuses passwords", async () => {
+    const port = await serveMethods(["api_key"]);
+    await renderLogin({ ...ALPHA, host: "127.0.0.1", port });
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    expect(await screen.findByText("Password login is off")).toBeTruthy();
+    expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
+  });
+
+  it("should keep the password form when the Core has no methods endpoint", async () => {
+    let served!: () => void;
+    const answered = new Promise<void>((resolve) => (served = resolve));
+    const port = await serveMethods(null, () => served());
+    await renderLogin({ ...ALPHA, host: "127.0.0.1", port });
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    await answered;
+    await expectAlways(() => {
+      expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).not.toBeNull();
+      expect(screen.queryByText("Password login is off")).toBeNull();
+    });
+  });
+
+  it("should drop the methods the client does not know", async () => {
+    const port = await serveMethods(["api_key", "oidc"]);
+    const client = auth.createTokenlessClient({ host: "127.0.0.1", port });
+    expect(await auth.retrieveMethods(client)).toEqual(["api_key"]);
+  });
+
   it("should return to the Core list from the credentials", async () => {
     const container = await renderLogin();
     fireEvent.click(await screen.findByText(ALPHA.name));
@@ -88,10 +163,10 @@ describe("auth/Login", () => {
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
   });
 
-  it("should show why the Core rejected the connection", async () => {
+  const renderRejected = async (error: Error): Promise<HTMLElement> => {
     const { wrapper } = await createStatusConsoleWrapper({
-      client: createTestClient(),
-      status: REJECTED,
+      client: null,
+      status: rejected(error),
       preloadedState: {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
@@ -100,8 +175,52 @@ describe("auth/Login", () => {
         },
       },
     });
-    render(<Login />, { wrapper });
-    expect(await screen.findByText("Failed to authenticate")).toBeTruthy();
-    expect(screen.getByText("invalid credentials")).toBeTruthy();
+    const { container } = render(<Login />, { wrapper });
+    await screen.findByPlaceholderText(USERNAME_PLACEHOLDER);
+    return container;
+  };
+
+  it.each([
+    [
+      "a wrong password",
+      new InvalidCredentialsError("invalid credentials"),
+      "Incorrect username or password.",
+    ],
+    [
+      "an ended session",
+      new SessionEndedError("session ended"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an invalid token",
+      new InvalidTokenError("invalid token"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an expired token",
+      new ExpiredTokenError("expired token"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an unknown auth error",
+      new AuthError("authentication service unavailable"),
+      "authentication service unavailable",
+    ],
+  ])("should explain %s under the Log in button", async (_, error, message) => {
+    const container = await renderRejected(error);
+    const note = getBySelector(container, ERROR);
+    expect(note.textContent).toBe(message);
+    expect(note.classList).not.toContain(GHOST);
+    expect(screen.getByRole("button", { name: /Log in/ }).nextElementSibling).toBe(
+      note,
+    );
+  });
+
+  it("should keep the error space empty before any login", async () => {
+    const container = await renderRejected(
+      new MissingCredentialsError("no credentials, API key, token, or cookie"),
+    );
+    expect(getBySelector(container, ERROR).classList).toContain(GHOST);
+    expect(screen.queryByText(/no credentials/)).toBeNull();
   });
 });

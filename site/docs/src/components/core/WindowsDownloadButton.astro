@@ -11,7 +11,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import Buttons from "@/components/download/Buttons.astro";
 
-const version = await Astro.locals.releases.latest("core");
+const version = await Astro.locals.releases.documented("core");
 ---
 
 <Buttons

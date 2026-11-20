@@ -13,15 +13,17 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<table.TextCellConfig>();
 
 const client = createTestClient();
 
@@ -34,6 +36,15 @@ const mkValue = (units?: string): table.CellConfig =>
     units == null ? { variant: "value" } : { variant: "value", units },
   );
 
+const textCell = (key: string, value: string): table.Cell => ({
+  key,
+  config: mkText(value),
+});
+
+// configOf returns the config of the cell with the given key, if a row holds it.
+const configOf = (t: table.Table | null | undefined, key: string) =>
+  t?.rows.flatMap((r) => r.cells).find((c) => c.key === key)?.config;
+
 describe("table queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -45,7 +56,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "test_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "retrieve_test",
       });
 
@@ -66,7 +78,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "cache_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "cached_table",
       });
 
@@ -160,8 +173,7 @@ describe("table queries", () => {
       expect(retrieved.columns).toHaveLength(2);
       expect(retrieved.rows[0].cells).toHaveLength(2);
       expect(retrieved.rows[1].cells).toHaveLength(2);
-      expect(Object.keys(retrieved.cells)).toHaveLength(4);
-      for (const cell of Object.values(retrieved.cells)) {
+      for (const { config: cell } of retrieved.rows.flatMap((r) => r.cells)) {
         expect(cell.variant).toEqual("text");
         if (cell.variant !== "text") continue;
         expect(cell.value).toEqual("");
@@ -182,9 +194,8 @@ describe("table queries", () => {
           key,
           project: project.key,
           name: "explicit_layout",
-          rows: [{ size: 40, cells: ["x"] }],
+          rows: [{ size: 40, cells: [{ key: "x", config: mkValue("psi") }] }],
           columns: [{ size: 80 }],
-          cells: { x: { variant: "value", units: "psi" } },
         });
       });
       expect(result.current.variant).toEqual("success");
@@ -192,15 +203,15 @@ describe("table queries", () => {
       const retrieved = await client.tables.retrieve(key);
       expect(retrieved.rows).toHaveLength(1);
       expect(retrieved.columns).toHaveLength(1);
-      expect(retrieved.rows[0].cells).toEqual(["x"]);
-      expect(retrieved.cells.x.variant).toEqual("value");
+      expect(retrieved.rows[0].cells.map((c) => c.key)).toEqual(["x"]);
+      expect(retrieved.rows[0].cells[0].config.variant).toEqual("value");
     });
 
     it("should not commit the table when the server rejects the create", async () => {
       const key = uuid.create();
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
 
-      // Use a fake project key so the server-side ontology insert fails.
+      // A project key that names no project fails the create on the Core.
       await act(async () => {
         await result.current.updateAsync({
           key,
@@ -218,7 +229,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "rename_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "original_name",
       });
 
@@ -249,7 +261,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "rename_cache_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "cache_original",
       });
 
@@ -280,7 +293,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "delete_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "delete_single",
       });
 
@@ -297,10 +311,12 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "delete_multi_project",
       });
-      const created1 = await client.tables.create(project.key, {
+      const created1 = await client.tables.create({
+        project: project.key,
         name: "delete_multi_1",
       });
-      const created2 = await client.tables.create(project.key, {
+      const created2 = await client.tables.create({
+        project: project.key,
         name: "delete_multi_2",
       });
 
@@ -322,17 +338,16 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
       });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "dispatch_test",
-        rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
+        rows: [
+          { key: "r0", size: 36, cells: [textCell("a", "A"), textCell("b", "B")] },
+        ],
         columns: [
           { key: "c0", size: 80 },
           { key: "c1", size: 100 },
         ],
-        cells: {
-          a: { variant: "text", value: "A" },
-          b: { variant: "text", value: "B" },
-        },
       });
     };
 
@@ -349,7 +364,7 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [table.rename({ name: "after_dispatch" })],
+          actions: [table.set({ path: ["name"], value: "after_dispatch" })],
         });
       });
       await waitFor(() =>
@@ -379,11 +394,11 @@ describe("table queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve?.cells.a.variant).toEqual("value"),
+        expect(configOf(result.current.retrieve, "a")?.variant).toEqual("value"),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a).toMatchObject({
+        expect(configOf(result.current.retrieve, "a")).toMatchObject({
           variant: "text",
           value: "A",
         });
@@ -413,15 +428,15 @@ describe("table queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve?.cells.a.variant).toEqual("value"),
+        expect(configOf(result.current.retrieve, "a")?.variant).toEqual("value"),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve?.cells.a.variant).toEqual("text"),
+        expect(configOf(result.current.retrieve, "a")?.variant).toEqual("text"),
       );
       await act(async () => result.current.redo.redo());
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a).toMatchObject({
+        expect(configOf(result.current.retrieve, "a")).toMatchObject({
           variant: "value",
           units: "psi",
         });
@@ -451,11 +466,11 @@ describe("table queries", () => {
           });
         });
       await waitFor(() =>
-        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A3" }),
+        expect(configOf(result.current.retrieve, "a")).toMatchObject({ value: "A3" }),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A" }),
+        expect(configOf(result.current.retrieve, "a")).toMatchObject({ value: "A" }),
       );
     });
 
@@ -491,13 +506,13 @@ describe("table queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A1" });
-        expect(result.current.retrieve?.cells.b).toMatchObject({ value: "B1" });
+        expect(configOf(result.current.retrieve, "a")).toMatchObject({ value: "A1" });
+        expect(configOf(result.current.retrieve, "b")).toMatchObject({ value: "B1" });
       });
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A1" });
-        expect(result.current.retrieve?.cells.b).toMatchObject({ value: "B" });
+        expect(configOf(result.current.retrieve, "a")).toMatchObject({ value: "A1" });
+        expect(configOf(result.current.retrieve, "b")).toMatchObject({ value: "B" });
       });
     });
 
@@ -554,11 +569,11 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
       });
-      const created = await client.tables.create(proj.key, {
+      const created = await client.tables.create({
+        project: proj.key,
         name: "ensure_test",
-        rows: [{ size: 30, cells: ["a"] }],
+        rows: [{ size: 30, cells: [textCell("a", "A")] }],
         columns: [{ size: 80 }],
-        cells: { a: { variant: "text", value: "A" } },
       });
       await loadTable(wrapper, created.key);
       const { result } = renderHook(() => Table.useName({ key: created.key }), {
@@ -571,11 +586,11 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `fastpath_ws_${uuid.create()}`,
       });
-      const created = await client.tables.create(proj.key, {
+      const created = await client.tables.create({
+        project: proj.key,
         name: "fastpath_test",
-        rows: [{ size: 30, cells: ["a"] }],
+        rows: [{ size: 30, cells: [textCell("a", "A")] }],
         columns: [{ size: 80 }],
-        cells: { a: { variant: "text", value: "A" } },
       });
       await loadTable(wrapper, created.key);
 
@@ -605,22 +620,17 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
       });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "selector_test",
         rows: [
-          { key: "r0", size: 30, cells: ["a", "b"] },
-          { key: "r1", size: 40, cells: ["c", "d"] },
+          { key: "r0", size: 30, cells: [textCell("a", "A"), textCell("b", "B")] },
+          { key: "r1", size: 40, cells: [textCell("c", "C"), textCell("d", "D")] },
         ],
         columns: [
           { key: "c0", size: 80 },
           { key: "c1", size: 100 },
         ],
-        cells: {
-          a: { variant: "text", value: "A" },
-          b: { variant: "text", value: "B" },
-          c: { variant: "text", value: "C" },
-          d: { variant: "text", value: "D" },
-        },
       });
     };
 
@@ -680,6 +690,24 @@ describe("table queries", () => {
       });
     });
 
+    it("useRows keeps its reference when only a cell config changes", async () => {
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        rows: Table.useRows({ key: created.key }),
+        cell: Table.useCell({ key: created.key, row: "r0", cellKey: "a" }),
+        dispatch: Table.useDispatch(),
+      }));
+      const initial = result.current.rows;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [table.setCell({ cell: { key: "a", config: mkValue("psi") } })],
+        });
+      });
+      await waitFor(() => expect(result.current.cell?.variant).toBe("value"));
+      expect(result.current.rows).toBe(initial);
+    });
+
     it("useColumns returns the table's columns and updates after a resize", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
@@ -700,7 +728,7 @@ describe("table queries", () => {
     it("useCell returns the cell for a known key and updates after setCell", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
-        cell: Table.useCell({ key: created.key, cellKey: "a" }),
+        cell: Table.useCell({ key: created.key, row: "r0", cellKey: "a" }),
         dispatch: Table.useDispatch(),
       }));
       const initial = result.current.cell;
@@ -726,7 +754,7 @@ describe("table queries", () => {
     it("useCell returns undefined for an unknown cell key", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () =>
-        Table.useCell({ key: created.key, cellKey: "ghost" }),
+        Table.useCell({ key: created.key, row: "r0", cellKey: "ghost" }),
       );
       expect(result.current).toBeUndefined();
     });
@@ -853,17 +881,16 @@ describe("table queries", () => {
 
     const createTable = async () => {
       const proj = await client.projects.create({ name: `cell_form_${uuid.create()}` });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "cell_form_test",
-        rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
+        rows: [
+          { key: "r0", size: 36, cells: [textCell("a", "A"), textCell("b", "B")] },
+        ],
         columns: [
           { key: "c0", size: 80 },
           { key: "c1", size: 100 },
         ],
-        cells: {
-          a: { variant: "text", value: "A" },
-          b: { variant: "text", value: "B" },
-        },
       });
     };
 
@@ -877,8 +904,8 @@ describe("table queries", () => {
     const fetchStoredCell = async (
       key: table.Key,
       cellKey: string,
-    ): Promise<table.CellConfig> =>
-      (await createTestClient().tables.retrieve({ key })).cells[cellKey];
+    ): Promise<table.CellConfig | undefined> =>
+      configOf(await createTestClient().tables.retrieve({ key }), cellKey);
 
     it("should show the cell's config", async () => {
       const created = await createTable();
@@ -893,13 +920,19 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderForm(created.key);
       const send = spyOnSend(client);
-      act(() => result.current.form.set("value", "Pressure"));
+      act(() => result.current.form.set(path.value, "Pressure"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       const [, req] =
         send.mock.calls.find(([target]) => target === "/table/dispatch") ?? [];
       expect(req).toMatchObject({
         actions: [
-          { type: "set", set: { path: ["cells", "a", "value"], value: "Pressure" } },
+          {
+            type: "set",
+            set: {
+              path: ["rows", "r0", "cells", "a", "config", "value"],
+              value: "Pressure",
+            },
+          },
         ],
       });
       expect(await fetchStoredCell(created.key, "a")).toMatchObject({
@@ -914,11 +947,14 @@ describe("table queries", () => {
       await act(async () => {
         await remote.tables.dispatch(
           created.key,
-          table.set({ path: ["cells", "a", "value"], value: "Remote" }),
+          table.set({
+            path: ["rows", "r0", "cells", "a", "config", "value"],
+            value: "Remote",
+          }),
         );
       });
       await waitFor(() =>
-        expect(result.current.form.get("value").value).toBe("Remote"),
+        expect(result.current.form.get(path.value).value).toBe("Remote"),
       );
     });
 
@@ -926,8 +962,8 @@ describe("table queries", () => {
       const created = await createTable();
       const { result, rerender } = await renderForm(created.key);
       rerender({ cellKey: "b" });
-      expect(result.current.form.get("value").value).toBe("B");
-      act(() => result.current.form.set("value", "Temperature"));
+      expect(result.current.form.get(path.value).value).toBe("B");
+      act(() => result.current.form.set(path.value, "Temperature"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredCell(created.key, "b")).toMatchObject({
         value: "Temperature",
@@ -938,7 +974,7 @@ describe("table queries", () => {
 });
 
 describe("findCellPosition", () => {
-  const rows: table.Row[] = [
+  const rows: Table.RowLayout[] = [
     { key: "r0", size: 30, cells: ["a", "b", "c"] },
     { key: "r1", size: 30, cells: ["d", "e", "f"] },
   ];
@@ -959,7 +995,7 @@ describe("findCellPosition", () => {
 });
 
 describe("nextCellPosition", () => {
-  const rows: table.Row[] = [
+  const rows: Table.RowLayout[] = [
     { key: "r0", size: 30, cells: ["a", "b"] },
     { key: "r1", size: 30, cells: ["c", "d"] },
   ];
@@ -993,7 +1029,7 @@ describe("nextCellPosition", () => {
   });
 
   it("skips empty neighbor rows when wrapping", () => {
-    const ragged: table.Row[] = [
+    const ragged: Table.RowLayout[] = [
       { key: "r0", size: 30, cells: ["a"] },
       { key: "r1", size: 30, cells: [] },
     ];
@@ -1002,7 +1038,7 @@ describe("nextCellPosition", () => {
 });
 
 describe("cellsInRegion", () => {
-  const rows: table.Row[] = [
+  const rows: Table.RowLayout[] = [
     { key: "r0", size: 30, cells: ["a", "b", "c"] },
     { key: "r1", size: 30, cells: ["d", "e", "f"] },
     { key: "r2", size: 30, cells: ["g", "h", "i"] },
@@ -1039,7 +1075,7 @@ describe("cellsInRegion", () => {
   });
 
   it("skips column slots past the right of a ragged row", () => {
-    const ragged: table.Row[] = [
+    const ragged: Table.RowLayout[] = [
       { key: "r0", size: 30, cells: ["a", "b"] },
       { key: "r1", size: 30, cells: ["c"] },
     ];

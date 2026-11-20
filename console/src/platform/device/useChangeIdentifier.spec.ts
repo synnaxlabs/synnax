@@ -7,15 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
-import { createTestDevice } from "@/platform/device/testutil";
+import {
+  createTestDevice,
+  setTestDeviceStatus,
+  TEST_DEVICE_STATUS_MESSAGE,
+} from "@/platform/device/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -36,8 +40,13 @@ describe("useChangeIdentifier", () => {
       await result.current.updateAsync({ key: dev.key, identifier });
     });
     await waitFor(() => expect(result.current.variant).toEqual("success"));
-    const updated = await client.devices.retrieve(dev.key);
-    return updated.properties;
+    // The cache receives the edit from the Core's set signal.
+    await waitFor(async () =>
+      expect((await client.devices.retrieve(dev.key)).properties.identifier).toEqual(
+        identifier,
+      ),
+    );
+    return (await client.devices.retrieve(dev.key)).properties;
   };
 
   it("should change the identifier on a device", async () => {
@@ -63,5 +72,17 @@ describe("useChangeIdentifier", () => {
     const properties = await changeIdentifier(dev, "brand_new");
     expect(properties.identifier).toEqual("brand_new");
     expect(properties.rate).toEqual(50);
+  });
+
+  it("should keep the name and the status that the Driver reported", async () => {
+    const dev = await createTestDevice(client);
+    await setTestDeviceStatus(client, dev);
+    await changeIdentifier(dev, "new_id");
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      includeStatus: true,
+    });
+    expect(updated.name).toEqual(dev.name);
+    expect(updated.status?.message).toEqual(TEST_DEVICE_STATUS_MESSAGE);
   });
 });

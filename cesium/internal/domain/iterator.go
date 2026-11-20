@@ -99,9 +99,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
 	}
-	i.valid = true
-	i.position = i.db.idx.searchLE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchLE(ctx, stamp))
 }
 
 // SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such
@@ -111,9 +109,7 @@ func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
 	}
-	i.valid = true
-	i.position = i.db.idx.searchGE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchGE(ctx, stamp))
 }
 
 // Next advances the iterator to the next domain. If the iterator has been exhausted,
@@ -122,14 +118,7 @@ func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
 	}
-	i.position++
-	ok := i.reload()
-	// If we've reached the end of the iterator, back up the position so that we
-	// remain at the location of the last domain.
-	if !ok {
-		i.position--
-	}
-	return ok
+	return i.load(i.db.idx.next(i.currPtr.End))
 }
 
 // Prev advances the iterator to the previous domain. If the iterator has been
@@ -138,13 +127,7 @@ func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
 	}
-	// Check if the position is zero to avoid uint32 underflow.
-	if i.position == 0 {
-		i.valid = false
-		return i.valid
-	}
-	i.position--
-	return i.reload()
+	return i.load(i.db.idx.prev(i.currPtr.Start))
 }
 
 // Valid returns true if the iterator is currently pointing to a valid domain and has
@@ -181,18 +164,11 @@ func (i *Iterator) Close() error {
 	return nil
 }
 
-func (i *Iterator) reload() bool {
-	if i.position == -1 {
-		i.valid = false
-		return i.valid
+// load moves the iterator to ptr at position. An invalid load keeps the last domain.
+func (i *Iterator) load(position int, ptr pointer, ok bool) bool {
+	i.valid = ok && ptr.OverlapsWith(i.Bounds)
+	if i.valid {
+		i.position, i.currPtr = position, ptr
 	}
-	ptr, ok := i.db.idx.get(i.position)
-	if !ok || !ptr.OverlapsWith(i.Bounds) {
-		i.valid = false
-		// it's important that we return here, so we don't clear the current current
-		// value of the iterator.
-		return i.valid
-	}
-	i.currPtr = ptr
 	return i.valid
 }

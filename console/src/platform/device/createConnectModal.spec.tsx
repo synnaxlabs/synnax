@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -26,8 +26,8 @@ describe("createConnectModal", () => {
     const rack = await createRunningRack(client, integration);
     const useConnectModal = Device.createConnectModal(Connect, integration);
     const { reopen } = await renderModalOpener(useConnectModal, [], { client });
-    // The opener reads the rack list when called, so it reopens until the list loads. It
-    // polls on an interval, since each reopen changes the DOM.
+    // The opener reads the rack list when called, so it reopens until the list loads.
+    // It polls on an interval, since each reopen changes the DOM.
     await vi.waitFor(() => {
       reopen();
       expect(screen.getByText(`Connect from ${rack.key}`)).toBeTruthy();

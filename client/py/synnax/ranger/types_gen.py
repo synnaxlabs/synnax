@@ -11,18 +11,47 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import label
-from synnax.ontology.payload import ID
-from x import color as color_
-from x import telem
+from synnax.resource import ID
+from x import color as color_, filter, telem
+from x.filter import shorthand
+
+STAGE_TO_DO: Literal["to_do"] = "to_do"
+
+STAGE_IN_PROGRESS: Literal["in_progress"] = "in_progress"
+
+STAGE_COMPLETED: Literal["completed"] = "completed"
+
+
+Stage = Literal["to_do", "in_progress", "completed"]
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+ORDER_FIELD_TIME_RANGE_START: Literal["time_range_start"] = "time_range_start"
+
+ORDER_FIELD_TIME_RANGE_END: Literal["time_range_end"] = "time_range_end"
+
+
+OrderField = Literal["name", "time_range_start", "time_range_end"]
 
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of ranges.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Payload(BaseModel):
@@ -36,29 +65,172 @@ class Payload(BaseModel):
             timestamps.
         color: Is an optional display color for visual identification of the range in
             user interfaces.
-        labels: Contains optional labels attached to this range for categorization and
-            filtering.
-        parent: Is an optional parent range for hierarchical organization. Ranges can be
-            nested within other ranges.
+        labels: Are the keys of the labels attached to the range.
+        parent: Is the key of the range this range is nested in. Empty for a top-level
+            range.
+        has_children: Is true when a range is nested in the range, derived on read and
+            not persisted.
     """
 
     key: Key
     name: str = Field(min_length=1)
     time_range: telem.TimeRange
     color: color_.Color | None = None
-    labels: list[label.Label] | None = None
-    parent: Payload | None = None
+    labels: list[label.Key] = Field(default_factory=list)
+    parent: Key | None = None
+    has_children: bool = False
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-Payload.model_rebuild()
+class Where(BaseModel):
+    """Is a filter that selects ranges.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        overlaps: Matches ranges whose time range overlaps the given range.
+        labels: Matches ranges that have any of the given labels.
+        parents: Matches the ranges nested in any of the given ranges.
+        ancestors: Matches the ranges nested at any depth in any of the given ranges.
+        nested: Matches the ranges nested in a range, or top-level ranges when false.
+        labeled: Matches ranges that have a label, or ranges with none when false.
+        stages: Matches ranges in any of the given stages at the Core's clock.
+        recent: Matches ranges that overlap the span ending now, or starting now if
+            negative.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    overlaps: telem.TimeRange | None = None
+    labels: list[label.Key] | None = None
+    parents: list[Key] | None = None
+    ancestors: list[Key] | None = None
+    nested: bool | None = None
+    labeled: bool | None = None
+    stages: list[Stage] | None = None
+    recent: telem.TimeSpan | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+    @field_validator("labels", "parents", "ancestors", "stages", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
-ONTOLOGY_TYPE = ID(type="range")
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "overlaps": telem.TimeRange,
+        "labels": label.Key | list[label.Key],
+        "parents": Key | list[Key],
+        "ancestors": Key | list[Key],
+        "nested": bool,
+        "labeled": bool,
+        "stages": Stage | list[Stage],
+        "recent": telem.TimeSpan,
+    },
+    total=False,
+)
 
 
-def ontology_id(key: Key) -> ID:
+class Cursor(BaseModel):
+    """Is a position in an order of ranges: the sort value and the key of a range.
+
+    Attributes:
+        key: Is the key of the range at the position.
+        name: Is the name of the range at the position, when the order sorts by it.
+        time_range_start: Is the time range start of the range at the position, when the
+            order sorts by it.
+        time_range_end: Is the time range end of the range at the position, when the
+            order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+    time_range_start: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+    time_range_end: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class KeyRef(BaseModel):
+    """Is a range saved in the Core."""
+
+    variant: Literal["key"] = "key"
+    key: Key
+
+
+class WindowRef(BaseModel):
+    """Is a window carried inline: rolling or fixed."""
+
+    variant: Literal["window"] = "window"
+    window: telem.Window
+
+
+# Is the range a visualization shows: a range saved in the Core, or an inline
+# window.
+Ref = Annotated[
+    KeyRef | WindowRef,
+    Field(discriminator="variant"),
+]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the ranges a RetrieveRequest selects.
+
+    Attributes:
+        ranges: Are the ranges the request selects.
+    """
+
+    ranges: list[Payload] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve ranges.
+
+    Attributes:
+        where: Selects the ranges to retrieve. An absent where selects all of them.
+        search_term: Keeps the ranges that match the term, closest match first.
+        order: Sorts the ranges. An absent order sorts them by key.
+        after: Starts the ranges strictly past this position in their order.
+        limit: Is the most ranges to return.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="range")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="range", key=str(key))

@@ -21,6 +21,7 @@ cc_library(
         "//driver/labjack/ljm:ljm_official",
         "//x/cpp/lib",
         "//x/cpp/os",
+        "@abseil-cpp//absl/log",
     ],
 )
 

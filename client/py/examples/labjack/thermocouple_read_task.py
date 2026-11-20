@@ -26,6 +26,8 @@ Note: Thermocouple streaming is slower than standard analog inputs due to the
       required cold junction compensation calculations.
 """
 
+import sys
+
 import numpy as np
 
 import synnax as sy
@@ -78,7 +80,6 @@ tsk = sy.labjack.ReadTask(
             cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
             units="C",  # Celsius
-            neg_chan=199,  # 199 = single-ended (GND)
         ),
         # K-type thermocouple on AIN2 with device CJC in Fahrenheit
         sy.labjack.ThermocoupleReadChannel(
@@ -89,7 +90,6 @@ tsk = sy.labjack.ReadTask(
             cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
             units="F",  # Fahrenheit
-            neg_chan=199,  # 199 = single-ended (GND)
         ),
     ],
 )
@@ -100,7 +100,7 @@ try:
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")
-    exit(1)
+    sys.exit(1)
 
 print("=" * 70)
 print("Starting LabJack Thermocouple Read Task")

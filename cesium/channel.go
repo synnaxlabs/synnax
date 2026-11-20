@@ -48,7 +48,7 @@ func (db *DB) RetrieveChannels(
 	defer db.mu.RUnlock()
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
-		ch, err := db.retrieveChannel(ctx, key)
+		ch, err := db.retrieveChannel(key)
 		if err != nil {
 			return nil, err
 		}
@@ -64,12 +64,12 @@ func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, err
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	return db.retrieveChannel(ctx, key)
+	return db.retrieveChannel(key)
 }
 
 // retrieveChannel retrieves a channel from the database. This method is not safe for
 // concurrent use, and the db must be locked before calling.
-func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
+func (db *DB) retrieveChannel(key ChannelKey) (Channel, error) {
 	if u, ok := db.mu.dbs.unary[key]; ok {
 		return u.Channel(), nil
 	}

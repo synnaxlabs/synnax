@@ -9,7 +9,7 @@
 
 import "@/schematic/node/common/form/StateMapping.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,20 +17,20 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { color, id } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { array, color, type deep, id } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 
 interface StateMappingFormProps {
-  path: string;
+  path: deep.Path<schematic.StateMapping[]>;
   showColor?: boolean;
 }
 
 interface StateMappingListItemProps {
   itemKey: string;
   index: number;
-  path: string;
+  path: deep.Path<schematic.StateMapping[]>;
   showColor: boolean;
   duplicateValue: boolean;
   onRemove: (key: string) => void;
@@ -44,7 +44,7 @@ const StateMappingListItem = ({
   duplicateValue,
   onRemove,
 }: StateMappingListItemProps): ReactElement => {
-  const basePath = `${path}.${itemKey}`;
+  const basePath = path[itemKey];
   return (
     <List.Item
       key={itemKey}
@@ -57,11 +57,11 @@ const StateMappingListItem = ({
       <Form.TextField
         showLabel={false}
         showHelpText={false}
-        path={`${basePath}.name`}
+        path={basePath.name}
         grow
       />
       <Form.NumericField
-        path={`${basePath}.value`}
+        path={basePath.value}
         showHelpText={false}
         showLabel={false}
         inputProps={{
@@ -73,8 +73,8 @@ const StateMappingListItem = ({
       />
       {showColor && (
         <Color.Field
-          path={`${basePath}.color`}
-          fallback={color.ZERO}
+          path={basePath.color}
+          fallback={color.TRANSPARENT}
           showLabel={false}
           showHelpText={false}
         />
@@ -95,14 +95,12 @@ export const StateMappingForm = ({
   path,
   showColor = false,
 }: StateMappingFormProps): ReactElement => {
-  const { data, push, remove } = Form.useFieldList<string, schematic.StateMapping>(
-    path,
-  );
-  const options = Form.useFieldValue<schematic.StateMapping[]>(path);
+  const { data, push, remove } = Form.useFieldList(path);
+  const options = Form.useFieldValue(path);
 
   const handleAddOption = (): void => {
-    const nextValue =
-      options.length === 0 ? 0 : Math.max(...options.map((o) => o.value)) + 1;
+    const max = array.maxBy(options, (o) => o.value);
+    const nextValue = max == null ? 0 : max.value + 1;
     push({ key: id.create(), name: "", value: nextValue });
   };
 

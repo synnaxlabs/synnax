@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EnhancedStore } from "@reduxjs/toolkit";
+import type { EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type connection,
-  type ontology,
   panel,
   type project,
+  type resource,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
@@ -24,6 +24,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id, uuid } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
   render,
@@ -35,10 +36,16 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useLayoutEffect,
+} from "react";
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
+import { FileBrowser } from "@/platform/file-browser";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
@@ -46,12 +53,9 @@ import {
   disableActEnvironment,
 } from "@/testutil/Synnax";
 
-/**
- * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
- * prefixed so failures are traceable back to tests.
- */
-export const uniqueName = (prefix: string = "test"): string =>
-  `${prefix}_${id.create().replace(/-/g, "_")}`;
+/** Generates a unique search term that the Core search keeps as one word. */
+export const uniqueToken = (): string =>
+  `tok${id.create().replace(/[^a-zA-Z0-9]/g, "")}`;
 
 /**
  * Creates a UUID whose last six bytes repeat the given hex nibble. Gorp lists
@@ -60,18 +64,6 @@ export const uniqueName = (prefix: string = "test"): string =>
  */
 export const createKeyEndingIn = (nibble: string): string =>
   `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
-
-/**
- * Throws when value is null or undefined, narrowing it for subsequent use.
- * Excludes void as well as null and undefined: NonNullable leaves `void & {}`
- * behind, which drops every property off a `T | void` return.
- */
-export function assertDefined<T>(
-  value: T,
-  message = "expected value to be defined",
-): asserts value is Exclude<T, null | undefined | void> {
-  assert(value != null, message);
-}
 
 /**
  * Waits for and returns the trigger button of the (single) mounted pluto dialog-based
@@ -161,10 +153,12 @@ export interface CaptureStatusesProps {
 /**
  * Reports the current status notifications to onStatuses on every change. Mount
  * alongside the UI under test to observe statuses raised during a component render.
+ * The report lands in the commit that changed them, so it is current once a `findBy*`
+ * query sees that commit.
  */
 export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
   const { statuses } = Status.useNotifications();
-  useEffect(() => {
+  useLayoutEffect(() => {
     onStatuses(statuses);
   }, [onStatuses, statuses]);
   return null;
@@ -197,29 +191,29 @@ export interface ConsoleTestProviderOptions {
 }
 
 /**
- * Builds the console test store the same way the app builds its store: the full root
- * reducer wired through drift's middleware, but with a NoopRuntime in place of the Tauri
- * runtime. Window actions (Drift.focusWindow, createWindow) resolve their labels exactly
- * as they do in production. Async because Drift.configureStore awaits runtime setup. This
- * is the one console store — every render helper below is backed by it.
+ * Builds the console test store with the app's createStore, but with a NoopRuntime in
+ * place of the Tauri runtime and no persistence. Window actions (Drift.focusWindow,
+ * createWindow) resolve their labels exactly as they do in production. This is the one
+ * console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
   const { preloadedState, windowLabel } = options;
-  return await Drift.configureStore({
+  return await Session.createStore({
     runtime: new Drift.NoopRuntime(windowLabel),
-    reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    // The checks still run. Only their timing warnings, which track machine load, go.
-    middleware: (getDefault) =>
-      getDefault({
-        serializableCheck: { warnAfter: Infinity },
-        immutableCheck: { warnAfter: Infinity },
-      }).concat(...Session.BASE_MIDDLEWARE),
+    enablePersistence: false,
     enablePrerender: false,
   });
 };
 
 export type TestStore = Awaited<ReturnType<typeof createTestStore>>;
+
+/** @returns the range the session added under key, or undefined. */
+export const selectRange = (
+  state: Session.Range.StoreState,
+  key: string,
+): Session.Range.State | undefined =>
+  state[Session.Range.SLICE_NAME].ranges.find((r) => r.key === key);
 
 const ADDITIONAL_REGISTRY = eraser.REGISTRY;
 
@@ -229,11 +223,13 @@ const composeConsole = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Triggers.Provider>
-        <Provider store={store}>
-          <Session.Modals.Context>{children}</Session.Modals.Context>
-        </Provider>
-      </Triggers.Provider>
+      <FileBrowser.Provider>
+        <Triggers.Provider>
+          <Provider store={store}>
+            <Session.Modals.Context>{children}</Session.Modals.Context>
+          </Provider>
+        </Triggers.Provider>
+      </FileBrowser.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;
@@ -353,7 +349,7 @@ export const createConsoleWrapper = async ({
  */
 export const awaitGranted = async (
   client: Client,
-  id: ontology.ID,
+  id: resource.ID,
   action: access.Action = "create",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
@@ -409,6 +405,7 @@ export const createStatusConsoleWrapper = async ({
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  if (client != null) disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper({
     ...args,
     client: null,
@@ -424,8 +421,39 @@ export const createStatusConsoleWrapper = async ({
   return { wrapper: Wrapper, store };
 };
 
+export interface StatusHarness {
+  store: TestStore;
+  /** Changes the connection status the Synnax context reports. */
+  setStatus: (status?: connection.Status) => void;
+}
+
+/**
+ * Renders the UI the way {@link createStatusConsoleWrapper} wraps it, and lets the spec
+ * change the status afterwards.
+ */
+export const renderWithStatus = async (
+  ui: ReactElement,
+  { client, status, ...args }: CreateStatusConsoleWrapperParams,
+): Promise<StatusHarness> => {
+  if (client != null) disableActEnvironment();
+  const { wrapper, store } = await createConsoleWrapper({ ...args, client: null });
+  const withStatus = (current?: connection.Status): ReactElement => (
+    <Synnax.TestProvider client={client} status={current}>
+      {ui}
+    </Synnax.TestProvider>
+  );
+  const { rerender } = render(withStatus(status), { wrapper });
+  return { store, setStatus: (next) => rerender(withStatus(next)) };
+};
+
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const connParams = Session.Core.useSelectConnParams();
+  const core = Session.Core.useSelectSelected();
+  // The provider compares params by value, so a cached cluster key must not count.
+  let connParams: SynnaxParams | undefined;
+  if (core != null) {
+    const { clusterKey: _, ...params } = core;
+    connParams = params;
+  }
   return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
 };
 SessionSynnaxProvider.displayName = "SessionSynnaxProvider";

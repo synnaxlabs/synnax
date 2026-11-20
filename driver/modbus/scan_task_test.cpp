@@ -26,6 +26,7 @@
 namespace driver::modbus {
 /// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
+    x::breaker::Breaker cancel;
     auto slave = testutil::Slave(testutil::SlaveConfig{.port = 1664});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
@@ -55,13 +56,14 @@ TEST(ScanTask, testConnection) {
         .args = cmd_args
     };
 
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first.key, synnax::task::status_key(t));
+    EXPECT_EQ(first.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(first.details.cmd, cmd.key);
-    EXPECT_EQ(first.details.task, t.key);
     EXPECT_EQ(first.message, "Connected to device");
 }
 
@@ -127,6 +129,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status.value().message, "Device connected");
+    EXPECT_TRUE(devices[0].status.value().details.connected);
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -161,14 +164,17 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(devices[0].status.value().message, "Failed to reach device");
+    EXPECT_FALSE(devices[0].status.value().details.connected);
 }
 
 namespace {
-/// @returns a Modbus device on the local test slave.
+/// @returns a Modbus device on the local test slave. A timeout runs from the send, so
+/// a slow accept counts against it. Only a silent unit should take a short one.
 synnax::device::Device local_device(
     const std::string &key,
     const int port,
-    const int unit_id = MODBUS_TCP_SLAVE
+    const int unit_id = MODBUS_TCP_SLAVE,
+    const int timeout_ms = 10000
 ) {
     synnax::device::Device dev;
     dev.key = key;
@@ -181,7 +187,7 @@ synnax::device::Device local_device(
           {"swap_bytes", false},
           {"swap_words", false},
           {"unit_id", unit_id},
-          {"timeout_ms", 50},
+          {"timeout_ms", timeout_ms},
           {"retries", 0}}}
     };
     return dev;
@@ -193,9 +199,7 @@ scan(Scanner &scanner, const synnax::device::Device &dev) {
     std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices;
-    auto [out, err] = scanner.scan(scan_ctx);
-    EXPECT_FALSE(err) << err;
-    return out;
+    return ASSERT_NIL_P(scanner.scan(scan_ctx));
 }
 }
 
@@ -261,7 +265,7 @@ TEST(ScanTask, testScanReportsSilentUnit) {
     synnax::task::Task t;
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
 
-    const auto status = scan(scanner, local_device("silent", 1662, 5))[0]
+    const auto status = scan(scanner, local_device("silent", 1662, 5, 50))[0]
                             .status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to reach device");
@@ -307,8 +311,7 @@ TEST(ScanTask, testConnectionDuringSlowScan) {
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
-    auto slow = local_device("slow", 1666, 5);
-    slow.properties["connection"]["timeout_ms"] = 2000;
+    const auto slow = local_device("slow", 1666, 5, 2000);
     std::thread scanning([&] { scan(scanner, slow); });
     x::defer::defer join([&scanning] { scanning.join(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -376,7 +379,7 @@ TEST(ScanTask, testConnectionFailsForSilentUnit) {
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
-    const auto dev = local_device("silent", 1663, 5);
+    const auto dev = local_device("silent", 1663, 5, 50);
     synnax::task::Command cmd{
         .task = t.key,
         .type = TEST_CONNECTION_CMD_TYPE,

@@ -9,8 +9,9 @@
 
 import "@/ranger/Timeline.css";
 
-import { type Button } from "@synnaxlabs/lyra/button";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { ranger } from "@synnaxlabs/client";
+import type { Button } from "@synnaxlabs/lyra/button";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -25,7 +26,6 @@ import { moveEnd, moveStart, UNSET } from "@/ranger/move";
 import {
   getStage,
   moveToStage,
-  type Stage,
   STAGE_ICONS,
   STAGE_NAMES,
   useClock,
@@ -62,18 +62,18 @@ const rangeResolution = (
 };
 
 interface Transition {
-  to: Stage;
+  to: ranger.Stage;
   name: string;
 }
 
 /** The transitions offered from each stage, most common first. */
-const TRANSITIONS: Record<Stage, Transition[]> = {
+const TRANSITIONS: Record<ranger.Stage, Transition[]> = {
   to_do: [
     { to: "in_progress", name: "Start" },
-    { to: "completed", name: "Complete" },
+    { to: "completed", name: "Stop" },
   ],
   in_progress: [
-    { to: "completed", name: "Complete" },
+    { to: "completed", name: "Stop" },
     { to: "to_do", name: "Move to to do" },
   ],
   completed: [{ to: "in_progress", name: "Reopen" }],
@@ -88,12 +88,12 @@ const StageMenu = ({
   value,
   onChange,
 }: Input.Control<NumericTimeRange>): ReactElement => {
-  const [hovered, setHovered] = useState<Stage | null>(null);
+  const [hovered, setHovered] = useState<ranger.Stage | null>(null);
   const [openedAt] = useState(() => TimeStamp.now());
   return (
     <>
       <Flex.Box y gap="tiny" className={CSS.BE("stage-button", "items")}>
-        <Menu.Menu onChange={(to) => onChange(moveToStage(value, to as Stage))}>
+        <Menu.Menu onChange={(to) => onChange(moveToStage(value, to as ranger.Stage))}>
           {TRANSITIONS[getStage(value, openedAt)].map(({ to, name }) => {
             const ToIcon = STAGE_ICONS[to];
             return (
@@ -124,33 +124,28 @@ const StageMenu = ({
   );
 };
 
-export interface StageButtonProps extends Input.Control<NumericTimeRange> {
-  /** Shows the icon alone, for list rows. */
-  iconOnly?: boolean;
+interface StageButtonProps extends Input.Control<NumericTimeRange> {
   variant?: Button.Variant;
   level?: text.Level;
   size?: Component.Size;
   disabled?: boolean;
   preview?: boolean;
-  className?: string;
 }
 
 /**
  * The range's stage as a chip whose menu holds the transitions out of it. A
  * transition writes the timestamps that define the next stage: Start stamps the
- * start, Complete stamps the end, Reopen clears it. The menu says what the hovered
+ * start, Stop stamps the end, Reopen clears it. The menu says what the hovered
  * transition would change.
  */
-export const StageButton = ({
+const StageButton = ({
   value,
   onChange,
-  iconOnly = false,
   variant = "text",
   level,
   size,
   disabled,
   preview,
-  className,
 }: StageButtonProps): ReactElement => {
   const [open, setOpen] = useState(false);
   const now = useClock(value);
@@ -161,7 +156,7 @@ export const StageButton = ({
       variant="floating"
       visible={open}
       onVisibleChange={setOpen}
-      className={CSS.cls(CSS.B("stage-button"), className)}
+      className={CSS.B("stage-button")}
     >
       <Dialog.Trigger
         hideCaret
@@ -171,10 +166,9 @@ export const StageButton = ({
         disabled={disabled}
         preview={preview}
         className={CSS.BE("stage-button", "trigger")}
-        tooltip={iconOnly ? STAGE_NAMES[stage] : undefined}
       >
         <I />
-        {!iconOnly && STAGE_NAMES[stage]}
+        {STAGE_NAMES[stage]}
       </Dialog.Trigger>
       <Dialog.Dialog className={CSS.BE("stage-button", "menu")} background={1}>
         <StageMenu
@@ -265,7 +259,7 @@ export const Timeline = ({
   const endName = cellName("End", end);
 
   const endCell = (
-    <>
+    <Flex.Box x align="center" gap="small">
       {ended && (
         <Text.Text level={level} color={9} className={CSS.BE("range-timeline", "word")}>
           ends
@@ -284,7 +278,7 @@ export const Timeline = ({
         effect={endEffect}
         {...cell}
       />
-    </>
+    </Flex.Box>
   );
 
   return (
@@ -306,96 +300,108 @@ export const Timeline = ({
       />
       {stage === "to_do" && (
         <>
-          {scheduled && (
-            <Text.Text
-              level={level}
-              color={9}
-              className={CSS.BE("range-timeline", "word")}
-            >
-              starts
-            </Text.Text>
-          )}
-          <Input.DateTime
-            value={start}
-            onChange={handleStart}
-            anchors={startAnchors}
-            aria-label={startName}
-            emptyValue={UNSET}
-            placeholder="Set a start time"
-            clearLabel="Unschedule"
-            bound="start"
-            effect={startEffect}
-            {...cell}
-          />
+          <Flex.Box x align="center" gap="small">
+            {scheduled && (
+              <Text.Text
+                level={level}
+                color={9}
+                className={CSS.BE("range-timeline", "word")}
+              >
+                starts
+              </Text.Text>
+            )}
+            <Input.DateTime
+              value={start}
+              onChange={handleStart}
+              anchors={startAnchors}
+              aria-label={startName}
+              emptyValue={UNSET}
+              placeholder="Set a start time"
+              clearLabel="Unschedule"
+              bound="start"
+              effect={startEffect}
+              {...cell}
+            />
+          </Flex.Box>
           {scheduled && endCell}
         </>
       )}
       {stage === "in_progress" && (
         <>
-          <Text.Text
-            level={level}
-            color={9}
-            className={CSS.BE("range-timeline", "word")}
-          >
-            started
-          </Text.Text>
-          <Input.DateTime
-            value={start}
-            onChange={handleStart}
-            anchors={startAnchors}
-            aria-label={startName}
-            bound="start"
-            effect={startEffect}
-            {...cell}
-          />
+          <Flex.Box x align="center" gap="small">
+            <Text.Text
+              level={level}
+              color={9}
+              className={CSS.BE("range-timeline", "word")}
+            >
+              started
+            </Text.Text>
+            <Input.DateTime
+              value={start}
+              onChange={handleStart}
+              anchors={startAnchors}
+              aria-label={startName}
+              bound="start"
+              effect={startEffect}
+              {...cell}
+            />
+          </Flex.Box>
           {ended && endCell}
-          <Dot level={level} />
-          <Input.TimeSpan
-            value={0}
-            onChange={handleSpan}
-            elapsedSince={start}
-            {...cell}
-          />
+          <Flex.Box x align="center" gap="small">
+            <Dot level={level} />
+            <Input.TimeSpan
+              value={0}
+              onChange={handleSpan}
+              elapsedSince={start}
+              {...cell}
+            />
+          </Flex.Box>
           {!ended && endCell}
         </>
       )}
       {stage === "completed" && (
         <>
-          <Text.Text
-            level={level}
-            color={9}
-            className={CSS.BE("range-timeline", "word")}
-          >
-            started
-          </Text.Text>
-          <Input.DateTime
-            value={start}
-            onChange={handleStart}
-            anchors={startAnchors}
-            aria-label={startName}
-            bound="start"
-            effect={startEffect}
-            {...cell}
-          />
-          <Text.Text
-            level={level}
-            color={9}
-            className={CSS.BE("range-timeline", "word")}
-          >
-            ended
-          </Text.Text>
-          <Input.DateTime
-            value={end}
-            onChange={handleEnd}
-            anchors={endAnchors}
-            aria-label={endName}
-            sharedDay={start}
-            bound="end"
-            effect={endEffect}
-            {...cell}
-          />
-          <Dot level={level} />
-          <Input.TimeSpan value={end - start} onChange={handleSpan} {...cell} />
+          <Flex.Box x align="center" gap="small">
+            <Text.Text
+              level={level}
+              color={9}
+              className={CSS.BE("range-timeline", "word")}
+            >
+              started
+            </Text.Text>
+            <Input.DateTime
+              value={start}
+              onChange={handleStart}
+              anchors={startAnchors}
+              aria-label={startName}
+              bound="start"
+              effect={startEffect}
+              {...cell}
+            />
+          </Flex.Box>
+          <Flex.Box x align="center" gap="small">
+            <Text.Text
+              level={level}
+              color={9}
+              className={CSS.BE("range-timeline", "word")}
+            >
+              ended
+            </Text.Text>
+            <Input.DateTime
+              value={end}
+              onChange={handleEnd}
+              anchors={endAnchors}
+              aria-label={endName}
+              sharedDay={start}
+              bound="end"
+              effect={endEffect}
+              {...cell}
+            />
+          </Flex.Box>
+          <Flex.Box x align="center" gap="small">
+            <Dot level={level} />
+            <Input.TimeSpan value={end - start} onChange={handleSpan} {...cell} />
+          </Flex.Box>
         </>
       )}
     </Flex.Box>

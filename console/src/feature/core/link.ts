@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import type { Synnax as Client } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 
-import { type Link } from "@/platform/link";
+import type { Link } from "@/platform/link";
 import { Session } from "@/session";
-import { type State } from "@/session/store";
+import type { State } from "@/session/store";
 
 const CONNECT_TIMEOUT = TimeSpan.seconds(10);
 const SWAP_POLL_INTERVAL = TimeSpan.milliseconds(50);
@@ -25,9 +25,8 @@ const SWAP_POLL_BREAKER_CONFIG: breaker.Config = {
 };
 
 // ConnectContext supplies connect with everything it needs to observe and mutate
-// connection state without binding to React. Production wires these to the Redux store
-// and the Synnax provider; tests inject controllable stubs.
-export interface ConnectContext {
+// connection state without binding to React.
+interface ConnectContext {
   getState: () => State;
   getClient: () => Client | null;
   setActive: (key: string) => void;
@@ -54,7 +53,7 @@ const verifyReached = (client: Client, clusterKey: string): Client => {
 // It throws if no Core names the cluster, if the Core reaches a different one, if the
 // provider never swaps clients before the poll exhausts its retries, or with the
 // client's typed rejection when the connection fails.
-export const connect = async (
+const connect = async (
   clusterKey: string,
   { getState, getClient, setActive, poll }: ConnectContext,
 ): Promise<Client> => {

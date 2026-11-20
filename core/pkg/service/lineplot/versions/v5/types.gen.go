@@ -12,6 +12,9 @@
 package v5
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -20,6 +23,7 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -29,8 +33,10 @@ type Key = v0.Key
 type TickType string
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = "linear"
-	TickTypeTime   TickType = "time"
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = "time"
 )
 
 // IsValid reports whether t is one of the defined TickType
@@ -67,7 +73,9 @@ func (d DownsampleMode) IsValid() bool {
 type XAxisKey string
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = "x1"
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = "x2"
 )
 
@@ -86,9 +94,13 @@ func (x XAxisKey) IsValid() bool {
 type YAxisKey string
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = "y1"
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = "y2"
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = "y3"
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = "y4"
 )
 
@@ -107,11 +119,17 @@ func (y YAxisKey) IsValid() bool {
 type AxisKey string
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = "x1"
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = "x2"
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = "y1"
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = "y2"
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = "y3"
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = "y4"
 )
 
@@ -134,11 +152,28 @@ type Title struct {
 	Visible bool `json:"visible" msgpack:"visible"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Title) ApplyDefaults() {
-	if t.Level == "" {
-		t.Level = text.LevelH4
+// SetDefaults sets every field that has a schema default to that default.
+func (t *Title) SetDefaults() {
+	t.Level = text.LevelH4
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (t *Title) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Title
+	if reflect.ValueOf(*t).IsZero() {
+		t.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(t))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (t *Title) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Title
+	if reflect.ValueOf(*t).IsZero() {
+		t.SetDefaults()
+	}
+	return dec.Decode((*plain)(t))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -158,27 +193,34 @@ type Legend struct {
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Legend) ApplyDefaults() {
-	if l.Position.X == 0 {
-		l.Position.X = 50
+// SetDefaults sets every field that has a schema default to that default.
+func (l *Legend) SetDefaults() {
+	l.Position.SetDefaults()
+	l.Position.X = 50
+	l.Position.Y = 50
+	l.Position.Root.X = spatial.XLocationLeft
+	l.Position.Root.Y = spatial.YLocationTop
+	l.Position.Units.X = spatial.StickyUnitPx
+	l.Position.Units.Y = spatial.StickyUnitPx
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *Legend) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Legend
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	if l.Position.Y == 0 {
-		l.Position.Y = 50
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *Legend) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Legend
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	if l.Position.Root.X == "" {
-		l.Position.Root.X = spatial.XLocationLeft
-	}
-	if l.Position.Root.Y == "" {
-		l.Position.Root.Y = spatial.YLocationTop
-	}
-	if l.Position.Units.X == "" {
-		l.Position.Units.X = spatial.StickyUnitPx
-	}
-	if l.Position.Units.Y == "" {
-		l.Position.Units.Y = spatial.StickyUnitPx
-	}
-	l.Position.ApplyDefaults()
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -251,17 +293,30 @@ type Axis struct {
 	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *Axis) ApplyDefaults() {
-	if a.LabelDirection == "" {
-		a.LabelDirection = spatial.DirectionX
+// SetDefaults sets every field that has a schema default to that default.
+func (a *Axis) SetDefaults() {
+	a.LabelDirection = spatial.DirectionX
+	a.LabelLevel = text.LevelSmall
+	a.TickSpacing = 75
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *Axis) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Axis
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
 	}
-	if a.LabelLevel == "" {
-		a.LabelLevel = text.LevelSmall
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *Axis) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Axis
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
 	}
-	if a.TickSpacing == 0 {
-		a.TickSpacing = 75
-	}
+	return dec.Decode((*plain)(a))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -271,6 +326,9 @@ func (a Axis) Validate() error {
 	v.Ternaryf("key", !a.Key.IsValid(), "invalid key: %v", a.Key)
 	v.Ternaryf("label_direction", !a.LabelDirection.IsValid(), "invalid label_direction: %v", a.LabelDirection)
 	v.Ternaryf("label_level", !a.LabelLevel.IsValid(), "invalid label_level: %v", a.LabelLevel)
+	if a.Type != nil {
+		v.Ternaryf("type", !a.Type.IsValid(), "invalid type: %v", *a.Type)
+	}
 	return v.Error()
 }
 
@@ -290,44 +348,43 @@ type Axes struct {
 	Y4 Axis `json:"y4" msgpack:"y4"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *Axes) ApplyDefaults() {
-	if a.X1.Key == "" {
-		a.X1.Key = AxisKeyX1
+// SetDefaults sets every field that has a schema default to that default.
+func (a *Axes) SetDefaults() {
+	a.X1.SetDefaults()
+	a.X2.SetDefaults()
+	a.Y1.SetDefaults()
+	a.Y2.SetDefaults()
+	a.Y3.SetDefaults()
+	a.Y4.SetDefaults()
+	a.X1.Key = AxisKeyX1
+	a.X2.Key = AxisKeyX2
+	a.Y1.Key = AxisKeyY1
+	a.Y1.LabelDirection = spatial.DirectionY
+	a.Y2.Key = AxisKeyY2
+	a.Y2.LabelDirection = spatial.DirectionY
+	a.Y3.Key = AxisKeyY3
+	a.Y3.LabelDirection = spatial.DirectionY
+	a.Y4.Key = AxisKeyY4
+	a.Y4.LabelDirection = spatial.DirectionY
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *Axes) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Axes
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
 	}
-	if a.X2.Key == "" {
-		a.X2.Key = AxisKeyX2
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *Axes) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Axes
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
 	}
-	if a.Y1.Key == "" {
-		a.Y1.Key = AxisKeyY1
-	}
-	if a.Y1.LabelDirection == "" {
-		a.Y1.LabelDirection = spatial.DirectionY
-	}
-	if a.Y2.Key == "" {
-		a.Y2.Key = AxisKeyY2
-	}
-	if a.Y2.LabelDirection == "" {
-		a.Y2.LabelDirection = spatial.DirectionY
-	}
-	if a.Y3.Key == "" {
-		a.Y3.Key = AxisKeyY3
-	}
-	if a.Y3.LabelDirection == "" {
-		a.Y3.LabelDirection = spatial.DirectionY
-	}
-	if a.Y4.Key == "" {
-		a.Y4.Key = AxisKeyY4
-	}
-	if a.Y4.LabelDirection == "" {
-		a.Y4.LabelDirection = spatial.DirectionY
-	}
-	a.X1.ApplyDefaults()
-	a.X2.ApplyDefaults()
-	a.Y1.ApplyDefaults()
-	a.Y2.ApplyDefaults()
-	a.Y3.ApplyDefaults()
-	a.Y4.ApplyDefaults()
+	return dec.Decode((*plain)(a))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -364,17 +421,30 @@ type Line struct {
 	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Line) ApplyDefaults() {
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
+// SetDefaults sets every field that has a schema default to that default.
+func (l *Line) SetDefaults() {
+	l.StrokeWidth = 2
+	l.Downsample = 1
+	l.DownsampleMode = DownsampleModeDecimate
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Line
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	if l.Downsample == 0 {
-		l.Downsample = 1
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *Line) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Line
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	if l.DownsampleMode == "" {
-		l.DownsampleMode = DownsampleModeDecimate
-	}
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -406,11 +476,28 @@ type Rule struct {
 	Position float64 `json:"position" msgpack:"position"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Rule) ApplyDefaults() {
-	if r.LineWidth == 0 {
-		r.LineWidth = 1
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Rule) SetDefaults() {
+	r.LineWidth = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Rule) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Rule
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Rule) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Rule
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -447,17 +534,30 @@ type LinePlot struct {
 	Rules []Rule `json:"rules" msgpack:"rules"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinePlot) SetDefaults() {
+	l.Title.SetDefaults()
+	l.Legend.SetDefaults()
+	l.Axes.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -13,8 +13,8 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Task{}
@@ -22,11 +22,8 @@ var _ gorp.Entry[Key] = Task{}
 // GorpKey implements gorp.Entry.
 func (t Task) GorpKey() Key { return t.Key }
 
-// SetOptions implements gorp.Entry, leasing the task to its rack's node.
-func (t Task) SetOptions() []any { return []any{t.Key.Rack().Node()} }
-
-// OntologyID returns the unique ontology identifier for the task.
-func (t Task) OntologyID() ontology.ID { return t.Key.OntologyID() }
+// ResourceID returns the unique resource identifier for the task.
+func (t Task) ResourceID() resource.ID { return t.Key.ResourceID() }
 
 // Rack returns the key of the rack the task belongs to.
 func (t Task) Rack() rack.Key { return t.Key.Rack() }

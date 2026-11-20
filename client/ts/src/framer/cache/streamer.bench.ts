@@ -7,17 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { disposable } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { createKeys, createSequence } from "@/framer/testutil";
 
 class StubStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   keys: channel.Key[];
   private i = 0;
   private pending: ((r: IteratorResult<framer.Frame>) => void) | null = null;

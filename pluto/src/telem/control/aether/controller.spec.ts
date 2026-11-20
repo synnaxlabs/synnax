@@ -13,14 +13,14 @@ import {
   SessionEndedError,
   ValidationError,
 } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import { StreamClosed } from "@synnaxlabs/freighter";
 import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type aether } from "@/aether/aether";
-import { type status } from "@/status/aether";
+import type { aether } from "@/aether/aether";
+import type { status } from "@/status/aether";
 import { Colors } from "@/telem/control/aether/colors";
 import {
   type AuthoritySource,
@@ -100,7 +100,7 @@ const hold = async (key: channel.Key, subject: string): Promise<Holder> => {
 const setup = async (key: channel.Key, openWriter?: OpenWriter) => {
   const h = renderAether(Colors, {
     state: {},
-    synnax: { props: TEST_CLIENT_PARAMS },
+    synnax: { props: testClientParams() },
     registry:
       openWriter == null ? { [Controller.TYPE]: Controller } : registryWith(openWriter),
     children: {
@@ -195,8 +195,7 @@ const interceptWrites = (
  * in flight.
  */
 const gateWriter = () => {
-  let finishOpen!: () => void;
-  const gate = new Promise<void>((resolve) => (finishOpen = resolve));
+  const { promise: gate, resolve: finishOpen } = Promise.withResolvers<void>();
   let writes = 0;
   let closes = 0;
   const openWriter: OpenWriter = async (client, config) => {
@@ -398,7 +397,7 @@ describe("control/aether/Controller", SUITE, () => {
       message: "Skipped deleted channels",
       description: [
         "Some symbols use channels that no longer exist.",
-        `Channels with keys [${deleted.key}] not found: not found: query`,
+        `Found no channel where key = ${deleted.key}`,
       ].join("\n"),
     });
     await expect(controller.set({ [deleted.key]: [1] })).rejects.toThrow();

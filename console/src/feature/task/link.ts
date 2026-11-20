@@ -9,13 +9,13 @@
 
 import { task } from "@synnaxlabs/client";
 
-import { type Link } from "@/platform/link";
+import type { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 
 export const useLink = (): Link.Handler => {
   const openTab = Panel.useOpenTab();
   return async ({ client, key }) => {
     const retrieved = await client.tasks.retrieve({ key });
-    openTab({ variant: "resource", resource: task.ontologyID(retrieved.key) });
+    openTab({ variant: "resource", resource: task.resourceID(retrieved.key) });
   };
 };

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -20,7 +20,7 @@ describe("Export.ToolbarButton", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderWithConsole(
       <>
-        <Export.ToolbarButton id={log.ontologyID("k")} />
+        <Export.ToolbarButton id={log.resourceID("k")} />
         <CaptureStatuses onStatuses={(next) => (statuses = next)} />
       </>,
     );
@@ -36,7 +36,7 @@ describe("Export.ToolbarButton", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderWithConsole(
       <>
-        <Export.ToolbarButton id={log.ontologyID("k")} disabled />
+        <Export.ToolbarButton id={log.resourceID("k")} disabled />
         <CaptureStatuses onStatuses={(next) => (statuses = next)} />
       </>,
     );

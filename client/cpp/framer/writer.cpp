@@ -61,11 +61,24 @@ x::errors::Error Writer::write(const x::telem::Frame &fr) {
 }
 
 std::pair<x::telem::TimeStamp, x::errors::Error> Writer::commit() {
-    if (this->close_err) return {x::telem::TimeStamp(0), this->close_err};
+    const auto [res, err] = this->commit_result();
+    return {res.end, err};
+}
+
+std::pair<CommitResult, x::errors::Error> Writer::commit_result() {
+    if (this->close_err) return {CommitResult{}, this->close_err};
     grpc::framer::WriterRequest req;
     req.set_command(COMMIT);
     const auto [res, err] = this->exec(req, true);
-    return {x::telem::TimeStamp(res.end()), err};
+    if (err) return {CommitResult{}, err};
+    return {CommitResult::from_proto(res), x::errors::NIL};
+}
+
+CommitResult CommitResult::from_proto(const grpc::framer::WriterResponse &res) {
+    return CommitResult{
+        .end = x::telem::TimeStamp(res.end()),
+        .authorized = !res.unauthorized(),
+    };
 }
 
 x::errors::Error Writer::set_authority(const x::control::Authority &auth) {
@@ -124,8 +137,15 @@ x::errors::Error Writer::close(const x::errors::Error &err) {
 
 std::pair<grpc::framer::WriterResponse, x::errors::Error>
 Writer::exec(grpc::framer::WriterRequest &req, const bool ack) {
-    if (const auto err = this->stream->send(req); err)
-        return {grpc::framer::WriterResponse(), this->close(err)};
+    if (const auto err = this->stream->send(req); err) {
+        // A send fails once the stream has ended. The stream status holds the cause,
+        // such as an unreachable Core. A stream that ended with no error keeps the
+        // send error, so the caller still sees the write fail.
+        if (const auto close_err = this->close(x::errors::NIL))
+            return {grpc::framer::WriterResponse(), close_err};
+        this->close_err = err;
+        return {grpc::framer::WriterResponse(), err};
+    }
     while (ack) {
         auto [res, res_err] = stream->receive();
         if (res_err) return {res, this->close(res_err)};

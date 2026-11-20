@@ -1,0 +1,29 @@
+{
+  "description": "A float field cannot write to an integer channel.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "int32"
+        }
+      ]
+    }
+  ],
+  "error": "message reading: field v: cannot write float values to int32 channels: validation error"
+}

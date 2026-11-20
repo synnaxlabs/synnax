@@ -13,11 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
 	It("Should wrap a key-value writer with an encoder", func(ctx SpecContext) {
-		tx := db.OpenTx()
+		tx := DeferClose(db.OpenTx())
 		w := gorp.WrapWriter[int32, entry](tx)
 		Expect(w.Set(ctx, entry{ID: 1, Data: "Two"})).To(Succeed())
 		Expect(w.Delete(ctx, 1)).To(Succeed())

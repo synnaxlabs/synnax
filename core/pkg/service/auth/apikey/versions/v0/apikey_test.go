@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/apikey/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("APIKey", func() {
@@ -23,13 +23,10 @@ var _ = Describe("APIKey", func() {
 		key := uuid.New()
 		Expect(v0.APIKey{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v0.APIKey{}.SetOptions()).To(BeNil())
-	})
 	It("Should validate its subject", func() {
 		Expect(v0.APIKey{}.Validate()).To(MatchError(ContainSubstring("subject")))
-		Expect(v0.APIKey{Subject: ontology.ID{
-			Type: ontology.ResourceTypeRack,
+		Expect(v0.APIKey{Subject: resource.ID{
+			Type: resource.TypeRack,
 			Key:  "1",
 		}}.Validate()).To(Succeed())
 	})

@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Icon } from "@synnaxlabs/lyra/icon";
-import { type record } from "@synnaxlabs/x";
-import { type ComponentType } from "react";
+import type { device } from "@synnaxlabs/client";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import type { Device } from "@synnaxlabs/pluto";
+import type { ComponentType } from "react";
 
-import { type ConnectProps } from "@/platform/device/types";
+import type {
+  ConfigureProps,
+  ConnectProps,
+  ScanActionProps,
+} from "@/platform/device/types";
 
 export interface Integration {
   /** The name a rack lists in its integrations when its Driver runs this one. */
@@ -26,6 +31,8 @@ export interface Integration {
   make: string;
   /** The type of the scan task each Driver runs for this integration. */
   scanType: string;
+  /** How the locations of its devices read. */
+  location: Device.LocationFormat;
 }
 
 /** An integration the user connects to by address. */
@@ -40,6 +47,21 @@ export interface Hardware extends Integration {
    * after a check that the Driver runs on the computer the hardware connects to.
    */
   checks: string[];
-  /** The properties a device of this make starts with when the user configures it. */
-  zeroProperties: record.Unknown;
+  /** The form that names a found device and sets it up. */
+  Configure: ComponentType<ConfigureProps>;
+  /**
+   * Returns where a found device is in the words of the user, such as "Ethernet 2, slot
+   * 3". Without it, the find view shows the location of the device.
+   */
+  formatLocation?: (device: device.Device) => string;
+  /**
+   * The names that the find view and the new device pop-up show in place of the models
+   * of found devices.
+   */
+  modelNames?: Record<string, string>;
+  /**
+   * An action beside the status of a scan task that warns or fails, such as one that
+   * fixes the problem. It renders nothing when it does not apply.
+   */
+  ScanAction?: ComponentType<ScanActionProps>;
 }

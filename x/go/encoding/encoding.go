@@ -10,7 +10,6 @@
 package encoding
 
 import (
-	"context"
 	"io"
 	"reflect"
 
@@ -20,19 +19,19 @@ import (
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.
-	Decode(context.Context, []byte, any) error
+	Decode(data []byte, value any) error
 	// DecodeStream decodes data from the given reader into a pointer value.
-	DecodeStream(context.Context, io.Reader, any) error
+	DecodeStream(r io.Reader, value any) error
 }
 
 // Encoder encodes values into binary.
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along with any
 	// errors encountered.
-	Encode(context.Context, any) ([]byte, error)
+	Encode(value any) ([]byte, error)
 	// EncodeStream encodes the value into binary and writes it to the given writer. It
 	// returns any errors encountered.
-	EncodeStream(context.Context, io.Writer, any) error
+	EncodeStream(w io.Writer, value any) error
 }
 
 // FileEncoder is an Encoder that names the files its output belongs in, so a caller
@@ -50,26 +49,23 @@ type Codec interface {
 	Encoder
 }
 
-// SugarDecodingError adds additional context to decoding errors.
-func SugarDecodingError(data []byte, value any, base error) error {
+// SugarDecodingError names the type that value points to in a decoding error. The
+// result wraps base, so errors.Is matches base and the errors it wraps.
+func SugarDecodingError(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
-	val := reflect.ValueOf(value)
-	main := errors.Wrapf(
-		errors.New("failed to decode"),
-		"kind=%s, type=%s, data=%x",
-		val.Kind(),
-		val.Type(),
-		data,
-	)
-	return errors.WithStack(errors.Combine(main, base))
+	t := reflect.TypeOf(value)
+	if t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	return errors.Wrapf(base, "failed to decode %s", t)
 }
 
 // SugarEncodingError adds additional context to encoding errors.
 func SugarEncodingError(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(

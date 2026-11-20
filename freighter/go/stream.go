@@ -41,7 +41,7 @@ type StreamServer[RQ, RS Payload] interface {
 	//
 	// Fatal errors (errors that prevent the server from processing any future requests)
 	// should be returned from the handle function itself (f). If the handle function
-	// returns nil, the server will close the stream, returning a final freighter.EOF
+	// returns nil, the server will close the stream, returning a final io.EOF
 	// error to the client. If the handle function returns an error, the server will
 	// close the stream and return the error to the client.
 	//
@@ -60,7 +60,7 @@ type ClientStream[RQ, RS Payload] interface {
 	// Failure Behavior:
 	//
 	// 1. If the server closed the stream -> If the server closed the
-	// stream with a nil error, returns freighter.EOF. Otherwise, returns
+	// stream with a nil error, returns io.EOF. Otherwise, returns
 	// the error the server closed with.
 	//
 	// 2. If the client called CloseSend -> Has no effect on the behavior of Receive.
@@ -82,7 +82,7 @@ type ClientStream[RQ, RS Payload] interface {
 	//
 	// Failure Behavior:
 	//
-	// 1. If the server closed the stream -> Returns a freighter.EOF error
+	// 1. If the server closed the stream -> Returns a io.EOF error
 	// regardless of the error the server exited with (even a nil error).
 	// The caller can discover the error by calling Receive.
 	//
@@ -111,14 +111,14 @@ type ServerStream[RQ, RS Payload] interface {
 	//
 	// Failure Behavior:
 	//
-	// 1. If the client called CloseSend -> Returns a freighter.EOF error.
+	// 1. If the client called CloseSend -> Returns a io.EOF error.
 	//
 	// 2. If the server handler has returned -> This is most likely a programming
 	// error where a separate goroutine is writing to the stream after the handler
 	// returns. In this case, the server will return a context.Canceled error.
 	//
 	// 2. If the transport fails -> Returns the error that caused the transport
-	//to fail.
+	// to fail.
 	//
 	// Repeated calls to Receive will immediately return the same error.
 	StreamReceiver[RQ]
@@ -148,7 +148,7 @@ type StreamReceiver[P Payload] interface {
 
 // StreamSender is an entity that can send payloads.
 type StreamSender[P Payload] interface {
-	Send(P) error
+	Send(payload P) error
 }
 
 // StreamSenderCloser is a type that can send messages as well as close the

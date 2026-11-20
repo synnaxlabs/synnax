@@ -17,20 +17,21 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type SyntheticEvent,
   useEffect,
   useRef,
   useState,
 } from "react";
 
 import { Button } from "@/button";
-import { type RenderProp } from "@/component/renderProp";
+import type { RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { ItemContext, type ItemContextValue } from "@/input/scope";
 import { Text as InputText } from "@/input/Text";
-import { type Control, type Variant } from "@/input/types";
-import { type Status } from "@/status";
+import type { Control, Variant } from "@/input/types";
+import type { Status } from "@/status";
 import { Text } from "@/text";
 import { reactElementToArray } from "@/util/children";
 
@@ -49,7 +50,15 @@ export interface TableCellProps<V extends TableCell = TableCell> extends Control
 interface BaseTableColumnProps {
   /** The heading rendered above the column. Omitted for a lone unlabeled column. */
   name?: string;
+  /**
+   * The width of the column in rem. Omitted, the column shares the width the others
+   * leave, down to a minimum. Past the minimum, the table scrolls.
+   */
+  width?: number;
 }
+
+/** The narrowest a column with no width gets, in rem. */
+const MIN_SHARED_WIDTH = 16;
 
 /**
  * The column's type decides what a new row holds, how pasted text is read, and which
@@ -58,11 +67,15 @@ interface BaseTableColumnProps {
 export type TableColumnProps =
   | (BaseTableColumnProps & {
       type?: "number";
+      /** Reads pasted text, or returns null to refuse it. Defaults to `Number`. */
+      parse?: (text: string) => number | null;
       /** Renders the cell. Defaults to a numeric input. */
       children?: RenderProp<TableCellProps<number>>;
     })
   | (BaseTableColumnProps & {
       type: "string";
+      /** Reads pasted text, or returns null to refuse it. Defaults to the text. */
+      parse?: (text: string) => string | null;
       /** Renders the cell. Defaults to a text input. */
       children?: RenderProp<TableCellProps<string>>;
     });
@@ -92,11 +105,12 @@ const emptyCell = (column: TableColumnProps): TableCell =>
   column.type === "string" ? "" : 0;
 
 /**
- * Reads a pasted cell as the type its column holds.
- * @returns null when a number column is given text that is not a number. A text column
- * takes anything.
+ * Reads a pasted cell with its column's parse, or as the type its column holds.
+ * @returns null when the column refuses the text. By default, a number column refuses
+ * text that is not a number, and a text column takes anything.
  */
 const parseCell = (text: string, column: TableColumnProps): TableCell | null => {
+  if (column.parse != null) return column.parse(text);
   if (column.type === "string") return text;
   const value = Number(text);
   return isFinite(value) ? value : null;
@@ -152,6 +166,10 @@ const MOVES: Partial<Record<string, Move>> = {
   ArrowUp: (dims, from) => grid.move(dims, from, { x: 0, y: -1 }),
 };
 
+// A dialog that a cell opens portals out of the table and keeps its own events.
+const inTable = (e: SyntheticEvent): boolean =>
+  e.target instanceof Node && e.currentTarget.contains(e.target);
+
 type ColumnElement = ReactElement<TableColumnProps>;
 
 export interface TableProps
@@ -164,12 +182,25 @@ export interface TableProps
   preview?: boolean;
   /** Labels a row's gutter cell. Omitted, no gutter column renders. */
   rowLabel?: (index: number) => string;
-  /** Builds the row the add button appends. Defaults to the column default values. */
+  /**
+   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
+   * when the rows above it change. Defaults to the index.
+   */
+  rowKey?: (index: number) => string;
+  /**
+   * Builds each new row: the one the add button appends, and each one a paste adds.
+   * Defaults to the column default values.
+   */
   createRow?: (value: TableCell[][]) => TableCell[];
   /** Names one row in the add and remove buttons ("header"). Defaults to "row". */
   resourceName?: string;
   /** Reads a cell's status, such as an error at its form path. */
   cellStatus?: (at: xy.XY) => Status.Crude | undefined;
+  /**
+   * Called with the index of the row the user removes. When set, a removal calls it in
+   * place of onChange, so the caller can remove the row by identity.
+   */
+  onRemove?: (index: number) => void;
 }
 
 /** A focused cell's value and text from when it took focus. */
@@ -206,10 +237,13 @@ export const Table = ({
   children,
   preview = false,
   rowLabel,
+  rowKey,
   createRow,
   resourceName = "row",
   cellStatus,
+  onRemove,
   className,
+  style,
   ...rest
 }: TableProps): ReactElement => {
   // Paste and keyboard moves land on the focused cell, so the last focus is the anchor.
@@ -217,6 +251,8 @@ export const Table = ({
   const initial = useRef<Initial | null>(null);
   // Set once Esc puts a cell back, so the next Esc leaves the cell.
   const restored = useRef(false);
+  // Set by a block paste, which commits: Esc then puts back what the paste wrote.
+  const pasted = useRef(false);
   // The row that takes focus once an add or a remove renders.
   const pendingFocus = useRef<number | null>(null);
   const table = useRef<HTMLTableElement>(null);
@@ -234,6 +270,14 @@ export const Table = ({
   const rowName = (index: number): string =>
     rowLabel?.(index) ?? (index + 1).toString();
   const hasHeader = columns.some(({ name }) => name != null);
+  const columnsWidth = columns.reduce(
+    (sum, { width }) => sum + (width ?? MIN_SHARED_WIDTH),
+    0,
+  );
+  const tableStyle: CSS.VarProperties = {
+    "--pluto-input-table-columns-width": `${columnsWidth}rem`,
+    ...style,
+  };
 
   const handleCellChange = (at: xy.XY, next: TableCell) => {
     if (marks.some((mark) => xy.equals(mark.at, at)))
@@ -246,7 +290,7 @@ export const Table = ({
   };
 
   const handlePaste = (e: ClipboardEvent) => {
-    if (preview) return;
+    if (preview || !inTable(e)) return;
     const block = parseBlock(
       e.clipboardData.getData("text/plain"),
       columns,
@@ -255,10 +299,11 @@ export const Table = ({
     if (block == null) return;
     e.preventDefault();
     restored.current = false;
+    pasted.current = true;
     const plan = grid.plan(dims, anchor.current, block);
     const next = value.map((row) => [...row]);
     for (let row = dims.height; row < plan.dimensions.height; row++)
-      next.push(emptyRow());
+      next.push(createRow?.(next) ?? emptyRow());
     const rejected: Rejection[] = [];
     plan.writes.forEach(({ position: at, value: { text, value: parsed } }) => {
       if (parsed != null) next[at.y][at.x] = parsed;
@@ -273,7 +318,11 @@ export const Table = ({
   const statusAt = (at: xy.XY): Status.Crude | undefined => {
     const rejection = marks.find((mark) => xy.equals(mark.at, at));
     if (rejection == null) return cellStatus?.(at);
-    return { variant: "error", message: `"${rejection.text}" is not a number` };
+    const column = columns[at.x].name ?? "this column";
+    return {
+      variant: "error",
+      message: `"${rejection.text}" is not a valid value for ${column}`,
+    };
   };
 
   // A gutter header shifts the data columns over by one.
@@ -281,6 +330,15 @@ export const Table = ({
     table.current?.tBodies[0]?.rows[y]?.cells[
       x + (hasGutter ? 1 : 0)
     ]?.querySelector<HTMLInputElement>("input") ?? null;
+
+  useEffect(() => {
+    if (!pasted.current) return;
+    pasted.current = false;
+    const at = anchor.current;
+    const input = cellAt(at);
+    if (input == null || input !== document.activeElement) return;
+    initial.current = { value: value[at.y]?.[at.x], text: input.value };
+  });
 
   useEffect(() => {
     if (pendingFocus.current == null) return;
@@ -305,10 +363,12 @@ export const Table = ({
         return [{ ...mark, at: { x: mark.at.x, y: mark.at.y - 1 } }];
       }),
     );
-    onChange(value.filter((_, i) => i !== index));
+    if (onRemove != null) onRemove(index);
+    else onChange(value.filter((_, i) => i !== index));
   };
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
+    if (!inTable(e)) return;
     anchor.current = at;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
@@ -316,13 +376,14 @@ export const Table = ({
   };
 
   const handleCellBlur = (e: FocusEvent<HTMLTableCellElement>) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) initial.current = null;
+    if (inTable(e) && !e.currentTarget.contains(e.relatedTarget))
+      initial.current = null;
   };
 
   // Runs before the cell, which blurs on an Esc that is not prevented and discards
   // any text it has not committed.
   const handleKeyDownCapture = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || !inTable(e)) return;
     if (!(e.target instanceof HTMLInputElement) || initial.current == null) return;
     const { value: was, text } = initial.current;
     const at = anchor.current;
@@ -334,6 +395,7 @@ export const Table = ({
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (!inTable(e)) return;
     // Enter on the add and remove buttons must reach their native activation.
     if (!(e.target instanceof HTMLInputElement)) return;
     // An Esc that put a cell back stops here, so it does not close a parent dialog.
@@ -349,104 +411,120 @@ export const Table = ({
   };
 
   return (
-    <table
-      ref={table}
-      className={CSS.cls(CSS.BE("input", "table"), className)}
-      onPaste={handlePaste}
-      onKeyDown={handleKeyDown}
-      onKeyDownCapture={handleKeyDownCapture}
-      // Any edit after a restore lets the next Esc restore again.
-      onInput={() => (restored.current = false)}
-      {...rest}
-    >
-      {hasHeader && value.length > 0 && (
-        <thead>
-          <tr>
-            {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
-            {columns.map(({ name }, i) => (
-              <th key={i} scope="col">
-                <Text.Text level="small" weight={450} color={9}>
-                  {name}
-                </Text.Text>
-              </th>
-            ))}
-            <th />
-          </tr>
-        </thead>
-      )}
-      <tbody>
-        {value.map((row, i) => (
-          <tr key={i}>
-            {hasGutter && (
-              <th scope="row" className={CSS.BE("input", "table-gutter")}>
-                <Text.Text level="small" color={9}>
-                  {rowName(i)}
-                </Text.Text>
-              </th>
-            )}
-            {columns.map((column, j) => {
-              const status = statusAt({ x: j, y: i });
-              // A cell's own status replaces the status of an item around the table.
-              const cellItem: ItemContextValue = {
-                status: status?.variant,
-                message: status?.message,
-                helpTextHidden: true,
-              };
-              return (
-                <td
-                  key={j}
-                  onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
-                  onBlur={handleCellBlur}
-                >
-                  <ItemContext value={cellItem}>
-                    {renderCell(column, {
-                      value: row[j] ?? emptyCell(column),
-                      onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                      preview,
-                      variant: "shadow",
-                      "aria-label":
-                        column.name == null
-                          ? rowName(i)
-                          : `${column.name} ${rowName(i)}`,
-                    })}
-                  </ItemContext>
-                </td>
-              );
-            })}
-            <td>
-              {!preview && (
+    <div className={CSS.BE("input", "table-scroll")}>
+      <table
+        ref={table}
+        className={CSS.cls(
+          CSS.BE("input", "table"),
+          columns.every(({ width }) => width != null) && CSS.M("sized"),
+          className,
+        )}
+        style={tableStyle}
+        onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
+        onKeyDownCapture={handleKeyDownCapture}
+        // Any edit after a restore lets the next Esc restore again.
+        onInput={(e) => {
+          if (inTable(e)) restored.current = false;
+        }}
+        {...rest}
+      >
+        <colgroup>
+          {hasGutter && <col className={CSS.BE("input", "table-gutter")} />}
+          {columns.map(({ width }, i) => (
+            <col key={i} style={width == null ? undefined : { width: `${width}rem` }} />
+          ))}
+          <col className={CSS.BE("input", "table-action")} />
+        </colgroup>
+        {hasHeader && value.length > 0 && (
+          <thead>
+            <tr>
+              {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
+              {columns.map(({ name }, i) => (
+                <th key={i} scope="col">
+                  <Text.Text level="small" weight={450} color={9}>
+                    {name}
+                  </Text.Text>
+                </th>
+              ))}
+              <th />
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {value.map((row, i) => (
+            <tr key={rowKey?.(i) ?? i}>
+              {hasGutter && (
+                <th scope="row" className={CSS.BE("input", "table-gutter")}>
+                  <Text.Text level="small" color={9}>
+                    {rowName(i)}
+                  </Text.Text>
+                </th>
+              )}
+              {columns.map((column, j) => {
+                const status = statusAt({ x: j, y: i });
+                // A cell's own status replaces the status of an item around the table.
+                const cellItem: ItemContextValue = {
+                  status: status?.variant,
+                  message: status?.message,
+                  helpTextHidden: true,
+                };
+                return (
+                  <td
+                    key={j}
+                    onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
+                    onBlur={handleCellBlur}
+                  >
+                    <ItemContext value={cellItem}>
+                      {renderCell(column, {
+                        value: row[j] ?? emptyCell(column),
+                        onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                        preview,
+                        variant: "shadow",
+                        "aria-label":
+                          column.name == null
+                            ? rowName(i)
+                            : `${column.name} ${rowName(i)}`,
+                      })}
+                    </ItemContext>
+                  </td>
+                );
+              })}
+              <td>
+                {!preview && (
+                  <Button.Button
+                    variant="text"
+                    size="small"
+                    textColor={9}
+                    tooltip={`Remove ${resourceName} ${rowName(i)}`}
+                    onClick={() => handleRemove(i)}
+                  >
+                    <Icon.Close />
+                  </Button.Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        {!preview && (
+          <tfoot>
+            <tr>
+              {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
+              <td colSpan={columns.length + 1}>
                 <Button.Button
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip={`Remove ${resourceName} ${rowName(i)}`}
-                  onClick={() => handleRemove(i)}
+                  onClick={handleAdd}
                 >
-                  <Icon.Close />
+                  <Icon.Add />
+                  Add {resourceName}
                 </Button.Button>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-      {!preview && (
-        <tfoot>
-          <tr>
-            {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
-            <td colSpan={columns.length + 1}>
-              <Button.Button
-                variant="text"
-                size="small"
-                textColor={9}
-                onClick={handleAdd}
-              >
-                <Icon.Add />
-                Add {resourceName}
-              </Button.Button>
-            </td>
-          </tr>
-        </tfoot>
-      )}
-    </table>
+              </td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
   );
 };

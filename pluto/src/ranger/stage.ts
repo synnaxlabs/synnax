@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Store } from "@synnaxlabs/lyra/store";
 import {
   type CrudeTimeRange,
   type NumericTimeRange,
@@ -18,20 +19,23 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
+import { Flux } from "@/flux";
 import { UNSET } from "@/ranger/move";
 
-export const STAGES = ["to_do", "in_progress", "completed"] as const;
-
-export type Stage = (typeof STAGES)[number];
-
-export const sortByStage = (a: ranger.Range, b: ranger.Range): number =>
-  STAGES.indexOf(getStage(a.timeRange)) - STAGES.indexOf(getStage(b.timeRange));
+/** @returns the filter that matches the ranges `getStage` puts in `stage` at `now`. */
+export const stageWhere = (stage: ranger.Stage, now: TimeStamp): ranger.Where => {
+  const next = now.add(TimeSpan.nanoseconds(1));
+  if (stage === "to_do")
+    return { not: { overlaps: new TimeRange(TimeStamp.MIN, next) } };
+  if (stage === "in_progress") return { overlaps: new TimeRange(now, next) };
+  return { not: { overlaps: new TimeRange(now, TimeStamp.MAX) } };
+};
 
 /** @returns the stage `timeRange` is in at `now`. */
 export const getStage = (
   timeRange: CrudeTimeRange,
   now: TimeStamp = TimeStamp.now(),
-): Stage => {
+): ranger.Stage => {
   const tr = new TimeRange(timeRange).makeValid();
   if (now.before(tr.start)) return "to_do";
   if (now.afterEq(tr.end)) return "completed";
@@ -67,13 +71,81 @@ export const useClock = (timeRange: CrudeTimeRange): TimeStamp => {
   return useNow((now) => nextBoundary(start, end, now));
 };
 
-export const STAGE_ICONS: Record<Stage, Icon.FC> = {
+/** @returns the recent spans of the filter, or null when it reads no time. */
+const timeSpans = (where: ranger.Where): TimeSpan[] | null => {
+  const children = [...(where.and ?? []), ...(where.or ?? [])];
+  if (where.not != null) children.push(where.not);
+  let reads = where.stages != null;
+  const spans = where.recent == null ? [] : [new TimeSpan(where.recent)];
+  for (const child of children) {
+    const nested = timeSpans(child);
+    if (nested == null) continue;
+    reads = true;
+    spans.push(...nested);
+  }
+  return reads || spans.length > 0 ? spans : null;
+};
+
+/**
+ * @returns the first instant after `at` when one of the ranges starts, ends, or moves
+ * past a recent span of the filter, or null when the filter reads no time.
+ */
+export const nextCrossing = (
+  where: ranger.Where | undefined,
+  ranges: ranger.Range[],
+  at: TimeStamp,
+): TimeStamp | null => {
+  const spans = where == null ? null : timeSpans(where);
+  if (spans == null) return null;
+  let next: TimeStamp | null = null;
+  for (const { timeRange } of ranges)
+    for (const bound of [timeRange.start, timeRange.end]) {
+      if (bound.equals(TimeStamp.MAX)) continue;
+      for (const instant of [bound, ...spans.map((span) => bound.add(span))])
+        if (instant.after(at) && (next == null || instant.before(next))) next = instant;
+    }
+  return next;
+};
+
+const STARTS: ranger.Order = { field: "time_range_start", descending: false };
+const ENDS: ranger.Order = { field: "time_range_end", descending: false };
+
+const useFirst = (where: ranger.Where | null, order: ranger.Order): ranger.Range[] => {
+  const list = Flux.useList((client) => client.ranges, {
+    name: "ranges",
+    query: where == null ? null : { where, order },
+    pageSize: 1,
+    eager: true,
+  });
+  return Store.useItems({
+    keys: list.data,
+    subscribe: list.subscribe,
+    getItem: list.getItem,
+  });
+};
+
+/**
+ * @returns the next range to start and the next running range to end, read at `at`,
+ * or none when the filter reads no time. A created or changed range updates them, so
+ * their crossings catch a range that enters the filter after the list reads.
+ */
+export const useNextRanges = (
+  where: ranger.Where | undefined,
+  at: TimeStamp,
+): ranger.Range[] => {
+  const timed = where != null && timeSpans(where) != null;
+  const starting = useFirst(timed ? stageWhere("to_do", at) : null, STARTS);
+  const ending = useFirst(timed ? stageWhere("in_progress", at) : null, ENDS);
+  return [...starting, ...ending];
+};
+
+export const STAGE_ICONS: Record<ranger.Stage, Icon.FC> = {
   to_do: Icon.ToDo,
   in_progress: Icon.InProgress,
   completed: Icon.Completed,
 };
 
-export const STAGE_NAMES: Record<Stage, string> = {
+export const STAGE_NAMES: Record<ranger.Stage, string> = {
   to_do: "To do",
   in_progress: "In progress",
   completed: "Completed",
@@ -86,7 +158,7 @@ export const STAGE_NAMES: Record<Stage, string> = {
  */
 export const moveToStage = (
   value: NumericTimeRange,
-  stage: Stage,
+  stage: ranger.Stage,
   at: TimeStamp = TimeStamp.now(),
 ): NumericTimeRange => {
   // We subtract a millisecond here to avoid weird issues where you select "completed"

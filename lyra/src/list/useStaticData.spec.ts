@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import {
-  type RetrieveParams,
-  useStaticData,
-  type UseStaticDataParams,
-} from "@/list/useStaticData";
+import { useStaticData, type UseStaticDataParams } from "@/list/useStaticData";
 
 interface TestItem {
   key: string;
@@ -77,7 +74,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ searchTerm: "Apple" });
+        result.current.search("Apple");
       });
 
       expect(result.current.data).toEqual(["1"]);
@@ -88,7 +85,7 @@ describe("useStaticData", () => {
         useStaticData<string, TestItem>({ data: mockData }),
       );
       act(() => {
-        result.current.retrieve({ searchTerm: "Ap" });
+        result.current.search("Ap");
       });
 
       expect(result.current.data).toContain("5");
@@ -101,7 +98,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ searchTerm: "" });
+        result.current.search("");
       });
 
       expect(result.current.data).toEqual(["1", "2", "3", "4", "5"]);
@@ -113,7 +110,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ searchTerm: "xyz123" });
+        result.current.search("xyz123");
       });
 
       expect(result.current.data).toEqual([]);
@@ -124,7 +121,7 @@ describe("useStaticData", () => {
         useStaticData<string, TestItem>({ data: mockData }),
       );
       act(() => {
-        result.current.retrieve({ searchTerm: "vegetable" });
+        result.current.search("vegetable");
       });
       expect(result.current.data).toContain("3");
       expect(result.current.data).toContain("4");
@@ -142,8 +139,8 @@ describe("useStaticData", () => {
       expect(result.current.data).toEqual(["1", "2", "5"]);
     });
 
-    it("should apply filter with search parameters", () => {
-      const filter = (item: TestItem, _params: RetrieveParams) => item.value > 8;
+    it("should apply a filter on a value", () => {
+      const filter = (item: TestItem) => item.value > 8;
 
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, filter }),
@@ -160,7 +157,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ searchTerm: "A" });
+        result.current.search("A");
       });
 
       expect(result.current.data).toContain("1");
@@ -169,62 +166,9 @@ describe("useStaticData", () => {
     });
   });
 
-  describe("retrieve function", () => {
-    it("should update search parameters", () => {
-      const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
-      );
-
-      const initialData = result.current.data;
-
-      act(() => {
-        result.current.retrieve({ searchTerm: "Apple" });
-      });
-
-      expect(result.current.data).not.toEqual(initialData);
-      expect(result.current.data).toEqual(["1"]);
-    });
-
-    it("should handle partial parameter updates", () => {
-      const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
-      );
-
-      act(() => {
-        result.current.retrieve({ searchTerm: "Apple", offset: 0 });
-      });
-
-      expect(result.current.data).toEqual(["1"]);
-
-      act(() => {
-        result.current.retrieve({ searchTerm: "Banana" });
-      });
-
-      expect(result.current.data).toEqual(["2"]);
-    });
-
-    it("should clear search when term is undefined", () => {
-      const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
-      );
-
-      act(() => {
-        result.current.retrieve({ searchTerm: "Apple" });
-      });
-
-      expect(result.current.data).toEqual(["1"]);
-
-      act(() => {
-        result.current.retrieve({ searchTerm: undefined });
-      });
-
-      expect(result.current.data).toEqual(["1", "2", "3", "4", "5"]);
-    });
-  });
-
   describe("sorting functionality", () => {
     it("should sort data using the provided comparator", () => {
-      const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
+      const sortByName = compare.by((v: TestItem) => v.name);
 
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
@@ -244,14 +188,14 @@ describe("useStaticData", () => {
     });
 
     it("should maintain sorting when searching", () => {
-      const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
+      const sortByName = compare.by((v: TestItem) => v.name);
 
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
       );
 
       act(() => {
-        result.current.retrieve({ searchTerm: "Ap" });
+        result.current.search("Ap");
       });
 
       expect(result.current.data).toEqual(["1", "5"]);
@@ -298,7 +242,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ searchTerm: "A" });
+        result.current.search("A");
       });
 
       expect(result.current.data.length).toBeGreaterThan(0);
@@ -311,7 +255,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ searchTerm: "Apple" });
+        result.current.search("Apple");
       });
 
       expect(result.current.getItem("1")).toBeDefined();

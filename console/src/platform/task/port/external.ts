@@ -9,3 +9,5 @@
 
 export * from "@/platform/task/port/claims";
 export * from "@/platform/task/port/Grid";
+export * from "@/platform/task/port/Hovered";
+export * from "@/platform/task/port/Rows";

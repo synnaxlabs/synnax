@@ -11,14 +11,13 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type compare } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { compare } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-import { type Command } from "@/platform/command";
+import type { Command } from "@/platform/command";
 import { Palette } from "@/platform/palette";
 
-const sort: compare.Comparator<Command.Command> = (a, b) =>
-  a.commandName.localeCompare(b.commandName);
+const sort = compare.by((c: Command.Command) => c.commandName);
 
 const ListItem = (props: Base.ItemProps<string>): ReactElement | null => {
   const Cmd = Base.useItem<string, Command.Command>(props.itemKey);

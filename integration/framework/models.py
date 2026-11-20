@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
+from pathlib import Path
 from typing import Protocol
 
 import synnax as sy
@@ -84,6 +85,10 @@ class RunOptions:
     headed: bool = False
     slow_mo: int = 0
     driver_rack: str = "Node 1 Embedded Driver"
+    core_binary: Path | None = None
+    """Starts a Core of a test's own, such as one the test restarts."""
+    driver_binary: Path | None = None
+    """Starts a standalone Driver, which outlives a restart of its Core."""
 
 
 DEFAULT_OPTIONS = RunOptions()
@@ -107,6 +112,9 @@ class Test:
     ended_at: float | None = None
     # Absolute path to this test's bundle subdirectory under the run dir.
     bundle_dir: str | None = None
+    # Address of the Core the test ran on.
+    core: str | None = None
+    metrics: dict[str, float] = field(default_factory=dict)
 
     def __str__(self) -> str:
         """Return display name for test result."""

@@ -9,7 +9,7 @@
 
 import "@/feature/panel/Mosaic.css";
 
-import { NotFoundError, ontology, panel } from "@synnaxlabs/client";
+import { NotFoundError, panel, resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,15 +21,15 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Errors, Flux, Panel, Synnax } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
-import { memo, type PropsWithChildren, type ReactElement, useState } from "react";
+import { strings } from "@synnaxlabs/x";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { useCreate } from "@/feature/panel/useCreate";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
-import { type Import } from "@/platform/import";
+import type { Import } from "@/platform/import";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
@@ -191,7 +191,7 @@ const LiveContent = (): ReactElement => {
   const { Content } = useTab();
   // Background tabs stay mounted, so every tab answers a keystroke unless the ones the
   // user is not working in are switched off here.
-  const triggersActive = Session.Panel.useGetTabTriggersActive();
+  const triggersActive = Session.Panel.useGetTabIsFocused();
   return (
     // The box wraps the boundary rather than sitting inside it: the tab's size
     // belongs to the tab, not to whichever of content, loader, or tombstone is
@@ -200,7 +200,7 @@ const LiveContent = (): ReactElement => {
       y
       full
       empty
-      className={CSS.cls(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
+      className={CSS.cls(CSS.B(strings.toKebab(tabType)), CSS.BE("panel", "tab"))}
     >
       <Triggers.Scope active={triggersActive}>
         <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>
@@ -222,7 +222,7 @@ const tabName = Component.renderProp(TabName);
 const contextMenu = Component.renderProp(TabMenuItems);
 
 const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
-  const parsed = ontology.idZ.safeParse(raw);
+  const parsed = resource.idZ.safeParse(raw);
   if (!parsed.success) return undefined;
   return { variant: "resource", resource: parsed.data };
 };
@@ -291,7 +291,7 @@ interface EmptyContentProps extends Pick<MosaicProps, "onFileDrop"> {}
 // same framed L0 surface instead of collapsing to bare window background.
 const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
   const createPanel = useCreate();
-  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(panel.TYPE_RESOURCE_ID);
   const [over, setOver] = useState(false);
   const acceptsFiles = onFileDrop != null;
   const canDrop: Haul.CanDrop = ({ items }) =>
@@ -403,7 +403,7 @@ const KeepAlivePanel = ({ panelKey, ...rest }: KeepAlivePanelProps): ReactElemen
   </Portal.In>
 );
 
-const PortaledInPanels = memo((props: MosaicProps) => {
+const PortaledInPanels = (props: MosaicProps) => {
   const mounted = Session.Panel.useSelectMounted();
   return (
     <>
@@ -412,17 +412,17 @@ const PortaledInPanels = memo((props: MosaicProps) => {
       ))}
     </>
   );
-});
+};
 PortaledInPanels.displayName = "PortaledInPanels";
 
-const PortaledOutPanel = memo(({ onFileDrop }: EmptyContentProps) => {
+const PortaledOutPanel = ({ onFileDrop }: EmptyContentProps) => {
   const selected = Session.Panel.useSelectSelected();
   return selected == null ? (
     <EmptyContent onFileDrop={onFileDrop} />
   ) : (
     <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
   );
-});
+};
 PortaledOutPanel.displayName = "PortaledOutPanel";
 
 export interface MosaicProps {

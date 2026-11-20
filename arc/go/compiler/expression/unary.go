@@ -21,65 +21,93 @@ func compileUnary(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
-		innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
-		if err != nil {
-			return types.Type{}, err
-		}
-		switch innerType.Kind {
-		case types.KindI8,
-			types.KindI16,
-			types.KindI32,
-			types.KindU8,
-			types.KindU16,
-			types.KindU32:
-			ctx.Writer.WriteI32Const(-1)
-			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
-		case types.KindI64, types.KindU64:
-			ctx.Writer.WriteI64Const(-1)
-			ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)
-		case types.KindF32:
-			ctx.Writer.WriteOpcode(wasm.OpF32Neg)
-		case types.KindF64:
-			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
-		case types.KindSeries:
-			elemType := innerType.Unwrap()
-			if elemType.IsSigned() {
-				ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
-			} else {
-				return types.Type{}, errors.Newf(
-					"cannot negate series of unsigned type %s",
-					elemType,
-				)
+		if inner := ctx.AST.UnaryExpression(); inner.MINUS() == nil {
+			if lit := parser.GetLiteralNode(inner); lit != nil {
+				if num := lit.NumericLiteral(); num != nil {
+					// An unsigned target keeps the wrapping negation below.
+					numCtx := ctx.Child(num)
+					if !numericLiteralType(numCtx).IsUnsignedInteger() {
+						return compileNumericLiteral(numCtx, true)
+					}
+				}
 			}
-		default:
-			return types.Type{}, errors.Newf("cannot negate type %s", innerType)
 		}
-		return innerType, nil
+		return compileNegate(ctx)
 	}
-
 	if ctx.AST.NOT() != nil {
-		innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
-		if err != nil {
-			return types.Type{}, err
-		}
-
-		if innerType.Kind == types.KindSeries {
-			if !innerType.IsBool() {
-				return types.Type{}, errors.Newf(
-					"logical NOT on series requires a bool element type, got %s",
-					innerType.Unwrap(),
-				)
-			}
-			ctx.Resolver.EmitSeriesNot(ctx.Writer, ctx.WriterID)
-			return innerType, nil
-		}
-
-		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.Bool(), nil
+		return compileNot(ctx)
 	}
-
 	if power := ctx.AST.PowerExpression(); power != nil {
 		return compilePower(ctx.Child(power))
 	}
 	return types.Type{}, errors.New("unknown unary expression")
+}
+
+func compileNegate(
+	ctx context.Context[parser.IUnaryExpressionContext],
+) (types.Type, error) {
+	innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
+	if err != nil {
+		return types.Type{}, err
+	}
+	switch innerType.Kind {
+	case types.KindI8,
+		types.KindI16,
+		types.KindI32,
+		types.KindU8,
+		types.KindU16,
+		types.KindU32:
+		ctx.Writer.WriteI32Const(-1)
+		ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
+		ctx.Writer.WriteNarrow(innerType)
+	case types.KindI64, types.KindU64:
+		ctx.Writer.WriteI64Const(-1)
+		ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)
+	case types.KindF32:
+		ctx.Writer.WriteOpcode(wasm.OpF32Neg)
+	case types.KindF64:
+		ctx.Writer.WriteOpcode(wasm.OpF64Neg)
+	case types.KindSeries:
+		elemType := innerType.Unwrap()
+		if elemType.IsSigned() {
+			ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
+		} else {
+			return types.Type{}, errors.Newf(
+				"cannot negate series of unsigned type %s",
+				elemType,
+			)
+		}
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindVariable,
+		types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
+		fallthrough
+	default:
+		return types.Type{}, errors.Newf("cannot negate type %s", innerType)
+	}
+	return innerType, nil
+}
+
+func compileNot(
+	ctx context.Context[parser.IUnaryExpressionContext],
+) (types.Type, error) {
+	innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
+	if err != nil {
+		return types.Type{}, err
+	}
+
+	if innerType.Kind == types.KindSeries {
+		if !innerType.IsBool() {
+			return types.Type{}, errors.Newf(
+				"logical NOT on series requires a bool element type, got %s",
+				innerType.Unwrap(),
+			)
+		}
+		ctx.Resolver.EmitSeriesNot(ctx.Writer, ctx.WriterID)
+		return innerType, nil
+	}
+
+	ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
+	return types.Bool(), nil
 }

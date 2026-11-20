@@ -5,19 +5,23 @@
       "sequence_name": "project",
       "tests": [
         { "case": "console/project/project" },
-        { "case": "console/project/ontology" },
+        { "case": "console/project/groups" },
         { "case": "console/pages/file_drop" },
-        { "case": "console/channel/ontology" },
+        { "case": "console/channel/groups" },
         { "case": "console/task/task_lifecycle" },
-        { "case": "console/channel/tree_virtualization" }
+        { "case": "console/channel/tree_virtualization" },
+        { "case": "console/channel/toolbar_search" }
       ]
     },
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/label/label_lifecycle" },
+        { "case": "console/enumeration/enumeration_lifecycle" },
+        { "case": "console/secret/secret_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
         { "case": "console/device/devices_toolbar" },
         { "case": "console/device/connect_hardware" },
@@ -30,9 +34,11 @@
       "sequence_name": "pages",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/arc/graph_toolbar" },
         { "case": "console/arc/editor_scrollbar" },
+        { "case": "console/log/log_history" },
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/import_goldens" },
         { "case": "console/pages/open_close" },
@@ -41,8 +47,10 @@
         { "case": "console/plot/line_plot" },
         { "case": "console/range/range_explorer" },
         { "case": "console/range/range_details" },
+        { "case": "console/range/range_toolbar" },
         { "case": "console/schematic/schematic_lifecycle" },
         { "case": "console/schematic/set_output" },
+        { "case": "console/schematic/stale_indicator" },
         { "case": "console/schematic/hold_to_actuate" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/multi_edit" },
@@ -60,8 +68,8 @@
       "sequence_name": "channel",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
-        { "case": "console/channel/alias_synchronization" },
         { "case": "console/channel/channel_lifecycle" },
         { "case": "console/channel/channel_context_menu" },
         { "case": "console/channel/calculated_channels" },
@@ -82,6 +90,7 @@
       "sequence_name": "user",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/user/register" },
         { "case": "console/user/assign_role" },
@@ -93,16 +102,12 @@
       ]
     },
     {
-      "sequence_name": "user_drag",
-      "tests": [{ "case": "console/user/drag_to_role" }]
-    },
-    {
       "sequence_name": "cluster",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/cluster/connection_lifecycle" },
-        { "case": "console/cluster/cluster_switch" },
         { "case": "console/cluster/login_forms" }
       ]
     },
@@ -110,6 +115,7 @@
       "sequence_name": "other",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/documentation" },
         { "case": "console/layout/keyboard_shortcuts" },

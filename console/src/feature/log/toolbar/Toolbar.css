@@ -19,20 +19,24 @@
     .console-log__toolbar-properties {
         padding: 2rem;
         gap: 5rem;
+
+        .console-log__timestamp-precision {
+            width: 90px;
+        }
     }
 
     .console-log__toolbar-channels {
         padding: 2rem 1rem;
         overflow: auto;
+        container-type: inline-size;
 
         .console-log__channel-row {
             padding: 0.25rem 3rem 0.25rem 1rem;
             min-height: unset;
 
+            /* A share of the toolbar, so every selector has the same width. */
             .console-log__channel-select {
-                flex: 4;
-                min-width: 150px;
-                max-width: 500px;
+                flex: 0 0 clamp(150px, 40cqi, 400px);
                 overflow: hidden;
             }
 

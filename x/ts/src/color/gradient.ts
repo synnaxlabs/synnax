@@ -7,64 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type Color, construct, type Crude, TRANSPARENT } from "@/color/color";
 
-import {
-  aValue,
-  bValue,
-  type Color,
-  construct,
-  crudeZ,
-  gValue,
-  rValue,
-  ZERO,
-} from "@/color/color";
+/** A color at a position along a gradient. */
+export interface Stop {
+  position: number;
+  color: Crude;
+}
 
-export const stopZ = z.object({
-  key: z.string(),
-  color: crudeZ,
-  position: z.number(),
-  switched: z.boolean().optional(),
-});
+export const fromGradient = (gradient: Stop[], position: number): Color => {
+  const sorted = gradient.toSorted((a, b) => a.position - b.position);
+  const first = sorted[0];
+  const last = sorted.at(-1);
+  if (first == null || last == null) return TRANSPARENT;
+  if (position <= first.position) return construct(first.color);
+  if (position >= last.position) return construct(last.color);
 
-export type Stop = z.infer<typeof stopZ>;
-
-export const gradientZ = z.array(stopZ);
-
-export type Gradient = Stop[];
-
-export const fromGradient = (gradient: Gradient, position: number): Color => {
-  if (gradient.length === 0) return ZERO;
-
-  gradient = gradient.slice().sort((a, b) => a.position - b.position);
-  if (position <= gradient[0].position) return construct(gradient[0].color);
-  if (position >= gradient[gradient.length - 1].position)
-    return construct(gradient[gradient.length - 1].color);
-
-  for (let i = 0; i < gradient.length - 1; i++) {
-    const start = gradient[i];
-    const end = gradient[i + 1];
-
-    if (position < start.position || position > end.position) continue;
+  let start = first;
+  for (const end of sorted.slice(1)) {
+    if (position < start.position || position > end.position) {
+      start = end;
+      continue;
+    }
     if (position === start.position) return construct(start.color);
     if (position === end.position) return construct(end.color);
     const t = (position - start.position) / (end.position - start.position);
-    const startColor = construct(start.color);
-    const endColor = construct(end.color);
-
-    const r = Math.round(
-      rValue(startColor) + t * (rValue(endColor) - rValue(startColor)),
-    );
-    const g = Math.round(
-      gValue(startColor) + t * (gValue(endColor) - gValue(startColor)),
-    );
-    const b = Math.round(
-      bValue(startColor) + t * (bValue(endColor) - bValue(startColor)),
-    );
-    const a = aValue(startColor) + t * (aValue(endColor) - aValue(startColor));
-
-    return construct([r, g, b, a]);
+    const [r0, g0, b0, a0] = construct(start.color);
+    const [r1, g1, b1, a1] = construct(end.color);
+    const mix = (from: number, to: number): number =>
+      Math.round(from + t * (to - from));
+    return [mix(r0, r1), mix(g0, g1), mix(b0, b1), mix(a0, a1)];
   }
 
-  return construct(gradient[gradient.length - 1].color);
+  return construct(last.color);
 };

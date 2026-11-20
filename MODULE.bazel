@@ -10,35 +10,46 @@
 module(name = "synnax")
 
 bazel_dep(name = "abseil-cpp", version = "20260817.0")
-bazel_dep(name = "apple_support", version = "2.10.1")
+
+# Nothing loads apple_support. It registers the macOS C++ toolchain, which accepts the
+# Xcode 27 SDK that the rules_cc default rejects. Other modules bring it in today.
+bazel_dep(name = "apple_support", version = "2.12.0")
+
+# The one TLS library. gRPC, curl, and cpp-httplib all use it by default. This is a
+# minimum: versions after it declare ASN1_STRING_get_length, which curl 8.23.0 also
+# defines, so a dependency that asks for a newer one fails to compile curl.
+bazel_dep(name = "boringssl", version = "0.20260929.0")
 bazel_dep(name = "boost.uuid", version = "1.90.0.bcr.1")
 bazel_dep(name = "cpp-httplib", version = "0.63.0")
 bazel_dep(name = "curl", version = "8.23.0")
-bazel_dep(name = "google_benchmark", version = "1.9.5")
+bazel_dep(name = "google_benchmark", version = "1.10.0")
 bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
-bazel_dep(name = "gperftools", version = "2.18.1")
-bazel_dep(name = "grpc", version = "1.84.0")
-bazel_dep(name = "mbedtls", version = "3.6.7")
+bazel_dep(name = "gperftools", version = "2.19.1")
+bazel_dep(name = "grpc", version = "1.85.1")
+bazel_dep(name = "mbedtls", version = "3.6.8")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
-
-# Declared here only so the root can set //:use-no-asm-fallback. The version still comes
-# from the boringssl shim.
-bazel_dep(name = "openssl", version = "4.0.1.bcr.0")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "36.2")
-bazel_dep(name = "rules_cc", version = "0.2.26")
+bazel_dep(name = "rules_cc", version = "0.2.28")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
-bazel_dep(name = "rules_python", version = "2.0.2")
+bazel_dep(name = "rules_python", version = "2.5.1")
 
 # Runs clang-tidy as an aspect under --config=clang-tidy. The registry does not have it.
 bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
-bazel_dep(name = "rules_shell", version = "0.6.1", dev_dependency = True)
+bazel_dep(name = "rules_shell", version = "0.10.0", dev_dependency = True)
+
+# Python targets get no generated __init__.py files. Each package must ship its own.
+rules_python_config = use_extension(
+    "@rules_python//python/extensions:config.bzl",
+    "config",
+)
+rules_python_config.explicit_init_py(default = True)
 
 archive_override(
     module_name = "bazel_clang_tidy",
-    integrity = "sha256-ltpuk1zMkQRc+SjbxX8iUIonKcUff7P1YXgBew3rmzw=",
-    strip_prefix = "bazel_clang_tidy-c4d35e0d0b838309358e57a2efed831780f85cd0",
-    urls = ["https://github.com/erenon/bazel_clang_tidy/archive/c4d35e0d0b838309358e57a2efed831780f85cd0.tar.gz"],
+    integrity = "sha256-Y1MQt22yPSQvyrVfgE9shIxZPJGs9LEnYBXTq65gfAQ=",
+    strip_prefix = "bazel_clang_tidy-8dc8c879c9e25ddf3ede2fecc695d3162023fe14",
+    urls = ["https://github.com/erenon/bazel_clang_tidy/archive/8dc8c879c9e25ddf3ede2fecc695d3162023fe14.tar.gz"],
 )
 
 # The clang-tidy that --config=clang-tidy runs, from its PyPI wheels. Bazel fetches only
@@ -68,56 +79,80 @@ filegroup(
 http_archive(
     name = "clang_tidy_linux_aarch64",
     build_file_content = CLANG_TIDY_BUILD,
-    sha256 = "5639a8e65df6701ac144ee6b9e73aef4bdd3706cdc5849de1a5147c5aeaddf24",
+    sha256 = "87596cd77dedfdea23ced1d13e57e869dcaee99745bfe942796196da3c197671",
     type = "zip",
-    urls = ["https://files.pythonhosted.org/packages/3d/6f/1c50dacbc9ae537e0e40be27fa7b0a56e60dcc0a1fffd0d9b280b1ed6749/clang_tidy-23.1.3-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl"],
+    urls = ["https://files.pythonhosted.org/packages/7d/95/ba9463f94319dddd0c3a9d3f65d432ddf71fe9b203dcd7ea63bcff8999e2/clang_tidy-23.1.4-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl"],
 )
 
 http_archive(
     name = "clang_tidy_linux_x86_64",
     build_file_content = CLANG_TIDY_BUILD,
-    sha256 = "6b2558bc396a6e792190700134609e041f657d7f8d15385e8b0aa66f5ffe21b5",
+    sha256 = "6bb31e4f319ecbe14acb75f23c3050d0f1d4b1d92ea1c66091bc76e4eac2c1ac",
     type = "zip",
-    urls = ["https://files.pythonhosted.org/packages/7a/f0/5d684465b0727e3d5364de38cead2775f73ff35f63694176a0694c2ab943/clang_tidy-23.1.3-py2.py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"],
+    urls = ["https://files.pythonhosted.org/packages/80/85/9b483f300124a9245ec6da8975612f1841e26da13b27ad8d17f2006e13bd/clang_tidy-23.1.4-py2.py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"],
 )
 
 http_archive(
     name = "clang_tidy_macos_arm64",
     build_file_content = CLANG_TIDY_BUILD,
-    sha256 = "cbd31dea271cee7ed5b5048847e73b8208c8dde90e321e09c20d9146011f8ff2",
+    sha256 = "08e977575e9f800c1c806f2001a3cdfd01323491aec05e86dd24be9a5c2585f4",
     type = "zip",
-    urls = ["https://files.pythonhosted.org/packages/26/42/65a2c5ee9be88b81d3890df15fd1af7f5bbab72a16ccf4d302454385e067/clang_tidy-23.1.3-py2.py3-none-macosx_11_0_arm64.whl"],
+    urls = ["https://files.pythonhosted.org/packages/0c/59/637ce45a6cfa15ddb926e1feeee8077b9ebeb2956548375f24e16d51a908/clang_tidy-23.1.4-py2.py3-none-macosx_11_0_arm64.whl"],
 )
+
+# The Arc runtime embeds the wasmtime C API. Each release publishes a static library and
+# headers for every platform. Bazel fetches only the host's archive.
+WASMTIME_VERSION = "50.0.3"
+
+WASMTIME_BUILD = """
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "wasmtime",
+    srcs = glob(
+        ["lib/*.a", "lib/wasmtime.lib"],
+        allow_empty = True,
+    ),
+    hdrs = glob(["include/**"]),
+    # System headers, so warnings in wasmtime's inline code never fail a -Werror build.
+    features = ["system_include_paths"],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)
+"""
+
+[
+    http_archive(
+        name = "wasmtime_" + platform.replace("-", "_"),
+        build_file_content = WASMTIME_BUILD,
+        sha256 = sha256,
+        strip_prefix = "wasmtime-v%s-%s-c-api" % (WASMTIME_VERSION, platform),
+        urls = ["https://github.com/bytecodealliance/wasmtime/releases/download/v%s/wasmtime-v%s-%s-c-api.%s" % (
+            WASMTIME_VERSION,
+            WASMTIME_VERSION,
+            platform,
+            "zip" if "windows" in platform else "tar.xz",
+        )],
+    )
+    for platform, sha256 in {
+        "aarch64-linux": "9e4c3efb75ffc85939bbe13bd2d901f278624d7dc25bce08d8ffd9ce73c497e4",
+        "aarch64-macos": "17d1bbcb9679cf22a5c948857e1b72e69da8b5360bf7dcbaffdc1e730f615226",
+        "x86_64-linux": "e46e022c3bf91494510199ed897639681cc02929636b8d690bc67612f52b344c",
+        "x86_64-windows": "b00badf321957e9f0031bbc91980c93a2fda1fc59da17b314f09dd71b5b095df",
+    }.items()
+]
 
 single_version_override(
     module_name = "grpc",
     patch_strip = 1,
     patches = [
-        # grpc's TLS targets #include <openssl/ssl.h> while depending only on libssl.
-        # Our openssl provider (unlike grpc's native boringssl) does not re-export the
-        # public headers from :ssl, so layering_check rejects the include. Disable
-        # layering_check on grpc's library macro, matching how grpc builds upstream.
-        "//patches:grpc-disable-layering-check.patch",
         # grpc puts its checked-in src/core/ext/{upb-gen,upbdefs-gen} dirs on the
         # include path but no target owns those files, so MSVC builds reject every
         # grpc_cc_library that includes a well-known-type upb header as an undeclared
         # inclusion. Declare the checked-in headers as inputs so the check passes.
         "//patches:grpc-declare-upb-gen-headers.patch",
         "//patches:grpc-add-upb-gen-headers-dep.patch",
-        # OpenSSL 4.0 returns const from the X509 accessors and makes ASN1_OCTET_STRING
-        # opaque. curl requires that major, so grpc has to build against it.
-        # Upstream support is not released yet.
-        "//patches:grpc-openssl-4-compat.patch",
     ],
-)
-
-# cpp-httplib hard-depends on boringssl while curl (and our HTTP driver through it)
-# depends on openssl; linking both into one binary collides their shared OpenSSL-ABI
-# symbols. Redirect every boringssl reference to the openssl shim so there is a single
-# TLS provider. The shim owns the openssl version; nothing else needs to depend on it.
-local_path_override(
-    module_name = "boringssl",
-    path = "vendor/boringssl",
 )
 
 # ESI registry blob from GitHub releases

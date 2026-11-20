@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,17 +26,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -45,12 +44,12 @@ import (
 
 var _ = Describe("Calculation", Ordered, func() {
 	var (
-		c             *calculation.Service
-		dist          testutil.Node
-		statusSvc     *status.Service
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
-		channelGraph  *calcgraph.Graph
+		c            *calculation.Service
+		dist         testutil.Node
+		statusSvc    *status.Service
+		channelSvc   *channel.Service
+		channelGraph *calcgraph.Graph
+		writerSvc    *writer.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -61,7 +60,9 @@ var _ = Describe("Calculation", Ordered, func() {
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		GinkgoHelper()
 		if indexChannels != nil {
-			Expect(channelWriter.CreateMany(ctx, indexChannels)).To(Succeed())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, indexChannels)
+			})).To(Succeed())
 		}
 		for i, channel := range *baseChannels {
 			if channel.Virtual {
@@ -74,15 +75,22 @@ var _ = Describe("Calculation", Ordered, func() {
 			channel.LocalIndex = (*indexChannels)[toGet].LocalKey
 			(*baseChannels)[i] = channel
 		}
-		Expect(channelWriter.CreateMany(ctx, baseChannels)).To(Succeed())
-		Expect(channelWriter.CreateMany(ctx, calculations)).To(Succeed())
+		Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, baseChannels)
+		})).To(Succeed())
+		Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, calculations)
+		})).To(Succeed())
 		rm := c.OpenRequestManager()
 		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
 		if indexChannels != nil {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
+		// A failed assertion skips the rest of a cleanup, so the streamer is stopped
+		// in its own cleanup. A leaked streamer blocks the relay from closing.
 		sCtx, cancel := signal.Isolated()
+		DeferCleanup(cancel)
 		w := MustSucceed(dist.Framer.OpenWriter(
 			ctx,
 			framer.WriterConfig{
@@ -110,39 +118,26 @@ var _ = Describe("Calculation", Ordered, func() {
 		return w, sOutlet, func() {
 			Expect(rm.Close(ctx)).To(Succeed())
 			Expect(w.Close()).To(Succeed())
-			cancel()
 		}
 	}
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		dist = testutil.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: dist.DB,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Group:    groupSvc,
-			Ontology: otg,
-			Label:    labelSvc,
+			DB: dist.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      dist.Channel,
-			DB:           dist.DB,
-			HostProvider: dist.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: dist.Channel,
+			DB:      dist.DB,
+			HostKey: dist.Identity.HostKey,
+			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
-		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
+			DB:      dist.DB,
 			Framer:  dist.Framer,
 			Channel: channelSvc,
 		}))
@@ -201,7 +196,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				bases = []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
@@ -559,7 +554,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				calc1Name := UniqueChannelName()
 				bases = []channel.Channel{{
 					Name:     UniqueChannelName(),
@@ -644,6 +639,80 @@ var _ = Describe("Calculation", Ordered, func() {
 			)
 		})
 
+		Specify("Calculation of Calculations in Separate Groups", func(
+			ctx SpecContext,
+		) {
+			bases := make([]channel.Channel, 5)
+			for i := range bases {
+				bases[i] = channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+			}
+			sumA, sumB := UniqueChannelName(), UniqueChannelName()
+			calcs := []channel.Channel{
+				{
+					Name:        sumA,
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression: fmt.Sprintf(
+						"return %s + %s",
+						bases[0].Name,
+						bases[1].Name,
+					),
+				},
+				{
+					Name:        sumB,
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression: fmt.Sprintf(
+						"return %s + %s + %s",
+						bases[2].Name,
+						bases[3].Name,
+						bases[4].Name,
+					),
+				},
+				{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s + %s", sumA, sumB),
+				},
+			}
+			w, sOutlet, cancel := open(
+				ctx,
+				nil,
+				&bases,
+				&calcs,
+				func(calcs []channel.Channel) channel.Keys {
+					return []channel.Key{calcs[2].Key()}
+				},
+			)
+			defer cancel()
+			est := calcs[2]
+			for _, v := range []int64{1, 10} {
+				series := make([]telem.Series, len(bases))
+				for i := range bases {
+					series[i] = telem.NewSeriesV(v)
+				}
+				Expect(w.Write(frame.NewMulti(
+					channel.KeysFromChannels(bases),
+					series,
+				))).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(est.Key()).Series).To(HaveLen(1))
+				Expect(res.Frame.Get(est.Key()).Series[0]).
+					To(telem.MatchSeriesDataV(5 * v))
+				Consistently(sOutlet.Outlet(), 100*time.Millisecond).
+					ShouldNot(Receive())
+			}
+		})
+
 		Describe("Reset Channels", func() {
 			var base, sig channel.Channel
 			// Requests only calc, writes [10, 20, 30] with the signal off, then [5, 7]
@@ -657,6 +726,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				sCtx, cancel := signal.Isolated()
+				defer cancel()
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: 1 * telem.SecondTS,
 					Keys:  channel.Keys{base.Key(), sig.Key()},
@@ -664,7 +734,6 @@ var _ = Describe("Calculation", Ordered, func() {
 				defer func() {
 					Expect(rm.Close(ctx)).To(Succeed())
 					Expect(w.Close()).To(Succeed())
-					cancel()
 				}()
 				strm := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        channel.Keys{calc.Key()},
@@ -693,7 +762,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					To(telem.MatchSeriesDataV[int64](7))
 			}
 
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				base = channel.Channel{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
@@ -707,20 +776,26 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.BooleanT,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
-				Expect(channelWriter.Create(ctx, &sig)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &sig)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s", base.Name),
+					Expression:  "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: sig.Key(),
 					}},
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				expectReset(
 					ctx,
 					calc,
@@ -735,8 +810,12 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Uint8T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
-				Expect(channelWriter.Create(ctx, &sig)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &sig)
+				})).To(Succeed())
 				resetCalc := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.BooleanT,
@@ -744,19 +823,23 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s != 0", sig.Name),
 				}
-				Expect(channelWriter.Create(ctx, &resetCalc)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &resetCalc)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s", base.Name),
+					Expression:  "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: resetCalc.Key(),
 					}},
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				expectReset(
 					ctx,
 					calc,
@@ -776,7 +859,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
@@ -784,7 +869,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", base.Name),
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.Now(),
 					Keys:  channel.Keys{base.Key()},
@@ -802,6 +889,60 @@ var _ = Describe("Calculation", Ordered, func() {
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				defer func() { Expect(rm.Close(ctx)).To(Succeed()) }()
+				Expect(
+					w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](1, 2))),
+				).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(calc.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[int64](2, 4))
+			},
+		)
+
+		It(
+			"Should keep a calculation that another request holds when a request "+
+				"with a repeated key closes",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  channel.Keys{base.Key()},
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				s := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{calc.Key()},
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				_, outlet := confluence.Attach(s, 1, 1)
+				s.Flow(sCtx)
+				Eventually(outlet.Outlet()).Should(Receive())
+				repeated := c.OpenRequestManager()
+				Expect(repeated.Set(ctx, channel.Keys{calc.Key(), calc.Key()})).
+					To(Succeed())
+				held := c.OpenRequestManager()
+				Expect(held.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				defer func() { Expect(held.Close(ctx)).To(Succeed()) }()
+				Expect(repeated.Close(ctx)).To(Succeed())
 				Expect(
 					w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](1, 2))),
 				).To(BeTrue())
@@ -832,10 +973,12 @@ var _ = Describe("Calculation", Ordered, func() {
 				}
 			})
 			defer disconnect()
-			Expect(channelWriter.Create(ctx, &channel.Channel{
-				Name:     name,
-				DataType: telem.Int64T,
-				Virtual:  true,
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &channel.Channel{
+					Name:     name,
+					DataType: telem.Int64T,
+					Virtual:  true,
+				})
 			})).To(Succeed())
 			Eventually(seen).Should(BeClosed())
 		}
@@ -848,7 +991,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
@@ -856,21 +1001,24 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", base.Name),
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-				Expect(channelWriter.Delete(
-					ctx, base.Key(), false,
-				),
-				).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(
+						ctx, base.Key(), false,
+					)
+				})).To(Succeed())
 				rm := c.OpenRequestManager()
 				Expect(
 					rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
 				).To(Succeed())
 				var st calculation.Status
-				statusKey := calc.OntologyID().String()
+				owner := calc.ResourceID()
 				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchKeys[struct{}](statusKey)).
+					Where(status.MatchOwners[struct{}](owner)).
 					Entry(&st).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, dist.DB)).To(Succeed())
 				Expect(st.Variant).To(Equal(status.VariantError))
 				Expect(st.Name).To(Equal(calc.Name))
 				Expect(st.Message).To(Equal("Failed to request calculation"))
@@ -886,7 +1034,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Float64T,
@@ -894,7 +1044,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s + 1", base.Name),
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				// Delete the dependency, then rename the calc to force a write of its
@@ -903,18 +1055,21 @@ var _ = Describe("Calculation", Ordered, func() {
 				// resolves. Rename (unlike Create) persists the record without
 				// re-analyzing the expression, so the failure surfaces asynchronously
 				// as an error status rather than synchronously.
-				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
-				Expect(channelWriter.Rename(
-					ctx, calc.Key(), UniqueChannelName(), false,
-				),
-				).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(ctx, base.Key(), false)
+				})).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Rename(
+						ctx, calc.Key(), UniqueChannelName(), false,
+					)
+				})).To(Succeed())
 				var st calculation.Status
-				statusKey := calc.OntologyID().String()
+				owner := calc.ResourceID()
 				Eventually(func(g Gomega) {
 					g.Expect(statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchKeys[struct{}](statusKey)).
+						Where(status.MatchOwners[struct{}](owner)).
 						Entry(&st).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, dist.DB)).To(Succeed())
 					g.Expect(st.Variant).To(Equal(status.VariantError))
 					g.Expect(st.Message).To(Equal("Failed to compile calculation"))
 					g.Expect(st.Description).To(ContainSubstring(base.Name))
@@ -930,27 +1085,33 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
 				dep := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return 100 / %s", base.Name),
+					Expression:  "return 100 / " + base.Name,
 				}
-				Expect(channelWriter.Create(ctx, &dep)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &dep)
+				})).To(Succeed())
 				stored := func() (calculation.Status, error) {
 					var st calculation.Status
 					err := statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchKeys[struct{}](dep.OntologyID().String())).
+						Where(status.MatchOwners[struct{}](dep.ResourceID())).
 						Entry(&st).
-						Exec(ctx, nil)
+						Exec(ctx, dist.DB)
 					return st, err
 				}
 				name := base.Name
-				Expect(channelWriter.Rename(
-					ctx, base.Key(), UniqueChannelName(), false,
-				)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Rename(
+						ctx, base.Key(), UniqueChannelName(), false,
+					)
+				})).To(Succeed())
 				Eventually(stored).
 					Should(HaveField("Message", "Failed to compile calculation"))
 				depRM := c.OpenRequestManager()
@@ -960,7 +1121,9 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(depRM.Set(ctx, channel.Keys{dep.Key()})).To(Succeed())
 				Expect(stored()).
 					To(HaveField("Message", "Failed to request calculation"))
-				Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Rename(ctx, base.Key(), name, false)
+				})).
 					To(Succeed())
 				Eventually(func() error {
 					_, err := stored()
@@ -973,7 +1136,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", dep.Name),
 				}
-				Expect(channelWriter.Create(ctx, &reader)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &reader)
+				})).To(Succeed())
 				readerRM := c.OpenRequestManager()
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(readerRM.Close(ctx)).To(Succeed())
@@ -1022,7 +1187,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return 100 / %s", bases[0].Name),
+					Expression:  "return 100 / " + bases[0].Name,
 				}}
 				var cancel context.CancelFunc
 				w, out, cancel = open(
@@ -1037,7 +1202,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				mu.Lock()
 				writes = nil
 				mu.Unlock()
-				statusKey := calc.OntologyID().String()
+				owner := calc.ResourceID()
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],
@@ -1045,8 +1210,8 @@ var _ = Describe("Calculation", Ordered, func() {
 					mu.Lock()
 					defer mu.Unlock()
 					for ch := range r {
-						if ch.Key == statusKey &&
-							ch.Variant == change.VariantSet {
+						if ch.Kind != gorp.ChangeDelete &&
+							ch.Value.Owner != nil && *ch.Value.Owner == owner {
 							writes = append(writes, calculation.Status{
 								Variant:     ch.Value.Variant,
 								Message:     ch.Value.Message,
@@ -1139,7 +1304,9 @@ var _ = Describe("Calculation", Ordered, func() {
 						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * 2", base.Name),
 					}
-					Expect(channelWriter.Create(ctx, &sibling)).To(Succeed())
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &sibling)
+					})).To(Succeed())
 					rm := c.OpenRequestManager()
 					Expect(rm.Set(ctx, channel.Keys{sibling.Key()})).To(Succeed())
 					DeferCleanup(func(ctx SpecContext) {
@@ -1157,9 +1324,11 @@ var _ = Describe("Calculation", Ordered, func() {
 					openCalc(ctx)
 					write(0)
 					Eventually(written).Should(ConsistOf(failure()))
-					Expect(channelWriter.Rename(
-						ctx, calc.Key(), UniqueChannelName(), false,
-					)).To(Succeed())
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Rename(
+							ctx, calc.Key(), UniqueChannelName(), false,
+						)
+					})).To(Succeed())
 					flushChanges(ctx)
 					writeGood()
 					Eventually(written).
@@ -1196,7 +1365,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", baseName),
 				}
-				Expect(channelWriter.Create(ctx, &sibling)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &sibling)
+				})).To(Succeed())
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{sibling.Key()})).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
@@ -1219,11 +1390,23 @@ var _ = Describe("Calculation", Ordered, func() {
 						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * 2", calc.Name),
 					}
-					Expect(channelWriter.Create(ctx, &dependent)).To(Succeed())
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &dependent)
+					})).To(Succeed())
 					calc.Expression = fmt.Sprintf(
 						"return %s + 100 / %s", dependent.Name, base.Name,
 					)
-					Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						_, err := channelSvc.NewWriter(tx).Apply(
+							ctx,
+							calc.Key(),
+							channel.NewSetAction(channel.SetPayload{
+								Path:  []string{"expression"},
+								Value: calc.Expression,
+							}),
+						)
+						return err
+					})).To(Succeed())
 					Eventually(written).Should(ContainElement(SatisfyAll(
 						compileFailure(),
 						HaveField("Description", ContainSubstring("circular")),
@@ -1238,7 +1421,10 @@ var _ = Describe("Calculation", Ordered, func() {
 				func(ctx SpecContext) {
 					openCalc(ctx)
 					baseName := UniqueChannelName()
-					Expect(channelWriter.Rename(ctx, base.Key(), baseName, false)).
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).
+							Rename(ctx, base.Key(), baseName, false)
+					})).
 						To(Succeed())
 					Eventually(written).Should(ContainElement(compileFailure()))
 					failAndRebuild(ctx, baseName)
@@ -1253,18 +1439,23 @@ var _ = Describe("Calculation", Ordered, func() {
 					write(0)
 					Eventually(written).Should(ConsistOf(failure()))
 					name := base.Name
-					Expect(channelWriter.Rename(
-						ctx, base.Key(), UniqueChannelName(), false,
-					)).To(Succeed())
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Rename(
+							ctx, base.Key(), UniqueChannelName(), false,
+						)
+					})).To(Succeed())
 					Eventually(written).Should(ContainElement(compileFailure()))
-					Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).
+							Rename(ctx, base.Key(), name, false)
+					})).
 						To(Succeed())
 					stored := func() (calculation.Status, error) {
 						var st calculation.Status
 						err := statusSvc.NewRetrieve[struct{}]().
-							Where(status.MatchKeys[struct{}](calc.OntologyID().String())).
+							Where(status.MatchOwners[struct{}](calc.ResourceID())).
 							Entry(&st).
-							Exec(ctx, nil)
+							Exec(ctx, dist.DB)
 						return st, err
 					}
 					Eventually(func() error {
@@ -1286,7 +1477,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
@@ -1294,52 +1487,310 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", base.Name),
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				Expect(rm.Close(ctx)).To(Succeed())
-				Expect(channelWriter.Rename(
-					ctx, calc.Key(), UniqueChannelName(), false,
-				)).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Rename(
+						ctx, calc.Key(), UniqueChannelName(), false,
+					)
+				})).To(Succeed())
 				flushChanges(ctx)
 				var st calculation.Status
 				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchKeys[struct{}](calc.OntologyID().String())).
+					Where(status.MatchOwners[struct{}](calc.ResourceID())).
 					Entry(&st).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, dist.DB)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
-		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
-			base := channel.Channel{
+		Specify(
+			"Should make the calculated channel own its status",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(ctx, base.Key(), false)
+				})).To(Succeed())
+				rm := c.OpenRequestManager()
+				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				var st calculation.Status
+				owner := calc.ResourceID()
+				Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](owner)).
+					Entry(&st).
+					Exec(ctx, dist.DB)).To(Succeed())
+				Expect(st.Owner).To(HaveValue(Equal(owner)))
+				Expect(rm.Close(ctx)).To(Succeed())
+			},
+		)
+	})
+
+	Describe("Calculation Updates", func() {
+		// openChanging opens a Service, used by the specs in place of c, whose compile
+		// of target reports a change of its lookups while changes is positive.
+		openChanging := func(
+			ctx context.Context,
+			retryDelay telem.TimeSpan,
+			target *atomic.Uint32,
+			changes *atomic.Int32,
+			changed chan struct{},
+		) *calculation.Service {
+			GinkgoHelper()
+			svc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+				DB:           dist.DB,
+				Framer:       dist.Framer,
+				Writer:       writerSvc,
+				Channel:      channelSvc,
+				ChannelGraph: channelGraph,
+				RetryDelay:   retryDelay,
+				Compile: func(
+					ctx context.Context,
+					db *gorp.DB,
+					cfgs ...compiler.Config,
+				) (compiler.Module, error) {
+					if uint32(cfgs[0].Channel.Key()) == target.Load() &&
+						changes.Add(-1) >= 0 {
+						changed <- struct{}{}
+						return compiler.Module{}, channel.ErrLookupsChanged
+					}
+					return compiler.Compile(ctx, db, cfgs...)
+				},
+			}))
+			previous := c
+			c = svc
+			DeferCleanup(func() { c = previous })
+			return svc
+		}
+
+		Specify("Lookups Changed During A Request", func(ctx SpecContext) {
+			const retryDelay = 200 * telem.Millisecond
+			var (
+				target  atomic.Uint32
+				changes atomic.Int32
+				changed = make(chan struct{}, 10)
+			)
+			changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
+			}}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
+			calcs := make([]channel.Channel, 3)
+			for i := range calcs {
+				calcs[i] = channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * %d", bases[0].Name, i+2),
+				}
 			}
-			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
+			keys := channel.KeysFromChannels(calcs)
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: 1 * telem.SecondTS,
+				Keys:  channel.KeysFromChannels(bases),
+			}))
+			DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: new(true),
+			}))
+			_, sOutlet := confluence.Attach(streamer, 1, 1)
+			streamer.Flow(sCtx)
+			Eventually(sOutlet.Outlet()).Should(Receive())
+			write := func() {
+				GinkgoHelper()
+				Expect(w.Write(
+					frame.NewUnary(bases[0].Key(), telem.NewSeriesV[int64](1, 2)),
+				)).To(BeTrue())
+			}
+
+			// A request closed before its retry starts no calculation.
+			target.Store(uint32(keys[2]))
+			changes.Store(1)
+			closed := changing.OpenRequestManager()
+			Expect(closed.Set(ctx, keys[2:])).To(Succeed())
+			Expect(changed).To(Receive())
+			Expect(closed.Close(ctx)).To(Succeed())
+
+			target.Store(uint32(keys[1]))
+			changes.Store(1)
+			rm := changing.OpenRequestManager()
+			Expect(rm.Set(ctx, keys[:2])).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(rm.Close(ctx)).To(Succeed())
+			})
+			Expect(changed).To(Receive())
+			var res framer.StreamerResponse
+			Eventually(func(g Gomega) {
+				write()
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(keys[1]).Series).To(HaveLen(1))
+			}, 5*time.Second).Should(Succeed())
+			Expect(res.Frame.Get(keys[0]).Series[0]).
+				To(telem.MatchSeriesDataV[int64](2, 4))
+			Expect(res.Frame.Get(keys[1]).Series[0]).
+				To(telem.MatchSeriesDataV[int64](3, 6))
+			Consistently(func(g Gomega) {
+				write()
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(keys[2]).Series).To(BeEmpty())
+			}, 2*retryDelay.Duration()).Should(Succeed())
+		})
+
+		Specify("Pending Request For A Deleted Channel", func(ctx SpecContext) {
+			const retryDelay = 500 * telem.Millisecond
+			var (
+				target  atomic.Uint32
+				changes atomic.Int32
+				changed = make(chan struct{}, 10)
+			)
+			changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+			bases := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-			Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
-			rm := c.OpenRequestManager()
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
+			target.Store(uint32(calc.Key()))
+			changes.Store(10)
+			rm := changing.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
-			var st calculation.Status
-			expectedKey := calc.OntologyID().String()
-			Expect(statusSvc.NewRetrieve[struct{}]().
-				Where(status.MatchKeys[struct{}](expectedKey)).
-				Entry(&st).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Key).To(Equal(expectedKey))
+			Expect(changed).To(Receive())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, calc.Key(), false)
+			})).To(Succeed())
+			// The retry finds no channel, so it compiles nothing.
+			Consistently(changed, 3*retryDelay.Duration()).ShouldNot(Receive())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
-	})
 
-	Describe("Calculation Updates", func() {
+		Specify(
+			"Lookups Changed During A Pending Request And An Update",
+			func(ctx SpecContext) {
+				const retryDelay = 500 * telem.Millisecond
+				var (
+					target  atomic.Uint32
+					changes atomic.Int32
+					changed = make(chan struct{}, 10)
+				)
+				changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+				bases := []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+				})).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: 1 * telem.SecondTS,
+					Keys:  channel.KeysFromChannels(bases),
+				}))
+				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+				sCtx, cancel := signal.Isolated()
+				DeferCleanup(cancel)
+				streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{calc.Key()},
+					SendOpenAck: new(true),
+				}))
+				_, sOutlet := confluence.Attach(streamer, 1, 1)
+				streamer.Flow(sCtx)
+				Eventually(sOutlet.Outlet()).Should(Receive())
+
+				target.Store(uint32(calc.Key()))
+				changes.Store(1)
+				pending := changing.OpenRequestManager()
+				Expect(pending.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				Expect(changed).To(Receive())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(pending.Close(ctx)).To(Succeed())
+				})
+				// A second request adds the channel while the first is pending.
+				added := changing.OpenRequestManager()
+				Expect(added.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(added.Close(ctx)).To(Succeed())
+				})
+				changes.Store(1)
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := channelSvc.NewWriter(tx).Apply(
+						ctx,
+						calc.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: fmt.Sprintf("return %s * 3", bases[0].Name),
+						}),
+					)
+					return err
+				})).To(Succeed())
+				Eventually(changed).Should(Receive())
+
+				Eventually(func(g Gomega) {
+					Expect(w.Write(
+						frame.NewUnary(bases[0].Key(), telem.NewSeriesV[int64](1, 2)),
+					)).To(BeTrue())
+					var res framer.StreamerResponse
+					g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+						Should(Receive(&res))
+					g.Expect(res.Frame.Get(calc.Key()).Series[0]).
+						To(telem.MatchSeriesDataV[int64](3, 6))
+				}, 5*time.Second).Should(Succeed())
+			},
+		)
+
 		Specify("Modified Expression, No New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
@@ -1374,7 +1825,17 @@ var _ = Describe("Calculation", Ordered, func() {
 			).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
-			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := channelSvc.NewWriter(tx).Apply(
+					ctx,
+					calcs[0].Key(),
+					channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: calcs[0].Expression,
+					}),
+				)
+				return err
+			})).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				Expect(
@@ -1390,6 +1851,82 @@ var _ = Describe("Calculation", Ordered, func() {
 			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+		})
+
+		Specify("Lookups Changed During Each Compile", func(ctx SpecContext) {
+			const retryDelay = 300 * telem.Millisecond
+			var (
+				target  atomic.Uint32
+				changes atomic.Int32
+				changed = make(chan struct{}, 10)
+			)
+			retrying := openChanging(ctx, retryDelay, &target, &changes, changed)
+			bases := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}}
+			w, sOutlet, cancel := open(
+				ctx,
+				nil,
+				&bases,
+				&calcs,
+				channel.KeysFromChannels,
+			)
+			defer cancel()
+			baseCh := bases[0]
+			calcCh := calcs[0]
+			Expect(
+				w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))),
+			).To(BeTrue())
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).
+				To(telem.MatchSeriesDataV[int64](2, 4))
+
+			target.Store(uint32(calcCh.Key()))
+			changes.Store(3)
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := channelSvc.NewWriter(tx).Apply(
+					ctx,
+					calcCh.Key(),
+					channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: fmt.Sprintf("return %s * 3", baseCh.Name),
+					}),
+				)
+				return err
+			})).To(Succeed())
+			Eventually(changed).Should(Receive())
+			// A request takes the lock of the service, so it returns well before the
+			// retry when the wait holds no lock.
+			rm := retrying.OpenRequestManager()
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(rm.Close(ctx)).To(Succeed())
+			})
+			start := time.Now()
+			Expect(rm.Set(ctx, channel.Keys{baseCh.Key()})).To(Succeed())
+			Expect(time.Since(start)).To(BeNumerically("<", retryDelay.Duration()/2))
+
+			Eventually(func(g Gomega) {
+				Expect(
+					w.Write(
+						frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)),
+					),
+				).To(BeTrue())
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[int64](3, 6))
+			}, 5*time.Second).Should(Succeed())
+			Expect(changes.Load()).To(BeNumerically("<", 0))
 		})
 
 		Specify("Modified Expression, New Dependencies", func(ctx SpecContext) {
@@ -1431,7 +1968,17 @@ var _ = Describe("Calculation", Ordered, func() {
 			).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
-			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := channelSvc.NewWriter(tx).Apply(
+					ctx,
+					calcs[0].Key(),
+					channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: calcs[0].Expression,
+					}),
+				)
+				return err
+			})).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				Expect(

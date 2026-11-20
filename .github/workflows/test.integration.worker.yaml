@@ -34,6 +34,13 @@ on:
         type: string
         required: false
         default: ""
+    secrets:
+      PAGERDUTY_API_KEY:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -54,12 +61,14 @@ jobs:
       matrix: ${{ fromJSON(inputs.test_matrix) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Force quit existing Synnax processes (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcesses.cmd
+        shell: powershell
+        run: integration/scripts/KillSynnaxProcesses.ps1
 
       - name: Force quit existing Synnax processes (Ubuntu)
         if: runner.os == 'Linux'
@@ -68,11 +77,11 @@ jobs:
 
       - name: Download and setup artifacts (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifacts.cmd
+        run: integration/scripts/DownloadArtifacts.ps1
 
       - name: Download and setup artifacts (Ubuntu)
         if: runner.os == 'Linux'
@@ -82,7 +91,7 @@ jobs:
         run: integration/scripts/download_artifacts.sh
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -133,14 +142,23 @@ jobs:
         if: runner.os == 'Windows'
         id: test-conductor-win
         timeout-minutes: 30
-        shell: cmd
+        # Splitting TC_ARGS passes the flags as arguments, so they cannot add commands.
+        shell: powershell
         working-directory: integration
+        # The Cores that --cores starts read the license from the conductor.
         env:
           PYTHONIOENCODING: utf-8
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TC_ARGS:
+            ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
+            inputs.flags }}
+        run: |
+          $tcArgs = @("$env:TC_ARGS" -split '\s+' | Where-Object { $_ })
+          uv run test-conductor --name tc_win `
+            --core-binary "$env:USERPROFILE\synnax-binaries\synnax.exe" `
+            --driver-binary "$env:USERPROFILE\synnax-binaries\synnax-driver.exe" @tcArgs
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
@@ -150,8 +168,38 @@ jobs:
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TC_ARGS:
+            ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
+            inputs.flags }}
+        run: |
+          read -ra args <<< "$TC_ARGS"
+          uv run test-conductor --name tc_unix \
+            --core-binary "$HOME/synnax-binaries/synnax" \
+            --driver-binary "$HOME/synnax-binaries/synnax-driver" "${args[@]}"
+
+      # A conductor that fails before its bundle holds server.log leaves no Core log.
+      # The upload below takes this copy instead. !success() also covers a job timeout.
+      - name: Copy Core log (Windows)
+        if: ${{ !success() && runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          $log = "$env:USERPROFILE\synnax-data\synnax-core.log"
+          $bundled = Test-Path integration/tests/results/run-*/server.log
+          if ((Test-Path $log) -and -not $bundled) {
+            New-Item -ItemType Directory -Force integration/tests/results | Out-Null
+            Copy-Item $log integration/tests/results/
+          }
+
+      - name: Copy Core log (Ubuntu)
+        if: ${{ !success() && runner.os == 'Linux' }}
+        run: |
+          log="$HOME/synnax-data/synnax-core.log"
+          bundled="integration/tests/results/run-*/server.log"
+          if [ -f "$log" ] && ! compgen -G "$bundled" > /dev/null; then
+            mkdir -p integration/tests/results
+            cp "$log" integration/tests/results/
+          fi
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use
@@ -169,7 +217,7 @@ jobs:
       # sliced server.log, screenshots, exports). Uploading the bundle is the
       # single artifact CI and local devs share for debugging.
       - name: Upload test results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: test-results-${{ inputs.os }}-${{ matrix.name }}

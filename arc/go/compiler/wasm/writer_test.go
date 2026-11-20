@@ -13,15 +13,44 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/types"
 )
 
 var _ = Describe("WASM Writer", func() {
+	Describe("WriteLoopBudget", func() {
+		It("Should take one unit from the budget and trap at zero or less", func() {
+			w := wasm.NewWriter()
+			w.WriteLoopBudget(3)
+			Expect(w.Bytes()).To(Equal([]byte{
+				byte(wasm.OpGlobalGet), 3,
+				byte(wasm.OpI64Const), 1,
+				byte(wasm.OpI64Sub),
+				byte(wasm.OpGlobalSet), 3,
+				byte(wasm.OpGlobalGet), 3,
+				byte(wasm.OpI64Const), 0,
+				byte(wasm.OpI64LeS),
+				byte(wasm.OpIf), 0x40,
+				byte(wasm.OpUnreachable),
+				byte(wasm.OpEnd),
+			}))
+		})
+	})
+
 	Describe("Instruction Encoding", func() {
 		var encoder *wasm.Writer
 
 		BeforeEach(func() {
 			encoder = wasm.NewWriter()
 		})
+
+		DescribeTable("WriteTruncSat should encode the 0xfc prefix and the opcode",
+			func(op wasm.TruncSatOpcode, expected []byte) {
+				encoder.WriteTruncSat(op)
+				Expect(encoder.Bytes()).To(Equal(expected))
+			},
+			Entry("i32.trunc_sat_f32_s", wasm.OpI32TruncSatF32S, []byte{0xfc, 0x00}),
+			Entry("i64.trunc_sat_f64_u", wasm.OpI64TruncSatF64U, []byte{0xfc, 0x07}),
+		)
 
 		Context("Constant Instructions", func() {
 			It("Should encode i32.const", func() {
@@ -47,6 +76,98 @@ var _ = Describe("WASM Writer", func() {
 				expected := []byte{0x44, 0x1f, 0x85, 0xeb, 0x51, 0xb8, 0x1e, 0x09, 0x40}
 				Expect(encoder.Bytes()).To(Equal(expected))
 			})
+		})
+
+		Context("Narrow Integers", func() {
+			DescribeTable("WriteNarrow should wrap to the width of the type",
+				func(t types.Type, expected []byte) {
+					encoder.WriteNarrow(t)
+					Expect(encoder.Bytes()).To(Equal(expected))
+				},
+				Entry("u8", types.U8(), []byte{0x41, 0xff, 0x01, 0x71}),
+				Entry("u16", types.U16(), []byte{0x41, 0xff, 0xff, 0x03, 0x71}),
+				Entry("i8", types.I8(), []byte{0x41, 0x18, 0x74, 0x41, 0x18, 0x75}),
+				Entry("i16", types.I16(), []byte{0x41, 0x10, 0x74, 0x41, 0x10, 0x75}),
+			)
+
+			DescribeTable("WriteNarrow should write nothing for a full-width type",
+				func(t types.Type) {
+					encoder.WriteNarrow(t)
+					Expect(encoder.Bytes()).To(BeEmpty())
+				},
+				Entry("i32", types.I32()),
+				Entry("u32", types.U32()),
+				Entry("i64", types.I64()),
+				Entry("u64", types.U64()),
+				Entry("f32", types.F32()),
+				Entry("f64", types.F64()),
+				Entry("bool", types.Bool()),
+			)
+
+			DescribeTable(
+				"WriteArithmetic should wrap a narrow result",
+				func(op string, t types.Type, expected []byte) {
+					Expect(encoder.WriteArithmetic(op, t)).To(Succeed())
+					Expect(encoder.Bytes()).To(Equal(expected))
+				},
+				Entry("u8 add", "+", types.U8(), []byte{0x6a, 0x41, 0xff, 0x01, 0x71}),
+				Entry(
+					"u8 subtract",
+					"-",
+					types.U8(),
+					[]byte{0x6b, 0x41, 0xff, 0x01, 0x71},
+				),
+				Entry(
+					"u8 multiply",
+					"*",
+					types.U8(),
+					[]byte{0x6c, 0x41, 0xff, 0x01, 0x71},
+				),
+				Entry(
+					"u8 divide",
+					"/",
+					types.U8(),
+					[]byte{0x6e, 0x41, 0xff, 0x01, 0x71},
+				),
+				Entry(
+					"u8 modulo",
+					"%",
+					types.U8(),
+					[]byte{0x70, 0x41, 0xff, 0x01, 0x71},
+				),
+				Entry(
+					"i8 add",
+					"+",
+					types.I8(),
+					[]byte{0x6a, 0x41, 0x18, 0x74, 0x41, 0x18, 0x75},
+				),
+				Entry(
+					"i16 divide",
+					"/",
+					types.I16(),
+					[]byte{0x6d, 0x41, 0x10, 0x74, 0x41, 0x10, 0x75},
+				),
+				Entry("i32 add", "+", types.I32(), []byte{0x6a}),
+				Entry("i64 add", "+", types.I64(), []byte{0x7c}),
+			)
+
+			It(
+				"WriteArithmetic should return an error for an unknown operator",
+				func() {
+					Expect(encoder.WriteArithmetic("?", types.U8())).
+						To(MatchError(ContainSubstring("unknown operator: ?")))
+					Expect(encoder.Bytes()).To(BeEmpty())
+				},
+			)
+
+			DescribeTable("WriteBinaryOpInferred should not wrap",
+				func(op string, expected []byte) {
+					Expect(encoder.WriteBinaryOpInferred(op, types.U8())).To(Succeed())
+					Expect(encoder.Bytes()).To(Equal(expected))
+				},
+				Entry("add", "+", []byte{0x6a}),
+				Entry("comparison", "<", []byte{0x49}),
+			)
 		})
 
 		Context("Variable Instructions", func() {

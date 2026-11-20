@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { test } from "vitest";
 import z from "zod";
 
@@ -41,16 +41,16 @@ class Client extends query.Retriever<typeof requestZ, string, Thing> {
 }
 
 const client = new Client(new query.Cache({ openStreamer: null }));
-const stableParams = { minSize: 3 };
+const stableParams = { key: "a" };
 
 test("Retriever.getCached", async ({ bench }) => {
   await bench.compare(
     bench("repeat params object (memoized route)", () => {
-      client.getCached(stableParams);
+      client.watch(stableParams).getCached();
     }),
 
     bench("fresh params object per call", () => {
-      client.getCached({ minSize: 3 });
+      client.watch({ key: "a" }).getCached();
     }),
   );
 });

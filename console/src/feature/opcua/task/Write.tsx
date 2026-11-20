@@ -9,45 +9,47 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
-import { caseconv, errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
+import type { FC } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
-  MAKE,
-  migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
+  type ScannedNode,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteChannel,
   type WriteSchemas,
 } from "@/feature/opcua/task/types";
 import { ContextMenu } from "@/platform/context-menu";
-import { Selector } from "@/platform/selector";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Select />;
 
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
-  key: data.nodeId,
-  nodeName: data.name,
-  nodeId: data.nodeId,
-  name: "",
-  cmdChannel: 0,
-  disabled: false,
-  dataType: data.dataType,
-});
+// A write goes to a whole node, so a member of a structure is not a write channel.
+const convertNodeToChannel = (node: ScannedNode): WriteChannel | null =>
+  node.field !== ""
+    ? null
+    : {
+        key: node.nodeId,
+        nodeName: node.name,
+        nodeId: node.nodeId,
+        name: "",
+        cmdChannel: 0,
+        disabled: false,
+        dataType: node.dataType,
+      };
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   cmdChannel,
@@ -59,13 +61,17 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
 
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
-const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
+  channels,
+  keys,
+  target,
+}) => {
+  const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
   if (cmdChannel == null) return null;
-  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"));
+  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"), target);
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />
@@ -84,31 +90,23 @@ const resolve = (device: Device, { nodeId }: WriteChannel) => ({
 });
 
 const TaskForm: FC = createForm<WriteChannel>({
-  convertHaulItemToChannel,
+  path: path.config.channels,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems,
   resolve,
 });
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "OPC UA write task", type: WRITE_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  let dev = await client.devices.retrieve({
+  const dev = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   try {
-    dev = { ...dev, properties: migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);
@@ -157,7 +155,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
   } finally {
-    await client.devices.create(dev, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };
@@ -169,16 +167,4 @@ export const Write = Task.wrapForm({
   deployConfigZ: deployWriteConfigZ,
   type: "opc_write",
   onConfigure,
-});
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "OPC UA write task",
-  icon: <Icon.Logo.OPCUA />,
-  useOnSelect: useCreateWrite,
 });

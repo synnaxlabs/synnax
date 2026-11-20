@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <ctime>
+#include <string>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/date/date.h"
@@ -74,5 +78,226 @@ TEST(DaysFromCivil, RoundTrip) {
     for (int32_t d = -50000; d <= 50000; d += 137) {
         const auto dt = date::civil_from_days(d);
         ASSERT_EQ(date::days_from_civil(dt), d);
+    }
+}
+
+/// @brief it should count weekdays from Sunday, before and after the epoch.
+TEST(WeekdayFromDays, CountsFromSunday) {
+    // 1970-01-01 was a Thursday, and 1970-01-04 a Sunday.
+    ASSERT_EQ(date::weekday_from_days(0), 4);
+    ASSERT_EQ(date::weekday_from_days(3), 0);
+    ASSERT_EQ(date::weekday_from_days(-1), 3);
+    ASSERT_EQ(date::weekday_from_days(-4), 0);
+    ASSERT_EQ(date::weekday_from_days(-7), 4);
+}
+
+/// @brief it should give the weekday at the ends of the timestamp range.
+TEST(WeekdayFromDays, HoldsAtTheEndsOfTheRange) {
+    // The first and last days a nanosecond timestamp can hold, a Tuesday and a Friday.
+    ASSERT_EQ(date::weekday_from_days(-106'752), 2);
+    ASSERT_EQ(date::weekday_from_days(106'751), 5);
+}
+
+/// @brief it should give 53 weeks in a long ISO year and 52 in a short one.
+TEST(IsoWeeksIn, LongAndShortYears) {
+    // 2015 starts on a Thursday and 2020 on a Wednesday in a leap year.
+    ASSERT_EQ(date::iso_weeks_in(2015), 53);
+    ASSERT_EQ(date::iso_weeks_in(2020), 53);
+    ASSERT_EQ(date::iso_weeks_in(2021), 52);
+    ASSERT_EQ(date::iso_weeks_in(2024), 52);
+    ASSERT_EQ(date::iso_weeks_in(2026), 53);
+}
+
+/// @brief it should split the epoch into its calendar and clock fields.
+TEST(CivilFromNanoseconds, Epoch) {
+    const date::CivilTime c = date::civil_from_nanoseconds(0);
+    ASSERT_EQ(c.year, 1970);
+    ASSERT_EQ(c.month, 1);
+    ASSERT_EQ(c.day, 1);
+    ASSERT_EQ(c.hour, 0);
+    ASSERT_EQ(c.minute, 0);
+    ASSERT_EQ(c.second, 0);
+    ASSERT_EQ(c.nanosecond, 0);
+    ASSERT_EQ(c.year_day, 1);
+    ASSERT_EQ(c.weekday, 4);
+    ASSERT_EQ(c.iso_year, 1970);
+    ASSERT_EQ(c.iso_week, 1);
+}
+
+/// @brief it should split the earliest timestamp without overflow.
+TEST(CivilFromNanoseconds, Earliest) {
+    const date::CivilTime c = date::civil_from_nanoseconds(INT64_MIN);
+    ASSERT_EQ(c.year, 1677);
+    ASSERT_EQ(c.month, 9);
+    ASSERT_EQ(c.day, 21);
+    ASSERT_EQ(c.hour, 0);
+    ASSERT_EQ(c.minute, 12);
+    ASSERT_EQ(c.second, 43);
+    ASSERT_EQ(c.nanosecond, 145'224'192);
+    ASSERT_EQ(c.year_day, 264);
+    ASSERT_EQ(c.weekday, 2);
+    ASSERT_EQ(c.iso_year, 1677);
+    ASSERT_EQ(c.iso_week, 38);
+}
+
+/// @brief it should split the latest timestamp without overflow.
+TEST(CivilFromNanoseconds, Latest) {
+    const date::CivilTime c = date::civil_from_nanoseconds(INT64_MAX);
+    ASSERT_EQ(c.year, 2262);
+    ASSERT_EQ(c.month, 4);
+    ASSERT_EQ(c.day, 11);
+    ASSERT_EQ(c.hour, 23);
+    ASSERT_EQ(c.minute, 47);
+    ASSERT_EQ(c.second, 16);
+    ASSERT_EQ(c.nanosecond, 854'775'807);
+    ASSERT_EQ(c.year_day, 101);
+    ASSERT_EQ(c.weekday, 5);
+    ASSERT_EQ(c.iso_year, 2262);
+    ASSERT_EQ(c.iso_week, 15);
+}
+
+/// @brief it should keep the nanosecond in range on both sides of each second.
+TEST(CivilFromNanoseconds, AroundTheSecond) {
+    const int64_t secs[] = {
+        INT64_MIN / 1'000'000'000 + 1,
+        -1'000'000,
+        -1,
+        0,
+        1,
+        1'000'000,
+        INT64_MAX / 1'000'000'000 - 1,
+    };
+    const int64_t nanos[] = {-999'999'999, -1, 0, 1, 999'999'999};
+    for (const int64_t sec: secs) {
+        for (const int64_t ns: nanos) {
+            const int64_t value = sec * 1'000'000'000 + ns;
+            const date::CivilTime c = date::civil_from_nanoseconds(value);
+            const int64_t expected = ((value % 1'000'000'000) + 1'000'000'000) %
+                                     1'000'000'000;
+            ASSERT_EQ(c.nanosecond, expected) << value;
+        }
+    }
+}
+
+/// @brief it should put the last nanosecond before the epoch in 1969.
+TEST(CivilFromNanoseconds, LastNanosecondBeforeTheEpoch) {
+    const date::CivilTime c = date::civil_from_nanoseconds(-1);
+    ASSERT_EQ(c.year, 1969);
+    ASSERT_EQ(c.month, 12);
+    ASSERT_EQ(c.day, 31);
+    ASSERT_EQ(c.hour, 23);
+    ASSERT_EQ(c.minute, 59);
+    ASSERT_EQ(c.second, 59);
+    ASSERT_EQ(c.nanosecond, 999'999'999);
+    ASSERT_EQ(c.year_day, 365);
+    ASSERT_EQ(c.weekday, 3);
+    ASSERT_EQ(c.iso_year, 1970);
+    ASSERT_EQ(c.iso_week, 1);
+}
+
+/// @brief it should add an offset east or west of UTC.
+TEST(CivilFromNanoseconds, AddsTheOffset) {
+    const date::CivilTime east = date::civil_from_nanoseconds(0, 3600);
+    ASSERT_EQ(east.year, 1970);
+    ASSERT_EQ(east.month, 1);
+    ASSERT_EQ(east.day, 1);
+    ASSERT_EQ(east.hour, 1);
+    ASSERT_EQ(east.minute, 0);
+    ASSERT_EQ(east.second, 0);
+    ASSERT_EQ(east.nanosecond, 0);
+    ASSERT_EQ(east.year_day, 1);
+    ASSERT_EQ(east.weekday, 4);
+    const date::CivilTime west = date::civil_from_nanoseconds(0, -1);
+    ASSERT_EQ(west.year, 1969);
+    ASSERT_EQ(west.month, 12);
+    ASSERT_EQ(west.day, 31);
+    ASSERT_EQ(west.hour, 23);
+    ASSERT_EQ(west.minute, 59);
+    ASSERT_EQ(west.second, 59);
+    ASSERT_EQ(west.year_day, 365);
+    ASSERT_EQ(west.weekday, 3);
+    ASSERT_EQ(west.iso_year, 1970);
+    ASSERT_EQ(west.iso_week, 1);
+}
+
+/// @brief it should add a large offset at the ends of the range without overflow.
+TEST(CivilFromNanoseconds, AddsTheOffsetAtTheEndsOfTheRange) {
+    // UTC+14 at the latest timestamp, and UTC-12 at the earliest.
+    const date::CivilTime latest = date::civil_from_nanoseconds(INT64_MAX, 14 * 3600);
+    ASSERT_EQ(latest.year, 2262);
+    ASSERT_EQ(latest.month, 4);
+    ASSERT_EQ(latest.day, 12);
+    ASSERT_EQ(latest.hour, 13);
+    ASSERT_EQ(latest.minute, 47);
+    ASSERT_EQ(latest.second, 16);
+    ASSERT_EQ(latest.nanosecond, 854'775'807);
+    ASSERT_EQ(latest.year_day, 102);
+    ASSERT_EQ(latest.weekday, 6);
+    ASSERT_EQ(latest.iso_year, 2262);
+    ASSERT_EQ(latest.iso_week, 15);
+    const date::CivilTime earliest = date::civil_from_nanoseconds(
+        INT64_MIN,
+        -12 * 3600
+    );
+    ASSERT_EQ(earliest.year, 1677);
+    ASSERT_EQ(earliest.month, 9);
+    ASSERT_EQ(earliest.day, 20);
+    ASSERT_EQ(earliest.hour, 12);
+    ASSERT_EQ(earliest.minute, 12);
+    ASSERT_EQ(earliest.second, 43);
+    ASSERT_EQ(earliest.nanosecond, 145'224'192);
+    ASSERT_EQ(earliest.year_day, 263);
+    ASSERT_EQ(earliest.weekday, 1);
+    ASSERT_EQ(earliest.iso_year, 1677);
+    ASSERT_EQ(earliest.iso_week, 38);
+}
+
+/// @brief it should put days near the new year in the correct ISO year and week.
+TEST(CivilFromNanoseconds, IsoWeekRollover) {
+    // January 1, 2021 falls in ISO week 53 of 2020.
+    const date::CivilTime a = date::civil_from_nanoseconds(1'609'459'200'000'000'000);
+    ASSERT_EQ(a.year, 2021);
+    ASSERT_EQ(a.iso_year, 2020);
+    ASSERT_EQ(a.iso_week, 53);
+    // December 30, 2024 falls in ISO week 1 of 2025.
+    const date::CivilTime b = date::civil_from_nanoseconds(1'735'516'800'000'000'000);
+    ASSERT_EQ(b.year, 2024);
+    ASSERT_EQ(b.iso_year, 2025);
+    ASSERT_EQ(b.iso_week, 1);
+    // Sunday, January 1, 2012 falls in ISO week 52 of 2011.
+    const date::CivilTime c = date::civil_from_nanoseconds(1'325'376'000'000'000'000);
+    ASSERT_EQ(c.weekday, 0);
+    ASSERT_EQ(c.iso_year, 2011);
+    ASSERT_EQ(c.iso_week, 52);
+}
+
+/// @brief it should match the C library on every day from 1970 to 2100.
+TEST(CivilFromNanoseconds, MatchesTheCLibraryOnEveryDay) {
+    // 4'133'980'800 is 2101-01-01T00:00:00Z.
+    for (int64_t sec = 13 * 3600 + 4 * 60 + 5; sec < 4'133'980'800; sec += 86400) {
+        const auto t = static_cast<std::time_t>(sec);
+        std::tm tm{};
+#ifdef _WIN32
+        ASSERT_EQ(gmtime_s(&tm, &t), 0) << sec;
+#else
+        ASSERT_NE(gmtime_r(&t, &tm), nullptr) << sec;
+#endif
+        const date::CivilTime c = date::civil_from_nanoseconds(sec * 1'000'000'000);
+        ASSERT_EQ(c.year, tm.tm_year + 1900) << sec;
+        ASSERT_EQ(c.month, tm.tm_mon + 1) << sec;
+        ASSERT_EQ(c.day, tm.tm_mday) << sec;
+        ASSERT_EQ(c.hour, tm.tm_hour) << sec;
+        ASSERT_EQ(c.minute, tm.tm_min) << sec;
+        ASSERT_EQ(c.second, tm.tm_sec) << sec;
+        ASSERT_EQ(c.nanosecond, 0) << sec;
+        ASSERT_EQ(c.year_day, tm.tm_yday + 1) << sec;
+        ASSERT_EQ(c.weekday, tm.tm_wday) << sec;
+        char buf[16];
+        ASSERT_GT(std::strftime(buf, sizeof(buf), "%G %V", &tm), 0u) << sec;
+        ASSERT_EQ(
+            std::to_string(c.iso_year) + " " + (c.iso_week < 10 ? "0" : "") +
+                std::to_string(c.iso_week),
+            std::string(buf)
+        ) << sec;
     }
 }

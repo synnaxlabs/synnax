@@ -17,13 +17,6 @@ cc_library(
         "//conditions:default": ["loop_default.cpp"],
     }),
     hdrs = ["loop.h"],
-    copts = select({
-        "@platforms//os:windows": [
-            "/DWIN32_LEAN_AND_MEAN",
-            "/DNOMINMAX",
-        ],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/breaker",
@@ -38,9 +31,15 @@ cc_test(
     srcs = [
         "loop_test.cpp",
     ],
-    tags = ["no-asan"],  # Timing-sensitive tests that fail under ASan overhead
+    # The specs time real waits, so they fail when ASan or parallel build actions take
+    # the CPU from them.
+    tags = [
+        "exclusive",
+        "no-asan",
+    ],
     deps = [
         "//x/cpp/loop",
+        "//x/cpp/loop/testutil",
         "@googletest//:gtest_main",
     ],
 )

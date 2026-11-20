@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel, project } from "@synnaxlabs/client";
+import { panel, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { unzipSync, zipSync } from "fflate";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -48,13 +48,13 @@ const leaf = (node: panel.Node): panel.LeafNode => {
   return node;
 };
 
-const resourceIDs = ({ tabs }: panel.LeafNode): ontology.ID[] =>
+const resourceIDs = ({ tabs }: panel.LeafNode): resource.ID[] =>
   tabs.map((tab) => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     return tab.resource;
   });
 
-const logNames = async (ids: ontology.ID[]): Promise<string[]> =>
+const logNames = async (ids: resource.ID[]): Promise<string[]> =>
   await Promise.all(
     ids.map(async (id) => (await client.logs.retrieve({ key: id.key })).name),
   );
@@ -207,10 +207,7 @@ describe("Import.useFileDrop", () => {
   // alongside it. A file that finishes reading after the switch still belongs to the
   // project that was open when the drop landed.
   it("imports every file into the project open when the drop landed", async () => {
-    let releaseFile = (): void => {};
-    const held = new Promise<void>((resolve) => {
-      releaseFile = resolve;
-    });
+    const { promise: held, resolve: releaseFile } = Promise.withResolvers<void>();
     const switched = await client.projects.create({
       name: `switched-${uuid.create()}`,
     });
@@ -236,10 +233,8 @@ describe("Import.useFileDrop", () => {
     );
     releaseFile();
     const children = await waitFor(async () => {
-      const resources = await client.ontology.children.retrieve({
-        ids: project.ontologyID(open),
-      });
-      const pinned = resources.filter((r) => r.name === "Pinned");
+      const logs = await client.logs.retrieve({ projects: [open] });
+      const pinned = logs.filter((l) => l.name === "Pinned");
       if (pinned.length === 0) throw new Error("the held file did not import");
       return pinned;
     });

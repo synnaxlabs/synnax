@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -360,16 +361,24 @@ describe("analog read task", () => {
       ).toEqual(true);
     });
 
-    // NOTE: This test is commented out because the validation for "at least one enabled channel"
-    // is handled in the C++ driver code, not in the TypeScript schema. Disabled channels are
-    // filtered out during task configuration. This matches the behavior of Analog Read and Digital Read tasks.
+    // NOTE: This test is commented out because the validation for "at least one enabled
+    // channel" is handled in the C++ driver code, not in the TypeScript schema.
+    // Disabled channels are filtered out during task configuration. This matches the
+    // behavior of Analog Read and Digital Read tasks.
     // it("should fail to parse a task with no enabled channels", () => {
     //   expect(
     //     z.validate(NI.Task.counterReadConfigZ, {
     //       ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
     //       streamRate: 25,
     //       sampleRate: 1000,
-    //       channels: [{ ...NI.Task.createCIChannel(), key: "0", device: "Dev1", enabled: false }],
+    //       channels: [
+    //         {
+    //           ...NI.Task.createCIChannel(),
+    //           key: "0",
+    //           device: "Dev1",
+    //           enabled: false,
+    //         },
+    //       ],
     //     }),
     //   ).toEqual(false);
     // });
@@ -456,5 +465,52 @@ describe("deploy configs", () => {
         message: "At least one enabled channel is required",
       }),
     );
+  });
+
+  it("should report a channel with no device when no channel is enabled", () => {
+    const issues = NI.Task.deployAnalogReadConfigZ
+      .safeParse(
+        NI.Task.ANALOG_READ_SCHEMAS.config.parse({
+          channels: [{ ...NI.Task.createAIChannel(), key: "0", disabled: true }],
+        }),
+      )
+      .error?.issues.map(({ path, message }) => ({ path, message }));
+    expect(issues).toEqual([
+      { path: ["channels"], message: "At least one enabled channel is required" },
+      { path: ["channels", 0, "device"], message: "Device is required" },
+    ]);
+  });
+});
+
+describe("default ranges", () => {
+  const hardware = {
+    ...ni.hardwareZ.parse({}),
+    aiCurrentRanges: [
+      { lower: -0.01, upper: 0.01 },
+      { lower: -0.02, upper: 0.02 },
+    ],
+    aoCurrentRanges: [{ lower: 0, upper: 0.02 }],
+  };
+
+  it("should give a current input the widest current range", () => {
+    expect(NI.Task.defaultAIRange("ai_current", hardware)).toEqual({
+      lower: -0.02,
+      upper: 0.02,
+    });
+  });
+
+  it("should give a current output the device's current range", () => {
+    expect(NI.Task.defaultAORange("ao_current", hardware)).toEqual({
+      lower: 0,
+      upper: 0.02,
+    });
+  });
+
+  it.each([
+    ["a voltage input", NI.Task.defaultAIRange("ai_voltage", hardware)],
+    ["a voltage output", NI.Task.defaultAORange("ao_voltage", hardware)],
+    ["a device with no hardware", NI.Task.defaultAIRange("ai_current")],
+  ])("should keep the range of %s", (_, range) => {
+    expect(range).toBeUndefined();
   });
 });

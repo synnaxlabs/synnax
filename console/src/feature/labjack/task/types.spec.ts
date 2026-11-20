@@ -388,3 +388,51 @@ describe("deploy configs", () => {
     );
   });
 });
+
+describe("deploy negative channels", () => {
+  const deploy = (port: string, negChan?: number) =>
+    LabJack.Task.deployReadConfigZ.safeParse({
+      device: "labjack",
+      sampleRate: 10,
+      streamRate: 5,
+      channels: [
+        {
+          ...LabJack.Task.createReadChannel("analog"),
+          key: "1",
+          channel: 1,
+          port,
+          negChan,
+        },
+      ],
+    });
+
+  it("should accept a port that reads against ground", () => {
+    expect(deploy("AIN3").success).toBe(true);
+  });
+
+  it("should accept a port against its pair", () => {
+    expect(deploy("AIN2", 3).success).toBe(true);
+  });
+
+  it("should refuse a negative channel above AIN127", () => {
+    expect(deploy("AIN2", 199).success).toBe(false);
+  });
+
+  it("should name the pair of a port that reads differentially", () => {
+    expect(deploy("AIN2", 5).error?.issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels", 0, "negChan"],
+        message: "Negative channel must be ground or AIN3",
+      }),
+    );
+  });
+
+  it("should refuse a differential reading on a port with no pair", () => {
+    expect(deploy("AIN3", 4).error?.issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels", 0, "negChan"],
+        message: "AIN3 can only read against ground",
+      }),
+    );
+  });
+});

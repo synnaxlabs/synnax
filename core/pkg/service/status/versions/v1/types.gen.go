@@ -12,7 +12,7 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -21,11 +21,17 @@ import (
 type Variant = v0.Variant
 
 const (
-	VariantSuccess  Variant = v0.VariantSuccess
-	VariantInfo     Variant = v0.VariantInfo
-	VariantWarning  Variant = v0.VariantWarning
-	VariantError    Variant = v0.VariantError
-	VariantLoading  Variant = v0.VariantLoading
+	// VariantSuccess reports that an operation succeeded.
+	VariantSuccess Variant = v0.VariantSuccess
+	// VariantInfo reports general information.
+	VariantInfo Variant = v0.VariantInfo
+	// VariantWarning reports a condition that needs attention.
+	VariantWarning Variant = v0.VariantWarning
+	// VariantError reports a failure.
+	VariantError Variant = v0.VariantError
+	// VariantLoading reports an operation in progress.
+	VariantLoading Variant = v0.VariantLoading
+	// VariantDisabled reports that the subject is not active.
 	VariantDisabled Variant = v0.VariantDisabled
 )
 
@@ -58,18 +64,4 @@ type Status[Details any] struct {
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitempty"`
-}
-
-// ToAny converts s to a Status[any].
-func (s Status[Details]) ToAny() Status[any] {
-	return Status[any]{
-		Key:         s.Key,
-		Name:        s.Name,
-		Variant:     s.Variant,
-		Message:     s.Message,
-		Description: s.Description,
-		Time:        s.Time,
-		Details:     s.Details,
-		Labels:      s.Labels,
-	}
 }

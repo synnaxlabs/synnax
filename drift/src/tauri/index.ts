@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type UnknownAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { box, deep, dimensions, runtime, scheduler, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   emit,
@@ -29,7 +29,7 @@ import {
   type PhysicalSize,
 } from "@tauri-apps/api/window";
 
-import { type Event, type Runtime } from "@/runtime";
+import type { Event, Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
 import {
   runtimeSetWindowProps,
@@ -71,7 +71,7 @@ const monitorBoxes = async (): Promise<box.Box[]> => {
   const monitors = await availableMonitors();
   return monitors.map((monitor) => {
     const pos = parsePosition(monitor.position, monitor.scaleFactor);
-    const dims = { width: monitor.size.width, height: monitor.size.height };
+    const dims = parseSize(monitor.size, monitor.scaleFactor);
     return box.construct(pos, dims);
   });
 };
@@ -90,6 +90,11 @@ export interface TauriRuntimeProps {
   window?: WebviewWindow;
   /** Where macOS draws the window controls in each window the runtime creates. */
   trafficLightPosition?: xy.XY;
+  /**
+   * Runs before the runtime closes the window with the given label. The window stays
+   * open until it resolves.
+   */
+  beforeClose?: (label: string) => Promise<void>;
 }
 
 /** A Tauri backed implementation of the drift Runtime. */
@@ -99,11 +104,13 @@ export class TauriRuntime<
 > implements Runtime<S, A> {
   private readonly win: WebviewWindow;
   private readonly trafficLightPosition?: LogicalPosition;
+  private readonly beforeClose?: (label: string) => Promise<void>;
   private unsubscribe: Record<string, UnlistenFn>;
   private monitorChangePoll: NodeJS.Timeout | null = null;
 
-  constructor({ window, trafficLightPosition }: TauriRuntimeProps = {}) {
+  constructor({ window, trafficLightPosition, beforeClose }: TauriRuntimeProps = {}) {
     this.win = window ?? getCurrentWindow();
+    this.beforeClose = beforeClose;
     if (trafficLightPosition != null)
       this.trafficLightPosition = new LogicalPosition(
         trafficLightPosition.x,
@@ -169,19 +176,25 @@ export class TauriRuntime<
       actionEvent,
       (event: TauriEvent<string>) => lis(decode(event.payload)),
     );
-    const propsHandlers = newWindowPropsHandlers();
-    for (const { key, handler, debounce } of propsHandlers)
-      this.unsubscribe[key] = await this.win.listen(
-        key,
-        scheduler.debounce(() => {
-          this.applyPropChange(handler).catch((err: unknown) =>
-            console.error(
-              `failed to handle window prop change "${key}" for ${this.win.label}`,
-              err,
-            ),
-          );
-        }, debounce),
-      );
+    for (const entry of newWindowPropsHandlers()) await this.listenPropChange(entry);
+  }
+
+  private async listenPropChange({
+    key,
+    handler,
+    debounce,
+  }: HandlerEntry): Promise<void> {
+    this.unsubscribe[key] = await this.win.listen(
+      key,
+      scheduler.debounce(() => {
+        this.applyPropChange(handler).catch((err: unknown) =>
+          console.error(
+            `failed to handle window prop change "${key}" for ${this.win.label}`,
+            err,
+          ),
+        );
+      }, debounce),
+    );
   }
 
   private async applyPropChange(handler: HandlerEntry["handler"]): Promise<void> {
@@ -215,34 +228,31 @@ export class TauriRuntime<
         position.y = 0;
       }
     }
-    try {
-      const w = new WebviewWindow(label, {
-        x: position?.x,
-        y: position?.y,
-        width: size?.width,
-        height: size?.height,
-        minWidth: minSize?.width,
-        minHeight: minSize?.height,
-        maxWidth: maxSize?.width,
-        maxHeight: maxSize?.height,
-        titleBarStyle: "overlay",
-        hiddenTitle: true,
-        trafficLightPosition: this.trafficLightPosition,
-        dragDropEnabled: false,
-        ...rest,
-      });
-      return await new Promise<void>((resolve, reject) => {
-        w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload)))).catch(
-          reject,
-        );
-        w.once(tauriCreated, () => resolve()).catch(reject);
-      });
-    } catch (e) {
-      console.error(e);
-    }
+    const w = new WebviewWindow(label, {
+      x: position?.x,
+      y: position?.y,
+      width: size?.width,
+      height: size?.height,
+      minWidth: minSize?.width,
+      minHeight: minSize?.height,
+      maxWidth: maxSize?.width,
+      maxHeight: maxSize?.height,
+      titleBarStyle: "overlay",
+      hiddenTitle: true,
+      trafficLightPosition: this.trafficLightPosition,
+      dragDropEnabled: false,
+      ...rest,
+    });
+    return await new Promise<void>((resolve, reject) => {
+      w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload)))).catch(
+        reject,
+      );
+      w.once(tauriCreated, () => resolve()).catch(reject);
+    });
   }
 
   async close(label: string): Promise<void> {
+    await this.beforeClose?.(label);
     const win = await WebviewWindow.getByLabel(label);
     if (win != null)
       try {
@@ -322,7 +332,10 @@ export class TauriRuntime<
 
       delete this.unsubscribe[TauriEventKey.WINDOW_RESIZED];
     }
-    return await this.win.setResizable(value);
+    await this.win.setResizable(value);
+    const resized = TauriEventKey.WINDOW_RESIZED;
+    if (value && actionEvent in this.unsubscribe && !(resized in this.unsubscribe))
+      await this.listenPropChange(RESIZED_HANDLER);
   }
 
   async setSkipTaskbar(value: boolean): Promise<void> {
@@ -361,27 +374,29 @@ interface HandlerEntry {
   handler: (win: WebviewWindow) => Promise<UnknownAction | null>;
 }
 
-const newWindowPropsHandlers = (): HandlerEntry[] => [
-  {
-    key: TauriEventKey.WINDOW_RESIZED,
-    debounce: 200,
-    // A window resizes as it enters and leaves fullscreen, which is the only signal
-    // Tauri gives for either.
-    handler: async (window) => {
-      const scaleFactor = await window.scaleFactor();
-      const visible = await window.isVisible();
-      const nextProps: RuntimeSetWindowProsPayload = {
-        label: window.label,
-        maximized: await window.isMaximized(),
-        fullscreen: await window.isFullscreen(),
-        visible,
-        minimized: !visible,
-        position: parsePosition(await window.innerPosition(), scaleFactor),
-        size: parseSize(await window.innerSize(), scaleFactor),
-      };
-      return runtimeSetWindowProps(nextProps);
-    },
+const RESIZED_HANDLER: HandlerEntry = {
+  key: TauriEventKey.WINDOW_RESIZED,
+  debounce: 200,
+  // A window resizes as it enters and leaves fullscreen, which is the only signal
+  // Tauri gives for either.
+  handler: async (window) => {
+    const scaleFactor = await window.scaleFactor();
+    const visible = await window.isVisible();
+    const nextProps: RuntimeSetWindowProsPayload = {
+      label: window.label,
+      maximized: await window.isMaximized(),
+      fullscreen: await window.isFullscreen(),
+      visible,
+      minimized: !visible,
+      position: parsePosition(await window.innerPosition(), scaleFactor),
+      size: parseSize(await window.innerSize(), scaleFactor),
+    };
+    return runtimeSetWindowProps(nextProps);
   },
+};
+
+const newWindowPropsHandlers = (): HandlerEntry[] => [
+  RESIZED_HANDLER,
   {
     key: TauriEventKey.WINDOW_MOVED,
     debounce: 200,

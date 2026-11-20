@@ -9,20 +9,20 @@
 
 import "@/list/Items.css";
 
-import { type record } from "@synnaxlabs/x";
-import { type ReactNode } from "react";
+import type { record } from "@synnaxlabs/x";
+import type { ReactNode } from "react";
 
 import { memo } from "@/component/memo";
 import { CSS } from "@/css";
 import { useData } from "@/list/Frame";
-import { type ItemRenderProp, type ItemRenderProps } from "@/list/Item";
+import type { ItemRenderProp, ItemRenderProps } from "@/list/Item";
 import { ItemsContext, useElementsContext, useScrollContext } from "@/list/scope";
 
 /** Props for {@link Items}. */
 export interface ItemsProps<K extends record.Key = record.Key> {
   /**
-   * Renders one item. Its element is reused while the item's key, index, and offset stay
-   * the same, so read item data through a hook such as `useItem`.
+   * Renders one item. Its element is reused while the item's key, index, and offset
+   * stay the same, so read item data through a hook such as `useItem`.
    */
   children: ItemRenderProp<K>;
   /** Rendered in place of the items when the list is empty. */

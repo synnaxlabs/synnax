@@ -16,7 +16,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: oracle-${{ github.workflow }}-${{ github.ref }}
+  group:
+    oracle-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref }}
   cancel-in-progress: true
 
 # The proxy drops streams at times, so a failed fetch falls back to the source.
@@ -27,12 +28,19 @@ jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        # The versions gate finds the shipped release from the tags HEAD descends from.
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          filter: blob:none
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: oracle/go.mod
           cache-dependency-path: |
@@ -43,14 +51,15 @@ jobs:
         uses: ./.github/actions/setup-pnpm
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
           enable-cache: true
 
       - name: Set up buf
-        uses: bufbuild/buf-action@v1
+        uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1
         with:
+          version: 1.75.0
           setup_only: true
           github_token: ${{ github.token }}
 
@@ -62,6 +71,12 @@ jobs:
 
       - name: Download the Go modules
         run: .github/scripts/go_mod_download.sh oracle
+
+      # The module cache comes from an earlier run, and a download checks go.sum only
+      # for modules it fetches.
+      - name: Verify the Go module cache
+        working-directory: oracle
+        run: go mod verify
 
       - name: Build Oracle
         working-directory: oracle
@@ -79,7 +94,7 @@ jobs:
 
       - name: Archive JSON report
         if: failure() && steps.check.conclusion == 'failure'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           path: oracle-check.json
           archive: false

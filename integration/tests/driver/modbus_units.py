@@ -17,6 +17,7 @@ from pydantic import BaseModel, ValidationError
 from pymodbus.client import ModbusTcpClient
 
 import synnax as sy
+from framework.utils import hold
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     assert_streamed_values,
@@ -61,8 +62,8 @@ class ModbusUnits(SimulatorCase):
         unit_1 = self.client.devices.retrieve(name=self.units_sim.device_name)
         unit_2, unit_3 = self.create_test_devices(
             [
-                self.units_sim.create_device(rack.key, unit_id=2),
-                self.units_sim.create_device(rack.key, unit_id=3),
+                self.units_sim.create_device(self.client, rack.key, unit_id=2),
+                self.units_sim.create_device(self.client, rack.key, unit_id=3),
             ]
         )
         self.units = {1: unit_1, 2: unit_2, 3: unit_3}
@@ -138,7 +139,7 @@ class ModbusUnits(SimulatorCase):
                 assert res.registers == [2], (
                     f"The gateway should have 2 connections, got {res.registers[0]}"
                 )
-                sy.sleep(0.2)
+                hold(0.2, reason="nothing may change")
 
     def test_silent_unit(self) -> None:
         self.log("Testing: A silent unit is demoted, and the others keep reading")
@@ -171,20 +172,25 @@ class ModbusUnits(SimulatorCase):
     def wait_for_stats(self, unit: int, done: Callable[[Stats], bool]) -> Stats:
         """Wait for the device status of a unit to report counters that satisfy
         ``done``. The Driver reports them each time it scans the device."""
-        stats = None
-        timer = sy.Timer()
-        while timer.elapsed() < 15 * sy.TimeSpan.SECOND:
+        last: Stats | None = None
+
+        def reported() -> Stats | None:
+            nonlocal last
             dev = self.client.devices.retrieve(
                 key=self.units[unit].key, include_status=True
             )
             details = None if dev.status is None else dev.status.details
             data = None if details is None else details.data
-            if data is not None:
-                stats = Stats.model_validate(data["stats"])
-                if done(stats):
-                    return stats
-            sy.sleep(0.5)
-        raise AssertionError(f"Unit {unit} counters did not arrive, got {stats}")
+            if data is None:
+                return None
+            stats = Stats.model_validate(data["stats"])
+            last = stats
+            return stats if done(stats) else None
+
+        stats = sy.poll(reported, timeout=15, interval=0.5)
+        if stats is None:
+            raise AssertionError(f"Unit {unit} counters did not arrive, got {last}")
+        return stats
 
     @staticmethod
     def wait_for_warning(
@@ -206,7 +212,7 @@ class ModbusUnits(SimulatorCase):
                     status = sy.task.Status.model_validate(raw)
                 except ValidationError:
                     continue
-                if status.details is None or status.details.task != task_key:
+                if status.owner != sy.task.resource_id(task_key):
                     continue
                 if status.variant in ("warning", "error"):
                     last = f"{status.message}: {status.description}"

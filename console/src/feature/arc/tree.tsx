@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, query, type resource } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Arc, Task } from "@synnaxlabs/pluto";
+import { Access, Arc } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
-import { CSS } from "@/platform/css";
-import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
@@ -25,7 +25,7 @@ import { Session } from "@/session";
 
 const useRename = Tree.createUseRename({
   useUpdate: Arc.useRename,
-  ontologyID: arc.ontologyID,
+  resourceID: arc.resourceID,
   convertKey: String,
 });
 
@@ -41,45 +41,47 @@ const useDelete = Tree.createUseDelete({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids },
+    selection: { ids, parentID },
     state: { getResource },
+    openTab,
   } = props;
-  const keys = ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const canControl = Framer.useCanCommand();
-  const captureDeploy = PlatformArc.useCaptureDeploy();
-  const { update: runCommand } = Task.useCommand({ afterSuccess: captureDeploy });
+  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
+  const createDirectory = PlatformArc.useCreateDirectoryFromSelection();
   const rename = useRename(props);
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const singleResource = ids.length === 1;
-  const driftedTaskKeys = PlatformArc.useDriftedTaskKeys(keys);
-  const redeployTaskKeys = canControl ? driftedTaskKeys : [];
   return (
     <ContextMenu.Menu>
-      {redeployTaskKeys.length > 0 && (
-        <Menu.Item
-          className={CSS.BE("arc", "redeploy-item")}
-          itemKey="redeploy"
-          onClick={() =>
-            runCommand(redeployTaskKeys.map((key) => ({ task: key, type: "start" })))
-          }
-        >
-          <Icon.Refresh />
-          Redeploy
+      {canCreateDirectory && hasUpdatePermission && parentID != null && (
+        <Menu.Item itemKey="newDirectory" onClick={() => createDirectory(props)}>
+          <Icon.Group />
+          New directory
         </Menu.Item>
       )}
       <Menu.Divider />
       {hasUpdatePermission && singleResource && (
-        <ContextMenu.RenameItem onClick={rename} />
+        <>
+          <Menu.Item
+            itemKey="edit"
+            onClick={() => openTab({ variant: "resource", resource: firstID })}
+          >
+            <Icon.Edit />
+            Edit
+          </Menu.Item>
+          <Menu.Divider />
+          <ContextMenu.RenameItem onClick={rename} />
+        </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <Link.CopyContextMenuItem
           onClick={() =>
-            handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+            handleLink({ name: getResource(firstID).name, resourceID: firstID })
           }
         />
       )}
@@ -91,12 +93,153 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+interface TypeIconProps extends Icon.IconProps {
+  arcKey: arc.Key;
+}
+
+const TypeIcon = ({ arcKey, ...rest }: TypeIconProps): ReactElement | null => {
+  const { data: type } = Arc.useResultType({ key: arcKey });
+  if (type == null) return null;
+  const C = PlatformArc.TYPE_ICONS[type];
+  return <C {...rest} />;
+};
+
+const FACTS = ["Arc"];
+
+const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+  const cached = client.arcs.watch({ key: resource.id.key }).getCached();
+  const TypeGlyph = query.isLive(cached)
+    ? PlatformArc.TYPE_ICONS[cached.type]
+    : Icon.Arc;
+  return (
+    <Haul.Preview
+      icon={<TypeGlyph />}
+      name={resource.name}
+      facts={FACTS}
+      count={count}
+    />
+  );
+};
+
 const TreeItem = Tree.createItem({
-  type: "arc",
-  icon: <Icon.Arc />,
-  canDrop: () => true,
+  linkable: true,
+  icon: ({ id }) => <TypeIcon arcKey={id.key} />,
+  haulPreview,
+  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS = { arc: TreeItem } satisfies Tree.Items;
+const useRenameDirectory = Tree.createUseRename({
+  useUpdate: Arc.Directory.useRename,
+  resourceID: arc.directory.resourceID,
+  convertKey: String,
+});
+
+const useDeleteDirectory = Tree.createUseDelete({
+  type: "Directory",
+  icon: "Group",
+  useUpdate: Arc.Directory.useDelete,
+  convertKey: String,
+});
+
+const DirectoryContextMenu: Tree.ContextMenu = (props) => {
+  const {
+    selection: { ids, rootID },
+    state,
+  } = props;
+  const hasCreatePermission = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
+  const firstID = ids[0];
+  const createDirectory = PlatformArc.useCreateDirectory({
+    parent: firstID,
+    state,
+    root: rootID,
+  });
+  const rename = useRenameDirectory(props);
+  const handleDelete = useDeleteDirectory(props);
+  const handleLink = Core.useCopyLinkToClipboard();
+  const isSingle = ids.length === 1;
+  return (
+    <ContextMenu.Menu>
+      {isSingle && hasCreatePermission && (
+        <Menu.Item itemKey="newDirectory" onClick={createDirectory}>
+          <Icon.Group />
+          New directory
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      {isSingle && hasUpdatePermission && <ContextMenu.RenameItem onClick={rename} />}
+      <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
+      {isSingle && (
+        <Link.CopyContextMenuItem
+          onClick={() =>
+            handleLink({ name: state.getResource(firstID).name, resourceID: firstID })
+          }
+        />
+      )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
+  );
+};
+
+/** The menu for a right-click on empty space in a tree of Arcs. */
+export const RootContextMenu = ({
+  root,
+  state,
+}: Tree.RootContextMenuProps): ReactElement => {
+  const createArc = PlatformArc.useCreate();
+  const createDirectory = PlatformArc.useCreateDirectory({ parent: root, state, root });
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
+  return (
+    <ContextMenu.Menu>
+      {canCreateArc && (
+        <Menu.Item itemKey="createArc" onClick={createArc}>
+          <Icon.Add />
+          Create Arc
+        </Menu.Item>
+      )}
+      {canCreateDirectory && (
+        <Menu.Item itemKey="newDirectory" onClick={createDirectory}>
+          <Icon.Group />
+          New directory
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
+  );
+};
+
+const ENTRY_TYPES = new Set<resource.Type>(["arc", "arc_directory"]);
+
+const DirectoryItem = Tree.createItem({
+  icon: <Icon.Group />,
+  typeName: "Directory",
+  folder: true,
+  children: ({ client, id }) => [
+    Tree.createSource(
+      client.arcs.directories,
+      { parents: [id.key] },
+      Tree.toResource("arc_directory"),
+    ),
+    Tree.createSource(client.arcs, { directories: [id.key] }, Tree.toResource("arc")),
+  ],
+  canDrop: ({ moved }) => moved.every(({ id }) => ENTRY_TYPES.has(id.type)),
+  drop: async ({ client, destination, items }) => {
+    await client.arcs.directories.move(destination.id, ...items.map(({ id }) => id));
+  },
+  haulItems: ({ id }) => [id],
+  ContextMenu: DirectoryContextMenu,
+});
+
+export const TREE_ITEMS = {
+  arc: TreeItem,
+  arc_directory: DirectoryItem,
+} satisfies Tree.Items;

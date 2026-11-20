@@ -31,8 +31,10 @@ type FieldProcessor struct {
 	// Imports receives any TS imports required by the produced field data.
 	Imports *imports.Manager
 	// Namespace is the schema namespace the consumer is generating into.
-	// Used to detect same-namespace zod imports.
 	Namespace string
+	// FilePath is the schema file the consumer is generating from. Used to detect
+	// same-schema zod imports: two schemas with one file name share a namespace.
+	FilePath string
 	// OutputPath is the consumer's TS output directory. Used to compute
 	// relative import paths for same-namespace types.
 	OutputPath string
@@ -64,7 +66,7 @@ func (fp *FieldProcessor) CollectTypeImports(ref *resolution.TypeRef) {
 	if !ok {
 		return
 	}
-	if resolved.Namespace == fp.Namespace {
+	if resolved.FilePath == fp.FilePath {
 		zodName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 		importPath := paths.CalculateImport(fp.OutputPath, fp.OutputPath) + "/types.gen"
 		fp.Imports.AddImport(importPath, zodName)
@@ -75,6 +77,7 @@ func (fp *FieldProcessor) data() *templateData {
 	return &templateData{
 		Manager:    fp.Imports,
 		Namespace:  fp.Namespace,
+		FilePath:   fp.FilePath,
 		OutputPath: fp.OutputPath,
 		Request:    fp.Request,
 	}

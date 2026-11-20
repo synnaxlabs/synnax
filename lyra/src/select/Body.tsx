@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
-import { type z } from "zod";
+import type { record } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode, useState } from "react";
+import type { z } from "zod";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { List } from "@/list";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
 import { plural, searchPlaceholder } from "@/select/placeholder";
+import { useTerm, useVisibleCount } from "@/select/registry";
+import { ShownContext, useInline } from "@/select/scope";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 
@@ -26,7 +29,10 @@ export interface BodyProps<K extends record.Key>
     Pick<ItemsProps<K>, "emptyContent" | "children"> {
   status?: Status.Status<z.ZodNever>;
   resourceName: string;
-  /** Pinned below the scrollable list; stays visible regardless of list length. */
+  /**
+   * Pinned below the scrollable list. A fixed {@link Item} in it is a pinned option,
+   * which the search never hides.
+   */
   footer?: ReactNode;
   /** Fixed {@link Item}s listed above the data. */
   fixedItems?: ReactNode;
@@ -35,7 +41,10 @@ export interface BodyProps<K extends record.Key>
 /** Props for {@link EmptyContent}. */
 export interface EmptyContentProps {
   resourceName: string;
-  /** A string renders as gray text. Unset, it says no items were found. */
+  /**
+   * A string renders as gray text. Unset, it says no items were found. A search term
+   * replaces it with text that says no items match the term.
+   */
   emptyContent?: ReactNode;
 }
 
@@ -44,11 +53,71 @@ export const EmptyContent = ({
   resourceName,
   emptyContent,
 }: EmptyContentProps): ReactNode => {
-  if (emptyContent != null && typeof emptyContent !== "string") return emptyContent;
+  const term = useTerm().trim();
+  const fixed = useVisibleCount();
+  // A fixed option that matches the search is a match, so no message denies it.
+  if (term !== "" && fixed > 0) return null;
+  if (term === "" && emptyContent != null && typeof emptyContent !== "string")
+    return emptyContent;
+  let text = emptyContent ?? `No ${plural(resourceName)} found`;
+  if (term !== "") text = `No ${plural(resourceName)} match "${term}"`;
   return (
     <Status.Summary center variant="disabled" hideIcon>
-      {emptyContent ?? `No ${plural(resourceName)} found`}
+      {text}
     </Status.Summary>
+  );
+};
+
+/** Props for {@link BorderedList}. */
+export interface BorderedListProps {
+  /** Pinned below the list, inside its border. */
+  footer?: ReactNode;
+  children: ReactNode;
+}
+
+/** The option list of a select, with the footer pinned under it. */
+export const BorderedList = ({ footer, children }: BorderedListProps): ReactElement =>
+  footer == null || footer === false ? (
+    <SelectList bordered borderColor={6} grow rounded full="x">
+      {children}
+    </SelectList>
+  ) : (
+    <Flex.Box
+      y
+      empty
+      grow
+      className={CSS.BE("select", "body")}
+      bordered
+      borderColor={6}
+      rounded
+      full="x"
+    >
+      <SelectList grow full="x">
+        {children}
+      </SelectList>
+      {footer}
+    </Flex.Box>
+  );
+
+// In the menu, only the matching options show: no field, footer, or empty content.
+const InlineBody = <K extends record.Key>({
+  onSearch,
+  children,
+}: Pick<BodyProps<K>, "onSearch" | "children">): ReactElement => {
+  const { data } = List.useData();
+  const [shown, setShown] = useState(0);
+  return (
+    <>
+      {onSearch != null && <Search onSearch={onSearch} />}
+      {data.length > 0 && (
+        // Hidden with no option to show, so the menu dividers pass over it.
+        <SelectList role="group" full="x" hidden={shown === 0}>
+          <ShownContext value={setShown}>
+            <Items<K>>{children}</Items>
+          </ShownContext>
+        </SelectList>
+      )}
+    </>
   );
 };
 
@@ -66,8 +135,10 @@ export const Body = <K extends record.Key>({
   footer,
   fixedItems,
 }: BodyProps<K>): ReactElement => {
+  const inline = useInline();
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
+  if (inline) return <InlineBody<K> onSearch={onSearch}>{children}</InlineBody>;
   let empty: ReactNode;
   if (loading) empty = hasSearch ? null : <Status.Loading />;
   else if (status != null && status.variant !== "success")
@@ -87,29 +158,10 @@ export const Body = <K extends record.Key>({
           loading={loading}
         />
       )}
-      {footer == null || footer === false ? (
-        <SelectList bordered borderColor={6} grow rounded full="x">
-          {fixedItems}
-          <Items<K> emptyContent={empty}>{children}</Items>
-        </SelectList>
-      ) : (
-        <Flex.Box
-          y
-          empty
-          grow
-          className={CSS.BE("select", "body")}
-          bordered
-          borderColor={6}
-          rounded
-          full="x"
-        >
-          <SelectList grow full="x">
-            {fixedItems}
-            <Items<K> emptyContent={empty}>{children}</Items>
-          </SelectList>
-          {footer}
-        </Flex.Box>
-      )}
+      <BorderedList footer={footer}>
+        {fixedItems}
+        <Items<K> emptyContent={empty}>{children}</Items>
+      </BorderedList>
     </>
   );
 };

@@ -11,6 +11,7 @@ import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
+from framework.utils import hold
 from x import random_name
 from x.telem import to_float
 
@@ -107,13 +108,7 @@ class CalcTypeCascade(ConsoleCase):
         return None
 
     def _get_data_type(self, calc_label: str) -> sy.DataType:
-        fresh = sy.Synnax(
-            host="localhost",
-            port=9090,
-            username="synnax",
-            password="seldon",
-            secure=False,
-        )
+        fresh = self.synnax_connection.create_client()
         try:
             return fresh.channels.retrieve(self.calcs[calc_label]).data_type
         finally:
@@ -160,15 +155,15 @@ class CalcTypeCascade(ConsoleCase):
         self.console.notifications.close_all()
 
         scaled_ch = self.client.channels.retrieve(self.calcs["scaled"])
-        scaled_ch.expression = f"return {self.raw['precision']} * 2"
-        self.client.channels.create(scaled_ch)
+        self.client.channels.set_expression(
+            scaled_ch.key, f"return {self.raw['precision']} * 2"
+        )
 
-        for _ in range(20):
-            dt = self._get_data_type("scaled")
-            if dt == sy.DataType.FLOAT64:
-                break
-            sy.sleep(0.25)
+        def widened() -> bool | None:
+            data_type = self._get_data_type("scaled")
+            return True if data_type == sy.DataType.FLOAT64 else None
 
+        sy.poll(widened, timeout=5, interval=0.25)
         assert self._get_data_type("scaled") == sy.DataType.FLOAT64, (
             f"scaled should be f64 after edit, got {self._get_data_type('scaled')}"
         )
@@ -186,17 +181,18 @@ class CalcTypeCascade(ConsoleCase):
         with self.client.open_streamer(monitor_ch.key) as streamer:
             start = sy.TimeStamp.now()
             with self.client.open_writer(start, self.writer_keys) as writer:
-                for _ in range(5):
+
+                def computed() -> float | None:
                     self._write_raw(writer)
                     result = streamer.read(timeout=5)
-                    if result is not None and len(result[monitor_ch.key]) > 0:
-                        val = to_float(result[monitor_ch.key][0])
-                        if val != 0.0:
-                            assert abs(val - 3000.0) < 1.0, (
-                                f"monitor: expected 3000, got {val}"
-                            )
-                            break
-                    sy.sleep(0.5)
+                    if result is None or len(result[monitor_ch.key]) == 0:
+                        return None
+                    value = to_float(result[monitor_ch.key][0])
+                    return None if value == 0.0 else value
+
+                val = sy.poll(computed, timeout=15, interval=0.5)
+        assert val is not None, "monitor: no value arrived after the cascade"
+        assert abs(val - 3000.0) < 1.0, f"monitor: expected 3000, got {val}"
 
         self.log("Phase 3: Compatible cascade verified")
 
@@ -210,9 +206,7 @@ class CalcTypeCascade(ConsoleCase):
 
         notifs = self.console.notifications.check(timeout=3 * sy.TimeSpan.SECOND)
         error_notifs = [
-            n
-            for n in notifs
-            if n.get("type") == "error" and "Connected" not in n.get("message", "")
+            n for n in notifs if n.variant == "error" and "Connected" not in n.message
         ]
         self.log(f"Phase 4: Error notifications: {error_notifs}")
 
@@ -224,17 +218,15 @@ class CalcTypeCascade(ConsoleCase):
         self.console.notifications.close_all()
 
         combined_ch = self.client.channels.retrieve(self.calcs["combined"])
-        combined_ch.expression = (
-            f"return f32({self.calcs['scaled']}) + {self.raw['reference']}"
+        self.client.channels.set_expression(
+            combined_ch.key,
+            f"return f32({self.calcs['scaled']}) + {self.raw['reference']}",
         )
-        self.client.channels.create(combined_ch)
-        sy.sleep(2)
+        hold(2, reason="checks that no error shows")
 
         notifs = self.console.notifications.check()
         error_notifs = [
-            n
-            for n in notifs
-            if n.get("type") == "error" and "Connected" not in n.get("message", "")
+            n for n in notifs if n.variant == "error" and "Connected" not in n.message
         ]
         assert len(error_notifs) == 0, (
             f"Expected no errors after fix, got: {error_notifs}"
@@ -255,7 +247,7 @@ class CalcTypeCascade(ConsoleCase):
                 calc_keys.append(ch.key)
                 if ch.index != 0:
                     calc_keys.append(ch.index)
-            except Exception:
+            except sy.NotFoundError:
                 pass
         if calc_keys:
             self.client.channels.delete(calc_keys)

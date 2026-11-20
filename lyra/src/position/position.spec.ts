@@ -330,9 +330,9 @@ describe("position", () => {
         ],
       },
       expected: {
-        targetCorner: location.CENTER_LEFT,
-        dialogCorner: location.CENTER_RIGHT,
-        adjustedDialog: box.construct(20, 35, 20, 20),
+        targetCorner: location.CENTER_RIGHT,
+        dialogCorner: location.CENTER_LEFT,
+        adjustedDialog: box.construct(50, 35, 20, 20),
       },
     };
 
@@ -611,6 +611,82 @@ describe("position", () => {
       },
     };
 
+    const ALIGN_OFFSET: Spec = {
+      name: "align offset moves the dialog up past the top edge it shares",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { targetCorner: { y: "top" }, dialogCorner: { y: "top" } },
+        prefer: [{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }],
+        offset: 3,
+        alignOffset: { x: 0, y: 5 },
+      },
+      expected: {
+        targetCorner: location.TOP_RIGHT,
+        dialogCorner: location.TOP_LEFT,
+        adjustedDialog: box.construct(53, 35, 20, 20),
+      },
+    };
+
+    const ALIGN_OFFSET_FLIPPED: Spec = {
+      name: "align offset holds when the dialog flips to the other side",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(80, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { targetCorner: { y: "top" }, dialogCorner: { y: "top" } },
+        prefer: [{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }],
+        offset: 3,
+        alignOffset: { x: 0, y: 5 },
+      },
+      expected: {
+        targetCorner: location.TOP_LEFT,
+        dialogCorner: location.TOP_RIGHT,
+        adjustedDialog: box.construct(57, 35, 20, 20),
+      },
+    };
+
+    const ALIGN_OFFSET_X: Spec = {
+      name: "align offset moves the dialog left past the left edge it shares",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { targetCorner: { x: "left" }, dialogCorner: { x: "left" } },
+        prefer: [
+          { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_LEFT },
+        ],
+        offset: 3,
+        alignOffset: { x: 5, y: 0 },
+      },
+      expected: {
+        targetCorner: location.BOTTOM_LEFT,
+        dialogCorner: location.TOP_LEFT,
+        adjustedDialog: box.construct(35, 53, 20, 20),
+      },
+    };
+
+    const ALIGN_OFFSET_ONE_AXIS: Spec = {
+      name: "align offset on one axis leaves a shared edge on the other in place",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { targetCorner: { x: "left" }, dialogCorner: { x: "left" } },
+        prefer: [
+          { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_LEFT },
+        ],
+        offset: 3,
+        alignOffset: { x: 0, y: 5 },
+      },
+      expected: {
+        targetCorner: location.BOTTOM_LEFT,
+        dialogCorner: location.TOP_LEFT,
+        adjustedDialog: box.construct(40, 53, 20, 20),
+      },
+    };
+
     const SPECS: Spec[] = [
       CENTER,
       TOP_LEFT,
@@ -645,12 +721,67 @@ describe("position", () => {
       COLUMN_AT_BOTTOM_EDGE,
       FULL_LOCATION_NEVER_FALLS_BACK,
       ROW_WITH_PREFERRED_SIDE_DISABLED,
+      ALIGN_OFFSET,
+      ALIGN_OFFSET_FLIPPED,
+      ALIGN_OFFSET_X,
+      ALIGN_OFFSET_ONE_AXIS,
     ];
 
     SPECS.forEach(({ name, params, expected }) =>
       it(`should position dialog correctly for ${name}`, () =>
         expect(position.position(params)).toEqual(expected)),
     );
+
+    describe("disable without a dialog corner", () => {
+      const PARAMS = {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+      };
+
+      it("should return the left target corner with nothing disabled", () => {
+        expect(position.position(PARAMS).targetCorner.x).toEqual("left");
+      });
+
+      it("should accept a bare location as a disabled preference", () => {
+        const res = position.position({ ...PARAMS, disable: "left" });
+        expect(res.targetCorner.x).not.toEqual("left");
+      });
+
+      it("should accept a bare vertical location as a disabled preference", () => {
+        const res = position.position({ ...PARAMS, prefer: "top", disable: "top" });
+        expect(res.targetCorner.y).not.toEqual("top");
+      });
+
+      it("should accept a preference with only a target corner", () => {
+        const res = position.position({
+          ...PARAMS,
+          disable: { targetCorner: { x: "left" } },
+        });
+        expect(res.targetCorner.x).not.toEqual("left");
+      });
+    });
+
+    describe("prefer without a dialog corner", () => {
+      const PARAMS = {
+        container: box.construct(0, 0, 1000, 1000),
+        target: box.construct(400, 400, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+      };
+
+      it("should honor a bare location preference when every option fits", () => {
+        const res = position.position({ ...PARAMS, prefer: "bottom" });
+        expect(res.targetCorner.y).toEqual("bottom");
+      });
+
+      it("should honor a preference with only a target corner", () => {
+        const res = position.position({
+          ...PARAMS,
+          prefer: { targetCorner: { y: "bottom" } },
+        });
+        expect(res.targetCorner.y).toEqual("bottom");
+      });
+    });
   });
 
   describe("parseLocationOptions", () => {
@@ -661,11 +792,11 @@ describe("position", () => {
         { x: "left", y: "top" },
         { x: "left", y: "top" },
       ],
-      [{}, { x: undefined, y: undefined }],
+      [{}, {}],
     ];
     TESTS.forEach(([arg, expected]) => {
       it(`should return ${toString(expected)} for ${toString(arg)}`, () => {
-        expect(position.parseLocationOptions(arg)).toEqual(expected);
+        expect(position.parseLocationOptions(arg)).toStrictEqual(expected);
       });
     });
   });

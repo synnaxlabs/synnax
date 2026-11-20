@@ -10,8 +10,11 @@
 package cesium_test
 
 import (
+	"context"
+	"fmt"
 	"math"
 	"path"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -56,6 +59,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
+					StartRun(db.Run)
 				})
 
 				It(
@@ -80,11 +84,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 						By("Writing data to the channel")
 						for i := 1; i <= 9; i++ {
-							var data []int64
-							var timestamps []telem.TimeStamp
-							for j := 0; j <= 9; j++ {
-								data = append(data, int64(i*100+j*10))
-								timestamps = append(timestamps, telem.TimeStamp(i*10+j))
+							data := make([]int64, 10)
+							timestamps := make([]telem.TimeStamp, 10)
+							for j := range data {
+								data[j] = int64(i*100 + j*10)
+								timestamps[j] = telem.TimeStamp(i*10 + j)
 							}
 
 							Expect(
@@ -161,6 +165,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
+					StartRun(db.Run)
 				})
 				It(
 					"Should only garbage collect after a certain amount garbage has accumulated",
@@ -184,11 +189,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 						By("Writing data to the channel")
 						for i := 1; i <= 9; i++ {
-							var data []int64
-							var timestamps []telem.TimeStamp
-							for j := 0; j <= 9; j++ {
-								data = append(data, int64(i*100+j*10))
-								timestamps = append(timestamps, telem.TimeStamp(i*10+j))
+							data := make([]int64, 10)
+							timestamps := make([]telem.TimeStamp, 10)
+							for j := range data {
+								data[j] = int64(i*100 + j*10)
+								timestamps[j] = telem.TimeStamp(i*10 + j)
 							}
 
 							Expect(
@@ -284,6 +289,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFileSizeCap(49*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger()),
 					))
+					StartRun(db.Run)
 				})
 				It(
 					"Should only garbage collect after a certain amount garbage has accumulated",
@@ -307,11 +313,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 						By("Writing data to the channel")
 						for i := 1; i <= 9; i++ {
-							var data []int64
-							var timestamps []telem.TimeStamp
-							for j := 0; j <= 9; j++ {
-								data = append(data, int64(i*100+j*10))
-								timestamps = append(timestamps, telem.TimeStamp(i*10+j))
+							data := make([]int64, 10)
+							timestamps := make([]telem.TimeStamp, 10)
+							for j := range data {
+								data[j] = int64(i*100 + j*10)
+								timestamps[j] = telem.TimeStamp(i*10 + j)
 							}
 
 							Expect(
@@ -450,6 +456,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							cesium.WithFileSizeCap(89*telem.Byte),
 							cesium.WithInstrumentation(ins),
 						))
+						StartRun(failing.Run)
 						Expect(failing.CreateChannel(
 							ctx,
 							cesium.Channel{
@@ -494,4 +501,88 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			})
 		})
 	}
+
+	It("Should collect no further channel once the run stops", func(ctx SpecContext) {
+		fs := WrapFaultyFS(FileSystems["memFS"]())
+		gcConfig := func(interval time.Duration) cesium.Option {
+			return cesium.WithGCConfig(cesium.GCConfig{
+				MaxGoroutine: 1,
+				TryInterval:  interval,
+				Threshold:    math.SmallestNonzeroFloat32,
+			})
+		}
+		keys := []cesium.ChannelKey{GenerateChannelKey(), GenerateChannelKey()}
+		setup := MustSucceed(
+			cesium.Open(ctx, "", cesium.WithFS(fs), gcConfig(time.Hour)),
+		)
+		for i, key := range keys {
+			Expect(setup.CreateChannel(ctx, cesium.Channel{
+				Key:      key,
+				Name:     fmt.Sprintf("Thales %d", i),
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			Expect(setup.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+				[]cesium.ChannelKey{key},
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
+				},
+			))).To(Succeed())
+			Expect(setup.DeleteTimeRange(ctx, []cesium.ChannelKey{key}, telem.TimeRange{
+				Start: 12 * telem.SecondTS,
+				End:   17 * telem.SecondTS,
+			})).To(Succeed())
+		}
+		Expect(setup.Close()).To(Succeed())
+		sizes := func() []int64 {
+			GinkgoHelper()
+			out := make([]int64, len(keys))
+			for i, key := range keys {
+				info := MustSucceed(
+					fs.Stat(path.Join(channelKeyToPath(key), "1.domain")),
+				)
+				out[i] = info.Size()
+			}
+			return out
+		}
+		before := sizes()
+		var (
+			writing = make(chan struct{})
+			resume  = make(chan struct{})
+			hold    = sync.OnceFunc(func() {
+				GinkgoHelper()
+				defer GinkgoRecover()
+				close(writing)
+				Eventually(resume).WithTimeout(30 * time.Second).Should(BeClosed())
+			})
+			release = sync.OnceFunc(func() { close(resume) })
+		)
+		DeferCleanup(release)
+		db := MustSucceed(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			gcConfig(200*time.Millisecond),
+		))
+		// The first write from here on is the first collection's copy.
+		fs.SetOptions(WithBeforeWrite(hold))
+		DeferCleanup(func() { fs.SetOptions() })
+		runCtx, stop := context.WithCancel(ctx)
+		ran := make(chan error, 1)
+		go func() { ran <- db.Run(runCtx) }()
+		Eventually(writing).WithTimeout(5 * time.Second).Should(BeClosed())
+		stop()
+		Consistently(ran).WithTimeout(100 * time.Millisecond).ShouldNot(Receive())
+		release()
+		Eventually(ran).WithTimeout(10 * time.Second).Should(Receive(Succeed()))
+		Expect(db.Close()).To(Succeed())
+		after := sizes()
+		var rewritten int
+		for i := range keys {
+			if after[i] < before[i] {
+				rewritten++
+			}
+		}
+		Expect(rewritten).To(Equal(1))
+	})
 })

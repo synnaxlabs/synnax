@@ -37,11 +37,13 @@ jobs:
       contents: read
     outputs:
       prompt: ${{ steps.prompt.outputs.prompt }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -60,7 +62,6 @@ jobs:
     permissions:
       actions: read
       contents: write
-      id-token: write
       issues: write
       pull-requests: write
     uses: ./.github/workflows/agent.yaml
@@ -69,7 +70,10 @@ jobs:
       agent: ${{ inputs.agent != 'default' && inputs.agent || '' }}
       output: report
       timeout-minutes: 180
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   report:
     name: Post the report
@@ -77,12 +81,13 @@ jobs:
     if: ${{ always() && needs.agent.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions: {}
+    timeout-minutes: 10
     steps:
       - name: Post the report to Slack
         env:
           REPORT: ${{ needs.agent.outputs.report }}
           RESULT: ${{ needs.agent.result }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AGENT_REPORT_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
         run: |
           if [ "$RESULT" != success ] || [ -z "$REPORT" ]; then
             REPORT="The weekly lint pass did not finish ($RESULT)."
@@ -93,3 +98,13 @@ jobs:
             curl --fail --silent --show-error \
               --header "Content-Type: application/json" \
               --data @- "$SLACK_WEBHOOK_URL"
+
+  relay-failure:
+    name: Relay the failure
+    needs: [prompt, agent, report]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

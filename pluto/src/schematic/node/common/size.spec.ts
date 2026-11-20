@@ -29,7 +29,8 @@ describe("LEVEL_SIZES", () => {
     it("should fall back to medium for h1", () =>
       expect(LEVEL_SIZES.h1).toBe("medium"));
 
-    // Legacy string displays store p, and medium is the height they already rendered at.
+    // Legacy string displays store p, and medium is the height they already rendered
+    // at.
     it("should fall back to medium for p", () => expect(LEVEL_SIZES.p).toBe("medium"));
   });
 });

@@ -14,8 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -25,11 +23,9 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apirack.ServiceConfig {
 		return apirack.ServiceConfig{
 			Rack:   &rack.Service{},
-			Device: &device.Service{},
 			Task:   &task.Service{},
 			Status: &status.Service{},
 			RBAC:   &rbac.Service{},
-			Auth:   &auth.Service{},
 		}
 	}
 
@@ -40,20 +36,15 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a service is missing",
-			func(clear func(*apirack.ServiceConfig), msg string) {
+			func(unset func(*apirack.ServiceConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
 				"rack",
 				func(c *apirack.ServiceConfig) { c.Rack = nil },
 				"rack: must be non-nil",
-			),
-			Entry(
-				"device",
-				func(c *apirack.ServiceConfig) { c.Device = nil },
-				"device: must be non-nil",
 			),
 			Entry(
 				"task",
@@ -70,11 +61,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apirack.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
 			),
-			Entry(
-				"auth",
-				func(c *apirack.ServiceConfig) { c.Auth = nil },
-				"auth: must be non-nil",
-			),
 		)
 	})
 
@@ -83,22 +69,18 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apirack.ServiceConfig{}.Override(cfg)
 			Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
-			Expect(merged.Device).To(BeIdenticalTo(cfg.Device))
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
-			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apirack.ServiceConfig{})
 			Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
-			Expect(merged.Device).To(BeIdenticalTo(cfg.Device))
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
-			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 	})
 })

@@ -14,7 +14,6 @@ var (
 	// DimNone represents a dimensionless quantity.
 	DimNone = Dimensions{}
 
-	// Base dimensions
 	DimLength      = Dimensions{Length: 1}
 	DimMass        = Dimensions{Mass: 1}
 	DimTime        = Dimensions{Time: 1}
@@ -24,25 +23,11 @@ var (
 	DimCount       = Dimensions{Count: 1}
 	DimData        = Dimensions{Data: 1}
 
-	// Derived dimensions (computed via multiplication/division of base dimensions)
-	DimVelocity = Dimensions{Length: 1, Time: -1}          // m/s
-	DimAccel    = Dimensions{Length: 1, Time: -2}          // m/s^2
-	DimForce    = Dimensions{Mass: 1, Length: 1, Time: -2} // kg*m/s^2 (N)
 	DimPressure = Dimensions{
 		Mass:   1,
 		Length: -1,
 		Time:   -2,
 	} // kg/(m*s^2) (Pa)
-	DimEnergy = Dimensions{
-		Mass:   1,
-		Length: 2,
-		Time:   -2,
-	} // kg*m^2/s^2 (J)
-	DimPower = Dimensions{
-		Mass:   1,
-		Length: 2,
-		Time:   -3,
-	} // kg*m^2/s^3 (W)
 	DimFrequency = Dimensions{Time: -1} // 1/s (Hz)
 	DimVoltage   = Dimensions{
 		Mass:    1,

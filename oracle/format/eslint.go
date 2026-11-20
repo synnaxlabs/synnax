@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// eslint is a Formatter that applies `eslint --fix` to TypeScript / JavaScript content
+// eslint is a formatter that applies `eslint --fix` to TypeScript / JavaScript content
 // via stdin. ESLint's `--fix` flag is incompatible with `--stdin`, so this
 // implementation uses `--fix-dry-run --format json --stdin --stdin-filename=<absPath>`
 // and parses the JSON envelope to extract the fixed source. When eslint reports no

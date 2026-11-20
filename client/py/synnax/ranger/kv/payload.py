@@ -7,16 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
 
 from pydantic import BaseModel
 
+import synnax.ranger.types_gen as ranger
 from synnax.exceptions import ValidationError
 from x.primitive import is_primitive
 
 
 class Pair(BaseModel):
-    range: uuid.UUID
+    range: ranger.Key
     key: str
     value: str
 

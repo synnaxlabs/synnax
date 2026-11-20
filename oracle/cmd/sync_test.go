@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/paths"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -39,10 +40,11 @@ var _ = Describe("sync command", func() {
 		It("writes schema sources and generated outputs before buf fails", func() {
 			// The mini repo has no buf configuration, so the run stops at the
 			// buf-generate step; everything before it must have completed.
-			Expect(fail(1, "sync", "-v")).To(ContainSubstring("buf generate"))
+			Expect(fail("sync", "-v")).To(ContainSubstring("buf generate"))
 
-			schema := string(MustSucceed(os.ReadFile(
-				filepath.Join(repoDir, "schemas", "synnax", "user.oracle"),
+			schema := string(MustSucceed(paths.ReadFile(
+				filepath.Join("schemas", "synnax", "user.oracle"),
+				repoDir,
 			)))
 			Expect(schema).To(ContainSubstring("@go output \"x/go/user\""))
 			Expect(filepath.Join(repoDir, "x", "go", "user", "types.gen.go")).
@@ -65,15 +67,15 @@ var _ = Describe("sync command", func() {
 		// after it writes the generated files.
 		sync := func() {
 			GinkgoHelper()
-			Expect(fail(1, "sync")).To(ContainSubstring("buf generate"))
+			Expect(fail("sync")).To(ContainSubstring("buf generate"))
 		}
 
 		It("Should restore a generated file that was edited by hand", func() {
 			sync()
-			want := MustSucceed(os.ReadFile(generated))
+			want := MustSucceed(paths.ReadFile(generated, repoDir))
 			Expect(os.WriteFile(generated, []byte("edited"), 0o644)).To(Succeed())
 			sync()
-			Expect(os.ReadFile(generated)).To(Equal(want))
+			Expect(paths.ReadFile(generated, repoDir)).To(Equal(want))
 		})
 
 		DescribeTable(
@@ -106,7 +108,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("prints diagnostics and fails generation", func() {
-			Expect(fail(1, "sync")).To(printOnce("generation failed"))
+			Expect(fail("sync")).To(printOnce("generation failed"))
 		})
 	})
 
@@ -116,7 +118,38 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("errors when no schema files exist", func() {
-			Expect(fail(1, "sync")).To(printOnce("no schema files found"))
+			Expect(fail("sync")).To(printOnce("no schema files found"))
 		})
+	})
+})
+
+var _ = Describe("sync with a new TypeScript output", func() {
+	var (
+		repoDir string
+		cleanup func()
+	)
+
+	BeforeEach(func() {
+		repoDir, cleanup = setupMiniRepo(map[string]string{
+			"synnax/user.oracle": "@ts output \"client/ts/src/user\"\n\n" +
+				"User struct {\n    key uuid\n    name string\n}\n",
+		})
+		// ESLint and Prettier run through pnpm, so a failing pnpm stops the sync while
+		// it formats.
+		bin := GinkgoT().TempDir()
+		Expect(os.WriteFile(
+			filepath.Join(bin, "pnpm"),
+			[]byte("#!/bin/sh\nexit 1\n"),
+			0o755,
+		)).To(Succeed())
+		GinkgoT().Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	})
+
+	AfterEach(func() { cleanup() })
+
+	It("Should put a new file on disk before formatting it", func() {
+		fail("sync")
+		Expect(filepath.Join(repoDir, "client", "ts", "src", "user", "types.gen.ts")).
+			To(BeAnExistingFile())
 	})
 })

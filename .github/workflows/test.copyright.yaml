@@ -14,7 +14,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: copyright-${{ github.workflow }}-${{ github.ref }}
+  group:
+    copyright-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref
+    }}
   cancel-in-progress: true
 
 permissions:
@@ -24,8 +26,11 @@ jobs:
   test:
     name: Check copyright headers
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Check copyright headers
         run: ./scripts/check_copyrights.sh

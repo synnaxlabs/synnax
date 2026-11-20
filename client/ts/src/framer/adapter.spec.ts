@@ -10,7 +10,8 @@
 import { array, DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter, WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
 import { createTestClient } from "@/testutil";
@@ -69,6 +70,13 @@ describe("WriteFrameAdapter", () => {
     expect(res3.series).toHaveLength(1);
     expect(res3.get(dataCh.key)).toHaveLength(1);
     expect(res3.get(dataCh.key).at(0)).toEqual(1);
+  });
+
+  it("should read a name pattern as an exact channel name", async () => {
+    const pattern = `(${timeCh.name}|${dataCh.name})`;
+    const adapt = adapter.adapt(pattern, new Series(1));
+    await expect(adapt).rejects.toThrow(NotFoundError);
+    await expect(adapt).rejects.toThrow(`Found no channel where name = "${pattern}"`);
   });
 
   it("should correctly adapt multiple names to multiple series", async () => {
@@ -586,6 +594,43 @@ describe("ReadFrameAdapter", () => {
       await adapter.update([timeCh.key, dataCh.key]);
       const hasChanged = await adapter.update([timeCh.name, dataCh.name]);
       expect(hasChanged).toBe(false);
+    });
+
+    it("should throw a NotFoundError when updating with a key that does not exist", async () => {
+      const update = adapter.update([timeCh.key, 999999]);
+      await expect(update).rejects.toThrow(NotFoundError);
+      await expect(update).rejects.toThrow("channels not found matching [999999]");
+    });
+
+    it("should throw a NotFoundError when updating with a name that does not exist", async () => {
+      const name = id.create();
+      const update = adapter.update([timeCh.name, name]);
+      await expect(update).rejects.toThrow(NotFoundError);
+      await expect(update).rejects.toThrow(`channels not found matching ["${name}"]`);
+    });
+  });
+});
+
+describe("ReadAdapter", () => {
+  describe("update", () => {
+    const payload = {
+      key: 1,
+      name: "a",
+      dataType: DataType.FLOAT32,
+    } as channel.Payload;
+    const retrieve: ChannelRetriever = async () => [payload];
+    const series = new Series(new Float32Array([1]));
+
+    it("should key frames by name after an update from keys to names", async () => {
+      const adapter = await ReadAdapter.open(retrieve, [1]);
+      await adapter.update(["a"]);
+      expect(adapter.adapt(new Frame([1], [series])).columns).toEqual(["a"]);
+    });
+
+    it("should key frames by key after an update from names to keys", async () => {
+      const adapter = await ReadAdapter.open(retrieve, ["a"]);
+      await adapter.update([1]);
+      expect(adapter.adapt(new Frame([1], [series])).columns).toEqual([1]);
     });
   });
 });

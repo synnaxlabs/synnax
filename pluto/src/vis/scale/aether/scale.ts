@@ -24,24 +24,26 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
-import { type Element } from "@/vis/diagram/aether/Diagram";
+import type { Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { domRadii } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-export const scaleStateZ = staleness.configZ.extend({
+export const scaleStateZ = staleness.drawnStateZ.extend({
   box: box.box,
   telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
-  color: color.colorZ.default(color.ZERO),
-  // Colors the bar outline, the spine, and the tick marks. Zero uses the theme.
-  axisColor: color.colorZ.default(color.ZERO),
-  // Colors the tick labels. Zero uses the theme.
-  textColor: color.colorZ.default(color.ZERO),
+  // Colors the fill. Absent uses the theme.
+  color: color.colorZ.optional(),
+  // Colors the bar outline, the spine, and the tick marks. Absent uses the theme.
+  axisColor: color.colorZ.optional(),
+  // Colors the tick labels. Absent uses the theme.
+  textColor: color.colorZ.optional(),
   direction: direction.directionZ.default("y"),
   // Fills the bar up to the value. Independent of the caret, so a symbol can show
   // either, both, or neither.
@@ -51,13 +53,11 @@ export const scaleStateZ = staleness.configZ.extend({
   showScale: z.boolean().default(true),
   // The side of the bar on which tick marks and labels are drawn.
   side: location.outerZ.default("right"),
-  // The direction the readout is offset from the value. A side along the bar has no edge
-  // to clear, so the readout sits inside the bar beside the fill edge.
+  // The direction the readout is offset from the value. A side along the bar has no
+  // edge to clear, so the readout sits inside the bar beside the fill edge.
   caretSide: location.outerZ.default("right"),
   // Appended to the readout, after the value.
   units: z.string().default(""),
-  // Colors the fill, the caret, and the readout once the source stops sending.
-  stalenessColor: color.colorZ.optional(),
   // Formatting of the readout value.
   notation: notation.notationZ.default("standard"),
   precision: z.number().default(2),
@@ -87,9 +87,14 @@ export const gutter = ({
   externalScale?: boolean;
 }): number => (showScale && !externalScale ? GUTTER : 0);
 
-/** @returns the level color a scale paints while its color is absent. */
-export const levelColorFallback = (theme: baseTheme.Theme): color.Color =>
-  theme.colors.visualization.palettes.default[0];
+/**
+ * @returns the level color a scale paints while its color is absent: the first series
+ * color, or transparent while the series colors load.
+ */
+export const levelColorFallback = (
+  _theme: baseTheme.Theme,
+  colors: color.Color[],
+): color.Color => colors.at(0) ?? color.TRANSPARENT;
 
 /** @returns the axis and tick color a scale paints while its axis color is absent. */
 export const axisColorFallback = (theme: baseTheme.Theme): color.Color =>
@@ -116,7 +121,6 @@ interface InternalState {
   render: render.Context;
   telem: telem.NumberSource;
   staleness: staleness.Registration;
-  stale: boolean;
   stopListening?: () => void;
   requestRender: render.Requestor | null;
   fillColor: color.Color;
@@ -135,19 +139,15 @@ export class Scale
 {
   static readonly TYPE = "scale";
   static readonly z = scaleStateZ;
-  schema = Scale.z;
+  override schema = Scale.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useInternalRegistration(
-      ctx,
-      i.staleness,
-      this,
-      i.telem,
-      () => this.requestRender(),
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem, () =>
+      this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
@@ -156,12 +156,11 @@ export class Scale
     });
     i.requestRender = render.useOptionalRequestor(ctx);
 
-    i.fillColor = color.isZero(this.state.color)
-      ? levelColorFallback(i.theme)
-      : this.state.color;
     const { axisColor, textColor } = this.state;
-    i.axisColor = color.isZero(axisColor) ? axisColorFallback(i.theme) : axisColor;
-    i.textColor = color.isZero(textColor) ? textColorFallback(i.theme) : textColor;
+    i.fillColor =
+      this.state.color ?? levelColorFallback(i.theme, aetherColor.useSeries(ctx));
+    i.axisColor = axisColor ?? axisColorFallback(i.theme);
+    i.textColor = textColor ?? textColorFallback(i.theme);
     i.tickLevel = this.state.level;
 
     const { lower, upper } = this.state.bounds;
@@ -180,7 +179,7 @@ export class Scale
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.staleness?.cleanup();
@@ -306,7 +305,7 @@ export class Scale
     const ratio =
       range === 0 || Number.isNaN(value)
         ? 0
-        : (bounds.clamp(this.state.bounds, value) - lower) / range;
+        : (bounds.clamp(bounds.construct(this.state.bounds), value) - lower) / range;
 
     if (this.state.showFill) {
       // The fill goes on the lower canvas so a symbol's own container paints over it.
@@ -376,8 +375,8 @@ export class Scale
    * turns to the staleness color once the source stops sending.
    */
   private get valueColor(): color.Color {
-    const { fillColor, stale, theme } = this.internal;
-    return stale ? staleness.resolveColor(this.state.stalenessColor, theme) : fillColor;
+    const { fillColor, theme } = this.internal;
+    return staleness.drawnColor(this.state, theme) ?? fillColor;
   }
 
   /**
@@ -477,7 +476,7 @@ export class Scale
   ): void {
     if (valueText.length === 0) return;
     const { units } = this.state;
-    const { theme, tickLevel, stale } = this.internal;
+    const { theme, tickLevel } = this.internal;
     const valueColor = this.valueColor;
     const ctx = draw.canvas;
     ctx.font = baseTheme.fontString(theme, { level: tickLevel, code: true });
@@ -512,7 +511,7 @@ export class Scale
         justify: "left",
         align: "alphabetic",
         shade: 11,
-        color: stale ? valueColor : undefined,
+        color: staleness.drawnColor(this.state, theme),
         code: true,
         useAtlas: true,
       });

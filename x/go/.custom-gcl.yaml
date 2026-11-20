@@ -24,3 +24,6 @@ plugins:
   - module: "github.com/synnaxlabs/x"
     import: "github.com/synnaxlabs/x/analyzers/errmatch"
     path: .
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/teardown"
+    path: .

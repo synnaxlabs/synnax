@@ -10,22 +10,22 @@
 [project]
 name = "synnax-test-framework"
 version = "0.0.0"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "synnax",
     "synnax-freighter",
     "synnax-x",
     "flask>=3.1.3,<4",
     "matplotlib>=3.11.2,<4",
-    "numpy>=2.5.4,<3",
-    "playwright>=1.64.0,<2",
+    "numpy>=2.5.5,<3",
+    "playwright>=1.65.2,<2",
     "protobuf>=7.36.2,<8",
     "psutil>=7.2.2,<8",
-    "pymodbus[serial]>=3.16.1,<4",
+    "pymodbus[serial]>=3.16.2,<4",
     "asyncua>=2.1.0,<3",
-    "nidaqmx>=1.6.0,<2",
+    "nidaqmx>=1.7.0,<2",
     "nisyscfg>=0.2.1,<1",
-    "pagerduty>=7.0.1,<8",
+    "pagerduty>=7.2.0,<8",
 ]
 classifiers = ["Private :: Do Not Upload"]
 
@@ -35,39 +35,31 @@ tc = "framework.test_conductor:main"
 
 [dependency-groups]
 dev = [
-    "mypy>=2.4.0,<3",
-    "pytest>=9.1.1,<10",
+    "mypy>=2.4.1,<3",
+    "pytest>=9.2.0,<10",
     "pytest-cov>=7.1.0,<8",
-    "ruff>=0.17.1,<1",
-    "types-psutil>=7.2.2.20260906,<8",
+    "ruff>=0.17.6,<1",
+    "types-psutil>=7.2.2.20261111,<8",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["console", "framework", "tests"]
 
 [tool.ruff]
-line-length = 88
-target-version = "py312"
+extend = "../pyproject.toml"
 
 [tool.ruff.lint]
-select = [
-    "F",
-    "I",
-    "B",
-    "DTZ",
-    "E501",
-    "E7",
-    "E9",
-    "PLE",
-    "UP",
-    "SIM",
-    "C4",
-    "RET",
-    "PIE",
-    "PERF",
-    "RUF",
-]
-ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+extend-select = ["TID251"]
+# Most tests here run under the conductor, not pytest.
+ignore = ["PT"]
+
+# Tests wait with bounded polling helpers, or with framework.utils.hold for a fixed
+# window.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"time.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
+"synnax.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
+"synnax.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
+"x.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
@@ -75,11 +67,14 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 [tool.ruff.lint.per-file-ignores]
 # Test cases configure subclasses with class-level lists that nothing mutates.
 "tests/**" = ["RUF012"]
+# The helpers that tests wait with poll on an interval.
+"!tests/**" = ["TID251"]
 # Optional hooks with no-op defaults.
 "console/schematic/symbol.py" = ["B027"]
 "framework/test_case.py" = ["B027"]
 
 [tool.mypy]
+python_version = "3.13"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
@@ -116,5 +111,5 @@ testpaths = ["framework/tests"]
 omit = ["framework/tests/*"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"

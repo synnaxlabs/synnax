@@ -73,9 +73,9 @@ export interface Plan<V> {
 }
 
 /**
- * Plans the paste of a block of values with its top left corner at an anchor. The anchor
- * clamps into the current grid, so a stale anchor cannot leave a gap between the last
- * row and the block.
+ * Plans the paste of a block of values with its top left corner at an anchor. The
+ * anchor clamps into the current grid, so a stale anchor cannot leave a gap between the
+ * last row and the block.
  *
  * The plan says what the result holds, never how to get there: a caller backed by an
  * array grows it and assigns, a caller backed by a document adds rows and columns first

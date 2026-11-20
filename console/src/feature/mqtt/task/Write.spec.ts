@@ -9,16 +9,19 @@
 
 import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
+import { Device } from "@/platform/device";
 import {
   clickDeploy,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -28,7 +31,6 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getSwitchInput,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -40,7 +42,7 @@ const ZERO_DRAFT: task.New<MQTT.Task.WriteSchemas> = {
   config: MQTT.Task.WRITE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: MQTT.Task.WritePayload["config"]) =>
+const createDraft = async (client: Synnax, config: mqtt.WriteConfig) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, MQTT.Task.WRITE_SCHEMAS);
 
 const createWriteTarget = (
@@ -74,7 +76,7 @@ const retrieveTargets = async (key: task.Key) =>
 const createWriteConfig = (
   device: string,
   targets: MQTT.Task.WriteTarget[],
-): MQTT.Task.WritePayload["config"] => ({
+): mqtt.WriteConfig => ({
   ...MQTT.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   targets,
@@ -87,7 +89,7 @@ const renderWrite = async (
 ) => {
   const dev = await createBroker(client);
   const draft = await createDraft(client, createWriteConfig(dev.key, targets));
-  const result = await renderTaskFormTab(MQTT.Task.Write, {
+  const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
     client,
     taskKey: draft.key,
     ...options,
@@ -107,6 +109,10 @@ const addTarget = async (): Promise<void> => {
   await screen.findByText("Publish");
 };
 
+// The name deploying gives the command channel of a target with no topic yet.
+const emptyTopicCommandName = (deviceName: string): string =>
+  `${channel.escapeInvalidName(deviceName)}__cmd`;
+
 describe("MQTT Write form", () => {
   it("should show the empty state and add + select a target", async () => {
     await renderWrite();
@@ -118,6 +124,21 @@ describe("MQTT Write form", () => {
     expect(screen.getByText("Data type")).toBeTruthy();
     expect(screen.getAllByText("New topic")).toHaveLength(2);
     expect(screen.getByText("No additional fields")).toBeTruthy();
+  });
+
+  it("should focus the topic of each target added by name", async () => {
+    await renderWrite();
+    await addTarget();
+    const first = screen.getByPlaceholderText("plant/line1/valve/set");
+    await waitFor(() => expect(document.activeElement).toBe(first));
+    fireEvent.change(first, { target: { value: "plant/valve/a" } });
+    fireEvent.blur(first);
+    await addTarget();
+    await waitFor(() => {
+      const topic = screen.getByPlaceholderText("plant/line1/valve/set");
+      expect(document.activeElement).toBe(topic);
+      expect(topic).toHaveProperty("value", "");
+    });
   });
 
   it("should show the enum mapping editor when the channel JSON type is string", async () => {
@@ -184,23 +205,43 @@ describe("MQTT Write form", () => {
   });
 
   it("should duplicate targets and rename the command channel via the context menu", async () => {
-    await renderWrite();
+    const { dev } = await renderWrite();
     await addTarget();
-    const item = await screen.findByText("No channel");
-    fireEvent.contextMenu(item);
+    const name = emptyTopicCommandName(dev.name);
+    const items = () => screen.getAllByRole("option", { name: new RegExp(name) });
+    fireEvent.contextMenu(within(await screen.findByRole("option")).getByText(name));
     fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() => expect(screen.getAllByText("No channel")).toHaveLength(2));
-    fireEvent.contextMenu(screen.getAllByText("No channel")[0]);
+    await waitFor(() => expect(items()).toHaveLength(2));
+    fireEvent.contextMenu(within(items()[0]).getByText(name));
     fireEvent.click(await screen.findByText("Rename"));
     const editable = await awaitTextEditingElement();
     commitTextEdit(editable, "my_cmd_channel");
     await screen.findByText("my_cmd_channel");
   });
 
+  it("should mark a new command channel, unless its target is disabled", async () => {
+    const { dev } = await renderWrite([
+      createWriteTarget("t1", "plant/valve/set"),
+      { ...createWriteTarget("t2", "plant/spare/set"), disabled: true },
+    ]);
+    const escape = channel.escapeInvalidName;
+    const on = await findChannelListItem(
+      `${escape(dev.name)}_${escape("plant/valve/set")}_cmd`,
+    );
+    expect(within(on).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const off = await findChannelListItem(
+      `${escape(dev.name)}_${escape("plant/spare/set")}_cmd`,
+    );
+    expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
   it("should withhold rename from a subject who cannot update channels", async () => {
-    await renderWrite([], { as: await createChannelReadOnlyClient(client) });
+    const { dev } = await renderWrite([], {
+      as: await createChannelReadOnlyClient(client),
+    });
     await addTarget();
-    fireEvent.contextMenu(await screen.findByText("No channel"));
+    const name = emptyTopicCommandName(dev.name);
+    fireEvent.contextMenu(within(await screen.findByRole("option")).getByText(name));
     // Duplicate is ungated, so its presence proves the menu resolved before the
     // absence below is read.
     expect(await screen.findByText("Duplicate")).toBeTruthy();
@@ -249,7 +290,10 @@ describe("MQTT Write form", () => {
       client,
       createWriteConfig(dev.key, [createWriteTarget("t1", "plant/cmd"), tag]),
     );
-    await renderTaskFormTab(MQTT.Task.Write, { client, taskKey: draft.key });
+    await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
+      client,
+      taskKey: draft.key,
+    });
     await waitFor(async () =>
       expect(await retrieveTargets(draft.key)).toMatchObject([
         { channel: { channel: plainCh.key } },
@@ -296,6 +340,15 @@ describe("MQTT Write form", () => {
         screen.getByRole("option", { name: /SpB.*plant\/line1\/ovenA\/setpoint/ }),
       ).toBeTruthy();
       await screen.findByText(ch.name);
+    });
+
+    it("should focus the group of a tag added by name", async () => {
+      await renderWrite();
+      const dialog = await openAddTargets();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
+      const group = await screen.findByPlaceholderText("plant");
+      await waitFor(() => expect(document.activeElement).toBe(group));
     });
 
     it("should add a tag by name and select its Sparkplug B type", async () => {
@@ -489,9 +542,10 @@ describe("MQTT Write form", () => {
       let statuses: Status.NotificationSpec[] = [];
       await renderWrite([], { onStatuses: (s) => (statuses = s) });
       const dialog = await openAddTargets();
-      await dialog.findByText(/not found/i);
+      const missing = /Found no task where rack = \d+ and type = "mqtt_scan"/;
+      await dialog.findByText(missing);
       fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
-      await waitFor(() => expect(dialog.getAllByText(/not found/i)).toHaveLength(2));
+      await waitFor(() => expect(dialog.getAllByText(missing)).toHaveLength(2));
       expect(statuses).toHaveLength(0);
     });
 
@@ -644,17 +698,25 @@ describe("MQTT Write form", () => {
         dataType: "float64",
         virtual: true,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         write: { "spBv1.0/plant/line1//setpoint": storedCh.key },
       };
-      await client.devices.create(dev, MQTT.Device.SCHEMAS);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createWriteConfig(dev.key, [createTagTarget("s1", "setpoint")]);
       const draft = await createDraft(client, config);
-      const { container } = await renderTaskFormTab(MQTT.Task.Write, {
-        client,
-        taskKey: draft.key,
-      });
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
       const created = await deployAndAwaitTask(
         client,
         container,
@@ -721,20 +783,28 @@ describe("MQTT Write form", () => {
         dataType: "string",
         virtual: true,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         write: { "plant/stored": storedCh.key },
       };
-      await client.devices.create(dev, MQTT.Device.SCHEMAS);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createWriteConfig(dev.key, [
         createWriteTarget("t1", "plant/cmd", { channel: configuredCh.key }),
         createWriteTarget("t2", "plant/stored"),
       ]);
       const draft = await createDraft(client, config);
-      const { container } = await renderTaskFormTab(MQTT.Task.Write, {
-        client,
-        taskKey: draft.key,
-      });
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
       const created = await deployAndAwaitTask(
         client,
         container,

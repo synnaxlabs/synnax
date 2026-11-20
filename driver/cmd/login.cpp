@@ -12,15 +12,26 @@
 #include "x/cpp/args/args.h"
 #include "x/cpp/cli/cli.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/path/path.h"
 
 #include "driver/rack/rack.h"
 
 namespace driver::cmd::sub {
 int login(x::args::Parser &args) {
+    // Root takes over or hands off the saved state before login reads it. It runs
+    // before the prompts, so state that cannot be used fails at once.
+    if (const auto err = rack::Config::secure_persisted_state(args)) {
+        LOG(ERROR) << err.data;
+        return 1;
+    }
     synnax::Config config;
     config.host = x::cli::prompt("Host", "localhost");
     config.port = x::cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
-    config.secure = x::cli::confirm("Secure", false);
+    // The service runs in another directory, so a relative path must not be saved.
+    if (const auto ca = args.field("ca_cert", std::string()); !ca.empty())
+        config.ca_cert = x::path::resolve_relative(ca);
+    else
+        config.secure = x::cli::confirm("Secure", false);
     {
         const synnax::Synnax probe(config);
         const auto state = probe.connectivity->check();
@@ -34,22 +45,14 @@ int login(x::args::Parser &args) {
     config.username = x::cli::prompt("Username");
     config.password = x::cli::prompt("Password", std::nullopt, true);
 
-    rack::Config cfg{.connection = config};
-    if (const auto err = cfg.enroll()) {
-        LOG(ERROR) << "failed to create a rack and its API key: " << err;
-        return 1;
-    }
-    LOG(INFO) << x::log::GREEN() << "created rack " << cfg.rack.name << " ("
-              << cfg.rack.key << ") and its API key" << x::log::RESET();
-    if (const auto err = rack::Config::clear_persisted_state(args)) {
-        LOG(ERROR) << "failed to clear the saved state: " << err;
-        return 1;
-    }
-    if (const auto err = rack::Config::save_conn_params(args, cfg.connection)) {
-        LOG(ERROR) << "failed to save the API key: " << err;
-        return 1;
-    }
-    LOG(INFO) << x::log::GREEN() << "API key saved successfully!" << x::log::RESET();
+    const auto [cfg, err] = rack::Config::login(args, config);
+    // Login can save the API key and then fail, so the key is secured either way.
+    const auto sec_err = rack::Config::secure_persisted_state(args);
+    if (err) LOG(ERROR) << "failed to enroll the rack: " << err;
+    if (sec_err) LOG(ERROR) << "failed to secure the saved API key: " << sec_err;
+    if (err || sec_err) return 1;
+    LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name << " ("
+              << cfg.rack.key << ") and saved its API key" << x::log::RESET();
     LOG(INFO) << "start driver: " << x::log::BLUE() << "synnax-driver start -s"
               << x::log::RESET();
     return 0;

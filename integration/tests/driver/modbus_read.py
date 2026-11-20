@@ -233,7 +233,7 @@ class ModbusReadString(ModbusReadTaskCase):
     def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]:
         idx = create_index(client, "modbus_string_index")
         return [
-            HR(
+            sy.modbus.HoldingRegisterStringReadChannel(
                 channel=create_channel(
                     client,
                     name=f"modbus_{name}",
@@ -241,8 +241,7 @@ class ModbusReadString(ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=STRING_START,
-                data_type=sy.DataType.STRING,
-                string_length=length,
+                length=length,
                 bytes_swapped=swapped,
             )
             for name, length, swapped, _ in STRING_VALUES

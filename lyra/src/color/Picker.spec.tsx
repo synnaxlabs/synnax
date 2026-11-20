@@ -77,16 +77,20 @@ describe("Picker", () => {
 
     it("should keep the current alpha when the hex has no alpha digits", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: [255, 0, 0, 0.5], onChange });
+      const c = renderPicker({ value: [255, 0, 0, 128], onChange });
       fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
-      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 0.5]);
+      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 128]);
     });
 
     it("should make a typed hex opaque when the color is transparent", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: undefined, fallback: color.ZERO, onChange });
+      const c = renderPicker({
+        value: undefined,
+        fallback: color.TRANSPARENT,
+        onChange,
+      });
       fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
-      expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
+      expect(color.opacity(onChange.mock.calls[0][0])).toEqual(1);
     });
 
     it("should take the alpha from an eight digit hex", () => {
@@ -102,7 +106,7 @@ describe("Picker", () => {
       fireEvent.paste(hexInput(c), {
         clipboardData: { getData: () => "rgb(0 0 255 / 50%)" },
       });
-      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 0.5]);
+      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 128]);
     });
 
     it("should restore the current color when the input is not a color", () => {
@@ -122,7 +126,7 @@ describe("Picker", () => {
       const input = c.getByLabelText("Alpha percentage") as HTMLInputElement;
       fireEvent.change(input, { target: { value: "25" } });
       fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
-      expect(onChange.mock.calls.at(-1)?.[0]).toEqual([255, 0, 0, 0.25]);
+      expect(onChange.mock.calls.at(-1)?.[0]).toEqual([255, 0, 0, 64]);
     });
   });
 
@@ -175,16 +179,16 @@ describe("Picker", () => {
       fireEvent.keyDown(c.getByRole("slider", { name: "Alpha" }), {
         key: "ArrowLeft",
       });
-      expect(color.aValue(onChange.mock.calls[0][0])).toBeCloseTo(0.99);
+      expect(color.opacity(onChange.mock.calls[0][0])).toBeCloseTo(0.99);
     });
 
     it("should make a transparent color opaque when the plane moves", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: color.ZERO, onChange });
+      const c = renderPicker({ value: color.TRANSPARENT, onChange });
       fireEvent.keyDown(c.getByRole("slider", { name: "Saturation and brightness" }), {
         key: "ArrowUp",
       });
-      expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
+      expect(color.opacity(onChange.mock.calls[0][0])).toEqual(1);
     });
 
     it("should keep the hue through a move to gray", () => {
@@ -219,6 +223,22 @@ describe("Picker", () => {
       expect(c.getByLabelText("#123456")).toBeTruthy();
       vi.useRealTimers();
     });
+
+    it("should show a picked preset once", () => {
+      vi.useFakeTimers();
+      const c = render(
+        <Color.Provider presets={["#20A4F3"]}>
+          <Controlled initial="#ff0000" onChange={vi.fn()} />
+        </Color.Provider>,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(c.getByLabelText("#20a4f3"));
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(c.getAllByLabelText("#20a4f3")).toHaveLength(1);
+      vi.useRealTimers();
+    });
   });
 
   describe("eyedropper", () => {
@@ -244,6 +264,286 @@ describe("Picker", () => {
         fireEvent.click(c.getByLabelText("Pick a color from the screen"));
       });
       expect(lastHex(onChange)).toEqual("#00ff00");
+    });
+  });
+  describe("library", () => {
+    const PALETTES: Color.Palette[] = [
+      {
+        key: "series",
+        name: "Series",
+        colors: [
+          { key: "ocean", name: "Ocean", light: "#3e8bff", dark: "#1a4f99" },
+          { key: "moss", name: "Moss", light: "#4caf50" },
+        ],
+      },
+      {
+        key: "status",
+        name: "Status",
+        colors: [{ key: "alarm", name: "Alarm", light: "#ff0000" }],
+      },
+    ];
+    const SWATCH_VAR = CSS.variable("swatch", "color");
+
+    const renderLibrary = (
+      props: Partial<Color.PickerProps> & { named?: string },
+      wrapper = Wrapper,
+    ): RenderResult & {
+      onChange: ReturnType<typeof vi.fn>;
+      onNamedChange: ReturnType<typeof vi.fn>;
+    } => {
+      const onChange = vi.fn();
+      const onNamedChange = vi.fn();
+      const { named, ...rest } = props;
+      const c = render(
+        <Color.Picker
+          value={undefined}
+          onChange={onChange}
+          library={{ palettes: PALETTES, named, onNamedChange }}
+          {...rest}
+        />,
+        { wrapper },
+      );
+      return { ...c, onChange, onNamedChange };
+    };
+
+    const themed =
+      (key: string) =>
+      ({ children }: PropsWithChildren): ReactElement => (
+        <Triggers.Provider>
+          <Theming.Provider theme={{ key }}>{children}</Theming.Provider>
+        </Triggers.Provider>
+      );
+
+    const search = (c: RenderResult, term: string): void => {
+      fireEvent.change(c.getByPlaceholderText("Search colors"), {
+        target: { value: term },
+      });
+    };
+
+    describe("tabs", () => {
+      it("should not show tabs without a library", () => {
+        const c = renderPicker({ value: "#ff0000", onChange: vi.fn() });
+        expect(c.queryByText("Library")).toBeNull();
+        expect(c.queryByText("Custom")).toBeNull();
+      });
+
+      it("should open on Library while the value follows a named color", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        expect(c.getByLabelText("Ocean")).toBeTruthy();
+        expect(c.queryByLabelText("Hex")).toBeNull();
+      });
+
+      it("should open on Library while the value is absent", () => {
+        const c = renderLibrary({ value: undefined });
+        expect(c.getByLabelText("Ocean")).toBeTruthy();
+      });
+
+      it("should open on Custom while the value is a fixed color", () => {
+        const c = renderLibrary({ value: "#123456" });
+        expect(hexInput(c).value).toEqual("123456");
+        expect(c.queryByLabelText("Ocean")).toBeNull();
+      });
+
+      it("should pick a recent color in Custom", () => {
+        vi.useFakeTimers();
+        const Recent = ({ children }: PropsWithChildren): ReactElement => (
+          <Wrapper>
+            <Color.Provider>{children}</Color.Provider>
+          </Wrapper>
+        );
+        const c = renderLibrary({ value: "#123456" }, Recent);
+        fireEvent.change(hexInput(c), { target: { value: "abcdef" } });
+        act(() => {
+          vi.advanceTimersByTime(1500);
+        });
+        c.onChange.mockClear();
+        fireEvent.click(c.getByLabelText("#abcdef"));
+        expect(lastHex(c.onChange)).toEqual("#abcdef");
+        vi.useRealTimers();
+      });
+
+      describe("recent colors", () => {
+        /** A caller that unlinks the value on each fixed color, as a real one does. */
+        const Linked = (): ReactElement => {
+          const [value, setValue] = useState<color.Crude | undefined>("#3e8bff");
+          const [named, setNamed] = useState<string | undefined>("ocean");
+          return (
+            <Color.Picker
+              value={value}
+              onChange={(c) => {
+                setValue(c);
+                setNamed(undefined);
+              }}
+              library={{ palettes: PALETTES, named, onNamedChange: setNamed }}
+            />
+          );
+        };
+
+        const renderWithRecent = (): RenderResult => {
+          vi.useFakeTimers();
+          const c = render(
+            <Color.Provider>
+              <Linked />
+            </Color.Provider>,
+            { wrapper: Wrapper },
+          );
+          fireEvent.click(c.getByText("Custom"));
+          fireEvent.change(hexInput(c), { target: { value: "abcdef" } });
+          act(() => {
+            vi.advanceTimersByTime(1500);
+          });
+          return c;
+        };
+
+        afterEach(() => {
+          vi.useRealTimers();
+        });
+
+        it("should mark the recent color equal to a fixed value", () => {
+          const c = renderWithRecent();
+          expect(c.getByLabelText("#abcdef").className).toContain(CSS.M("selected"));
+        });
+
+        it("should not mark a recent color while the value is linked", () => {
+          const c = renderWithRecent();
+          fireEvent.click(c.getByText("Library"));
+          fireEvent.click(c.getByLabelText("Ocean"));
+          fireEvent.click(c.getByText("Custom"));
+          expect(c.getByLabelText("#abcdef").className).not.toContain(
+            CSS.M("selected"),
+          );
+        });
+      });
+
+      it("should edit a fixed color in Custom", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.click(c.getByText("Custom"));
+        fireEvent.change(hexInput(c), { target: { value: "00ff00" } });
+        expect(lastHex(c.onChange)).toEqual("#00ff00");
+        expect(c.onNamedChange).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("named colors", () => {
+      it("should link the value with one click on a named color", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.click(c.getByLabelText("Moss"));
+        expect(c.onNamedChange).toHaveBeenCalledExactlyOnceWith("moss");
+        expect(c.onChange).not.toHaveBeenCalled();
+      });
+
+      it("should mark the linked color", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        expect(c.getByLabelText("Ocean").className).toContain(CSS.M("selected"));
+        expect(c.getByLabelText("Moss").className).not.toContain(CSS.M("selected"));
+      });
+
+      it("should paint a color with its light value in a light theme", () => {
+        const c = renderLibrary({ named: "ocean" }, themed("synnaxLight"));
+        expect(c.getByLabelText("Ocean").style.getPropertyValue(SWATCH_VAR)).toEqual(
+          color.cssString("#3e8bff"),
+        );
+      });
+
+      it("should paint a color with its dark value in a dark theme", () => {
+        const c = renderLibrary({ named: "ocean" }, themed("synnaxDark"));
+        expect(c.getByLabelText("Ocean").style.getPropertyValue(SWATCH_VAR)).toEqual(
+          color.cssString("#1a4f99"),
+        );
+      });
+    });
+
+    describe("auto", () => {
+      it("should not offer Auto without a fallback", () => {
+        const c = renderLibrary({});
+        expect(c.queryByLabelText("Auto")).toBeNull();
+      });
+
+      it("should clear the value when the user picks Auto", () => {
+        const c = renderLibrary({
+          value: "#3e8bff",
+          named: "ocean",
+          fallback: "#888888",
+        });
+        fireEvent.click(c.getByLabelText("Auto"));
+        expect(c.onChange).toHaveBeenCalledExactlyOnceWith(undefined);
+        expect(c.onNamedChange).not.toHaveBeenCalled();
+      });
+
+      it("should mark Auto while the value is absent", () => {
+        const c = renderLibrary({ fallback: "#888888" });
+        expect(c.getByLabelText("Auto").className).toContain(CSS.M("selected"));
+      });
+
+      it("should offer Auto on the Custom tab", () => {
+        const c = renderLibrary({ value: "#123456", fallback: "#888888" });
+        expect(hexInput(c).value).toEqual("123456");
+        fireEvent.click(c.getByLabelText("Auto"));
+        expect(c.onChange).toHaveBeenCalledExactlyOnceWith(undefined);
+      });
+    });
+
+    describe("palette titles", () => {
+      it("should end the title with the name of the linked color", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        expect(c.getByText("Ocean")).toBeTruthy();
+      });
+
+      it("should show the hovered color in place of the linked one", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.pointerEnter(c.getByLabelText("Moss"));
+        expect(c.getByText("Moss")).toBeTruthy();
+        expect(c.queryByText("Ocean")).toBeNull();
+      });
+
+      it("should return to the linked color when the pointer leaves", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.pointerEnter(c.getByLabelText("Moss"));
+        fireEvent.pointerLeave(c.getByLabelText("Moss"));
+        expect(c.getByText("Ocean")).toBeTruthy();
+      });
+    });
+
+    describe("search", () => {
+      it("should filter colors by name", () => {
+        const c = renderLibrary({});
+        search(c, "mos");
+        expect(c.getByLabelText("Moss")).toBeTruthy();
+        expect(c.queryByLabelText("Ocean")).toBeNull();
+        expect(c.queryByText("Status")).toBeNull();
+      });
+
+      it("should keep every color of a palette whose name matches", () => {
+        const c = renderLibrary({});
+        search(c, "status");
+        expect(c.getByLabelText("Alarm")).toBeTruthy();
+        expect(c.queryByLabelText("Ocean")).toBeNull();
+      });
+
+      it("should filter colors by the hex they show", () => {
+        const c = renderLibrary({});
+        search(c, "#4caf");
+        expect(c.getByLabelText("Moss")).toBeTruthy();
+        expect(c.queryByLabelText("Ocean")).toBeNull();
+      });
+
+      it("should say when the library has no colors", () => {
+        const c = render(
+          <Color.Picker
+            value={undefined}
+            onChange={vi.fn()}
+            library={{ palettes: [], onNamedChange: vi.fn() }}
+          />,
+          { wrapper: Wrapper },
+        );
+        expect(c.getByText("No colors found")).toBeTruthy();
+      });
+
+      it("should say when no color matches", () => {
+        const c = renderLibrary({});
+        search(c, "zzz");
+        expect(c.getByText('No colors match "zzz"')).toBeTruthy();
+      });
     });
   });
 });

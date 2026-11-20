@@ -10,9 +10,18 @@
 // Keep each deployment in its own chunk. The carousel only requests the selected
 // scene; nearby scenes can be warmed once the visible carousel is idle.
 export const loadScenes = {
-  industrial: () => import("./PlantScene").then((module) => module.PlantScene),
-  aerospace: () => import("./AerospaceScene").then((module) => module.AerospaceScene),
-  quantum: () => import("./QuantumScene").then((module) => module.QuantumScene),
-  energy: () => import("./EnergyScene").then((module) => module.EnergyScene),
-  marine: () => import("./MarineScene").then((module) => module.MarineScene),
+  industrial: () =>
+    import("@/components/deployments/PlantScene").then((module) => module.PlantScene),
+  aerospace: () =>
+    import("@/components/deployments/AerospaceScene").then(
+      (module) => module.AerospaceScene,
+    ),
+  quantum: () =>
+    import("@/components/deployments/QuantumScene").then(
+      (module) => module.QuantumScene,
+    ),
+  energy: () =>
+    import("@/components/deployments/EnergyScene").then((module) => module.EnergyScene),
+  marine: () =>
+    import("@/components/deployments/MarineScene").then((module) => module.MarineScene),
 };

@@ -9,12 +9,13 @@
 
 import { panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { waitFor } from "@testing-library/react";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
-import { uniqueName } from "@/testutil";
+import { Project } from "@/feature/project";
+import { findTreeRow, renderLiveTree } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 
@@ -25,12 +26,12 @@ const renderPanelTree = async (
   const pan = await client.panels.create({
     ...appearance,
     name: uniqueName("panel"),
-    parent: project.ontologyID(key),
+    project: key,
   });
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
-    root: project.ontologyID(key),
-    items: Panel.TREE_ITEMS,
+    root: project.resourceID(key),
+    items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS },
   });
   return pan;
 };
@@ -41,14 +42,17 @@ const findRowIcon = async (
 ): Promise<SVGElement | null> =>
   (await findTreeRow(pan.name)).querySelector<SVGElement>(`.lyra-icon--${icon}`);
 
-describe("panel ontology", () => {
+describe("panel tree item", () => {
   it("should draw the default panel icon for a panel with none", async () => {
     const pan = await renderPanelTree();
     expect(await findRowIcon(pan, "panel")).not.toBeNull();
   });
 
   it("should draw the icon of the panel in its color", async () => {
-    const pan = await renderPanelTree({ icon: "valve", color: "#dc136c" });
+    const pan = await renderPanelTree({
+      icon: "valve",
+      color: { type: "fixed", value: "#dc136c" },
+    });
     const icon = await findRowIcon(pan, "valve");
     expect(icon?.style.getPropertyValue("--pluto-symbol-color")).toEqual(
       "220, 19, 108",
@@ -62,5 +66,43 @@ describe("panel ontology", () => {
     await writer.panels.retrieve(pan.key);
     await writer.panels.dispatch(pan.key, panel.setIcon({ icon: "valve" }));
     await waitFor(async () => expect(await findRowIcon(pan, "valve")).not.toBeNull());
+  });
+
+  it("should picture a dragged panel with its icon", async () => {
+    const pan = await renderPanelTree({ icon: "valve" });
+    await waitFor(async () => expect(await findRowIcon(pan, "valve")).not.toBeNull());
+    fireEvent.dragStart(await findTreeRow(pan.name));
+    const layer = document.querySelector(".lyra-haul__layer");
+    expect(layer?.querySelector(".lyra-icon--valve")).not.toBeNull();
+    expect(layer?.textContent).toBe(`${pan.name}Panel`);
+  });
+
+  it("should picture a dragged panel in the named color of its icon", async () => {
+    const named = await client.colors.create({
+      name: uniqueName("color"),
+      light: "#123456",
+    });
+    const pan = await renderPanelTree({
+      icon: "valve",
+      color: { type: "named", key: named.key },
+    });
+    await waitFor(async () =>
+      expect(
+        (await findRowIcon(pan, "valve"))?.style.getPropertyValue(
+          "--pluto-symbol-color",
+        ),
+      ).toEqual("18, 52, 86"),
+    );
+    fireEvent.dragStart(await findTreeRow(pan.name));
+    const icon = document
+      .querySelector(".lyra-haul__layer")
+      ?.querySelector<SVGElement>(".lyra-icon--valve");
+    expect(icon?.style.getPropertyValue("--pluto-symbol-color")).toEqual("18, 52, 86");
+  });
+
+  // Each tab shows a record that the tree lists in its own place.
+  it("should not expand into the records its tabs display", async () => {
+    const pan = await renderPanelTree();
+    expect((await findTreeRow(pan.name)).getAttribute("aria-expanded")).toBeNull();
   });
 });

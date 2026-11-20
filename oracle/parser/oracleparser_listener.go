@@ -160,6 +160,12 @@ type OracleParserListener interface {
 	// EnterUnionVariantBody is called when entering the unionVariantBody production.
 	EnterUnionVariantBody(c *UnionVariantBodyContext)
 
+	// EnterFilterDef is called when entering the filterDef production.
+	EnterFilterDef(c *FilterDefContext)
+
+	// EnterFilterBody is called when entering the filterBody production.
+	EnterFilterBody(c *FilterBodyContext)
+
 	// ExitSchema is called when exiting the schema production.
 	ExitSchema(c *SchemaContext)
 
@@ -303,4 +309,10 @@ type OracleParserListener interface {
 
 	// ExitUnionVariantBody is called when exiting the unionVariantBody production.
 	ExitUnionVariantBody(c *UnionVariantBodyContext)
+
+	// ExitFilterDef is called when exiting the filterDef production.
+	ExitFilterDef(c *FilterDefContext)
+
+	// ExitFilterBody is called when exiting the filterBody production.
+	ExitFilterBody(c *FilterBodyContext)
 }

@@ -9,7 +9,7 @@
 
 import "@/modal/Header.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Button } from "@/button";
@@ -26,6 +26,8 @@ export interface HeaderProps extends Omit<
   /** Dotted breadcrumb name, or pre-split segments for names that may contain dots. */
   children: string | string[];
   icon?: Icon.ReactElement;
+  /** Sits after the breadcrumb, such as a badge that says where the item is. */
+  badge?: ReactNode;
   closeHidden?: boolean;
 }
 
@@ -37,10 +39,11 @@ const CLOSE_TOOLTIP = (
 
 /**
  * Header renders a modal's top title bar: a breadcrumb of the given name, an optional
- * leading icon, and a close button wired to dismiss the enclosing dialog.
+ * leading icon and badge, and a close button wired to dismiss the enclosing dialog.
  */
 export const Header = ({
   icon,
+  badge,
   children,
   className,
   closeHidden = false,
@@ -68,6 +71,7 @@ export const Header = ({
             </Breadcrumb.Segment>
           ))}
         </Breadcrumb.Breadcrumb>
+        {badge}
       </Nav.Bar.Start>
       {!closeHidden && (
         <Nav.Bar.End>

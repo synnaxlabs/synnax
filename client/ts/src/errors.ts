@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
+import { type Middleware, Timeout, Unreachable } from "@synnaxlabs/freighter";
 import { array, errors } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -36,7 +36,7 @@ export class PathError extends ValidationError.sub("path") {
     return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
 
-  static matchExact(e: unknown): e is PathError {
+  static override matchExact(e: unknown): e is PathError {
     return (
       e != null &&
       typeof e === "object" &&
@@ -51,6 +51,12 @@ export class PathError extends ValidationError.sub("path") {
 
 /** AuthError is raised when an authentication error occurs. */
 export class AuthError extends SynnaxError.sub("auth") {}
+
+/** Raised when the Core matches no user to a username and password. */
+export class InvalidCredentialsError extends AuthError.sub("invalid-credentials") {}
+
+/** Raised when a request or login has no credentials, API key, token, or cookie. */
+export class MissingCredentialsError extends AuthError.sub("missing_credentials") {}
 
 /** InvalidTokenError is raised when an authentication token is invalid. */
 export class InvalidTokenError extends AuthError.sub("invalid_token") {}
@@ -114,11 +120,12 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 }
 
 /**
- * Whether the error means the Core could not be reached: a request that failed on
- * the wire, or one short-circuited while the connection is known unreachable.
+ * Whether the error means the Core could not be reached: a request that failed on the
+ * wire or got no response in time, or one short-circuited while the connection is known
+ * unreachable.
  */
 export const isConnectionError = (err: unknown): boolean =>
-  Unreachable.matches(err) || DisconnectedError.matches(err);
+  Unreachable.matches(err) || Timeout.matches(err) || DisconnectedError.matches(err);
 
 /** Raised when time-series data is not contiguous. */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
@@ -149,6 +156,10 @@ const decode = (payload: errors.Payload): Error | null => {
   }
 
   if (payload.type.startsWith(AuthError.TYPE)) {
+    if (payload.type.startsWith(InvalidCredentialsError.TYPE))
+      return new InvalidCredentialsError(payload.data);
+    if (payload.type.startsWith(MissingCredentialsError.TYPE))
+      return new MissingCredentialsError(payload.data);
     if (payload.type.startsWith(InvalidTokenError.TYPE))
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
@@ -218,11 +229,7 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
     return await next(ctx);
   } catch (err) {
     if (err instanceof Unreachable)
-      throw new Unreachable({
-        message: `Cannot reach Core at ${err.url.host}:${err.url.port}`,
-        url: err.url,
-        cause: err.cause ?? err,
-      });
+      err.message = `Cannot reach Core at ${err.url.host}:${err.url.port}`;
     throw errors.fromUnknown(err);
   }
 };

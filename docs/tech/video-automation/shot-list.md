@@ -1,39 +1,34 @@
 # Docs Video Shot List
 
-Complete inventory of every `<Video id="..." />` under `site/docs/src/pages`.
+Complete inventory of every `<Video id="..." />` under `site/docs/src/docs`.
 
 **Total: 64 unique ids** under `reference/` (the docs-site tutorial set), plus the
 legacy clips under `releases/` (release-notes demos, listed in an addendum at the
 bottom). Shot descriptions marked "(inferred)" come from thin prose; the flow was
 reconstructed from the section heading and neighboring steps. Source paths are relative
-to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
+to `site/docs/src/docs/`, and release notes to `site/docs/src/`.
 
 ## Prerequisites legend
 
-- **Live telemetry** (a channel actively streaming data, e.g. the demo core or a sim
-  writer): `console/ranges/plot-create`, all `console/line-plots/*`,
-  `console/logs/example`, `console/calculated-channels/create`,
-  `console/calculated-channels/edit`, `console/schematics/value`,
-  `console/schematics/valve`, all `client/resources/build-device-driver/*`, every
-  `device-drivers/*/read-task/*` and `device-drivers/task/task-basic`.
+- **Live telemetry** (a channel actively streaming data, e.g. a sim writer):
+  `console/ranges/plot-create`, all `console/line-plots/*`, `console/logs/example`,
+  `console/calculated-channels/create`, `console/calculated-channels/edit`,
+  `console/schematics/value`, `console/schematics/valve`, all
+  `client/resources/build-device-driver/*`, every `device-drivers/*/read-task/*` and
+  `device-drivers/task/task-basic`.
 - **Pre-seeded ranges**: `console/ui-overview/palette-search`,
   `console/ranges/resources`, `console/ranges/palette`, `console/ranges/create-child`,
-  `console/ranges/add-meta-data`, `console/ranges/add-label`, `console/channels/alias`,
-  `console/schematics/snapshot`.
+  `console/ranges/add-meta-data`, `console/ranges/add-label`.
 - **Pre-seeded users**: `console/users/modal-change-role`.
 - **Pre-seeded channels** (index + data channels already created, with or without data):
-  `console/channels/alias`, `console/calculated-channels/create`,
-  `console/calculated-channels/edit`, `console/logs/example`,
-  `console/schematics/value`, `console/schematics/valve`,
+  `console/calculated-channels/create`, `console/calculated-channels/edit`,
+  `console/logs/example`, `console/schematics/value`, `console/schematics/valve`,
   `control/arc/get-started/create-automation`.
-- **Pre-seeded workspaces/visualizations**: `console/workspaces/load`,
-  `console/schematics/snapshot`.
+- **Pre-seeded workspaces/visualizations**: `console/workspaces/load`.
 - **Drag-and-drop**: `console/schematics/connections`, `console/schematics/align-items`,
   `console/schematics/edit-several-elements` (drag select box), symbol placement in any
   schematic shot.
-- **Context menus**: `console/channels/alias`, `console/calculated-channels/edit`,
-  `console/users/modal-change-role`, `console/schematics/snapshot`,
-  `device-drivers/task/toolbar`,
+- **Context menus**: `console/calculated-channels/edit`, `device-drivers/task/toolbar`,
   `device-drivers/ni/configure-device/ni-configure-device`,
   `device-drivers/labjack/configure-device/lj-configure`,
   `device-drivers/ethercat/configure-device/ethercat-configure`,
@@ -87,7 +82,7 @@ All on reference/get-started/sample-project.mdx.
   button in the Core Selector -> fill host/port/username/password (optionally Secure) in
   the connection dialog -> submit -> the new core appears in the list, becomes active,
   and the connection status indicator in the top-right turns connected -> requires a
-  reachable core (localhost or demo.synnaxlabs.com).
+  reachable core (localhost).
 
 ## console/workspaces
 
@@ -101,24 +96,18 @@ All on reference/get-started/sample-project.mdx.
 
 ## console/users
 
-- `console/users/register` (reference/enterprise/users.mdx) -> open the command palette
-  (Cmd/Ctrl+Shift+P) -> run "Register a User" -> fill username/password and pick a role
-  in the dialog -> submit -> the new user appears in the Users Toolbar.
-- `console/users/modal-change-role` (reference/enterprise/users.mdx) -> open the Users
-  Toolbar -> right-click an existing user -> select "Assign to role" -> pick a role from
-  the dropdown in the dialog and click "Assign" -> the user moves under the new role ->
-  requires a pre-seeded non-root user.
+- `console/users/register` (reference/enterprise/users.mdx) -> on the Users page of
+  Settings, click "Register user" -> fill name, username, and password and pick a role
+  in the dialog -> submit -> the new user appears in the table.
+- `console/users/modal-change-role` (reference/enterprise/users.mdx) -> on the Users
+  page of Settings, open the role select of an existing user -> pick a new role -> the
+  select shows it -> requires a pre-seeded non-root user.
 
 ## console/channels
 
 - `console/channels/create_new` (reference/channels/create.mdx) -> click the "+" action
   in the Channels Toolbar -> fill name, data type, and index channel in the dialog ->
   submit -> the channel appears in the Channels Toolbar.
-- `console/channels/alias` (reference/ranges/aliases.mdx) -> with a range active, open
-  the Channels Toolbar -> right-click a channel -> choose the alias option and type a
-  range-specific name (e.g. rename `digital_input_1` to `pressure_01`) -> show the alias
-  displayed while that range is active -> requires a pre-seeded channel and an active
-  range.
 
 ## console/calculated-channels
 
@@ -202,10 +191,6 @@ All shots require channels with data (live streaming for the rolling-range ones)
   show the control indicator circle (blue/green/red) and the colored control legend
   while the state channel reflects the actuation -> requires state/command channels,
   ideally with a sim echoing state.
-- `console/schematics/snapshot` (reference/ranges/snapshots.mdx) -> find the schematic
-  in the Workspaces Toolbar -> open its context menu -> snapshot the schematic to a
-  range -> show the snapshot appear under the range -> requires an existing schematic
-  and an existing range.
 - `console/schematics/symbol-create-group` (reference/visualize/custom-symbols.mdx) ->
   in the schematic symbols browser at the bottom, create a new custom symbol group ->
   the empty group appears in the library.

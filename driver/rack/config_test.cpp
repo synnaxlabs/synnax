@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -19,6 +20,8 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/rack/status/status.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
@@ -82,6 +85,136 @@ TEST_F(RackConfigTest, Default) {
     ASSERT_NE(cfg.rack.name, "");
 }
 
+/// @brief it should write the version of this Driver to its rack and find a Core of the
+/// same train compatible.
+TEST_F(RackConfigTest, WritesDriverVersionToRack) {
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    EXPECT_FALSE(cfg.incompatible_core_version.has_value());
+    const auto rack = ASSERT_NIL_P(new_test_client().racks.retrieve(cfg.rack.key));
+    EXPECT_EQ(rack.version, SYNNAX_DRIVER_VERSION);
+}
+
+/// @brief returns a config of a Driver that started against the test Core.
+Config started_config() {
+    Config cfg;
+    cfg.connection = test_client_config();
+    cfg.remote_info.cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(new_test_client().connectivity->check().cluster_key)
+    );
+    return cfg;
+}
+
+/// @brief it should find no change when the Driver reaches the Core it started with.
+TEST_F(RackConfigTest, CheckCoreFindsTheSameCore) {
+    ASSERT_NIL(started_config().check_core());
+}
+
+/// @brief it should stop the Driver when the Core is now another cluster.
+TEST_F(RackConfigTest, CheckCoreFindsAnotherCluster) {
+    auto cfg = started_config();
+    const auto core_key = cfg.remote_info.cluster_key;
+    cfg.remote_info.cluster_key = x::uuid::create();
+    const auto err = cfg.check_core();
+    ASSERT_OCCURRED_AS(err, CORE_CHANGED);
+    EXPECT_EQ(
+        err.data,
+        "the Core is now cluster " + core_key.to_string() + ", not " +
+            cfg.remote_info.cluster_key.to_string() +
+            ". The Driver stops so that it can start again on the new cluster"
+    );
+}
+
+/// @brief it should stop the Driver when the Core became compatible after the Driver
+/// started against an incompatible one.
+TEST_F(RackConfigTest, CheckCoreFindsAnotherVersion) {
+    auto cfg = started_config();
+    cfg.incompatible_core_version = "99.1.0";
+    const auto version = new_test_client().connectivity->check().node_version;
+    const auto err = cfg.check_core();
+    ASSERT_OCCURRED_AS(err, CORE_CHANGED);
+    EXPECT_EQ(
+        err.data,
+        "the Core now runs version " + version +
+            ". The Driver stops so that it can start again for this version"
+    );
+}
+
+/// @brief it should start only the rack status when the Core runs another minor, and
+/// report the mismatch in its heartbeat.
+TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("mismatch_rack"));
+    Config cfg;
+    cfg.incompatible_core_version = "99.1.0";
+    const auto factory = cfg.new_factory(
+        client,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    auto tasks = factory->configure_initial_tasks(
+        std::make_shared<task::MockContext>(client),
+        rack,
+        cancel
+    );
+    cancel.stop();
+    x::defer::defer stop([&tasks]() {
+        for (const auto &[_, tsk]: tasks)
+            tsk->stop(false);
+    });
+    ASSERT_EQ(tasks.size(), 1);
+    EXPECT_EQ(tasks[0].first.type, status::TASK_TYPE);
+    const auto owner = synnax::rack::resource_id(rack.key);
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        client->statuses.retrieve_by_owner(owner).first.message,
+        "Driver " + std::string(SYNNAX_DRIVER_VERSION) +
+            " cannot work with Core 99.1.0",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(50)
+    );
+    const auto stat = ASSERT_NIL_P(client->statuses.retrieve_by_owner(owner));
+    EXPECT_EQ(stat.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(
+        stat.description,
+        "Install the Driver release that matches the Core, then restart the Driver."
+    );
+}
+
+/// @brief it should add a File Browser to the rack only when the file integration is
+/// on.
+TEST_F(RackConfigTest, FileBrowserFollowsIntegration) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    for (const bool on: {false, true}) {
+        const auto rack = ASSERT_NIL_P(client->racks.create("file_rack"));
+        Config cfg;
+        if (on) cfg.integrations = {file::INTEGRATION_NAME};
+        const auto factory = cfg.new_factory(
+            client,
+            std::make_shared<x::thread::rt::Manager>()
+        );
+        x::breaker::Breaker cancel;
+        cancel.start();
+        auto tasks = factory->configure_initial_tasks(
+            std::make_shared<task::MockContext>(client),
+            rack,
+            cancel
+        );
+        cancel.stop();
+        for (const auto &[_, tsk]: tasks)
+            tsk->stop(false);
+        if (!on) {
+            ASSERT_OCCURRED_AS_P(
+                rack.tasks.retrieve(file::TASK_NAME),
+                x::errors::NOT_FOUND
+            );
+            continue;
+        }
+        const auto browser = ASSERT_NIL_P(rack.tasks.retrieve(file::TASK_NAME));
+        EXPECT_EQ(browser.type, file::TASK_TYPE);
+        EXPECT_TRUE(browser.internal);
+    }
+}
+
 /// @brief it should load rack key from persisted state file.
 TEST_F(RackConfigTest, LoadRackFromPersistedState) {
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
@@ -137,6 +270,119 @@ TEST_F(RackConfigTest, EnrollSavedRack) {
     ASSERT_FALSE(state["conn_params"].contains("username"));
     ASSERT_FALSE(state["conn_params"].contains("password"));
     ASSERT_EQ(state["conn_params"]["api_key"], cfg.connection.api_key);
+}
+
+/// @brief it should log in as the saved rack that needs enrollment, so the Driver keeps
+/// the rack after an upgrade.
+TEST_F(RackConfigTest, LoginKeepsSavedRack) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("upgraded rack"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, rack.key);
+    const auto state = read_state();
+    ASSERT_EQ(state["remote_info"]["cluster_key"], cluster_key.to_string());
+    ASSERT_FALSE(state["conn_params"].contains("password"));
+}
+
+/// @brief it should log in as the rack that the saved API key logs in as, so a second
+/// login keeps the rack.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRack) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+    ASSERT_NE(second.connection.api_key, first.connection.api_key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, first.rack.key);
+}
+
+/// @brief it should log in as the rack of the saved API key when the saved state has no
+/// cluster key.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRackWithoutClusterKey) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NIL(Config::save_remote_info(args, RemoteInfo{}));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key to a Core at another address.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyAtOtherAddress) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto other = key_conn(first.connection.api_key);
+    other.port = 1;
+    ASSERT_NIL(Config::save_api_key(args, other));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key without TLS when it was saved with TLS.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyWithoutTLS) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto secure = key_conn(first.connection.api_key);
+    secure.secure = true;
+    ASSERT_NIL(Config::save_api_key(args, secure));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key without TLS when it was saved with a CA
+/// certificate.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyWithCACert) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto saved = key_conn(first.connection.api_key);
+    saved.ca_cert = "/etc/synnax/ca.pem";
+    ASSERT_NIL(Config::save_api_key(args, saved));
+    auto conn = test_client_config();
+    conn.secure = false;
+    const auto second = ASSERT_NIL_P(Config::login(args, conn));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should keep the saved rack when SYNNAX_CA_CERT is set and both the saved
+/// and the new connection set secure.
+TEST_F(RackConfigTest, LoginIgnoresClientCACertWhenSecureIsSet) {
+    auto conn = test_client_config();
+    conn.secure = false;
+    const auto first = ASSERT_NIL_P(Config::login(args, conn));
+    x::env::set("SYNNAX_CA_CERT", "/etc/synnax/ca.pem");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
+    const auto second = ASSERT_NIL_P(Config::login(args, conn));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+}
+
+/// @brief it should create a new rack when the Core rejects the saved API key.
+TEST_F(RackConfigTest, LoginCreatesRackWhenSavedKeyRevoked) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto client = new_test_client();
+    const auto keys = ASSERT_NIL_P(
+        client.api_keys.retrieve({{"rack", std::to_string(first.rack.key)}})
+    );
+    std::vector<std::string> key_ids;
+    for (const auto &k: keys)
+        key_ids.push_back(k.key);
+    ASSERT_NIL(client.api_keys.del(key_ids));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, 0);
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should enroll the saved rack when the saved API key logs in as a user.
+TEST_F(RackConfigTest, LoginKeepsSavedRackWithUserKey) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("user key rack"));
+    const auto user_key = ASSERT_NIL_P(client.api_keys.create("user key"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    ASSERT_NIL(Config::save_api_key(args, key_conn(user_key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
 }
 
 /// @brief it should keep the saved rack and the password when the caller cannot create
@@ -214,6 +460,24 @@ TEST_F(RackConfigTest, LoadRackFromAPIKey) {
     ASSERT_EQ(cfg.connection.api_key, key.token);
 }
 
+/// @brief it should replace the integrations and version of the rack it loads, and keep
+/// the other fields of the rack.
+TEST_F(RackConfigTest, LoadSetsRackIntegrationsAndVersion) {
+    const auto client = new_test_client();
+    auto rack = synnax::rack::Rack{.name = "stale rack", .integrations = {"stale"}};
+    ASSERT_NIL(client.racks.create(rack));
+    const auto key = ASSERT_NIL_P(
+        client.api_keys.create("test", {"rack", std::to_string(rack.key)})
+    );
+    ASSERT_NIL(Config::save_api_key(args, key_conn(key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    const auto got = ASSERT_NIL_P(client.racks.retrieve(rack.key));
+    EXPECT_EQ(got.name, "stale rack");
+    EXPECT_EQ(got.version, SYNNAX_DRIVER_VERSION);
+    EXPECT_EQ(got.integrations, cfg.rack.integrations);
+    EXPECT_EQ(std::ranges::find(got.integrations, "stale"), got.integrations.end());
+}
+
 /// @brief it should refuse an API key that logs in as a user.
 TEST_F(RackConfigTest, RejectUserAPIKey) {
     const auto client = new_test_client();
@@ -276,6 +540,14 @@ TEST_F(RackConfigTest, RefuseSymlinkStateFile) {
     ASSERT_OCCURRED_AS(Config::save_api_key(args, key_conn("syk_saved")), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_conn_params(args, {}), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_remote_info(args, {}), STATE_ERROR);
+    ASSERT_OCCURRED_AS(Config::secure_persisted_state(args), STATE_ERROR);
+}
+
+/// @brief it should secure the persisted state without creating a missing state file.
+TEST_F(RackConfigTest, SecureMissingStateFile) {
+    std::filesystem::remove(STATE_PATH);
+    ASSERT_NIL(Config::secure_persisted_state(args));
+    ASSERT_FALSE(std::filesystem::exists(STATE_PATH));
 }
 
 /// @brief it should keep the persisted state file readable only by its owner.
@@ -349,6 +621,21 @@ TEST_F(RackConfigTest, LoadManagerConfigFromFile) {
     ASSERT_EQ(cfg.manager.op_timeout, 15 * x::telem::SECOND);
 }
 
+/// @brief it should load the secrets folder from the config file as an absolute path.
+TEST_F(RackConfigTest, LoadSecretsDirFromFile) {
+    const std::string config_path = "/tmp/rack-config-test/secrets-config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"secrets_dir": "secrets"})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
+    );
+    const auto cfg = ASSERT_NIL_P(Config::load(config_args, brk));
+    ASSERT_EQ(cfg.secrets_dir, std::filesystem::current_path() / "secrets");
+}
+
 /// @brief it should load connection parameters from command line arguments.
 TEST_F(RackConfigTest, LoadFromCommandLineArgs) {
     x::args::Parser args_with_config(
@@ -398,7 +685,118 @@ TEST_F(RackConfigTest, LoadSecureFromEnvironmentVariables) {
     x::env::set("SYNNAX_DRIVER_SECURE", "true");
     x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
+}
+
+/// @brief it should leave secure unset when no source sets it.
+TEST_F(RackConfigTest, SecureUnsetByDefault) {
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.secure, std::nullopt);
+}
+
+/// @brief it should load the CA certificate from environment variables.
+TEST_F(RackConfigTest, LoadCACertFromEnvironmentVariables) {
+    x::env::set("SYNNAX_DRIVER_CA_CERT", "/etc/synnax/ca.pem");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_CA_CERT"); });
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.ca_cert, "/etc/synnax/ca.pem");
+}
+
+/// @brief it should load the CA certificate from command line arguments.
+TEST_F(RackConfigTest, LoadCACertFromCommandLineArgs) {
+    x::args::Parser ca_args(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--ca-cert",
+            "/etc/synnax/ca.pem"
+        }
+    );
+    const auto cfg = ASSERT_NIL_P(Config::resolve(ca_args, brk));
+    ASSERT_EQ(cfg.connection.ca_cert, "/etc/synnax/ca.pem");
+}
+
+/// @brief it should load the CA certificate from the config file.
+TEST_F(RackConfigTest, LoadCACertFromConfigFile) {
+    const std::string config_path = "/tmp/rack-config-test/ca-config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"connection": {"ca_cert": "/etc/synnax/ca.pem"}})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--config",
+            config_path
+        }
+    );
+    const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
+    ASSERT_EQ(cfg.connection.ca_cert, "/etc/synnax/ca.pem");
+}
+
+/// @brief it should turn TLS on when a higher source sets only a CA certificate over a
+/// saved secure false.
+TEST_F(RackConfigTest, CACertOverridesSavedSecureFalse) {
+    ASSERT_NIL(Config::save_conn_params(args, {.secure = false}));
+    x::args::Parser ca_args(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--ca-cert",
+            "/etc/synnax/ca.pem"
+        }
+    );
+    const auto cfg = ASSERT_NIL_P(Config::resolve(ca_args, brk));
+    ASSERT_EQ(cfg.connection.secure, std::nullopt);
+    const auto tls = ASSERT_NIL_P(cfg.connection.tls());
+    ASSERT_TRUE(tls.enabled);
+    ASSERT_EQ(tls.ca_cert, "/etc/synnax/ca.pem");
+}
+
+/// @brief it should drop a saved CA certificate when a higher source sets secure.
+TEST_F(RackConfigTest, SecureOverridesSavedCACert) {
+    ASSERT_NIL(Config::save_conn_params(args, {.ca_cert = "/etc/synnax/ca.pem"}));
+    x::env::set("SYNNAX_DRIVER_SECURE", "true");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.secure, true);
+    ASSERT_EQ(cfg.connection.ca_cert, "");
+}
+
+/// @brief it should keep the saved CA certificate when no higher source sets secure or
+/// a CA certificate.
+TEST_F(RackConfigTest, SavedCACertApplies) {
+    ASSERT_NIL(Config::save_conn_params(args, {.ca_cert = "/etc/synnax/ca.pem"}));
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.ca_cert, "/etc/synnax/ca.pem");
+}
+
+/// @brief it should read SYNNAX_DRIVER_SECURE on its own, in any case, so it replaces
+/// a saved CA certificate.
+TEST_F(RackConfigTest, EnvironmentSecureIgnoresSavedValue) {
+    ASSERT_NIL(Config::save_conn_params(args, {.ca_cert = "/etc/synnax/ca.pem"}));
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
+    x::env::set("SYNNAX_DRIVER_SECURE", "True");
+    auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.secure, true);
+    ASSERT_EQ(cfg.connection.ca_cert, "");
+    x::env::set("SYNNAX_DRIVER_SECURE", "0");
+    cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.secure, false);
+    ASSERT_EQ(cfg.connection.ca_cert, "");
+}
+
+/// @brief it should fail on a SYNNAX_DRIVER_SECURE value that is not true, false, 1, or
+/// 0.
+TEST_F(RackConfigTest, EnvironmentSecureRejectsInvalidValue) {
+    ASSERT_NIL(Config::save_conn_params(args, {.secure = true}));
+    x::env::set("SYNNAX_DRIVER_SECURE", "yes");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
+    ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
 }
 
 /// @brief it should load the secure flag from the config file.
@@ -418,7 +816,7 @@ TEST_F(RackConfigTest, LoadSecureFromConfigFile) {
         }
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
 }
 
 /// @brief it should load the secure flag from command line arguments.
@@ -433,14 +831,14 @@ TEST_F(RackConfigTest, LoadSecureFromCommandLineArgs) {
         }
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(secure_args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
 }
 
 /// @brief it should load the secure flag saved by the login command.
 TEST_F(RackConfigTest, LoadSecureFromPersistedState) {
     ASSERT_NIL(Config::save_conn_params(args, {.secure = true}));
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
 }
 
 /// @brief it should let command line arguments turn secure off.
@@ -462,7 +860,7 @@ TEST_F(RackConfigTest, ArgsOverrideSecureFromFile) {
         }
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(insecure_args, brk));
-    ASSERT_FALSE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, false);
 }
 
 /// @brief it should respect configuration precedence: args > env > file.

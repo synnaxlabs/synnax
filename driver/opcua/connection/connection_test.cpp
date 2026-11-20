@@ -67,21 +67,18 @@ TEST(ConnectionTest, testBasicConn) {
 
     testutil::ServerConfig server_cfg;
     server_cfg.test_nodes = {node};
-    server_cfg.port = 4840;
+    server_cfg.port = 4849;
 
     testutil::Server server(server_cfg);
     server.start();
+    ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connect(cfg, {}, "opc"),
-        (5 * x::telem::SECOND).chrono(),
-        (250 * x::telem::MILLISECOND).chrono()
-    );
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "opc"));
     ASSERT_NE(client, nullptr);
 
     auto ser = ASSERT_NIL_P(opcua::testutil::simple_read(client, "NS=1;S=test"));
@@ -212,7 +209,7 @@ TEST(ConnectionTest, serverStopDuringConnection) {
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id; // Implicit conversion to const UA_NodeId&
+    ids[0].nodeId = node_id.resolve({}).value();
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;
@@ -319,10 +316,7 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     cfg.username = "any_user";
     cfg.password = "any_password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -344,10 +338,7 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     cfg.username = "";
     cfg.password = "password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -369,10 +360,7 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     cfg.username = "username";
     cfg.password = "";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -466,20 +454,18 @@ TEST(ConnectionTest, CustomSessionAndChannelTimeouts) {
     server.stop();
 }
 
-/// @brief it should read the configured certificate files instead of the Driver
-/// certificate, and report a file that is missing.
-TEST(ConnectionTest, resolveSecurityMissingFiles) {
+/// @brief it should refuse a client certificate that read_certificates did not read,
+/// instead of presenting the Driver certificate.
+TEST(ConnectionTest, resolveSecurityUnreadClientCertificate) {
     const auto store = testutil::create_store();
     Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4848";
     cfg.security_mode = "Sign";
     cfg.security_policy = "Basic256";
-    cfg.client_cert = "/nonexistent/cert.pem";
-    cfg.client_private_key = "/nonexistent/key.pem";
-    ASSERT_OCCURRED_AS_P(
-        resolve_security(cfg, *store),
-        opcua::errors::CLIENT_CERTIFICATE_INVALID
-    );
+    cfg.client_certificate_item = x::uuid::create();
+    const auto err = resolve_security(cfg, *store).second;
+    ASSERT_MATCHES(err, opcua::errors::CLIENT_CERTIFICATE_INVALID);
+    ASSERT_EQ(err.data, "The Driver did not read the client certificate.");
 }
 
 /// @brief it should leave the identity empty for an unsecured connection without
@@ -505,5 +491,90 @@ TEST(ConnectionTest, securedWithoutIdentity) {
         connect(cfg, {}, "test"),
         opcua::errors::ENCRYPTION_CONFIG_FAILED
     );
+}
+
+/// @brief it should parse the password as the key of the secret that holds it.
+TEST(ConnectionTest, parsesPasswordSecret) {
+    const auto key = x::uuid::create();
+    auto p = x::json::Parser(
+        x::json::json{
+            {"endpoint", "opc.tcp://localhost:4848"},
+            {"password", key.to_string()}
+        }
+    );
+    const Config cfg(p);
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(cfg.password_secret, key);
+    ASSERT_TRUE(cfg.password.empty());
+}
+
+/// @brief it should parse an empty password as no secret.
+TEST(ConnectionTest, parsesEmptyPassword) {
+    auto p = x::json::Parser(
+        x::json::json{{"endpoint", "opc.tcp://localhost:4848"}, {"password", ""}}
+    );
+    const Config cfg(p);
+    ASSERT_NIL(p.error());
+    ASSERT_TRUE(cfg.password_secret.is_nil());
+}
+
+/// @brief it should refuse a password that is not the key of a secret.
+TEST(ConnectionTest, refusesPlainPassword) {
+    auto p = x::json::Parser(
+        x::json::json{{"endpoint", "opc.tcp://localhost:4848"}, {"password", "hunter2"}}
+    );
+    const Config cfg(p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "password");
+    EXPECT_EQ(errs[0]["message"], "must be the key of a secret");
+}
+
+/// @brief it should parse the client and server certificates as the keys of items, and
+/// an empty client certificate as the Driver certificate.
+TEST(ConnectionTest, parsesCertificateItems) {
+    const auto server = x::uuid::create();
+    auto p = x::json::Parser(
+        x::json::json{
+            {"endpoint", "opc.tcp://localhost:4848"},
+            {"client_certificate", ""},
+            {"server_certificate", server.to_string()}
+        }
+    );
+    const Config cfg(p);
+    ASSERT_NIL(p.error());
+    ASSERT_FALSE(cfg.uses_client_certificate());
+    ASSERT_EQ(cfg.server_certificate_item, server);
+    ASSERT_FALSE(cfg.server_certificate.has_value());
+}
+
+/// @brief it should present the client certificate that a connection names only when
+/// the connection is secured, since an unsecured connection presents none.
+TEST(ConnectionTest, usesClientCertificateOnlyWhenSecured) {
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4848";
+    cfg.client_certificate_item = x::uuid::create();
+    ASSERT_FALSE(cfg.uses_client_certificate());
+    cfg.security_mode = "Sign";
+    cfg.security_policy = "Basic256Sha256";
+    ASSERT_TRUE(cfg.uses_client_certificate());
+}
+
+/// @brief it should refuse a certificate field that is not the key of a certificate,
+/// such as a path from an earlier release.
+TEST(ConnectionTest, refusesCertificatePath) {
+    auto p = x::json::Parser(
+        x::json::json{
+            {"endpoint", "opc.tcp://localhost:4848"},
+            {"client_certificate", "/pki/own/certs/client.der"}
+        }
+    );
+    const Config cfg(p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "client_certificate");
+    EXPECT_EQ(errs[0]["message"], "must be the key of a certificate");
 }
 }

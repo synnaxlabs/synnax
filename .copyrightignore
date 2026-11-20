@@ -8,13 +8,18 @@
 **/nisyscfg.h
 **/nidaqmx.h
 vendor/open62541/open62541/**
-vendor/wasmtime/wasmtime/**
 vendor/libmodbus/libmodbus/**
 vendor/soem/SOEM/**
 
 # IgH EtherCAT Master
 driver/ethercat/igh/ecrt.h
 core/pkg/service/mqtt/sparkplug/pb/**
+
+# DBC parser derived from go.einride.tech/can (MIT)
+core/pkg/service/icd/internal/dbc/def.go
+core/pkg/service/icd/internal/dbc/error.go
+core/pkg/service/icd/internal/dbc/parser.go
+core/pkg/service/icd/internal/dbc/types.go
 
 # Generated lockfiles
 pnpm-lock.yaml

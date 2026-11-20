@@ -9,10 +9,24 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Monospaced, so every hex code takes the same width. */
 .lyra-color-hex-text input {
+    font-family: var(--pluto-code-font-family);
     text-transform: uppercase;
 
     &::placeholder {
+        font-family: var(--pluto-font-family);
         text-transform: none;
     }
+}
+
+/* The "#" is text, which sets its own font. */
+.lyra-color-hex-text .lyra-input__start-content {
+    font-family: var(--pluto-code-font-family);
+}
+
+/* The name of a linked color is text, not a hex code. */
+.lyra-color-hex-text.lyra--named input {
+    font-family: var(--pluto-font-family);
+    text-transform: none;
 }

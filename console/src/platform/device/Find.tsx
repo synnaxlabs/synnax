@@ -12,6 +12,7 @@ import "@/platform/device/Find.css";
 import {
   type device,
   DisconnectedError,
+  NotFoundError,
   type rack,
   task,
   TimeSpan,
@@ -27,16 +28,18 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
+import { compare, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Configure } from "@/platform/device/Configure";
-import { type Hardware } from "@/platform/device/integration";
-import { isRunning } from "@/platform/device/racks";
+import { ConnectFrame } from "@/platform/device/ConnectFrame";
+import type { Hardware } from "@/platform/device/integration";
+import { isReady } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
-const SCAN_COMMAND = "scan";
+/** The command that makes a scan task scan for devices now. */
+export const SCAN_COMMAND = "scan";
 const SCAN_TIMEOUT = TimeSpan.seconds(15);
 
 const scanDisabledZ = task.scanConfigZ.pick({ disabled: true });
@@ -72,7 +75,7 @@ const State = ({ variant, message, description, action }: StateProps): ReactElem
   </Pane.Item>
 );
 
-interface ScannerStateProps {
+interface ScannerStateProps extends Pick<Hardware, "ScanAction"> {
   rack: rack.Rack;
   scanner: task.Task | undefined;
   name: string;
@@ -82,10 +85,11 @@ const ScannerState = ({
   rack: r,
   scanner,
   name,
+  ScanAction,
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  if (!isRunning(r))
+  if (!isReady(r))
     return (
       <State
         variant="warning"
@@ -112,12 +116,9 @@ const ScannerState = ({
             onClick={() =>
               handleError(async () => {
                 if (client == null) throw new DisconnectedError();
-                // Never write the status back: the Driver owns it.
-                await client.tasks.create({
-                  ...scanner.payload,
-                  config: { ...scanner.config, disabled: false },
-                  status: undefined,
-                });
+                const set = task.set({ path: ["config", "disabled"], value: false });
+                if (!(await client.tasks.dispatch(scanner.key, set)))
+                  throw new NotFoundError(`Task ${scanner.key} is not cached`);
               }, "Failed to turn on scanning")
             }
           >
@@ -133,66 +134,106 @@ const ScannerState = ({
         variant={scanStatus.variant}
         message={scanStatus.message}
         description={scanStatus.description}
+        action={ScanAction != null && <ScanAction scanner={scanner} />}
       />
     );
   return null;
 };
 
+const byConfigured = (a: device.Device, b: device.Device): number =>
+  Number(a.configured) - Number(b.configured);
+
+// A slot is a bus position, so the devices list in the order of the bus.
+const bySlot = compare.by((d: device.Device) => d.location, compare.natural);
+
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
-  isRunning(r) &&
+  isReady(r) &&
   scanner != null &&
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
 
-interface DeviceItemProps {
+const connectedText = (count: number, name: string): string => {
+  if (count === 0) return `No ${name} devices connected.`;
+  return `${strings.count(count, `${name} device`)} connected.`;
+};
+
+interface ScanResultProps {
+  devices: device.Device[];
+  name: string;
+}
+
+/** Says how many of the devices are connected after a scan. */
+const ScanResult = ({ devices, name }: ScanResultProps): ReactElement => {
+  const count = devices.filter((d) => d.status?.details.connected === true).length;
+  return (
+    <State
+      variant={count > 0 ? "success" : "warning"}
+      message="Scan complete"
+      description={connectedText(count, name)}
+    />
+  );
+};
+
+interface DeviceItemProps extends Pick<Hardware, "formatLocation" | "modelNames"> {
   device: device.Device;
   onConfigure: (key: device.Key) => void;
 }
 
-const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
-  <Pane.Item>
-    <PDevice.StatusIndicator status={d.status} />
-    <Flex.Box y gap="tiny" grow>
-      <Text.Text level="p" weight={500} color={11}>
-        {d.name}
-      </Text.Text>
-      <Text.Text level="small" color={9}>
-        {d.model}
-        {d.location.length > 0 && (
-          <span className={CSS.BE("device-find", "location")}>{d.location}</span>
-        )}
-      </Text.Text>
-    </Flex.Box>
-    {d.configured ? (
-      <Text.Text
-        level="small"
-        color={9}
-        className={CSS.BE("device-find", "configured")}
-      >
-        <Icon.Check />
-        Configured
-      </Text.Text>
-    ) : (
-      <Button.Button size="small" variant="filled" onClick={() => onConfigure(d.key)}>
-        Configure
-      </Button.Button>
-    )}
-  </Pane.Item>
-);
+const DeviceItem = ({
+  device: d,
+  formatLocation,
+  modelNames,
+  onConfigure,
+}: DeviceItemProps): ReactElement => {
+  const location = formatLocation?.(d) ?? d.location;
+  return (
+    <Pane.Item>
+      <Flex.Box y gap="tiny" grow>
+        <Text.Text level="p" weight={500} color={11}>
+          {d.name}
+        </Text.Text>
+        <Text.Text level="small" color={9}>
+          {modelNames?.[d.model] ?? d.model}
+          {location.length > 0 && (
+            <span className={CSS.BE("device-find", "location")}>{location}</span>
+          )}
+        </Text.Text>
+      </Flex.Box>
+      {d.configured ? (
+        <Text.Text
+          level="small"
+          color={9}
+          className={CSS.BE("device-find", "configured")}
+        >
+          <Icon.Check />
+          Configured
+        </Text.Text>
+      ) : (
+        <Button.Button size="small" variant="filled" onClick={() => onConfigure(d.key)}>
+          Configure
+        </Button.Button>
+      )}
+      <PDevice.StatusIndicator status={d.status} tooltipLocation="left" />
+    </Pane.Item>
+  );
+};
 
 interface RackCardProps {
+  hardware: Hardware;
   rack: rack.Rack;
   scanner: task.Task | undefined;
   devices: device.Device[];
-  name: string;
+  /** Whether a Scan now of this rack finished. */
+  scanned: boolean;
   onConfigure: (key: device.Key) => void;
 }
 
 const RackCard = ({
+  hardware: { name, formatLocation, modelNames, ScanAction },
   rack: r,
   scanner,
   devices,
-  name,
+  scanned,
   onConfigure,
 }: RackCardProps): ReactElement => (
   <Pane.Pane>
@@ -204,15 +245,22 @@ const RackCard = ({
       <Header.Actions>
         {devices.length > 0 && (
           <Text.Text level="small" color={9}>
-            {devices.length === 1 ? "1 device" : `${devices.length} devices`}
+            {strings.count(devices.length, "device")}
           </Text.Text>
         )}
         <Rack.StatusIndicator status={r.status} />
       </Header.Actions>
     </Pane.Header>
-    <ScannerState rack={r} scanner={scanner} name={name} />
+    <ScannerState rack={r} scanner={scanner} name={name} ScanAction={ScanAction} />
+    {scanned && <ScanResult devices={devices} name={name} />}
     {devices.map((d) => (
-      <DeviceItem key={d.key} device={d} onConfigure={onConfigure} />
+      <DeviceItem
+        key={d.key}
+        device={d}
+        formatLocation={formatLocation}
+        modelNames={modelNames}
+        onConfigure={onConfigure}
+      />
     ))}
     {devices.length === 0 && isScanning(r, scanner) && (
       <State variant="loading" message={`Looking for ${name} hardware`} />
@@ -258,38 +306,46 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  hardware: { key, name, title, icon, make, scanType, checks },
+  hardware,
   rack: rackKey,
   filter,
   onBack,
   onConfigure,
 }: FindProps): ReactElement => {
+  const { key, name, title, icon, make, scanType, checks, location } = hardware;
   const allRacks = Rack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
-  const running = allRacks?.some(isRunning) === true;
+  const running = allRacks?.some(isReady) === true;
   const racks = allRacks?.filter(
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
-  const scanners = Task.useResultMultiple({ types: [scanType] }).data;
-  const found = (PDevice.useResultMultiple({ makes: [make] }).data ?? [])
+  const scanners = Task.useResultMultiple({ where: { type: { eq: scanType } } }).data;
+  const found = (
+    PDevice.useResultMultiple({ where: { make: { eq: make } } }).data ?? []
+  )
     .filter(
       (d) => racks?.some((r) => r.key === d.rack) === true && (filter?.(d) ?? true),
     )
-    .toSorted((a, b) => Number(a.configured) - Number(b.configured));
+    .toSorted(location.shape === "slot" ? bySlot : byConfigured);
   const handleError = Status.useErrorHandler();
   const [scanning, setScanning] = useState(false);
+  const [scanned, setScanned] = useState<rack.Key[]>([]);
   const targets = (scanners ?? []).filter(
     (s) =>
-      !isScanDisabled(s) &&
-      racks?.some((r) => r.key === s.rack && isRunning(r)) === true,
+      !isScanDisabled(s) && racks?.some((r) => r.key === s.rack && isReady(r)) === true,
   );
   const scan = async () => {
     setScanning(true);
+    setScanned([]);
     try {
-      await Promise.all(
+      const replies = await Promise.all(
         targets.map((s) =>
           s.executeCommandSync({ type: SCAN_COMMAND, timeout: SCAN_TIMEOUT }),
         ),
+      );
+      // The scanner state shows a scan that failed.
+      setScanned(
+        targets.filter((_, i) => replies[i].variant === "success").map((s) => s.rack),
       );
     } catch (e) {
       handleError(e, `Failed to scan for ${name} hardware`);
@@ -297,7 +353,7 @@ export const Find = ({
     setScanning(false);
   };
   return (
-    <Modal.Frame className={CSS.B("device-find")}>
+    <ConnectFrame className={CSS.B("device-find")}>
       <Modal.Header icon={icon}>{["Device", "Connect", title]}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         {racks?.length === 0 && (
@@ -327,10 +383,11 @@ export const Find = ({
         {racks?.map((r) => (
           <RackCard
             key={r.key}
+            hardware={hardware}
             rack={r}
             scanner={scanners?.find((s) => s.rack === r.key)}
             devices={found.filter((d) => d.rack === r.key)}
-            name={name}
+            scanned={scanned.includes(r.key)}
             onConfigure={onConfigure}
           />
         ))}
@@ -357,7 +414,7 @@ export const Find = ({
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
-    </Modal.Frame>
+    </ConnectFrame>
   );
 };
 
@@ -371,11 +428,10 @@ const FindModal = ({
   const [configuring, setConfiguring] = useState<device.Key | null>(null);
   if (configuring == null)
     return <Find hardware={hardware} filter={filter} onConfigure={setConfiguring} />;
+  const { Configure } = hardware;
   return (
     <Configure
       deviceKey={configuring}
-      icon={hardware.icon}
-      initialProperties={hardware.zeroProperties}
       onBack={() => setConfiguring(null)}
       close={() => close(configuring)}
     />

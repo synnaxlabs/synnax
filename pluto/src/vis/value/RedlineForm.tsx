@@ -10,7 +10,7 @@
 import "@/vis/value/RedlineForm.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
+import { Color as Base } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -18,10 +18,13 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type compare, id } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { color, type compare, deep, id } from "@synnaxlabs/x";
+import type { CSSProperties, ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
+
+const root = deep.path<{ units?: string }>();
 
 const ascending: compare.Comparator<color.Band> = (a, b) => a.threshold - b.threshold;
 
@@ -44,7 +47,7 @@ const Bar = ({ on, off }: BarProps): ReactElement => (
 interface BandItemProps {
   itemKey: string;
   index: number;
-  path: string;
+  path: deep.Path<color.Band[]>;
   bar: BarProps;
   duplicate: boolean;
   onRemove: (key: string) => void;
@@ -58,24 +61,20 @@ const BandItem = ({
   duplicate,
   onRemove,
 }: BandItemProps): ReactElement => {
-  const bandPath = `${path}.${itemKey}`;
+  const bandPath = path[itemKey];
   return (
     <List.Item itemKey={itemKey} index={index} x align="center" gap="small">
       <Bar {...bar} />
-      <Form.Field<color.Crude>
-        path={`${bandPath}.color`}
-        showLabel={false}
-        showHelpText={false}
-      >
+      <Form.Field path={bandPath.color} showLabel={false} showHelpText={false}>
         {({ value, onChange }) => (
-          <Color.Swatch value={value} onChange={onChange} size="small" bordered />
+          <Base.Swatch value={value} onChange={onChange} size="small" bordered />
         )}
       </Form.Field>
       <Text.Text level="small" color={9} className={CSS.BE("redline-form", "relation")}>
         ≥
       </Text.Text>
       <Form.NumericField
-        path={`${bandPath}.threshold`}
+        path={bandPath.threshold}
         showLabel={false}
         showHelpText={false}
         grow
@@ -87,11 +86,7 @@ const BandItem = ({
         }}
       />
       <Flex.Box x gap="small" className={CSS.BE("redline-form", "actions")}>
-        <Form.Field<boolean>
-          path={`${bandPath}.flashing`}
-          showLabel={false}
-          showHelpText={false}
-        >
+        <Form.Field path={bandPath.flashing} showLabel={false} showHelpText={false}>
           {({ value, onChange }) => (
             <Button.Toggle
               value={value}
@@ -128,9 +123,9 @@ interface FloorItemProps {
 // item mirrors a band's columns so the two line up.
 const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactElement => (
   <Flex.Box x align="center" gap="small" className={CSS.BE("redline-form", "floor")}>
-    <Bar on={color.cssString(background ?? color.ZERO)} />
-    <Color.Swatch
-      value={background ?? color.ZERO}
+    <Bar on={color.cssString(background ?? color.TRANSPARENT)} />
+    <Base.Swatch
+      value={background ?? color.TRANSPARENT}
       size="small"
       bordered
       tooltip="Set the background in the style tab"
@@ -157,11 +152,11 @@ const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactEleme
 );
 
 interface TransitionFieldProps {
-  path: string;
+  path: deep.Path<color.Scale>;
 }
 
 const TransitionField = ({ path }: TransitionFieldProps): ReactElement => (
-  <Form.Field<boolean> path={`${path}.smooth`} label="Transition" padHelpText={false}>
+  <Form.Field path={path.smooth} label="Transition" padHelpText={false}>
     {({ value, onChange }) => (
       <Select.Buttons
         value={value ? "smooth" : "steps"}
@@ -176,25 +171,25 @@ const TransitionField = ({ path }: TransitionFieldProps): ReactElement => (
 
 export interface RedlineFormProps {
   /** The path of the redline. */
-  path: string;
+  path: deep.Path<color.Scale>;
+  /** The fill behind the value where no band paints. Absent paints no fill. */
+  background?: color.Color;
 }
 
 /**
  * Edits a redline as a list of threshold bands, lowest first. Rows sort by threshold
- * as thresholds change. Reads the value's units and fill from the form root.
+ * as thresholds change. Reads the value's units from the form root.
  */
-export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
-  const bandsPath = `${path}.bands`;
-  const redline = Form.useFieldValue<color.Scale>(path);
-  const units = Form.useFieldValue<string>("units", { optional: true }) ?? "";
-  const background =
-    Form.useFieldValue<color.Color>("fillColor", { optional: true }) ?? undefined;
-  const { push, remove } = Form.useFieldListUtils<string, color.Band>(bandsPath);
+export const RedlineForm = ({ path, background }: RedlineFormProps): ReactElement => {
+  const redline = Form.useFieldValue(path);
+  const units = Form.useFieldValue(root.units, { optional: true }) ?? "";
+  const { push, remove } = Form.useFieldListUtils(path.bands);
   const theme = Theming.use();
+  const seriesColors = Color.useSeriesValues();
   const { bands, smooth } = redline;
   const sorted = bands.toSorted(ascending);
   const keys = sorted.map(({ key }) => key);
-  const backgroundCSS = color.cssString(background ?? color.ZERO);
+  const backgroundCSS = color.cssString(background ?? color.TRANSPARENT);
   const items = new Map(
     sorted.map(({ key, threshold, color: c, flashing }, i) => {
       const css = color.cssString(c);
@@ -217,11 +212,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
       const step = second == null ? 0 : highest.threshold - second.threshold;
       threshold = highest.threshold + (step > 0 ? step : 1);
     }
-    const palette = [
-      theme.colors.warning.z,
-      theme.colors.error.z,
-      ...(theme.colors.visualization.palettes.default ?? []),
-    ];
+    const palette = [theme.colors.warning.z, theme.colors.error.z, ...seriesColors];
     push(
       {
         key: id.create(),
@@ -253,7 +244,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
                       key={itemKey}
                       itemKey={itemKey}
                       index={index}
-                      path={bandsPath}
+                      path={path.bands}
                       onRemove={remove}
                       {...item}
                     />

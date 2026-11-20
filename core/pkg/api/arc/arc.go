@@ -13,25 +13,32 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,14 +49,15 @@ type (
 
 // ServiceConfig is the configuration for the Arc API service.
 type ServiceConfig struct {
+	// DB holds the channels and modules that compilation reads. Compilation reads it as
+	// channel.CompileConsistent describes.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Arc stores and runs Arc automations.
 	//
 	// [REQUIRED]
@@ -58,6 +66,27 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Channel retrieves and compiles the calculated channels that an automation
+	// reads.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// RBAC reads the access of the subject of each LSP stream.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// DispatchChannel is the bound channel dispatch route. The LSP renames channels
+	// through it, so an editor rename is checked as any other rename is.
+	//
+	// [REQUIRED]
+	DispatchChannel freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
+	// Stopper stops the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Stopper *task.Stopper
 }
 
 var (
@@ -68,26 +97,41 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.DispatchChannel = override.Nil(c.DispatchChannel, other.DispatchChannel)
+	c.Stopper = override.Nil(c.Stopper, other.Stopper)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.arc")
-	v.NotNil("rbac", c.RBAC)
+	v.NotNil("db", c.DB)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("dispatch_channel", c.DispatchChannel)
+	v.NotNil("stopper", c.Stopper)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
-	internal *arc.Service
-	status   *status.Service
+	db              *gorp.DB
+	internal        *arc.Service
+	status          *status.Service
+	channel         *channel.Service
+	rbac            *rbac.Service
+	dispatchChannel freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
+	stopper *task.Stopper
 	alamos.Instrumentation
 }
 
@@ -97,10 +141,14 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:          cfg.RBAC,
+		db:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
+		channel:         cfg.Channel,
+		rbac:            cfg.RBAC,
+		dispatchChannel: cfg.DispatchChannel,
+		stopper:         cfg.Stopper,
 	}, nil
 }
 
@@ -121,20 +169,13 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeArc}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Arcs); err != nil {
 		return CreateResponse{}, err
 	}
 	for i := range req.Arcs {
-		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
+		req.Arcs[i] = materialize(req.Arcs[i])
 	}
 	return CreateResponse{Arcs: req.Arcs}, nil
 }
@@ -143,18 +184,38 @@ type DeleteRequest struct {
 	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
 
+// PrepareDelete stops the running tasks of the Arcs in req and waits for them to stop,
+// for at most the timeout of the Stopper in total. PrepareDelete returns
+// access.ErrDenied, and stops nothing, when the subject cannot delete an Arc in req or
+// one of its tasks.
+func (s *Service) PrepareDelete(
+	ctx context.Context,
+	req DeleteRequest,
+) (struct{}, error) {
+	var taskKeys []task.Key
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if taskKeys, err = s.internal.TaskKeys(ctx, snap, req.Keys...); err != nil {
+			return err
+		}
+		return s.rbac.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: append(arc.ResourceIDs(req.Keys), task.ResourceIDs(taskKeys)...),
+		})
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.stopper.Stop(ctx, taskKeys)
+}
+
+// Delete deletes the Arcs in req and their tasks. Run PrepareDelete first to stop the
+// tasks.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
+	_ struct{},
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: arc.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -164,22 +225,16 @@ func (s *Service) Delete(
 // edits.
 type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
 
-// Dispatch relays the action sequence to the other clients editing the arc,
-// broadcasting it on the arc collaborative-edit signals channel. The caller must hold
-// update access to the arc.
+// Dispatch applies the action sequence to the arc in tx. Subscribers to the arc action
+// signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{arc.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 type (
@@ -198,37 +253,34 @@ type (
 	}
 )
 
-// UpdateTask creates, moves, or changes the arc's task. A zero rack unbinds the arc,
-// deleting its task; unbinding a running arc is rejected.
+// PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction, as
+// channel.RetryChanged does. An unbind compiles nothing. It returns query.ErrNotFound
+// when the arc to compile does not exist.
+func (s *Service) PrepareUpdateTask(
+	ctx context.Context,
+	req UpdateTaskRequest,
+) (arc.Build, error) {
+	if req.Rack != nil && *req.Rack == 0 {
+		return arc.Build{}, nil
+	}
+	return channel.RetryChanged(ctx, func() (arc.Build, error) {
+		return s.internal.Build(ctx, req.Key)
+	})
+}
+
+// UpdateTask creates, moves, or changes the arc's task with the compile from
+// PrepareUpdateTask. A zero rack unbinds the arc, deleting its task; unbinding a
+// running arc is rejected.
 func (s *Service) UpdateTask(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateTaskRequest,
+	b arc.Build,
 ) (UpdateTaskResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{arc.OntologyID(req.Key)},
-	}); err != nil {
-		return UpdateTaskResponse{}, err
-	}
-	taskAction := access.ActionUpdate
-	if req.Rack != nil {
-		taskAction = access.ActionCreate
-		if *req.Rack == 0 {
-			taskAction = access.ActionDelete
-		}
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  taskAction,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
-	}); err != nil {
-		return UpdateTaskResponse{}, err
-	}
 	tsk, err := s.internal.NewWriter(tx).UpdateTask(ctx, req.Key, arc.TaskUpdate{
 		Rack:        req.Rack,
 		Performance: req.Performance,
+		Build:       b,
 	})
 	if err != nil {
 		return UpdateTaskResponse{}, err
@@ -236,98 +288,156 @@ func (s *Service) UpdateTask(
 	return UpdateTaskResponse{Task: tsk}, nil
 }
 
-type (
-	RetrieveRequest struct {
-		SearchTerm          string    `json:"search_term"            msgpack:"search_term"`
-		Keys                []arc.Key `json:"keys"                   msgpack:"keys"`
-		Names               []string  `json:"names"                  msgpack:"names"`
-		Limit               int       `json:"limit"                  msgpack:"limit"`
-		Offset              int       `json:"offset"                 msgpack:"offset"`
-		Compile             bool      `json:"compile"                msgpack:"compile"`
-		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Arcs []Arc `json:"arcs" msgpack:"arcs"`
-	}
-)
+var _ bind.Named = RetrieveRequest{}
 
+// Named implements bind.Named. It returns the Arcs that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, arc.ResourceID)
+}
+
+// Retrieve returns the Arcs that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var arcs []arc.Arc
-	var (
-		q         = s.internal.NewRetrieve().Entries(&arcs)
-		hasKeys   = len(req.Keys) > 0
-		hasNames  = len(req.Names) > 0
-		hasSearch = req.SearchTerm != ""
-	)
-	if hasKeys {
-		q = q.Where(arc.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(arc.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	err := q.Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	var res RetrieveResponse
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Arcs))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-
-	res := RetrieveResponse{Arcs: arcs}
-
+	if err = q.Where(bind.Filter(snap, arc.Match)).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
 	// Raw is derived from the replicated document and not stored, so materialize it
 	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
-		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
+		res.Arcs[i] = materialize(res.Arcs[i])
 	}
-
-	// Compile Arcs to modules if requested
-	if req.Compile {
-		for i := range res.Arcs {
-			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
-				return RetrieveResponse{}, err
-			}
-		}
-	} else {
-		// Reset the program to zero value just in case it was there
-		for i := range res.Arcs {
-			res.Arcs[i].Program = nil
+	if req.IncludeStatus {
+		if err = s.includeStatus(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
 		}
 	}
-
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: arc.OntologyIDsFromArcs(arcs),
-	}); err != nil {
-		return RetrieveResponse{}, err
+	if req.IncludeChanges {
+		if err = s.includeChanges(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
 	}
-
 	return res, nil
 }
 
-// LSPMessage represents a single JSON-RPC message for the LSP
+// Compiled returns a handler that runs retrieve and then, when the request includes
+// programs, compiles each automation that retrieve returns and each calculated channel
+// that the automation reads. Compilation runs after retrieve releases its snapshot.
+func (s *Service) Compiled(
+	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
+) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
+	return func(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+		res, err := retrieve(ctx, req)
+		if err != nil || !req.IncludeProgram {
+			return res, err
+		}
+		for i := range res.Arcs {
+			if err = s.compile(ctx, &res.Arcs[i]); err != nil {
+				return RetrieveResponse{}, err
+			}
+		}
+		return res, nil
+	}
+}
+
+// includeChanges attaches to each automation what changed since its task was
+// deployed. An automation that was never deployed and a module get none.
+func (s *Service) includeChanges(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	keys := make([]arc.Key, len(arcs))
+	for i, a := range arcs {
+		keys[i] = a.Base().Key
+	}
+	records, err := s.internal.RetrieveDrift(ctx, snap, keys...)
+	if err != nil {
+		return err
+	}
+	for i, a := range arcs {
+		automation, ok := a.Variant.(arc.AutomationArc)
+		if !ok {
+			continue
+		}
+		if rec, ok := records[automation.Key]; ok {
+			automation.Changes = arc.Changes(rec)
+		}
+		arcs[i].Variant = automation
+	}
+	return nil
+}
+
+// includeStatus attaches each module's compile status. An automation has none.
+func (s *Service) includeStatus(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	ids := make([]resource.ID, len(arcs))
+	for i, a := range arcs {
+		ids[i] = a.ResourceID()
+	}
+	statuses, err := s.status.Join[struct{}](ctx, snap, ids)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		if module, ok := arcs[i].Variant.(arc.ModuleArc); ok {
+			module.Status = st
+			arcs[i].Variant = module
+		}
+	}
+	return nil
+}
+
+// LSPMessage represents a single JSON-RPC message for the LSP.
 type LSPMessage = arctransport.JSONRPCMessage
 
-// LSP handles LSP protocol messages over a Freighter stream
+// LSP serves the Arc language server over stream. The server treats the channels and
+// modules that the subject of the stream cannot retrieve as unknown names, and renames
+// channels through the channel dispatch route as the subject.
 func (s *Service) LSP(
 	ctx context.Context,
 	stream freighter.ServerStream[LSPMessage, LSPMessage],
 ) error {
-	lsp, err := s.internal.NewLSP()
+	md := freighter.MDFromContext(ctx)
+	subject := auth.GetSubject(ctx)
+	lsp, err := s.internal.NewLSP(arc.LSPConfig{
+		Allowed: func(ctx context.Context) (allowed func(resource.ID) bool, err error) {
+			err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				allowed, err = s.rbac.NewEnforcer(snap).
+					Allowed(ctx, subject, access.ActionRetrieve)
+				return err
+			})
+			return allowed, err
+		},
+		Rename: func(ctx context.Context, key channel.Key, name string) error {
+			// The LSP renames with a context of its own, which holds no request
+			// metadata.
+			req := md
+			req.Context = ctx
+			_, err := s.dispatchChannel(req, apichannel.DispatchRequest{
+				Key: key,
+				Actions: []channel.Action{
+					channel.NewRenameAction(channel.RenamePayload{Name: name}),
+				},
+			})
+			return err
+		},
+	})
 	if err != nil {
 		return err
 	}
@@ -337,22 +447,129 @@ func (s *Service) LSP(
 	})
 }
 
-// compile compiles the Arc text to a module containing IR and WASM bytecode. Returns an
-// error if parsing, analysis, or compilation fails.
-func (s *Service) compile(ctx context.Context, arc *Arc) error {
-	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
-	parsed, diag := arctext.Parse(arc.Text, cfg)
-	if diag != nil && !diag.Ok() {
-		return CompileError{Diagnostics: diag.Error()}
+// materialize returns a with the raw text of a text-mode Arc derived from its document.
+func materialize(a Arc) Arc {
+	b := a.Base()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	if !ok {
+		return a
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
-	if diag != nil && !diag.Ok() {
-		return CompileError{Diagnostics: diag.Error()}
+	src.Text = src.Text.Materialize()
+	b.Source.Variant = src
+	a.SetBase(b)
+	return a
+}
+
+// compile compiles the source of an automation into its program and the calculated
+// channels that the program reads, as channel.RetryChanged does, and leaves a module as
+// is. Returns an error if parsing, analysis, or compilation fails.
+func (s *Service) compile(ctx context.Context, a *Arc) error {
+	automation, ok := a.Variant.(arc.AutomationArc)
+	if !ok {
+		return nil
 	}
-	mod, err := arctext.Compile(ctx, ir)
+	prog, err := channel.RetryChanged(ctx, func() (arclang.Program, error) {
+		return channel.CompileConsistent(ctx, s.db, func(
+			snap gorp.Snapshot,
+			lookups *channel.Lookups,
+		) (arclang.Program, error) {
+			root := s.internal.NewRoot(snap, lookups)
+			switch src := automation.Source.Variant.(type) {
+			case arc.TextSource:
+				return s.compileText(ctx, src.Text, root)
+			case arc.GraphSource:
+				return arclang.CompileGraph(
+					ctx,
+					src.Graph,
+					root,
+					arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+				)
+			}
+			return arclang.Program{}, nil
+		})
+	})
 	if err != nil {
 		return err
 	}
-	arc.Program = &mod
+	calculations, err := channel.RetryChanged(ctx, func() ([]arc.Calculation, error) {
+		return s.compileCalculations(ctx, prog)
+	})
+	if err != nil {
+		return err
+	}
+	automation.Program = &prog
+	automation.Calculations = calculations
+	a.Variant = automation
 	return nil
+}
+
+// compileCalculations compiles the calculated channels that prog reads and the ones
+// they read in turn, dependencies first. It leaves out a channel whose expression fails
+// analysis or that reads itself through other channels, and each channel that reads
+// it. The Core cannot compute such a channel either.
+func (s *Service) compileCalculations(
+	ctx context.Context,
+	prog arclang.Program,
+) ([]arc.Calculation, error) {
+	reads := make(set.Set[channel.Key])
+	for _, n := range prog.Nodes {
+		for key := range n.Channels.Read {
+			reads.Add(channel.Key(key))
+		}
+	}
+	if len(reads) == 0 {
+		return nil, nil
+	}
+	var channels []channel.Channel
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.channel.NewRetrieve().
+			Entries(&channels).
+			Where(channel.MatchKeys(reads.Slice()...)).
+			Exec(ctx, snap)
+	}); err != nil {
+		return nil, err
+	}
+	g, err := graph.New(graph.Config{
+		Instrumentation: s.Instrumentation,
+		Channel:         s.channel,
+		DB:              s.db,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, ch := range channels {
+		if !ch.IsCalculated() {
+			continue
+		}
+		err = g.Add(ctx, ch)
+		_, invalid := errors.AsType[*diagnostics.Diagnostics](err)
+		if err != nil && !invalid && !errors.Is(err, graph.ErrCycle) {
+			return nil, err
+		}
+	}
+	modules := g.CalculateFlat()
+	calculations := make([]arc.Calculation, len(modules))
+	for i, m := range modules {
+		calculations[i] = arc.Calculation{Channel: m.Channel.Key(), Program: m.Program}
+	}
+	return calculations, nil
+}
+
+// compileText compiles t against root, reporting parse and analysis failures as a
+// CompileError.
+func (s *Service) compileText(
+	ctx context.Context,
+	t arctext.Text,
+	root *symbol.Symbol,
+) (arclang.Program, error) {
+	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
+	parsed, diag := arctext.Parse(t, cfg)
+	if diag != nil && !diag.Ok() {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	ir, diag := arctext.Analyze(ctx, parsed, root, cfg)
+	if diag != nil && !diag.Ok() {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	return arctext.Compile(ctx, ir)
 }

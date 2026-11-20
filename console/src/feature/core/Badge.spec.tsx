@@ -10,7 +10,14 @@
 import { connection } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Core } from "@/feature/core";
 import { clickCoreBadge, hoverCoreBadge } from "@/feature/core/testutil";
@@ -26,6 +33,7 @@ import {
   createConsoleWrapper,
   createStatusConsoleWrapper,
   renderWithConsole,
+  UNLICENSED_STATUS,
 } from "@/testutil";
 
 const CORE_KEY = "core-key";
@@ -42,7 +50,23 @@ const UNREACHABLE: connection.Status = {
   details: { ...connection.DEFAULT_STATUS.details, reason: "unreachable" },
 };
 
+const AUTH_FAILED: connection.Status = {
+  ...UNREACHABLE,
+  message: "Failed to authenticate",
+  details: { ...connection.DEFAULT_STATUS.details, reason: "auth" },
+};
+
+const INCOMPATIBLE: connection.Status = {
+  ...UNREACHABLE,
+  message: "Core version not supported",
+  details: { ...connection.DEFAULT_STATUS.details, reason: "incompatible" },
+};
+
 describe("Core.Badge", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
   it("should report disconnected when no Core connection exists", async () => {
     const { container } = await renderWithConsole(<Core.Badge />);
     hoverCoreBadge(container);
@@ -72,6 +96,19 @@ describe("Core.Badge", () => {
     expect(
       within(tooltip).getByText("Cannot reach Core at localhost:9090"),
     ).toBeTruthy();
+  });
+
+  it.each<[string, connection.Status]>([
+    ["Unreachable", UNREACHABLE],
+    ["Unlicensed", UNLICENSED_STATUS],
+    ["Unauthenticated", AUTH_FAILED],
+    ["Incompatible", INCOMPATIBLE],
+  ])("should label the failed connection %s by its reason", async (label, status) => {
+    const { wrapper } = await createStatusConsoleWrapper({ client: null, status });
+    const { container } = render(<Core.Badge />, { wrapper });
+    hoverCoreBadge(container);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(within(tooltip).getByText(label)).toBeTruthy();
   });
 
   it("should show the logged-in user's name in the trigger", async () => {
@@ -111,6 +148,7 @@ describe("Core.Badge", () => {
   });
 
   it("should close the dialog and open the connect modal from the name row", async () => {
+    mocks.engine = "tauri";
     const { wrapper } = await createConsoleWrapper({
       client: null,
       preloadedState: createStateWithUser("Core-user"),
@@ -128,6 +166,15 @@ describe("Core.Badge", () => {
     // than in create mode.
     expect(await screen.findByRole("button", { name: "Save" })).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
+  });
+
+  it("should not offer to edit the connection in a browser", async () => {
+    const { container } = await renderWithConsole(<Core.Badge />, {
+      preloadedState: createStateWithUser("Core-user"),
+    });
+    clickCoreBadge(container);
+    await screen.findByText("Log out");
+    expect(screen.queryByLabelText("Edit connection")).toBeNull();
   });
 
   it("should log out of the active Core when Log out is clicked", async () => {

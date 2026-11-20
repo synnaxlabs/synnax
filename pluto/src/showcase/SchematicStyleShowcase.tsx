@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "./SchematicStyleShowcase.css";
+import "@/showcase/SchematicStyleShowcase.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment, type ReactElement } from "react";
 
-import { type CSS } from "@/css";
+import type { CSS } from "@/css";
 
 // Value study. Reference row reproduces the shipped value; every other row is
 // the quiet chassis with channel color allowed in exactly one place. Columns

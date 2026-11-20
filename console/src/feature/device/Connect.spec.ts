@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { EtherCAT } from "@/feature/ethercat";
+import { createSlaveDevice, STATUS_ENTRY } from "@/feature/ethercat/testutil";
 import { LabJack } from "@/feature/labjack";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import { createTaskStatus } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -41,7 +43,7 @@ describe("Device.useConnectModal", () => {
       });
       await open({ rack: rack.key });
       const reasons = await screen.findAllByText(`${rack.name} is not running`);
-      expect(reasons).toHaveLength(7);
+      expect(reasons).toHaveLength(Device.INTEGRATIONS.length);
     });
 
     it("should name only the integrations the scoped Driver does not run", async () => {
@@ -79,6 +81,27 @@ describe("Device.useConnectModal", () => {
       expect(await screen.findByText(found.name)).toBeTruthy();
     });
 
+    it("should configure a found EtherCAT slave in the EtherCAT form", async () => {
+      const rack = await createRunningRack(client, EtherCAT.Device.HARDWARE.key);
+      const found = await createSlaveDevice(
+        client,
+        rack.key,
+        {
+          name: uniqueName("slave"),
+          network: "eth0",
+          pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+        },
+        false,
+      );
+      await open({ integration: EtherCAT.Device.HARDWARE.key, rack: rack.key });
+      await screen.findByText(found.name);
+      fireEvent.click(findButton("Configure"));
+      expect(await screen.findByText("General")).toBeTruthy();
+      expect(findButton("Save and create read task")).toBeTruthy();
+      fireEvent.click(findButton("Back"));
+      expect(await screen.findByText(found.name)).toBeTruthy();
+    });
+
     it("should explain a scoped Driver that does not run the integration", async () => {
       const rack = await createRunningRack(client, "opc");
       await open({ integration: "labjack", rack: rack.key });
@@ -110,15 +133,15 @@ describe("Device.useConnectModal", () => {
         type: LabJack.Task.SCAN_TYPE,
         config: {},
       });
-      await client.tasks.create({
-        ...scanner.payload,
-        status: createTaskStatus({
+      await client.statuses.set(
+        createTaskStatus({
+          owner: task.resourceID(scanner.key),
           variant: "error",
           message: "Failed to start scan task",
           description: "LJM library not found",
-          details: { task: scanner.key, rack: rack.key },
+          details: { rack: rack.key },
         }),
-      });
+      );
       await open({ integration: "labjack", rack: rack.key });
       await screen.findByText("Failed to start scan task");
       expect(screen.getByText("LJM library not found")).toBeTruthy();

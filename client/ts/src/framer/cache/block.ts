@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { array, map, math, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type Dynamic } from "@/framer/cache/dynamic";
+import type { Dynamic } from "@/framer/cache/dynamic";
 import { index as tileIndex, tileRange } from "@/framer/cache/grid";
+import { buildInsertionPlan } from "@/framer/cache/insertion";
 
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
 export const RAW_LEVEL = 16;
@@ -123,15 +124,8 @@ export const align = (
  * @returns the position of the first sample of the timestamp series at or after t,
  * searching from lo.
  */
-export const search = (s: Series, t: bigint, lo = 0): number => {
-  let hi = s.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (BigInt(s.data[mid]) < t) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-};
+export const search = (s: Series, t: bigint, lo = 0): number =>
+  lo + array.partitionPoint(s.length - lo, (i) => BigInt(s.data[lo + i]) >= t);
 
 /** @returns the number of samples of the timestamp series stamped before ts. */
 export const countBefore = (timestamps: Series[], ts: TimeStamp): number =>
@@ -171,11 +165,10 @@ export const split = (timestamps: Series[], series: Series[]): Map<number, Part>
       const index = rawIndex(new TimeStamp(ts.data[lo]));
       const range = tileRange({ level: RAW_LEVEL, index });
       const hi = search(ts, range.end.valueOf(), lo);
-      let part = parts.get(index);
-      if (part == null) {
-        part = { timestamps: [], series: [] };
-        parts.set(index, part);
-      }
+      const part = map.getOrInsert(parts, index, () => ({
+        timestamps: [],
+        series: [],
+      }));
       part.timestamps.push(cut(ts.slice(lo, hi), range));
       const lower = ts.alignment + BigInt(lo);
       edges.push({ part, range, lower, upper: lower + BigInt(hi - lo) });
@@ -196,7 +189,7 @@ export const split = (timestamps: Series[], series: Series[]): Map<number, Part>
 };
 
 const sumBytes = (series: Series[]): number =>
-  series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+  math.sum(series.map((s) => s.byteCapacity.valueOf()));
 
 /**
  * One channel's raw samples over one level 16 tile of the grid, in block alignment.
@@ -208,7 +201,8 @@ export class RawBlock implements Block {
   fetchedAt = TimeStamp.ZERO;
   sealed = false;
   pins = 0;
-  /** Fetched samples cover [range.start, coveredEnd). */
+  /** Fetched samples cover [coveredStart, coveredEnd). */
+  coveredStart: TimeStamp;
   coveredEnd: TimeStamp;
   /** The index samples in [range.start, coveredEnd). */
   coveredCount = 0;
@@ -224,6 +218,7 @@ export class RawBlock implements Block {
     private readonly now: () => TimeStamp = () => TimeStamp.now(),
   ) {
     this.range = tileRange({ level: RAW_LEVEL, index });
+    this.coveredStart = this.range.start;
     this.coveredEnd = this.range.start;
   }
 
@@ -248,11 +243,46 @@ export class RawBlock implements Block {
 
   /**
    * @returns true when fetched samples cover the part of tr inside the block. A joined
-   * block covers every span, since the stream delivers its samples.
+   * block covers every span from coveredStart, since the stream delivers its samples.
    */
   covers(tr: TimeRange): boolean {
+    if (TimeStamp.max(tr.start, this.range.start).before(this.coveredStart))
+      return false;
     return (
       this.joined || TimeStamp.min(tr.end, this.range.end).beforeEq(this.coveredEnd)
+    );
+  }
+
+  /**
+   * Drops the fetched series that end at or before the alignment, and moves
+   * coveredStart to start. Alignments and coveredCount stay the same.
+   * @param alignment - The block alignment of the first sample to keep.
+   * @param start - The time of the sample at the alignment.
+   */
+  trim(alignment: bigint, start: TimeStamp): void {
+    this._fetched = this._fetched.filter((s) => s.alignmentBounds.upper > alignment);
+    this.coveredStart = TimeStamp.max(this.coveredStart, start);
+  }
+
+  /**
+   * Splits the fetched series that holds the alignment in two views of its samples, so
+   * that the second starts at the alignment.
+   * @param alignment - The block alignment of the first sample of the second view.
+   * @param at - The time of the sample at the alignment.
+   */
+  split(alignment: bigint, at: TimeStamp): void {
+    const i = this._fetched.findIndex(
+      (s) => s.alignment < alignment && alignment < s.alignmentBounds.upper,
+    );
+    if (i === -1) return;
+    const s = this._fetched[i];
+    const k = Number(alignment - s.alignment);
+    const { start, end } = s.timeRange;
+    this._fetched.splice(
+      i,
+      1,
+      derive(s.sub(0, k), { timeRange: new TimeRange(start, at) }),
+      derive(s.sub(k), { timeRange: new TimeRange(at, end) }),
     );
   }
 
@@ -275,6 +305,7 @@ export class RawBlock implements Block {
     if (this._fetched.length === 0 && this.coveredEnd.equals(this.range.start))
       return false;
     this._fetched = [];
+    this.coveredStart = this.range.start;
     this.coveredEnd = this.range.start;
     this.coveredCount = 0;
     this.sealed = false;
@@ -297,14 +328,39 @@ export class RawBlock implements Block {
   /**
    * @returns the series whose samples overlap tr in time order, the stream's buffer
    * last. The buffer's span ends at its last stamped write, not at its open end.
+   * @param index - The block of the channel's index with the same index. When given,
+   * the series end at the end of tr.
    */
-  seriesIn(tr: TimeRange): Series[] {
-    const out = this._fetched.filter((s) => s.timeRange.overlapsWith(tr));
+  seriesIn(tr: TimeRange, index?: RawBlock): Series[] {
+    const spans = this._fetched.map((s) => ({ s, span: s.timeRange }));
     const live = this.buffer?.leadingBuffer;
     const range = this.buffer?.dataTimeRange;
-    if (live != null && range != null && live.length > 0 && range.overlapsWith(tr))
-      out.push(live);
-    return out;
+    if (live != null && range != null && live.length > 0)
+      spans.push({ s: live, span: range });
+    let end: bigint | null = null;
+    return spans
+      .filter(({ span }) => span.overlapsWith(tr))
+      .flatMap(({ s, span }) => {
+        if (index == null || !span.end.after(tr.end)) return [s];
+        end ??= alignmentOf(this.index, index.offsetAt(tr.end.valueOf()));
+        const count = Math.min(Number(end - s.alignment), s.length);
+        if (count <= 0) return [];
+        const { start } = s.timeRange;
+        return [derive(s.sub(0, count), { timeRange: new TimeRange(start, tr.end) })];
+      });
+  }
+
+  /** @returns the block offset of the first index sample stamped at or after t. */
+  offsetAt(t: bigint): number {
+    const live = this.buffer?.leadingBuffer;
+    const series = live == null ? this._fetched : [...this._fetched, live];
+    return series.reduce(
+      (offset, s) =>
+        s.length > 0 && BigInt(s.data[0]) <= t
+          ? Math.max(offset, offsetOf(s.alignment) + search(s, t))
+          : offset,
+      0,
+    );
   }
 
   /**
@@ -323,7 +379,7 @@ export class RawBlock implements Block {
   }
 
   private insert(series: Series): void {
-    const plan = bounds.buildInsertionPlan(
+    const plan = buildInsertionPlan(
       this._fetched.map((s) => s.alignmentBounds),
       series.alignmentBounds,
     );

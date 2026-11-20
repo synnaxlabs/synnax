@@ -1,0 +1,11 @@
+{
+  "version": 8,
+  "type": "lineplot",
+  "name": "Zeros",
+  "legend": {
+    "position": {
+      "x": 0,
+      "y": 0
+    }
+  }
+}

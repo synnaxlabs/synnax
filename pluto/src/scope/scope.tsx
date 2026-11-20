@@ -8,17 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { type optional, type record } from "@synnaxlabs/x";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { optional, record } from "@synnaxlabs/x";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 
 export interface ProviderProps<K extends record.Key> extends PropsWithChildren {
   value: K;
 }
 
 /**
- * Hook is a hook whose key argument has been made optional by {@link Instance.bindHook}.
- * The key is resolved from the surrounding scope unless overridden. If the hook has no
- * arguments other than the key, it may be called with no arguments at all.
+ * Hook is a hook whose key argument has been made optional by
+ * {@link Instance.bindHook}. The key is resolved from the surrounding scope unless
+ * overridden. If the hook has no arguments other than the key, it may be called with no
+ * arguments at all.
  */
 export type Hook<K extends record.Key, Args extends record.Keyed<K>, R> = optional.Arg<
   optional.Optional<Args, "key">,
@@ -55,7 +56,7 @@ export interface Instance<K extends record.Key> {
  * create mints a typed scope: a Provider that publishes an active key and hooks that
  * read it. Call once per domain so each scope carries its own branded key type and
  * nests independently of other domains.
- * @param name identifies the scope in error messages and the context display name.
+ * @param name - identifies the scope in error messages and the context display name.
  */
 export const create = <K extends record.Key>(name: string): Instance<K> => {
   const [Context, useContextValue] = context.create<K | undefined>({

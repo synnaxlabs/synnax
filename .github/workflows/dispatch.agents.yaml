@@ -49,12 +49,15 @@ jobs:
     outputs:
       count: ${{ steps.select.outputs.count }}
       matrix: ${{ steps.select.outputs.matrix }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       - name: Select issues
         id: select
@@ -66,8 +69,9 @@ jobs:
           CAP: ${{ inputs.cap || 3 }}
           DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
         run: |
-          # shellcheck disable=SC2086
-          uv run dispatch_agents.py --cap "$CAP" --output "$GITHUB_OUTPUT" $DRY_RUN
+          read -ra dry_run <<< "$DRY_RUN"
+          uv run dispatch_agents.py --cap "$CAP" --output "$GITHUB_OUTPUT" \
+            "${dry_run[@]}"
 
   agent:
     name: Agent for ${{ matrix.issue }}
@@ -80,7 +84,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      id-token: write
     uses: ./.github/workflows/agent.yaml
     with:
       prompt: ${{ matrix.prompt }}
@@ -88,4 +91,18 @@ jobs:
       output: pr
       title: ${{ matrix.title }}
       timeout-minutes: 90
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  relay-failure:
+    name: Relay the failure
+    needs: [select, agent]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true
+      report: true

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
@@ -18,6 +19,7 @@ import {
   type AIChannel,
   type AIChannelType,
   createAIChannel,
+  defaultAIRange,
 } from "@/feature/ni/task/types";
 
 /** The items of the channel type select, one for each of the types. */
@@ -32,26 +34,49 @@ export const channelTypeItems = (types: readonly AIChannelType[]) =>
     );
   });
 
-export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Channel type",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<AIChannelType>(path).value;
-      if (prevType === value) return;
-      const next = createAIChannel(value);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AIChannel>(parentPath).value;
-      const schema = AI_CHANNEL_SCHEMAS[value];
-      const nextValue = {
-        ...deep.overrideValidItems(next, prevParent, schema),
-        type: next.type,
-      };
-      set(parentPath, nextValue);
-    },
-  },
+const SelectType = Form.buildSelectField<AIChannelType>({
+  fieldProps: { label: "Channel type" },
   inputProps: {
     resourceName: "channel type",
     children: channelTypeItems(record.keys(AI_CHANNEL_TYPE_NAMES)),
   },
 });
+
+interface SelectAIChannelTypeFieldProps extends Pick<
+  Form.SelectFieldProps<AIChannelType>,
+  "inputProps"
+> {
+  path: deep.Path<AIChannel>;
+  /**
+   * The hardware of the channel's device. An unscaled switch to current takes its
+   * widest current range.
+   */
+  hardware?: ni.Hardware;
+}
+
+export const SelectAIChannelTypeField = ({
+  path,
+  inputProps,
+  hardware,
+}: SelectAIChannelTypeFieldProps) => (
+  <SelectType
+    path={path.type}
+    inputProps={inputProps}
+    onChange={(value, { get, set }) => {
+      const prevType = get(path.type).value;
+      if (prevType === value) return;
+      const next = createAIChannel(value);
+      const prevParent = get(path).value;
+      const schema = AI_CHANNEL_SCHEMAS[value];
+      const merged = deep.overrideValidItems(next, prevParent, schema);
+      // A custom scale gives the range in scaled units, not in device units.
+      const unscaled = "customScale" in merged && merged.customScale.type === "none";
+      const range = unscaled ? defaultAIRange(value, hardware) : undefined;
+      set(path, {
+        ...merged,
+        ...(range != null && { minVal: range.lower, maxVal: range.upper }),
+        type: next.type,
+      } as AIChannel);
+    }}
+  />
+);

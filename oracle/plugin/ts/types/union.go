@@ -98,7 +98,7 @@ func (p *Plugin) processUnion(
 	ud := unionData{
 		TSName:         tsName,
 		SchemaName:     casing.CamelAcronym(tsName) + "Z",
-		Discriminator:  fieldCamel(form.Discriminator),
+		Discriminator:  FieldName(form.Discriminator),
 		Doc:            doc.Get(entry.Domains),
 		TypesConst:     screaming + "_TYPES",
 		TypeSchemaName: casing.CamelAcronym(tsName) + "TypeZ",
@@ -109,7 +109,7 @@ func (p *Plugin) processUnion(
 		ud.BorrowsEnum = true
 		ud.TypeName = p.typeRefToTS(&form.Enum, table, data, true)
 		if enumType, ok := form.Enum.Resolve(table); ok &&
-			enumType.Namespace != data.Namespace {
+			enumType.FilePath != data.FilePath {
 			ns := importNamespace(
 				enumType.Namespace,
 				output.GetPath(enumType, "ts"),
@@ -119,51 +119,77 @@ func (p *Plugin) processUnion(
 		}
 	}
 	for _, v := range form.Variants {
-		typeName := casing.VariantTypeName(tsName, v.Name)
-		vd := unionVariantData{
-			Value:      v.Name,
-			TypeName:   typeName,
-			SchemaName: casing.CamelAcronym(typeName) + "Z",
-			Doc:        doc.Get(v.Domains),
-		}
-		omitted := variantOmissions(v, table)
-		bases := form.Extends
-		var fields []resolution.Field
-		if v.Inline {
-			if payload, ok := v.Type.Resolve(table); ok {
-				if pform, ok := payload.Form.(resolution.StructForm); ok {
-					bases = append(slices.Clone(form.Extends), pform.Extends...)
-					var declared []resolution.Field
-					// A base absent from TypeScript has no schema to extend.
-					if !resolver.ParentsExist(bases, "ts", table) {
-						bases, declared = resolver.VariantBases(form, v, "ts", table)
-					}
-					fields = append(declared, pform.Fields...)
-				}
-			}
-		}
-		for _, ext := range bases {
-			if pn, ok := parentSchemaName(ext, table, data); ok {
-				vd.ParentSchemas = append(
-					vd.ParentSchemas, pn+omitClause(ext, omitted, table),
-				)
-			}
-		}
-		for _, f := range fields {
-			// The union entry is the parent, not the synthesized payload, so a
-			// field referencing the union itself (a recursive variant) renders as
-			// a lazy getter.
-			vd.Fields = append(vd.Fields, p.processField(f, entry, table, data, false))
-		}
-		if !v.Inline {
-			if pn, ok := parentSchemaName(v.Type, table, data); ok {
-				vd.ParentSchemas = append(vd.ParentSchemas, pn)
-			}
-		}
-		ud.Variants = append(ud.Variants, vd)
+		ud.Variants = append(
+			ud.Variants,
+			p.processVariant(entry, tsName, form, v, table, data),
+		)
 	}
 	ud.LazyVariants = len(ud.Variants) >= lazyVariantThreshold
 	return ud
+}
+
+func (p *Plugin) processVariant(
+	entry resolution.Type,
+	tsName string,
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	table *resolution.Table,
+	data *templateData,
+) unionVariantData {
+	typeName := casing.VariantTypeName(tsName, v.Name)
+	vd := unionVariantData{
+		Value:      v.Name,
+		TypeName:   typeName,
+		SchemaName: casing.CamelAcronym(typeName) + "Z",
+		Doc:        doc.Get(v.Domains),
+	}
+	omitted := variantOmissions(v, table)
+	bases, fields := variantShape(form, v, table)
+	for _, ext := range bases {
+		if pn, ok := parentSchemaName(ext, table, data); ok {
+			vd.ParentSchemas = append(
+				vd.ParentSchemas, pn+omitClause(ext, omitted, table),
+			)
+		}
+	}
+	for _, f := range fields {
+		// The union entry is the parent, not the synthesized payload, so a field
+		// referencing the union itself (a recursive variant) renders as a lazy getter.
+		vd.Fields = append(vd.Fields, p.processField(f, entry, table, data, false))
+	}
+	if !v.Inline {
+		if pn, ok := parentSchemaName(v.Type, table, data); ok {
+			vd.ParentSchemas = append(vd.ParentSchemas, pn)
+		}
+	}
+	return vd
+}
+
+// variantShape returns the parents that a variant extends and the fields that it
+// declares. Only an inline variant declares fields.
+func variantShape(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	table *resolution.Table,
+) ([]resolution.TypeRef, []resolution.Field) {
+	if !v.Inline {
+		return form.Extends, nil
+	}
+	payload, ok := v.Type.Resolve(table)
+	if !ok {
+		return form.Extends, nil
+	}
+	pform, ok := payload.Form.(resolution.StructForm)
+	if !ok {
+		return form.Extends, nil
+	}
+	bases := append(slices.Clone(form.Extends), pform.Extends...)
+	var declared []resolution.Field
+	// A base absent from TypeScript has no schema to extend.
+	if !resolver.ParentsExist(bases, "ts", table) {
+		bases, declared = resolver.VariantBases(form, v, "ts", table)
+	}
+	return bases, slices.Concat(declared, pform.Fields)
 }
 
 // variantOmissions returns the fields a variant drops from its inherited shape.

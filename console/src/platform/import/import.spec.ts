@@ -7,19 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, project } from "@synnaxlabs/client";
+import { log } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Import } from "@/platform/import";
-import {
-  fakePickedFile,
-  interceptFilePicker,
-  renderHookWithConsole,
-  uniqueName,
-} from "@/testutil";
+import { fakePickedFile, interceptFilePicker, renderHookWithConsole } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -37,8 +33,11 @@ describe("use", () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
     });
-    const original = await client.logs.create(proj.key, { name: uniqueName("log") });
-    const stream = await client.imex.export(log.ontologyID(original.key), {
+    const original = await client.logs.create({
+      project: proj.key,
+      name: uniqueName("log"),
+    });
+    const stream = await client.imex.export(log.resourceID(original.key), {
       encoding: "JSON",
     });
     const data = await new Response(stream).text();
@@ -50,12 +49,7 @@ describe("use", () => {
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("widget.json", data)]);
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: [project.ontologyID(proj.key)],
-      });
-      const logs = children.filter(
-        (child) => child.id.type === log.TYPE_ONTOLOGY_ID.type,
-      );
+      const logs = await client.logs.retrieve({ projects: [proj.key] });
       expect(logs).toHaveLength(2);
       expect(logs.map(({ name }) => name)).toEqual([original.name, original.name]);
     });

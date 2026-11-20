@@ -13,7 +13,7 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export const VIS_SELECTABLES: Selector.Selectable[] = [
   ...LinePlot.SELECTABLES,
@@ -22,8 +22,8 @@ export const VIS_SELECTABLES: Selector.Selectable[] = [
   ...Table.SELECTABLES,
 ];
 
-export const SELECTABLES: Selector.Selectable[] = [
-  ...VIS_SELECTABLES,
-  ...Task.SELECTABLES,
-  ...Arc.SELECTABLES,
+export const SECTIONS: Selector.Section[] = [
+  { key: "visualization", title: "Visualization", selectables: VIS_SELECTABLES },
+  { key: "automation", title: "Automation", selectables: Arc.SELECTABLES },
+  { ...Task.SECTION, title: "Tasks" },
 ];

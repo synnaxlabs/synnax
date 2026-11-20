@@ -11,9 +11,6 @@
 #include "driver/arc/arc.h"
 
 #ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <windows.h>
 #include <winsock2.h>
 #endif
@@ -21,7 +18,11 @@
 #include <algorithm>
 #include <filesystem>
 #include <iterator>
+#include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -38,6 +39,7 @@
 
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
+#include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/opcua/opcua.h"
 #include "driver/task/task.h"
@@ -46,10 +48,17 @@ namespace driver::rack {
 /// @brief the persisted state file or its directory cannot be used safely, such as
 /// when either is a symbolic link.
 const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
+/// @brief the Core is now another cluster, or became compatible or incompatible with
+/// this Driver. The Driver must start again to load it.
+const x::errors::Error CORE_CHANGED = x::errors::SY.sub("driver").sub("core_changed");
 
 /// @brief the directory in the state directory that holds OPC UA certificates. The
 /// Linux service user owns it.
 const std::string OPCUA_STATE_DIR = "opcua";
+
+/// @brief the flag that selects the state of the computer, which the Driver service
+/// reads, over the state of the user.
+const std::string MACHINE_STATE_FLAG = "--machine-state";
 
 struct RemoteInfo {
     /// @brief a saved rack that still needs enrollment. It is saved again only while
@@ -87,7 +96,8 @@ inline std::vector<std::string> built_integrations() {
         opcua::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
-        http::INTEGRATION_NAME
+        http::INTEGRATION_NAME,
+        file::INTEGRATION_NAME
     };
     std::ranges::copy(platform_integrations(), std::back_inserter(integrations));
 #ifndef SYNNAX_NILINUXRT
@@ -125,11 +135,21 @@ struct Config {
     /// @brief the directory that holds the persisted state file. Integrations keep
     /// their own files, such as certificates, inside it.
     std::filesystem::path state_dir;
+    /// @brief the folder of the rack's file secrets and certificate keys. Empty when
+    /// none is set. The file browser gives only the names of what it holds.
+    std::filesystem::path secrets_dir;
+    /// @brief the version of the Core when it runs another minor than this Driver. The
+    /// Driver then starts no tasks. Set by load_remote.
+    std::optional<std::string> incompatible_core_version;
 
-    /// @brief returns a new task factory to use for creating tasks in the task
-    /// manager.
-    [[nodiscard]] std::unique_ptr<task::Factory>
-    new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
+    /// @brief returns a new task factory to use for creating tasks in the task manager.
+    /// Give it the same client as the task manager. With an incompatible Core, the
+    /// factory runs only the rack status, which reports the mismatch, and refuses every
+    /// other task.
+    [[nodiscard]] std::unique_ptr<task::Factory> new_factory(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+    ) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {
@@ -232,18 +252,6 @@ struct Config {
         return {cfg, err};
     }
 
-    void override_integrations(
-        const std::vector<std::string> &enable,
-        const std::vector<std::string> &disable
-    ) {
-        std::set i_set(this->integrations.begin(), this->integrations.end());
-        for (const auto &integration: disable)
-            i_set.erase(integration);
-        for (const auto &integration: enable)
-            i_set.insert(integration);
-        this->integrations = std::vector(i_set.begin(), i_set.end());
-    }
-
     /// @brief permanently saves connection parameters to the persisted state file.
     static x::errors::Error
     save_conn_params(x::args::Parser &args, const synnax::Config &conn_params);
@@ -258,6 +266,19 @@ struct Config {
     save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info);
 
     static x::errors::Error clear_persisted_state(x::args::Parser &args);
+
+    /// @brief sets the owner and mode of the persisted state without opening it. Only
+    /// root commands call it, and without root it changes nothing. As root on Linux, it
+    /// gives the state to the service user. With a --state-file, it changes only that
+    /// file. Skips state that does not exist. On Windows, it creates the state
+    /// directory for LocalSystem and the administrators alone, and returns an error
+    /// when another user owns it.
+    static x::errors::Error secure_persisted_state(x::args::Parser &args);
+
+    /// @brief moves the state and OPC UA certificates of the user to the state of the
+    /// computer, which the service reads, unless that state exists. Does nothing on
+    /// Linux or with a --state-file argument. Requires admin rights.
+    static x::errors::Error move_user_state(x::args::Parser &args);
 
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
@@ -277,9 +298,23 @@ struct Config {
     /// the rack only if it was saved.
     [[nodiscard]] x::errors::Error enroll();
 
+    /// @brief enrolls with the given connection and saves its API key. It enrolls the
+    /// saved rack, or the rack that the saved API key logs in as, so the Driver keeps
+    /// that rack and its tasks. It sends the saved key only to the host and port that
+    /// the key was saved with, and with TLS when the key was saved with TLS. Returns
+    /// the errors of enroll.
+    static std::pair<Config, x::errors::Error>
+    login(x::args::Parser &args, const synnax::Config &conn);
+
     /// @brief logs in with the API key and loads the rack it logs in as. Without a key,
-    /// it logs in with the password and loads the saved rack.
+    /// it logs in with the password and loads the saved rack. Writes the rack with this
+    /// Driver's version and integrations, and records an incompatible Core version.
     [[nodiscard]] x::errors::Error load_remote();
+
+    /// @brief checks the Core again, after the Driver lost it.
+    /// @returns CORE_CHANGED when the Core is now another cluster, or became compatible
+    /// or incompatible with this Driver, or the error of a check that failed.
+    [[nodiscard]] x::errors::Error check_core() const;
 };
 
 /// @brief clears the persisted state file, removing all cached information.
@@ -290,25 +325,40 @@ x::errors::Error clear_persisted_state();
 /// of tasks that are assigned to it.
 class Rack {
     std::thread run_thread;
+    /// @brief guards task_manager.
+    std::mutex mu;
     std::unique_ptr<task::Manager> task_manager;
-    x::breaker::Breaker breaker = x::breaker::Breaker({
-        .name = "driver",
-        .base_interval = x::telem::SECOND,
-        .max_retries = 200,
-        .scale = 1.1f,
-        .max_interval = x::telem::MINUTE,
-    });
+    x::breaker::Breaker breaker;
     x::errors::Error run_err = x::errors::NIL;
 
     /// @brief returns true if the error cannot be recovered from and the rack
-    /// should stop operations and shut down.
-    bool
-    should_exit(const x::errors::Error &err, const std::function<void()> &on_shutdown);
+    /// should stop operations and shut down. Calls on_shutdown unless a stop caused
+    /// the exit. While reconnecting, it waits for an unreachable Core with no limit.
+    bool should_exit(
+        const x::errors::Error &err,
+        const std::function<void()> &on_shutdown,
+        bool reconnecting = false
+    );
 
     /// @brief starts the main loop for the rack.
     void run(x::args::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
+    /// @brief creates a rack that backs off from Core errors with breaker_config. After
+    /// its first run, it waits for an unreachable Core with no retry limit. It waits
+    /// for any other temporarily unavailable error within max_retries.
+    explicit Rack(
+        const x::breaker::Config &breaker_config =
+            {
+                .name = "driver",
+                .base_interval = x::telem::SECOND,
+                .max_retries = 200,
+                .scale = 1.1f,
+                .max_interval = x::telem::MINUTE,
+            }
+    ):
+        breaker(breaker_config) {}
+
     /// @brief destructor ensures thread is properly joined
     ~Rack();
 
@@ -318,7 +368,8 @@ public:
     /// down prematurely
     void start(x::args::Parser &args, std::function<void()> on_shutdown = nullptr);
 
-    /// @brief stops the rack.
+    /// @brief stops the rack. Returns the error that stopped the rack before this call,
+    /// or NIL when the rack was still running.
     x::errors::Error stop();
 };
 }

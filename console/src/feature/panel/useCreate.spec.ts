@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -44,7 +43,7 @@ describe("useCreate", () => {
     });
     await waitFor(async () => {
       const children = await client.panels.retrieve({
-        parent: project.ontologyID(proj.key),
+        projects: [proj.key],
       });
       expect(children.map(({ key }) => key)).toContain(selected);
     });

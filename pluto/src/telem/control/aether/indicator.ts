@@ -20,43 +20,46 @@ export const indicatorStatusDetailsZ = z
 
 export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.default(telem.noopStatusSourceSpec),
-  colorSource: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
+  colorSource: telem.colorSourceSpecZ.optional(),
   status: status.statusZ({ details: indicatorStatusDetailsZ }),
   color: color.colorZ.optional(),
 });
 
 interface InternalState {
   statusSource: telem.StatusSource<typeof indicatorStatusDetailsZ>;
-  colorSource: telem.ColorSource;
+  colorSource?: telem.ColorSource;
 }
 
 export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState> {
   static readonly TYPE = "Indicator";
-  schema = indicatorStateZ;
+  override schema = indicatorStateZ;
   stopListeningStatus?: () => void;
   stopListeningColor?: () => void;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { statusSource, colorSource } = this.state;
     i.statusSource = telem.useSource(ctx, statusSource, i.statusSource);
-    i.colorSource = telem.useSource(ctx, colorSource, i.colorSource);
+    if (colorSource == null) {
+      i.colorSource?.cleanup?.();
+      i.colorSource = undefined;
+    } else i.colorSource = telem.useSource(ctx, colorSource, i.colorSource);
     this.updateState();
     this.stopListeningStatus?.();
     this.stopListeningColor?.();
     this.stopListeningStatus = i.statusSource.onChange(this.updateState.bind(this));
-    this.stopListeningColor = i.colorSource.onChange(this.updateState.bind(this));
+    this.stopListeningColor = i.colorSource?.onChange(this.updateState.bind(this));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.statusSource.cleanup?.();
-    this.internal.colorSource.cleanup?.();
+    this.internal.colorSource?.cleanup?.();
   }
 
   render(): void {}
 
   updateState(): void {
-    const colorVal = this.internal.colorSource.value().data;
+    const colorVal = this.internal.colorSource?.value().data;
     const status = this.internal.statusSource.value().data;
     if (
       color.equals(colorVal, this.state.color) &&

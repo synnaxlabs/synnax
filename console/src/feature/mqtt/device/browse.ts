@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/pluto";
+import type { Synnax } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
-import { type Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device/types";
 import {
   BROWSE_COMMAND_TYPE,
   BROWSE_SPARKPLUG_COMMAND_TYPE,
@@ -20,6 +20,8 @@ import {
 
 /** How long the Core listens to the broker for one browse. */
 export const BROWSE_DURATION = TimeSpan.seconds(3);
+
+export const LISTENING = `Listening for ${BROWSE_DURATION.seconds} seconds`;
 
 // The Core listens for up to 20 s before it replies.
 const BROWSE_TIMEOUT = TimeSpan.seconds(25);
@@ -46,7 +48,8 @@ export const browseTopics = async (
   });
   if (variant !== "success") throw new Error(message);
   const data = details?.data;
-  if (data == null || !("topics" in data))
+  // A sample answer holds topics too, beside its shapes.
+  if (data == null || !("topics" in data) || "shapes" in data)
     throw new Error("The scan task replied without topics");
   return {
     topics: data.topics.map((t) => ({ ...t, key: t.topic })),

@@ -15,17 +15,24 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func rangeView(name string) view.View {
 	return view.View{
-		Variant: view.RangeView{Base: view.Base{Key: uuid.New(), Name: name}},
+		Variant: view.RangeView{
+			Base:   view.Base{Key: uuid.New(), Name: name},
+			Sort:   view.RangeSortNewest,
+			Layout: view.RangeLayoutTree,
+		},
 	}
 }
 
@@ -37,33 +44,18 @@ func statusView(name string) view.View {
 
 var _ = Describe("View", func() {
 	var (
-		otg *ontology.Ontology
 		svc *view.Service
 		w   view.Writer
 		tx  gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{
-			DB: db,
-		}))
-		g := MustOpen(
-			group.OpenService(
-				ctx,
-				group.ServiceConfig{DB: db, Ontology: otg},
-			),
-		)
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("Writer", func() {
@@ -71,9 +63,11 @@ var _ = Describe("View", func() {
 			It(
 				"Should create a new view with an auto-generated key",
 				func(ctx SpecContext) {
-					s := &view.View{
-						Variant: view.RangeView{Base: view.Base{Name: "Test"}},
-					}
+					s := &view.View{Variant: view.RangeView{
+						Base:   view.Base{Name: "Test"},
+						Sort:   view.RangeSortNewest,
+						Layout: view.RangeLayoutTree,
+					}}
 					Expect(w.Create(ctx, s)).To(Succeed())
 					Expect(s.GorpKey()).ToNot(Equal(uuid.Nil()))
 				},
@@ -86,11 +80,44 @@ var _ = Describe("View", func() {
 				"Should reject a status view with an invalid variant",
 				func(ctx SpecContext) {
 					s := view.View{Variant: view.StatusView{
-						Base:  view.Base{Name: "Bogus"},
-						Query: view.StatusQuery{Variants: []status.Variant{"bogus"}},
+						Base: view.Base{Name: "Bogus"},
+						Where: &status.Where{Or: []status.Where{
+							{Variant: &filter.Set[status.Variant]{
+								In: []status.Variant{"bogus"},
+							}},
+						}},
 					}}
-					Expect(w.Create(ctx, &s)).
-						To(MatchError(ContainSubstring(`invalid status variant "bogus"`)))
+					Expect(w.Create(ctx, &s)).To(MatchError(ContainSubstring(
+						`where.or.0.variant.in.0: invalid variant "bogus"`,
+					)))
+				},
+			)
+			It(
+				"Should reject a range view with an invalid regex",
+				func(ctx SpecContext) {
+					s := view.View{Variant: view.RangeView{
+						Base:   view.Base{Name: "Bad"},
+						Where:  &ranger.Where{Name: &filter.String{Regex: new("(")}},
+						Sort:   view.RangeSortNewest,
+						Layout: view.RangeLayoutTree,
+					}}
+					Expect(w.Create(ctx, &s)).To(MatchError(ContainSubstring(
+						"where.name.regex: error parsing regexp: missing closing )",
+					)))
+				},
+			)
+			It(
+				"Should reject a range view with an invalid sort",
+				func(ctx SpecContext) {
+					s := view.View{Variant: view.RangeView{
+						Base:   view.Base{Name: "Bad"},
+						Sort:   "random",
+						Layout: view.RangeLayoutTree,
+					}}
+					Expect(w.Create(ctx, &s)).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("sort: invalid sort: random")),
+					))
 				},
 			)
 			It("Should reject a view with no name", func(ctx SpecContext) {
@@ -99,24 +126,27 @@ var _ = Describe("View", func() {
 					w.Create(ctx, &s),
 				).To(MatchError(ContainSubstring("name: required")))
 			})
-			It("Should update an existing view", func(ctx SpecContext) {
-				s := rangeView("Test View")
-				Expect(w.Create(ctx, &s)).To(Succeed())
-				updated := view.View{Variant: view.StatusView{
-					Base: view.Base{Key: s.GorpKey(), Name: "Updated Name"},
-					Query: view.StatusQuery{
-						Variants: []status.Variant{status.VariantError},
-					},
+			It("Should refuse a view whose key exists", func(ctx SpecContext) {
+				stored := rangeView("Test View")
+				Expect(w.Create(ctx, &stored)).To(Succeed())
+				again := view.View{Variant: view.StatusView{
+					Base: view.Base{Key: stored.GorpKey(), Name: "Updated Name"},
 				}}
-				Expect(w.Create(ctx, &updated)).To(Succeed())
+				Expect(w.Create(ctx, &again)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"view %s already exists",
+						stored.GorpKey(),
+					)),
+				))
 				var retrieved view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(s.GorpKey())).
+						Where(view.MatchKeys(stored.GorpKey())).
 						Entry(&retrieved).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(retrieved).To(Equal(updated))
+				Expect(retrieved).To(Equal(stored))
 			})
 		})
 
@@ -139,8 +169,10 @@ var _ = Describe("View", func() {
 				"Should rename a view, keeping every other field",
 				func(ctx SpecContext) {
 					s := view.View{Variant: view.StatusView{
-						Base:  view.Base{Key: uuid.New(), Name: "Before"},
-						Query: view.StatusQuery{Variants: []status.Variant{"success"}},
+						Base: view.Base{Key: uuid.New(), Name: "Before"},
+						Where: &status.Where{Variant: &filter.Set[status.Variant]{
+							In: []status.Variant{status.VariantSuccess},
+						}},
 					}}
 					Expect(w.Create(ctx, &s)).To(Succeed())
 					Expect(w.Rename(ctx, s.GorpKey(), "After")).To(Succeed())
@@ -149,7 +181,8 @@ var _ = Describe("View", func() {
 						Where(view.MatchKeys(s.GorpKey())).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(Equal(s.WithName("After")))
+					s.SetBase(view.Base{Key: s.GorpKey(), Name: "After"})
+					Expect(res).To(Equal(s))
 				},
 			)
 			It(
@@ -212,8 +245,6 @@ var _ = Describe("View", func() {
 				rangeView("View B"),
 				statusView("View C"),
 			}
-			tx = db.OpenTx()
-			w = svc.NewWriter(tx)
 			Expect(w.CreateMany(ctx, &views)).To(Succeed())
 		})
 
@@ -247,7 +278,7 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes(view.RangeViewType)).
+						Where(view.MatchTypes(view.TypeRange)).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -257,7 +288,7 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes(view.RangeViewType)).
+						Where(view.MatchTypes(view.TypeRange)).
 						Where(view.MatchKeys(views[0].GorpKey())).
 						Entries(&resViews).
 						Exec(ctx, tx),
@@ -267,19 +298,27 @@ var _ = Describe("View", func() {
 			})
 		})
 
-		Describe("Limit and Offset", func() {
+		Describe("MatchWhere", func() {
+			It("Should match views by type and name", func(ctx SpecContext) {
+				var resViews []view.View
+				Expect(svc.NewRetrieve().
+					Where(MustSucceed(view.MatchWhere(view.Where{
+						Type: &filter.Set[view.Type]{Eq: new(view.TypeRange)},
+						Name: &filter.String{Regex: new("B$")},
+					}))).
+					Entries(&resViews).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(resViews).To(HaveLen(1))
+				Expect(resViews[0].GorpKey()).To(Equal(views[1].GorpKey()))
+			})
+		})
+
+		Describe("Limit", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var views []view.View
 				Expect(
 					svc.NewRetrieve().Limit(2).Entries(&views).Exec(ctx, tx),
-				).To(Succeed())
-				Expect(views).To(HaveLen(2))
-			})
-
-			It("Should offset results", func(ctx SpecContext) {
-				var views []view.View
-				Expect(
-					svc.NewRetrieve().Offset(1).Limit(2).Entries(&views).Exec(ctx, tx),
 				).To(Succeed())
 				Expect(views).To(HaveLen(2))
 			})
@@ -294,23 +333,25 @@ var _ = Describe("View", func() {
 					for i, v := range views {
 						keys[i] = v.GorpKey()
 					}
-					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, keys...)
+					})).To(Succeed())
 				})
 				Expect(
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),
 				).To(Succeed())
-				Expect(len(resViews)).To(BeNumerically(">", 1))
+				Expect(resViews).To(HaveLen(1))
 				Expect(resViews[0].GorpKey()).To(Equal(views[0].GorpKey()))
 			})
 		})
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			v := rangeView(name)
 			Expect(w.Create(ctx, &v)).To(Succeed())
-			return view.OntologyID(v.GorpKey())
+			return view.ResourceID(v.GorpKey())
 		}
 
 		It(
@@ -318,10 +359,12 @@ var _ = Describe("View", func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
-					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
-					To(Equal([]ontology.ID{b}))
+				q := search.Query[resource.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{b, a}))
+				q.Limit = 1
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
@@ -329,8 +372,9 @@ var _ = Describe("View", func() {
 			"Should not match a staged view outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
+				q := search.Query[resource.ID]{Term: "injector"}
 				Expect(
-					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
 				).To(BeEmpty())
 			},
 		)

@@ -14,8 +14,12 @@ Key = v0.Key
 TickType = v5.TickType
 
 Aggregation enum {
-    min_max = "min_max"
-    average = "average"
+    min_max = "min_max" {
+        @doc value "draws the lowest and highest sample of each pixel group."
+    }
+    average = "average" {
+        @doc value "draws the mean of each pixel group."
+    }
 
     @doc value """
         selects how a line reduces the samples of one pixel group. min_max draws the
@@ -24,9 +28,15 @@ Aggregation enum {
 }
 
 Detail enum {
-    low    = "low"
-    medium = "medium"
-    high   = "high"
+    low    = "low" {
+        @doc value "draws one sample group per four pixel columns."
+    }
+    medium = "medium" {
+        @doc value "draws one sample group per two pixel columns."
+    }
+    high   = "high" {
+        @doc value "draws one sample group per pixel column."
+    }
 
     @doc value """
         selects how many sample groups a line draws per pixel column: one per four, two,

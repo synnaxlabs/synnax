@@ -11,74 +11,115 @@ package ranger_test
 
 import (
 	"fmt"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Ranger", func() {
-	Describe("RetrieveParent", func() {
-		It("Should get the parent of the range", func(ctx SpecContext) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
+	BeforeEach(openTx)
+	Describe("Derive", func() {
+		var parent, child, leaf ranger.Range
+		BeforeEach(func(ctx SpecContext) {
+			tr := telem.SecondTS.SpanRange(telem.Second)
+			parent = ranger.Range{Name: "Parent", TimeRange: tr}
 			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent,
-			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
-			Expect(pKey).To(Equal(parent.Key))
+			child = ranger.Range{Name: "Child", TimeRange: tr, Parent: &parent.Key}
+			Expect(w.Create(ctx, &child)).To(Succeed())
+			leaf = ranger.Range{Name: "Leaf", TimeRange: tr}
+			Expect(w.Create(ctx, &leaf)).To(Succeed())
 		})
-		It("Should return an error if the range has no parent", func(ctx SpecContext) {
-			p := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+		all := func(ranger.Key) bool { return true }
+		// withChildren returns the names of the ranges that Derive marks.
+		withChildren := func(
+			ctx SpecContext,
+			snap gorp.Snapshot,
+			visible func(ranger.Key) bool,
+		) set.Set[string] {
+			GinkgoHelper()
+			ranges := []ranger.Range{parent, child, leaf}
+			Expect(svc.Derive(ctx, snap, ranges, visible)).To(Succeed())
+			names := make(set.Set[string])
+			for _, r := range ranges {
+				if r.HasChildren {
+					names.Add(r.Name)
+				}
 			}
-			Expect(w.Create(ctx, &p)).To(Succeed())
-			Expect(
-				svc.RetrieveParentKey(ctx, p.Key, tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
+			return names
+		}
 
-	Describe("RetrieveParentKey", func() {
-		It("Should get the parent key of the range", func(ctx SpecContext) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent,
-			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
-			Expect(pKey).To(Equal(parent.Key))
+		It("Should mark the ranges that have nested ranges", func(ctx SpecContext) {
+			Expect(withChildren(ctx, tx, all)).To(Equal(set.New("Parent")))
 		})
-		It("Should return an error if the range has no parent", func(ctx SpecContext) {
-			p := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &p)).To(Succeed())
-			Expect(
-				svc.RetrieveParentKey(ctx, p.Key, tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
+
+		It("Should see a range moved in the same transaction", func(ctx SpecContext) {
+			Expect(w.Apply(ctx, child.Key, ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"parent"},
+				Value: leaf.Key,
+			}))).To(Succeed())
+			Expect(withChildren(ctx, tx, all)).To(Equal(set.New("Leaf")))
 		})
+
+		It("Should count only the nested ranges that visible accepts", func(
+			ctx SpecContext,
+		) {
+			hidden := func(k ranger.Key) bool { return k != child.Key }
+			Expect(withChildren(ctx, tx, hidden)).To(BeEmpty())
+			sibling := ranger.Range{
+				Name:      "Sibling",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				Parent:    &parent.Key,
+			}
+			Expect(w.Create(ctx, &sibling)).To(Succeed())
+			Expect(withChildren(ctx, tx, hidden)).To(Equal(set.New("Parent")))
+		})
+
+		It("Should neither store nor echo the derived field", func(ctx SpecContext) {
+			stored := ranger.Range{
+				Name:        "Stored",
+				TimeRange:   telem.SecondTS.SpanRange(telem.Second),
+				HasChildren: true,
+			}
+			Expect(w.Create(ctx, &stored)).To(Succeed())
+			Expect(stored.HasChildren).To(BeFalse())
+			var res ranger.Range
+			Expect(svc.NewRetrieve().
+				Where(ranger.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.HasChildren).To(BeFalse())
+		})
+
+		It(
+			"Should mark a range that its batch nests a range in",
+			func(ctx SpecContext) {
+				tr := telem.SecondTS.SpanRange(telem.Second)
+				parentKey := uuid.New()
+				batch := []ranger.Range{
+					{Key: parentKey, Name: "Parent", TimeRange: tr, HasChildren: true},
+					{
+						Name:        "Child",
+						TimeRange:   tr,
+						Parent:      &parentKey,
+						HasChildren: true,
+					},
+					{Name: "Other", TimeRange: tr, HasChildren: true},
+				}
+				Expect(w.CreateMany(ctx, &batch)).To(Succeed())
+				Expect(lo.Map(batch, func(r ranger.Range, _ int) bool {
+					return r.HasChildren
+				})).To(Equal([]bool{true, false, false}))
+			},
+		)
 	})
 
 	Describe("Retrieve", func() {
@@ -119,6 +160,28 @@ var _ = Describe("Ranger", func() {
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 		It(
+			"Should retrieve only the exact name of names that differ in case",
+			func(ctx SpecContext) {
+				tr := telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				}
+				upper := &ranger.Range{Name: "CaseRange", TimeRange: tr}
+				lower := &ranger.Range{Name: "caserange", TimeRange: tr}
+				Expect(svc.NewWriter(tx).Create(ctx, upper)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, lower)).To(Succeed())
+				var res []ranger.Range
+				Expect(
+					svc.NewRetrieve().
+						Where(ranger.MatchNames(upper.Name)).
+						Entries(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].Key).To(Equal(upper.Key))
+			},
+		)
+		It(
 			"Should retrieve any ranges that overlap a given time range",
 			func(ctx SpecContext) {
 				r := &ranger.Range{
@@ -130,7 +193,7 @@ var _ = Describe("Ranger", func() {
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 				var retrieveR ranger.Range
-				Expect(svc.NewRetrieve().Where(ranger.MatchOverlap(telem.TimeRange{
+				Expect(svc.NewRetrieve().Where(ranger.MatchOverlaps(telem.TimeRange{
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				})).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
@@ -151,7 +214,7 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
 			Expect(
-				labelSvc.NewWriter(tx).Label(ctx, r1.OntologyID(), []label.Key{l.Key}),
+				svc.NewWriter(tx).AddLabels(ctx, r1.Key, []label.Key{l.Key}),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(
@@ -206,17 +269,17 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rB)).To(Succeed())
 				Expect(svc.NewWriter(tx).Create(ctx, rNone)).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rA.OntologyID(), []label.Key{la.Key}),
+					svc.NewWriter(tx).
+						AddLabels(ctx, rA.Key, []label.Key{la.Key}),
 				).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rB.OntologyID(), []label.Key{lb.Key}),
+					svc.NewWriter(tx).
+						AddLabels(ctx, rB.Key, []label.Key{lb.Key}),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(
 					svc.NewRetrieve().
-						Where(ranger.MatchLabels(la.Key, lb.Key)).
+						Where(ranger.Or(ranger.MatchLabels(la.Key), ranger.MatchLabels(lb.Key))).
 						Entries(&results).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -226,7 +289,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It(
-			"Should compose MatchOverlap and MatchLabels under And via Where",
+			"Should compose MatchOverlaps and MatchLabels under And via Where",
 			func(ctx SpecContext) {
 				l := &label.Label{Name: "AndLabel"}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
@@ -255,16 +318,16 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rWrongTime)).To(Succeed())
 				Expect(svc.NewWriter(tx).Create(ctx, rWrongLabel)).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rHit.OntologyID(), []label.Key{l.Key}),
+					svc.NewWriter(tx).
+						AddLabels(ctx, rHit.Key, []label.Key{l.Key}),
 				).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rWrongTime.OntologyID(), []label.Key{l.Key}),
+					svc.NewWriter(tx).
+						AddLabels(ctx, rWrongTime.Key, []label.Key{l.Key}),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(svc.NewRetrieve().Where(ranger.And(
-					ranger.MatchOverlap(
+					ranger.MatchOverlaps(
 						telem.TimeRange{
 							Start: telem.TimeStamp(7 * telem.Second),
 							End:   telem.TimeStamp(9 * telem.Second),
@@ -277,7 +340,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It(
-			"Should compose MatchOverlap and MatchNames under Or via Where",
+			"Should compose MatchOverlaps and MatchNames under Or via Where",
 			func(ctx SpecContext) {
 				rOverlap := &ranger.Range{
 					Name: "OrOverlap",
@@ -305,7 +368,7 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rNeither)).To(Succeed())
 				var results []ranger.Range
 				Expect(svc.NewRetrieve().Where(ranger.Or(
-					ranger.MatchOverlap(
+					ranger.MatchOverlaps(
 						telem.TimeRange{
 							Start: telem.TimeStamp(7 * telem.Second),
 							End:   telem.TimeStamp(9 * telem.Second),
@@ -332,8 +395,8 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, rLabeled)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, rPlain)).To(Succeed())
 			Expect(
-				labelSvc.NewWriter(tx).
-					Label(ctx, rLabeled.OntologyID(), []label.Key{l.Key}),
+				svc.NewWriter(tx).
+					AddLabels(ctx, rLabeled.Key, []label.Key{l.Key}),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(svc.NewRetrieve().Where(
@@ -371,22 +434,32 @@ var _ = Describe("Ranger", func() {
 				Where(ranger.MatchNames("NopeRange")).
 				Exists(ctx, tx))).To(BeFalse())
 		})
-		It("Should apply Limit and Offset", func(ctx SpecContext) {
-			for i := range 5 {
+		It("Should page with Limit and After", func(ctx SpecContext) {
+			names := make([]string, 5)
+			created := make([]ranger.Key, 5)
+			for i := range names {
+				names[i] = fmt.Sprintf("PageRange%d", i)
 				r := &ranger.Range{
-					Name:      fmt.Sprintf("PageRange%d", i),
+					Name:      names[i],
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+				created[i] = r.Key
 			}
-			var results []ranger.Range
-			Expect(svc.NewRetrieve().
-				Where(ranger.MatchNames("PageRange0", "PageRange1", "PageRange2", "PageRange3", "PageRange4")).
-				Limit(2).
-				Offset(1).
-				Entries(&results).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(results).To(HaveLen(2))
+			page := func(q ranger.Retrieve) []ranger.Key {
+				var res []ranger.Range
+				Expect(q.Where(ranger.MatchNames(names...)).Limit(2).Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return lo.Map(
+					res,
+					func(r ranger.Range, _ int) ranger.Key { return r.Key },
+				)
+			}
+			first := page(svc.NewRetrieve())
+			second := page(svc.NewRetrieve().After(first[1]))
+			third := page(svc.NewRetrieve().After(second[1]))
+			Expect(third).To(HaveLen(1))
+			Expect(slices.Concat(first, second, third)).To(ConsistOf(created))
 		})
 		Describe("Search", func() {
 			It(

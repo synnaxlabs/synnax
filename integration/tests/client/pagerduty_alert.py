@@ -8,16 +8,29 @@
 #  included in the file licenses/APL.txt.
 
 import os
-from typing import Any
 
 import pagerduty
+from pydantic import BaseModel, TypeAdapter
 
 import synnax as sy
 from framework.test_case import TestCase
+from synnax import secret
 from x import random_name
 
 ROUTING_KEY = os.environ.get("PAGERDUTY_ROUTING_KEY")
 API_KEY = os.environ.get("PAGERDUTY_API_KEY")
+
+
+class _Incident(BaseModel):
+    """The fields of a PagerDuty incident that the test reads."""
+
+    id: str
+    title: str = ""
+    incident_key: str | None = None
+    status: str = ""
+
+
+_INCIDENTS: TypeAdapter[list[_Incident]] = TypeAdapter(list[_Incident])
 
 
 class PagerDutyAlert(TestCase):
@@ -40,6 +53,8 @@ class PagerDutyAlert(TestCase):
         self.events = pagerduty.EventsApiV2Client(self.routing_key)
         self.rest = pagerduty.RestApiV2Client(API_KEY)
         self.open_alert_key: str | None = None
+        self.task_key: sy.task.Key | None = None
+        self.secret_key: secret.Key | None = None
         super().setup()
 
     def run(self) -> None:
@@ -70,17 +85,21 @@ class PagerDutyAlert(TestCase):
         go_rack = client.racks.retrieve(name="Node 1")
         self.log(f"Using Go driver rack: key={go_rack.key}, name={go_rack.name}")
 
-        # 4. Create the PagerDuty alert task on the Go driver rack.
-        # We stream sy_status_set to wait for the factory's configuration
-        # acknowledgment instead of sleeping.
+        # 4. Store the routing key as a secret, then create the PagerDuty alert
+        # task on the Go driver rack. We stream sy_status_set to wait for the
+        # factory's configuration acknowledgment instead of sleeping.
+        name = f"PD Integration Test {self.suffix}"
+        self.secret_key = client.secrets.set(
+            name=f"{name} routing key", value=self.routing_key
+        ).key
         self.log("Creating PagerDuty alert task...")
         streamer = client.open_streamer(["sy_status_set"])
         created = client.tasks.create(
             rack=go_rack.key,
-            name=f"PD Integration Test {self.suffix}",
+            name=name,
             type="pagerduty_alert",
             config=sy.pagerduty.TaskConfig(
-                routing_key=self.routing_key,
+                routing_key=self.secret_key,
                 auto_start=True,
                 alerts=[
                     sy.pagerduty.Alert(
@@ -93,13 +112,14 @@ class PagerDutyAlert(TestCase):
                 ],
             ),
         )
+        self.task_key = created.key
         self.log(f"Alert task created: key={created.key}")
 
         # Deploy the saved config: tasks only reach the driver on start.
         created.execute_command("start")
 
         # Wait for the Go driver to configure and start the task
-        task_ontology_key = f"task:{created.key}"
+        task_owner = {"type": "task", "key": str(created.key)}
         timer = sy.Timer()
         configured = False
         while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
@@ -109,7 +129,7 @@ class PagerDutyAlert(TestCase):
             for val in frame["sy_status_set"]:
                 if (
                     isinstance(val, dict)
-                    and val.get("key") == task_ontology_key
+                    and val.get("owner") == task_owner
                     and val.get("variant") == "success"
                 ):
                     self.log(f"Task acknowledged: {val.get('message')}")
@@ -138,17 +158,17 @@ class PagerDutyAlert(TestCase):
         # 6. Poll PagerDuty for the incident (up to 10s, checking every 2s)
         self.log("Polling PagerDuty for triggered incident...")
 
-        def find_triggered_incidents() -> list[dict[str, Any]] | None:
-            incidents = self.rest.list_all(
-                "incidents", params={"statuses[]": "triggered"}
+        def find_triggered_incidents() -> list[_Incident] | None:
+            incidents = _INCIDENTS.validate_python(
+                self.rest.list_all("incidents", params={"statuses[]": "triggered"})
             )
             found = [
                 inc
                 for inc in incidents
-                if error_message in inc.get("title", "")
-                or self.status_key in (inc.get("incident_key") or "")
+                if error_message in inc.title
+                or self.status_key in (inc.incident_key or "")
             ]
-            return found if found else None
+            return found or None
 
         matching = sy.poll(
             find_triggered_incidents,
@@ -174,11 +194,13 @@ class PagerDutyAlert(TestCase):
         )
 
         self.log("Polling PagerDuty for incident resolution...")
-        incident_id = matching[0]["id"]
+        incident_id = matching[0].id
 
         def check_resolved() -> bool | None:
-            incident = self.rest.rget(f"/incidents/{incident_id}")
-            return True if incident.get("status") == "resolved" else None
+            incident = _Incident.model_validate(
+                self.rest.rget(f"/incidents/{incident_id}")
+            )
+            return True if incident.status == "resolved" else None
 
         resolved = sy.poll(
             check_resolved,
@@ -196,4 +218,9 @@ class PagerDutyAlert(TestCase):
         if self.open_alert_key is not None:
             self.events.resolve(self.open_alert_key)
             self.log(f"Cleanup: resolved PagerDuty event {self.open_alert_key}")
+        # The Core refuses to delete a secret that a task uses.
+        if self.task_key is not None:
+            self.client.tasks.delete(self.task_key)
+        if self.secret_key is not None:
+            self.client.secrets.delete(self.secret_key)
         super().teardown()

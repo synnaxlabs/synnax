@@ -54,8 +54,8 @@ def run_scripts(
     """
     env = {
         **os.environ,
-        "SYNNAX_HOST": conn.server_address,
-        "SYNNAX_PORT": str(conn.port),
+        "SYNNAX_TEST_HOST": conn.server_address,
+        "SYNNAX_TEST_PORT": str(conn.port),
         "SYNNAX_USERNAME": conn.username,
         "SYNNAX_PASSWORD": conn.password,
         "SYNNAX_SECURE": "1" if conn.secure else "0",
@@ -86,8 +86,8 @@ def options_from_env() -> Options:
     :raises KeyError: If a required variable is not set.
     """
     return Options(
-        host=os.environ["SYNNAX_HOST"],
-        port=int(os.environ["SYNNAX_PORT"]),
+        host=os.environ["SYNNAX_TEST_HOST"],
+        port=int(os.environ["SYNNAX_TEST_PORT"]),
         username=os.environ["SYNNAX_USERNAME"],
         password=os.environ["SYNNAX_PASSWORD"],
         secure=os.environ["SYNNAX_SECURE"] == "1",
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     import synnax.synnax as _syn
 
     _opts = options_from_env()
-    vars(_syn)["try_load_options_if_none_provided"] = lambda *a, **k: _opts
+    vars(_syn)["load_options"] = lambda *a, **k: (_opts, False)
 
     _module = sys.argv[1]
     sys.argv = [_module]  # Clean argv so argparse in imported modules works

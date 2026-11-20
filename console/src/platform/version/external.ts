@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Notifications } from "@/platform/notifications";
-import { Notification } from "@/platform/version/Updater";
+import type { Notifications } from "@/platform/notifications";
+import { Notification } from "@/platform/version/Notification";
 
 export * from "@/platform/version/Badge";
-export * from "@/platform/version/Install";
+export * from "@/platform/version/Notification";
+export * from "@/platform/version/Update";
 export * from "@/platform/version/Updater";
 export * from "@/platform/version/useInfoModal";
 

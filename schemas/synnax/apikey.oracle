@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
+import "schemas/synnax/resource"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/auth/apikey"
@@ -21,10 +21,11 @@ APIKey struct {
         @doc value "is the unique identifier for this API key."
         @key
     }
-    subject ontology.ID     {
-        @doc value    "is the user or rack the key logs in as."
-        @filter
-        @index lookup
+    subject resource.ID     {
+        @doc value     "is the user or rack the key logs in as."
+        @ref kind      place
+        @ref on_delete cascade
+        @ref types     user rack
     }
     hash    bytes           {
         @doc value "is the SHA-256 hash of the secret in the key."

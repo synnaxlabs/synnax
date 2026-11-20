@@ -7,16 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { type ReactElement } from "react";
+import { deep, primitive } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
+import { Border } from "@/schematic/node/common/border";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
-import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
+import type { FormProps as NodeFormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
+
+const path = deep.path<schematic.TankNodeConfig>();
+const boxPath = deep.path<schematic.BoxNodeConfig>();
+
+const BoxBorderRadiusNumeric = ({
+  value,
+  onChange,
+}: Input.Control<number | undefined>): ReactElement => (
+  <Input.Numeric
+    value={value ?? Border.DEFAULT_BOX_RADIUS}
+    onChange={onChange}
+    {...Form.DIMENSIONS_INPUT_PROPS}
+    integer
+  />
+);
+
+const BoxBorderRadiusInput = Component.renderProp(BoxBorderRadiusNumeric);
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
@@ -25,18 +47,24 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const channel = Base.useFieldValue<Scale.Config["channel"]>("channel", {
-    optional: true,
-  });
+  const channel = Base.useFieldValue(path.channel);
   return (
     <Base.Sections x>
       <Scale.TelemForm allowNone />
-      {channel != null && (
+      {primitive.isNonZero(channel) && (
         <>
           <Base.Section title="Display">
             <Scale.DisplayFields>
-              <Base.SwitchField path="caretVisible" label="Value" padHelpText={false} />
-              <Base.SwitchField path="scaleVisible" label="Scale" padHelpText={false} />
+              <Base.SwitchField
+                path={path.caretVisible}
+                label="Value"
+                padHelpText={false}
+              />
+              <Base.SwitchField
+                path={path.scaleVisible}
+                label="Scale"
+                padHelpText={false}
+              />
             </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
@@ -58,36 +86,29 @@ export const TankForm = ({
   const style = (
     <Base.Sections x>
       <Base.Section title="Label">
-        <Label.Form path="label" />
-        <Orientation.Field path="" hideInner showOuterCenter label="Location" />
+        <Label.Form path={path.label} />
+        <Orientation.Field path={path} hideInner showOuterCenter label="Location" />
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.ColorField path={path.strokeColor} label="Stroke" />
         <Form.FillField />
-        <Form.RadiusFields path="borderRadius" />
-        {showBorderRadius && (
-          <Base.NumericField
-            path="borderRadius"
-            label="Border radius"
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
-          />
+        {showBorderRadius ? (
+          <Base.Field path={boxPath.borderRadius} label="Border radius">
+            {BoxBorderRadiusInput}
+          </Base.Field>
+        ) : (
+          <Form.RadiusFields path={path.borderRadius} />
         )}
-        {showStrokeWidth && (
-          <Base.NumericField
-            path="strokeWidth"
-            label="Border width"
-            inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-          />
-        )}
+        {showStrokeWidth && <Form.StrokeWidthField />}
       </Base.Section>
       <Base.Section title="Dimensions">
         <Base.NumericField
-          path="dimensions.width"
+          path={path.dimensions.width}
           label="Width"
           inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
         <Base.NumericField
-          path="dimensions.height"
+          path={path.dimensions.height}
           label="Height"
           inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />

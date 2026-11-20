@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { deep, TimeSpan } from "@synnaxlabs/x";
+import { fireEvent, render } from "@testing-library/react";
+import type { PropsWithChildren, ReactElement } from "react";
+import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { loadLanguage } from "@/input/time/suggest";
+import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 const renderSections = async (
@@ -55,11 +63,195 @@ describe("Form", () => {
       expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(b.left);
     });
 
+    it("should line up an aligned child with the controls, not the labels", async () => {
+      const { getByRole, getByText } = await renderThemed(
+        <Form.Sections>
+          <Form.Section title="General">
+            <Input.Item label="A long label">
+              <Input.Text value="" onChange={() => {}} />
+            </Input.Item>
+            <Form.Aligned>
+              <span>Aligned note</span>
+            </Form.Aligned>
+          </Form.Section>
+        </Form.Sections>,
+      );
+      const input = getByRole("textbox")
+        .element()
+        .closest(`.${CSS.B("input")}`)!;
+      const aligned = getByText("Aligned note").element();
+      expect(aligned.getBoundingClientRect().left).toBe(
+        input.getBoundingClientRect().left,
+      );
+    });
+
     it("should rule a hairline after each section title", async () => {
       const { sections } = await renderSections(false);
       const header = sections[0].querySelector(`.${CSS.BE("form-section", "header")}`)!;
       expect(getComputedStyle(header, "::after").backgroundColor).toBe(
         resolve("var(--pluto-gray-l6)"),
+      );
+    });
+
+    describe("rows", () => {
+      const field = (label: string): ReactElement => (
+        <Input.Item label={label}>
+          <Input.Numeric value={0} onChange={() => {}} />
+        </Input.Item>
+      );
+
+      const textField = (label: string): ReactElement => (
+        <Input.Item label={label}>
+          <Input.Text value="" onChange={() => {}} />
+        </Input.Item>
+      );
+
+      const rect = (label: string): { label: DOMRect; control: DOMRect } => {
+        const el = [...document.querySelectorAll(`.${CSS.B("input-label")}`)].find(
+          (l) => l.textContent.trim() === label,
+        )!;
+        return {
+          label: el.getBoundingClientRect(),
+          control: el.nextElementSibling!.firstElementChild!.getBoundingClientRect(),
+        };
+      };
+
+      it("should keep the first label in the label column and the rest on its line", async () => {
+        await renderThemed(
+          <Form.Sections>
+            <Form.Section>
+              {textField("Transport")}
+              <Flex.Box x>
+                {textField("Host")}
+                {field("Port")}
+              </Flex.Box>
+            </Form.Section>
+          </Form.Sections>,
+        );
+        const transport = rect("Transport");
+        const host = rect("Host");
+        const port = rect("Port");
+        expect(host.label.left).toBe(transport.label.left);
+        expect(host.control.left).toBe(transport.control.left);
+        expect(port.label.top).toBe(host.label.top);
+        expect(port.label.left).toBeGreaterThan(host.control.right);
+        expect(port.control.right).toBe(transport.control.right);
+      });
+
+      it("should give a number field one width wherever it sits", async () => {
+        await renderThemed(
+          <Form.Sections>
+            <Form.Section>
+              {textField("Host")}
+              {field("Unit ID")}
+              <Flex.Box x>
+                {field("Timeout")}
+                {field("Retries")}
+              </Flex.Box>
+            </Form.Section>
+          </Form.Sections>,
+        );
+        const unit = rect("Unit ID").control;
+        expect(unit.width).toBeLessThan(rect("Host").control.width);
+        expect(rect("Timeout").control.width).toBe(unit.width);
+        expect(rect("Retries").control.width).toBe(unit.width);
+      });
+
+      it("should line up the later fields of every row", async () => {
+        await renderThemed(
+          <Form.Sections>
+            <Form.Section>
+              <Flex.Box x>
+                {field("Timeout")}
+                {field("Retries")}
+                {field("Request delay")}
+              </Flex.Box>
+              <Flex.Box x>
+                {field("Max registers")}
+                {field("Max gap")}
+              </Flex.Box>
+            </Form.Section>
+          </Form.Sections>,
+        );
+        const delay = rect("Request delay");
+        const gap = rect("Max gap");
+        expect(gap.label.left).toBe(delay.label.left);
+        expect(gap.control.left).toBe(delay.control.left);
+        expect(rect("Retries").label.left).toBeGreaterThan(
+          rect("Timeout").control.right,
+        );
+      });
+
+      it("should keep the width of a number field in the control of another", async () => {
+        await renderThemed(
+          <Form.Sections>
+            <Form.Section>
+              {textField("Units")}
+              <Input.Item label="Scale">
+                <Flex.Box x align="center">
+                  <Input.Numeric value={1} onChange={() => {}} />
+                  {field("Offset")}
+                </Flex.Box>
+              </Input.Item>
+              {field("Retries")}
+            </Form.Section>
+          </Form.Sections>,
+        );
+        const offset = rect("Offset");
+        expect(offset.control.width).toBe(rect("Retries").control.width);
+        expect(offset.control.width).toBeLessThan(rect("Units").control.width);
+        expect(offset.control.left).toBeGreaterThan(offset.label.right);
+      });
+
+      it("should keep the first control when the later fields do not fit", async () => {
+        await renderThemed(
+          <div style={{ width: "60rem" }}>
+            <Form.Sections>
+              <Form.Section>
+                <Flex.Box x>
+                  {field("Timeout")}
+                  {field("Retries")}
+                  {field("Request delay")}
+                </Flex.Box>
+              </Form.Section>
+            </Form.Sections>
+          </div>,
+        );
+        const timeout = rect("Timeout").control;
+        expect(timeout.width).toBeGreaterThan(0);
+        expect(rect("Retries").label.left).toBeGreaterThan(timeout.right);
+      });
+    });
+
+    it("should keep a multiple select of many tags inside the sections", async () => {
+      const names = Array.from(
+        { length: 8 },
+        (_, i) => `sy_node_1_metrics_${i}_percent`,
+      );
+      const { container } = await renderThemed(
+        <div style={{ width: "80rem" }}>
+          <Form.Sections>
+            <Form.Section>
+              <Input.Item label="Channels">
+                <Dialog.Frame>
+                  <Select.Frame<string, undefined>
+                    multiple
+                    value={names}
+                    onChange={() => {}}
+                  >
+                    <Select.MultipleTrigger />
+                  </Select.Frame>
+                </Dialog.Frame>
+              </Input.Item>
+            </Form.Section>
+          </Form.Sections>
+        </div>,
+      );
+      const sections = container.querySelector(`.${CSS.B("form-sections")}`)!;
+      const tags = container.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
+      await expect.poll(() => tags.hasAttribute("data-stacked")).toBe(true);
+      expect(tags.getBoundingClientRect().right).toBeLessThanOrEqual(
+        sections.getBoundingClientRect().right,
       );
     });
   });
@@ -73,6 +265,69 @@ describe("Form", () => {
         resolve("var(--pluto-gray-l6)"),
       );
       expect(computed(sections[0], "border-left-style")).toBe("none");
+    });
+  });
+});
+
+describe("Form", () => {
+  describe("TimeSpanField", () => {
+    beforeAll(loadLanguage);
+    const spanSchema = z.object({
+      timeoutMs: z.number(),
+      keepAlive: z.number().optional(),
+    });
+    const span = deep.path<z.infer<typeof spanSchema>>();
+    const SpanForm = (props: PropsWithChildren): ReactElement => {
+      const methods = Form.use<typeof spanSchema>({
+        values: { timeoutMs: 1500, keepAlive: 30 },
+        schema: spanSchema,
+      });
+      return <Form.Form<typeof spanSchema> {...methods}>{props.children}</Form.Form>;
+    };
+    const edit = (input: HTMLElement, value: string): void => {
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    };
+
+    it("should show and store the number in its unit", () => {
+      const c = render(
+        <Form.TimeSpanField path={span.timeoutMs} unit={TimeSpan.MILLISECOND} />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      edit(input, "250");
+      expect(c.getByDisplayValue("250ms")).toBeTruthy();
+    });
+
+    it("should name the bound a span crosses", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.timeoutMs}
+          label="Timeout"
+          unit={TimeSpan.MILLISECOND}
+          bounds={{ upper: TimeSpan.MINUTE }}
+        />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "5min" } });
+      expect(c.getByText("Timeout must be 1min or less")).toBeTruthy();
+    });
+
+    it("should store undefined when an emptiable field is emptied", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.keepAlive}
+          unit={TimeSpan.SECOND}
+          emptiable
+          inputProps={{ placeholder: "30s" }}
+        />,
+        { wrapper: SpanForm },
+      );
+      edit(c.getByDisplayValue("30s"), "");
+      expect(c.getByPlaceholderText("30s")).toHaveProperty("value", "");
     });
   });
 });

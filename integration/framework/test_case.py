@@ -15,10 +15,12 @@ warnings.filterwarnings("ignore", message=".*timed out while closing connection.
 
 import traceback
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Literal, NoReturn, overload
+from typing import Literal, NoReturn, NotRequired, TypedDict, overload
+
+from pydantic import JsonValue
 
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
@@ -43,7 +45,7 @@ from framework.writer import Writer
 from x import validate_and_sanitize_name
 
 
-class Skip(BaseException):
+class _Skip(BaseException):
     """Raised by TestCase.skip. It is not an Exception, so a test's own `except
     Exception` cannot swallow it."""
 
@@ -53,6 +55,37 @@ def _numeric(value: int | float | str) -> float:
     if isinstance(value, str):
         raise TypeError(f"Expected a numeric channel value, got {value!r}")
     return value
+
+
+def param[Param: (bool, int, float, str)](
+    params: Mapping[str, JsonValue], key: str, default: Param
+) -> Param:
+    """Returns the test definition parameter named key, or default if params does not
+    hold it. An int parameter passes for a float default, but a bool never passes for an
+    int or float default.
+
+    :raises TypeError: If the parameter does not have the type of default.
+    """
+    value = params.get(key, default)
+    if type(default) is float and type(value) is int:
+        value = float(value)
+    if isinstance(value, bool) != isinstance(default, bool) or not isinstance(
+        value, type(default)
+    ):
+        raise TypeError(
+            f"Parameter {key!r} is {value!r}; expected {type(default).__name__}"
+        )
+    return value
+
+
+class Config(TypedDict):
+    """The arguments of TestCase.__init__, for subclasses that forward them."""
+
+    name: str
+    results_dir: Path
+    synnax_connection: NotRequired[SynnaxConnection]
+    options: NotRequired[RunOptions]
+    params: NotRequired[dict[str, JsonValue]]
 
 
 class TestCase(ABC):
@@ -90,6 +123,13 @@ class TestCase(ABC):
 
     log_client: LogClient
 
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        """Returns the machine resources the case uses while it runs, from
+        `framework.resources`. The conductor runs a case only when its resources are
+        free. An override joins its resources with super().resources()."""
+        return frozenset()
+
     def __init__(
         self,
         *,
@@ -97,13 +137,13 @@ class TestCase(ABC):
         name: str,
         options: RunOptions = DEFAULT_OPTIONS,
         results_dir: Path,
-        **params: Any,
+        params: dict[str, JsonValue] | None = None,
     ) -> None:
         """Initialize test case with Synnax server connection."""
         self.synnax_connection = synnax_connection
         self.options = options
         self.results_dir = results_dir
-        self.params = params
+        self.params = {} if params is None else params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
         self.read_timeout: sy.CrudeTimeSpan = self.DEFAULT_READ_TIMEOUT
@@ -113,6 +153,9 @@ class TestCase(ABC):
         self._error_message: str | None = None
         self._error_traceback: str | None = None
         self.skip_reason: str | None = None
+        # Numbers the test measured, which the conductor writes into summary.json. Each
+        # name ends in its unit, such as wait_20ms_spread_ms.
+        self.metrics: dict[str, float] = {}
 
         # Cache channel name strings
         self._ch_time = f"{self.name}_time"
@@ -284,7 +327,7 @@ class TestCase(ABC):
 
         :param reason: Why the test cannot run here. The summary shows it.
         """
-        raise Skip(reason)
+        raise _Skip(reason)
 
     @abstractmethod
     def run(self) -> None:
@@ -640,7 +683,7 @@ class TestCase(ABC):
 
             # PASSED set in _check_expectation()
 
-        except Skip as e:
+        except _Skip as e:
             self.skip_reason = str(e)
             self.STATUS = STATUS.SKIPPED
         except Exception as e:

@@ -7,26 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { id, strings } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
-import { createTestDevice } from "@/platform/device/testutil";
+import {
+  createTestDevice,
+  setTestDeviceStatus,
+  TEST_DEVICE_STATUS_MESSAGE,
+} from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { renderWithConsole, uniqueName } from "@/testutil";
+import { renderWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
 const HINT = /A short prefix for every channel/;
 
-const onCreateTask = vi.fn();
+const suggestFirstWord = ({ name }: device.Device): string[] => [name.split(" ")[0]];
+
+const onCreateReadTask = vi.fn();
 const onBack = vi.fn();
 
 const HARDWARE: Device.Hardware = {
@@ -37,18 +45,27 @@ const HARDWARE: Device.Hardware = {
   icon: <Icon.Hardware />,
   make: "acme",
   scanType: "acme_scan",
+  location: { shape: "plain" },
   checks: [],
-  zeroProperties: { vendor: "acme" },
+  Configure: Device.createConfigure({
+    icon: <Icon.Hardware />,
+    zeroProperties: { vendor: "acme" },
+    suggestIdentifiers: suggestFirstWord,
+  }),
 };
+
+const Configure = Device.createConfigure({
+  icon: <Icon.Hardware />,
+  zeroProperties: {},
+  suggestIdentifiers: suggestFirstWord,
+});
 
 const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
   ({ deviceKey, close }) => (
-    <Device.Configure
+    <Configure
       deviceKey={deviceKey}
       close={close}
-      icon={<Icon.Hardware />}
-      initialProperties={{}}
-      onCreateTask={onCreateTask}
+      onCreateReadTask={onCreateReadTask}
       onBack={onBack}
     />
   ),
@@ -88,19 +105,14 @@ const save = async (label = "Save") => {
 
 describe("device Configure", () => {
   beforeEach(() => {
-    onCreateTask.mockClear();
+    onCreateReadTask.mockClear();
     onBack.mockClear();
   });
 
   it("should not render the form while the device has not been retrieved", async () => {
     await renderWithConsole(
       <Errors.SuspenseBoundary>
-        <Device.Configure
-          deviceKey={id.create()}
-          close={vi.fn()}
-          icon={<Icon.Hardware />}
-          initialProperties={{}}
-        />
+        <Configure deviceKey={id.create()} close={vi.fn()} />
       </Errors.SuspenseBoundary>,
       { onCaughtError: () => {} },
     );
@@ -126,6 +138,25 @@ describe("device Configure", () => {
     expect(unchanged.configured).toBe(false);
   });
 
+  it("should keep the status that the Driver reported on a rename", async () => {
+    const { dev } = await setup();
+    await setTestDeviceStatus(client, dev);
+    const newName = uniqueName("renamed_sensor");
+    fireEvent.change(nameInput(), { target: { value: newName } });
+    fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
+    await save();
+    await waitFor(async () => {
+      const { status } = await client.devices.retrieve({
+        key: dev.key,
+        includeStatus: true,
+      });
+      expect(status).toMatchObject({
+        name: newName,
+        message: TEST_DEVICE_STATUS_MESSAGE,
+      });
+    });
+  });
+
   it("should configure the device with the edited name, identifier, and initial properties, then close", async () => {
     const { dev } = await setup();
     const newName = uniqueName("renamed_sensor");
@@ -142,11 +173,16 @@ describe("device Configure", () => {
     await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
   });
 
-  it("should fill the identifier from a suggestion based on the name", async () => {
-    const { dev } = await setup();
-    const [suggestion] = strings.createShortIdentifiers(dev.name);
-    fireEvent.click(findButton(suggestion));
-    expect(identifierInput().value).toEqual(suggestion);
+  it("should show the location of the device", async () => {
+    await setup();
+    expect(screen.getByText("dev1")).toBeTruthy();
+  });
+
+  it("should fill the identifier from a suggestion for the name the user entered", async () => {
+    await setup();
+    fireEvent.change(nameInput(), { target: { value: "bench sensor" } });
+    fireEvent.click(findButton("bench"));
+    expect(identifierInput().value).toEqual("bench");
   });
 
   it("should report the make of the device it configured", async () => {
@@ -173,7 +209,7 @@ describe("device Configure", () => {
       const { dev } = await setup(useConfigureWithActionsModal);
       fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
       await save("Save and create read task");
-      await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith(dev.key));
+      await waitFor(() => expect(onCreateReadTask).toHaveBeenCalledWith(dev.key));
       const updated = await client.devices.retrieve(dev.key);
       expect(updated.configured).toBe(true);
     });
@@ -183,7 +219,16 @@ describe("device Configure", () => {
       fireEvent.change(identifierInput(), { target: { value: "1x" } });
       await save("Save and create read task");
       expect(screen.getByText(HINT)).toBeTruthy();
-      expect(onCreateTask).not.toHaveBeenCalled();
+      expect(onCreateReadTask).not.toHaveBeenCalled();
+    });
+
+    it("should hold Back while the device saves", async () => {
+      await setup(useConfigureWithActionsModal);
+      fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
+      fireEvent.click(findButton("Save"));
+      fireEvent.click(findButton("Back"));
+      expect(onBack).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
     });
 
     it("should go back without saving", async () => {

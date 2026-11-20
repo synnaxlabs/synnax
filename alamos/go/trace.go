@@ -51,12 +51,7 @@ type TracingConfig struct {
 	Filter EnvironmentFilter
 }
 
-var (
-	_                    config.Config[TracingConfig] = (*TracingConfig)(nil)
-	defaultTracingConfig                              = TracingConfig{
-		Filter: thresholdEnvFilter(EnvironmentBench),
-	}
-)
+var _ config.Config[TracingConfig] = (*TracingConfig)(nil)
 
 // Validate implements config.Config.
 func (c TracingConfig) Validate() error {
@@ -80,20 +75,22 @@ func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 // be used as part of Instrumentation. To creat a Tracer, use NewTracer and pass
 // it in a call to alamos.New using the WithTracer option.
 type Tracer struct {
-	config      TracingConfig
-	_otelTracer oteltrace.Tracer
-	meta        InstrumentationMeta
+	config TracingConfig
+	otel   oteltrace.Tracer
+	meta   InstrumentationMeta
 }
 
 // NewTracer initializes a new devTracer using the given configuration. If no
 // configuration is provided, NewTracer will return a validation error. If you want a
 // no-op devTracer, simply use a nil pointer.
 func NewTracer(configs ...TracingConfig) (*Tracer, error) {
-	cfg, err := config.New(defaultTracingConfig, configs...)
+	cfg, err := config.New(TracingConfig{
+		Filter: thresholdEnvFilter(EnvironmentBench),
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Tracer{config: cfg}, nil
+	return &Tracer{config: cfg, otel: cfg.OtelProvider.Tracer("")}, nil
 }
 
 // Debug starts a span at the debug level with the given key. If the context is already
@@ -125,18 +122,11 @@ func (t *Tracer) Trace(
 		return ctx, nopSpan{}
 	}
 	spanKey := t.meta.extendPath(key)
-	ctx, otel := t.otelTracer().Start(ctx, spanKey)
+	ctx, otel := t.otel.Start(ctx, spanKey)
 	return ctx, span{
 		key:  spanKey,
 		otel: otel,
 	}
-}
-
-func (t *Tracer) otelTracer() oteltrace.Tracer {
-	if t._otelTracer == nil {
-		t._otelTracer = t.config.OtelProvider.Tracer(t.meta.Key)
-	}
-	return t._otelTracer
 }
 
 // Transfer transfers the trace from the source context to the target context.
@@ -155,7 +145,11 @@ func (t *Tracer) Transfer(source, target context.Context) context.Context {
 
 func (t *Tracer) child(meta InstrumentationMeta) (nt *Tracer) {
 	if t != nil {
-		nt = &Tracer{meta: meta, config: t.config}
+		nt = &Tracer{
+			meta:   meta,
+			config: t.config,
+			otel:   t.config.OtelProvider.Tracer(meta.Key),
+		}
 	}
 	return nt
 }
@@ -173,7 +167,7 @@ func (s span) Key() string { return s.key }
 // Error implements Span.
 func (s span) Error(err error, exclude ...error) error {
 	if err == nil {
-		return err
+		return nil
 	}
 	s.otel.RecordError(err)
 	if !errors.IsAny(err, exclude...) {
@@ -194,7 +188,7 @@ func (s span) End() {
 
 // EndWith implements Span.
 func (s span) EndWith(err error, exclude ...error) error {
-	_ = s.Error(err, exclude...)
+	err = s.Error(err, exclude...)
 	s.End()
 	return err
 }

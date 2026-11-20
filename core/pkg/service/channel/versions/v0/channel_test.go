@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/control"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -58,17 +58,6 @@ var _ = Describe("Channel", func() {
 		It("Should return the same value as Key", func() {
 			ch := v0.Channel{Leaseholder: 1, LocalKey: 2}
 			Expect(ch.GorpKey()).To(Equal(ch.Key()))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should bootstrap-lease a free channel", func() {
-			ch := v0.Channel{Leaseholder: node.KeyFree}
-			Expect(ch.SetOptions()).To(Equal([]any{node.KeyBootstrapper}))
-		})
-		It("Should lease a non-free channel to its leaseholder", func() {
-			ch := v0.Channel{Leaseholder: 2}
-			Expect(ch.SetOptions()).To(Equal([]any{node.Key(2)}))
 		})
 	})
 
@@ -302,11 +291,11 @@ var _ = Describe("Channel", func() {
 		})
 	})
 
-	Describe("OntologyID", func() {
-		It("Should return the channel ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the channel resource identifier", func() {
 			ch := v0.Channel{Leaseholder: 1, LocalKey: 2}
-			Expect(ch.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeChannel, Key: ch.Key().String(),
+			Expect(ch.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeChannel, Key: ch.Key().String(),
 			}))
 		})
 	})
@@ -375,6 +364,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(xmsgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Channel{
 				LocalKey:    2,
 				Leaseholder: 1,
@@ -397,7 +387,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[v0.Key, v0.Channel](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

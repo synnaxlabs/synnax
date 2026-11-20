@@ -18,8 +18,9 @@ import {
 } from "react";
 
 import { CSS as PCSS } from "@/css";
-import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
-import { type Input } from "@/input";
+import { useCombinedRefs } from "@/hooks/ref";
+import type { Input } from "@/input";
+import { paintHighlight } from "@/text/highlight";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";
 
@@ -27,7 +28,8 @@ import { triggerReflow } from "@/util/reflow";
 export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
   Omit<Input.Control<string>, "onChange"> & {
     /** Receives the committed text. Return false to reject it, reverting the field to
-     * value; the field otherwise holds the committed text until value catches up. */
+     * the last pending commit, or to value when none is pending; the field otherwise
+     * holds the committed text until value catches up. */
     onChange: (value: string) => void | boolean;
     /** Whether a double click starts editing. Defaults to true. */
     allowDoubleClick?: boolean;
@@ -35,59 +37,64 @@ export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
     allowEmpty?: boolean;
     /** Whether to outline the field while editing. Defaults to true. */
     outline?: boolean;
+    /** The most characters the field takes. Typed or pasted text past it is dropped. */
+    maxLength?: number;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 const BASE_CLASS = PCSS.BM("text", "editable");
+const TEXT_CLASS = PCSS.B("text");
 const MAX_EDIT_RETRIES = 10;
 const RENAMED_EVENT_NAME = "renamed";
 const ESCAPED_EVENT_NAME = "escaped";
 const START_EDITING_EVENT_NAME = "start-editing";
 
-// Read-only copies of the same value render with the same id, so the id alone does not
-// identify the edit target. Selecting on the class first and matching the id by hand
-// keeps every candidate in play: a `#id.class` selector resolves the id to one element
-// before testing the class, and gives up when that element is a read-only copy.
-const findEditable = (id: string): Element | undefined =>
-  Array.from(document.getElementsByClassName(BASE_CLASS)).find((el) => el.id === id);
+// Read-only copies of a value carry the same id as its editable copies, so a lookup by
+// id collects every copy.
+const findCopies = (id: string, within: Element | Document): Element[] =>
+  Array.from(within.getElementsByClassName(TEXT_CLASS)).filter((el) => el.id === id);
 
-/** Options for {@link asyncEdit}. */
-export interface AsyncEditOptions {
-  /** Replaces the displayed text for the duration of the edit. Use it when the field
-   * shows a derived value (e.g. an alias) but the edit targets the underlying one.
-   * Committing it unchanged counts as a cancel, and the displayed text comes back. */
-  initialValue?: string;
-}
+const isEditable = (el: Element): boolean => el.classList.contains(BASE_CLASS);
 
-type StartEditingEvent = CustomEvent<AsyncEditOptions | undefined>;
+// The nearest copy wins, even a read-only one. Without `near`, the first editable copy
+// wins.
+const findNearest = (id: string, near: Element | null): Element | undefined => {
+  for (let scope = near; scope != null; scope = scope.parentElement) {
+    const copies = findCopies(id, scope);
+    if (copies.length > 0) return copies.find(isEditable) ?? copies[0];
+  }
+  return findCopies(id, document).find(isEditable);
+};
 
 /**
  * Starts editing the {@link Editable} carrying the given id, retrying for a second
  * while it mounts. Use it to rename a resource the same gesture just created.
  *
+ * @param within - The item a menu opened over. When the same id shows in several
+ * places, the copy nearest to it wins: inside it, then inside each of its parents.
  * @returns the final text and whether the user committed it. A rejected promise means
- * no such element appeared.
+ * no such element appeared, or the nearest copy is read-only.
  */
 export const asyncEdit = (
   id: string,
-  options?: AsyncEditOptions,
+  within: Element | null = null,
 ): Promise<[string, boolean]> =>
   new Promise((resolve, reject) => {
     let currRetry = 0;
     const tryEdit = (): void => {
       currRetry++;
-      const el = findEditable(id);
+      const el = findNearest(id, within);
       if (el == null) {
         if (currRetry < MAX_EDIT_RETRIES) setTimeout(tryEdit, 100);
         else reject(new Error(`Could not find element with id ${id}`));
         return;
       }
-      const { initialValue } = options ?? {};
-      el.dispatchEvent(
-        new CustomEvent(START_EDITING_EVENT_NAME, { detail: { initialValue } }),
-      );
+      if (!isEditable(el)) {
+        reject(new Error(`The nearest element with id ${id} is read-only`));
+        return;
+      }
+      el.dispatchEvent(new CustomEvent(START_EDITING_EVENT_NAME));
       el.setAttribute("contenteditable", "true");
-      if (initialValue != null) (el as HTMLElement).innerText = initialValue;
       const handleRenamed = (e: Event): void => {
         el.removeEventListener(ESCAPED_EVENT_NAME, handleEscaped);
         resolve([getInnerText(e.target as HTMLElement), true]);
@@ -102,12 +109,37 @@ export const asyncEdit = (
     tryEdit();
   });
 
-/** Starts editing the {@link Editable} carrying the given id, discarding the result. */
-export const edit = (id: string, options?: AsyncEditOptions): void => {
-  asyncEdit(id, options).catch(console.error);
+/** Like {@link asyncEdit}, but discards the result. */
+export const edit = (id: string, within: Element | null = null): void => {
+  asyncEdit(id, within).catch(console.error);
 };
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
+
+const HIGH_SURROGATE = /[\uD800-\uDBFF]/;
+
+// Input lands before the caret, so the characters past the limit are the ones just
+// before it.
+const dropOverflow = (el: HTMLElement, maxLength: number): void => {
+  const text = el.textContent;
+  const overflow = text.length - maxLength;
+  if (overflow <= 0) return;
+  const selection = window.getSelection();
+  let caret = text.length;
+  if (selection?.focusNode != null && el.contains(selection.focusNode)) {
+    // Pasted markup can split the text, so the caret's offset spans every child node.
+    const before = document.createRange();
+    before.selectNodeContents(el);
+    before.setEnd(selection.focusNode, selection.focusOffset);
+    caret = before.toString().length;
+  }
+  const end = Math.max(caret, overflow);
+  let kept = end - overflow;
+  // Keep a surrogate pair whole, or the cut leaves half of an emoji.
+  if (kept > 0 && HIGH_SURROGATE.test(text[kept - 1])) kept--;
+  el.textContent = text.slice(0, kept) + text.slice(end);
+  if (el.firstChild != null) selection?.collapse(el.firstChild, kept);
+};
 
 /**
  * Text that turns into a field in place. Commits on Enter or blur, reverts on Escape.
@@ -123,21 +155,21 @@ export const Editable = ({
   allowEmpty = false,
   style,
   outline = true,
+  maxLength,
+  onInput,
+  highlight,
   ...rest
 }: EditableProps): ReactElement => {
   const [editable, setEditable] = useState(false);
   const ref = useRef<HTMLElement>(null);
-  // Sometimes the onBlur event fires right after the user hits the enter key (since we
-  // trigger it artificially). We track this value as an optimistic update to make sure
-  // we don't call onChange twice in quick succession.
-  const optimisticValueRef = useSyncedRef(value);
-  // Holds the text asyncEdit swapped in for this edit, so an unchanged commit is
-  // measured against what the user actually saw.
-  const injectedValueRef = useRef<string | null>(null);
-  // Holds the text this field committed and the value it replaced. Exiting an edit
-  // repaints from value, which still carries the old text until the caller's write
-  // lands, so the committed text stands in until value moves off what it replaced.
-  const committedRef = useRef<{ text: string; replaced: string } | null>(null);
+  // Holds the texts this field committed that value has not reached yet, in commit
+  // order, and the last value seen. Exiting an edit repaints from value, which lags
+  // until the caller's writes land, so the last committed text stands in until value
+  // reaches it. A value outside the pending texts is a remote rename.
+  const committedRef = useRef<{ pending: string[]; seen: string } | null>(null);
+  // Enter and Escape give the focus back here, such as to a list that answers the arrow
+  // keys.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // Writing modes like vertical-rl do not lay out again when the value or the inline
   // size changes, so a change forces a reflow.
@@ -158,36 +190,40 @@ export const Editable = ({
     onDoubleClick?.(e);
   };
 
+  const getShownText = (): string => {
+    const { current: committed } = committedRef;
+    if (committed == null) return value;
+    if (value !== committed.seen) {
+      const reached = committed.pending.indexOf(value);
+      committed.pending = reached === -1 ? [] : committed.pending.slice(reached + 1);
+      committed.seen = value;
+    }
+    if (committed.pending.length > 0) return committed.pending.at(-1) as string;
+    committedRef.current = null;
+    return value;
+  };
+
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
-    const { current: injected } = injectedValueRef;
-    injectedValueRef.current = null;
-    // An injected value replaces the displayed text for the edit, so it is what an
-    // unchanged commit compares against.
-    const previous = injected ?? optimisticValueRef.current;
-    if (previous === innerText && (innerText.length > 0 || allowEmpty)) {
+    if (getShownText() === innerText && (innerText.length > 0 || allowEmpty)) {
       // An unchanged commit is a cancel: without the event, an awaiting asyncEdit
       // caller would hang forever.
-      if (injected != null) el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
       return;
     }
     if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
-      committedRef.current = null;
-      el.innerText = value;
+      el.innerText = getShownText();
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {
-      // An injected edit targets a value other than the one shown, so value never
-      // becomes the committed text and must repaint as it always did.
-      committedRef.current =
-        injected == null ? { text: innerText, replaced: value } : null;
+      const committed = committedRef.current ?? { pending: [], seen: value };
+      committedRef.current = committed;
+      committed.pending.push(innerText);
       if (onChange?.(innerText) === false) {
-        committedRef.current = null;
-        el.innerText = value;
+        committed.pending.pop();
+        el.innerText = getShownText();
         el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
         return;
       }
-      optimisticValueRef.current = innerText;
       el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
     }
   };
@@ -202,7 +238,8 @@ export const Editable = ({
     if (ref.current == null) return;
     setEditable(false);
     handleUpdate(el, e.key === "Escape");
-    el.blur();
+    returnFocusRef.current?.focus({ preventScroll: true });
+    if (document.activeElement === el) el.blur();
   };
 
   const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => e.preventDefault();
@@ -211,33 +248,33 @@ export const Editable = ({
     if (ref.current == null || !editable) return;
     triggerReflow(ref.current);
     const { current: el } = ref;
+    // An edit runs over plain text, so the tint marks go.
+    el.replaceChildren(el.textContent);
+    const active = document.activeElement;
+    returnFocusRef.current = active instanceof HTMLElement ? active : null;
     el.focus();
     const range = document.createRange();
     range.selectNodeContents(el);
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    // Editing scrolls a cut field to the caret, so the end of an edit scrolls it back.
+    // Not scrollTo: WebKit ignores it until the field lays out again after a reflow.
+    return () => {
+      el.scrollLeft = 0;
+    };
   }, [editable]);
 
   // Editing replaces the text React rendered, so the shown text is written by hand.
   useLayoutEffect(() => {
     if (ref.current == null || editable) return;
-    const { current: committed } = committedRef;
-    if (committed != null && value === committed.replaced)
-      ref.current.textContent = committed.text;
-    else {
-      committedRef.current = null;
-      ref.current.textContent = value;
-    }
+    paintHighlight(ref.current, getShownText(), highlight);
   });
 
   // A ref callback, so each element Text renders listens before asyncEdit can find it.
   const listenForEdits = (el: HTMLElement | null) => {
     if (el == null) return;
-    const handleStartEditing = (e: Event): void => {
-      injectedValueRef.current = (e as StartEditingEvent).detail?.initialValue ?? null;
-      setEditable(true);
-    };
+    const handleStartEditing = (): void => setEditable(true);
     el.addEventListener(START_EDITING_EVENT_NAME, handleStartEditing);
     return () => el.removeEventListener(START_EDITING_EVENT_NAME, handleStartEditing);
   };
@@ -260,10 +297,17 @@ export const Editable = ({
       }}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
+      onInput={(e) => {
+        if (maxLength != null && !e.nativeEvent.isComposing)
+          dropOverflow(e.currentTarget, maxLength);
+        onInput?.(e);
+      }}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning
       style={style}
+      // Text squares a lone glyph as an icon. Editable text is a name, never an icon.
+      square={false}
       {...rest}
     >
       {value}
@@ -289,15 +333,21 @@ export const MaybeEditable = ({
   disabled = false,
   value,
   allowDoubleClick,
+  maxLength,
   ...rest
 }: MaybeEditableProps): ReactElement => {
   if (disabled || onChange == null || onChange === false)
-    return <Text {...rest}>{value}</Text>;
+    return (
+      <Text square={false} {...rest}>
+        {value}
+      </Text>
+    );
 
   if (onChange === true) onChange = () => {};
   return (
     <Editable
       allowDoubleClick={allowDoubleClick}
+      maxLength={maxLength}
       onChange={onChange}
       value={value}
       {...rest}

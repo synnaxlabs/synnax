@@ -23,9 +23,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	xhttp "github.com/synnaxlabs/x/http"
 )
 
 // BindableTransport is a freighter.Transport that knows how to register its routes on a
@@ -35,13 +32,17 @@ type BindableTransport interface {
 	freighter.Transport
 	// BindTo registers the transport's HTTP and websocket routes on the given
 	// fiber.App.
-	BindTo(*fiber.App)
+	BindTo(app *fiber.App)
 }
 
 const (
 	unaryProtocol      = "http"
 	streamProtocol     = "websocket"
 	freighterCtxPrefix = "freighterctx"
+	subprotocol        = "synnax.v1"
+	// authSubprotocolPrefix marks the subprotocol entry that holds the session token
+	// of a client that cannot set headers, such as a browser.
+	authSubprotocolPrefix = "synnax.token."
 )
 
 func isFreighterQueryStringParam(key string) bool {
@@ -62,7 +63,11 @@ func parseSecurityInfo(ctx fiber.Ctx) freighter.SecurityInfo {
 	var info freighter.SecurityInfo
 	if ctx.RequestCtx().IsTLS() {
 		info.TLS.Used = true
-		info.TLS.ConnectionState = ctx.RequestCtx().Conn().(*tls.Conn).ConnectionState()
+		conn, ok := ctx.RequestCtx().Conn().(*tls.Conn)
+		if !ok {
+			panic("TLS request does not run on a TLS connection")
+		}
+		info.TLS.ConnectionState = conn.ConnectionState()
 	}
 	return info
 }
@@ -84,8 +89,10 @@ func parseRequestCtx(
 	}
 	headers := fiberCtx.GetReqHeaders()
 	freighterCtx.Params = make(freighter.Params, len(headers)+1)
-	for k, v := range fiberCtx.GetReqHeaders() {
-		if len(v) > 0 {
+	for k, v := range headers {
+		// The subprotocol header can hold the session token, so it never becomes a
+		// param that middleware could log or echo.
+		if len(v) > 0 && !strings.EqualFold(k, fiber.HeaderSecWebSocketProtocol) {
 			freighterCtx.Params[k] = v[0]
 		}
 	}
@@ -99,7 +106,25 @@ func parseRequestCtx(
 			freighterCtx.Params[strings.TrimPrefix(k, freighterCtxPrefix)] = v
 		}
 	}
+	if stream {
+		header := fiberCtx.Get(fiber.HeaderSecWebSocketProtocol)
+		if token, ok := subprotocolToken(header); ok {
+			freighterCtx.Params[fiber.HeaderAuthorization] = "Bearer " + token
+		}
+	}
 	return freighterCtx
+}
+
+func subprotocolToken(header string) (string, bool) {
+	for entry := range strings.SplitSeq(header, ",") {
+		if token, ok := strings.CutPrefix(
+			strings.TrimSpace(entry),
+			authSubprotocolPrefix,
+		); ok {
+			return token, true
+		}
+	}
+	return "", false
 }
 
 func setRequestCtx(req *http.Request, ctx freighter.Context) {
@@ -141,9 +166,3 @@ func parseResponseCtx(
 	}
 	return ctx
 }
-
-var (
-	defaultEncoders = []xhttp.Encoder{json.Codec, msgpack.Codec}
-	defaultDecoders = []xhttp.Decoder{json.Codec, msgpack.Codec}
-	defaultCodecs   = []xhttp.Codec{json.Codec, msgpack.Codec}
-)

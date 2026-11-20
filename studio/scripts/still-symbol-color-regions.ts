@@ -18,13 +18,13 @@ const SVG = path.join(import.meta.dirname, "files", "tank.svg");
 /**
  * Still for docs image `console/schematics/symbol-color-regions`: the create symbol
  * dialog with an SVG loaded, its Colors list showing the stroke and fill of each
- * region. The last captured frame is the still.
+ * region.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   await setup(session);
 
-  await session.click(capture.toolbarButton(page, "schematic", "add"), { zoom: false });
+  await session.click(capture.toolbarButton(page, "schematic-create"), { zoom: false });
   const modal = page.locator(capture.MODAL).first();
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);
@@ -44,7 +44,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     y: box.y + box.height / 2,
   });
 
-  session.startRecording();
-  await session.zoom(modal);
-  await session.hold(2500);
+  await session.settle(1000);
+  await session.still("colors");
 };

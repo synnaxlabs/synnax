@@ -9,26 +9,12 @@
 
 import { z } from "zod";
 
-import { type bounds } from "@/spatial/bounds";
-import { type dimensions } from "@/spatial/dimensions";
+import type { bounds } from "@/spatial/bounds";
+import type { dimensions } from "@/spatial/dimensions";
 import { direction } from "@/spatial/direction";
 import { location } from "@/spatial/location";
 import { xy } from "@/spatial/xy";
 
-const cssPos = z.union([z.number(), z.string()]);
-
-export const cssBox = z.object({
-  top: cssPos,
-  left: cssPos,
-  width: cssPos,
-  height: cssPos,
-});
-export const domRect = z.object({
-  left: z.number(),
-  top: z.number(),
-  right: z.number(),
-  bottom: z.number(),
-});
 export const box = z.object({
   one: xy.xyZ,
   two: xy.xyZ,
@@ -36,25 +22,43 @@ export const box = z.object({
 });
 
 export type Box = z.infer<typeof box>;
-export type CSS = z.infer<typeof cssBox>;
-export type DOMRect = z.infer<typeof domRect>;
+
+export interface DOMRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
 
 export type Crude = DOMRect | Box | { getBoundingClientRect: () => DOMRect };
 
 /** A box centered at (0,0) with a width and height of 0. */
-export const ZERO = { one: xy.ZERO, two: xy.ZERO, root: location.TOP_LEFT };
+export const ZERO: Box = Object.freeze({
+  one: xy.ZERO,
+  two: xy.ZERO,
+  root: location.TOP_LEFT,
+});
 
 /**
  * A box centered at (0,0) with a width and height of 1, and rooted in the
  * bottom left. Note that pixel space is typically rooted in the top left.
  */
-export const DECIMAL = { one: xy.ZERO, two: xy.ONE, root: location.BOTTOM_LEFT };
+export const DECIMAL: Box = Object.freeze({
+  one: xy.ZERO,
+  two: xy.ONE,
+  root: location.BOTTOM_LEFT,
+});
 
 export const copy = (b: Box, root?: location.Corner): Box => ({
   one: b.one,
   two: b.two,
   root: root ?? b.root,
 });
+
+const isBox = (value: unknown): value is Box => {
+  if (typeof value !== "object" || value == null) return false;
+  return "one" in value && "two" in value && "root" in value;
+};
 
 /**
  * Constructs a box in 2D space, typically a DOM bounding box but also usable for clip
@@ -81,8 +85,7 @@ export const construct = (
     return b;
   }
 
-  if ("one" in first && "two" in first && "root" in first)
-    return { ...first, root: coordinateRoot ?? first.root };
+  if (isBox(first)) return { ...first, root: coordinateRoot ?? first.root };
 
   if ("getBoundingClientRect" in first) first = first.getBoundingClientRect();
   if ("left" in first) {
@@ -109,7 +112,7 @@ export const construct = (
   return b;
 };
 
-export interface Resize {
+interface Resize {
   /**
    * Sets the dimensions of the box to the given dimensions.
    * @example resize(b, { width: 10, height: 10 }) // Sets the box to a 10x10 box.
@@ -189,7 +192,9 @@ export const signedDims = (b: Box): dimensions.Signed => ({
 });
 
 /** @returns the box as CSS top/left/width/height. */
-export const css = (b: Box): CSS => ({
+export const css = (
+  b: Box,
+): { top: number; left: number; width: number; height: number } => ({
   top: top(b),
   left: left(b),
   width: width(b),
@@ -222,7 +227,7 @@ export const xyLoc = (b: Crude, l: location.XY): xy.XY => {
  */
 export const loc = (b: Crude, loc: location.Outer): number => {
   const b_ = construct(b);
-  const f = location.xyCouple(b_.root).includes(loc) ? Math.min : Math.max;
+  const f = location.xyMatches(b_.root, loc) ? Math.min : Math.max;
   return location.direction(loc) === "x"
     ? f(b_.one.x, b_.two.x)
     : f(b_.one.y, b_.two.y);
@@ -257,19 +262,11 @@ export const signedHeight = (b: Crude): number => {
 
 export const topLeft = (b: Crude): xy.XY => xyLoc(b, location.TOP_LEFT);
 
-export const topCenter = (b: Crude): xy.XY => xyLoc(b, location.TOP_CENTER);
-
 export const topRight = (b: Crude): xy.XY => xyLoc(b, location.TOP_RIGHT);
 
 export const bottomLeft = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_LEFT);
 
-export const bottomCenter = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_CENTER);
-
 export const bottomRight = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_RIGHT);
-
-export const centerLeft = (b: Crude): xy.XY => xyLoc(b, location.CENTER_LEFT);
-
-export const centerRight = (b: Crude): xy.XY => xyLoc(b, location.CENTER_RIGHT);
 
 export const right = (b: Crude): number => loc(b, "right");
 
@@ -279,18 +276,17 @@ export const left = (b: Crude): number => loc(b, "left");
 
 export const top = (b: Crude): number => loc(b, "top");
 
-export const center = (b: Crude): xy.XY =>
-  xy.translate(topLeft(b), {
-    x: signedWidth(b) / 2,
-    y: signedHeight(b) / 2,
-  });
+export const center = (b: Crude): xy.XY => {
+  const b_ = construct(b);
+  return xy.average(b_.one, b_.two);
+};
 
-export const x = (b: Crude): number => {
+const x = (b: Crude): number => {
   const b_ = construct(b);
   return b_.root.x === "left" ? left(b_) : right(b_);
 };
 
-export const y = (b: Crude): number => {
+const y = (b: Crude): number => {
   const b_ = construct(b);
   return b_.root.y === "top" ? top(b_) : bottom(b_);
 };
@@ -335,8 +331,8 @@ export const edgePoints = (b: Crude, loc: location.Outer): [xy.XY, xy.XY] => {
 /**
  * Reposition a box so that it is centered within a given bound.
  *
- * @param target The box to reposition - Only works if the root is topLeft
- * @param bound The box to reposition within - Only works if the root is topLeft
+ * @param target - The box to reposition - Only works if the root is topLeft
+ * @param bound - The box to reposition within - Only works if the root is topLeft
  * @returns the repositioned box
  */
 export const positionInCenter = (target_: Crude, bound_: Crude): Box => {
@@ -345,11 +341,6 @@ export const positionInCenter = (target_: Crude, bound_: Crude): Box => {
   const x_ = x(bound) + (width(bound) - width(target)) / 2;
   const y_ = y(bound) + (height(bound) - height(target)) / 2;
   return construct({ x: x_, y: y_ }, dims(target));
-};
-
-export const isBox = (value: unknown): value is Box => {
-  if (typeof value !== "object" || value == null) return false;
-  return "one" in value && "two" in value && "root" in value;
 };
 
 export const aspect = (b: Box): number => width(b) / height(b);
@@ -392,6 +383,29 @@ export const intersection = (a: Box, b: Box): Box => {
 };
 
 export const area = (b: Box): number => width(b) * height(b);
+
+/**
+ * @returns the smallest box that contains all the given boxes and points. The box is
+ * rooted in the top left, so its one is the top-left corner and its two is the
+ * bottom-right corner.
+ * @throws {Error} when given no boxes or points.
+ */
+export const bound = (items: ReadonlyArray<Crude | xy.XY>): Box => {
+  if (items.length === 0) throw new Error("cannot bound zero boxes or points");
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const item of items) {
+    const isBox = "one" in item || "left" in item || "getBoundingClientRect" in item;
+    const { one, two } = isBox ? construct(item) : { one: item, two: item };
+    minX = Math.min(minX, one.x, two.x);
+    minY = Math.min(minY, one.y, two.y);
+    maxX = Math.max(maxX, one.x, two.x);
+    maxY = Math.max(maxY, one.y, two.y);
+  }
+  return construct({ x: minX, y: minY }, { x: maxX, y: maxY });
+};
 
 /**
  * Truncates the coordinates of the box to the given precision.

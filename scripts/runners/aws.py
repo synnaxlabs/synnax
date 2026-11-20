@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""The EC2 instances behind the runners, SSM to run commands on them, and the billing
-APIs cost.py reads."""
+"""The EC2 instances behind the runners, SSM to run commands on them, the billing APIs
+cost.py reads, and the Secrets Manager and IAM APIs logins.py needs."""
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -25,8 +25,9 @@ TIMEOUTS = Config(connect_timeout=10, read_timeout=30, retries={"max_attempts": 
 
 
 class AWS:
-    """Per-region EC2, SSM, and CloudWatch clients plus the global Cost Explorer and
-    Pricing clients, safe to share across threads."""
+    """Per-region EC2, SSM, and CloudWatch clients plus the global Cost Explorer,
+    Pricing, and IAM clients and the us-east-1 Secrets Manager client, safe to share
+    across threads."""
 
     def __init__(self) -> None:
         self.ec2 = {
@@ -41,10 +42,14 @@ class AWS:
         }
         self.ce = boto3.client("ce", region_name="us-east-1", config=TIMEOUTS)
         self.pricing = boto3.client("pricing", region_name="us-east-1", config=TIMEOUTS)
+        self.iam = boto3.client("iam", config=TIMEOUTS)
+        self.secrets = boto3.client(
+            "secretsmanager", region_name="us-east-1", config=TIMEOUTS
+        )
 
     def instances(self) -> dict[str, dict]:
         """Maps instance id to its region, state, running flag, whether it runs
-        Windows, its type, and when it was launched."""
+        Windows, its type, when it was launched, and its tags."""
         found: dict[str, dict] = {}
         with ThreadPoolExecutor(len(REGIONS)) as pool:
             for region, pages in zip(
@@ -63,6 +68,9 @@ class AWS:
                                 "windows": i.get("PlatformDetails") == "Windows",
                                 "type": i["InstanceType"],
                                 "launched": sy.TimeStamp(i["LaunchTime"]),
+                                "tags": {
+                                    t["Key"]: t["Value"] for t in i.get("Tags", [])
+                                },
                             }
         return found
 

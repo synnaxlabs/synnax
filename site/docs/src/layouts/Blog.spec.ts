@@ -9,13 +9,13 @@
 
 // @vitest-environment node
 
-import reactRenderer from "@astrojs/react/server.js";
-import { experimental_AstroContainer } from "astro/container";
-import { type Element, type Root } from "hast";
+import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import Blog from "@/layouts/Blog.astro";
+import { createContainer } from "@/testutil/container";
 import { type Release, Releases } from "@/util/releases";
 
 const elements = (node: Root | Element): Element[] =>
@@ -23,32 +23,53 @@ const elements = (node: Root | Element): Element[] =>
     child.type === "element" ? [child, ...elements(child)] : [],
   );
 
+const text = (node: Element): string =>
+  node.children
+    .map((child) =>
+      child.type === "text" ? child.value : child.type === "element" ? text(child) : "",
+    )
+    .join("")
+    .trim();
+
 const RELEASES: Release[] = [
-  { tag_name: "core/v0.60.0", prerelease: false, draft: false },
+  { tag_name: "core/v0.60.0", prerelease: false, draft: false, published_at: null },
+  { tag_name: "desktop/v1.0.0", prerelease: false, draft: false, published_at: null },
 ];
 
-const segmentHrefs = async (path: string): Promise<unknown[]> => {
-  const container = await experimental_AstroContainer.create({
-    astroConfig: { site: "https://docs.synnaxlabs.com" },
-  });
-  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
-  const releases = new Releases({
-    fetch: async () => new Response(JSON.stringify(RELEASES)),
-  });
+const listing = async (): Promise<Response> => new Response(JSON.stringify(RELEASES));
+
+// The Desktop band reads the size of a CDN image.
+beforeEach(() => {
+  stubImageSize(3840, 2400);
+});
+
+const renderPost = async (
+  path: string,
+  fetch: typeof globalThis.fetch = listing,
+): Promise<Element[]> => {
+  const container = await createContainer("https://docs.synnaxlabs.com");
+  const releases = new Releases({ fetch });
   const html = await container.renderToString(Blog, {
     locals: { releases },
     request: new Request(new URL(path, "https://docs.synnaxlabs.com")),
     props: {
       headings: [],
-      frontmatter: { title: "A post", description: "A post.", published: "2024-10-15" },
+      frontmatter: {
+        title: "A post",
+        description: "A post.",
+        published: new Date("2024-10-15"),
+      },
     },
   });
-  return elements(fromHtml(html, { fragment: true }))
+  return elements(fromHtml(html, { fragment: true }));
+};
+
+const segmentHrefs = async (path: string): Promise<unknown[]> =>
+  (await renderPost(path))
     .filter(({ properties: { className } }) =>
       Array.isArray(className) ? className.includes("lyra-breadcrumb__segment") : false,
     )
     .map(({ properties: { href } }) => href);
-};
 
 describe("Blog", () => {
   it.each(["/blog/a-post", "/blog/a-post/"])(
@@ -57,4 +78,38 @@ describe("Blog", () => {
       expect(await segmentHrefs(path)).toEqual(["/blog", "/blog/a-post"]);
     },
   );
+
+  it("should show the day the post was published", async () => {
+    const time = (await renderPost("/blog/a-post")).find(
+      ({ tagName }) => tagName === "time",
+    );
+    expect(time?.properties.dateTime).toBe("2024-10-15");
+    expect(time == null ? null : text(time)).toBe("Oct 15, 2024");
+  });
+
+  it("should end with a Desktop download that reports the blog as its location", async () => {
+    const tracked = (await renderPost("/blog/a-post")).filter(
+      ({ properties }) => properties.dataEvent === "desktop_download_clicked",
+    );
+    expect(tracked).toHaveLength(2);
+    expect(tracked.map(({ properties }) => properties.dataLocation)).toEqual([
+      "blog",
+      "blog",
+    ]);
+  });
+
+  it("should give the outline no heading for the download", async () => {
+    const headings = (await renderPost("/blog/a-post")).filter(({ tagName }) =>
+      ["h1", "h2", "h3"].includes(tagName),
+    );
+    expect(headings.map(text)).not.toContain("Try Synnax Desktop");
+  });
+
+  it("should render the post without the download when GitHub is down", async () => {
+    const post = await renderPost("/blog/a-post", async () => {
+      throw new Error("GitHub is down");
+    });
+    expect(post.some(({ tagName }) => tagName === "article")).toBe(true);
+    expect(post.filter(({ properties }) => properties.dataEvent != null)).toEqual([]);
+  });
 });

@@ -59,6 +59,17 @@ describe("stills", () => {
       expect(lineplot?.box).toEqual(box(BASE, ["lineplot"]));
     });
 
+    it("should give a region that a step names that step and its own title", () => {
+      const code = hotspots(BASE).find((h) => h.title === "Connect from code");
+      expect(code?.step?.key).toBe("help");
+      expect(code?.box).toEqual(box(BASE, ["code"]));
+    });
+
+    it("should give a region the title of its step", () => {
+      const help = hotspots(BASE).find((h) => h.title === "Help and updates");
+      expect(help?.box).toEqual(box(BASE, ["help"]));
+    });
+
     it("should give a region with no step of its key no step", () => {
       const keys = hotspots("search").map((h) => h.step?.key);
       expect(keys).toEqual([undefined, "search"]);

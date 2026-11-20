@@ -35,11 +35,11 @@ export const useAddNode = () => {
   }: AddNodeProps<V>) => {
     const config: Node.Config = Node.createConfig(input);
     if (Node.isCustomConfig(config)) {
-      const sym = client?.schematics.symbols.getCached(config.specKey);
+      const sym = client?.schematics.symbols.watch(config.specKey).getCached();
       if (query.isLive(sym)) config.label.label = sym.name;
     }
     dispatch(
-      schematic.setNode({ node: { key, position: position ?? xy.ZERO }, config }),
+      schematic.setNode({ node: { key, position: position ?? xy.ZERO, config } }),
     );
   };
 };
@@ -50,7 +50,7 @@ const defaultLabel = (client: Client, config: Node.Config): string | undefined =
     const spec = Node.resolveSpec(config.variant);
     return spec.label ?? spec.name;
   }
-  const sym = client.schematics.symbols.getCached(config.specKey);
+  const sym = client.schematics.symbols.watch(config.specKey).getCached();
   return query.isLive(sym) ? sym.name : undefined;
 };
 
@@ -64,11 +64,12 @@ export const useChangeSymbol = () => {
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return <V extends Node.Variant>(keys: readonly string[], input: Node.Input<V>) => {
-    const s = client?.schematics.getCached({ key });
+    const s = client?.schematics.watch({ key }).getCached();
     if (client == null || !query.isLive(s)) return;
     const actions = keys.flatMap((k) => {
-      const config = s.configs[k];
-      if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
+      const config = s.nodes.find((n) => n.key === k)?.config;
+      if (config == null || !Node.isConfig(config))
+        throw new Error(`Element ${k} is not a symbol`);
       const next = Node.changeConfig(config, input);
       if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
       if (
@@ -77,7 +78,7 @@ export const useChangeSymbol = () => {
         config.label.label === defaultLabel(client, config)
       )
         next.label.label = defaultLabel(client, next) ?? next.label.label;
-      return [schematic.setConfig({ key: k, config: next })];
+      return schematic.setChanged({ key: k, base: config, next });
     });
     if (actions.length > 0) dispatch(actions);
   };

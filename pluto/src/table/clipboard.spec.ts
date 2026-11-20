@@ -11,10 +11,7 @@ import { table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import {
-  type ClipboardEvent as ReactClipboardEvent,
-  type PropsWithChildren,
-} from "react";
+import type { ClipboardEvent as ReactClipboardEvent, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/table";
@@ -56,6 +53,12 @@ const valueCfg = (units: string): table.CellConfig =>
 const textCfg = (value: string): table.CellConfig =>
   table.cellConfigZ.parse({ variant: "text", value });
 
+const cell = (key: string, config: table.CellConfig): table.Cell => ({ key, config });
+
+// configOf returns the config of the cell with the given key, if a row holds it.
+const configOf = (t: table.Table | undefined, key: string) =>
+  t?.rows.flatMap((r) => r.cells).find((c) => c.key === key)?.config;
+
 describe("table clipboard", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -66,25 +69,36 @@ describe("table clipboard", () => {
     const proj = await client.projects.create({
       name: `clipboard_ws_${uuid.create()}`,
     });
-    return await client.tables.create(proj.key, {
+    return await client.tables.create({
+      project: proj.key,
       name: "clipboard_test",
       rows: [
-        { size: 30, cells: ["a", "b", "c"] },
-        { size: 30, cells: ["d", "e", "f"] },
-        { size: 30, cells: ["g", "h", "i"] },
+        {
+          size: 30,
+          cells: [
+            cell("a", valueCfg("A")),
+            cell("b", valueCfg("B")),
+            cell("c", valueCfg("C")),
+          ],
+        },
+        {
+          size: 30,
+          cells: [
+            cell("d", textCfg("D")),
+            cell("e", textCfg("E")),
+            cell("f", textCfg("F")),
+          ],
+        },
+        {
+          size: 30,
+          cells: [
+            cell("g", valueCfg("G")),
+            cell("h", valueCfg("H")),
+            cell("i", valueCfg("I")),
+          ],
+        },
       ],
       columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
-      cells: {
-        a: valueCfg("A"),
-        b: valueCfg("B"),
-        c: valueCfg("C"),
-        d: textCfg("D"),
-        e: textCfg("E"),
-        f: textCfg("F"),
-        g: valueCfg("G"),
-        h: valueCfg("H"),
-        i: valueCfg("I"),
-      },
     });
   };
 
@@ -159,8 +173,8 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a).toMatchObject(valueCfg("X"));
-        expect(result.current.retrieve?.cells.b).toMatchObject(valueCfg("Y"));
+        expect(configOf(result.current.retrieve, "a")).toMatchObject(valueCfg("X"));
+        expect(configOf(result.current.retrieve, "b")).toMatchObject(valueCfg("Y"));
       });
       expect(result.current.retrieve?.rows).toHaveLength(3);
       expect(result.current.retrieve?.columns).toHaveLength(3);
@@ -182,7 +196,7 @@ describe("table clipboard", () => {
       await waitFor(() => {
         expect(result.current.retrieve?.columns).toHaveLength(4);
         expect(result.current.retrieve?.rows[0].cells).toHaveLength(4);
-        expect(result.current.retrieve?.cells.c).toMatchObject(textCfg("P"));
+        expect(configOf(result.current.retrieve, "c")).toMatchObject(textCfg("P"));
       });
     });
 
@@ -201,7 +215,7 @@ describe("table clipboard", () => {
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
         expect(result.current.retrieve?.rows).toHaveLength(4);
-        expect(result.current.retrieve?.cells.g).toMatchObject(textCfg("P"));
+        expect(configOf(result.current.retrieve, "g")).toMatchObject(textCfg("P"));
       });
     });
 
@@ -235,7 +249,7 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       expect(ev.defaultPrevented).toBe(false);
-      expect(result.current.retrieve?.cells.a).toMatchObject(valueCfg("A"));
+      expect(configOf(result.current.retrieve, "a")).toMatchObject(valueCfg("A"));
     });
 
     it("is a no-op when the payload version is unknown", async () => {
@@ -249,7 +263,7 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       expect(ev.defaultPrevented).toBe(false);
-      expect(result.current.retrieve?.cells.a).toMatchObject(valueCfg("A"));
+      expect(configOf(result.current.retrieve, "a")).toMatchObject(valueCfg("A"));
     });
 
     it("fires onPaste with the keys that were overwritten", async () => {
@@ -312,10 +326,10 @@ describe("table clipboard", () => {
       const pasteEv = makeClipboardEvent({ [MIME]: wire });
       await act(async () => pasteHook.result.current.onPaste(pasteEv));
       await waitFor(() => {
-        expect(retrieve.result.current?.cells.e).toMatchObject(valueCfg("A"));
-        expect(retrieve.result.current?.cells.f).toMatchObject(valueCfg("B"));
-        expect(retrieve.result.current?.cells.h).toMatchObject(textCfg("D"));
-        expect(retrieve.result.current?.cells.i).toMatchObject(textCfg("E"));
+        expect(configOf(retrieve.result.current, "e")).toMatchObject(valueCfg("A"));
+        expect(configOf(retrieve.result.current, "f")).toMatchObject(valueCfg("B"));
+        expect(configOf(retrieve.result.current, "h")).toMatchObject(textCfg("D"));
+        expect(configOf(retrieve.result.current, "i")).toMatchObject(textCfg("E"));
       });
     });
   });

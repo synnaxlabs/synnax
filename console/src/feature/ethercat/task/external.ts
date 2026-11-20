@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Read, ReadSelectable } from "@/feature/ethercat/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/ethercat/task/types";
-import { Write, WriteSelectable } from "@/feature/ethercat/task/Write";
-import { type Selector } from "@/platform/selector";
-import { type Task } from "@/platform/task";
+import { Panel } from "@/platform/panel";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/ethercat/task/commands";
-export * from "@/feature/ethercat/task/Read";
+export * from "@/feature/ethercat/task/create";
+export * from "@/feature/ethercat/task/integration";
 export * from "@/feature/ethercat/task/types";
-export * from "@/feature/ethercat/task/Write";
 
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
+  [READ_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ethercat/task/Read"),
+    "Read",
+  ),
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ethercat/task/Write"),
+    "Write",
+  ),
 };
-
-export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];

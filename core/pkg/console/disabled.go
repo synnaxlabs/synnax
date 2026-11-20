@@ -11,4 +11,13 @@
 
 package console
 
-var defaultFS = fallbackFS
+import (
+	"embed"
+	"io/fs"
+)
+
+var (
+	defaultFS = fallbackFS
+	// defaultUpdateFS is an empty file system, so the Core serves no update.
+	defaultUpdateFS fs.FS = embed.FS{}
+)

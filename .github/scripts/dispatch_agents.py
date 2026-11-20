@@ -24,24 +24,19 @@ Usage: dispatch_agents.py [--dry-run] [--cap N] [--output FILE]
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
-import urllib.parse
 import urllib.request
 from collections import Counter
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
+
+from linear_app import linear_token
 
 TEAM = "SY"
 LABEL = "agent-ready"
 STARTED_STATE = "In Progress"
-LINEAR_OAUTH = "https://api.linear.app/oauth"
-# Linear revokes every app token when a request asks for other scopes.
-LINEAR_SCOPE = "read,write"
 _KEY = re.compile(r"\bSY-(\d+)\b", re.IGNORECASE)
 _FIELD = re.compile(r"^[-*]?\s*(RFC|Phase):\s*`?([^`\s]+)`?\s*$", re.MULTILINE)
 
@@ -178,33 +173,6 @@ def select(
                 Dispatch(issue=issue, rfc=fields["RFC"], phase=fields["Phase"])
             )
     return dispatches, skipped
-
-
-@contextmanager
-def linear_token() -> Iterator[str]:
-    """Yields a short-lived Linear app token and revokes it on exit, so runs do not
-    pile up toward Linear's limit of active tokens per app."""
-    form = {
-        "grant_type": "client_credentials",
-        "client_id": os.environ["LINEAR_CLIENT_ID"],
-        "client_secret": os.environ["LINEAR_CLIENT_SECRET"],
-        "scope": LINEAR_SCOPE,
-    }
-    with urllib.request.urlopen(
-        f"{LINEAR_OAUTH}/token", urllib.parse.urlencode(form).encode(), timeout=30
-    ) as resp:
-        token: str = json.load(resp)["access_token"]
-    if os.environ.get("GITHUB_ACTIONS") == "true":
-        print(f"::add-mask::{token}", flush=True)
-    try:
-        yield token
-    finally:
-        revoke = {"token": token, "token_type_hint": "access_token"}
-        urllib.request.urlopen(
-            f"{LINEAR_OAUTH}/revoke",
-            urllib.parse.urlencode(revoke).encode(),
-            timeout=30,
-        ).close()
 
 
 def _linear(token: str, query: str, variables: dict[str, Any]) -> dict[str, Any]:

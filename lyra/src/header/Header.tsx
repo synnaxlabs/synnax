@@ -9,8 +9,8 @@
 
 import "@/header/Header.css";
 
-import { type text } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { text } from "@synnaxlabs/x";
+import type { ReactElement, ReactNode } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -44,7 +44,9 @@ export { useContext };
  * @example
  * <Header.Header level="h4">
  *   <Header.Title>Ranges</Header.Title>
- *   <Header.Actions><Button.Button onClick={add}><Icon.Add /></Button.Button></Header.Actions>
+ *   <Header.Actions>
+ *     <Button.Button onClick={add}><Icon.Add /></Button.Button>
+ *   </Header.Actions>
  * </Header.Header>
  * @param props.level - The font level for the header. See the {@link Typography.Text}
  * component for all possible levels. Default is "h1."

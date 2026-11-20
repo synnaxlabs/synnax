@@ -9,10 +9,10 @@
 
 import { type channel, DataType, type log, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { addChannelsToActiveLog } from "@/platform/log/addChannelsToActiveLog";
-import { uniqueName } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -26,7 +26,7 @@ const newChannel = async (): Promise<channel.Key> =>
   ).key;
 
 const newLog = async (project: string): Promise<log.Key> =>
-  (await client.logs.create(project, { name: uniqueName("log") })).key;
+  (await client.logs.create({ project, name: uniqueName("log") })).key;
 
 const channelsOf = async (key: log.Key): Promise<channel.Key[]> =>
   (await client.logs.retrieve(key)).channels.map((e) => e.channel);

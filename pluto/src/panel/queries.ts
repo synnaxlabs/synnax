@@ -9,73 +9,106 @@
 
 import {
   NotFoundError,
-  type ontology,
   panel,
-  project,
+  type project,
   query,
+  type resource,
   UnexpectedError,
+  type user,
 } from "@synnaxlabs/client";
-import { array, compare, deep, type optional, verbs } from "@synnaxlabs/x";
+import { array, deep, type optional, verbs } from "@synnaxlabs/x";
 
 import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Scope, TabScope } from "@/panel/scope";
 import { Synnax } from "@/synnax";
+import { User } from "@/user";
 
 const RESOURCE_NAME = "panel";
 const PLURAL_RESOURCE_NAME = "panels";
 
 export type RetrieveQuery = { key: panel.Key };
 
-export const { use, useEnsure, useInvalidate, useResult, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, panel.Panel>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-    onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
-    getCached: ({ client, query }) => client.panels.getCached(query),
-    awaitCreation: true,
-  });
-
-export type RetrieveKeysByProjectQuery = { project: project.Key };
-
-const childrenOf = (projectKey: project.Key): panel.RetrieveRequest => ({
-  parent: project.ontologyID(projectKey),
+export const {
+  use,
+  useEnsure,
+  useInvalidate,
+  useResult,
+  createSelector,
+  createResultSelector,
+} = Flux.createRetrieve<RetrieveQuery, panel.Panel>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.panels.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.panels.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.panels.watch(query.key).getCached(),
+  awaitCreation: true,
 });
+
+/** Compared by value: a change to the panel's layout is silenced. */
+export const useResultAppearance = createResultSelector(
+  ({ icon, color }) => ({ icon, color }),
+  (a, b) => a.icon === b.icon && deep.equal(a.color, b.color),
+);
+
+export type RetrieveKeysByProjectQuery = { project: project.Key; user: user.Key };
 
 const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
 
-// A panel's parent lives in the ontology graph and is absent from the panel record, so
-// membership is resolved through the project's children. The answer carries keys alone:
-// consumers read each panel's own fields, so a rename must not re-answer the query.
+// The answer carries keys alone: consumers read each panel's own fields, so a rename
+// must not re-answer the query. It holds the shared panels and the user's drafts.
 export const { use: useKeysByProject } = Flux.createRetrieve<
   RetrieveKeysByProjectQuery,
   panel.Key[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { project: projectKey } }) =>
-    keysOf(await client.panels.retrieve(childrenOf(projectKey))),
-  onChange: ({ client, query: { project: projectKey } }, handler) =>
-    client.panels.onChange(childrenOf(projectKey), (result) =>
-      handler(query.isLive(result) ? keysOf(result) : undefined),
+  retrieve: async ({ client, query: { project, user } }) =>
+    keysOf(
+      (await client.panels.watch({ where: panel.visibleTo(project, user) }).retrieve())
+        .records,
     ),
-  getCached: ({ client, query: { project: projectKey } }) => {
-    const cached = client.panels.getCached(childrenOf(projectKey));
-    return query.isLive(cached) ? keysOf(cached) : undefined;
+  onChange: ({ client, query: { project, user } }, handler) =>
+    client.panels
+      .watch({ where: panel.visibleTo(project, user) })
+      .onChange((w) => handler(w == null ? undefined : keysOf(w.records))),
+  getCached: ({ client, query: { project, user } }) => {
+    const window = client.panels
+      .watch({ where: panel.visibleTo(project, user) })
+      .getCached();
+    return window == null ? undefined : keysOf(window.records);
   },
-  equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
+  equal: array.equal,
 });
 
 export interface KeyParams {
   key: panel.Key;
 }
 
-const useCanEditBase = ({ key }: KeyParams): boolean =>
-  Access.useUpdateGranted(panel.ontologyID(key));
+const useResultOwner = createResultSelector(({ owner }) => owner ?? null);
+
+export interface OwnedParams {
+  key: panel.Key | null;
+}
+
+/**
+ * Reports whether the panel is a draft of the signed-in user, who can edit it without
+ * update access. False while the panel or the user loads, and for a null key.
+ */
+export const useOwned = ({ key }: OwnedParams): boolean => {
+  const owner = useResultOwner(key == null ? null : { key }).data;
+  const self = User.useResultKey({}).data;
+  return owner != null && owner === self;
+};
+
+const useCanEditBase = ({ key }: KeyParams): boolean => {
+  const granted = Access.useUpdateGranted(panel.resourceID(key));
+  return useOwned({ key }) || granted;
+};
 
 /**
  * Reports whether the subject may restructure the panel. Every mosaic gesture, from
  * closing a tab to resizing a split, reduces to one dispatch against the panel
- * document, so a single update grant answers all of them.
+ * document, so update access or owning the draft answers all of them.
  */
 export const useCanEdit = Scope.bindHook(useCanEditBase);
 
@@ -91,9 +124,9 @@ const requireTab = (root: panel.Node, { key, tabKey }: TabContentParams) => {
   return tab;
 };
 
-// bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys are
-// sourced from the surrounding Panel and Tab scopes; either may be overridden explicitly.
-// The two-level analogue of scope.bindHook.
+// bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys
+// are sourced from the surrounding Panel and Tab scopes; either may be overridden
+// explicitly. The two-level analogue of scope.bindHook.
 type BoundTabHook<Args extends TabContentParams, R> = optional.Arg<
   optional.Optional<Args, "key" | "tabKey">,
   R
@@ -168,7 +201,7 @@ const tabKeysOf = (root: panel.Node): string[] => {
 export const useTabKeys = Scope.bindHook(
   createSelector<string[]>(
     ({ root }) => tabKeysOf(root),
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 
@@ -177,6 +210,9 @@ export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export const useIcon = Scope.bindHook(createSelector(({ icon }) => icon));
+
+/** Reports whether the panel is a draft, which has an owner. */
+export const useDraft = Scope.bindHook(createSelector(({ owner }) => owner != null));
 
 export const useColor = Scope.bindHook(
   createSelector(({ color }) => color, deep.equal),
@@ -209,8 +245,8 @@ export const useTabVariant = bindTabHook(
   ),
 );
 
-// useTabType selects the renderer type of the active tab: the resource's
-// ontology type for resource tabs, the view type for view tabs.
+// useTabType selects the renderer type of the active tab: the resource type for
+// resource tabs, the view type for view tabs.
 export const useTabType = bindTabHook(
   createSelector<string, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
@@ -218,29 +254,18 @@ export const useTabType = bindTabHook(
   }),
 );
 
-// useTabResource selects the ontology ID displayed by the active resource tab.
+// useTabResource selects the resource ID displayed by the active resource tab.
 // Resource renderers call this to learn their own document key. Throws
 // UnexpectedError when the active tab is not a resource tab: only renderers mounted
 // for a resource tab may call this, so a wrong-variant read is a programmer bug.
 export const useTabResource = bindTabHook(
-  createSelector<ontology.ID, TabContentParams>(({ root }, params) => {
+  createSelector<resource.ID, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
     if (tab.variant !== "resource")
       throw new UnexpectedError(`attempted to select resource on view tab ${tab.key}`);
     return tab.resource;
   }, deep.equal),
 );
-
-export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
-
-export const useList = Flux.createList<ListParams, panel.Key, panel.Panel>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.panels.retrieve(key),
-  onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.panels.onChange(key, handler),
-  getCached: ({ client, query }) => client.panels.getCached(query),
-});
 
 export interface CreateParams extends panel.New {}
 
@@ -258,11 +283,9 @@ export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.panels.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.panels.rename(key, name);
     return data;
   },
 });
@@ -298,11 +321,11 @@ export const useRedo = Scope.bindHook(useRedoBase);
 // deleting console closes its own tabs while remote consoles tombstone theirs.
 // removeTab on an absent tab is a no-op, so redundant calls are harmless.
 export const useCloseResourceTabs = (): ((
-  ids: ontology.ID | ontology.ID[],
+  ids: resource.ID | resource.ID[],
 ) => void) => {
   const client = Synnax.use();
   const { dispatch } = useDispatch();
-  return (ids: ontology.ID | ontology.ID[]) =>
+  return (ids: resource.ID | resource.ID[]) =>
     client?.panels.listCached().forEach((p) => {
       const actions = array
         .toArray(ids)
@@ -351,7 +374,7 @@ export const useMoveTabToPanel = (): ((
     });
     if (!inserted) return undefined;
     await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
-    const cached = client?.panels.getCached(destination);
+    const cached = client?.panels.watch(destination).getCached();
     return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
   };
 };
@@ -359,11 +382,11 @@ export const useMoveTabToPanel = (): ((
 // useSetCurrentTabResource swaps the current tab's content to the given resource,
 // clearing any view. The selector flow uses this to fill the tab in place once the
 // user picks a visualization.
-export const useSetCurrentTabResource = (): ((resource: ontology.ID) => void) => {
+export const useSetCurrentTabResource = (): ((id: resource.ID) => void) => {
   const dispatch = useSingleDispatch();
   const tabKey = TabScope.use();
-  return (resource: ontology.ID) =>
-    dispatch(panel.setTabResource({ key: tabKey, resource }));
+  return (id: resource.ID) =>
+    dispatch(panel.setTabResource({ key: tabKey, resource: id }));
 };
 
 // useSetCurrentTabView swaps the current tab's content to the given inline view,

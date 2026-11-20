@@ -11,7 +11,6 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { type CrudeTimeSpan, deep, type destructor, type record } from "@synnaxlabs/x";
 import {
-  memo,
   type PropsWithChildren,
   type ReactElement,
   useLayoutEffect,
@@ -19,14 +18,14 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import {
-  type CallersFromSchema,
-  type EmptyMethodsSchema,
-  type MethodsSchema,
+import type {
+  CallersFromSchema,
+  EmptyMethodsSchema,
+  MethodsSchema,
 } from "@/aether/aether/aether";
-import { type MainComms } from "@/aether/aether/message";
+import type { MainComms } from "@/aether/aether/message";
 import { type Handle, type RawSetArg, Store } from "@/aether/store";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */
@@ -119,6 +118,8 @@ interface UseLifecycleProps<
   /** Fired on worker-pushed state changes only (not on local setState). */
   onAetherChange?: StateHandler<z.infer<StateSchema>>;
   methods?: Methods;
+  /** Timeout for this component's async methods. Defaults to the provider's timeout. */
+  invokeTimeout?: CrudeTimeSpan;
 }
 
 /** Registers a component with the enclosing {@link Provider}'s {@link Store} and
@@ -138,6 +139,7 @@ export const useLifecycle = <
   initialTransfer = [],
   onAetherChange,
   methods: methodsSchema,
+  invokeTimeout,
 }: UseLifecycleProps<StateSchema, Methods>): UseLifecycleReturn<
   StateSchema,
   Methods
@@ -155,6 +157,7 @@ export const useLifecycle = <
       initialState,
       initialTransfer,
       methodsSchema,
+      invokeTimeout,
       onReceiveRef,
     }),
   );
@@ -276,9 +279,9 @@ export interface CompositeProps extends PropsWithChildren {
 
 /** Pushes a new aether path into the context so descendants register as children of the
  * composite component identified by `path`. */
-export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
+export const Composite = ({ children, path }: CompositeProps): ReactElement => {
   const ctx = useContext();
   const value: ContextValue = { ...ctx, path };
   return <Context value={value}>{children}</Context>;
-});
+};
 Composite.displayName = "Aether.Composite";

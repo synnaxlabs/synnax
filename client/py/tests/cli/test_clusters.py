@@ -8,39 +8,45 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
+from typing import override
 from uuid import UUID, uuid4
 
 import pytest
-from keyring.backend import KeyringBackend
-from keyring.errors import KeyringError, PasswordDeleteError
+from keyring.errors import KeyringError
 
 import synnax as sy
-from synnax.cli import connect, console
-from synnax.cli.flow import Context
-from synnax.cli.login import run as login
-from synnax.config import Cluster, Clusters, File
+from synnax.cli import connect
+from synnax.config import KEYCHAIN_UNAVAILABLE_MSG, Cluster, Clusters, File
+from synnax.exceptions import ConfigurationError
 from synnax.options import Options
+from tests.cli.scripted import Scripted
+from tests.memory_keyring import MemoryKeyring, NoKeychain
 
 
-class MemoryKeyring(KeyringBackend):
-    priority = 1
+class WinError(Exception):
+    """Has the shape of pywintypes.error, which only exists on Windows."""
 
-    def __init__(self) -> None:
-        super().__init__()  # type: ignore[no-untyped-call]
-        self.values: dict[tuple[str, str], str] = {}
+    def __init__(self, winerror: int):
+        super().__init__(winerror, "CredRead", "error")
+        self.winerror = winerror
 
+
+class NoLogonSessionKeyring(MemoryKeyring):
+    """Fails as the Windows backend does in a session with no credential store. 1312
+    is ERROR_NO_SUCH_LOGON_SESSION.
+    """
+
+    def __init__(self, winerror: int = 1312):
+        super().__init__()
+        self._winerror = winerror
+
+    @override
     def get_password(self, service: str, username: str) -> str | None:
-        return self.values.get((service, username))
-
-    def set_password(self, service: str, username: str, password: str) -> None:
-        self.values[(service, username)] = password
-
-    def delete_password(self, service: str, username: str) -> None:
-        if self.values.pop((service, username), None) is None:
-            raise PasswordDeleteError(username)
+        raise WinError(self._winerror)
 
 
 class UndeletableKeyring(MemoryKeyring):
+    @override
     def delete_password(self, service: str, username: str) -> None:
         raise KeyringError("locked")
 
@@ -66,9 +72,50 @@ def save_legacy_password(
 
 
 def block_config_writes(clusters: Clusters) -> None:
+    """Replaces the config file with a directory. Opening it for writing then raises
+    IsADirectoryError on POSIX and PermissionError on Windows."""
     path = clusters.internal.config_file
     path.unlink()
     path.mkdir()
+
+
+@pytest.mark.cli
+class TestNoKeychain:
+    def test_get_without_a_saved_login(self, tmp_path: Path) -> None:
+        """Should return None without using the keychain when nothing is saved."""
+        assert Clusters(File(config_dir=tmp_path), NoKeychain()).get() is None
+
+    def test_get_a_saved_login(self, tmp_path: Path) -> None:
+        """Should name the saved Core and point to the environment variables."""
+        config = File(config_dir=tmp_path)
+        Clusters(config, MemoryKeyring()).set(
+            Cluster(options=Options(host="core.lab", port=9090, api_key="syk_k"))
+        )
+        with pytest.raises(ConfigurationError) as e:
+            Clusters(config, NoKeychain()).get()
+        assert str(e.value) == (
+            "Cannot read the login saved for core.lab:9090. " + KEYCHAIN_UNAVAILABLE_MSG
+        )
+
+    def test_set(self, tmp_path: Path) -> None:
+        """Should save nothing, not even to the config file."""
+        clusters = Clusters(File(config_dir=tmp_path), NoKeychain())
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_k")))
+        assert clusters.internal.get("clusters.default") is None
+
+    def test_windows_session_without_a_credential_store(self, tmp_path: Path) -> None:
+        """Should treat the Windows no-logon-session error as no keychain."""
+        clusters = Clusters(File(config_dir=tmp_path), NoLogonSessionKeyring())
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_k")))
+
+    def test_other_windows_errors_propagate(self, tmp_path: Path) -> None:
+        """Should leave a Windows error with another code as it is."""
+        clusters = Clusters(File(config_dir=tmp_path), NoLogonSessionKeyring(5))
+        with pytest.raises(WinError) as e:
+            clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_k")))
+        assert e.value.winerror == 5
 
 
 @pytest.mark.cli
@@ -125,7 +172,7 @@ class TestClustersConfig:
         """Should keep the old address with its own key when the config write fails."""
         clusters.set(Cluster(options=Options(host="a", port=1, api_key="ka")))
         block_config_writes(clusters)
-        with pytest.raises(IsADirectoryError):
+        with pytest.raises((IsADirectoryError, PermissionError)):
             clusters.set(Cluster(options=Options(host="b", port=1, api_key="kb")))
         assert keyring.values == {("synnax.api_key", "default@a:1"): "ka"}
         got = clusters.get()
@@ -139,7 +186,7 @@ class TestClustersConfig:
         opts = Options(host="h", port=1, username="u", password="p")
         save_legacy_password(clusters, keyring, opts)
         block_config_writes(clusters)
-        with pytest.raises(IsADirectoryError):
+        with pytest.raises((IsADirectoryError, PermissionError)):
             clusters.set(Cluster(options=Options(host="h", port=1, api_key="k")))
         assert keyring.values == {("synnax", "default"): "p"}
         got = clusters.get()
@@ -183,8 +230,9 @@ class TestLogin:
         """Should save an API key in place of the password it logged in with."""
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
-        mock = console.Mock(responses=[host, port, username, password, False])
-        login(Context(console=mock), clusters)
+        assert connect.login(
+            Scripted(host, port, username, password, "n").prompt, clusters
+        )
         saved = clusters.get()
         assert saved is not None
         assert saved.options.api_key.startswith("syk_")
@@ -201,11 +249,11 @@ class TestLogin:
         """Should delete the key an earlier login saved once the new one is saved."""
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
-        responses = [host, port, username, password, False]
-        login(Context(console=console.Mock(responses=list(responses))), clusters)
+        answers = (host, port, username, password, "n")
+        assert connect.login(Scripted(*answers).prompt, clusters)
         first = clusters.get()
         assert first is not None
-        login(Context(console=console.Mock(responses=list(responses))), clusters)
+        assert connect.login(Scripted(*answers).prompt, clusters)
         second = clusters.get()
         assert second is not None
         assert second.options.api_key != first.options.api_key
@@ -218,72 +266,39 @@ class TestLogin:
         clusters: Clusters,
         login_info: tuple[str, int, str, str],
         client: sy.Synnax,
+        empty_role: sy.Role,
     ) -> None:
         """Should log in as a second account and keep the key the first one saved."""
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
-        login(
-            Context(
-                console=console.Mock(responses=[host, port, username, password, False])
-            ),
-            clusters,
+        assert connect.login(
+            Scripted(host, port, username, password, "n").prompt, clusters
         )
         first = clusters.get()
         assert first is not None
         other_username = f"cli-{uuid4()}"
-        other = client.users.create(username=other_username, password="password123")
-        login(
-            Context(
-                console=console.Mock(
-                    responses=[host, port, other_username, "password123", False]
-                )
-            ),
-            clusters,
+        other = client.users.create(
+            username=other_username, password="password123", role=empty_role.key
+        )
+        assert connect.login(
+            Scripted(host, port, other_username, "password123", "n").prompt, clusters
         )
         first_key = sy.auth.api_key_id(first.options.api_key)
         assert first_key in {k.key for k in client.auth.retrieve_keys()}
         client.users.delete(other.key)
         delete_new_keys(client, before)
 
-
-@pytest.mark.cli
-class TestFromClusters:
-    def test_prompts_without_saved_options(
-        self, clusters: Clusters, login_info: tuple[str, int, str, str]
-    ) -> None:
-        """Should prompt for options and save nothing when none are saved."""
-        host, port, username, password = login_info
-        mock = console.Mock(responses=[host, port, username, password, False])
-        assert connect.from_clusters(Context(console=mock), clusters) is not None
-        assert clusters.get() is None
-
-    def test_replaces_saved_password(
+    def test_rejects_invalid_credentials(
         self,
         clusters: Clusters,
-        keyring: MemoryKeyring,
         login_info: tuple[str, int, str, str],
-        client: sy.Synnax,
     ) -> None:
-        """Should replace a saved password with an API key after connecting."""
-        host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
-        save_legacy_password(
-            clusters,
-            keyring,
-            Options(host=host, port=port, username=username, password=password),
-        )
-        connected = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert connected is not None
-        assert ("synnax", "default") not in keyring.values
-        saved = clusters.get()
-        assert saved is not None
-        assert saved.options.api_key.startswith("syk_")
-        keyed = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert keyed is not None
-        assert keyed.auth.session is not None
-        created = {k.key for k in client.auth.retrieve_keys()} - before
-        assert keyed.auth.session.credential in created
-        delete_new_keys(client, before)
+        """Should fail, say why, and save nothing when the password is wrong."""
+        host, port, username, _ = login_info
+        scripted = Scripted(host, port, username, "not-the-password", "n")
+        assert not connect.login(scripted.prompt, clusters)
+        assert scripted.err.getvalue() == "Invalid credentials\n"
+        assert clusters.get() is None
 
     def test_keeps_password_when_save_fails(
         self,
@@ -292,8 +307,8 @@ class TestFromClusters:
         login_info: tuple[str, int, str, str],
         client: sy.Synnax,
     ) -> None:
-        """Should connect, keep the saved password, and delete the new key when the
-        config write fails.
+        """Should keep the saved password and delete the new key when the config write
+        fails.
         """
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
@@ -303,8 +318,9 @@ class TestFromClusters:
             Options(host=host, port=port, username=username, password=password),
         )
         block_config_writes(clusters)
-        connected = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert connected is not None
+        scripted = Scripted(host, port, username, password, "n")
+        assert not connect.login(scripted.prompt, clusters)
+        assert scripted.err.getvalue().startswith("Cannot save the API key:")
         assert keyring.values == {("synnax", "default"): password}
         assert {k.key for k in client.auth.retrieve_keys()} == before
 
@@ -326,11 +342,53 @@ class TestFromClusters:
             keyring,
             Options(host=host, port=port, username=username, password=password),
         )
-        assert (
-            connect.from_clusters(Context(console=console.Mock()), clusters) is not None
+        scripted = Scripted(host, port, username, password, "n")
+        assert connect.login(scripted.prompt, clusters)
+        assert scripted.err.getvalue().startswith(
+            "Saved the API key, but cannot delete the old password: locked"
         )
-        keyed = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert keyed is not None
-        assert keyed.auth.session is not None
-        assert keyed.auth.session.credential not in before
+        saved = clusters.get()
+        assert saved is not None
+        assert saved.options.api_key.startswith("syk_")
+        assert sy.auth.api_key_id(saved.options.api_key) not in before
         delete_new_keys(client, before)
+
+    def test_fails_without_a_keychain(
+        self,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should print one line that points to the environment variables, and delete
+        the key it could not save.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        user = Scripted(host, port, username, password, "n")
+        assert not connect.login(
+            user.prompt, Clusters(File(config_dir=tmp_path), NoKeychain())
+        )
+        assert user.err.getvalue().strip() == KEYCHAIN_UNAVAILABLE_MSG
+        assert {k.key for k in client.auth.retrieve_keys()} == before
+
+    def test_fails_with_a_saved_login_and_no_keychain(
+        self,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should name the saved Core, point to the environment variables, and make
+        no key.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        config = File(config_dir=tmp_path)
+        Clusters(config, MemoryKeyring()).set(
+            Cluster(options=Options(host="core.lab", port=9090, api_key="syk_k"))
+        )
+        user = Scripted(host, port, username, password, "n")
+        assert not connect.login(user.prompt, Clusters(config, NoKeychain()))
+        assert user.err.getvalue().strip() == (
+            "Cannot read the login saved for core.lab:9090. " + KEYCHAIN_UNAVAILABLE_MSG
+        )
+        assert {k.key for k in client.auth.retrieve_keys()} == before

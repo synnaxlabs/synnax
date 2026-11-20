@@ -10,24 +10,25 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import { deep, type payload } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-import { type TimeFormat } from "@/platform/task/payload/types";
-
-const renderSelect = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
-    <Select.Simple<TimeFormat> {...p} resourceName="time format">
-      <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
-      <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
-      <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
-      <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
-      <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
-    </Select.Simple>
-  ),
+const SelectTimeFormat = (
+  p: Omit<Select.SingleSimpleProps<payload.TimeFormat>, "children" | "resourceName">,
+) => (
+  <Select.Simple<payload.TimeFormat> {...p} resourceName="time format">
+    <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
+    <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
+    <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
+    <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
+    <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
+  </Select.Simple>
 );
 
+const renderSelect = Component.renderProp(SelectTimeFormat);
+
 export interface TimeFormatFieldProps {
-  path: string;
+  path: deep.Target<payload.TimeFormat | undefined>;
   label: string;
 }
 
@@ -40,7 +41,7 @@ export const TimeFormatField = ({
   path,
   label,
 }: TimeFormatFieldProps): ReactElement => (
-  <Form.Field<TimeFormat> path={path} label={label} padHelpText={false}>
+  <Form.Field path={deep.present(path)} label={label} padHelpText={false}>
     {renderSelect}
   </Form.Field>
 );

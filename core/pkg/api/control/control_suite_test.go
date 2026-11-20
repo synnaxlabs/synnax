@@ -16,19 +16,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -41,45 +43,45 @@ func TestAPIControl(t *testing.T) {
 }
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	rbacSvc    *rbac.Service
 	userSvc    *user.Service
 	apiSvc     *apicontrol.Service
+	// retrieve runs the Retrieve route as the API layer binds it.
+	retrieve freighter.UnaryHandler[
+		apicontrol.RetrieveRequest,
+		apicontrol.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist := testutil.NewNode(ctx)
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: dist.DB, Ontology: otg,
+	db = dist.DB
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+		DB: dist.DB,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: dist.DB, Ontology: otg, Group: groupSvc,
+		DB: dist.DB, Password: passwordSvc,
 	}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: dist.DB, Ontology: otg, Group: groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: dist.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: dist.DB,
 	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     dist.DB,
+		User:   userSvc,
+		Status: statusSvc,
+	})).RBAC
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostProvider: dist.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: dist.Channel,
+		DB:      dist.DB,
+		HostKey: dist.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      dist.DB,
@@ -95,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(signals.New(signals.Config{
 		DB:      dist.DB,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  dist.Framer,
 	}))
 	controlSvc := MustOpen(control.OpenService(ctx, control.ServiceConfig{
 		Control: dist.Control,
@@ -103,8 +105,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	apiSvc = MustSucceed(apicontrol.NewService(apicontrol.ServiceConfig{
 		Control: controlSvc,
-		RBAC:    rbacSvc,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{
+			DB:   dist.DB,
+			RBAC: rbacSvc,
+			Held: apiauth.HeldTables(),
+		}),
+	)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -112,35 +121,32 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 // authedCtx returns a freighter context carrying u as the authenticated subject.
 func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
+	fctx.Set("Subject", u.ResourceID())
 	return fctx
 }
 
-// newUser creates a user with no role assignments.
+// newUser creates a user that can do nothing.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(userSvc.NewWriter(nil).
-		Create(ctx, user.User{Name: "user-" + uuid.New().String()}))
+	return MustSucceed(
+		rbactestutil.CreateUser(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "user-" + uuid.New().String()},
+		),
+	)
 }
 
-// grantOn assigns a role granting the given actions on the given objects to subject.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	actions []access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: actions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

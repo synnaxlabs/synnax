@@ -7,24 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license } from "@synnaxlabs/client";
+import type { license } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 
 const EDITIONS: Record<license.Edition, string> = { d: "Desktop", e: "Enterprise" };
 
 export const editionLabel = ({ edition }: license.License): string => EDITIONS[edition];
 
+/** The day a license expires, in UTC so every time zone shows the issued date. */
+export const formatExpiry = (exp: number): string =>
+  TimeStamp.seconds(exp)
+    .date()
+    .toLocaleDateString(undefined, { dateStyle: "medium", timeZone: "UTC" });
+
 /** The license's term on one line: when it ends, or the versions it covers. */
 export const describeTerm = ({ exp, maxVersion }: license.License): string => {
-  const until = exp == null ? null : TimeStamp.seconds(exp).toString("ISODate");
+  const until = exp == null ? null : formatExpiry(exp);
   if (until == null && maxVersion == null) return "Perpetual";
   if (until == null) return `Perpetual, covers versions up to ${maxVersion}`;
   if (maxVersion == null) return `Expires ${until}`;
   return `Subscription until ${until}, then versions up to ${maxVersion}`;
 };
 
-export const describeChannels = ({ channels }: license.License): string =>
-  channels === 0 ? "Unlimited" : `Up to ${channels}`;
+/** Whether the license puts no cap on channels. */
+export const channelsUnlimited = ({ channels }: license.License): boolean =>
+  channels === 0;
+
+export const describeChannels = (lic: license.License): string =>
+  channelsUnlimited(lic) ? "Unlimited" : `Up to ${lic.channels}`;
 
 /** Joins the hashes of a fingerprint the way the portal reads them. */
 export const joinFingerprint = (fingerprint: string[]): string =>

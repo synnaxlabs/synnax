@@ -25,18 +25,24 @@ var ErrFault = errors.New("faulty file system")
 type FaultOp string
 
 const (
-	// FaultOpOpen names FS.Open. Only WithFailAfter takes it.
+	// FaultOpOpen names FS.Open.
 	FaultOpOpen FaultOp = "open"
 	// FaultOpReadAt names File.ReadAt.
 	FaultOpReadAt FaultOp = "read_at"
 	// FaultOpWrite names File.Write.
 	FaultOpWrite FaultOp = "write"
+	// FaultOpWriteAt names File.WriteAt.
+	FaultOpWriteAt FaultOp = "write_at"
 	// FaultOpRename names FS.Rename.
 	FaultOpRename FaultOp = "rename"
 	// FaultOpStat names FS.Stat.
 	FaultOpStat FaultOp = "stat"
-	// FaultOpRemove names FS.Remove. Only WithFailAfter takes it.
+	// FaultOpRemove names FS.Remove.
 	FaultOpRemove FaultOp = "remove"
+	// FaultOpList names FS.List.
+	FaultOpList FaultOp = "list"
+	// FaultOpClose names File.Close.
+	FaultOpClose FaultOp = "close"
 )
 
 // FaultyFSOption selects an operation a wrapped FS fails.
@@ -48,6 +54,10 @@ type options struct {
 	fail map[FaultOp]set.Set[string]
 	// after holds every failure back until this operation has run.
 	after FaultOp
+	// beforeWrite runs at the start of every File.Write.
+	beforeWrite func()
+	// beforeRemove runs at the start of every FS.Remove.
+	beforeRemove func()
 }
 
 func newOptions(opts ...FaultyFSOption) options {
@@ -69,6 +79,9 @@ func failOn(op FaultOp, names []string) FaultyFSOption {
 	}
 }
 
+// WithFailOpen fails Open on each of the given paths. With no path, every Open fails.
+func WithFailOpen(names ...string) FaultyFSOption { return failOn(FaultOpOpen, names) }
+
 // WithFailReadAt fails ReadAt on each of the given paths. With no path, every ReadAt
 // fails.
 func WithFailReadAt(names ...string) FaultyFSOption {
@@ -81,6 +94,12 @@ func WithFailWrite(names ...string) FaultyFSOption {
 	return failOn(FaultOpWrite, names)
 }
 
+// WithFailWriteAt fails WriteAt on each of the given paths. With no path, every
+// WriteAt fails.
+func WithFailWriteAt(names ...string) FaultyFSOption {
+	return failOn(FaultOpWriteAt, names)
+}
+
 // WithFailRename fails Rename on each of the given old paths. With no path, every
 // Rename fails.
 func WithFailRename(names ...string) FaultyFSOption {
@@ -90,10 +109,37 @@ func WithFailRename(names ...string) FaultyFSOption {
 // WithFailStat fails Stat on each of the given paths. With no path, every Stat fails.
 func WithFailStat(names ...string) FaultyFSOption { return failOn(FaultOpStat, names) }
 
+// WithFailRemove fails Remove on each of the given paths. With no path, every Remove
+// fails.
+func WithFailRemove(names ...string) FaultyFSOption {
+	return failOn(FaultOpRemove, names)
+}
+
+// WithFailList fails List on each of the given paths. With no path, every List fails.
+func WithFailList(names ...string) FaultyFSOption { return failOn(FaultOpList, names) }
+
+// WithFailClose fails Close on each of the given paths. With no path, every Close
+// fails. A failed Close still closes the file.
+func WithFailClose(names ...string) FaultyFSOption {
+	return failOn(FaultOpClose, names)
+}
+
 // WithFailAfter holds every failure back until op has run at least once, so a test can
 // fail the second half of a sequence.
 func WithFailAfter(op FaultOp) FaultyFSOption {
 	return func(o *options) { o.after = op }
+}
+
+// WithBeforeWrite runs f at the start of every File.Write, and the write waits for f. A
+// test can use it to hold a write in progress.
+func WithBeforeWrite(f func()) FaultyFSOption {
+	return func(o *options) { o.beforeWrite = f }
+}
+
+// WithBeforeRemove runs f at the start of every FS.Remove, and the removal waits for f.
+// A test can use it to hold a removal in progress.
+func WithBeforeRemove(f func()) FaultyFSOption {
+	return func(o *options) { o.beforeRemove = f }
 }
 
 // FaultyFS wraps an FS to fail the operations its options select. It also counts the
@@ -133,13 +179,6 @@ func (fs *FaultyFS) SetOptions(opts ...FaultyFSOption) {
 // OpenFiles returns the number of handles opened through the FS and not yet closed.
 func (fs *FaultyFS) OpenFiles() int { return int(fs.open.Load()) }
 
-// run records that op ran, releasing failures that WithFailAfter holds back on it.
-func (fs *FaultyFS) run(op FaultOp) {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-	fs.mu.ran.Add(op)
-}
-
 func (fs *FaultyFS) fault(op FaultOp, name string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -164,10 +203,13 @@ func (fs *FaultyFS) Sub(name string) (xfs.FS, error) {
 	return &FaultyFS{wrapped: sub, open: fs.open, mu: fs.mu}, nil
 }
 
-// Open opens the file, counting the handle it returns until that handle is closed.
-// Reads and writes through the handle fail as the options select.
+// Open returns ErrFault when WithFailOpen covers name, and opens the file otherwise,
+// counting the handle it returns until that handle is closed. Reads and writes through
+// the handle fail as the options select.
 func (fs *FaultyFS) Open(name string, flag int) (xfs.File, error) {
-	fs.run(FaultOpOpen)
+	if err := fs.fault(FaultOpOpen, name); err != nil {
+		return nil, err
+	}
 	f, err := fs.wrapped.Open(name, flag)
 	if err != nil {
 		return nil, err
@@ -192,14 +234,25 @@ func (fs *FaultyFS) Stat(name string) (xfs.FileInfo, error) {
 	return fs.wrapped.Stat(name)
 }
 
-// Remove passes through to the wrapped FS. No option fails it.
+// Remove returns ErrFault when WithFailRemove covers name, and removes otherwise.
 func (fs *FaultyFS) Remove(name string) error {
-	fs.run(FaultOpRemove)
+	fs.mu.Lock()
+	before := fs.mu.opts.beforeRemove
+	fs.mu.Unlock()
+	if before != nil {
+		before()
+	}
+	if err := fs.fault(FaultOpRemove, name); err != nil {
+		return err
+	}
 	return fs.wrapped.Remove(name)
 }
 
-// List passes through to the wrapped FS. No option fails it.
+// List returns ErrFault when WithFailList covers name, and lists otherwise.
 func (fs *FaultyFS) List(name string) ([]xfs.FileInfo, error) {
+	if err := fs.fault(FaultOpList, name); err != nil {
+		return nil, err
+	}
 	return fs.wrapped.List(name)
 }
 
@@ -220,10 +273,26 @@ func (f *faultyFile) ReadAt(p []byte, off int64) (int, error) {
 }
 
 func (f *faultyFile) Write(p []byte) (int, error) {
+	f.fs.mu.Lock()
+	before := f.fs.mu.opts.beforeWrite
+	f.fs.mu.Unlock()
+	if before != nil {
+		before()
+	}
 	if err := f.fs.fault(FaultOpWrite, f.name); err != nil {
 		return 0, err
 	}
 	return f.File.Write(p)
 }
 
-func (f *faultyFile) Close() error { f.fs.open.Add(-1); return f.File.Close() }
+func (f *faultyFile) WriteAt(p []byte, off int64) (int, error) {
+	if err := f.fs.fault(FaultOpWriteAt, f.name); err != nil {
+		return 0, err
+	}
+	return f.File.WriteAt(p, off)
+}
+
+func (f *faultyFile) Close() error {
+	f.fs.open.Add(-1)
+	return errors.Join(f.File.Close(), f.fs.fault(FaultOpClose, f.name))
+}

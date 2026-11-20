@@ -12,18 +12,15 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
 import { LinePlot } from "@/platform/lineplot";
-import { Session } from "@/session";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const create = LinePlot.useCreate();
-  const dispatch = Session.useDispatch();
   return (keys: string[]) => {
     if (client == null) return;
     handleError(async () => {
-      const ranges = await client.ranges.retrieve({ keys });
-      dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
+      const ranges = await client.ranges.retrieve(keys);
       const names = ranges.map(({ name }) => name);
       create({
         name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,

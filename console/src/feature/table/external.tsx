@@ -13,7 +13,7 @@ import { Table as Base } from "@synnaxlabs/pluto";
 
 import { Selectable } from "@/feature/table/Selectable";
 import { Panel } from "@/platform/panel";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export * from "@/feature/table/commands";
 export * from "@/feature/table/link";
@@ -21,7 +21,7 @@ export * from "@/feature/table/search";
 export * from "@/feature/table/tree";
 export * from "@/platform/table/external";
 
-const TAB_TYPE = table.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = table.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
@@ -29,14 +29,20 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/table/Table"), "Table"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/table/Toolbar"), "Toolbar"),
   Icon: Icon.Table,
+  iconKey: "table",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.Table />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.tables.getCached(resource.key));
-    await client.tables.create(project, corpse);
+    const corpse = query.requireCorpse(client.tables.watch(resource.key).getCached());
+    // A restored record comes back in the project, as its group may be gone.
+    await client.tables.create({
+      ...corpse,
+      project,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),

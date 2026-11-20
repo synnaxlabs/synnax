@@ -12,6 +12,7 @@ import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
 import type { ESLint, Linter, Rule } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
+import jsdoc from "eslint-plugin-jsdoc";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
@@ -19,6 +20,7 @@ import path from "path";
 import tseslint from "typescript-eslint";
 
 import { isWorker } from "./compiler";
+import { aliasImports } from "./rules/aliasImports";
 import { barrelImports } from "./rules/barrelImports";
 import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
 import { namedHookCallers } from "./rules/namedHookCallers";
@@ -33,6 +35,7 @@ const skipWorkers = (rule: Rule.RuleModule): Rule.RuleModule => ({
 
 const synnax: ESLint.Plugin = {
   rules: {
+    "alias-imports": aliasImports,
     "barrel-imports": barrelImports,
     "jsx-filename-extension": jsxFilenameExtension,
     "named-hook-callers": skipWorkers(namedHookCallers),
@@ -76,12 +79,32 @@ const NAMESPACE_IMPORT = {
     "Import a local module's namespace from its barrel, which forms it with `export * as`.",
 };
 
+// Oracle emits X's generated types into these namespaces for generated code.
+const GENERATED_X_NAMESPACES = {
+  name: "@synnaxlabs/x",
+  importNames: ["spatial", "telem"],
+  message:
+    "Generated code alone imports these namespaces. Use the hand-written names, such as bounds.Bounds or TimeSpan.",
+};
+
+const ZOD_SUBPATH = {
+  name: "zod/v4",
+  message: 'Import Zod from "zod".',
+};
+
 const RESTRICTED_SYNTAX = [
   {
     selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
     message: "Write a true boolean attribute without a value.",
   },
   NAMESPACE_IMPORT,
+  // Babel prints `(x as T) < y` without its parentheses, and Vite then reads `T < y` as
+  // type arguments, so the build fails.
+  {
+    selector:
+      "BinaryExpression[operator=/^<=?$/] > :matches(TSAsExpression, TSSatisfiesExpression).left",
+    message: "Assign the cast value to a variable, then compare the variable.",
+  },
 ];
 
 const MEMO_MESSAGE =
@@ -138,6 +161,7 @@ const config: Linter.Config[] = [
     plugins: {
       "simple-import-sort": simpleImportSort,
       "@stylistic": stylistic,
+      jsdoc,
       "react-hooks": {
         rules: {
           ...reactHooks.rules,
@@ -147,6 +171,7 @@ const config: Linter.Config[] = [
       synnax,
     },
     rules: {
+      "synnax/alias-imports": "error",
       "synnax/barrel-imports": "error",
       "synnax/jsx-filename-extension": "error",
       "new-cap": ["error", { capIsNew: false }],
@@ -191,13 +216,30 @@ const config: Linter.Config[] = [
         "error",
         { fixStyle: "inline-type-imports" },
       ],
+      "@typescript-eslint/no-import-type-side-effects": "error",
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
       "@stylistic/jsx-curly-brace-presence": [
         "error",
         { props: "never", children: "never" },
       ],
+      // Prettier leaves comments alone, so this checks only lines that start with one.
+      "@stylistic/max-len": [
+        "error",
+        {
+          code: 88,
+          ignorePattern: "^(?!\\s*(//|/?\\*))",
+          ignoreUrls: true,
+          ignoreTemplateLiterals: true,
+        },
+      ],
+      "jsdoc/no-types": "error",
+      "jsdoc/require-hyphen-before-param-description": ["error", "always"],
       "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
+      "no-restricted-imports": [
+        "error",
+        { paths: [GENERATED_X_NAMESPACES, ZOD_SUBPATH] },
+      ],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@eslint-react/jsx-no-useless-fragment": "error",
@@ -242,6 +284,15 @@ const config: Linter.Config[] = [
       "@eslint-react/naming-convention-context-name": "off",
       "@eslint-react/naming-convention-id-name": "off",
       "@eslint-react/naming-convention-ref-name": "off",
+      "@typescript-eslint/switch-exhaustiveness-check": [
+        "error",
+        { considerDefaultExhaustiveForUnions: true },
+      ],
+      // The React Compiler cannot compile ??=. An empty string falls back on purpose.
+      "@typescript-eslint/prefer-nullish-coalescing": [
+        "error",
+        { ignoreIfStatements: true, ignorePrimitives: { boolean: true, string: true } },
+      ],
       "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/use-unknown-in-catch-callback-variable": "error",
       "@typescript-eslint/only-throw-error": [
@@ -290,17 +341,14 @@ const config: Linter.Config[] = [
         },
       ],
     },
-    settings: {
-      "import/resolver": {
-        typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
-        node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
-      },
-    },
   },
   {
-    // Oracle imports one generated module into another as a namespace.
+    // Oracle imports one generated module into another as a namespace. A generated file
+    // follows its generator, so its comment length is not checked.
     files: ["**/*.gen.ts"],
     rules: {
+      "@stylistic/max-len": "off",
+      "no-restricted-imports": "off",
       "no-restricted-syntax": [
         "error",
         ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),
@@ -318,9 +366,11 @@ const config: Linter.Config[] = [
     // barrel's own body and drops any stylesheet it imports.
     files: ["**/index.ts", "**/index.tsx", "**/external.ts", "**/external.tsx"],
     rules: {
+      // This replaces the rule's whole option list, so it repeats the paths.
       "no-restricted-imports": [
         "error",
         {
+          paths: [GENERATED_X_NAMESPACES, ZOD_SUBPATH],
           patterns: [
             {
               group: ["*.css"],

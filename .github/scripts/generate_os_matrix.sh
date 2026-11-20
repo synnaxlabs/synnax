@@ -14,7 +14,6 @@
 BUILD_WINDOWS=$1
 BUILD_MACOS=$2
 BUILD_UBUNTU=$3
-SIGN_BINARIES=$4
 
 OS_LIST=""
 
@@ -24,11 +23,7 @@ fi
 
 if [ "$BUILD_MACOS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    if [ "$SIGN_BINARIES" = "true" ]; then
-        OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"os-name\":\"macos\",\"executable\":\"\"}"
-    else
-        OS_LIST="${OS_LIST}{\"os\":\"macos-build-bot\",\"os-name\":\"macos\",\"executable\":\"\"}"
-    fi
+    OS_LIST="${OS_LIST}{\"os\":\"macos-build-bot\",\"os-name\":\"macos\",\"executable\":\"\"}"
 fi
 
 if [ "$BUILD_UBUNTU" = "true" ]; then

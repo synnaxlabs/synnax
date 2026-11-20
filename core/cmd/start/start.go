@@ -20,31 +20,30 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	disttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
-	xservice "github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -57,13 +56,16 @@ type CoreConfig struct {
 	validateChannelNames *bool
 	memBacked            *bool
 	noDriver             *bool
+	updateBackupDisabled *bool
 	alamos.Instrumentation
 	dataPath             string
+	secretsKeyFile       string
+	secretsDir           string
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
-	peers                []address.Address
 	disabledIntegrations []string
+	authMethods          []auth.Method
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
 	taskShutdownTimeout  time.Duration
@@ -72,14 +74,18 @@ type CoreConfig struct {
 	slowConsumerTimeout  time.Duration
 	sessionIdleTimeout   time.Duration
 	taskWorkerCount      uint8
+	secretsKey           secret.EncryptionKey
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
 
-var DefaultCoreConfig = CoreConfig{
-	certFactoryConfig: cert.DefaultFactoryConfig,
-	// a Core installed before the flag existed starts without it
-	sessionIdleTimeout: auth.DefaultIdleTimeout,
+func defaultCoreConfig() CoreConfig {
+	return CoreConfig{
+		certFactoryConfig: cert.DefaultFactoryConfig(),
+		// a Core installed before the flag existed starts without it
+		sessionIdleTimeout: auth.DefaultIdleTimeout,
+		authMethods:        []auth.Method{auth.MethodPassword, auth.MethodAPIKey},
+	}
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
@@ -106,18 +112,33 @@ func (c CoreConfig) Validate() error {
 	v.NotNil("auto_cert", c.autoCert)
 	v.NotNil("mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	if c.insecure != nil && !*c.insecure && (len(c.peers) > 0 || c.driverEnabled()) {
+	if c.insecure != nil && !*c.insecure && c.driverEnabled() {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	v.NotEmptyString("data_path", c.dataPath)
 	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
 	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
 	v.NotNil("no_driver", c.noDriver)
+	v.NotNil("update_backup_disabled", c.updateBackupDisabled)
+	v.NotEmptySlice("auth_methods", c.authMethods)
+	for _, m := range c.authMethods {
+		v.Ternaryf("auth_methods", !m.IsValid(), "unknown method %q", m)
+	}
+	v.Ternary(
+		"auth_methods",
+		c.driverEnabled() && !lo.Contains(c.authMethods, auth.MethodAPIKey),
+		"must include api_key while the embedded Driver is on",
+	)
 	v.Exec(c.rootCredentials.Validate)
 	v.NonZero("task_op_timeout", c.taskOpTimeout)
 	v.NonZero("task_poll_interval", c.taskPollInterval)
 	v.NonZero("task_shutdown_timeout", c.taskShutdownTimeout)
 	v.NonZero("task_worker_count", c.taskWorkerCount)
+	v.Ternary(
+		"enable_integrations",
+		len(c.enabledIntegrations) > 0 && len(c.disabledIntegrations) > 0,
+		"cannot be used with disable_integrations",
+	)
 	v.NotNil("validate_channel_names", c.validateChannelNames)
 	v.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
@@ -133,8 +154,14 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
-		peers:           override.Slice(c.peers, other.peers),
 		dataPath:        override.String(c.dataPath, other.dataPath),
+		secretsKey: override.If(
+			c.secretsKey,
+			other.secretsKey,
+			other.secretsKey != secret.EncryptionKey{},
+		),
+		secretsKeyFile: override.String(c.secretsKeyFile, other.secretsKeyFile),
+		secretsDir:     override.String(c.secretsDir, other.secretsDir),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
 			other.slowConsumerTimeout,
@@ -144,7 +171,17 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			c.sessionIdleTimeout,
 			other.sessionIdleTimeout,
 		),
-		noDriver:      override.Nil(c.noDriver, other.noDriver),
+		noDriver: override.Nil(c.noDriver, other.noDriver),
+		updateBackupDisabled: override.Nil(
+			c.updateBackupDisabled,
+			other.updateBackupDisabled,
+		),
+		// An explicit empty list is kept so that Validate rejects it.
+		authMethods: override.If(
+			c.authMethods,
+			other.authMethods,
+			other.authMethods != nil,
+		),
 		taskOpTimeout: override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval: override.Numeric(
 			c.taskPollInterval,
@@ -174,15 +211,41 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	}
 }
 
+const secretsKeyFileName = "secrets.key"
+
+// resolveSecretsKey returns the key that encrypts stored secrets: the key setting, the
+// key file setting, a random key for a Core in memory, or the key file in the data
+// directory. A missing key file gets a new random key.
+func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
+	if c.secretsKey != (secret.EncryptionKey{}) {
+		return c.secretsKey, nil
+	}
+	if c.secretsKeyFile != "" {
+		return secret.LoadEncryptionKey(c.secretsKeyFile)
+	}
+	if *c.memBacked {
+		return secret.NewEncryptionKey(), nil
+	}
+	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
+}
+
+// storageStopTimeout bounds the wait for the storage layer to stop at shutdown.
+const storageStopTimeout = 20 * time.Second
+
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
+//
+// The Core opens under stop and runs until stop ends or a component fails. It then
+// closes its components, and stops the storage layer last. The lifetime of the storage
+// layer derives from root, so it outlives stop.
 func BootupCore(
-	ctx context.Context,
+	root context.Context,
+	stop context.Context,
 	onServerStarted chan struct{},
 	cfgs ...CoreConfig,
 ) (err error) {
-	cfg, err := config.New(DefaultCoreConfig, cfgs...)
+	cfg, err := config.New(defaultCoreConfig(), cfgs...)
 	if err != nil {
 		return err
 	}
@@ -205,92 +268,182 @@ func BootupCore(
 
 	// Any data stored on the node is considered sensitive, so we need to set the
 	// permission mask for all files appropriately.
-	disablePermissionBits()
+	DisablePermissionBits()
 
-	var closer xio.MultiCloser
-
-	cleanup, ok := xservice.NewOpener(ctx, &closer)
-	defer func() { err = cleanup(err) }()
+	var (
+		closer       xio.MultiCloser
+		storageLayer *storage.Layer
+		// update is the update of the data that this start did not commit yet.
+		update    *storage.Update
+		lifetimes = lifetime.NewStack()
+	)
+	ok := func(err error, c io.Closer) bool {
+		if err != nil {
+			return false
+		}
+		if c != nil {
+			closer = append(closer, c)
+		}
+		return stop.Err() == nil
+	}
+	defer func() {
+		err = errors.Combine(err, closer.Close())
+		if storageLayer == nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(root, storageStopTimeout)
+		defer cancel()
+		stopErr := lifetimes.Stop(ctx)
+		// A failed run is the cause of the errors it leads to, so it comes first.
+		err = errors.Combine(stopErr, err)
+		// The storage layer may still run, so it stays open, and the next start undoes
+		// the update.
+		if errors.Is(stopErr, context.DeadlineExceeded) {
+			return
+		}
+		err = errors.Combine(err, storageLayer.Close())
+		if update != nil && (err != nil || stop.Err() != nil) {
+			err = update.Undo(stop, errors.Combine(err, stop.Err()))
+		}
+	}()
 
 	securityProvider, err := security.NewProvider(security.ProviderConfig{
 		LoaderConfig: cfg.certFactoryConfig.LoaderConfig,
 		Insecure:     cfg.insecure,
 	})
 	if !ok(err, nil) {
-		return err
+		return errors.Mark(err, validate.ErrValidation)
 	}
 
-	workDir, closeWorkDir, err := openWorkDir()
+	if cfg.secretsDir != "" {
+		if cfg.secretsDir, err = filepath.Abs(cfg.secretsDir); !ok(err, nil) {
+			return errors.Wrap(err, "failed to resolve secrets folder")
+		}
+	}
+
+	listeners, err := cfg.listeners.Resolve(
+		securityProvider,
+		cfg.certFactoryConfig,
+		*cfg.insecure,
+		cfg.driverEnabled(),
+	)
+	if !ok(err, nil) {
+		return err
+	}
+	serverListeners := make([]server.Listener, len(listeners))
+	var presented []certificate.Listener
+	for i, l := range listeners {
+		serverListeners[i] = l.Listener
+		if l.Source != nil {
+			presented = append(
+				presented,
+				certificate.Listener{Address: l.Address, Source: l.Source},
+			)
+		}
+	}
+	var ca *cert.Loader
+	if !*cfg.insecure {
+		if ca, err = cert.NewLoader(cfg.certFactoryConfig.LoaderConfig); !ok(err, nil) {
+			return err
+		}
+	}
+
+	cacheDir, err := os.UserCacheDir()
+	if !ok(err, nil) {
+		return errors.Wrap(err, "failed to resolve cache directory")
+	}
+	cacheDir = filepath.Join(cacheDir, "synnax", "core")
+	workDir, closeWorkDir, err := openWorkDir(cacheDir)
 	if !ok(err, closeWorkDir) {
 		return errors.Wrapf(err, "failed to resolve working directory")
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
-	storageLayer, err := storage.OpenLayer(ctx, storage.LayerConfig{
-		Instrumentation: cfg.Child("storage"),
-		InMemory:        cfg.memBacked,
-		Dirname:         cfg.dataPath,
-	})
-	if !ok(err, storageLayer) {
+	if storageLayer, err = storage.OpenLayer(stop, storage.LayerConfig{
+		Instrumentation:      cfg.Child("storage"),
+		InMemory:             cfg.memBacked,
+		Dirname:              cfg.dataPath,
+		Version:              vsn,
+		UpdateBackupDisabled: cfg.updateBackupDisabled,
+	}); err == nil {
+		update = storageLayer.Update
+		lifetimes.Go(root, "storage", storageLayer.Run)
+	}
+	if !ok(err, nil) {
 		return err
 	}
 
-	grpcClientPool := configureClientGRPC(securityProvider, *cfg.insecure)
-	// Register the pool first so it closes LAST: every transport that
-	// references it must finish shutting down before its connections are
-	// torn down.
-	if !ok(nil, grpcClientPool) {
-		return ctx.Err()
-	}
-	var (
-		aspenTransport = aspentransport.New(grpcClientPool)
-		distTransport  = disttransport.New(grpcClientPool)
-	)
-
-	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
+	distributionLayer, err := distribution.OpenLayer(stop, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
-		PeerAddresses:    cfg.peers,
-		AspenTransport:   aspenTransport,
-		Transport:        distTransport,
 		Storage:          storageLayer,
 	})
 	if !ok(err, distributionLayer) {
 		return err
 	}
 
-	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
+	secretsKey, err := cfg.resolveSecretsKey()
+	if !ok(err, nil) {
+		return err
+	}
+
+	serviceLayer, err := service.OpenLayer(stop, service.LayerConfig{
 		Instrumentation:    cfg.Child("service"),
 		Distribution:       distributionLayer,
 		Security:           securityProvider,
+		CA:                 ca,
+		Listeners:          presented,
 		Storage:            storageLayer,
 		RootCredentials:    cfg.rootCredentials,
 		FIPS:               cfg.fips,
 		SessionIdleTimeout: cfg.sessionIdleTimeout,
+		AuthMethods:        cfg.authMethods,
 		License: license.ServiceConfig{
 			Key:      cfg.licenseKey,
 			Version:  version.Get(),
 			Loopback: new(cfg.listeners.Loopback()),
 		},
-		ValidateChannelNames: cfg.validateChannelNames,
+		ValidateChannelNames:   cfg.validateChannelNames,
+		SecretsKey:             secretsKey,
+		SecretsDir:             cfg.secretsDir,
+		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
 		return err
 	}
 
+	// No client reaches the data before the commit, so an undo loses no writes.
+	if update != nil {
+		if err = serviceLayer.License.CheckUpdate(update.From); err != nil {
+			return err
+		}
+		if err = update.Commit(); err != nil {
+			return err
+		}
+		cfg.L.Info(
+			"committed the update",
+			zap.String("from", update.From),
+			zap.String("to", update.To),
+		)
+		update = nil
+	}
+
+	errs := api.NewErrorCodec()
 	apiLayer, err := api.NewLayer(api.LayerConfig{
 		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
+		Errors:          errs,
 	})
 	if !ok(err, nil) {
 		return err
 	}
 
-	// Configure the HTTP Layer AspenTransport.
 	var r *http.Router
-	if r, err = http.NewRouter(http.RouterConfig{
+	// stop ends when shutdown starts, before the server drains in-flight requests.
+	if r, err = http.NewRouter(context.WithoutCancel(stop), http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
+		Errors:              errs,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {
 		return err
@@ -305,18 +458,9 @@ func BootupCore(
 	}
 
 	var embeddedConsole *console.Console
-	if embeddedConsole, err = console.New(); !ok(err, nil) {
-		return err
-	}
-
-	serverListeners, err := cfg.listeners.Resolve(
-		securityProvider,
-		cfg.certFactoryConfig,
-		*cfg.insecure,
-		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
-		cfg.driverEnabled(),
-	)
-	if !ok(err, nil) {
+	if embeddedConsole, err = console.New(
+		console.Config{Insecure: cfg.insecure},
+	); !ok(err, nil) {
 		return err
 	}
 
@@ -326,11 +470,7 @@ func BootupCore(
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: append(
-					transportLayer.GRPC,
-					aspenTransport,
-					distTransport,
-				)},
+				&server.GRPCBranch{Transports: transportLayer.GRPC},
 				server.NewHTTPRedirectBranch(),
 			},
 			Debug:           cfg.debug,
@@ -355,13 +495,11 @@ func BootupCore(
 	licenseInfo := serviceLayer.License.Retrieve()
 	covered := licenseInfo.State == license.StateOk
 	if embeddedDriver, err := driver.Open(
-		ctx,
+		stop,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
-			// the background.
-			Detached: new(!covered),
+			License:  serviceLayer.License,
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -370,10 +508,13 @@ func BootupCore(
 			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			Keys:                serviceLayer.APIKey,
+			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
+			SecretsDir:          cfg.secretsDir,
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
 			ParentDirname:       workDir,
+			BinaryDirname:       filepath.Join(cacheDir, "driver"),
 			TaskWorkerCount:     cfg.taskWorkerCount,
 			TaskShutdownTimeout: cfg.taskShutdownTimeout,
 			TaskPollInterval:    cfg.taskPollInterval,
@@ -420,23 +561,16 @@ func BootupCore(
 	if onServerStarted != nil {
 		onServerStarted <- struct{}{}
 	}
-	<-ctx.Done()
-	return err
+	select {
+	case <-stop.Done():
+	case <-lifetimes.Failed():
+	}
+	return nil
 }
 
-func openWorkDir() (string, io.Closer, error) {
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		return "", nil, err
-	}
-	dir := filepath.Join(
-		cacheDir,
-		"synnax",
-		"core",
-		"workdir",
-		strconv.Itoa(os.Getpid()),
-	)
-	if err = os.MkdirAll(dir, fs.UserRWX); err != nil {
+func openWorkDir(cacheDir string) (string, io.Closer, error) {
+	dir := filepath.Join(cacheDir, "workdir", strconv.Itoa(os.Getpid()))
+	if err := os.MkdirAll(dir, fs.UserRWX); err != nil {
 		return "", nil, err
 	}
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
@@ -444,7 +578,7 @@ func openWorkDir() (string, io.Closer, error) {
 
 func parseIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
-		return enabled
+		return lo.Uniq(enabled)
 	}
 	return lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
 		return !lo.Contains(disabled, integration)

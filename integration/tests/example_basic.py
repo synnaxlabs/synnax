@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.test_case import TestCase
+from framework.test_case import TestCase, param
+from framework.utils import hold
 
 
 class CheckConnectionBasic(TestCase):
@@ -35,12 +36,12 @@ class CheckConnectionBasic(TestCase):
         """
 
         # Stuff goes here
-        wait_time = self.params.get("wait_time", 0)
+        wait_time = param(self.params, "wait_time", 0.0)
         self.log(f"Waiting for {wait_time} seconds")
-        sy.sleep(wait_time)
+        hold(wait_time, reason="the wait this example shows")
 
         # Or induce a failure
-        if self.params.get("fail_test", False):
+        if param(self.params, "fail_test", False):
             raise Exception("Injected failure")
 
     def teardown(self) -> None:

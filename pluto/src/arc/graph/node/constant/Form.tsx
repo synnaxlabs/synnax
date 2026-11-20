@@ -9,9 +9,12 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
+
+const path = deep.path<{ value: number }>();
 
 export const Form = () => (
   <Flex.Box x grow>
-    <Base.NumericField path="value" grow />
+    <Base.NumericField path={path.value} grow />
   </Flex.Box>
 );

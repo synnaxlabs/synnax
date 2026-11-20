@@ -7,175 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/Toolbar.css";
-
 import { ranger } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { List as BaseList } from "@synnaxlabs/lyra/list";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { Select } from "@synnaxlabs/lyra/select";
-import { Tag } from "@synnaxlabs/lyra/tag";
-import { Telem } from "@synnaxlabs/lyra/telem";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Access, Ranger } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Access } from "@synnaxlabs/pluto";
 
-import { ContextMenu } from "@/feature/range/ContextMenu";
-import { Explorer } from "@/feature/range/explorer";
-import { CSS } from "@/platform/css";
-import { Empty } from "@/platform/empty";
-import { type Nav } from "@/platform/nav";
-import { Range } from "@/platform/range";
-import { Toolbar } from "@/platform/toolbar";
-import { Session } from "@/session";
-
-const NoRanges = (): ReactElement => {
-  const openExplorer = Explorer.useOpenTab();
-  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
-  return (
-    <Empty.Action
-      message="No favorited ranges"
-      action={hasRetrievePermission ? "Open range explorer" : undefined}
-      onClick={openExplorer}
-    />
-  );
-};
-
-const List = (): ReactElement => {
-  const dispatch = Session.useDispatch();
-  const activeRange = Session.Range.useSelectState();
-  const data = Session.Range.useSelectStaticKeys();
-
-  const handleSelect = (key: string): void => {
-    dispatch(Session.Range.select(key));
-  };
-
-  const dropProps = Haul.useDrop({
-    type: "range_toolbar",
-    canDrop: Ranger.canDropHaulItem,
-    onDrop: ({ items }) => {
-      const dropped = Ranger.filterHaulItems(items);
-      dispatch(
-        Session.Range.add(
-          dropped.map<Session.Range.State>(({ key }) => ({
-            variant: "persisted",
-            key,
-          })),
-        ),
-      );
-      return dropped;
-    },
-  });
-
-  const menuProps = Menu.useContextMenu();
-
-  return (
-    <Select.Frame<string, Session.Range.StaticState>
-      data={data}
-      value={activeRange?.key}
-      onChange={handleSelect}
-    >
-      <Menu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
-      <BaseList.Scroll full="y" {...dropProps} onContextMenu={menuProps.open}>
-        <BaseList.Items emptyContent={<NoRanges />}>{listItem}</BaseList.Items>
-      </BaseList.Scroll>
-    </Select.Frame>
-  );
-};
-
-const ListItem = (props: BaseList.ItemProps<string>) => {
-  const { itemKey } = props;
-  const entry = Range.useResolve(itemKey);
-  const isLocal = entry != null && entry.variant !== "persisted";
-  const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
-  const onRename = Session.Range.useRename();
-  const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
-  if (entry == null || entry.variant === "dynamic") return null;
-  const { key, name, timeRange } = entry;
-  return (
-    <Select.Item className={CSS.B("range-list-item")} {...props} gap="small" y>
-      {isLocal && (
-        <Tooltip.Dialog location="left">
-          <Text.Text level="small">This range is local.</Text.Text>
-          <Text.Text className="save-button" weight={700} level="small" color={11}>
-            L
-          </Text.Text>
-        </Tooltip.Dialog>
-      )}
-      <Flex.Box
-        x
-        align="center"
-        gap="small"
-        className={CSS.BE("range-list-item", "name")}
-      >
-        <Ranger.StageIcon timeRange={timeRange} />
-        <Text.MaybeEditable
-          id={`text-${key}`}
-          level="p"
-          value={name}
-          overflow="fade"
-          onChange={
-            hasUpdatePermission ? (name) => onRename.update({ key, name }) : undefined
-          }
-          allowDoubleClick={false}
-        />
-      </Flex.Box>
-      <Telem.Text.TimeRange level="tiny">{timeRange}</Telem.Text.TimeRange>
-      {labels.length > 0 && (
-        <Flex.Box x gap="small" wrap className={CSS.B("range-list-item-labels")}>
-          {labels.map((l) => (
-            <Tag.Tag key={l.key} size="tiny" color={l.color}>
-              {l.name}
-            </Tag.Tag>
-          ))}
-        </Flex.Box>
-      )}
-    </Select.Item>
-  );
-};
-
-const listItem = Component.renderProp(ListItem);
-
-const Actions = (): ReactElement | null => {
-  const openExplorer = Explorer.useOpenTab();
-  const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
-  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
-  if (!hasCreatePermission && !hasRetrievePermission) return null;
-  return (
-    <Toolbar.Actions>
-      {hasRetrievePermission && (
-        <Toolbar.Action tooltip="Open range explorer" onClick={openExplorer}>
-          <Icon.Explore />
-        </Toolbar.Action>
-      )}
-      {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create range" onClick={() => openCreate()}>
-          <Icon.Add />
-        </Toolbar.Action>
-      )}
-    </Toolbar.Actions>
-  );
-};
-
-const Content = (): ReactElement => (
-  <Toolbar.Content>
-    <Toolbar.Header>
-      <Toolbar.Title>
-        <Icon.Range />
-        Ranges
-      </Toolbar.Title>
-      <Actions />
-    </Toolbar.Header>
-    <Toolbar.Body>
-      <List />
-    </Toolbar.Body>
-  </Toolbar.Content>
-);
+import { Content } from "@/feature/range/toolbar/Content";
+import type { Nav } from "@/platform/nav";
 
 export const TOOLBAR: Nav.Toolbar = {
   key: "range",
@@ -185,5 +22,5 @@ export const TOOLBAR: Nav.Toolbar = {
   trigger: ["R"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID),
 };

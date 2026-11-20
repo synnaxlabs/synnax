@@ -60,11 +60,12 @@ var _ = Describe("IsUUID", func() {
 	})
 })
 
+func ref(name string, args ...resolution.TypeRef) resolution.TypeRef {
+	return resolution.TypeRef{Name: name, TypeArgs: args}
+}
+
 var _ = Describe("Nilable", func() {
 	var table *resolution.Table
-	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
-		return resolution.TypeRef{Name: name, TypeArgs: args}
-	}
 	strings := ref("Array", ref("string"))
 	quad := ref("Array", ref("float64"))
 	quad.ArraySize = new(int64(4))
@@ -583,8 +584,10 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			},
 		}
 		Expect(table.Add(distinct)).To(Succeed())
-		_, _, err := typemap.ResolveLeafPrimitive(distinct, table, goTypeName)
-		Expect(err).To(MatchError(ContainSubstring("cannot resolve distinct base")))
+		Expect(
+			typemap.ResolveLeafPrimitive(distinct, table, goTypeName),
+		).Error().
+			To(MatchError(ContainSubstring("cannot resolve distinct base")))
 	})
 
 	It("should error when alias target is unresolvable", func() {
@@ -597,8 +600,10 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			},
 		}
 		Expect(table.Add(alias)).To(Succeed())
-		_, _, err := typemap.ResolveLeafPrimitive(alias, table, goTypeName)
-		Expect(err).To(MatchError(ContainSubstring("cannot resolve alias target")))
+		Expect(
+			typemap.ResolveLeafPrimitive(alias, table, goTypeName),
+		).Error().
+			To(MatchError(ContainSubstring("cannot resolve alias target")))
 	})
 
 	It("should resolve an alias to a distinct type with a cast", func() {

@@ -14,8 +14,8 @@ package v0
 import (
 	"encoding/json/v2"
 
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -110,7 +110,7 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv ontology.ID
+			var hv resource.ID
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}

@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, errors, type record, shallow, state, zod } from "@synnaxlabs/x";
+import { deep, errors, map, type record, shallow, state, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { delta } from "@/aether/aether/delta";
@@ -127,7 +127,7 @@ export type EmptyMethodsSchema = Record<string, never>;
 export type HandlersFromSchema<T> = {
   [K in keyof T]: T[K] extends z.ZodType<infer F>
     ? F extends (...params: infer A) => infer R
-      ? R extends Promise<unknown>
+      ? [R] extends [Promise<unknown>]
         ? (...params: A) => R
         : (...params: A) => R | Promise<R>
       : never
@@ -186,7 +186,8 @@ export abstract class Node implements Component {
    * of every key in this map for the descendants nearest to it. */
   protected readonly childCtxValues: Map<string, unknown>;
   /** Keys in {@link childCtxValues} this node changed during the current
-   * {@link afterUpdate}. Drives selective propagation; cleared at the start of each run. */
+   * {@link afterUpdate}. Drives selective propagation; cleared at the start of each
+   * run. */
   private readonly childCtxChangedKeys: Set<string>;
   /** Provider side: for each key this node publishes, the descendants currently
    * subscribed to it (i.e. those that resolved this node as their nearest provider of
@@ -199,9 +200,9 @@ export abstract class Node implements Component {
    * their resolved provider (or `null` if unresolved). Non-`null` only while
    * {@link afterUpdate} is running, so reads outside that window are not tracked. */
   private ctxReads: Map<string, Node | null> | null = null;
-  /** {@link toString} and the span labels derived from it, built once. `type` and `path`
-   * never change, and every update would otherwise rebuild these strings only for noop
-   * instrumentation to discard them. */
+  /** {@link toString} and the span labels derived from it, built once. `type` and
+   * `path` never change, and every update would otherwise rebuild these strings only
+   * for noop instrumentation to discard them. */
   private readonly label: string;
   private readonly afterUpdateSpan: string;
   protected readonly updateStateSpan: string;
@@ -219,7 +220,7 @@ export abstract class Node implements Component {
   }: ComponentConstructorProps) {
     this.type = type;
     this.path = path;
-    this.label = `${type}(${path[path.length - 1]})`;
+    this.label = `${type}(${path.at(-1)})`;
     this.afterUpdateSpan = `${this.label}:afterUpdate`;
     this.updateStateSpan = `${this.label}:updateState`;
     this.deleteSpan = `${this.label}:delete`;
@@ -271,10 +272,10 @@ export abstract class Node implements Component {
 
   /** Resolves `key` to the nearest ancestor publishing it (self excluded) and records
    * the read against the in-progress {@link afterUpdate} so a subscription is formed.
-   * Returns the provider, or `null` if unresolved. Self is excluded so a node overriding
-   * a parent's key still reads the parent's value via {@link Context.get}. The read is
-   * not recorded outside an {@link afterUpdate} (e.g. during {@link afterDelete}), where
-   * {@link ctxReads} is `null`. */
+   * Returns the provider, or `null` if unresolved. Self is excluded so a node
+   * overriding a parent's key still reads the parent's value via {@link Context.get}.
+   * The read is not recorded outside an {@link afterUpdate} (e.g. during
+   * {@link afterDelete}), where {@link ctxReads} is `null`. */
   private readCtx(key: string): Node | null {
     let node = this._parent;
     while (node != null && !node.childCtxValues.has(key)) node = node._parent;
@@ -301,7 +302,8 @@ export abstract class Node implements Component {
 
   /** Diffs the keys read this pass against the prior subscriptions, updating both this
    * node's {@link ctxSubscriptions} and each provider's {@link ctxSubscribers}. Re-runs
-   * every pass so conditional reads subscribe/unsubscribe as they appear and disappear. */
+   * every pass so conditional reads subscribe/unsubscribe as they appear and disappear.
+   */
   private reconcileSubscriptions(reads: Map<string, Node | null>): void {
     for (const [key, oldProvider] of this.ctxSubscriptions) {
       const stillReading = reads.has(key);
@@ -312,9 +314,7 @@ export abstract class Node implements Component {
     for (const [key, provider] of reads) {
       if (provider == null || this.ctxSubscriptions.get(key) === provider) continue;
       this.ctxSubscriptions.set(key, provider);
-      let subs = provider.ctxSubscribers.get(key);
-      if (subs == null) provider.ctxSubscribers.set(key, (subs = new Set()));
-      subs.add(this);
+      map.getOrInsert(provider.ctxSubscribers, key, () => new Set()).add(this);
     }
   }
 
@@ -337,9 +337,7 @@ export abstract class Node implements Component {
           if (sub._deleted || queued.has(sub)) continue;
           queued.add(sub);
           const depth = sub._depth;
-          let bucket = buckets.get(depth);
-          if (bucket == null) buckets.set(depth, (bucket = []));
-          bucket.push(sub);
+          map.getOrInsert(buckets, depth, () => []).push(sub);
           if (depth < minDepth) minDepth = depth;
           if (depth > maxDepth) maxDepth = depth;
         }
@@ -433,14 +431,14 @@ export abstract class Node implements Component {
  * @example
  * ```typescript
  * const buttonMethodsZ = {
- *   onMouseDown: z.function(),
- *   onMouseUp: z.function().returns(z.number()),
+ *   onMouseDown: z.function({ input: z.tuple([]), output: z.void() }),
+ *   onMouseUp: z.function({ input: z.tuple([]), output: z.number() }),
  * };
  *
  * class Button extends Leaf<typeof stateZ, {}, typeof buttonMethodsZ>
  *   implements HandlersFromSchema<typeof buttonMethodsZ> {
- *   schema = stateZ;
- *   methods = buttonMethodsZ;
+ *   override schema = stateZ;
+ *   override methods = buttonMethodsZ;
  *   onMouseDown(): void { ... }
  *   onMouseUp(): number { return 42; }
  * }
@@ -500,7 +498,7 @@ export abstract class Leaf<
    * values when their updates cross in flight. */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const prev = this.state;
-    const nextState = state.executeSetter(next, prev);
+    const nextState = state.resolve(next, prev);
     this._prevState = shallow.copy(this._state);
     this._state = zod.parse(this._schema, nextState, { label: this.toString() });
     this.sender.send({
@@ -648,7 +646,7 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(params: UpdateStateParams): void {
+  override _updateState(params: UpdateStateParams): void {
     const { path, type, create } = params;
     if (this.deleted) return;
     const subPath = this.parsePath(path);
@@ -689,7 +687,7 @@ export abstract class Composite<
     this._children.clear();
   }
 
-  _delete(path: readonly string[]): void {
+  override _delete(path: readonly string[]): void {
     const subPath = this.parsePath(path);
     if (subPath.length === 0) {
       this.clearChildren();
@@ -764,7 +762,7 @@ export class Root extends Composite<typeof aetherRootState> {
   private readonly comms: WorkerComms;
   private readonly registry: ComponentRegistry;
 
-  schema = aetherRootState;
+  override schema = aetherRootState;
 
   constructor({
     worker = wrapWorkerScope(),

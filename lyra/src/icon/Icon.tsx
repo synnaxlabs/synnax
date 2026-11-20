@@ -9,16 +9,12 @@
 
 import "@/icon/Icon.css";
 
-import { color, type location } from "@synnaxlabs/x";
-import {
-  type FC as ReactFC,
-  type ReactElement as BaseReactElement,
-  type Ref,
-} from "react";
-import { type IconBaseProps } from "react-icons";
+import { color } from "@synnaxlabs/x";
+import type { FC as ReactFC, ReactElement as BaseReactElement, Ref } from "react";
+import type { IconBaseProps } from "react-icons";
 
 import { CSS } from "@/css";
-import { type Theming } from "@/theming";
+import type { Theming } from "@/theming";
 
 /** Props for every icon in the set. */
 export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
@@ -34,33 +30,6 @@ export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
  */
 export interface ReactElement extends BaseReactElement<IconProps> {}
 
-const BASE_SIZE = 24;
-const SUB_SIZE = 12;
-const SUB_POSITIONS: Record<location.CornerString, { x: number; y: number }> = {
-  topRight: { x: BASE_SIZE - SUB_SIZE, y: 0 },
-  topLeft: { x: 0, y: 0 },
-  bottomLeft: { x: 0, y: BASE_SIZE - SUB_SIZE },
-  bottomRight: { x: BASE_SIZE - SUB_SIZE, y: BASE_SIZE - SUB_SIZE },
-};
-
-const createSubIcon = (
-  key: location.CornerString,
-  Icon: FC | undefined,
-): ReactElement | null => {
-  if (Icon == null) return null;
-  return (
-    <g transform={`translate(${SUB_POSITIONS[key].x}, ${SUB_POSITIONS[key].y})`}>
-      <circle
-        className={CSS.BE("sub", "bg")}
-        r={SUB_SIZE / 2}
-        cx={SUB_SIZE / 2}
-        cy={SUB_SIZE / 2}
-      />
-      <Icon className={CSS.cls(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
-    </g>
-  );
-};
-
 /** An icon component. Every member of the icon set has this type. */
 export interface FC extends ReactFC<IconProps> {}
 
@@ -68,7 +37,10 @@ interface WrapIconOpts {
   className?: string;
 }
 
-/** A raw SVG component, as generated from an icon file. Wrap it with {@link wrapSVGIcon}. */
+/**
+ * A raw SVG component, as generated from an icon file. Wrap it with
+ * {@link wrapSVGIcon}.
+ */
 export interface SVGFC extends ReactFC<IconBaseProps> {}
 
 const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
@@ -124,90 +96,26 @@ export const tint = (c?: color.Crude): Pick<IconProps, "className" | "style"> =>
   };
 };
 
-const STACK_SCALE = 0.75;
-const STACK_OFFSET = BASE_SIZE * (1 - STACK_SCALE);
 /**
- * Copies size themselves in `em`, which inside a view box counts user units rather than
- * pixels, so the font size has to be pinned to the view box or they scale with the
- * caller's text.
- */
-const STACK_COPY_STYLE = { fontSize: BASE_SIZE };
-
-/**
- * createStacked returns an icon that draws Base twice in oblique projection: a back
- * copy shifted up and right, a front copy shifted down and left. A halo painted in the
- * surface color sits under the front copy so the two silhouettes stay separable.
- */
-/* #__NO_SIDE_EFFECTS__ */
-export const createStacked = (Base: FC): FC => {
-  const Stacked = ({ className, color: c, ...rest }: IconProps) => (
-    <svg
-      className={CSS.cls(CSS.B("icon"), CSS.BM("icon", "stacked"), className)}
-      viewBox={`0 0 ${BASE_SIZE} ${BASE_SIZE}`}
-      height="1em"
-      width="1em"
-      color={parseColor(c)}
-      {...rest}
-    >
-      <g
-        style={STACK_COPY_STYLE}
-        transform={`translate(${STACK_OFFSET}, 0) scale(${STACK_SCALE})`}
-      >
-        <Base />
-      </g>
-      <g
-        style={STACK_COPY_STYLE}
-        transform={`translate(0, ${STACK_OFFSET}) scale(${STACK_SCALE})`}
-      >
-        <g className={CSS.BE("icon", "halo")}>
-          <Base />
-        </g>
-        <Base />
-      </g>
-    </svg>
-  );
-  Stacked.displayName = Base.displayName || Base.name;
-  return Stacked;
-};
-
-/**
- * @returns an icon that draws Base with a smaller icon badged into any of its four
- * corners. Base itself is returned when no corner is given.
+ * Returns an icon that fills one SVG path drawn on a 24 by 24 grid.
  *
- * @example createComposite(Icon.Channel, { bottomRight: Icon.Add })
+ * @param name - The icon's name, added to its class names.
+ * @param d - The path data.
  */
 /* #__NO_SIDE_EFFECTS__ */
-export const createComposite = (
-  Base: FC,
-  { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC | undefined>,
-): FC => {
-  if (topRight == null && topLeft == null && bottomLeft == null && bottomRight == null)
-    return Base;
-
-  const topRightEl = createSubIcon("topRight", topRight);
-  const topLeftEl = createSubIcon("topLeft", topLeft);
-  const bottomLeftEl = createSubIcon("bottomLeft", bottomLeft);
-  const bottomRightEl = createSubIcon("bottomRight", bottomRight);
-
-  const Composite = ({ className, color: c, ...rest }: IconProps) => {
-    c = parseColor(c);
-    return (
+export const createFromPath = (name: string, d: string): FC =>
+  wrapSVGIcon(
+    (props) => (
       <svg
-        className={CSS.cls(CSS.B("icon"), CSS.BM("icon", "composite"))}
         viewBox="0 0 24 24"
-        height="1em"
-        width="1em"
-        color={c}
-        {...rest}
+        xmlns="http://www.w3.org/2000/svg"
+        stroke="currentColor"
+        fill="currentColor"
+        strokeWidth={0}
+        {...props}
       >
-        <Base className={className} {...rest} size={20} x={2} y={2} />
-        {topRightEl}
-        {topLeftEl}
-        {bottomLeftEl}
-        {bottomRightEl}
+        <path d={d} />
       </svg>
-    );
-  };
-  Composite.displayName = Base.displayName || Base.name;
-  return Composite;
-};
+    ),
+    name,
+  );

@@ -15,16 +15,16 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 
 import { Base } from "@/arc/graph/node/Base";
-import { type Config } from "@/arc/graph/node/sink/config";
-import { type types } from "@/arc/graph/node/types";
+import type { Config } from "@/arc/graph/node/sink/config";
+import type { types } from "@/arc/graph/node/types";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 
 export interface SymbolProps extends types.SymbolProps<Config> {}
 
 const FUCHSIA = color.construct("#FF00FF");
-const FUCHSIA_BG = color.setAlpha(FUCHSIA, 0.2);
-const FUCHSIA_TEXT = color.setAlpha(FUCHSIA, 1);
+const FUCHSIA_BG = color.setOpacity(FUCHSIA, 0.2);
+const FUCHSIA_TEXT = color.setOpacity(FUCHSIA, 1);
 
 export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
   const name =

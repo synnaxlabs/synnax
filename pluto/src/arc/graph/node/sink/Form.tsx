@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type ReactElement } from "react";
+import { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 
+const path = deep.path<{ channel: channel.Key; value: number }>();
+
 export const Form = (): ReactElement => (
   <Flex.Box x>
-    <Base.Field<channel.Key> path="channel">
+    <Base.Field path={path.channel}>
       {({ value, onChange }) => (
         <Channel.SelectSingle
           value={value}
@@ -25,6 +28,6 @@ export const Form = (): ReactElement => (
         />
       )}
     </Base.Field>
-    <Base.NumericField path="value" grow />
+    <Base.NumericField path={path.value} grow />
   </Flex.Box>
 );

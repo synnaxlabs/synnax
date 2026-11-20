@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -20,10 +21,13 @@ const schema = z.object({
     rate: z.number(),
     channels: z.object({ key: z.string(), port: z.number() }).array(),
     tags: z.string().array(),
+    note: z.string().optional(),
   }),
 });
 
 type Values = z.infer<typeof schema>;
+
+const path = deep.path<Values>();
 
 const createValues = (): Values => ({
   name: "task",
@@ -37,13 +41,14 @@ const createValues = (): Values => ({
   },
 });
 
-const renderForm = () => {
-  const store = createLocalStore(createValues());
+const renderForm = (values: Values = createValues()) => {
+  const store = createLocalStore(values);
   const set = vi.spyOn(store, "set");
+  const remove = vi.spyOn(store, "remove");
   const onChange = vi.fn();
   store.onChange(onChange);
   const { result } = renderHook(() => Form.use({ store, schema }));
-  return { form: result.current, set, onChange };
+  return { form: result.current, set, remove, onChange };
 };
 
 describe("setChanged", () => {
@@ -52,7 +57,7 @@ describe("setChanged", () => {
     const next = createValues().config;
     next.rate = 20;
     next.channels[1].port = 3;
-    act(() => Form.setChanged(form, "config", createValues().config, next));
+    act(() => Form.setChanged(form, path.config, createValues().config, next));
     expect(set.mock.calls).toEqual([
       ["config.rate", 20],
       ["config.channels.b.port", 3],
@@ -63,11 +68,11 @@ describe("setChanged", () => {
   it("should keep a form value that changed after the base", () => {
     const { form, set } = renderForm();
     const base = form.value().config;
-    act(() => form.set("config.rate", 30));
+    act(() => form.set(path.config.rate, 30));
     set.mockClear();
     const next = createValues().config;
     next.channels[0].port = 4;
-    act(() => Form.setChanged(form, "config", base, next));
+    act(() => Form.setChanged(form, path.config, base, next));
     expect(set.mock.calls).toEqual([["config.channels.a.port", 4]]);
     expect(form.value().config.rate).toBe(30);
   });
@@ -75,7 +80,7 @@ describe("setChanged", () => {
   it("should write nothing for an equal value", () => {
     const { form, set, onChange } = renderForm();
     act(() =>
-      Form.setChanged(form, "config", createValues().config, createValues().config),
+      Form.setChanged(form, path.config, createValues().config, createValues().config),
     );
     expect(set).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
@@ -87,7 +92,7 @@ describe("setChanged", () => {
     act(() =>
       Form.setChanged(
         form,
-        "config.channels",
+        path.config.channels,
         createValues().config.channels,
         channels,
       ),
@@ -95,23 +100,40 @@ describe("setChanged", () => {
     expect(set.mock.calls).toEqual([["config.channels", channels]]);
   });
 
-  it("should set an object whole when its fields change", () => {
+  it("should set only the field that next adds to an object", () => {
     const { form, set } = renderForm();
-    const config = { rate: 10, channels: [], tags: ["x"], extra: true };
-    act(() => Form.setChanged(form, "config", createValues().config, config));
-    expect(set.mock.calls).toEqual([["config", config]]);
+    const next = { ...createValues().config, note: "added" };
+    act(() => Form.setChanged(form, path.config, createValues().config, next));
+    expect(set.mock.calls).toEqual([["config.note", "added"]]);
+  });
+
+  it("should remove the field that next drops from an object", () => {
+    const base = { ...createValues().config, note: "old" };
+    const { form, set, remove } = renderForm({ ...createValues(), config: base });
+    act(() => Form.setChanged(form, path.config, base, createValues().config));
+    expect(set).not.toHaveBeenCalled();
+    expect(remove.mock.calls).toEqual([["config.note"]]);
+    expect(form.value().config).not.toHaveProperty("note");
+  });
+
+  it("should keep a later form edit when next adds a field", () => {
+    const { form } = renderForm();
+    const base = form.value().config;
+    act(() => form.set(path.config.rate, 30));
+    act(() => Form.setChanged(form, path.config, base, { ...base, note: "added" }));
+    expect(form.value().config).toEqual({ ...base, rate: 30, note: "added" });
   });
 
   it("should set a list without keys whole", () => {
     const { form, set } = renderForm();
-    act(() => Form.setChanged(form, "config.tags", ["x"], ["x", "y"]));
+    act(() => Form.setChanged(form, path.config.tags, ["x"], ["x", "y"]));
     expect(set.mock.calls).toEqual([["config.tags", ["x", "y"]]]);
   });
 
   it("should make every write in one change", () => {
     const { form, onChange } = renderForm();
     act(() =>
-      Form.setChanged(form, "", createValues(), {
+      Form.setChanged(form, path, createValues(), {
         ...createValues(),
         name: "renamed",
         config: { ...createValues().config, rate: 20 },

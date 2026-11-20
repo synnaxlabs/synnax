@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Command } from "@/platform/command";
-import { type UseCreate } from "@/platform/task/useCreate";
+import type { UseCreate } from "@/platform/task/useCreate";
 
 export interface CreateCommandParams {
   key: string;
@@ -21,7 +21,7 @@ export interface CreateCommandParams {
   useOnSelect: UseCreate;
 }
 
-const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
 
 /** Creates a palette command that creates a task of the given type and opens it. */
 export const createCommand = (params: CreateCommandParams): Command.Command =>

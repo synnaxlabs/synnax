@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -18,7 +19,7 @@ class StrainGauge(Analog):
     Strain Gauge channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        strain_configuration (str): "Full bridge I", "Full bridge II",
+        strain_configuration (str): "FullBridgeI", "FullBridgeII",
             "Full bridge III", "Half bridge I", "Half bridge II", "Quarter bridge I"
         excitation_source (str): "Internal", "External", "None"
         excitation_value (float): Voltage excitation value
@@ -30,30 +31,20 @@ class StrainGauge(Analog):
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
-        strain_configuration: (
-            Literal[
-                "Full bridge I",
-                "Full bridge II",
-                "Full bridge III",
-                "Half bridge I",
-                "Half bridge II",
-                "Quarter bridge I",
-            ]
-            | None
-        ) = None,
-        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        *,
+        strain_configuration: sy.ni.StrainConfig | None = None,
+        excitation_source: sy.ni.ExcitationSource | None = None,
         excitation_value: float | None = None,
         gage_factor: float | None = None,
         initial_bridge_voltage: float | None = None,

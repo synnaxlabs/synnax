@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("messAge,field,stArt_Bit,Bit_length,id,eXtended\n0,0,0,70 ")

@@ -28,6 +28,7 @@ import (
 var _ = Describe("v2 -> v3 Session migration", func() {
 	It("Should stamp each session with its credential version", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		credential := uuid.New()
 		kept := v2.Session{
 			Key:        uuid.New(),
@@ -40,7 +41,7 @@ var _ = Describe("v2 -> v3 Session migration", func() {
 			Set(ctx, kept, orphan)).To(Succeed())
 		version := func(
 			_ context.Context,
-			_ gorp.Tx,
+			_ gorp.Snapshot,
 			key uuid.UUID,
 		) (telem.TimeStamp, error) {
 			if key == credential {

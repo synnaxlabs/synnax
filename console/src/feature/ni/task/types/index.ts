@@ -9,6 +9,7 @@
 
 import { ni, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -72,8 +73,20 @@ const tableScaleZ = ni.tableScaleZ
     if (preScaledVals.length !== scaledVals.length) {
       const code = "custom";
       const message = "Pre-scaled and scaled values must have the same length";
-      issues.push({ path: ["preScaledVals"], code, message, input: value });
-      issues.push({ path: ["scaledVals"], code, message, input: value });
+      issues.push({
+        continue: true,
+        path: ["preScaledVals"],
+        code,
+        message,
+        input: value,
+      });
+      issues.push({
+        continue: true,
+        path: ["scaledVals"],
+        code,
+        message,
+        input: value,
+      });
     }
   })
   .check(({ value, issues }) => {
@@ -83,6 +96,7 @@ const tableScaleZ = ni.tableScaleZ
     for (let i = 1; i < preScaledVals.length; i++) {
       if (preScaledVals[i] <= lastVal)
         issues.push({
+          continue: true,
           code: "custom",
           message: "Pre-scaled values must be monotonically increasing",
           path: ["preScaledVals"],
@@ -104,6 +118,22 @@ export const createScale = (type: ScaleType): Scale =>
 export type AIChannel = ni.AIChannel;
 export type AIChannelType = ni.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
+
+const widest = (ranges: bounds.Bounds[]): bounds.Bounds | undefined =>
+  ranges.reduce<bounds.Bounds | undefined>(
+    (w, r) => (w == null || bounds.span(r) > bounds.span(w) ? r : w),
+    undefined,
+  );
+
+/**
+ * The range a channel switched to the type takes on the device: the widest current
+ * range for a current channel. Undefined when the channel keeps its range.
+ */
+export const defaultAIRange = (
+  type: AIChannelType,
+  hardware?: ni.Hardware,
+): bounds.Bounds | undefined =>
+  type === "ai_current" ? widest(hardware?.aiCurrentRanges ?? []) : undefined;
 
 export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
   ni.AI_CHANNEL_SCHEMAS[type].parse({ type });
@@ -233,8 +263,25 @@ export type AOChannelType = ni.AOChannelType;
 export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
 export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
 
+/**
+ * The range a channel switched to the type takes on the device: the widest current
+ * range for a current channel. Undefined when the channel keeps its range.
+ */
+export const defaultAORange = (
+  type: AOChannelType,
+  hardware?: ni.Hardware,
+): bounds.Bounds | undefined =>
+  type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
+
 export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>
   ni.AO_CHANNEL_SCHEMAS[type].parse({ type });
+
+/**
+ * Whether the hardware generates the channel's output from its config. The channel
+ * runs with the task and has no command or state channel.
+ */
+export const isGenerated = (c: AOChannel): c is ni.AOFuncGenChannel =>
+  c.type === AO_FUNC_GEN_CHAN_TYPE;
 
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   ao_current: "Current",

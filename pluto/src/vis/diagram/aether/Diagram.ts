@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, primitive, scale, xy } from "@synnaxlabs/x";
+import { box, primitive, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -47,9 +47,9 @@ export class Diagram extends aether.Composite<
 > {
   static readonly TYPE = "Diagram";
   static readonly stateZ = diagramStateZ;
-  schema = Diagram.stateZ;
+  override schema = Diagram.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     this.internal.handleError = status.useErrorHandler(ctx);
     if (primitive.isNonZero(this.state.autoRenderInterval))
@@ -68,7 +68,7 @@ export class Diagram extends aether.Composite<
     this.requestRender("high");
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     if (this.internal.autoRenderInterval != null)
       clearInterval(this.internal.autoRenderInterval);
     this.requestRender("high");
@@ -90,7 +90,7 @@ export class Diagram extends aether.Composite<
     }
     const eraseRegion = box.copy(this.state.region);
     return () => {
-      renderCtx.lower2d.fillStyle = color.hex(color.BLACK);
+      renderCtx.lower2d.fillStyle = "#000000";
       renderCtx.lower2d.fillRect(
         ...xy.couple(box.topLeft(eraseRegion)),
         box.width(eraseRegion),

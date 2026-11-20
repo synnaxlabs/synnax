@@ -17,7 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -31,94 +32,42 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v3.Log{}.SetOptions()).To(BeNil())
-		})
-	})
-	Describe("OntologyID", func() {
-		It("Should return the log ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the log resource identifier", func() {
 			k := uuid.New()
-			Expect(v3.Log{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLog, Key: k.String(),
+			Expect(v3.Log{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLog, Key: k.String(),
 			}))
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should fill schema-declared defaults on every channel", func() {
 			l := v3.Log{Channels: []v3.ChannelEntry{{}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("standard")))
-			Expect(l.Channels[0].Timestamp.Format).To(
+			Expect(l.Channels[0].TimestampConfig.Format).To(
 				Equal(telem.TimestampFormat("preciseDate")),
 			)
-			Expect(l.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZone("local")))
+			Expect(
+				l.Channels[0].TimestampConfig.TimeZone,
+			).To(Equal(telem.TimeZone("local")))
 			Expect(l.Channels[0].Precision).To(BeNil())
 		})
 
 		It("Should keep values that are already set", func() {
 			l := v3.Log{Channels: []v3.ChannelEntry{{
-				Notation:  "scientific",
-				Timestamp: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
+				Notation:        "scientific",
+				TimestampConfig: v3.TimestampConfig{Format: "ISO", TimeZone: "UTC"},
 			}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("scientific")))
 			Expect(
-				l.Channels[0].Timestamp.Format,
+				l.Channels[0].TimestampConfig.Format,
 			).To(Equal(telem.TimestampFormat("ISO")))
-			Expect(l.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZone("UTC")))
-		})
-	})
-
-	Describe("Validate", func() {
-		It("Should accept a defaulted log with an absent precision", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{}}}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(Succeed())
-		})
-
-		DescribeTable("Should accept a precision in range",
-			func(precision int32) {
-				l := v3.Log{
-					Name:     "valid",
-					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
-				}
-				l.ApplyDefaults()
-				Expect(l.Validate()).To(Succeed())
-			},
-			Entry("lower bound", int32(0)),
-			Entry("upper bound", int32(17)),
-		)
-
-		DescribeTable("Should reject a precision out of range",
-			func(precision int32) {
-				l := v3.Log{
-					Name:     "valid",
-					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
-				}
-				l.ApplyDefaults()
-				Expect(
-					l.Validate(),
-				).To(MatchError(ContainSubstring("channels.0.precision")))
-			},
-			Entry("negative", int32(-1)),
-			Entry("above the maximum", int32(18)),
-		)
-
-		It("Should reject an empty name and an invalid timestamp precision", func() {
-			l := v3.Log{TimestampPrecision: 4}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(SatisfyAll(
-				MatchError(ContainSubstring("name")),
-				MatchError(ContainSubstring("timestamp_precision")),
-			))
-		})
-
-		It("Should path an invalid notation to its channel", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Notation: "bogus"}}}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.notation")))
+			Expect(
+				l.Channels[0].TimestampConfig.TimeZone,
+			).To(Equal(telem.TimeZone("UTC")))
 		})
 	})
 
@@ -130,19 +79,19 @@ var _ = Describe("Log", func() {
 				Key:  uuid.New(),
 				Name: "log",
 				Channels: []v3.ChannelEntry{{
-					Channel:   channel.Key(1),
-					Notation:  "standard",
-					Precision: new(int32(3)),
-					Alias:     "alias",
-					Timestamp: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
+					Channel:         channel.Key(1),
+					Notation:        "standard",
+					Precision:       new(uint8(3)),
+					Alias:           "alias",
+					TimestampConfig: v3.TimestampConfig{Format: "ISO", TimeZone: "UTC"},
 				}},
 				TimestampPrecision: 2,
 			}.EncodeOrc(w)).To(Succeed())
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 89 bytes", func() {
-			Expect(encode()).To(HaveLen(89))
+		It("Should encode the truncation fixture in 90 bytes", func() {
+			Expect(encode()).To(HaveLen(90))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -164,11 +113,15 @@ var _ = Describe("Log", func() {
 			Entry("channel notation", 43),
 			Entry("channel precision presence", 55),
 			Entry("channel precision", 56),
-			Entry("channel alias", 60),
-			Entry("channel timestamp", 69),
-			Entry("timestamp precision", 83),
-			Entry("channel names hidden", 87),
-			Entry("receipt timestamp hidden", 88),
+			Entry("channel alias", 57),
+			Entry("channel timestamp", 66),
+			Entry("timestamp precision", 80),
+			Entry("channel names hidden", 81),
+			Entry("timestamps hidden", 82),
+			Entry("time zone", 85),
+			Entry("group presence", 87),
+			Entry("project presence", 88),
+			Entry("range presence", 89),
 		)
 	})
 })

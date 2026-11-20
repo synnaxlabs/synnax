@@ -13,8 +13,9 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
+import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 export interface ConnectFooterProps {
@@ -33,6 +34,8 @@ export const ConnectFooter = ({
   onConnect,
   onBack,
 }: ConnectFooterProps): ReactElement => {
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   let summary: ReactElement | null = null;
   if (reason != null) summary = <Status.Summary variant="warning" message={reason} />;
   else if (variant !== "success")
@@ -41,7 +44,7 @@ export const ConnectFooter = ({
     <Modal.Footer>
       <Nav.Bar.Start gap="small">
         {onBack != null && (
-          <Button.Button variant="text" onClick={onBack}>
+          <Button.Button variant="text" onClick={onBack} disabled={busy}>
             <Icon.Arrow.Left />
             Back
           </Button.Button>

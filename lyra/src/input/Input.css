@@ -126,6 +126,14 @@
         white-space: nowrap;
     }
 
+    /* A button in a slot, such as a color swatch, takes its own press. In a preview
+       or a disabled input, neither the input nor the button takes one. */
+    &:not(.lyra-btn--preview, .lyra--disabled)
+        :is(.lyra-input__start-content, .lyra-input__end-content)
+        .lyra-btn:not(.lyra-btn--preview) {
+        pointer-events: auto;
+    }
+
     .lyra-input__placeholder {
         position: absolute;
         padding-left: 1.5rem;
@@ -150,15 +158,6 @@
         }
     }
 
-    &.lyra-btn.lyra--shadow {
-        --pluto-bg: transparent;
-        --pluto-border-color: transparent;
-        --pluto-hover-bg: var(--pluto-fill-hover);
-        --pluto-active-bg: var(--pluto-fill-press);
-        --pluto-hover-border-color: var(--pluto-gray-l7);
-        --pluto-active-border-color: var(--pluto-gray-l8);
-    }
-
     &.lyra-btn--text,
     &.lyra-btn--preview {
         background: none;
@@ -168,6 +167,15 @@
         & input,
         & .lyra-input__preview-value {
             padding: 0 0.5rem;
+        }
+
+        /* A start icon takes the text's inset, and the text keeps clear of it. */
+        & .lyra-input__start-content {
+            padding-left: 0.5rem;
+        }
+
+        & .lyra-input__start-content + input {
+            padding-left: 1.5rem;
         }
     }
 
@@ -183,16 +191,16 @@
 
 /* A shadow cell's packed neighbors (drag handle, alias sync, copy) hide until the
    group is hovered or focused. The cell itself is excluded: its value always reads. */
-.lyra-input__container:has(> .lyra--shadow) {
-    & > *:not(.lyra--shadow) {
+.lyra-input__container:has(> .lyra-btn--shadow) {
+    & > *:not(.lyra-btn--shadow) {
         opacity: 0;
     }
 
-    &:is(:hover, :focus-within) > *:not(.lyra--shadow) {
+    &:is(:hover, :focus-within) > *:not(.lyra-btn--shadow) {
         opacity: 1;
     }
 
-    &:hover > .lyra--shadow:not(:focus-within) {
+    &:hover > .lyra-btn--shadow:not(:focus-within) {
         border-color: var(--pluto-hover-border-color);
         background: var(--pluto-hover-bg);
     }

@@ -17,6 +17,7 @@ from x.telem.series import (
     Series,
     TypedCrudeSeries,
     elapsed_seconds,
+    is_crude_series,
     to_float,
     to_int,
 )
@@ -43,9 +44,14 @@ from x.telem.telem import (
 )
 from x.telem.types_gen import (
     Aggregation,
+    DynamicWindow,
     LimitReduction,
     Reduction,
+    StaticWindow,
     StrideReduction,
+    TimestampFormat,
+    TimeZone,
+    Window,
 )
 
 __all__ = [
@@ -66,6 +72,7 @@ __all__ = [
     "CrudeTimeStamp",
     "DataType",
     "Density",
+    "DynamicWindow",
     "LimitReduction",
     "MultiSeries",
     "Rate",
@@ -73,15 +80,20 @@ __all__ = [
     "SampleValue",
     "Series",
     "Size",
+    "StaticWindow",
     "StrideReduction",
     "Subject",
     "TimeRange",
     "TimeSpan",
     "TimeSpanUnits",
     "TimeStamp",
+    "TimeZone",
+    "TimestampFormat",
     "TypedCrudeSeries",
+    "Window",
     "convert_time_units",
     "elapsed_seconds",
+    "is_crude_series",
     "seconds_linspace",
     "to_float",
     "to_int",

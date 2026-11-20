@@ -16,18 +16,18 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import {
-  caseconv,
-  compare,
+  array,
   type destructor,
   sleep,
   type state,
+  strings,
   sync,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { use, useEffect, useRef, useSyncExternalStore } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
-import { type flux } from "@/flux/aether";
+import type { flux } from "@/flux/aether";
 import { DeletedError, type Tombstone, tombstoneOf } from "@/flux/errors";
 import {
   errorResult,
@@ -40,11 +40,11 @@ import {
 import {
   ensureFetch,
   type EnsureFetchParams,
-  fulfilled,
   invalidate,
   type LocalCache,
   localFor,
   promiseFor,
+  refresh,
   type RetrieveParams,
   type Settled,
   subscribeReader,
@@ -104,7 +104,7 @@ export interface CreateRetrieveParams<
 // which would otherwise spin useSyncExternalStore forever.
 const answersEqual = <Data>(prev: Data, next: Data): boolean =>
   Array.isArray(prev) && Array.isArray(next)
-    ? compare.arraysEqual(prev, next)
+    ? array.equal(prev, next)
     : Object.is(prev, next);
 
 /**
@@ -127,6 +127,19 @@ const subscribeToCache = <Query extends query.Params, Data extends query.Data>(
   };
 };
 
+/** A live answer a hook keeps across renders, valid only for its query and client. */
+interface Held<Query, Data> {
+  query: Query;
+  client: Client;
+  value: Data;
+}
+
+const isHeld = <H extends Held<unknown, unknown>>(
+  held: H | null,
+  query: unknown,
+  client: Client,
+): held is H => held != null && held.query === query && held.client === client;
+
 interface UseCachedSnapshotParams<
   Query extends query.Params,
   Data extends query.Data,
@@ -143,7 +156,7 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
   client: Client | null,
   { onChange, getCached, equal = answersEqual }: UseCachedSnapshotParams<Query, Data>,
 ): query.Cached<Data> | undefined => {
-  const held = useRef<{ query: Query; value: Data } | null>(null);
+  const held = useRef<Held<Query, Data> | null>(null);
   return useSyncExternalStore(
     (notify) => {
       if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
@@ -154,9 +167,8 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
       const next = getCached?.({ client, query: memoQuery });
       if (!isLive<Data>(next)) return next;
       const prev = held.current;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
+      if (isHeld(prev, memoQuery, client) && equal(prev.value, next)) return prev.value;
+      held.current = { query: memoQuery, client, value: next };
       return next;
     },
   );
@@ -224,6 +236,14 @@ export interface UseInvalidate<Query extends query.Params> {
   (): (query: Query) => void;
 }
 
+/**
+ * Returns a callback that fetches a query again. Mounted readers keep showing the
+ * answer they hold until the new one replaces it.
+ */
+export interface UseRefresh<Query extends query.Params> {
+  (): (query: Query) => void;
+}
+
 /// A hook reading a deletion as a value instead of throwing it: the corpse
 /// while the record is deleted, null while it is present, re-rendering when
 /// that flips. Reach for it only where rendering absence is the caller's job,
@@ -259,13 +279,23 @@ export interface UseResult<Query extends query.Params, Data extends state.State>
 }
 
 /**
+ * Projects a cached answer onto the slice a selector returns. It receives the client
+ * that owns the answer, so a projection can reuse work cached on that client.
+ */
+export type Select<Data, Query, Selected> = (
+  data: Data,
+  query: Query,
+  client: Client,
+) => Selected;
+
+/**
  * Mints a {@link UseSelect} sharing the definition's cache wiring. ExtendedQuery adds
  * selector-only fields (a node key, a tab key) the select projection needs; the cache
  * layer ignores them when addressing the record.
  */
 export interface CreateSelector<Query extends query.Params, Data extends query.Data> {
   <Selected, ExtendedQuery extends Query = Query>(
-    select: (data: Data, query: ExtendedQuery) => Selected,
+    select: Select<Data, ExtendedQuery, Selected>,
     equal?: (a: Selected, b: Selected) => boolean,
   ): UseSelect<ExtendedQuery, Selected>;
 }
@@ -282,7 +312,7 @@ export interface CreateResultSelector<
   Data extends query.Data,
 > {
   <Selected extends state.State, ExtendedQuery extends Query = Query>(
-    select: (data: Data, query: ExtendedQuery) => Selected,
+    select: Select<Data, ExtendedQuery, Selected>,
     equal?: (a: Selected, b: Selected) => boolean,
   ): UseResult<ExtendedQuery, Selected>;
 }
@@ -295,6 +325,7 @@ export interface CreateRetrieveReturn<
   useEnsure: UseEnsure<Query>;
   useResult: UseResult<Query, Data>;
   useInvalidate: UseInvalidate<Query>;
+  useRefresh: UseRefresh<Query>;
   useTombstone: UseTombstone<Query>;
   createSelector: CreateSelector<Query, Data>;
   createResultSelector: CreateResultSelector<Query, Data>;
@@ -346,7 +377,7 @@ const waitForCreation = async <Query extends query.Params, Data extends query.Da
     disconnect?.();
   }
   if (Deleted.matches<Data>(result))
-    throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse);
+    throw new DeletedError(`${strings.capitalize(name)} was deleted`, result.corpse);
   return result;
 };
 
@@ -442,6 +473,8 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     getCached,
     equal,
   });
+  // A refresh replaces the settled answer of a mounted reader.
+  useSettled<Query, Data>(locals, client, memoQuery);
   const pending = usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
@@ -455,8 +488,8 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   // find the end of the recorded hook list.
   if (pending.promise == null && cached !== undefined) {
     if (Deleted.matches<Data>(cached))
-      throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse);
-    return use(fulfilled(cached));
+      throw new DeletedError(`${strings.capitalize(name)} was deleted`, cached.corpse);
+    return use(pending.fulfill(cached));
   }
   return use(
     promiseFor(
@@ -503,10 +536,10 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
     if (cached !== undefined) {
       if (Deleted.matches<Data>(cached))
         throw new DeletedError(
-          `${caseconv.capitalize(name)} was deleted`,
+          `${strings.capitalize(name)} was deleted`,
           cached.corpse,
         );
-      use(fulfilled(cached));
+      use(pending.fulfill(cached));
       return;
     }
   }
@@ -539,6 +572,34 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   };
 };
 
+const useRefresh = <Query extends query.Params, Data extends query.Data>({
+  locals,
+  normalizeQuery,
+  name,
+  retrieve,
+  onChange,
+  getCached,
+  awaitCreation,
+  retryUnreachable,
+}: Context<Query, Data>): ((q: Query) => void) => {
+  const client = Synnax.use();
+  return (q: Query) => {
+    if (client == null) return;
+    refresh(
+      { client, query: normalizeQuery?.(q) ?? q },
+      fetchParamsFor({
+        name,
+        retrieve,
+        onChange,
+        getCached,
+        awaitCreation,
+        retryUnreachable,
+        local: localFor(locals, client),
+      }),
+    );
+  };
+};
+
 const useTombstone = <Query extends query.Params, Data extends query.Data>(
   { locals, onChange, getCached, equal, normalizeQuery }: Context<Query, Data>,
   query: Query,
@@ -567,14 +628,14 @@ const createSelector = <
     normalizeQuery,
   }: CreateRetrieveParams<Query, Data> &
     Required<Pick<CreateRetrieveParams<Query, Data>, "getCached">>,
-  select: (data: Data, query: ExtendedQuery) => Selected,
+  select: Select<Data, ExtendedQuery, Selected>,
   selectedEqual?: (a: Selected, b: Selected) => boolean,
 ): UseSelect<ExtendedQuery, Selected> => {
   const useSelect = (q: ExtendedQuery): Selected => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
-    const held = useRef<{ query: Query; value: Data } | null>(null);
-    const computed = useRef<{ raw: Data; query: Query; out: Selected } | null>(null);
+    const held = useRef<Held<Query, Data> | null>(null);
+    const computed = useRef<(Held<Query, Data> & { out: Selected }) | null>(null);
     const subscribe = (notify: () => void) => {
       if (onChange == null || client == null) return NOOP_SUBSCRIBE();
       return onChange({ client, query: memoQuery }, () => notify());
@@ -586,11 +647,10 @@ const createSelector = <
       // An invalidated entry repairs under its own subscription; serve the held
       // answer across the gap.
       if (next === undefined)
-        return prev != null && prev.query === memoQuery ? prev.value : undefined;
+        return isHeld(prev, memoQuery, client) ? prev.value : undefined;
       if (!isLive<Data>(next)) return next;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
+      if (isHeld(prev, memoQuery, client) && equal(prev.value, next)) return prev.value;
+      held.current = { query: memoQuery, client, value: next };
       return next;
     };
     const selector = (raw: query.Cached<Data> | undefined): Selected => {
@@ -601,12 +661,11 @@ const createSelector = <
           `Cannot select ${name}: nothing cached. A parent must retrieve it first.`,
         );
       if (Deleted.matches<Data>(raw))
-        throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, raw.corpse);
+        throw new DeletedError(`${strings.capitalize(name)} was deleted`, raw.corpse);
       const cached = computed.current;
-      if (cached != null && cached.raw === raw && cached.query === memoQuery)
-        return cached.out;
-      const out = select(raw, memoQuery);
-      computed.current = { raw, query: memoQuery, out };
+      if (isHeld(cached, memoQuery, client) && cached.value === raw) return cached.out;
+      const out = select(raw, memoQuery, client);
+      computed.current = { query: memoQuery, client, value: raw, out };
       return out;
     };
     return useSyncExternalStoreWithSelector(
@@ -636,7 +695,7 @@ const createResultSelector = <
   ExtendedQuery extends Query = Query,
 >(
   context: Context<Query, Data>,
-  select: (data: Data, query: ExtendedQuery) => Selected,
+  select: Select<Data, ExtendedQuery, Selected>,
   selectedEqual: (a: Selected, b: Selected) => boolean = Object.is,
 ): UseResult<ExtendedQuery, Selected> => {
   const {
@@ -660,7 +719,7 @@ const createResultSelector = <
   const useResultSelect = (q: ExtendedQuery | null): Result<Selected> => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
-    const held = useRef<{ query: Query; value: Data } | null>(null);
+    const held = useRef<Held<Query, Data> | null>(null);
     const subscribe = (notify: () => void) => {
       if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
       return subscribeToCache(locals, client, memoQuery, onChange, notify);
@@ -670,15 +729,14 @@ const createResultSelector = <
       const next = getCached?.({ client, query: memoQuery });
       if (!isLive<Data>(next)) return next;
       const prev = held.current;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
+      if (isHeld(prev, memoQuery, client) && equal(prev.value, next)) return prev.value;
+      held.current = { query: memoQuery, client, value: next };
       return next;
     };
     const selector = (raw: query.Cached<Data> | undefined): Slice<Data, Selected> => {
-      if (memoQuery == null || raw === undefined) return NONE_SLICE;
+      if (client == null || memoQuery == null || raw === undefined) return NONE_SLICE;
       if (Deleted.matches<Data>(raw)) return { kind: "deleted", corpse: raw.corpse };
-      return { kind: "live", selected: select(raw, memoQuery) };
+      return { kind: "live", selected: select(raw, memoQuery, client) };
     };
     const slice = useSyncExternalStoreWithSelector(
       subscribe,
@@ -719,11 +777,11 @@ const createResultSelector = <
     if (slice.kind === "deleted")
       return errorResult(
         `retrieve ${name}`,
-        new DeletedError(`${caseconv.capitalize(name)} was deleted`, slice.corpse),
+        new DeletedError(`${strings.capitalize(name)} was deleted`, slice.corpse),
       );
     if (settled != null)
       return "data" in settled
-        ? successResult(`retrieved ${name}`, select(settled.data, memoQuery))
+        ? successResult(`retrieved ${name}`, select(settled.data, memoQuery, client))
         : errorResult(`retrieve ${name}`, settled.error);
     return loadingResult<Selected>(`retrieving ${name}`);
   };
@@ -741,9 +799,10 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useResult: createResultSelector<Query, Data, Data>(context, (data) => data),
     useInvalidate: () =>
       useInvalidate<Query, Data>(locals, createParams.normalizeQuery),
+    useRefresh: () => useRefresh<Query, Data>(context),
     useTombstone: (query: Query) => useTombstone(context, query),
     createSelector: <Selected, ExtendedQuery extends Query = Query>(
-      select: (data: Data, query: ExtendedQuery) => Selected,
+      select: Select<Data, ExtendedQuery, Selected>,
       equal?: (a: Selected, b: Selected) => boolean,
     ) => {
       const { getCached } = createParams;
@@ -757,7 +816,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
       Selected extends state.State,
       ExtendedQuery extends Query = Query,
     >(
-      select: (data: Data, query: ExtendedQuery) => Selected,
+      select: Select<Data, ExtendedQuery, Selected>,
       equal?: (a: Selected, b: Selected) => boolean,
     ) => {
       if (createParams.getCached == null)

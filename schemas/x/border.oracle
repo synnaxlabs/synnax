@@ -10,6 +10,7 @@
 import "schemas/x/spatial"
 
 @go output "x/go/border"
+@py output "x/py/x/border"
 @ts output "x/ts/src/border"
 
 Radius struct {
@@ -32,6 +33,9 @@ Radius struct {
         forms: a bare number, a single { x, y } pair, or per-corner numbers, each of
         which expands to this canonical shape.
     """
+    @go json    hand
     @go marshal
+    @py hand
+    @py include "x/py/x/border/border"
     @ts hand
 }

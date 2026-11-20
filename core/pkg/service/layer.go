@@ -11,31 +11,45 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
+	"os"
 	"slices"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
+	"github.com/synnaxlabs/synnax/pkg/service/file"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -47,19 +61,21 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ontologysignals "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -73,7 +89,6 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -85,6 +100,16 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Security security.Provider
+	// CA reads the CA certificates of the Core, whose expiry the certificate service
+	// reports.
+	//
+	// [OPTIONAL] - Nil in insecure mode.
+	CA *cert.Loader
+	// Listeners are the listeners of the Core that serve TLS, whose certificates'
+	// expiry the certificate service reports.
+	//
+	// [OPTIONAL] - Empty in insecure mode.
+	Listeners []certificate.Listener
 	// Distribution is the underlying distribution layer.
 	//
 	// [REQUIRED]
@@ -106,17 +131,35 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 7 days.
 	SessionIdleTimeout time.Duration
+	// AuthMethods are the login methods the Core accepts.
+	//
+	// [OPTIONAL] - Defaults to every method.
+	AuthMethods []auth.Method
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
-	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
+	// [OPTIONAL] - Defaults to the license service defaults.
 	License license.ServiceConfig
+	// SecretsKey protects the value of every stored secret. It encrypts the random data
+	// key that encrypts each value.
+	//
+	// [REQUIRED]
+	SecretsKey secret.EncryptionKey
+	// SecretsDir is the folder that holds the file secrets of the Core's rack. Empty
+	// when the Core has none.
+	//
+	// [OPTIONAL]
+	SecretsDir string
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
 	//
 	// [OPTIONAL] - Defaults to true (validation enabled)
 	ValidateChannelNames *bool
+	// EmbeddedDriverDisabled is true when the Core runs without its embedded Driver.
+	//
+	// [OPTIONAL] - Defaults to false.
+	EmbeddedDriverDisabled bool
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -136,6 +179,8 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
+	c.CA = override.Nil(c.CA, other.CA)
+	c.Listeners = override.Slice(c.Listeners, other.Listeners)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.FIPS = override.Nil(c.FIPS, other.FIPS)
@@ -143,10 +188,22 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		c.SessionIdleTimeout,
 		other.SessionIdleTimeout,
 	)
+	c.AuthMethods = override.Slice(c.AuthMethods, other.AuthMethods)
 	c.License = c.License.Override(other.License)
+	c.EmbeddedDriverDisabled = override.If(
+		c.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+	)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
+	c.SecretsKey = override.If(
+		c.SecretsKey,
+		other.SecretsKey,
+		other.SecretsKey != secret.EncryptionKey{},
+	)
+	c.SecretsDir = override.String(c.SecretsDir, other.SecretsDir)
 	return c
 }
 
@@ -155,6 +212,10 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
 	v.NotNil("security", c.Security)
+	v.Ternary("secrets_key", c.SecretsKey == secret.EncryptionKey{}, "required")
+	for _, m := range c.AuthMethods {
+		v.Ternaryf("auth_methods", !m.IsValid(), "unknown method %q", m)
+	}
 	return v.Error()
 }
 
@@ -162,11 +223,7 @@ func (c LayerConfig) Validate() error {
 // The service layer wraps the distribution layer to provide the core services of
 // synnax that do not require network awareness.
 type Layer struct {
-	// Ontology manages relationships between arbitrary data structures in a directed
-	// acyclic graph. It is the main method for defining relationships between resources
-	// in Synnax.
-	Ontology *ontology.Ontology
-	// Group is for grouping related resources in the cluster.
+	// Group is for grouping related resources.
 	Group *group.Service
 	// User is the service for registering and retrieving information about users.
 	User *user.Service
@@ -180,16 +237,18 @@ type Layer struct {
 	Auth *auth.Service
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
-	// Alias is for working with channel aliases on ranges.
-	Alias *alias.Service
 	// KV is for working with key-value pairs on ranges.
 	KV *kv.Service
 	// Project is for working with Projects.
 	Project *project.Service
+	// Bundle exports and imports projects as bundles.
+	Bundle *bundle.Service
 	// Schematic is for working with schematic visualizations.
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
 	LinePlot *lineplot.Service
+	// ICD is for working with interface control documents.
+	ICD *icd.Service
 	// Log is for working with log visualizations.
 	Log *log.Service
 	// Table is for working with table visualizations.
@@ -198,11 +257,16 @@ type Layer struct {
 	Panel *panel.Service
 	// Label is for working with user-defined labels that can be attached to various
 	// data structures within Synnax.
-	Label  *label.Service
-	Rack   *rack.Service
-	Task   *task.Service
-	Device *device.Service
-	// NI owns the stored configuration records of the NI task types.
+	Label *label.Service
+	// Color stores named colors.
+	Color *color.Service
+	// Enumeration stores enumerations.
+	Enumeration *enumeration.Service
+	Rack        *rack.Service
+	Task        *task.Service
+	Device      *device.Service
+	// NI owns the NI chassis, devices, and stored configuration records of the NI task
+	// types.
 	NI *ni.Service
 	// OPCUA owns the stored configuration records of the OPC UA task types.
 	OPCUA *opcua.Service
@@ -214,6 +278,10 @@ type Layer struct {
 	EtherCAT *ethercat.Service
 	// HTTP owns the stored configuration records of the HTTP task types.
 	HTTP *http.Service
+	// Kafka owns the stored configuration records of the Kafka task types.
+	Kafka *kafka.Service
+	// TaskStopper stops running tasks ahead of a delete.
+	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -223,14 +291,17 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
-	// Framer is for reading, writing, and streaming frames of telemetry from channels
-	// across the cluster.
+	// Sift owns the stored configuration records of the Sift task types.
+	Sift *sift.Service
+	// File owns the stored configuration records of the file browser task type.
+	File *file.Service
+	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
-	// Control reads the control state of channels across the cluster and publishes
-	// every transfer on the control channel.
+	// Control reads the control state of channels and publishes every transfer on the
+	// control channel.
 	Control *control.Service
 	// License holds the Core's license and gates the API on it.
 	License *license.Service
@@ -243,10 +314,18 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// Grant stores the grants that let a rack read secrets.
+	Grant *grant.Service
+	// Secret stores the hidden values that devices and tasks connect with.
+	Secret *secret.Service
+	// Certificate stores certificates and reports their expiry.
+	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
-	// Node publishes the cluster's nodes as resources in the ontology.
+	// Node serves the host node of the Core as a resource.
 	Node *node.Service
+	// Resource searches and names records of every type.
+	Resource *resource.Service
 	// Driver is the Go task executor that handles in-process task lifecycle.
 	Driver *driver.Driver
 	// Signals propagates changes to distribution and service layer data structures
@@ -261,18 +340,21 @@ func (l *Layer) Close() error { return l.closer.Close() }
 
 func revokePasswordSessions(
 	ctx context.Context,
+	db *gorp.DB,
 	passwords *password.Service,
 	sessions *auth.Service,
-	subject ontology.ID,
+	subject resource.ID,
 ) error {
-	var p password.Password
-	if err := passwords.NewRetrieve().
-		Where(password.MatchSubjects(subject)).
-		Entry(&p).
-		Exec(ctx, nil); err != nil {
-		return errors.Wrap(err, "load the root password")
-	}
-	return sessions.NewWriter(nil).RevokeCredential(ctx, p.Key)
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		var p password.Password
+		if err := passwords.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&p).
+			Exec(ctx, tx); err != nil {
+			return errors.Wrap(err, "load the root password")
+		}
+		return sessions.NewWriter(tx).RevokeCredential(ctx, p.Key)
+	})
 }
 
 // OpenLayer opens the service layer using the provided configurations. Later
@@ -284,35 +366,74 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if err != nil {
 		return nil, err
 	}
+	var secretsFolder fs.FS
+	if cfg.SecretsDir != "" {
+		if secretsFolder, err = openSecretsFolder(cfg.SecretsDir); err != nil {
+			return nil, err
+		}
+	}
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() { err = cleanup(err) }()
-	if l.Ontology, err = ontology.Open(ctx, ontology.Config{
-		Instrumentation: cfg.Child("ontology"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.Ontology) {
+	// The migrations of the tables below read the ontology of an upgraded store, and
+	// ontologyDropMigration deletes it once they have run.
+	if err = ontology.Migrate(
+		ctx,
+		cfg.Distribution.DB,
+		cfg.Child("ontology"),
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Group, err = group.OpenService(ctx, group.ServiceConfig{
 		Instrumentation: cfg.Child("group"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
+		// The visualization services open after the group service, so the hook reads
+		// them when it runs.
+		MoveMembers: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			groups []group.Key,
+			top *resource.ID,
+		) error {
+			for _, move := range []group.MoveMembers{
+				l.Schematic.MoveGroups,
+				l.LinePlot.MoveGroups,
+				l.Log.MoveGroups,
+				l.Table.MoveGroups,
+				l.Panel.MoveGroups,
+			} {
+				if err := move(ctx, tx, groups, top); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
 	}); !ok(err, l.Group) {
 		return nil, err
 	}
-	if l.Node, err = node.NewService(ctx, node.ServiceConfig{
+	if l.Node, err = node.NewService(node.ServiceConfig{
 		Instrumentation: cfg.Child("node"),
-		Cluster:         cfg.Distribution.Cluster,
-		Ontology:        l.Ontology,
+		Host:            cfg.Distribution.Host,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
 		Instrumentation: cfg.Child("label"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
 	}); !ok(err, l.Label) {
+		return nil, err
+	}
+	if l.Color, err = color.OpenService(ctx, color.ServiceConfig{
+		Instrumentation: cfg.Child("color"),
+		DB:              cfg.Distribution.DB,
+		Group:           l.Group,
+	}); !ok(err, l.Color) {
+		return nil, err
+	}
+	if l.Enumeration, err = enumeration.OpenService(ctx, enumeration.ServiceConfig{
+		Instrumentation: cfg.Child("enumeration"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Enumeration) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(
@@ -320,9 +441,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		status.ServiceConfig{
 			Instrumentation: cfg.Child("status"),
 			DB:              cfg.Distribution.DB,
-			Ontology:        l.Ontology,
-			Group:           l.Group,
-			Label:           l.Label,
 		},
 	); !ok(err, l.Status) {
 		return nil, err
@@ -337,9 +455,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("channel"),
 		Channel:         cfg.Distribution.Channel,
 		DB:              cfg.Distribution.DB,
-		HostProvider:    cfg.Distribution.Cluster,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
+		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
@@ -355,6 +471,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, channelGraph) {
 		return nil, err
 	}
+	if l.Signals, err = signals.New(signals.Config{
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		Framer:          cfg.Distribution.Framer,
+		Instrumentation: cfg.Child("signals"),
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
@@ -363,23 +487,25 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			ChannelGraph:    channelGraph,
+			Reserved:        l.Signals.Publishes,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
-	if l.Signals, err = signals.New(signals.Config{
-		DB:              cfg.Distribution.DB,
-		Channel:         l.Channel,
-		Framer:          l.Framer,
-		Instrumentation: cfg.Child("signals"),
-	}); !ok(err, nil) {
+	if err = l.Signals.PublishTable(
+		ctx,
+		channelsignals.TableConfig(l.Channel),
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if closer, err := channelsignals.Publish(
+	if err = l.Signals.PublishActions(
 		ctx,
-		l.Signals,
-		l.Channel.Observe(),
-	); !ok(err, closer) {
+		signals.ActionConfig[channel.Key, channel.Action]{
+			Name:     "sy_channel_action_set",
+			Actions:  l.Channel.Actions(),
+			Resource: channel.ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if closer, err := history.Publish(ctx, history.Config{
@@ -398,39 +524,104 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(l.Group.Observe()),
-	); !ok(err, closer) {
-		return nil, err
-	}
-	if closer, err := ontologysignals.Publish(
-		ctx,
-		cfg.Child("ontology_signals"),
-		l.Signals,
-		l.Ontology,
-	); !ok(err, closer) {
-		return nil, err
-	}
-	if closer, err := l.Signals.PublishFromGorp(
-		ctx,
-		signals.GorpPublisherConfigUUID(l.Label.Observe()),
-	); !ok(err, closer) {
-		return nil, err
-	}
-	if closer, err := l.Signals.PublishActions(
-		ctx,
-		signals.ActionPublisherConfig[label.Key, label.Action]{
-			Observable: l.Label.ObserveActions(),
-			Name:       "label_action",
+		signals.TableConfig[group.Key, group.Group]{
+			Changes:  l.Group.Changes,
+			Resource: group.ResourceID,
 		},
-	); !ok(err, closer) {
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishActions(
 		ctx,
-		signals.GorpPublisherConfigString(l.Status.Observe()),
-	); !ok(err, closer) {
+		signals.ActionConfig[group.Key, group.Action]{
+			Name:     "sy_group_action_set",
+			Actions:  l.Group.Actions(),
+			Resource: group.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[label.Key, label.Label]{
+			Changes:  l.Label.Changes,
+			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[label.Key, label.Action]{
+			Name:     "sy_label_action_set",
+			Actions:  l.Label.Actions(),
+			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[color.Key, color.Named]{
+			SetName:    "sy_color_set",
+			DeleteName: "sy_color_delete",
+			Changes:    l.Color.Changes,
+			Resource:   color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[color.Key, color.Action]{
+			Name:     "sy_color_action_set",
+			Actions:  l.Color.Actions(),
+			Resource: color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[enumeration.Key, enumeration.Enumeration]{
+			SetName:    "sy_enumeration_set",
+			DeleteName: "sy_enumeration_delete",
+			Changes:    l.Enumeration.Changes,
+			Resource:   enumeration.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[enumeration.Key, enumeration.Action]{
+			Name:     "sy_enumeration_action_set",
+			Actions:  l.Enumeration.Actions(),
+			Resource: enumeration.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[status.Key, status.Status[any]]{
+			Changes:  l.Status.Changes,
+			Resource: status.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	// The Driver reads sy_status_set as statuses, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[status.Key, status.Action]{
+			Name:     "sy_status_action_set",
+			Actions:  l.Status.Actions(),
+			Resource: status.ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
@@ -447,13 +638,34 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
-	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		Instrumentation: cfg.Child("user"),
+	// Users and racks reference roles, and racks take the Driver role, so roles open
+	// first.
+	roles, err := rbac.OpenRoles(ctx, rbac.RolesConfig{
+		Instrumentation: cfg.Child("rbac"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Signals:         l.Signals,
-	}); !ok(err, l.User) {
+	})
+	if !ok(err, roles) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[role.Key, role.Action]{
+			Name:     "sy_role_action_set",
+			Actions:  roles.Role.Actions(),
+			Resource: role.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[policy.Key, policy.Action]{
+			Name:     "sy_policy_action_set",
+			Actions:  roles.Policy.Actions(),
+			Resource: policy.ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Password, err = password.OpenService(ctx, password.ServiceConfig{
@@ -463,12 +675,78 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Password) {
 		return nil, err
 	}
+	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
+		Instrumentation: cfg.Child("user"),
+		DB:              cfg.Distribution.DB,
+		Password:        l.Password,
+		Signals:         l.Signals,
+	}); !ok(err, l.User) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[user.Key, user.Action]{
+			Name:     "sy_user_action_set",
+			Actions:  l.User.Actions(),
+			Resource: user.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{
 		Instrumentation: cfg.Child("apikey"),
 		DB:              cfg.Distribution.DB,
 	}); !ok(err, l.APIKey) {
 		return nil, err
 	}
+	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
+		Instrumentation:        cfg.Child("rack"),
+		DB:                     cfg.Distribution.DB,
+		HostKey:                cfg.Distribution.Identity.HostKey,
+		Status:                 l.Status,
+		DriverRole:             roles.Builtin.DriverKey,
+		EmbeddedDriverDisabled: cfg.EmbeddedDriverDisabled,
+	}); !ok(err, l.Rack) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[rack.Key, rack.Rack]{
+			Changes:  l.Rack.Changes,
+			Resource: rack.Key.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	coreRack, err := l.Rack.RetrieveOrCreateEmbedded(
+		ctx,
+		fmt.Sprintf("Node %d", cfg.Distribution.Identity.HostKey),
+	)
+	if !ok(err, nil) {
+		return nil, err
+	}
+	// The Driver reads sy_rack_set as racks, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[rack.Key, rack.Action]{
+			Name:     "sy_rack_action_set",
+			Actions:  l.Rack.Actions(),
+			Resource: rack.Key.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if l.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
+		Instrumentation: cfg.Child("rbac"),
+		DB:              cfg.Distribution.DB,
+		Roles:           roles,
+		User:            l.User,
+		Rack:            l.Rack,
+	}); !ok(err, nil) {
+		return nil, err
+	}
+	// The RBAC migrations give each stored user a role, so the root user is provisioned
+	// after them.
 	var (
 		root                user.User
 		rootPasswordChanged bool
@@ -479,6 +757,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.User,
 			l.Password,
 			cfg.RootCredentials,
+			roles.Builtin.OwnerKey,
 		); !ok(err, nil) {
 			return nil, err
 		}
@@ -489,33 +768,28 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			)
 		}
 	}
-	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
-		Instrumentation: cfg.Child("rbac"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Signals:         l.Signals,
-		Group:           l.Group,
-		User:            l.User,
-	}); !ok(err, l.RBAC) {
-		return nil, err
+	authenticators := map[auth.Method]auth.Authenticator{
+		auth.MethodPassword: l.Password,
+		auth.MethodAPIKey:   l.APIKey,
+	}
+	if len(cfg.AuthMethods) > 0 {
+		authenticators = lo.PickByKeys(authenticators, cfg.AuthMethods)
 	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
-		Authenticators: map[auth.Method]auth.Authenticator{
-			auth.MethodPassword: l.Password,
-			auth.MethodAPIKey:   l.APIKey,
-		},
-		IdleTimeout: cfg.SessionIdleTimeout,
+		Authenticators:  authenticators,
+		IdleTimeout:     cfg.SessionIdleTimeout,
 	}); !ok(err, l.Auth) {
 		return nil, err
 	}
 	if rootPasswordChanged {
 		if err = revokePasswordSessions(
 			ctx,
+			cfg.Distribution.DB,
 			l.Password,
 			l.Auth,
-			root.OntologyID(),
+			root.ResourceID(),
 		); !ok(err, nil) {
 			return nil, err
 		}
@@ -523,10 +797,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
 		Instrumentation: cfg.Child("ranger"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Group:           l.Group,
 		Signals:         l.Signals,
-		Label:           l.Label,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
@@ -537,11 +809,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
+	// The visualization migrations read the projects converted from workspaces, so the
+	// project table opens first.
+	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
+		Instrumentation: cfg.Child("project"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+	}); !ok(err, l.Project) {
+		return nil, err
+	}
 	l.ImEx = imex.NewService()
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		Instrumentation: cfg.Child("schematic"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Group:           l.Group,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
@@ -551,16 +831,23 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		Instrumentation: cfg.Child("lineplot"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
+		Color:           l.Color,
 	}); !ok(err, l.LinePlot) {
+		return nil, err
+	}
+	if l.ICD, err = icd.OpenService(ctx, icd.ServiceConfig{
+		Instrumentation: cfg.Child("icd"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		ImEx:            l.ImEx,
+	}); !ok(err, l.ICD) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
@@ -569,62 +856,67 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
 		Instrumentation: cfg.Child("panel"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 	}); !ok(err, l.Panel) {
-		return nil, err
-	}
-	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
-		Instrumentation: cfg.Child("project"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
-		Signals:         l.Signals,
-		ImEx:            l.ImEx,
-		Panel:           l.Panel,
-	}); !ok(err, l.Project) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		Instrumentation: cfg.Child("table"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Table) {
 		return nil, err
 	}
-	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		Instrumentation: cfg.Child("rack"),
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
-		HostProvider:    cfg.Distribution.Cluster,
-		Status:          l.Status,
-		DriverRole:      l.RBAC.Builtin.DriverKey,
-	}); !ok(err, l.Rack) {
+	}); !ok(err, l.Grant) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
-		ctx,
-		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
-	); !ok(err, closer) {
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		Grant:           l.Grant,
+		EncryptionKey:   cfg.SecretsKey,
+		Rack:            coreRack.Key,
+		Folder:          secretsFolder,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
+	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
+		Instrumentation: cfg.Child("certificate"),
+		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
+		Status:          l.Status,
+		Signals:         l.Signals,
+		Rack:            coreRack.Key,
+		HostKey:         cfg.Distribution.Identity.HostKey,
+		CA:              cfg.CA,
+		Listeners:       cfg.Listeners,
+	}); !ok(err, l.Certificate) {
 		return nil, err
 	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Signals:         l.Signals,
 		Status:          l.Status,
 		Rack:            l.Rack,
+		References: []gorp.Reference[device.Key, device.Device]{
+			sift.APIKeyReference(l.Secret),
+			opcua.PasswordReference(l.Secret),
+			opcua.CertificateReference(l.Certificate),
+		},
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Signals:         l.Signals,
 	}); !ok(err, l.NI) {
 		return nil, err
 	}
@@ -656,7 +948,26 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.HTTP) {
+		return nil, err
+	}
+	if l.Kafka, err = kafka.OpenService(ctx, kafka.ServiceConfig{
+		Instrumentation: cfg.Child("kafka"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+	}); !ok(err, l.Kafka) {
+		return nil, err
+	}
+	// Arc task configs reference Arcs, and the task migrations write them.
+	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
+		Instrumentation: cfg.Child("arc"),
+		DB:              cfg.Distribution.DB,
+		Parser: parser.Config{
+			AllowDashedNames: !l.Channel.ShouldValidateNames(),
+		},
+	})
+	if !ok(err, arcTable) {
 		return nil, err
 	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
@@ -674,19 +985,36 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
+		Rack:            coreRack.Key,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
 	if l.MQTT, err = mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.MQTT) {
+		return nil, err
+	}
+	if l.Sift, err = sift.OpenService(ctx, sift.ServiceConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Sift) {
+		return nil, err
+	}
+	if l.File, err = file.OpenService(ctx, file.ServiceConfig{
+		Instrumentation: cfg.Child("file"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.File) {
 		return nil, err
 	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
-		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(),
+		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
+		l.File.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -695,18 +1023,25 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Task, err = task.OpenService(ctx, task.ServiceConfig{
 		Instrumentation: cfg.Child("task"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Channel:         l.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 		Configs:         taskConfigs,
+		MatchArcs:       l.ArcTask.MatchArcs,
 		// An Arc task holds a key and hash pointing at an Arc document, so it has no
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
+		return nil, err
+	}
+	if l.TaskStopper, err = task.NewStopper(task.StopperConfig{
+		DB:     cfg.Distribution.DB,
+		Task:   l.Task,
+		Status: l.Status,
+		Framer: l.Framer,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(
@@ -714,24 +1049,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		arc.ServiceConfig{
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
-			Ontology:        l.Ontology,
+			Table:           arcTable,
 			Channel:         l.Channel,
 			Task:            l.Task,
+			MatchTasks:      l.ArcTask.MatchArcs,
 			Status:          l.Status,
 			Signals:         l.Signals,
 			ImEx:            l.ImEx,
 		},
 	); !ok(err, l.Arc) {
-		return nil, err
-	}
-	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
-		Instrumentation: cfg.Child("alias"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Signals:         l.Signals,
-		Channel:         l.Channel,
-		ParentRetriever: l.Ranger,
-	}); !ok(err, l.Alias) {
 		return nil, err
 	}
 	if l.View, err = view.OpenService(
@@ -740,10 +1066,52 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Instrumentation: cfg.Child("view"),
 			DB:              cfg.Distribution.DB,
 			Signals:         l.Signals,
-			Ontology:        l.Ontology,
-			Group:           l.Group,
 		},
 	); !ok(err, l.View) {
+		return nil, err
+	}
+	if l.Resource, err = resource.NewService(resource.ServiceConfig{
+		Providers: map[resource.Type]resource.Provider{
+			resource.TypeArc:             l.Arc.Resources(),
+			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
+			resource.TypeCertificate:     l.Certificate.Resources(),
+			resource.TypeChannel:         l.Channel.Resources(),
+			resource.TypeColor:           l.Color.Resources(),
+			resource.TypeDevice:          l.Device.Resources(),
+			resource.TypeEnumeration:     l.Enumeration.Resources(),
+			resource.TypeGroup:           l.Group.Resources(),
+			resource.TypeICD:             l.ICD.Resources(),
+			resource.TypeLabel:           l.Label.Resources(),
+			resource.TypeLineplot:        l.LinePlot.Resources(),
+			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
+			resource.TypeNiDevice:        l.NI.Devices.Resources(),
+			resource.TypeNode:            l.Node.Resources(),
+			resource.TypePanel:           l.Panel.Resources(),
+			resource.TypePolicy:          l.RBAC.Policy.Resources(),
+			resource.TypeProject:         l.Project.Resources(),
+			resource.TypeRack:            l.Rack.Resources(),
+			resource.TypeRange:           l.Ranger.Resources(),
+			resource.TypeRole:            l.RBAC.Role.Resources(),
+			resource.TypeSchematic:       l.Schematic.Resources(),
+			resource.TypeSchematicSymbol: l.Schematic.Symbol.Resources(),
+			resource.TypeSecret:          l.Secret.Resources(),
+			resource.TypeStatus:          l.Status.Resources(),
+			resource.TypeTable:           l.Table.Resources(),
+			resource.TypeTask:            l.Task.Resources(),
+			resource.TypeUser:            l.User.Resources(),
+			resource.TypeView:            l.View.Resources(),
+		},
+	}); !ok(err, nil) {
+		return nil, err
+	}
+	if l.Bundle, err = bundle.NewService(bundle.Config{
+		Resource: l.Resource,
+		Project:  l.Project,
+		Group:    l.Group,
+		Panel:    l.Panel,
+		ImEx:     l.ImEx,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Metrics, err = metrics.OpenService(
@@ -753,10 +1121,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Framer:          l.Framer,
 			Channel:         l.Channel,
-			HostProvider:    cfg.Distribution.Cluster,
+			HostKey:         cfg.Distribution.Identity.HostKey,
 			Storage:         cfg.Storage,
 			Group:           l.Group,
-			Ontology:        l.Ontology,
 		},
 	); !ok(err, l.Metrics) {
 		return nil, err
@@ -770,8 +1137,35 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("composition"),
 		DB:              cfg.Distribution.DB,
 		Namespace:       "Composition",
-		Migrations:      panelversions.CompositionMigrations,
+		Migrations: append(
+			l.Panel.CompositionMigrations(),
+			newGroupRemovalReport(l.Resource, l.Status),
+			ontologyDropMigration,
+			l.Group.BuiltinDeleteMigration(),
+			rangeAliasDropMigration,
+			l.PagerDuty.SecretMigration(taskNames(l.Task)),
+			opcua.PasswordMigration(l.Secret),
+			opcua.CertificateMigration(l.Certificate, l.Status),
+		),
 	}); !ok(err, nil) {
+		return nil, err
+	}
+	// The composition migrations can change configs and the records they hash, so the
+	// tasks store their hashes after them and before the Driver configures the tasks.
+	if err = l.Task.SyncHashes(ctx); !ok(err, nil) {
+		return nil, err
+	}
+	if err = deleteRetiredChannels(
+		ctx,
+		cfg.Distribution.DB,
+		l.Channel,
+	); !ok(err, nil) {
+		return nil, err
+	}
+	// The change channels send no commit before Start, so the migrations above send
+	// nothing.
+	signalsCloser, err := l.Signals.Start(ctx)
+	if !ok(err, signalsCloser) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
@@ -790,6 +1184,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
+		Secret:          l.Secret,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
+	kafkaFactory, err := kafka.NewFactory(kafka.FactoryConfig{
+		Instrumentation: cfg.Child("kafka"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Status:          l.Status,
 	})
 	if !ok(err, nil) {
 		return nil, err
@@ -801,22 +1207,68 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
+		ICD:             l.ICD,
 	})
 	if !ok(err, mqttFactory) {
+		return nil, err
+	}
+	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Ranger:          l.Ranger,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Label:           l.Label,
+		Task:            l.Task,
+	})
+	if !ok(err, siftFactory) {
+		return nil, err
+	}
+	fileFactory, err := file.NewFactory(file.FactoryConfig{
+		Instrumentation: cfg.Child("file"),
+		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		SecretsDir:      cfg.SecretsDir,
+	})
+	if !ok(err, nil) {
 		return nil, err
 	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
 		Rack:            l.Rack,
+		RackKey:         coreRack.Key,
 		Task:            l.Task,
 		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factories:       []driver.Factory{arcFactory, pdFactory, mqttFactory},
-		Host:            cfg.Distribution.Cluster,
+		Factories: []driver.Factory{
+			arcFactory,
+			pdFactory,
+			kafkaFactory,
+			mqttFactory,
+			siftFactory,
+			fileFactory,
+		},
+		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}
 	return l, nil
+}
+
+// openSecretsFolder returns the folder at dir. It returns an error when dir is not a
+// folder.
+func openSecretsFolder(dir string) (fs.FS, error) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "secrets folder")
+	}
+	if !info.IsDir() {
+		return nil, errors.Newf("secrets folder %s is not a folder", dir)
+	}
+	return os.DirFS(dir), nil
 }

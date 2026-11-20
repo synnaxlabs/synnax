@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 
 import { Scale as BaseScale } from "@/schematic/node/common/scale";
 import { ScaleForm } from "@/schematic/node/general/scale/Form";
-import { Scale } from "@/schematic/node/general/scale/Primitive";
-import { Symbol } from "@/schematic/node/general/scale/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import { Preview, Symbol } from "@/schematic/node/general/scale/Symbol";
+import type { Spec } from "@/schematic/node/spec";
 
 export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
   key: "scale",
   name: "Scale",
   Form: ScaleForm,
   Node: Symbol,
-  Preview: Scale,
+  Preview,
   zIndex: 4,
   needsPosition: true,
   colorFallbacks: BaseScale.colorFallbacks,

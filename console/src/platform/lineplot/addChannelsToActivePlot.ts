@@ -9,11 +9,8 @@
 
 import { type channel, lineplot, type Synnax } from "@synnaxlabs/client";
 
-// addChannelsToActivePlot dispatches AddChannel actions for each channel that
-// is not already on the y1 axis of the target plot. It runs outside of React
-// (called from ontology handlers), so it bypasses Pluto's hook-based dispatch
-// and goes through the client directly. The server broadcast on
-// sy_lineplot_set is what reconciles the local Pluto store afterwards.
+// Runs outside React, so it dispatches through the client. The sy_lineplot_set
+// broadcast updates the Pluto store.
 export const addChannelsToActivePlot = async (
   client: Synnax,
   key: lineplot.Key,

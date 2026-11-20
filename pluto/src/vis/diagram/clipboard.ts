@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { type record, uuid, xy } from "@synnaxlabs/x";
+import { type record, strings, uuid, xy } from "@synnaxlabs/x";
 import { type ClipboardEvent, type RefObject, useRef } from "react";
 
-import { type ClipboardHandler } from "@/vis/diagram/Diagram";
+import type { ClipboardHandler } from "@/vis/diagram/Diagram";
 
-const VERSION = 1;
+const VERSION = 2;
 
 interface Payload<N, E, C> {
   version: number;
@@ -129,8 +129,7 @@ export interface UseClipboardReturn {
 }
 
 const describe = (nodeCount: number, edgeCount: number): string =>
-  `${nodeCount} node${nodeCount === 1 ? "" : "s"}, ` +
-  `${edgeCount} edge${edgeCount === 1 ? "" : "s"}`;
+  `${strings.count(nodeCount, "node")}, ${strings.count(edgeCount, "edge")}`;
 
 const centroid = (nodes: ClipboardNode[]): xy.XY => {
   if (nodes.length === 0) return xy.ZERO;
@@ -269,7 +268,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
     const payload = parsePayload<N, E, C>(raw);
     if (payload == null || payload.version !== VERSION) return;
     e.preventDefault();
-    const offset = xy.translation(payload.anchor, cursor);
+    const offset = xy.sub(cursor, payload.anchor);
     const remap: Record<string, string> = {};
     const nodes: PastedNode<N, C>[] = payload.nodes.map((node) => {
       const newKey = uuid.create();

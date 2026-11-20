@@ -55,8 +55,8 @@ const changes = async (
 
 /**
  * Still for the hero of docs page `reference/ranges`: the Ranges toolbar lists the TPC
- * stand's coldflow campaign and its tests with their labels, next to the Review panel,
- * which plots Coldflow 11 with its stages drawn as child ranges.
+ * stand's running coldflow campaign, its starred ranges, and its recent tests, next to
+ * the Review panel, which plots Coldflow 11 with its stages drawn as child ranges.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const world = await fixtures.testStand({ now: () => session.now() });
@@ -68,7 +68,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     const label = async (range: ranger.Range, labels: Label[]): Promise<void> =>
       await client.labels.label(
-        range.ontologyID,
+        range.resourceID,
         labels.map((l) => LABELS[l].key),
       );
     const runs = await Promise.all(
@@ -103,7 +103,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       name,
       color,
       timeRange: new TimeRange(start, end),
-      parent: { key: run.key },
+      parent: run.key,
     });
     await client.ranges.create([
       stage("Pressurization", "#3774D0", closed, opened),
@@ -126,11 +126,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(page.getByText("Review", { exact: true }).first());
     await session.waitFor(page.locator(".pluto-line-plot:visible").first());
     await session.settle(1500);
-    // Favorites join the toolbar in order, and the last one becomes the active range.
-    for (const name of [CAMPAIGN, LEAK_CHECK, ...RUNS.map(([name]) => name)]) {
-      const item = page
-        .locator(`.console-range__list-item[aria-label="${name}"]`)
-        .first();
+    // Recent lists every test, so only the ranges under review get a star.
+    for (const name of [CAMPAIGN, REVIEWED]) {
+      const item = page.getByRole("listitem", { name, exact: true }).first();
       await session.waitFor(item);
       await capture.contextMenu(
         session,

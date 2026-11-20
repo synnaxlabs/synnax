@@ -10,9 +10,10 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { OS } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
+import { Settings } from "@/app/settings";
 import { Toolbars } from "@/app/toolbars";
 import { Core } from "@/feature/core";
 import { Docs } from "@/feature/docs";
@@ -81,7 +82,9 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
         ) : (
           <>
             <Version.Badge />
+            {DESKTOP && <Embedded.ConnectButton />}
             <Docs.OpenButton />
+            <Settings.Button />
             {DESKTOP ? <Embedded.Indicator /> : <Core.Badge />}
           </>
         )}

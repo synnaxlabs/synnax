@@ -1,0 +1,92 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Starts a container by digest, publishes its port, and waits for its health check, if
+# it has one. An image tagged `src-<hash>` with no digest is one that a fork's run
+# built, and the action loads it from the artifact that Build - Docker uploaded. A
+# workflow calls this instead of using `services`, because a service image cannot be
+# both pinned and optional. Pass the container's variables in the env of the calling
+# step and name them in `variables`. The caller removes the container: build bots
+# outlive the job.
+
+name: Start service
+description: Start a container from a pinned image
+
+inputs:
+  name:
+    description: Container name
+    required: true
+  image:
+    description: Image reference, pinned by digest, or the tag of a fork's image
+    required: true
+  port:
+    description: Port to publish on the host
+    required: true
+  token:
+    description: Token that can pull the image from GitHub Container Registry
+    required: true
+  variables:
+    description: Space-separated names of variables to pass to the container
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Name the artifact of the image
+      id: artifact
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        if [[ $IMAGE != *@* && ${IMAGE##*:} == src-* ]]; then
+          echo "name=image-${IMAGE##*:}" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Download the image
+      if: steps.artifact.outputs.name != ''
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+      with:
+        name: ${{ steps.artifact.outputs.name }}
+        path: ${{ runner.temp }}/${{ steps.artifact.outputs.name }}
+
+    - name: Start the container
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        NAME: ${{ inputs.name }}
+        PORT: ${{ inputs.port }}
+        TOKEN: ${{ inputs.token }}
+        VARIABLES: ${{ inputs.variables }}
+        ARTIFACT: ${{ steps.artifact.outputs.name }}
+      run: |
+        docker rm --force "$NAME" 2> /dev/null || true
+        if [ -n "$ARTIFACT" ]; then
+          docker load --input "$RUNNER_TEMP/$ARTIFACT/image.tar"
+        else
+          docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin <<< "$TOKEN"
+          # Pulls from GitHub Container Registry sometimes drop the connection.
+          for attempt in 1 2 3 4 5; do
+            if docker pull --quiet "$IMAGE"; then break; fi
+            if [ "$attempt" = 5 ]; then exit 1; fi
+            sleep $((attempt * 10))
+          done
+        fi
+        args=()
+        for variable in $VARIABLES; do args+=(--env "$variable"); done
+        docker run --detach --name "$NAME" --publish "$PORT:$PORT" "${args[@]}" "$IMAGE"
+        format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}'
+        for _ in $(seq 60); do
+          status=$(docker inspect --format "$format" "$NAME")
+          if [ "$status" = healthy ] || [ "$status" = none ]; then exit 0; fi
+          sleep 2
+        done
+        docker logs --tail 100 "$NAME" >&2
+        echo "$NAME did not become healthy" >&2
+        exit 1

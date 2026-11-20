@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore, type EnhancedStore } from "@reduxjs/toolkit";
+import type { EnhancedStore } from "@reduxjs/toolkit";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -25,9 +25,10 @@ const tauriWindow = { theme: vi.fn(), onThemeChanged: vi.fn(), setTheme: vi.fn()
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => tauriWindow }));
 
 import { Theme } from "@/session/theme";
+import { createMinimalStore } from "@/testutil";
 
 const storeWith = (mode: Theme.Mode = Theme.ZERO_SLICE_STATE.mode): EnhancedStore =>
-  configureStore({
+  createMinimalStore({
     reducer: { [Theme.SLICE_NAME]: Theme.reducer },
     preloadedState: { [Theme.SLICE_NAME]: { ...Theme.ZERO_SLICE_STATE, mode } },
   });

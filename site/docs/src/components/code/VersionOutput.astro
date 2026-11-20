@@ -11,7 +11,7 @@
 import Inline from "@/components/code/Inline.astro";
 const { label, product } = Astro.props;
 
-const version = await Astro.locals.releases.latest(product);
+const version = await Astro.locals.releases.documented(product);
 ---
 
 <Inline theme="css-variables" lang="text" code={`${label} v${version}`} />

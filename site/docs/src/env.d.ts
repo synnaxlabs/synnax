@@ -10,6 +10,9 @@
 /// <reference types="astro/client" />
 /// <reference path="../.astro/types.d.ts" />
 
+/** The docs version of the build, resolved at build time from `DOCS_VERSION`. */
+declare const __DOCS_VERSION__: import("@/util/version").Version | null;
+
 declare namespace App {
   interface Locals {
     releases: import("@/util/releases").Releases;

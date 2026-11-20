@@ -36,7 +36,7 @@ import (
 // (`--gates=format,analyze`), exit codes, and JSON output.
 type Checker interface {
 	Name() string
-	Run(context.Context, *pipeline.Result, Env) GateReport
+	Run(ctx context.Context, result *pipeline.Result, env Env) GateReport
 }
 
 // Env carries everything a Checker needs that is not part of the pipeline Result.
@@ -47,6 +47,10 @@ type Env struct {
 	// IncludeDiffs requests that gates capture per-finding unified diffs. Off by
 	// default because diffs blow up output size.
 	IncludeDiffs bool
+	// Shipped is the stable release that HEAD must still read. The versions gate fails
+	// on any version file that changes a stored shape it shipped. Nil skips that
+	// comparison.
+	Shipped *Release
 }
 
 // Severity describes how a finding affects the gate's pass/fail decision.
@@ -200,6 +204,7 @@ func Run(
 		case StatusFail:
 			report.TotalRun++
 			report.TotalFailed++
+		case StatusSkipped:
 		}
 	}
 	report.Elapsed = telem.Since(start)

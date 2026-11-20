@@ -9,12 +9,12 @@
 
 import "@/platform/palette/List.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { destructor, type record, type state } from "@synnaxlabs/x";
-import { type MouseEvent, type ReactElement } from "react";
+import { destructor, type record, strings } from "@synnaxlabs/x";
+import type { MouseEvent, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -26,7 +26,8 @@ export interface BaseListProps<E extends record.Keyed<string>>
   data: string[];
   prefix?: string;
   listItem: Component.RenderProp<Base.ItemProps<string>>;
-  retrieve: (query: state.SetArg<Base.PagerParams>) => void;
+  search: (term: string) => void;
+  more?: () => void;
   inputPlaceholder: ReactElement;
 }
 
@@ -54,7 +55,8 @@ export const ListItem = ({ onSelect, itemKey, ...rest }: Select.ItemProps<string
 
 export const BaseList = <E extends record.Keyed<string>>({
   listItem,
-  retrieve,
+  search,
+  more,
   prefix = "",
   inputPlaceholder,
   emptyContent,
@@ -62,18 +64,15 @@ export const BaseList = <E extends record.Keyed<string>>({
   value,
   ...rest
 }: BaseListProps<E>) => {
-  const { fetchMore, search } = Base.usePager({ retrieve, pageSize: 20 });
-
   const handleSearch = (v: string) => {
     onChange(v);
-    if (v.startsWith(prefix)) v = v.slice(prefix.length);
-    search(v);
+    search(strings.trimPrefix(v, prefix));
   };
   return (
     <Select.Frame<string, E>
       {...rest}
       onChange={destructor.NOOP}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       itemHeight={36}
       initialHover={0}
       closeDialogOnSelect

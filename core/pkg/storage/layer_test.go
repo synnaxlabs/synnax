@@ -17,14 +17,96 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+type entry struct {
+	Key  int32
+	Name string
+}
+
+func (e entry) GorpKey() int32 { return e.Key }
+
 var _ = Describe("storage", func() {
+	Describe("Run", func() {
+		It("Should run the time-series engine until its context ends", func(
+			ctx SpecContext,
+		) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.Run)
+			streamer := MustSucceed(l.TS.NewStreamer(cesium.StreamerConfig{
+				SendOpenAck: true,
+			}))
+			requests := confluence.NewStream[cesium.StreamerRequest]()
+			responses := confluence.NewStream[cesium.StreamerResponse](1)
+			streamer.InFrom(requests)
+			streamer.OutTo(responses)
+			sCtx, cancel := signal.WithCancel(ctx)
+			DeferCleanup(cancel)
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			// The streamer acknowledges its open only once the relay runs.
+			Eventually(responses.Outlet()).Should(Receive())
+			requests.Close()
+			Eventually(sCtx.Stopped()).Should(BeClosed())
+		})
+
+		It("Should run the Gorp DB until its context ends", func(ctx SpecContext) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.Run)
+			// A table with indexes opens only once Run runs the Gorp DB.
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+				DB: l.Gorp,
+				Indexes: []gorp.Index[int32, entry]{
+					gorp.NewLookupIndex(
+						"name",
+						func(e *entry) string { return e.Name },
+					),
+				},
+			}))
+		})
+
+		It("Should stop the time-series engine when the Gorp DB fails", func(
+			ctx SpecContext,
+		) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.Gorp.Run)
+			Expect(l.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+		})
+
+		It("Should stop the Gorp DB when the time-series engine fails", func(
+			ctx SpecContext,
+		) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.TS.Run)
+			Expect(l.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+			Expect(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+				DB: l.Gorp,
+				Indexes: []gorp.Index[int32, entry]{
+					gorp.NewLookupIndex(
+						"name",
+						func(e *entry) string { return e.Name },
+					),
+				},
+			})).Error().To(MatchError(ContainSubstring("after DB.Run stopped")))
+		})
+	})
+
 	Describe("Open", func() {
-		ShouldNotLeakGoroutinesPerSpec()
 		var (
 			tempDir string
 			cfg     storage.LayerConfig
@@ -34,7 +116,10 @@ var _ = Describe("storage", func() {
 			// DeferCleanup runs after the layer's Close, whereas an AfterEach would
 			// fire while files are still open and fail RemoveAll on Windows.
 			DeferCleanup(func() { Expect(os.RemoveAll(tempDir)).To(Succeed()) })
-			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
+			cfg = storage.LayerConfig{
+				Dirname: filepath.Join(tempDir, "storage"),
+				Version: "0.0.0",
+			}
 		})
 		Describe("Acquiring a lock", func() {
 			It(
@@ -57,7 +142,7 @@ var _ = Describe("storage", func() {
 					It(
 						"Should set the correct permissions on the storage directory",
 						func(ctx SpecContext) {
-							cfg.Perm = storage.DefaultLayerConfig.Perm
+							cfg.Perm = xfs.UserRWX
 							MustOpen(storage.OpenLayer(ctx, cfg))
 							stat := MustSucceed(os.Stat(cfg.Dirname))
 							Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
@@ -94,14 +179,47 @@ var _ = Describe("storage", func() {
 				MustOpen(storage.OpenLayer(ctx, cfg))
 			})
 		})
+		Describe("Aspen keys", func() {
+			It(
+				"Should delete only the digests and the version counter",
+				func(ctx SpecContext) {
+					deleted := []string{"--dig/a", "--dig/b", "ver"}
+					kept := []string{"aspen.cluster", "--dig", "--dig0", "ve", "vera"}
+					l := MustSucceed(storage.OpenLayer(ctx, cfg))
+					for _, key := range append(deleted, kept...) {
+						Expect(
+							l.KV.Set(ctx, []byte(key), []byte("value")),
+						).To(Succeed())
+					}
+					Expect(l.Close()).To(Succeed())
+					l = MustOpen(storage.OpenLayer(ctx, cfg))
+					for _, key := range deleted {
+						Expect(l.KV.Get([]byte(key))).Error().
+							To(MatchError(query.ErrNotFound))
+					}
+					for _, key := range kept {
+						value, closer := MustSucceed2(l.KV.Get([]byte(key)))
+						Expect(value).To(Equal([]byte("value")))
+						Expect(closer.Close()).To(Succeed())
+					}
+				},
+			)
+		})
 	})
 	Describe("ServiceConfig", func() {
 		DescribeTable("Validate", func(
 			spec func(storage.LayerConfig) storage.LayerConfig,
 			contains string,
 		) {
-			iCfg := storage.DefaultLayerConfig
+			iCfg := storage.LayerConfig{
+				Perm:                 xfs.UserRWX,
+				InMemory:             new(false),
+				KVEngine:             storage.KVEnginePebble,
+				TSEngine:             storage.TSEngineCesium,
+				UpdateBackupDisabled: new(false),
+			}
 			iCfg.Dirname = "foo"
+			iCfg.Version = "0.60.0"
 			err := spec(iCfg).Validate()
 			if contains == "" {
 				Expect(err).ToNot(HaveOccurred())
@@ -138,6 +256,31 @@ var _ = Describe("storage", func() {
 					return cfg
 				},
 				"permissions",
+			),
+			Entry("Valid config", func(cfg storage.LayerConfig) storage.LayerConfig {
+				return cfg
+			}, ""),
+			Entry("Version not set",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = ""
+					return cfg
+				},
+				"version",
+			),
+			Entry("Version with a v prefix",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = "v0.60.0"
+					return cfg
+				},
+				"version",
+			),
+			Entry("Version not set, mem-backed",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = ""
+					cfg.InMemory = new(true)
+					return cfg
+				},
+				"",
 			),
 		)
 	})

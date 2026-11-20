@@ -10,15 +10,11 @@
 """Tree navigation utilities for Console UI automation."""
 
 import time
-from typing import TYPE_CHECKING
+from typing import Protocol
 
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
-
-if TYPE_CHECKING:
-    from console.layout import LayoutClient
 
 _CONTAINER = ".lyra-tree"
 _VIRTUALIZER = ".lyra-list__virtualizer"
@@ -28,6 +24,15 @@ _SCROLL_STEP = 200
 _SCROLL_SETTLE_MS = 150
 _POLL_MS = 100
 _DEFAULT_TIMEOUT_MS = 5000
+# A search result shows the name of its group after its own name. The name drops it.
+_MOUNTED_JS = """(els) => els
+    .filter((el) => el.checkVisibility())
+    .map((el) => {
+        const text = el.innerText.trim();
+        const group = el.querySelector(".console-tree-item__group");
+        if (group == null) return [el.id, text];
+        return [el.id, text.slice(0, -group.innerText.length).trim()];
+    })"""
 _SCROLL_TO_TOP_JS = """(el) => {
     const tree = el.closest(".lyra-tree");
     tree.scrollTop += el.getBoundingClientRect().top - tree.getBoundingClientRect().top;
@@ -55,8 +60,25 @@ _NESTED_NAMES_JS = """(parent, prefix) => {
 }"""
 
 
+class Layout(Protocol):
+    """The layout calls that a Tree makes."""
+
+    page: Page
+    ctx_menu: ContextMenu
+
+    def press_key(self, key: str) -> None: ...
+
+    def press_enter(self) -> None: ...
+
+    def select_all_and_type(self, text: str) -> None: ...
+
+    def type_text(self, text: str) -> None: ...
+
+    def drag(self, source: Locator, target: Locator) -> None: ...
+
+
 class Tree:
-    """Utility class for working with ontology tree elements in Console UI.
+    """Utility class for working with resource tree elements in Console UI.
 
     Tree items in the Console have IDs in the format `type:uuid`, e.g.:
     - `role:6edfe3a6-898a-4342-b838-a7e6ed292a62`
@@ -65,10 +87,10 @@ class Tree:
     """
 
     page: Page
-    layout: "LayoutClient"
+    layout: Layout
     ctx_menu: ContextMenu
 
-    def __init__(self, layout: "LayoutClient"):
+    def __init__(self, layout: Layout):
         self.layout = layout
         self.page = layout.page
         self.ctx_menu = layout.ctx_menu
@@ -90,8 +112,7 @@ class Tree:
     def _mounted(self, prefix: str) -> list[tuple[str, str]]:
         """The mounted rows for a prefix, as (ID, text) pairs, deduplicated by ID."""
         rows: list[list[str]] = self.page.locator(f"div[id^='{prefix}']").evaluate_all(
-            "(els) => els.filter((el) => el.checkVisibility())"
-            ".map((el) => [el.id, el.innerText.trim()])"
+            _MOUNTED_JS
         )
         seen: set[str] = set()
         deduped: list[tuple[str, str]] = []
@@ -236,7 +257,7 @@ class Tree:
         :param item: The Locator for the tree item.
         :returns: The text content.
         """
-        # Try editable text element first (common in ontology tree items)
+        # Try editable text element first (common in resource tree items)
         text_element = item.locator("p.lyra-text--editable")
         if text_element.count() > 0:
             return text_element.inner_text().strip()

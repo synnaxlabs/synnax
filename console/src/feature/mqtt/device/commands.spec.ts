@@ -10,13 +10,14 @@
 import { device } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { MQTT } from "@/feature/mqtt";
 import { findCommand } from "@/platform/command/testutil";
-import { assertDefined, renderHookWithConsole } from "@/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -49,7 +50,7 @@ describe("MQTT.Device Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(device.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(device.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

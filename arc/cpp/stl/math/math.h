@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 #include "wasmtime.hh"
@@ -33,35 +34,24 @@ namespace arc::stl::math {
 inline constexpr const char *MODULE_NAME = "math";
 inline constexpr const char *RESET_INPUT_PARAM = "reset";
 
+/// @brief raises base to exp in O(log exp) steps. The result wraps on overflow, and a
+/// negative exp gives 1.
 template<typename T>
 T int_pow(T base, T exp) {
-    if (exp == 0) return 1;
-    T result = 1;
-    for (T i = 0; i < exp; ++i)
-        result *= base;
-    return result;
-}
-
-struct WindowInputs {
-    x::telem::TimeSpan duration{0};
-    int64_t count = 0;
-
-    static std::pair<WindowInputs, x::errors::Error>
-    create(const types::Params &params) {
-        WindowInputs inputs;
-        for (const auto &p: params) {
-            if (p.name == "duration") {
-                auto sv = types::to_sample_value(p.value, p.type);
-                if (sv.has_value())
-                    inputs.duration = x::telem::TimeSpan(x::telem::cast<int64_t>(*sv));
-            } else if (p.name == "count") {
-                auto sv = types::to_sample_value(p.value, p.type);
-                if (sv.has_value()) inputs.count = x::telem::cast<int64_t>(*sv);
-            }
-        }
-        return {inputs, x::errors::NIL};
+    if constexpr (std::is_signed_v<T>)
+        if (exp < 0) return 1;
+    // Unsigned math wraps instead of overflowing, and unsigned int stops a narrow type
+    // from promoting to int.
+    using N = std::make_unsigned_t<T>;
+    using U = std::common_type_t<N, unsigned>;
+    U result = 1;
+    auto b = static_cast<U>(static_cast<N>(base));
+    for (auto e = static_cast<N>(exp); e > 0; e >>= 1) {
+        if ((e & 1U) != 0) result *= b;
+        b *= b;
     }
-};
+    return static_cast<T>(result);
+}
 
 /// @brief Aggregator is a reduction node that computes running statistics (avg, min,
 /// max) over input data with optional reset via duration, count, or signal.
@@ -73,7 +63,6 @@ private:
     runtime::state::Node state;
     types::Kind kind;
     Op op;
-    WindowInputs inputs;
     int64_t sample_count = 0;
     x::telem::TimeStamp start_time{0};
     x::telem::TimeStamp last_reset_time{0};
@@ -85,14 +74,12 @@ public:
         runtime::state::Node &&state,
         types::Kind kind,
         Op op,
-        WindowInputs inputs,
         size_t input_idx,
         std::optional<size_t> reset_idx
     ):
         state(std::move(state)),
         kind(kind),
         op(op),
-        inputs(inputs),
         input_idx(input_idx),
         reset_idx(reset_idx) {}
 
@@ -118,17 +105,19 @@ public:
                 );
         }
 
-        if (this->inputs.duration > x::telem::TimeSpan(0) && !input_time->empty()) {
+        const auto duration = x::telem::TimeSpan(
+            this->state.numeric_input<int64_t>("duration")
+        );
+        if (duration > x::telem::TimeSpan(0) && !input_time->empty()) {
             auto current_time = x::telem::TimeStamp(input_time->at<int64_t>(-1));
-            if (x::telem::TimeSpan(current_time - this->start_time) >=
-                this->inputs.duration) {
+            if (x::telem::TimeSpan(current_time - this->start_time) >= duration) {
                 should_reset = true;
                 this->start_time = current_time;
             }
         }
 
-        if (this->inputs.count > 0 && this->sample_count >= this->inputs.count)
-            should_reset = true;
+        const auto count = this->state.numeric_input<int64_t>("count");
+        if (count > 0 && this->sample_count >= count) should_reset = true;
 
         if (should_reset) {
             this->sample_count = 0;
@@ -671,9 +660,6 @@ public:
             };
         }
 
-        auto [inputs, err] = WindowInputs::create(cfg.node.inputs);
-        if (err) return {nullptr, err};
-
         auto op = Aggregator::Op::Max;
         if (cfg.node.type == "avg")
             op = Aggregator::Op::Avg;
@@ -696,17 +682,14 @@ public:
             );
         }
 
-        return {
-            std::make_unique<Aggregator>(
-                std::move(cfg.state),
-                kind,
-                op,
-                inputs,
-                input_idx,
-                reset_idx
-            ),
-            x::errors::NIL
-        };
+        auto node = std::make_unique<Aggregator>(
+            std::move(cfg.state),
+            kind,
+            op,
+            input_idx,
+            reset_idx
+        );
+        return {std::move(node), x::errors::NIL};
     }
 
 private:

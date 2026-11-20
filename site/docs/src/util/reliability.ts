@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
+
 export type State = "passed" | "flaky" | "failed" | "skipped" | "unknown";
 
-/** Worst first. A test takes the worst state of its runs. */
+/**
+ * Worst first. A test takes the worst state of the runs that ran, so a skip on one
+ * operating system does not hide a result from another.
+ */
 export const RANK: Record<State, number> = {
   failed: 0,
   flaky: 1,
@@ -52,7 +57,7 @@ export interface Test {
   job: string;
   kind: Suite["kind"];
   name: string;
-  /** The worst state of its runs. */
+  /** The worst state of the runs that ran, or skipped when none ran. */
   state: State;
   path: string;
   source: string;
@@ -76,6 +81,16 @@ export interface Product {
   subsystems: Record<string, Subsystem>;
 }
 
+/** A Test - HITL run, whose tests ran on real hardware. */
+export interface Hardware {
+  id: number;
+  url: string;
+  /** The commit it tested, which holds the same shipped code as the release. */
+  sha: string;
+  started_at: string;
+  ended_at: string;
+}
+
 interface Raw {
   run: {
     id: number;
@@ -91,6 +106,8 @@ interface Raw {
     /** Why the manual_passes tests were run by hand. */
     manual_note: string | null;
   };
+  /** Missing from data that predates hardware runs. */
+  hardware?: Hardware | null;
   products: { key: string; name: string }[];
   suites: Suite[];
   tests: [
@@ -104,15 +121,25 @@ interface Raw {
   ][];
 }
 
-// `scripts/reliability.py` uploads the data. Pages that read it are prerendered, so
-// only the docs build fetches it. The origin URL skips the CDN's cached copy.
-const DATA_URL = "https://synnax.nyc3.digitaloceanspaces.com/docs/reliability/run.json";
+// The release train whose data this page reads. `scripts/reliability.py` uploads each
+// train's data to its own key, so an older docs branch keeps the data its page code
+// understands. A refresh for a new release uploads its data first, then moves this to
+// that release's train, since the build fails while the key is missing.
+const TRAIN = "0.62";
+
+// Pages that read the data are prerendered, so only the docs build fetches it. The
+// origin URL skips the CDN's cached copy.
+const ORIGIN = "https://synnax.nyc3.digitaloceanspaces.com";
+const DATA_URL = `${ORIGIN}/docs/reliability/${TRAIN}/run.json`;
 
 const res = await fetch(DATA_URL);
 if (!res.ok) throw new Error(`fetch ${DATA_URL}: ${res.status} ${res.statusText}`);
 const data = (await res.json()) as Raw;
 
 export const run = data.run;
+
+/** The hardware run, if the release had one. */
+export const hardware = data.hardware ?? null;
 
 /** GitHub URL prefix for a repository path at the run's commit. */
 export const blob = `https://github.com/synnaxlabs/synnax/blob/${data.run.sha}/`;
@@ -147,24 +174,25 @@ const allRuns: Run[] = data.tests.map(
 );
 
 // Unit test path -> subsystem, per product. The first match wins, and every path must
-// match one. System tests are always "e2e".
+// match one. System tests are "hardware" when they ran on real hardware, else "e2e".
 const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> = {
   core: [
     ["api", "API", /^core\/pkg\/(api|transport|server)\//],
     ["distribution", "Distribution", /^core\/pkg\/distribution\//],
     ["services", "Services", /^core\//],
+    // Runs of older commits still hold Aspen tests.
     ["aspen", "Aspen", /^aspen\//],
     ["cesium", "Cesium", /^cesium\//],
     ["freighter", "Freighter", /^freighter\//],
     ["x", "X", /^((x|alamos)\/go|gorp)\//],
   ],
   arc: [
-    ["parser", "Parser", /^arc\/go\/(parser|text|literal)\//],
+    ["parser", "Parser", /^arc\/(go\/(parser|text|literal)|cpp\/text)\//],
     ["analyzer", "Analyzer", /^arc\/(go\/(analyzer|types|symbol)|cpp\/types)\//],
     [
       "compiler",
       "Compiler",
-      /^arc\/(go\/(compiler|ir|graph|stratifier|program)|cpp\/(ir|program))\//,
+      /^arc\/(go\/(compiler|ir|graph|stratifier|program)|cpp\/(ir|program|graph))\//,
     ],
     ["runtime-go", "Go runtime", /^arc\/go\/runtime\//],
     ["runtime-cpp", "C++ runtime", /^arc\/cpp\/runtime\//],
@@ -207,7 +235,7 @@ const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> =
     ["scripts", "Repo scripts", /^(scripts|\.github\/scripts)\//],
     ["docs", "Docs site", /^site\/docs\//],
     ["vite", "Vite plugin", /^configs\/vite\//],
-    ["eslint", "Lint rules", /^configs\/eslint\//],
+    ["lint", "Lint rules", /^configs\/(eslint|stylelint)\//],
   ],
 };
 
@@ -231,15 +259,16 @@ const group = (runs: Run[]): Test[] => {
         passedByHand: false,
         runs: [r],
       });
-    else {
-      t.runs.push(r);
-      if (RANK[r.state] < RANK[t.state]) t.state = r.state;
-    }
+    else t.runs.push(r);
   }
-  for (const t of tests.values())
-    t.passedByHand =
-      t.state === "skipped" &&
-      t.runs.every((r) => r.state !== "skipped" || r.passedByHand);
+  for (const t of tests.values()) {
+    const ran = t.runs.filter((r) => r.state !== "skipped");
+    t.state = (ran.length > 0 ? ran : t.runs).reduce<State>(
+      (worst, r) => (RANK[r.state] < RANK[worst] ? r.state : worst),
+      "passed",
+    );
+    t.passedByHand = t.state === "skipped" && t.runs.every((r) => r.passedByHand);
+  }
   return [...tests.values()];
 };
 
@@ -254,7 +283,10 @@ const subsystems = (product: string, own: Test[]): Record<string, Subsystem> => 
   for (const t of own) {
     let key = "e2e";
     let name = "End-to-end";
-    if (t.kind === "unit") {
+    if (t.tags.includes("hardware")) {
+      key = "hardware";
+      name = "Real hardware";
+    } else if (t.kind === "unit") {
       const hit = SUBSYSTEMS[product].find(([, , match]) => match.test(t.path));
       if (hit == null) throw new Error(`no ${product} subsystem for ${t.path}`);
       [key, name] = hit;
@@ -281,10 +313,11 @@ export const products: Product[] = data.products
     const suites = allSuites
       .filter((s) => s.product === key && s.count > 0)
       .sort(
-        (a, b) =>
-          Number(a.kind === "unit") - Number(b.kind === "unit") ||
-          jobSizes.get(b.job)! - jobSizes.get(a.job)! ||
-          a.job.localeCompare(b.job),
+        compare.chain(
+          compare.by((s) => Number(s.kind === "unit"), compare.numbers),
+          compare.reverse(compare.by((s) => jobSizes.get(s.job)!, compare.numbers)),
+          compare.by((s) => s.job),
+        ),
       );
     const order = new Map(suites.map((s, i) => [s, i]));
     const own = group(
@@ -308,9 +341,17 @@ export const ordered: Test[] = products.flatMap((p) => p.tests);
 
 export const runs: Run[] = ordered.flatMap((t) => t.runs);
 
+/** The runs of the tests that no operating system ran. */
+export const skippedRuns: Run[] = ordered
+  .filter((t) => t.state === "skipped")
+  .flatMap((t) => t.runs);
+
 /** Display names of the operating systems the run tested on, in a fixed order. */
 export const systems = Object.values(OS_NAMES).filter((os) =>
   allSuites.some((s) => s.os === os),
 );
 
 export const totals = count(ordered);
+
+/** The tests that ran on real hardware. */
+export const hardwareTotals = count(ordered.filter((t) => t.tags.includes("hardware")));

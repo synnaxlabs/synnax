@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/set"
@@ -25,14 +26,16 @@ const minCellDim = 32
 // baseRow and baseCol are the entries an action gives the opposing axis when it
 // bootstraps that axis on an empty table. Both take their size from the schema.
 func baseRow(key string) Row {
-	r := Row{Key: key}
-	r.ApplyDefaults()
+	var r Row
+	r.SetDefaults()
+	r.Key = key
 	return r
 }
 
 func baseCol(key string) Column {
-	c := Column{Key: key}
-	c.ApplyDefaults()
+	var c Column
+	c.SetDefaults()
+	c.Key = key
 	return c
 }
 
@@ -71,15 +74,7 @@ func colIndex(cols []Column, key string) int {
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // table.
 func (CreatePayload) Handle(Table) (Table, error) {
-	return Table{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a table create",
-	)
-}
-
-// Handle replaces the table's name.
-func (p RenamePayload) Handle(state Table) (Table, error) {
-	state.Name = p.Name
-	return state, nil
+	return Table{}, actions.CoreOnlyError("a table create")
 }
 
 // Handle inserts a row with the given key at the given index. When CellTemplate is
@@ -106,39 +101,25 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 			state.Columns[i] = baseCol(deriveKey(p.Key, i))
 		}
 	}
-	keys := make([]string, len(cells))
-	for i, c := range cells {
-		keys[i] = c.Key
-	}
-	row := Row{Key: p.Key, Size: max(p.Size, minCellDim), Cells: keys}
+	row := Row{Key: p.Key, Size: max(p.Size, minCellDim), Cells: slices.Clone(cells)}
 	idx := min(int(p.Index), len(state.Rows))
 	state.Rows = slices.Insert(state.Rows, idx, row)
-	if state.Cells == nil {
-		state.Cells = make(map[string]CellConfig, len(cells))
-	}
-	for _, c := range cells {
-		state.Cells[c.Key] = c.Config
-	}
 	return state, nil
 }
 
-// Handle removes the row with the given key and drops every cell it referenced. No-op
-// if no row has the key.
+// Handle removes the row with the given key and its cells. No-op if no row has the key.
 func (p RemoveRowPayload) Handle(state Table) (Table, error) {
 	idx := rowIndex(state.Rows, p.Key)
 	if idx == -1 {
 		return state, nil
-	}
-	for _, k := range state.Rows[idx].Cells {
-		delete(state.Cells, k)
 	}
 	state.Rows = slices.Delete(state.Rows, idx, idx+1)
 	return state, nil
 }
 
 // Handle inserts a column with the given key at the given index, mirroring AddRow with
-// axes swapped. Cells whose row index exceeds the row count enter the cells map without
-// being referenced by any row. Returns a validation error if the key is empty.
+// axes swapped. Cells whose index exceeds the row count are dropped. Returns a
+// validation error if the key is empty.
 func (p AddColPayload) Handle(state Table) (Table, error) {
 	if p.Key == "" {
 		return Table{}, errors.Wrap(validate.ErrValidation, "column key is required")
@@ -163,24 +144,15 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		idx,
 		Column{Key: p.Key, Size: max(p.Size, minCellDim)},
 	)
-	if state.Cells == nil {
-		state.Cells = make(map[string]CellConfig, len(cells))
-	}
-	for i := range state.Rows {
-		if i >= len(cells) {
-			break
-		}
-		rowIdx := min(idx, len(state.Rows[i].Cells))
-		state.Rows[i].Cells = slices.Insert(state.Rows[i].Cells, rowIdx, cells[i].Key)
-	}
-	for _, c := range cells {
-		state.Cells[c.Key] = c.Config
+	for i := range min(len(state.Rows), len(cells)) {
+		row := &state.Rows[i]
+		row.Cells = slices.Insert(row.Cells, min(idx, len(row.Cells)), cells[i])
 	}
 	return state, nil
 }
 
-// Handle removes the column with the given key and drops every cell that column
-// referenced across every row. No-op if no column has the key.
+// Handle removes the column with the given key and its cell in every row. No-op if no
+// column has the key.
 func (p RemoveColPayload) Handle(state Table) (Table, error) {
 	idx := colIndex(state.Columns, p.Key)
 	if idx == -1 {
@@ -188,13 +160,16 @@ func (p RemoveColPayload) Handle(state Table) (Table, error) {
 	}
 	state.Columns = slices.Delete(state.Columns, idx, idx+1)
 	for i := range state.Rows {
-		if idx >= len(state.Rows[i].Cells) {
-			continue
-		}
-		delete(state.Cells, state.Rows[i].Cells[idx])
-		state.Rows[i].Cells = slices.Delete(state.Rows[i].Cells, idx, idx+1)
+		deleteCell(&state.Rows[i], idx)
 	}
 	return state, nil
+}
+
+// deleteCell removes the cell at idx from the row. No-op if the row is shorter.
+func deleteCell(row *Row, idx int) {
+	if idx < len(row.Cells) {
+		row.Cells = slices.Delete(row.Cells, idx, idx+1)
+	}
 }
 
 // Handle resizes the row with the given key. Sizes below the minimum cell dimension are
@@ -255,32 +230,40 @@ func (p MoveColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle replaces the cell config stored under p.Cell.Key. No-op if no entry
-// with that key exists.
+// cellPos is the position of a cell in a table.
+type cellPos struct{ row, col int }
+
+// cellPositions returns the position of every cell in the table, by cell key.
+func cellPositions(rows []Row) map[string]cellPos {
+	pos := make(map[string]cellPos)
+	for r, row := range rows {
+		for c, cell := range row.Cells {
+			pos[cell.Key] = cellPos{row: r, col: c}
+		}
+	}
+	return pos
+}
+
+// Handle replaces the config of the cell with the key p.Cell.Key. No-op if no row holds
+// a cell with that key.
 func (p SetCellPayload) Handle(state Table) (Table, error) {
-	if _, ok := state.Cells[p.Cell.Key]; !ok {
+	pos, ok := cellPositions(state.Rows)[p.Cell.Key]
+	if !ok {
 		return state, nil
 	}
-	state.Cells[p.Cell.Key] = p.Cell.Config
+	state.Rows[pos.row].Cells[pos.col].Config = p.Cell.Config
 	return state, nil
 }
 
-// Handle erases the selected cells. Fully-selected rows and columns are
-// removed entirely; surviving cells in the selection have their variant and
-// props replaced with the template's, keeping their original keys. Cells
-// not in state.Cells are silently skipped.
+// Handle erases the selected cells. Fully-selected rows and columns are removed
+// entirely; surviving cells in the selection take the template's config, keeping their
+// original keys. Keys that no row holds are skipped.
 func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 	if len(p.Cells) == 0 {
 		return state, nil
 	}
 	selected := set.New(p.Cells...)
-	type pos struct{ row, col int }
-	posOf := make(map[string]pos)
-	for r, row := range state.Rows {
-		for c, k := range row.Cells {
-			posOf[k] = pos{row: r, col: c}
-		}
-	}
+	posOf := cellPositions(state.Rows)
 	rowTally := make(map[int]int)
 	colTally := make(map[int]int)
 	for k := range selected {
@@ -306,68 +289,59 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 	}
 	slices.Sort(fullColIdx)
 	for _, idx := range slices.Backward(fullRowIdx) {
-		for _, k := range state.Rows[idx].Cells {
-			delete(state.Cells, k)
-		}
 		state.Rows = slices.Delete(state.Rows, idx, idx+1)
 	}
 	for _, idx := range slices.Backward(fullColIdx) {
 		state.Columns = slices.Delete(state.Columns, idx, idx+1)
 		for r := range state.Rows {
-			if idx >= len(state.Rows[r].Cells) {
-				continue
-			}
-			delete(state.Cells, state.Rows[r].Cells[idx])
-			state.Rows[r].Cells = slices.Delete(state.Rows[r].Cells, idx, idx+1)
+			deleteCell(&state.Rows[r], idx)
 		}
 	}
-	for _, k := range p.Cells {
-		if _, ok := state.Cells[k]; !ok {
-			continue
+	posOf = cellPositions(state.Rows)
+	for k := range selected {
+		if pos, ok := posOf[k]; ok {
+			state.Rows[pos.row].Cells[pos.col].Config = p.Template
 		}
-		state.Cells[k] = p.Template
 	}
 	return state, nil
 }
 
-// Handle applies the set to the table's cells.
+// Handle applies the set to the table's name, group, or project, or to the config of a
+// cell.
 func (p SetPayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Set(p))
+	return apply(state, patch.Set(p))
 }
 
-// Handle applies the remove to the table's cells.
+// Handle applies the remove to the table's group or project, or to the config of a
+// cell.
 func (p RemovePayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Remove(p))
+	return apply(state, patch.Remove(p))
 }
 
-// Handle applies the insert to the table's cells.
+// Handle applies the insert to the config of a cell.
 func (p InsertPayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Insert(p))
+	return apply(state, patch.Insert(p))
 }
 
-// Handle applies the move to the table's cells.
+// Handle applies the move to the config of a cell.
 func (p MovePayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Move(p))
+	return apply(state, patch.Move(p))
 }
 
-// edit applies a path action to the cell config that its path names. A cell config that
-// names no variant or fails its schema is rejected.
-func edit(state Table, a patch.Action) (Table, error) {
-	cells, err := patch.EditMap(state.Cells, []string{"cells"}, a, checkCell)
+// apply applies a path action to the table's name, group, or project, or to the config
+// of a cell. Any other path fails, except that a path through a row or cell that does
+// not exist does nothing.
+func apply[A patch.Action](state Table, a A) (Table, error) {
+	c, err := patch.Begin(a)
 	if err != nil {
 		return Table{}, err
 	}
-	state.Cells = cells
+	if err = state.Patch(c); err != nil {
+		return Table{}, err
+	}
 	return state, nil
 }
 
-func checkCell(key string, cfg CellConfig) error {
-	if cfg.Variant == nil {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"[Table] - config for cell %q names no variant",
-			key,
-		)
-	}
-	return validate.PathedError(cfg.Validate(), "cells", key)
-}
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }

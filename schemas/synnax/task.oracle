@@ -10,6 +10,7 @@
 import "schemas/synnax/device"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/telem"
 
@@ -24,9 +25,6 @@ Key = uuid {
 }
 
 StatusDetails struct<Data? = record> {
-    task        Key      {
-        @doc value "is the key of the task this status pertains to."
-    }
     running     bool     {
         @doc value "is true if the task is currently executing."
     }
@@ -69,15 +67,19 @@ Task struct<
         @key
     }
     rack        rack.Key = 0 {
-        @doc value """
+        @doc value     """
             is the key of the rack this task deploys to. Zero for a draft that has not
             been assigned a rack; required to start.
         """
-        @filter
+        @patch
+        @ref kind      place
+        @ref on_delete cascade
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
-        @filter
+        @index sorted
+        @patch
+        @search
         @validate required
     }
     type        Type                {
@@ -85,7 +87,7 @@ Task struct<
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
-        @filter
+        @search
     }
     config      Config              {
         @doc value """
@@ -101,15 +103,11 @@ Task struct<
     }
     internal    bool = false {
         @doc value "is true if this is an internal system task."
-        @filter
-    }
-    snapshot    bool = false {
-        @doc value "is true if this task is an immutable snapshot copy of another task."
-        @filter
     }
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
+        @include
     }
 
     action Create {
@@ -117,25 +115,17 @@ Task struct<
 
         @doc value """
             replaces the task with the given created state. Emitted by the Core when a
-            task is created or overwritten whole; clients never dispatch it.
+            task is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the task."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value "removes an entry from a list or a field from an object in the task."
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the task."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the task."
-    }
+    action Move = patch.Move
 
     @create
     @doc value               """
@@ -145,11 +135,27 @@ Task struct<
     """
     @go marshal
     @go migrate
-    @ontology type           "task"
     @py name                 "Payload"
+    @resource type           "task"
+    @retrieve indexes
     @ts coalesce_type_params
     @ts concrete_types
     @ts name                 "Payload"
+}
+
+Where filter Task {
+    key
+    name
+    type
+    rack
+    internal
+    arcs     uuid[] {
+        @cpp omit
+        @doc value "matches the tasks that run any of the Arcs with the given keys."
+    }
+
+    @doc value         "is a filter that selects tasks."
+    @go request_output "core/pkg/api/task"
 }
 
 Command struct {
@@ -180,7 +186,8 @@ Command struct {
         """
     }
 
-    @doc value "is a command to execute on a task in the Driver system."
+    @doc value  "is a command to execute on a task in the Driver system."
+    @go marshal
 }
 
 KeyedConfig struct {
@@ -213,8 +220,9 @@ PersistConfig struct extends StartConfig {
 
 ReadConfig struct extends PersistConfig {
     sample_rate telem.Rate = 10 {
-        @doc value "is the per-channel hardware sample rate, in Hertz."
-        @ts type   "number"
+        @doc value   "is the per-channel hardware sample rate, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     stream_rate telem.Rate = 5 {
         @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
@@ -227,7 +235,9 @@ ReadConfig struct extends PersistConfig {
 
 WriteConfig struct extends PersistConfig {
     device device.Key = "" {
-        @doc value "is the key of the device the task writes to."
+        @doc value     "is the key of the device the task writes to."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value "carries the configuration fields shared by hardware control tasks."
@@ -236,13 +246,81 @@ WriteConfig struct extends PersistConfig {
 
 ScanConfig struct extends KeyedConfig {
     rate     telem.Rate = 0.2 {
-        @doc value "is the rate at which the scan runs, in Hertz."
-        @ts type   "number"
+        @doc value   "is the rate at which the scan runs, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     disabled bool = false {
         @doc value "is true when scanning is paused."
     }
 
     @doc value "carries the fields shared by every scan task configuration."
+    @pb omit
+}
+
+Scale union on type {
+    linear {
+        slope  float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        offset float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and offset."
+    }
+    map {
+        pre_scaled_min float64 = 0 {
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
+        }
+        pre_scaled_max float64 = 1 {
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
+        }
+        scaled_min     float64 = 0 {
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
+        }
+        scaled_max     float64 = 1 {
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    polynomial {
+        coeffs float64[] = [] {
+            @doc value """
+                are the coefficients from the constant term up, so that index i holds
+                the coefficient of x^i.
+            """
+        }
+
+        @doc value "maps raw values to engineering units with a polynomial."
+    }
+    table {
+        pre_scaled_vals float64[] = [] {
+            @doc value "are the raw breakpoints, in increasing order."
+        }
+        scaled_vals     float64[] = [] {
+            @doc value "are the engineering-unit values at each breakpoint."
+        }
+
+        @doc value """
+            maps raw values to engineering units by linear interpolation between the
+            breakpoints, and clips raw values outside the table to its first or last
+            scaled value.
+        """
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
+
+    @doc value  """
+        determines how the raw values of a hardware read channel are transformed to
+        engineering units.
+    """
+    @go marshal
     @pb omit
 }

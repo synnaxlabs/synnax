@@ -26,6 +26,7 @@ import (
 	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -52,7 +53,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			collectInputs(ctx, fn.InputList(), &inputs)
 			triggerStart := len(inputs)
 			collectTriggers(ctx.Child(fn.TriggerList()), &inputs)
-			collectOutputs(fn.OutputType(), &outputs)
+			collectOutputs(ctx, fn.OutputType(), &outputs)
 
 			trigger := symbol.TriggerOnly
 			if len(inputs) > triggerStart {
@@ -90,27 +91,22 @@ func collectInputs[T antlr.ParserRuleContext](
 		inputName := cfg.IDENTIFIER().GetText()
 		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType = inferType(ctx, typeCtx)
 		}
 
 		var defaultValue any
 		if lit := cfg.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for input parameter %s",
-						inputName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(
+					invalidDefault(err, "input parameter", inputName, lit),
+				)
 				continue
 			}
 			defaultValue = value.Value
 			seenOptional = true
 		} else if seenOptional {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ParamOrder.Atf(
 				cfg,
 				"required input parameter %s cannot follow optional input parameters",
 				inputName,
@@ -126,6 +122,18 @@ func collectInputs[T antlr.ParserRuleContext](
 	}
 }
 
+// inferType infers the type that typeCtx names and reports a type it cannot infer.
+func inferType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	typeCtx parser.ITypeContext,
+) types.Type {
+	t, err := atypes.InferFromTypeContext(typeCtx)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+	}
+	return t
+}
+
 // collectTriggers extracts trigger parameter types without adding them to scope.
 func collectTriggers(
 	ctx acontext.Context[parser.ITriggerListContext],
@@ -138,7 +146,7 @@ func collectTriggers(
 	for _, trigger := range ctx.AST.AllTrigger() {
 		var triggerType types.Type
 		if typeCtx := trigger.Type_(); typeCtx != nil {
-			triggerType, _ = atypes.InferFromTypeContext(typeCtx)
+			triggerType = inferType(ctx, typeCtx)
 		}
 		triggerName := trigger.IDENTIFIER().GetText()
 
@@ -146,20 +154,13 @@ func collectTriggers(
 		if lit := trigger.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for parameter %s",
-						triggerName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(invalidDefault(err, "parameter", triggerName, lit))
 				continue
 			}
 			defaultValue = value.Value
 			seenOptional = true
 		} else if seenOptional {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ParamOrder.Atf(
 				trigger,
 				"required parameter %s cannot follow optional parameters",
 				triggerName,
@@ -176,7 +177,8 @@ func collectTriggers(
 }
 
 // collectOutputs extracts output types without adding them to scope.
-func collectOutputs(
+func collectOutputs[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
 	outputType parser.IOutputTypeContext,
 	outputs *types.Params,
 ) {
@@ -188,14 +190,14 @@ func collectOutputs(
 	if identifier := outputType.IDENTIFIER(); identifier != nil &&
 		outputType.Type_() != nil {
 		outputName := identifier.GetText()
-		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		outputTypeVal := inferType(ctx, outputType.Type_())
 		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
 		return
 	}
 
 	// Case 2: Unnamed single output (e.g., "f64")
 	if typeCtx := outputType.Type_(); typeCtx != nil {
-		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
+		outputTypeVal := inferType(ctx, typeCtx)
 		*outputs = append(
 			*outputs,
 			types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal},
@@ -210,7 +212,7 @@ func collectOutputs(
 			outputName := namedOutput.IDENTIFIER().GetText()
 			var outputTypeVal types.Type
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
-				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
+				outputTypeVal = inferType(ctx, typeCtx)
 			}
 			*outputs = append(
 				*outputs,
@@ -242,7 +244,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		statement.AnalyzeBlock(ctx.Child(block).WithScope(fn))
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !BlockAlwaysReturns(block) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ReturnValue.Atf(ctx.AST,
 				"function '%s' must return a value of type %s on all paths",
 				name,
 				oParam.Type,
@@ -251,7 +253,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		for _, output := range fn.Type.Outputs {
 			if output.Name != ir.DefaultOutputParam &&
 				!checkOutputAssignedInBlock(block, output.Name) {
-				ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
+				ctx.Diagnostics.Add(codes.OutputNeverAssigned.Atf(ctx.AST,
 					"output '%s' is never assigned in function '%s'",
 					output.Name,
 					name,
@@ -276,7 +278,7 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 	if identifier := outputType.IDENTIFIER(); identifier != nil &&
 		outputType.Type_() != nil {
 		outputName := identifier.GetText()
-		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		outputTypeVal := inferType(ctx, outputType.Type_())
 		if _, err := scope.Add(ctx, symbol.Symbol{
 			Name: outputName,
 			Kind: symbol.KindOutput,
@@ -300,7 +302,7 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 			outputName := namedOutput.IDENTIFIER().GetText()
 			var outputTypeVal types.Type
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
-				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
+				outputTypeVal = inferType(ctx, typeCtx)
 			}
 			if _, err := scope.Add(ctx, symbol.Symbol{
 				Name: outputName,
@@ -361,7 +363,7 @@ func addTriggersToScope(
 	for _, trigger := range ctx.AST.AllTrigger() {
 		var triggerType types.Type
 		if typeCtx := trigger.Type_(); typeCtx != nil {
-			triggerType, _ = atypes.InferFromTypeContext(typeCtx)
+			triggerType = inferType(ctx, typeCtx)
 		}
 		triggerName := trigger.IDENTIFIER().GetText()
 
@@ -369,14 +371,7 @@ func addTriggersToScope(
 		if lit := trigger.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for parameter %s",
-						triggerName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(invalidDefault(err, "parameter", triggerName, lit))
 			} else {
 				defaultValue = value.Value
 			}
@@ -437,21 +432,16 @@ func addInputsToScope[T antlr.ParserRuleContext](
 		inputName := cfg.IDENTIFIER().GetText()
 		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType = inferType(ctx, typeCtx)
 		}
 
 		var defaultValue any
 		if lit := cfg.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for input parameter %s",
-						inputName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(
+					invalidDefault(err, "input parameter", inputName, lit),
+				)
 			} else {
 				defaultValue = value.Value
 			}
@@ -467,4 +457,25 @@ func addInputsToScope[T antlr.ParserRuleContext](
 			ctx.Diagnostics.Add(diagnostics.Error(err, cfg))
 		}
 	}
+}
+
+// invalidDefault reports a default value of a parameter that does not parse. param
+// names the kind of parameter.
+func invalidDefault(
+	err error,
+	param, name string,
+	lit antlr.ParserRuleContext,
+) diagnostics.Diagnostic {
+	if errors.Is(err, literal.ErrTruncated) {
+		return codes.InvalidLiteral.Atf(
+			lit,
+			"default value of %s %s would be truncated",
+			param,
+			name,
+		)
+	}
+	return diagnostics.Error(
+		errors.Wrapf(err, "invalid default value for %s %s", param, name),
+		lit,
+	)
 }

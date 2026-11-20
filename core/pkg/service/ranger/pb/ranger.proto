@@ -13,13 +13,17 @@ syntax = "proto3";
 
 package service.ranger.pb;
 
-import "core/pkg/service/label/pb/label.proto";
 import "x/go/color/pb/color.proto";
+import "x/go/filter/pb/filter.proto";
 import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/pb";
-message LabelList {
-  repeated .service.label.pb.Label values = 1;
+
+// Stage is where a range stands against the current time.
+enum Stage {
+  STAGE_TO_DO = 0;
+  STAGE_IN_PROGRESS = 1;
+  STAGE_COMPLETED = 2;
 }
 
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
@@ -35,10 +39,67 @@ message Range {
   // color is an optional display color for visual identification of the range in user
   // interfaces.
   optional .x.color.pb.Color color = 4;
-  // labels contains optional labels attached to this range for categorization and
-  // filtering.
-  LabelList labels = 5;
-  // parent is an optional parent range for hierarchical organization. Ranges can be
-  // nested within other ranges.
-  optional Range parent = 6;
+  // labels are the keys of the labels attached to the range.
+  repeated string labels = 5;
+  // parent is the key of the range this range is nested in. Empty for a top-level
+  // range.
+  optional string parent = 6;
+  // has_children is true when a range is nested in the range, derived on read and not
+  // persisted.
+  bool has_children = 7;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message UuidList {
+  repeated string values = 1;
+}
+
+// UuidSet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+message UuidSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  UuidList in = 2;
+}
+message LabelKeyList {
+  repeated string values = 1;
+}
+message KeyList {
+  repeated string values = 1;
+}
+message StageList {
+  repeated Stage values = 1;
+}
+
+// Where is a filter that selects ranges.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional UuidSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // overlaps matches ranges whose time range overlaps the given range.
+  optional .x.telem.pb.TimeRange overlaps = 6;
+  // labels matches ranges that have any of the given labels.
+  LabelKeyList labels = 7;
+  // parents matches the ranges nested in any of the given ranges.
+  KeyList parents = 8;
+  // ancestors matches the ranges nested at any depth in any of the given ranges.
+  KeyList ancestors = 9;
+  // nested matches the ranges nested in a range, or top-level ranges when false.
+  optional bool nested = 10;
+  // labeled matches ranges that have a label, or ranges with none when false.
+  optional bool labeled = 11;
+  // stages matches ranges in any of the given stages at the Core's clock.
+  StageList stages = 12;
+  // recent matches ranges that overlap the span ending now, or starting now if
+  // negative.
+  optional int64 recent = 13;
 }

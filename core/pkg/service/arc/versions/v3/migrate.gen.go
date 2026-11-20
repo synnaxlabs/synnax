@@ -20,11 +20,11 @@ import (
 )
 
 func autoMigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
-	graph, err := graph.MigrateGraph(ctx, old.Graph)
+	graphVal, err := graph.MigrateGraph(ctx, old.Graph)
 	if err != nil {
 		return Arc{}, err
 	}
-	text, err := text.MigrateText(ctx, old.Text)
+	textVal, err := text.MigrateText(ctx, old.Text)
 	if err != nil {
 		return Arc{}, err
 	}
@@ -32,7 +32,7 @@ func autoMigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 		Key:   old.Key,
 		Name:  old.Name,
 		Mode:  old.Mode,
-		Graph: graph,
-		Text:  text,
+		Graph: graphVal,
+		Text:  textVal,
 	}, nil
 }

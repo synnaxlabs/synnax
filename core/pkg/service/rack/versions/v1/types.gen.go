@@ -13,7 +13,7 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 )
 
 // Key is a composite identifier for a rack. The high 16 bits contain the Core key, and

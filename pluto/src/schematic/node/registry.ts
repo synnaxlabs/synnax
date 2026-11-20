@@ -9,7 +9,7 @@
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { deep, record } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import {
   CUSTOM_ACTUATOR_VARIANT,
@@ -24,7 +24,7 @@ import { GroupBox } from "@/schematic/node/groupBox";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { Safety } from "@/schematic/node/safety";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 import { Valves } from "@/schematic/node/valves";
 import { Vessels } from "@/schematic/node/vessels";
 
@@ -70,7 +70,8 @@ export const isConfig = (config: schematic.ElementConfig): config is Config =>
 
 /**
  * Builds a fresh config from the schema input. Every unset value comes from the
- * schema, except the label, which names the symbol unless the input sets it.
+ * schema, except the label, which names the symbol unless the input sets it, and the
+ * value field, which takes the spec's value unless the input sets it.
  * @param input - The variant plus any fields to set on top of the schema defaults.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
@@ -80,6 +81,8 @@ export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> =>
   const labeled = input as { label?: { label?: string } };
   if ("label" in config && labeled.label?.label == null)
     config.label.label = spec.label ?? spec.name;
+  if ("value" in config && spec.value != null && !("value" in input))
+    config.value = spec.value;
   return config;
 };
 

@@ -11,8 +11,8 @@
 
 The Console form blocks some invalid settings before they reach the Driver and
 renders a field error; the rest deploy and the Driver rejects them with an error
-status. A bad channel key cannot be entered through the form, and a zero stream rate
-is healed by the Core on save; both stay with ``driver/modbus_invalid``.
+status. A bad channel key cannot be entered through the form, and the Core refuses a
+zero stream rate on save; both stay with ``driver/modbus_invalid``.
 """
 
 from console.task.modbus import READ_TYPE_NAMES, SERVER_FIELD_LABEL, ModbusRead

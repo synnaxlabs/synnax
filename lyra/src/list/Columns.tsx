@@ -9,11 +9,7 @@
 
 import "@/list/Columns.css";
 
-import {
-  type ComponentPropsWithRef,
-  type PropsWithChildren,
-  type ReactElement,
-} from "react";
+import type { ComponentPropsWithRef, PropsWithChildren, ReactElement } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -27,7 +23,9 @@ export interface Column {
    * grid, so a width that follows the content, such as "auto", does not line up.
    */
   width: string;
-  /** Whether the column's cells hold fields, so its heading lines up with their text. */
+  /**
+   * Whether the column's cells hold fields, so its heading lines up with their text.
+   */
   field?: boolean;
 }
 

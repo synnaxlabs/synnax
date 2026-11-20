@@ -242,10 +242,9 @@ two-color gradient, from `Hero.Hero`.
   that hides a tab, and keeps the selected tab in view.
 - In a pane, a code block, a video, or an image is a band across the full pane between
   hairlines. It never draws a frame inside the frame of the pane.
-- The Enterprise mark is a small primary label. It shows once, at the right end of the
-  pane header, only while an Enterprise tab is open. The same label marks an Enterprise
-  page under its title, an Enterprise block above the block, and an Enterprise item in a
-  table or a list after its name. Never put it in a tab label.
+- The Enterprise mark is a small primary label. It marks an Enterprise page under its
+  title, an Enterprise block above the block, and an Enterprise item in a table or a
+  list after its name. Never put it in a tab label or a pane header.
 
 ### Notes
 

@@ -9,9 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Event, type License } from "@/server/db/schema";
+import type { Event, License } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
-import { describeEvent, standing, statusOf } from "@/ui/format";
+import { clock, describeEvent, expiry, standing } from "@/ui/format";
 
 const licenseOf = (overrides: Partial<License>): License => ({
   ...LICENSE,
@@ -19,34 +19,6 @@ const licenseOf = (overrides: Partial<License>): License => ({
 });
 
 const days = (n: number): Date => new Date(NOW.getTime() + n * 24 * 60 * 60 * 1000);
-
-describe("format.statusOf", () => {
-  it("should call a revoked license revoked whatever its expiry", () => {
-    const lic = licenseOf({ revokedAt: NOW, expiresAt: days(90) });
-    expect(statusOf(lic, NOW)).toBe("revoked");
-  });
-
-  it("should call a perpetual license active", () => {
-    expect(statusOf(licenseOf({ expiresAt: null }), NOW)).toBe("active");
-  });
-
-  it("should call a license past its expiry expired", () => {
-    expect(statusOf(licenseOf({ expiresAt: days(-1) }), NOW)).toBe("expired");
-  });
-
-  it("should call a license inside the renewal window expiring", () => {
-    expect(statusOf(licenseOf({ expiresAt: days(29) }), NOW)).toBe("expiring");
-  });
-
-  it("should call a license outside the renewal window active", () => {
-    expect(statusOf(licenseOf({ expiresAt: days(31) }), NOW)).toBe("active");
-  });
-
-  it("should not warn on a Desktop license, which renews itself", () => {
-    const lic = licenseOf({ edition: "desktop", expiresAt: days(2) });
-    expect(statusOf(lic, NOW)).toBe("active");
-  });
-});
 
 describe("format.standing", () => {
   it("should sum seats and capacity over usable licenses only", () => {
@@ -86,6 +58,33 @@ describe("format.standing", () => {
       capacity: 0,
       nextExpiry: null,
     });
+  });
+});
+
+describe("format.clock", () => {
+  const EVENING = new Date("2026-11-06T03:30:00Z");
+
+  it("should read the day in its time zone", () => {
+    expect(clock("America/Denver").date(EVENING)).toBe("2026-11-05");
+    expect(clock("UTC").date(EVENING)).toBe("2026-11-06");
+  });
+
+  it("should read nothing for no date", () => {
+    expect(clock("UTC").date(null)).toBe("");
+  });
+
+  it("should read the time in its time zone and name the zone", () => {
+    expect(clock("America/Denver").dateTime(EVENING)).toBe("2026-11-05 20:30 MST");
+    expect(clock("America/Denver").dateTime(new Date("2026-07-01T14:05:00Z"))).toBe(
+      "2026-07-01 08:05 MDT",
+    );
+    expect(clock("UTC").dateTime(EVENING)).toBe("2026-11-06 03:30 UTC");
+  });
+});
+
+describe("format.expiry", () => {
+  it("should read the UTC day the terms set", () => {
+    expect(expiry(new Date("2027-03-01T00:00:00Z"))).toBe("2027-03-01");
   });
 });
 

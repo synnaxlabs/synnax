@@ -7,18 +7,55 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Panel } from "@synnaxlabs/pluto";
+import { memo, type PropsWithChildren, type ReactElement } from "react";
 
 import { Modal } from "@/platform/modals/Modal";
 import { Session } from "@/session";
 
-export const Stack = (): ReactElement => {
+const CLOSE_TRIGGERS: Triggers.Trigger[] = [Panel.CLOSE_TRIGGER];
+
+interface LayerProps {
+  entry: Session.Modals.Entry;
+  top: boolean;
+}
+
+const Layer = memo(({ entry, top }: LayerProps): ReactElement => {
+  const { key, ...rest } = entry;
+  return (
+    <Triggers.Scope active={top}>
+      <Modal key={key} {...rest} />
+    </Triggers.Scope>
+  );
+});
+Layer.displayName = "Layer";
+
+/**
+ * Renders the open modals over its children. Only the top modal hears triggers, and the
+ * close trigger closes it. Each scope reads the rendered stack, so a modal that closes
+ * during a key press does not pass the rest of that press to what lies below it.
+ */
+export const Stack = ({ children }: PropsWithChildren): ReactElement => {
   const stack = Session.Modals.useStack();
+  const store = Session.Modals.useStore("Modals.Stack");
+  Triggers.use({
+    triggers: CLOSE_TRIGGERS,
+    loose: true,
+    // Above the page's close trigger, which would close a tab once the modal is gone.
+    priority: 1,
+    callback: ({ stage, stopPropagation }) => {
+      if (stage !== "start" || !store.isAnyOpen()) return;
+      store.closeTop();
+      stopPropagation();
+    },
+  });
   return (
     <>
-      {stack.map(({ key, ...rest }) => (
-        <Modal key={key} {...rest} />
+      {stack.map((entry, i) => (
+        <Layer key={entry.key} entry={entry} top={i === stack.length - 1} />
       ))}
+      <Triggers.Scope active={stack.length === 0}>{children}</Triggers.Scope>
     </>
   );
 };

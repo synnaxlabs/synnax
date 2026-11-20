@@ -12,23 +12,28 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Activity } from "@/page";
+import type { Activity } from "@/page";
 import { personURL } from "@/server/analytics";
+import type { Organization } from "@/server/db/schema";
 import { type Account, roleName } from "@/server/directory";
-import { type Machine } from "@/server/license/desktop";
+import type { Machine } from "@/server/license/desktop";
+import { channels, desktopCap } from "@/server/license/limits";
+import { statusOf } from "@/server/license/status";
 import { isActive, MONTH } from "@/server/usage";
-import { type Detail, type Membership } from "@/server/user";
+import type { Detail, Membership } from "@/server/user";
 import { ActiveTag } from "@/ui/admin/ActiveTag";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
+import { ChannelsDialog } from "@/ui/admin/ChannelsDialog";
 import { navigate, post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
-import { date, dateTime, machineName, statusOf } from "@/ui/format";
+import { type Clock, machineName } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
 import { Modal } from "@/ui/modal";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface UserProps extends Detail {
   /** activity is the audit log of the user's machines, or null with no machines. */
@@ -39,68 +44,84 @@ export interface UserProps extends Detail {
 const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 3rem";
 const TEAM_COLUMNS = "minmax(0, 2fr) 14rem 3rem";
 
-const moment = (t: Date | null): string => (t == null ? "Never" : dateTime(t));
+const moment = (t: Date | null, clock: Clock): string =>
+  t == null ? "Never" : clock.dateTime(t);
+
+const describeCap = (personal: Organization | null): string => {
+  const cap = channels(
+    desktopCap({ desktopChannels: personal?.desktopChannels ?? null }),
+  );
+  return personal?.desktopChannels == null ? `${cap} (default)` : cap;
+};
 
 /** User is one account's staff page: its Desktop use, machines, teams, and activity. */
 export const User = ({
   account,
   usage,
+  personal,
   machines,
   teams,
   activity,
   now,
-}: UserProps): ReactElement => (
-  <Page
-    title={account.name}
-    parent={{ label: "Users", href: "/admin/users" }}
-    subtitle={
-      <Flex.Box x align="center" gap="small">
-        {account.email}
-        {isActive(usage, "day", now) && <ActiveTag />}
-      </Flex.Box>
-    }
-    actions={
-      <>
-        <Button.Button
-          variant="outlined"
-          href={personURL(account.userID)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Icon.OpenExternal />
-          Open in PostHog
-        </Button.Button>
-        <DeleteDialog account={account} />
-      </>
-    }
-  >
-    <Facts>
-      <Fact label="Last Desktop login" value={moment(usage.lastLogin)} />
-      <Fact label="Last active" value={moment(usage.lastActive)} />
-      <Fact label="Active days" value={`${usage.days} of the last ${MONTH}`} />
-      <Fact label="Joined" value={date(account.joinedAt)} />
-      <Fact label="User ID" value={account.userID} code />
-    </Facts>
-    <Section title="Machines">
-      <Machines machines={machines} now={now} />
-    </Section>
-    <Section title="Teams">
-      <Teams teams={teams} />
-    </Section>
-    {activity != null && (
-      <Section title="Activity">
-        <ActivityTable {...activity} />
+}: UserProps): ReactElement => {
+  const clock = useClock();
+  return (
+    <Page
+      title={account.name}
+      parent={{ label: "Users", href: "/admin/users" }}
+      subtitle={
+        <Flex.Box x align="center" gap="small">
+          {account.email}
+          {isActive(usage, "day", now) && <ActiveTag />}
+        </Flex.Box>
+      }
+      actions={
+        <>
+          <Button.Button
+            variant="outlined"
+            href={personURL(account.userID)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Icon.OpenExternal />
+            Open in PostHog
+          </Button.Button>
+          {personal != null && <ChannelsDialog account={account} personal={personal} />}
+          <DeleteDialog account={account} />
+        </>
+      }
+    >
+      <Facts>
+        <Fact label="Last Desktop login" value={moment(usage.lastLogin, clock)} />
+        <Fact label="Last active" value={moment(usage.lastActive, clock)} />
+        <Fact label="Active days" value={`${usage.days} of the last ${MONTH}`} />
+        <Fact label="Desktop channels" value={describeCap(personal)} />
+        <Fact label="Joined" value={clock.date(account.joinedAt)} />
+        <Fact label="User ID" value={account.userID} code />
+      </Facts>
+      <Section title="Machines">
+        <Machines machines={machines} now={now} clock={clock} />
       </Section>
-    )}
-  </Page>
-);
+      <Section title="Teams">
+        <Teams teams={teams} />
+      </Section>
+      {activity != null && (
+        <Section title="Activity">
+          <ActivityTable {...activity} />
+        </Section>
+      )}
+    </Page>
+  );
+};
 
 const Machines = ({
   machines,
   now,
+  clock,
 }: {
   machines: Machine[];
   now: Date;
+  clock: Clock;
 }): ReactElement =>
   machines.length === 0 ? (
     <Empty icon={<Icon.Computer />} message="No machines logged in" />
@@ -118,10 +139,10 @@ const Machines = ({
             <Licenses.StatusTag status={statusOf(lic, now)} />
           </Flex.Box>
           <Text.Text level="p" color={9}>
-            {date(a.firstSeen)}
+            {clock.date(a.firstSeen)}
           </Text.Text>
           <Text.Text level="p" color={9}>
-            {dateTime(a.lastSeen)}
+            {clock.dateTime(a.lastSeen)}
           </Text.Text>
         </Row>
       ))}

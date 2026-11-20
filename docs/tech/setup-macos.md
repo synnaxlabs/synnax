@@ -56,7 +56,7 @@ If you already cloned the repository without submodules, run
 
 ## 5 Set up Go
 
-We use [Go](https://go.dev/) for the Core, Aspen, Cesium, Arc, Freighter, and Oracle.
+We use [Go](https://go.dev/) for the Core, Cesium, Arc, Freighter, and Oracle.
 
 ```zsh
 brew install go
@@ -105,10 +105,11 @@ Verify the installation by running
 uv --version
 ```
 
-The output should look something like
+The output should look something like the following. The workspace needs uv 0.13 or
+later.
 
 ```text
-uv 0.12.0
+uv 0.13.9
 ```
 
 ### 6.1 Install Python
@@ -147,7 +148,7 @@ curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=12 sh -
 Open a new shell, then install Node.js with
 
 ```zsh
-pnpm runtime set node 24 -g
+pnpm runtime set node 26 -g
 ```
 
 Verify both installations by running
@@ -159,8 +160,8 @@ pnpm --version && node --version
 The output should look something like
 
 ```text
-12.14.0
-v24.22.0
+12.21.0
+v26.13.1
 ```
 
 pnpm reads the versions this repository needs from the `devEngines` field in the root
@@ -226,7 +227,7 @@ You only need this section if you work on the [Driver](../../driver).
 ### 9.0 Install Bazel
 
 We build the Driver with [Bazel](https://bazel.build/). Install Bazelisk, which reads
-the Bazel version from `.bazeliskrc` and downloads it for you.
+the Bazel version from `.bazelversion` and downloads it for you.
 
 ```zsh
 brew install bazelisk

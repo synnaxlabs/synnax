@@ -10,7 +10,6 @@
 package versions
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"path"
@@ -114,29 +113,28 @@ var chainTargetRe = regexp.MustCompile(
 )
 
 // File analyzes livePath's version n file, memoized.
-func (r *Resolver) File(ctx context.Context, livePath string, n int) (*File, error) {
+func (r *Resolver) File(livePath string, n int) (*File, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.file(ctx, livePath, n)
+	return r.file(livePath, n)
 }
 
 // Definer returns the namespace and name version n of livePath resolves name to,
 // following the file's alias lines to the version that declares it. It reports false
 // when version n does not carry the name.
 func (r *Resolver) Definer(
-	ctx context.Context,
 	livePath string,
 	n int,
 	name string,
 ) (namespace, definer string, ok bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	f, err := r.file(ctx, livePath, n)
+	f, err := r.file(livePath, n)
 	if err != nil {
 		return "", "", false
 	}
 	if alias, isAlias := f.Aliases[name]; isAlias {
-		v, def, err := r.followAlias(ctx, livePath, n, name, alias)
+		v, def, err := r.followAlias(livePath, n, name, alias)
 		if err != nil {
 			return "", "", false
 		}
@@ -150,7 +148,7 @@ func (r *Resolver) Definer(
 	return "", "", false
 }
 
-func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, error) {
+func (r *Resolver) file(livePath string, n int) (*File, error) {
 	chain, ok := r.chains[livePath]
 	if !ok {
 		return nil, errors.Newf("no version chain for %s", livePath)
@@ -179,27 +177,38 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		)
 	}
 
-	b := &tableBuilder{r: r, table: resolution.NewTable(), done: set.New[string]()}
+	b := &tableBuilder{
+		r:       r,
+		table:   resolution.NewTable(),
+		done:    set.New[string](),
+		claimed: set.New[string](),
+	}
 
-	// Sibling versions seed the table with their defined declarations only,
-	// so an alias targeting a non-defining version fails resolution — the
-	// alias-to-definer rule enforced structurally.
+	// Sibling versions seed the table with their defined declarations. A name a sibling
+	// aliases redirects to its definer.
 	for _, k := range chain.Numbers {
 		if k >= n {
 			break
 		}
-		sib, err := r.file(ctx, livePath, k)
+		sib, err := r.file(livePath, k)
 		if err != nil {
 			return nil, err
 		}
-		rw := rewriter("", pinRewrites(sib.Pins))
+		rw, err := r.seedRewriter(livePath, sib)
+		if err != nil {
+			return nil, err
+		}
 		for _, t := range sib.Defined {
 			if err := b.table.Add(copyType(t, t.Namespace, rw)); err != nil {
 				return nil, errors.Wrapf(err, "failed to seed %s v%d", livePath, k)
 			}
 		}
+		for name := range sib.Aliases {
+			alias := fmt.Sprintf("v%d.%s", k, name)
+			b.table.Redirect(alias, rw(alias))
+		}
 		for depLive, pv := range sib.Pins {
-			if err := b.addSurface(ctx, depLive, pv, DepNS(depLive, pv)); err != nil {
+			if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
 				return nil, err
 			}
 		}
@@ -225,16 +234,16 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		_, pv, _ := paths.VersionFile(p)
 		pins[depLive] = pv
 		b.table.MarkImported(p)
-		if err := b.addSurface(ctx, depLive, pv, resourceOf(depLive)); err != nil {
+		if err := b.addSurface(depLive, pv, resourceOf(depLive)); err != nil {
 			return nil, err
 		}
-		if err := b.addSurface(ctx, depLive, pv, DepNS(depLive, pv)); err != nil {
+		if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
 			return nil, err
 		}
 	}
 
 	ns := fmt.Sprintf("v%d", n)
-	diag := analyzer.AnalyzeSeeded(ctx, source, filePath, ns, r.loader, b.table)
+	diag := analyzer.AnalyzeSeeded(source, filePath, ns, r.loader, b.table)
 	if diag != nil && !diag.Ok() {
 		return nil, errors.Newf(
 			"analysis of %s failed:\n%s", filePath, diag.String(),
@@ -283,12 +292,12 @@ func (f *File) Tombstone() bool { return len(f.Defined) == 0 && len(f.Aliases) =
 // Ended reports whether livePath's chain has ended: its last version file is a
 // tombstone. An ended chain keeps every earlier version frozen, has no current version,
 // and leaves the live schema hand-owned.
-func (r *Resolver) Ended(ctx context.Context, livePath string) (bool, error) {
+func (r *Resolver) Ended(livePath string) (bool, error) {
 	chain, ok := r.chains[livePath]
 	if !ok {
 		return false, errors.Newf("no version chain for %s", livePath)
 	}
-	f, err := r.File(ctx, livePath, chain.Current())
+	f, err := r.File(livePath, chain.Current())
 	if err != nil {
 		return false, err
 	}
@@ -336,27 +345,27 @@ func declaredAliases(ast parser.ISchemaContext, n int) map[string]Alias {
 // Surface resolves livePath's complete namespace at version n: every name present at n
 // mapped to its defining declaration and chain-resolved doc.
 func (r *Resolver) Surface(
-	ctx context.Context, livePath string, n int,
+	livePath string, n int,
 ) (map[string]Definition, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.surface(ctx, livePath, n)
+	return r.surface(livePath, n)
 }
 
 func (r *Resolver) surface(
-	ctx context.Context, livePath string, n int,
+	livePath string, n int,
 ) (map[string]Definition, error) {
 	key := livePath + "@" + strconv.Itoa(n)
 	if s, ok := r.surfaces[key]; ok {
 		return s, nil
 	}
-	f, err := r.file(ctx, livePath, n)
+	f, err := r.file(livePath, n)
 	if err != nil {
 		return nil, err
 	}
 	var prev map[string]Definition
 	if pred, ok := f.Chain.Predecessor(n); ok {
-		if prev, err = r.surface(ctx, livePath, pred); err != nil {
+		if prev, err = r.surface(livePath, pred); err != nil {
 			return nil, err
 		}
 	}
@@ -376,7 +385,7 @@ func (r *Resolver) surface(
 	for name, a := range f.Aliases {
 		// An alias may target any version that carries the name; intermediate alias
 		// lines follow transitively to the defining version.
-		definer, def, err := r.followAlias(ctx, livePath, n, name, a)
+		definer, def, err := r.followAlias(livePath, n, name, a)
 		if err != nil {
 			return nil, err
 		}
@@ -395,7 +404,6 @@ func (r *Resolver) surface(
 // followAlias resolves an alias line to its defining version and declaration, following
 // intermediate alias lines transitively. Callers hold r.mu.
 func (r *Resolver) followAlias(
-	ctx context.Context,
 	livePath string,
 	n int,
 	name string,
@@ -403,7 +411,7 @@ func (r *Resolver) followAlias(
 ) (int, resolution.Type, error) {
 	cur := a
 	for {
-		target, err := r.file(ctx, livePath, cur.Version)
+		target, err := r.file(livePath, cur.Version)
 		if err != nil {
 			return 0, resolution.Type{}, err
 		}
@@ -427,6 +435,37 @@ func (r *Resolver) followAlias(
 	}
 }
 
+// seedRewriter rewrites sib's references for the table of a later version. That table
+// seeds no aliases, so a reference to one of sib's aliases moves to its definer.
+func (r *Resolver) seedRewriter(
+	livePath string,
+	sib *File,
+) (func(string) string, error) {
+	definers := make(map[string]string, len(sib.Aliases))
+	for name, alias := range sib.Aliases {
+		v, def, err := r.followAlias(livePath, sib.N, name, alias)
+		if err != nil {
+			return nil, err
+		}
+		definers[fmt.Sprintf("v%d.%s", sib.N, name)] = fmt.Sprintf(
+			"v%d.%s",
+			v,
+			def.Name,
+		)
+	}
+	rewrites, err := r.pinRewrites(sib)
+	if err != nil {
+		return nil, err
+	}
+	rw := rewriter("", rewrites)
+	return func(name string) string {
+		if definer, ok := definers[name]; ok {
+			return definer
+		}
+		return rw(name)
+	}, nil
+}
+
 // DefinedType returns f's full declaration for name, when the file redeclares it
 // rather than aliasing.
 func DefinedType(f *File, name string) (resolution.Type, bool) {
@@ -438,12 +477,42 @@ func DefinedType(f *File, name string) (resolution.Type, bool) {
 	return resolution.Type{}, false
 }
 
+// surfaceNames returns the names of livePath's surface at version n, plus the synthetic
+// support types of the files that define its members.
+func (r *Resolver) surfaceNames(livePath string, n int) (set.Set[string], error) {
+	surf, err := r.surface(livePath, n)
+	if err != nil {
+		return nil, err
+	}
+	names := make(set.Set[string], len(surf))
+	definers := make(set.Set[int])
+	for name, def := range surf {
+		names.Add(name)
+		definers.Add(def.Version)
+	}
+	for v := range definers {
+		f, err := r.file(livePath, v)
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range f.Defined {
+			if t.Synthetic {
+				names.Add(t.Name)
+			}
+		}
+	}
+	return names, nil
+}
+
 // tableBuilder accumulates one version file's resolution table, tracking which surface
 // namespaces are already registered.
 type tableBuilder struct {
 	r     *Resolver
 	table *resolution.Table
 	done  set.Set[string]
+	// claimed holds each plain namespace that a pinned surface took, which a live
+	// namespace must not join.
+	claimed set.Set[string]
 }
 
 // addSurface registers livePath's surface at version n into the table under namespace
@@ -451,12 +520,15 @@ type tableBuilder struct {
 // reference. Synthetic support types (inline union variant payloads) from every
 // contributing definer file are copied alongside the surface members.
 func (b *tableBuilder) addSurface(
-	ctx context.Context, livePath string, n int, ns string,
+	livePath string, n int, ns string,
 ) error {
-	if b.done.Contains(ns) {
+	// Two pins can share a resource namespace, so the key names the surface too.
+	key := ns + " " + DepNS(livePath, n)
+	if b.done.Contains(ns) || b.done.Contains(key) {
 		return nil
 	}
-	b.done.Add(ns)
+	b.done.Add(key)
+	b.claimed.Add(ns)
 	// A pin registered under its plain resource namespace claims that resource: an
 	// unversioned schema the file also imports may reach it live, and analyzing that
 	// file again would redeclare every type. Marking the live path resolves those
@@ -465,7 +537,7 @@ func (b *tableBuilder) addSurface(
 	if ns == resourceOf(livePath) {
 		b.table.MarkImported(livePath)
 	}
-	surf, err := b.r.surface(ctx, livePath, n)
+	surf, err := b.r.surface(livePath, n)
 	if err != nil {
 		return err
 	}
@@ -473,11 +545,15 @@ func (b *tableBuilder) addSurface(
 	for _, name := range slices.Sorted(maps.Keys(surf)) {
 		def := surf[name]
 		definers.Add(def.Version)
-		definer, err := b.r.file(ctx, livePath, def.Version)
+		definer, err := b.r.file(livePath, def.Version)
 		if err != nil {
 			return err
 		}
-		ct := copyType(def.Type, ns, rewriter(ns, pinRewrites(definer.Pins)))
+		rewrites, err := b.r.pinRewrites(definer)
+		if err != nil {
+			return err
+		}
+		ct := copyType(def.Type, ns, rewriter(ns, rewrites))
 		ct.Name = name
 		ct.QualifiedName = ns + "." + name
 		// A redeclaration without its own @doc inherits the chain-resolved doc,
@@ -497,7 +573,7 @@ func (b *tableBuilder) addSurface(
 			)
 		}
 		for depLive, pv := range definer.Pins {
-			if err := b.addSurface(ctx, depLive, pv, DepNS(depLive, pv)); err != nil {
+			if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
 				return err
 			}
 		}
@@ -511,11 +587,15 @@ func (b *tableBuilder) addSurface(
 	slices.Sort(sortedDefiners)
 	slices.Reverse(sortedDefiners)
 	for _, v := range sortedDefiners {
-		definer, err := b.r.file(ctx, livePath, v)
+		definer, err := b.r.file(livePath, v)
 		if err != nil {
 			return err
 		}
-		rw := rewriter(ns, pinRewrites(definer.Pins))
+		rewrites, err := b.r.pinRewrites(definer)
+		if err != nil {
+			return err
+		}
+		rw := rewriter(ns, rewrites)
 		for _, t := range definer.Defined {
 			if !t.Synthetic {
 				continue
@@ -538,7 +618,7 @@ func (b *tableBuilder) addSurface(
 // the same schema resolves to these copies instead of redeclaring every type.
 func (b *tableBuilder) addLive(f *File) error {
 	for i, ns := range f.Live {
-		if b.done.Contains(ns) {
+		if b.done.Contains(ns) || b.claimed.Contains(ns) {
 			continue
 		}
 		b.done.Add(ns)
@@ -559,7 +639,6 @@ func (b *tableBuilder) addLive(f *File) error {
 // plus every transitive pinned dependency surface under its DepNS namespace. Namespaces
 // already present in the table are not re-registered.
 func (r *Resolver) SurfaceInto(
-	ctx context.Context,
 	table *resolution.Table,
 	livePath string,
 	n int,
@@ -573,8 +652,8 @@ func (r *Resolver) SurfaceInto(
 			done.Add(t.Namespace)
 		}
 	}
-	b := &tableBuilder{r: r, table: table, done: done}
-	return b.addSurface(ctx, livePath, n, ns)
+	b := &tableBuilder{r: r, table: table, done: done, claimed: set.New[string]()}
+	return b.addSurface(livePath, n, ns)
 }
 
 // DepNS is the internal namespace a pinned dependency surface registers under. The

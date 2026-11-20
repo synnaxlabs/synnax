@@ -35,9 +35,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sym.Data.StrokeScaled).To(BeTrue())
 		Expect(sym.Data.States).To(HaveLen(1))
 		Expect(sym.Data.States[0].Regions[0].StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 		Expect(sym.Data.States[0].Regions[0].FillColor).
-			To(HaveValue(Equal(MustSucceed(color.FromHex("#00ff00")))))
+			To(HaveValue(Equal(MustSucceed(color.Parse("#00ff00")))))
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{
 			Key:         "h1",
 			Position:    spatial.XY{X: 0, Y: 0.5},
@@ -61,8 +61,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 				Key:         "r1",
 				Name:        "Body",
 				Selectors:   []string{"#body"},
-				StrokeColor: new(MustSucceed(color.FromHex("#123456"))),
-				FillColor:   new(MustSucceed(color.FromHex("#654321"))),
+				StrokeColor: new(MustSucceed(color.Parse("#123456"))),
+				FillColor:   new(MustSucceed(color.Parse("#654321"))),
 			}},
 		}}))
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{
@@ -73,6 +73,18 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sym.Data.PreviewViewport).To(HaveValue(Equal(spatial.Viewport{
 			Position: spatial.XY{X: 4, Y: 5}, Zoom: 6,
 		})))
+	})
+
+	It("Should import a zero scale as the default", func(ctx SpecContext) {
+		Expect(decode(ctx, "testdata/import_v2_zero_scale.json").Data.Scale).
+			To(Equal(1.0))
+	})
+
+	It("Should give a Console export without a scale the default", func(
+		ctx SpecContext,
+	) {
+		Expect(decode(ctx, "testdata/import_console_unscaled.json").Data.Scale).
+			To(Equal(1.0))
 	})
 
 	It("Should drop the key on the wire", func(ctx SpecContext) {

@@ -10,12 +10,14 @@
 package start_test
 
 import (
+	"encoding/base64"
 	"io/fs"
 	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
@@ -23,6 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -77,7 +81,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 	)
 
 	It(
-		"Should reject a Tailscale advertised listener when peers are configured",
+		"Should reject a Tailscale advertised listener when the Driver is on",
 		func() {
 			viper.Set(listener.FlagListen, []any{
 				map[string]any{
@@ -85,7 +89,6 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 					"cert":    map[string]any{"source": "tailscale"},
 				},
 			})
-			viper.Set(start.FlagPeers, []string{"core02:9090"})
 			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
 			Expect(cfg.Validate()).To(MatchError(
 				ContainSubstring("advertised listener cannot use the Tailscale source"),
@@ -93,27 +96,32 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		},
 	)
 
-	It(
-		"Should reject a Tailscale advertised listener when no peers are configured",
-		func() {
-			viper.Set(listener.FlagListen, []any{
-				map[string]any{
-					"address": "node01.example-tailnet.ts.net:9090",
-					"cert":    map[string]any{"source": "tailscale"},
-				},
-			})
+	Describe("Integrations", func() {
+		It("Should reject both integration flags", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			viper.Set(start.FlagDisableIntegrations, []string{"ni"})
 			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
 			Expect(cfg.Validate()).To(MatchError(
-				ContainSubstring("advertised listener cannot use the Tailscale source"),
+				ContainSubstring("cannot be used with disable_integrations"),
 			))
-		},
-	)
+		})
+
+		It("Should accept one integration flag", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).ToNot(MatchError(
+				ContainSubstring("cannot be used with disable_integrations"),
+			))
+		})
+	})
 
 	Describe("Session idle timeout", func() {
 		It("Should fill the default when the flag is unset", func() {
 			viper.Set(start.FlagInsecure, true)
 			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
-			Expect(start.DefaultCoreConfig.Override(cfg).Validate()).
+			Expect(cfg.Validate()).
 				ToNot(MatchError(ContainSubstring("session_idle_timeout")))
 		})
 
@@ -121,8 +129,71 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			viper.Set(start.FlagInsecure, true)
 			viper.Set(start.FlagSessionIdleTimeout, -time.Second)
 			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
-			Expect(start.DefaultCoreConfig.Override(cfg).Validate()).
+			Expect(cfg.Validate()).
 				To(MatchError(ContainSubstring("session_idle_timeout")))
+		})
+	})
+
+	DescribeTable("Should reject a task worker count that does not fit a byte",
+		func(count int) {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagTaskWorkerCount, count)
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(start.FlagTaskWorkerCount)),
+				))
+		},
+		Entry("negative", -1),
+		Entry("one above the maximum", 256),
+		Entry("far above the maximum", 300),
+	)
+
+	It("Should accept the largest task worker count that fits a byte", func() {
+		viper.Set(start.FlagInsecure, true)
+		viper.Set(start.FlagTaskWorkerCount, 255)
+		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+			ToNot(HaveOccurred())
+	})
+
+	Describe("Auth methods", func() {
+		validateConfig := func() error {
+			GinkgoHelper()
+			viper.Set(start.FlagInsecure, true)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			return cfg.Validate()
+		}
+
+		It("Should accept every method when the flag is unset", func() {
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an explicitly empty list", func() {
+			viper.Set(start.FlagAuthMethods, []string{})
+			Expect(validateConfig()).To(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an unknown method", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password", "carrier_pigeon"})
+			Expect(validateConfig()).To(MatchError(ContainSubstring("carrier_pigeon")))
+		})
+
+		It("Should refuse api_key off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			Expect(validateConfig()).To(
+				MatchError(ContainSubstring("must include api_key")),
+			)
+		})
+
+		It("Should allow password off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"api_key"})
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should allow api_key off when the embedded Driver is off", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			viper.Set(start.FlagNoDriver, true)
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
 		})
 	})
 
@@ -156,6 +227,12 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 				Error().
 				To(And(
 					MatchError(fs.ErrNotExist),
+					MatchError(
+						func(err error) bool {
+							return errors.Is(err, validate.ErrValidation)
+						},
+						"validate.ErrValidation",
+					),
 					MatchError(ContainSubstring(
 						"failed to read the --license-file file",
 					)),
@@ -174,6 +251,30 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
 				Error().
 				To(MatchError(fs.ErrNotExist))
+		})
+	})
+
+	Describe("Secrets key", func() {
+		BeforeEach(func() {
+			DeferCleanup(func() { viper.Set(start.FlagSecretsKey, "") })
+		})
+
+		It("Should accept a base64 key", func() {
+			key := secret.NewEncryptionKey()
+			viper.Set(start.FlagSecretsKey, base64.StdEncoding.EncodeToString(key[:]))
+			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+		})
+
+		It("Should name the flag when the key is not valid", func() {
+			viper.Set(start.FlagSecretsKey, "short")
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"invalid --secrets-key: secrets key is not base64",
+					)),
+				))
 		})
 	})
 })
@@ -197,5 +298,16 @@ var _ = Describe("DriverTrustAnchors", func() {
 		Expect(start.DriverTrustAnchors(false, cert.LoaderConfig{FS: xfs.NewMem()})).
 			Error().
 			To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("AddDataFlag", func() {
+	It("Should add the data flag with its shorthand and default", func() {
+		cmd := &cobra.Command{}
+		start.AddDataFlag(cmd)
+		flag := cmd.Flags().Lookup(start.FlagData)
+		Expect(flag).ToNot(BeNil())
+		Expect(flag.Shorthand).To(Equal("d"))
+		Expect(flag.DefValue).To(Equal("synnax-data"))
 	})
 })

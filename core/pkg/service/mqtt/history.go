@@ -316,7 +316,7 @@ func compareStamps(a, b historicalValue) int { return cmp.Compare(a.stamp, b.sta
 // write writes fills, and returns the first error. The status of a task holds one
 // warning, so the first failure stands for all of them.
 func (h *history) write(ctx context.Context, fills []fill) error {
-	brk, err := breaker.NewBreaker(ctx, historyRetry)
+	brk, err := breaker.NewBreaker(historyRetry)
 	if err != nil {
 		return err
 	}
@@ -347,7 +347,7 @@ func (h *history) writeFill(
 	fr := frame.NewMulti(keys, []telem.Series{stamps, data})
 	for {
 		err := h.persist(ctx, values[0].stamp, keys, fr)
-		if !errors.Is(err, control.ErrUnauthorized) || !brk.Wait() {
+		if !errors.Is(err, control.ErrUnauthorized) || !brk.Wait(ctx) {
 			return errors.Wrapf(err, "failed to write historical values of %s", f.tag)
 		}
 	}

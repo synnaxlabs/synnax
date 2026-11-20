@@ -17,8 +17,8 @@ import { License } from "@/platform/license";
 import { Session } from "@/session";
 
 /**
- * How often a running app renews its license. It bounds how long a revoked machine keeps
- * its license while online.
+ * How often a running app renews its license. It bounds how long a revoked machine
+ * keeps its license while online.
  */
 const CHECK_INTERVAL = TimeSpan.hours(6);
 

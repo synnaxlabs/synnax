@@ -10,7 +10,10 @@
 package resolution
 
 import (
+	"fmt"
 	"maps"
+	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
@@ -28,10 +31,122 @@ type Type struct {
 	// payloads) that resolve like any other type but are excluded from
 	// standalone code generation.
 	Synthetic bool
+	// Filter is the filter definition the type was declared as, or nil. Form holds
+	// the struct the definition expands into.
+	Filter *Filter
+}
+
+// RetrieveKey returns the key type that a `@retrieve key` expression declares on typ,
+// whose key is computed instead of stored in a field.
+func RetrieveKey(typ Type) (TypeRef, bool) {
+	dom, ok := typ.Domains["retrieve"]
+	if !ok {
+		return TypeRef{}, false
+	}
+	expr, ok := dom.Expressions.Find("key")
+	if !ok || len(expr.Values) == 0 {
+		return TypeRef{}, false
+	}
+	name := expr.Values[0].StringValue
+	if !strings.Contains(name, ".") && !IsPrimitive(name) {
+		name = typ.Namespace + "." + name
+	}
+	return TypeRef{Name: name}, true
+}
+
+// RetrieveNoun returns the noun that a `@retrieve noun` expression declares on typ.
+// Generated field names and docs use it and its plural in place of the type name.
+func RetrieveNoun(typ Type) (string, bool) {
+	expr, ok := typ.Domains["retrieve"].Expressions.Find("noun")
+	if !ok || len(expr.Values) == 0 {
+		return "", false
+	}
+	return expr.Values[0].StringValue, true
+}
+
+// FilterNamespace is the namespace of the operator types that a filter's bare lines
+// expand to.
+const FilterNamespace = "filter"
+
+// The qualified names of the operator types that a filter's bare lines expand to.
+const (
+	OperatorSet      = FilterNamespace + ".Set"
+	OperatorOrdered  = FilterNamespace + ".Ordered"
+	OperatorContains = FilterNamespace + ".Contains"
+	OperatorString   = FilterNamespace + ".String"
+	OperatorBool     = FilterNamespace + ".Bool"
+)
+
+var operatorMembers = map[string][]string{
+	OperatorSet:      {"eq", "in"},
+	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
+	OperatorContains: {"any"},
+	OperatorString: {
+		"eq",
+		"in",
+		"contains",
+		"starts_with",
+		"regex",
+		"case_insensitive",
+	},
+	OperatorBool: {"eq"},
+}
+
+// OperatorMembers returns the members that the interpreters of the operator type op
+// check, where op is a qualified name such as OperatorSet. It returns false when op is
+// not an operator type.
+func OperatorMembers(op string) ([]string, bool) {
+	members, ok := operatorMembers[op]
+	return members, ok
+}
+
+// InFilterRequest reports whether typ is part of a filter request: a filter, the
+// request derived from one, or an operator type of the filter schema. Clients decode
+// these strictly, since a tree matched with an unknown key ignores the key.
+func InFilterRequest(typ Type, table *Table) bool {
+	if typ.Filter != nil || typ.Namespace == FilterNamespace {
+		return true
+	}
+	return slices.ContainsFunc(table.StructTypes(), func(t Type) bool {
+		return t.Filter != nil && t.Filter.Request == typ.QualifiedName
+	})
+}
+
+// Filter is a filter definition: the lines a filter tree over Target can set.
+type Filter struct {
+	// Target is the struct or union the filter selects.
+	Target TypeRef
+	// Lines are the lines as declared. A bare line has no type and names a field of the
+	// target. A typed line names a hand-written matcher that takes its type.
+	Lines []Field
+	// Request and Response are the qualified names of the derived retrieve request and
+	// response, or empty when the analyzer derived none.
+	Request, Response string
+}
+
+// Actions returns the actions of a struct or union type, and nil for any other form.
+func (t Type) Actions() []Action {
+	switch form := t.Form.(type) {
+	case StructForm:
+		return form.Actions
+	case UnionForm:
+		return form.Actions
+	}
+	return nil
 }
 
 type TypeForm interface {
 	typeForm()
+}
+
+// MustForm returns the form of t as an F. It panics if t has another form, which is a
+// caller bug: callers only ask for the form they selected t by.
+func MustForm[F TypeForm](t Type) F {
+	form, ok := t.Form.(F)
+	if !ok {
+		panic(fmt.Sprintf("%s is a %T, not a %T", t.QualifiedName, t.Form, form))
+	}
+	return form
 }
 
 type StructForm struct {
@@ -99,6 +214,8 @@ type UnionForm struct {
 	// Included names the unions this union takes the variants of. The analyzer
 	// moves them out of Extends, which readers take as struct bases.
 	Included []TypeRef
+	// Actions are the wire mutations declared in the union body.
+	Actions []Action
 }
 
 func (UnionForm) typeForm() {}
@@ -165,7 +282,15 @@ type Action struct {
 	// payload. The analyzer resolves these and prepends the inherited fields to
 	// Fields, so by code-generation time Fields already holds the unified list.
 	Extends []TypeRef
+	// Alias names the struct that an `action Name = Struct` declaration uses as its
+	// payload. Fields is then empty, and the analyzer copies the struct's doc into
+	// Domains when the action declares no doc of its own. The zero TypeRef means the
+	// action declares its own payload.
+	Alias TypeRef
 }
+
+// IsAlias reports whether the action uses an existing struct as its payload.
+func (a Action) IsAlias() bool { return a.Alias.Name != "" }
 
 type Field struct {
 	AST     any
@@ -460,6 +585,40 @@ func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
 	return out
 }
 
+// RecordFields returns the fields every record of typ holds: the fields of a struct, or
+// the fields of a union's bases and the tag of a union that borrows its enum. A field
+// typed by a type parameter with a default takes the default. It returns false when typ
+// is neither a struct nor a union.
+func RecordFields(typ Type, table *Table) ([]Field, bool) {
+	var fields []Field
+	switch form := typ.Form.(type) {
+	case StructForm:
+		fields = slices.Clone(UnifiedFields(typ, table))
+	case UnionForm:
+		for _, ext := range form.Extends {
+			if base, _, ok := Dealias(ext, table); ok {
+				fields = append(fields, UnifiedFields(base, table)...)
+			}
+		}
+		// The tag of an unnamed enum has no type to give the field.
+		if form.BorrowsEnum() {
+			fields = append(fields, Field{Name: form.Discriminator, Type: form.Enum})
+		}
+	default:
+		return nil, false
+	}
+	defaults := make(map[string]TypeRef)
+	for _, p := range TypeParams(typ.Form) {
+		if p.Default != nil {
+			defaults[p.Name] = *p.Default
+		}
+	}
+	for i := range fields {
+		fields[i].Type = SubstituteTypeRef(fields[i].Type, defaults)
+	}
+	return fields, true
+}
+
 func UnifiedFields(typ Type, table *Table) []Field {
 	form, ok := typ.Form.(StructForm)
 	if !ok {
@@ -558,10 +717,11 @@ func InheritedFields(extends []TypeRef, table *Table) map[string]Field {
 }
 
 // UnifiedVariantFields returns the flattened field list for one variant of a
-// discriminated union: fields contributed by the union's Extends (with their
-// own inheritance resolved), followed by the variant struct's own fields (also
-// with its inheritance resolved). Duplicate names are dropped after the first
-// occurrence, matching UnifiedFields' first-wins semantics for struct mixins.
+// discriminated union: fields contributed by the union's Extends (with their own
+// inheritance resolved), followed by the variant struct's own fields (also with its
+// inheritance resolved). Each field takes the type arguments of the base or variant
+// that declares it. Duplicate names are dropped after the first occurrence, matching
+// UnifiedFields' first-wins semantics for struct mixins.
 //
 // The discriminator field is NOT included in the returned list. Callers know
 // its name from UnionForm.Discriminator and its value from variant.Name, and
@@ -580,7 +740,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	var result []Field
 	// A variant drops a field the union's bases contribute with `-name`.
 	var omitted set.Set[string]
-	variantType, _, variantOK := Dealias(variant.Type, table)
+	variantType, variantRef, variantOK := Dealias(variant.Type, table)
 	variantForm, isStruct := StructForm{}, false
 	if variantOK {
 		variantForm, isStruct = variantType.Form.(StructForm)
@@ -588,29 +748,31 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	if isStruct {
 		omitted = set.New(variantForm.OmittedFields...)
 	}
-	appendUnique := func(fields []Field) {
-		for _, f := range fields {
+	appendUnique := func(typ Type, ref TypeRef) {
+		typeArgs := TypeArgMap(TypeParams(typ.Form), ref.TypeArgs)
+		for _, f := range UnifiedFields(typ, table) {
 			if seen.Contains(f.Name) || omitted.Contains(f.Name) {
 				continue
 			}
 			seen.Add(f.Name)
+			f.Type = SubstituteTypeRef(f.Type, typeArgs)
 			result = append(result, f)
 		}
 	}
-	for _, baseRef := range form.Extends {
-		base, _, ok := Dealias(baseRef, table)
+	for _, declared := range form.Extends {
+		base, baseRef, ok := Dealias(declared, table)
 		if !ok {
 			continue
 		}
 		if _, isStruct := base.Form.(StructForm); !isStruct {
 			continue
 		}
-		appendUnique(UnifiedFields(base, table))
+		appendUnique(base, baseRef)
 	}
 	if !variantOK || !isStruct {
 		return result
 	}
-	appendUnique(UnifiedFields(variantType, table))
+	appendUnique(variantType, variantRef)
 	return result
 }
 
@@ -651,12 +813,15 @@ func MergeOverrideField(parent, child Field) Field {
 }
 
 // TypeArgMap maps each of params to the argument at its position in args, for
-// SubstituteTypeRef. A parameter with no argument is left out.
+// SubstituteTypeRef. A parameter with no argument takes its default, or is left out
+// when it has none.
 func TypeArgMap(params []TypeParam, args []TypeRef) map[string]TypeRef {
 	typeArgMap := make(map[string]TypeRef, len(params))
 	for i, tp := range params {
 		if i < len(args) {
 			typeArgMap[tp.Name] = args[i]
+		} else if tp.HasDefault() {
+			typeArgMap[tp.Name] = SubstituteTypeRef(*tp.Default, typeArgMap)
 		}
 	}
 	return typeArgMap

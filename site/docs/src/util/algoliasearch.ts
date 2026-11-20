@@ -16,7 +16,8 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
-import { listReleaseNotes, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
+import { listReleaseNotes, NOTES_PAGE, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
+import { indexName, parse } from "./version.ts";
 
 const client = algoliasearch(
   process.env.DOCS_ALGOLIA_APP_ID ?? "",
@@ -37,47 +38,59 @@ const toPlainText = async (content: string): Promise<string> => {
   return String(result).replace(/\s+/g, " ").trim();
 };
 
-// A page behind a flag is indexed only when the flag is on, read from the same
-// FLAG_<NAME> variables the site build uses.
-const hidden = (flag: unknown): boolean =>
-  typeof flag === "string" && process.env[`FLAG_${flag.toUpperCase()}`] !== "true";
+const read = (dir: string, filename: string, href: string, title?: string) => {
+  const { data, content } = matter(fs.readFileSync(path.join(dir, filename)));
+  return {
+    filename,
+    href,
+    title: title ?? data.heading ?? data.title,
+    description: data.description,
+    content,
+  };
+};
 
-const read = (dir: string, filename: string, href: string) => ({
-  filename,
-  href,
-  ...matter(fs.readFileSync(path.join(dir, filename))),
-});
-
-const PAGES_DIR = "./src/pages";
+const DOCS_DIR = "./src/docs";
 const pages = [
   ...fs
-    .readdirSync(PAGES_DIR, { recursive: true, encoding: "utf8" })
+    .readdirSync(DOCS_DIR, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith("mdx"))
     .map((f) =>
-      read(PAGES_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
+      read(DOCS_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
     ),
   // Each version's notes render only inside /releases, under the version's anchor.
-  ...listReleaseNotes().map(({ name, anchor }) =>
-    read(RELEASE_NOTES_DIR, `${name}.mdx`, `/releases/#${anchor}`),
+  ...listReleaseNotes().map(({ name, version, anchor }) =>
+    read(
+      RELEASE_NOTES_DIR,
+      `${name}.mdx`,
+      `/releases/#${anchor}`,
+      `Version ${version.split(".").slice(0, 2).join(".")} release notes`,
+    ),
   ),
+  {
+    filename: "releases/index.mdx",
+    href: NOTES_PAGE.route,
+    title: NOTES_PAGE.title,
+    description: NOTES_PAGE.description,
+    content: "",
+  },
 ];
-const skipped = pages.filter(({ data }) => hidden(data.flag));
 const data = await Promise.all(
-  pages
-    .filter(({ data }) => !hidden(data.flag))
-    .map(async ({ filename, href, data: frontmatter, content }) => ({
-      objectID: filename,
-      href,
-      title: frontmatter.heading ?? frontmatter.title,
-      description: frontmatter.description,
-      content: await toPlainText(purgeImports(content)),
-    })),
+  pages.map(async ({ filename, href, title, description, content }) => ({
+    objectID: filename,
+    href,
+    title,
+    description,
+    content: await toPlainText(purgeImports(content)),
+  })),
 );
 
-console.log(`Indexing ${data.length} pages, skipping ${skipped.length} behind flags`);
+console.log(`Indexing ${data.length} pages`);
 
-await client.clearObjects({ indexName: "docs_site" });
+// Each docs version has its own index, and a new version has none to clear yet.
+const index = indexName(parse(process.env.DOCS_VERSION));
+if (await client.indexExists({ indexName: index }))
+  await client.clearObjects({ indexName: index });
 
-const res = await client.saveObjects({ indexName: "docs_site", objects: data });
+const res = await client.saveObjects({ indexName: index, objects: data });
 
 console.log(`Successfully updated ${res.length} pages`);

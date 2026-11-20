@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 
 import { unauthorized } from "@/server/errors";
 
@@ -29,7 +29,9 @@ export const withCORS = (res: Response): Response => {
   return res;
 };
 
-/** preflight answers the CORS preflight of a route the Desktop app or the Console calls. */
+/**
+ * preflight answers the CORS preflight of a route the Desktop app or the Console calls.
+ */
 export const preflight: APIRoute = () =>
   new Response(null, { status: 204, headers: CORS_HEADERS });
 

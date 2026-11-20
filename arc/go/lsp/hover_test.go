@@ -192,6 +192,37 @@ var _ = Describe("Hover", func() {
 			},
 		)
 
+		It("should provide hover for 'math.is_nan'", func(ctx SpecContext) {
+			content := "import math\n\nfunc f() {x f64} bool {\n    return math.is_nan(x)\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 3, Character: 18},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.is_nan"))
+			Expect(
+				HoverContents(hover),
+			).To(ContainSubstring("true if a float value is NaN"))
+		})
+
+		It("should provide hover for the 'math.inf' constant", func(ctx SpecContext) {
+			content := "import math\n\nfunc f() {x f64} bool {\n    return x < math.inf\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 3, Character: 22},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.inf"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Constant"))
+			Expect(HoverContents(hover)).To(ContainSubstring("positive infinity"))
+		})
+
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
 			content := "import math\n\nsensor -> math.avg() -> output"
 			OpenArcDocument(server, ctx, uri, content)
@@ -876,6 +907,26 @@ func add() {a i32, b i32} i32 {
 				OpenArcDocument(server, ctx, uri, content)
 				hover := Hover(server, ctx, uri, 1, 17) // n|ow
 				Expect(hover).To(BeNil())
+			},
+		)
+
+		It(
+			"Should take a user module member's doc from the module, not the document",
+			func(ctx SpecContext) {
+				sources := map[string]string{
+					"lib.m": "\n\n// returns one\nexport func f() i64 {\n    return 1\n}",
+				}
+				server = MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
+				}))
+				server.SetClient(&MockClient{})
+				content := "import lib.m\n\n// unrelated note\n\n" +
+					"interval(period=100ms) -> m.f()"
+				OpenArcDocument(server, ctx, uri, content)
+				hover := Hover(server, ctx, uri, 4, 28) // m.|f
+				Expect(hover).ToNot(BeNil())
+				Expect(HoverContents(hover)).To(ContainSubstring("returns one"))
+				Expect(HoverContents(hover)).ToNot(ContainSubstring("unrelated note"))
 			},
 		)
 

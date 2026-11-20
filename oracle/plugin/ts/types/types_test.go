@@ -53,10 +53,68 @@ var _ = Describe("TS Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").ToContain(
+				"export type Where = {",
+				"and?: Where[];",
+				"or?: Where[];",
+				"not?: Where;",
+				"export const whereZ: z.ZodType<Where> = z.strictObject({",
+				"get and() {\n    return zod.nullToUndefined(whereZ.array());",
+				"get not() {\n    return whereZ.optional();",
+			)
+		})
+
+		It("Should reject unknown keys only in a filter request", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").
+				ToContain("export const retrieveRequestZ = z.strictObject({").
+				ToNotContain("thingZ = z.strictObject", "retrieveResponseZ = z.strictObject")
+		})
+
+		It("Should make every operator type strict, used or not", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "filter/types.gen.ts").ToContain(
+				"export const stringZ = z.strictObject({",
+				"export const boolZ = z.strictObject({",
+				"export const setZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+				"export const orderedZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+				"export const containsZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+			)
+		})
+
+		It("Should leave the defaulted fields of a filter request to the Core", func() {
+			AddFilterSchema(loader)
+			source := strings.Replace(
+				ThingFilter,
+				"name string",
+				"name string { @search }",
+				1,
+			)
+			resp := MustGenerate(source, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").
+				ToContain(
+					"searchTerm: z.string().optional(),",
+					"export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;",
+					"export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}",
+				).
+				ToNotContain(`.default("")`, "optional.Optional")
+		})
+
+		It("Should leave the defaulted fields of an operator type to the Core", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "filter/types.gen.ts").
+				ToContain("caseInsensitive: z.boolean().optional(),").
+				ToNotContain(".default(false)")
+		})
+
 		Context("field-level omit", func() {
-			It("Should leave out an inherited field the parent omits", func(
-				ctx SpecContext,
-			) {
+			It("Should leave out an inherited field the parent omits", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@ts output "out"
@@ -71,13 +129,13 @@ var _ = Describe("TS Types Plugin", func() {
 						extra  string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				resp := MustGenerate(source, "auth", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("export const childZ", "extra: z.string()").
 					ToNotContain("secret")
 			})
 
-			It("Should leave out a field omitted in ts", func(ctx SpecContext) {
+			It("Should leave out a field omitted in ts", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@ts output "out"
@@ -88,7 +146,7 @@ var _ = Describe("TS Types Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				resp := MustGenerate(source, "auth", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`key: z.uuid()`, `subject: z.string()`).
 					ToNotContain("hash")
@@ -96,7 +154,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("basic struct generation", func() {
-			It("Should generate schema for simple struct", func(ctx SpecContext) {
+			It("Should generate schema for simple struct", func() {
 				source := `
 					@ts output "out"
 
@@ -107,7 +165,7 @@ var _ = Describe("TS Types Plugin", func() {
 						active bool
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "types.gen.ts").
@@ -125,7 +183,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate a typeless override identically to a full restatement",
-			func(ctx SpecContext) {
+			func() {
 				gen := func(childBody string) string {
 					source := `
 					@ts output "out"
@@ -140,7 +198,7 @@ var _ = Describe("TS Types Plugin", func() {
 						` + childBody + `
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					return string(resp.Files[0].Content)
 				}
 				// A typeless override desugars to the equivalent full restatement, so
@@ -153,7 +211,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should flatten a struct that removes an inherited domain",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -165,7 +223,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name -@validate
 				}
 			`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const childZ = z.object(`, `name: z.string()`)
 			},
@@ -192,7 +250,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should declare an inline variant's inherited fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/auth"
 					@ts output "out"
@@ -209,16 +267,15 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					resp := MustGenerate(source, "auth", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("key: z.uint32()", "name: z.string()", "rate: z.number()").
 						ToNotContain("Record")
 				},
 			)
 
-			It("Should declare the inherited fields", func(ctx SpecContext) {
+			It("Should declare the inherited fields", func() {
 				resp := MustGenerate(
-					ctx,
 					schema("@ts omit", "rate float64"),
 					"user",
 					loader,
@@ -235,25 +292,25 @@ var _ = Describe("TS Types Plugin", func() {
 					ToNotContain(`recordZ`)
 			})
 
-			It("Should leave out a removed field", func(ctx SpecContext) {
+			It("Should leave out a removed field", func() {
 				resp := MustGenerate(
-					ctx, schema("@ts omit", "-secret"), "user", loader, typesPlugin,
+					schema("@ts omit", "-secret"), "user", loader, typesPlugin,
 				)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const shapeZ = z.object({`, `name: z.string()`).
 					ToNotContain(`secret`, `recordZ`)
 			})
 
-			It("Should extend a parent that generates", func(ctx SpecContext) {
+			It("Should extend a parent that generates", func() {
 				resp := MustGenerate(
-					ctx, schema("", "-secret"), "user", loader, typesPlugin,
+					schema("", "-secret"), "user", loader, typesPlugin,
 				)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const shapeZ = recordZ`, `.omit({ secret: true })`)
 			})
 		})
 
-		It("Should handle optional and array types", func(ctx SpecContext) {
+		It("Should handle optional and array types", func() {
 			source := `
 				@ts output "out"
 
@@ -264,7 +321,7 @@ var _ = Describe("TS Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -286,7 +343,7 @@ var _ = Describe("TS Types Plugin", func() {
 			).To(ContainSubstring(`tags: zod.nullToUndefined(z.string().array())`))
 		})
 
-		It("Should apply validation rules", func(ctx SpecContext) {
+		It("Should apply validation rules", func() {
 			source := `
 				@ts output "out"
 
@@ -302,7 +359,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "user", loader)
+			table, diag := Analyze(source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -312,14 +369,16 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`name: z.string().min(1).max(255)`))
+			Expect(
+				content,
+			).To(ContainSubstring(`name: z.string().min(1).check(zod.maxLength(255))`))
 			Expect(content).To(ContainSubstring(`email: z.string()`))
 			Expect(content).To(ContainSubstring(`age: z.int32().min(0).max(150)`))
 		})
 
 		It(
 			"Should classify a distinct numeric type by its primitive base",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -329,14 +388,131 @@ var _ = Describe("TS Types Plugin", func() {
 					rack Key @validate { min 1 }
 				}
 			`
-				resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+				resp := MustGenerate(source, "device", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain("rack: keyZ.min(1)")
 			},
 		)
 
 		It(
+			"Should apply numeric rules to a field overridden to number",
+			func() {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@ts hand
+					@validate min 0
+				}
+
+				Config struct {
+					rate Rate = 10 {
+						@ts type "number"
+						@validate gt 0
+					}
+					fallback Rate {
+						@ts type "number"
+					}
+				}
+			`
+				resp := MustGenerate(source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"rate: z.number().gt(0).default(10)",
+					"fallback: z.number().min(0)",
+				)
+			},
+		)
+
+		It(
+			"Should apply the rules of a hand-written type to a field",
+			func() {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@ts hand
+					@ts include "out/rate"
+					@validate max 100
+				}
+
+				Config struct {
+					rate Rate
+				}
+			`
+				resp := MustGenerate(source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("rate: rateZ.check(z.lte(100))")
+			},
+		)
+
+		It(
+			"Should apply numeric rules to a type overridden to number",
+			func() {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@ts type "number"
+					@validate gt 0
+				}
+			`
+				resp := MustGenerate(source, "rate", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"export const rateZ = z.number().gt(0);",
+				)
+			},
+		)
+
+		It(
+			"Should apply a base chain's rules to a type overridden to number",
+			func() {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@validate gt 0
+				}
+
+				Hz = Rate {
+					@validate max 100
+				}
+
+				Fast Hz {
+					@ts type "number"
+				}
+			`
+				resp := MustGenerate(source, "rate", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"export const fastZ = z.number().gt(0).max(100);",
+				)
+			},
+		)
+
+		It(
+			"Should leave a generated type's rules to its own schema",
+			func() {
+				source := `
+				@ts output "out"
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Panel struct {
+					size Decimal
+				}
+			`
+				resp := MustGenerate(source, "panel", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"export const decimalZ = z.number().min(0).max(1);",
+					"size: decimalZ,",
+				)
+			},
+		)
+
+		It(
 			"Should treat required on a numeric type as non-zero",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -346,7 +522,7 @@ var _ = Describe("TS Types Plugin", func() {
 					rack Key @validate { required }
 				}
 			`
-				resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+				resp := MustGenerate(source, "device", loader, typesPlugin)
 				ExpectContent(
 					resp,
 					"types.gen.ts",
@@ -354,7 +530,7 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
-		It("Should generate enums", func(ctx SpecContext) {
+		It("Should generate enums", func() {
 			source := `
 				@ts output "out"
 
@@ -368,7 +544,7 @@ var _ = Describe("TS Types Plugin", func() {
 					state TaskState
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -389,7 +565,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`state: taskStateZ`))
 		})
 
-		It("Should generate string enums", func(ctx SpecContext) {
+		It("Should generate string enums", func() {
 			source := `
 				@ts output "out"
 
@@ -403,7 +579,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data_type DataType
 				}
 			`
-			table, diag := Analyze(ctx, source, "telem", loader)
+			table, diag := Analyze(source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -424,7 +600,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should not double the trailing S on the values const for an enum ending in S",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -433,7 +609,7 @@ var _ = Describe("TS Types Plugin", func() {
 					amps  = "Amps"
 				}
 			`
-				resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+				resp := MustGenerate(source, "telem", loader, typesPlugin)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(
 					content,
@@ -447,7 +623,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate an extending enum as the union of its parents",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -463,7 +639,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := Analyze(ctx, source, "lineplot", loader)
+				table, diag := Analyze(source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -481,7 +657,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct Zod schema",
-				func(ctx SpecContext, oracleType, expectedZodType string) {
+				func(oracleType, expectedZodType string) {
 					source := `
 						@ts output "out"
 
@@ -489,7 +665,7 @@ var _ = Describe("TS Types Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(
 						resp,
 						"types.gen.ts",
@@ -516,7 +692,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("@ts to_number directive", func() {
 			It(
 				"Should generate schema that accepts strings and converts to number with NaN validation",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -524,7 +700,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts to_number
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export const keyZ = z.uint32().or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))`)
 				},
@@ -534,7 +710,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("@ts to_string directive", func() {
 			It(
 				"Should generate schema that accepts numbers and converts to string",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -542,7 +718,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts to_string
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export const nameZ = z.union([z.string(), z.number()]).transform(String)`)
 				},
@@ -551,17 +727,17 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should convert snake_case to camelCase for field names",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
 				Range struct {
-					created_at timestamp
+					created_at int64
 					time_range string
 					my_long_field_name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "ranger", loader)
+				table, diag := Analyze(source, "ranger", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -579,7 +755,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate create request struct with optional key and password",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -591,7 +767,7 @@ var _ = Describe("TS Types Plugin", func() {
 					last_name string?
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -613,7 +789,7 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
-		It("Should handle optional types (?)", func(ctx SpecContext) {
+		It("Should handle optional types (?)", func() {
 			source := `
 				@ts output "out"
 
@@ -623,7 +799,7 @@ var _ = Describe("TS Types Plugin", func() {
 					status string?
 				}
 			`
-			table, diag := Analyze(ctx, source, "device", loader)
+			table, diag := Analyze(source, "device", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -639,7 +815,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle required arrays with a defaulted z.array",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -649,7 +825,7 @@ var _ = Describe("TS Types Plugin", func() {
 					actions string[]
 				}
 			`
-				table, diag := Analyze(ctx, source, "policy", loader)
+				table, diag := Analyze(source, "policy", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -672,7 +848,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle optional arrays with zod.nullToUndefined",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -681,7 +857,7 @@ var _ = Describe("TS Types Plugin", func() {
 					operations string[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "channel", loader)
+				table, diag := Analyze(source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -700,7 +876,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle required record fields with a defaulted record.unknownZ",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -709,7 +885,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -729,7 +905,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle optional record fields with zod.nullToUndefined",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -738,7 +914,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record?
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -758,7 +934,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle optional record fields with zod.nullToUndefined",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -767,7 +943,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record?
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -786,7 +962,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should wrap required record field with caseconv.preserveCase when @ts preserve_case is specified",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -797,7 +973,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -818,7 +994,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should wrap optional record field with caseconv.preserveCase when @ts preserve_case is specified",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -829,7 +1005,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -850,7 +1026,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should wrap type parameter field with caseconv.preserveCase when @ts preserve_case is specified",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -861,7 +1037,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "task", loader)
+				table, diag := Analyze(source, "task", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -882,7 +1058,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should not wrap field with caseconv.preserveCase when @ts no_preserve_case overrides inherited directive",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -898,7 +1074,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -919,7 +1095,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate error message for required validation",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -929,7 +1105,7 @@ var _ = Describe("TS Types Plugin", func() {
 					first_name string @validate required
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -948,7 +1124,7 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
-		It("Should use z.input when use_input is specified", func(ctx SpecContext) {
+		It("Should use z.input when use_input is specified", func() {
 			source := `
 				@ts output "out"
 
@@ -960,7 +1136,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts use_input
 				}
 			`
-			table, diag := Analyze(ctx, source, "workspace", loader)
+			table, diag := Analyze(source, "workspace", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -980,7 +1156,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should use z.record for record fields in child struct with type param",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -994,7 +1170,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts use_input
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1009,7 +1185,7 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
-		It("Should use z.infer by default without use_input", func(ctx SpecContext) {
+		It("Should use z.infer by default without use_input", func() {
 			source := `
 				@ts output "out"
 
@@ -1018,7 +1194,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string
 				}
 			`
-			table, diag := Analyze(ctx, source, "workspace", loader)
+			table, diag := Analyze(source, "workspace", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1035,7 +1211,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate getter for direct self-referencing struct",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1049,7 +1225,7 @@ var _ = Describe("TS Types Plugin", func() {
 					elem Type?
 				}
 			`
-				table, diag := Analyze(ctx, source, "arc", loader)
+				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1059,7 +1235,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface Type {`))
+				Expect(content).To(ContainSubstring(`export type Type = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const typeZ: z.ZodType<Type> = z.object({`))
@@ -1071,7 +1247,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate getter for array self-referencing struct",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1080,7 +1256,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children Node[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "tree", loader)
+				table, diag := Analyze(source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1090,7 +1266,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface Node {`))
+				Expect(content).To(ContainSubstring(`export type Node = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const nodeZ: z.ZodType<Node> = z.object({`))
@@ -1103,7 +1279,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should emit Zod v4 recursive pattern for mutually recursive structs",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1115,11 +1291,11 @@ var _ = Describe("TS Types Plugin", func() {
 					a A?
 				}
 			`
-				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+				resp := MustGenerate(source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`export interface A {`,
-						`export interface B {`,
+						`export type A = {`,
+						`export type B = {`,
 						`export const aZ: z.ZodType<A> = z.object({`,
 						`export const bZ: z.ZodType<B> = z.object({`,
 					).
@@ -1132,7 +1308,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should emit Zod v4 recursive pattern for cycles through a distinct wrapper",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1146,11 +1322,11 @@ var _ = Describe("TS Types Plugin", func() {
 
 				BWrap B
 			`
-				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+				resp := MustGenerate(source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`export interface A {`,
-						`export interface B {`,
+						`export type A = {`,
+						`export type B = {`,
 						`export const aZ: z.ZodType<A> = z.object({`,
 						`export const bZ: z.ZodType<B> = z.object({`,
 					).
@@ -1163,7 +1339,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate getter for struct with multiple recursive fields",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1173,7 +1349,7 @@ var _ = Describe("TS Types Plugin", func() {
 					last MosaicNode?
 				}
 			`
-				table, diag := Analyze(ctx, source, "mosaic", loader)
+				table, diag := Analyze(source, "mosaic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1183,7 +1359,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface MosaicNode {`))
+				Expect(content).To(ContainSubstring(`export type MosaicNode = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const mosaicNodeZ: z.ZodType<MosaicNode> = z.object({`))
@@ -1195,7 +1371,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should keep recursive struct-extends bases extendable",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1213,7 +1389,7 @@ var _ = Describe("TS Types Plugin", func() {
 					type Type
 				}
 			`
-				table, diag := Analyze(ctx, source, "arc", loader)
+				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1238,7 +1414,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should keep recursive union variant payloads extendable",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1251,7 +1427,7 @@ var _ = Describe("TS Types Plugin", func() {
 					group Group
 				}
 			`
-				table, diag := Analyze(ctx, source, "mosaic", loader)
+				table, diag := Analyze(source, "mosaic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1267,16 +1443,16 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate getter for generic recursive struct with single param",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
-				TreeNode struct<K extends schema = string> {
+				TreeNode struct<K = string> {
 					key K
 					children TreeNode<K>[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "tree", loader)
+				table, diag := Analyze(source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1299,17 +1475,17 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate getter for generic recursive struct with multiple params",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
-				MapNode struct<K extends schema = string, V extends schema = string> {
+				MapNode struct<K = string, V = string> {
 					key K
 					value V
 					children MapNode<K, V>[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "tree", loader)
+				table, diag := Analyze(source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1338,8 +1514,32 @@ var _ = Describe("TS Types Plugin", func() {
 		)
 
 		It(
+			"Should pass Zod types to a generic struct in a recursive interface",
+			func() {
+				source := `
+				@ts output "out"
+
+				Key uint32
+
+				Box struct<T> {
+					value T?
+				}
+
+				Node struct {
+					key      Box<Key>?
+					children Node[]?
+				}
+			`
+				resp := MustGenerate(source, "tree", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("key?: Box<typeof keyZ>").
+					ToNotContain("Box<Key>")
+			},
+		)
+
+		It(
 			"Should NOT generate getter for non-recursive struct",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1348,7 +1548,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "simple", loader)
+				table, diag := Analyze(source, "simple", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1372,7 +1572,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate fallback pattern for type param fields with string constraint",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1385,7 +1585,7 @@ var _ = Describe("TS Types Plugin", func() {
 					config Config
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1412,7 +1612,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should preserve trailing acronyms in generated zod schema names",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1430,7 +1630,7 @@ var _ = Describe("TS Types Plugin", func() {
 					value string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1459,7 +1659,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should emit numeric-constrained generic as function with value-typed generic interface",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1468,7 +1668,7 @@ var _ = Describe("TS Types Plugin", func() {
 					upper T
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1498,7 +1698,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate fallback pattern for type param fields with concrete_types directive",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1515,7 +1715,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1538,7 +1738,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should preserve type params when extending generic parent with pass-through type args",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1566,7 +1766,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1589,7 +1789,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate record.Unknown constraint for record-constrained type param",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1598,7 +1798,7 @@ var _ = Describe("TS Types Plugin", func() {
 					config Config
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1622,7 +1822,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate ZodNever default and z.unknown() fallback for optional type param",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1631,7 +1831,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data    Data
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1652,7 +1852,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle mixed record-constrained and optional type params",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1665,7 +1865,7 @@ var _ = Describe("TS Types Plugin", func() {
 					statusData StatusData
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1692,7 +1892,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate .extend() for basic struct extension",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1705,7 +1905,7 @@ var _ = Describe("TS Types Plugin", func() {
 					email string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1729,7 +1929,7 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
-		It("Should generate .omit() for field omissions", func(ctx SpecContext) {
+		It("Should generate .omit() for field omissions", func() {
 			source := `
 				@ts output "out"
 
@@ -1744,7 +1944,7 @@ var _ = Describe("TS Types Plugin", func() {
 					email string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1763,7 +1963,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate .omit() for multiple field omissions",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1780,7 +1980,7 @@ var _ = Describe("TS Types Plugin", func() {
 					e string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1799,7 +1999,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle field override to make it optional using .partial()",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1812,7 +2012,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string?
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1832,7 +2032,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should not emit unused zod import when array/map/record fields only flip optionality",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1852,7 +2052,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data record?
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -1873,7 +2073,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should handle extension without new fields (only omissions)",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1887,7 +2087,7 @@ var _ = Describe("TS Types Plugin", func() {
 					-b
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1904,7 +2104,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate .merge() chain for multiple extends",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -1920,7 +2120,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c bool
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1939,7 +2139,7 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
-		It("Should handle .omit() with multiple extends", func(ctx SpecContext) {
+		It("Should handle .omit() with multiple extends", func() {
 			source := `
 				@ts output "out"
 
@@ -1957,7 +2157,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c bool
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1973,7 +2173,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: z.boolean()`))
 		})
 
-		It("Should handle three extends with extend chain", func(ctx SpecContext) {
+		It("Should handle three extends with extend chain", func() {
 			source := `
 				@ts output "out"
 
@@ -1993,7 +2193,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c float32
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -2009,7 +2209,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: z.number()`))
 		})
 
-		It("Should preserve field declaration order", func(ctx SpecContext) {
+		It("Should preserve field declaration order", func() {
 			source := `
 				@ts output "out"
 
@@ -2019,7 +2219,7 @@ var _ = Describe("TS Types Plugin", func() {
 					mango bool
 				}
 			`
-			table, diag := Analyze(ctx, source, "order", loader)
+			table, diag := Analyze(source, "order", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -2038,7 +2238,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should generate type alias for generic struct reference",
-			func(ctx SpecContext) {
+			func() {
 				// Regression test: Status = status.Status<StatusDetails> should call
 				// the generic struct's factory function with the type argument, not
 				// return z.unknown()
@@ -2050,14 +2250,14 @@ var _ = Describe("TS Types Plugin", func() {
 					code int32
 				}
 
-				Status struct<D extends schema> {
+				Status struct<D> {
 					variant string
 					details D
 				}
 
 				RackStatus = Status<StatusDetails>
 			`
-				table, diag := Analyze(ctx, source, "rack", loader)
+				table, diag := Analyze(source, "rack", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2078,7 +2278,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should render array type aliases as defaulted z.array schemas",
-			func(ctx SpecContext) {
+			func() {
 				// Type aliases that ARE arrays default a missing array to [] since the
 				// type itself is fundamentally an array.
 				source := `
@@ -2093,7 +2293,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				Stratum = string[]
 			`
-				table, diag := Analyze(ctx, source, "arc", loader)
+				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2121,7 +2321,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It(
 			"Should not double-wrap arrays when using array helpers",
-			func(ctx SpecContext) {
+			func() {
 				// Regression test: arrays should not be wrapped twice with z.array()
 				// The array helpers (nullishToEmpty, nullToUndefined) expect element
 				// schemas
@@ -2139,7 +2339,7 @@ var _ = Describe("TS Types Plugin", func() {
 					optional_ops Operation[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "channel", loader)
+				table, diag := Analyze(source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2164,7 +2364,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("map types", func() {
 			It(
 				"Should default a required map field to an empty record so a missing map parses cleanly",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2172,7 +2372,7 @@ var _ = Describe("TS Types Plugin", func() {
 						settings map<string, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`settings: z.record(z.string(), z.string()).default(() => ({}))`,
@@ -2182,7 +2382,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should preserve typed value schemas when defaulting a required map",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2190,7 +2390,7 @@ var _ = Describe("TS Types Plugin", func() {
 						counts map<string, int64>
 					}
 				`
-					resp := MustGenerate(ctx, source, "metrics", loader, typesPlugin)
+					resp := MustGenerate(source, "metrics", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`counts: z.record(z.string(), z.int64()).default(() => ({}))`)
 				},
@@ -2198,7 +2398,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should reference struct value schemas inside a defaulted required map",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2210,15 +2410,116 @@ var _ = Describe("TS Types Plugin", func() {
 						entries map<string, Entry>
 					}
 				`
-					resp := MustGenerate(ctx, source, "store", loader, typesPlugin)
+					resp := MustGenerate(source, "store", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`entries: z.record(z.string(), entryZ).default(() => ({}))`)
 				},
 			)
 
 			It(
+				"Should use z.partialRecord for a map keyed by an enum",
+				func() {
+					source := `
+					@ts output "out"
+
+					Port enum {
+						ain0 = "AIN0"
+						ain1 = "AIN1"
+					}
+
+					Ports struct {
+						channels map<Port, uint32>
+						labels   map<Port, string>?
+						nested   map<string, map<Port, uint32>>
+					}
+				`
+					resp := MustGenerate(source, "ports", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`channels: z.partialRecord(portZ, z.uint32()).default(() => ({}))`,
+							`labels: zod.nullToUndefined(z.partialRecord(portZ, z.string()))`,
+							`nested: z.record(z.string(), z.partialRecord(portZ, z.uint32())).default(() => ({}))`,
+						).
+						ToNotContain(`z.record(portZ`)
+				},
+			)
+
+			It(
+				"Should type an enum-keyed map as partial in a recursive struct",
+				func() {
+					source := `
+					@ts output "out"
+
+					Port enum {
+						ain0 = "AIN0"
+					}
+
+					Node struct {
+						child    Node?
+						channels map<Port, uint32>
+						nested   map<string, map<Port, uint32>>
+					}
+				`
+					resp := MustGenerate(source, "node", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").ToContain(
+						`channels: Partial<Record<Port, number>>;`,
+						`nested: Record<string, Partial<Record<Port, number>>>;`,
+					)
+				},
+			)
+
+			It(
+				"Should use z.partialRecord in the getter of a self-referencing map",
+				func() {
+					source := `
+					@ts output "out"
+
+					Port enum {
+						ain0 = "AIN0"
+					}
+
+					Holder struct {
+						children map<Port, Holder>
+						nested   map<string, map<Port, Holder>>
+					}
+				`
+					resp := MustGenerate(source, "holder", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").ToContain(
+						`children: Partial<Record<Port, Holder>>;`,
+						`nested: Record<string, Partial<Record<Port, Holder>>>;`,
+						`return z.partialRecord(portZ, holderZ).default(() => ({}));`,
+						`return z.record(z.string(), z.partialRecord(portZ, holderZ)).default(() => ({}));`,
+					)
+				},
+			)
+
+			It(
+				"Should type the getter of a generic enum-keyed map as a partial record",
+				func() {
+					source := `
+					@ts output "out"
+
+					Port enum {
+						ain0 = "AIN0"
+					}
+
+					Holder struct<K = string> {
+						key      K
+						children map<Port, Holder<K>>
+						nested   map<string, map<Port, Holder<K>>>
+					}
+				`
+					resp := MustGenerate(source, "holder", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").ToContain(
+						`get children(): z.ZodDefault<z.ZodRecord<typeof portZ & z.core.$partial, ReturnType<typeof holderZ<K>>>> {`,
+						`get nested(): z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodRecord<typeof portZ & z.core.$partial, ReturnType<typeof holderZ<K>>>>> {`,
+					)
+				},
+			)
+
+			It(
 				"Should wrap optional map fields with zod.nullToUndefined around z.record",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2226,7 +2527,7 @@ var _ = Describe("TS Types Plugin", func() {
 						settings map<string, string>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`settings: zod.nullToUndefined(z.record(z.string(), z.string()))`,
@@ -2236,7 +2537,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should compose a defaulted required map inside caseconv.preserveCase",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2246,7 +2547,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+					resp := MustGenerate(source, "schematic", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`configs: caseconv.preserveCase(z.record(z.string(), record.unknownZ()).default(() => ({})))`,
@@ -2256,7 +2557,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("@omit directive", func() {
-			It("Should skip types with @ts hand directive", func(ctx SpecContext) {
+			It("Should skip types with @ts hand directive", func() {
 				source := `
 					@ts output "out"
 
@@ -2270,14 +2571,14 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts hand
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`export const userZ`))
 				Expect(content).NotTo(ContainSubstring(`internalStateZ`))
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
 			})
 
-			It("Should skip enums with @ts hand directive", func(ctx SpecContext) {
+			It("Should skip enums with @ts hand directive", func() {
 				source := `
 					@ts output "out"
 
@@ -2292,7 +2593,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts hand
 					}
 				`
-				resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
+				resp := MustGenerate(source, "status", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`export enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -2301,7 +2602,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		Context("same-namespace hand-written reference", func() {
 			It("Should import a referenced hand-written struct from its module",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 						@ts output "x/ts/src/color"
 
@@ -2316,7 +2617,7 @@ var _ = Describe("TS Types Plugin", func() {
 							color Color
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import { colorZ } from "@/color/color"`,
@@ -2326,7 +2627,7 @@ var _ = Describe("TS Types Plugin", func() {
 				})
 
 			It("Should import a hand-written struct that a struct extends",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 						@ts output "x/ts/src/color"
 
@@ -2340,7 +2641,7 @@ var _ = Describe("TS Types Plugin", func() {
 							name string
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import { colorZ } from "@/color/color"`,
@@ -2349,7 +2650,7 @@ var _ = Describe("TS Types Plugin", func() {
 				})
 
 			It("Should fail when a referenced hand-written struct declares no module",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 						@ts output "x/ts/src/color"
 
@@ -2362,7 +2663,7 @@ var _ = Describe("TS Types Plugin", func() {
 							color Color
 						}
 					`
-					req := MustGenerateRequest(ctx, source, "color", loader)
+					req := MustGenerateRequest(source, "color", loader)
 					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
 						"failed to generate x/ts/src/color: types with no generated " +
 							"TypeScript declaration need a @ts include module: color.Color",
@@ -2371,7 +2672,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate JSDoc comments from doc domain", func(ctx SpecContext) {
+			It("Should generate JSDoc comments from doc domain", func() {
 				source := `
 					@ts output "out"
 
@@ -2389,7 +2690,7 @@ var _ = Describe("TS Types Plugin", func() {
 						age int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
@@ -2415,7 +2716,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should import cross-namespace struct type", func(ctx SpecContext) {
+			It("Should import cross-namespace struct type", func() {
 				source := `
 					import "schemas/common"
 
@@ -2426,12 +2727,157 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { common } from "@/common"`,
 						`common.infoZ`,
 					)
+			})
+		})
+
+		Context("schemas with the same file name", func() {
+			It("Should alias a name that two modules export", func() {
+				loader.Add("schemas/x/color", `
+					@ts output "x/ts/src/color"
+
+					Color struct {
+						r uint8
+
+						@ts hand
+						@ts include "x/ts/src/color/color"
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/color"
+
+					Named struct {
+						light color.Color
+					}
+				`)
+				loader.Add("schemas/synnax/look", `
+					import "schemas/synnax/color"
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/look"
+
+					Look struct {
+						fill color.Named
+						raw  color.Color
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/look/types.gen.ts").
+					ToContain(
+						`import { color as xcolor } from "@synnaxlabs/x";`,
+						`import { color } from "@/color";`,
+						"fill: color.namedZ,",
+						"raw: xcolor.colorZ,",
+					)
+			})
+
+			It("Should alias an enum default that two modules export", func() {
+				loader.Add("schemas/x/color", `
+					@ts output "x/ts/src/color"
+
+					Kind enum {
+						solid    = 0
+						gradient = 1
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					@ts output "client/ts/src/color"
+
+					Named struct {
+						name string
+					}
+				`)
+				loader.Add("schemas/synnax/look", `
+					import "schemas/synnax/color"
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/look"
+
+					Look struct {
+						fill color.Named
+						kind color.Kind = color.KindSolid
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/look/types.gen.ts").
+					ToContain(
+						`import { color as xcolor } from "@synnaxlabs/x";`,
+						"kind: xcolor.kindZ.default(xcolor.Kind.solid),",
+					)
+			})
+
+			It("Should import types from a schema with the same file name", func() {
+				loader.Add("schemas/x/color", `
+					@ts output "x/ts/src/color"
+
+					Color struct {
+						r uint8
+
+						@ts hand
+						@ts include "x/ts/src/color/color"
+					}
+
+					Stop struct {
+						position float32
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/color"
+
+					Named struct {
+						light color.Color
+						stop  color.Stop
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/color/types.gen.ts").
+					ToContain(
+						`import { color } from "@synnaxlabs/x";`,
+						"light: color.colorZ,",
+						"stop: color.stopZ,",
+					)
+			})
+
+			It("Should fail when two modules end in the name", func() {
+				loader.Add("schemas/a/color", `
+					@ts output "client/ts/src/a/color"
+
+					Color struct {
+						r uint8
+					}
+				`)
+				loader.Add("schemas/b/color", `
+					@ts output "client/ts/src/b/color"
+
+					Named struct {
+						name string
+					}
+				`)
+				req := MustGenerateRequest(`
+					import "schemas/a/color"
+					import "schemas/b/color"
+
+					@ts output "client/ts/src/look"
+
+					Look struct {
+						fill color.Named
+						raw  color.Color
+					}
+				`, "look", loader)
+				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+					"failed to generate client/ts/src/look: unresolvable import " +
+						"name conflicts in client/ts/src/look: " +
+						"map[color:[@/a/color @/b/color]]",
+				))
 			})
 		})
 
@@ -2446,7 +2892,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should import the ancestor's types.gen as a namespace",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/ranger"
 
@@ -2457,7 +2903,7 @@ var _ = Describe("TS Types Plugin", func() {
 						key string
 					}
 				`
-					resp := MustGenerate(ctx, source, "kv", loader, typesPlugin)
+					resp := MustGenerate(source, "kv", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import * as ranger from "@/ranger/types.gen"`,
@@ -2479,7 +2925,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should camelize the namespace identifier", func(ctx SpecContext) {
+			It("Should camelize the namespace identifier", func() {
 				source := `
 					import "schemas/task_config"
 
@@ -2489,7 +2935,7 @@ var _ = Describe("TS Types Plugin", func() {
 						endpoint string = ""
 					}
 				`
-				resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
+				resp := MustGenerate(source, "http", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { taskConfig } from`,
@@ -2511,7 +2957,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should import cross-namespace enum type", func(ctx SpecContext) {
+			It("Should import cross-namespace enum type", func() {
 				source := `
 					import "schemas/status"
 
@@ -2522,7 +2968,7 @@ var _ = Describe("TS Types Plugin", func() {
 						code status.StatusCode
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { status } from`,
@@ -2532,7 +2978,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should not generate a local copy of cross-namespace enum",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/status"
 
@@ -2543,7 +2989,7 @@ var _ = Describe("TS Types Plugin", func() {
 						code status.StatusCode
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import { status } from`,
@@ -2567,7 +3013,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should import the alias's namespace", func(ctx SpecContext) {
+			It("Should import the alias's namespace", func() {
 				source := `
 					import "schemas/common"
 
@@ -2578,7 +3024,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name common.Name
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`import { common } from "@/common"`, `common.nameZ`)
 			})
@@ -2598,7 +3044,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should use internal prefix for same-package imports",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/common"
 
@@ -2609,7 +3055,7 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`import { common } from "@/common"`)
 				},
@@ -2617,7 +3063,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("typedef alias form", func() {
-			It("Should generate type alias for alias typedef", func(ctx SpecContext) {
+			It("Should generate type alias for alias typedef", func() {
 				source := `
 					@ts output "out"
 
@@ -2627,25 +3073,25 @@ var _ = Describe("TS Types Plugin", func() {
 						key Key
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("keyZ")
 			})
 
-			It("Should generate typedef with array alias", func(ctx SpecContext) {
+			It("Should generate typedef with array alias", func() {
 				source := `
 					@ts output "out"
 
 					Tags = string[]
 				`
-				resp := MustGenerate(ctx, source, "tag", loader, typesPlugin)
+				resp := MustGenerate(source, "tag", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("tagsZ")
 			})
 		})
 
 		Context("struct with @ts type override on field", func() {
-			It("Should use type override for field type", func(ctx SpecContext) {
+			It("Should use type override for field type", func() {
 				source := `
 					@ts output "out"
 
@@ -2658,14 +3104,14 @@ var _ = Describe("TS Types Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("keyZ")
 			})
 
 			It(
 				"Should use a non-primitive type override referencing another schema type",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2684,7 +3130,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("extent: boundedZ").
 						ToNotContain("extent: spanZ").
@@ -2696,7 +3142,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("struct field with @ts pick", func() {
 			It(
 				"Should narrow a struct-typed field to the picked fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2714,7 +3160,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(".omit({ parent: true })").
 						ToContain("parent: rangeZ.pick({ key: true }).optional()")
@@ -2725,7 +3171,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("struct with forward reference", func() {
 			It(
 				"Should handle struct referencing a later-declared struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2738,7 +3184,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("parentZ").
 						ToContain("childZ")
@@ -2747,7 +3193,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("self-referencing struct", func() {
-			It("Should handle struct with self reference", func(ctx SpecContext) {
+			It("Should handle struct with self reference", func() {
 				source := `
 					@ts output "out"
 
@@ -2756,7 +3202,7 @@ var _ = Describe("TS Types Plugin", func() {
 						parent Node?
 					}
 				`
-				resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+				resp := MustGenerate(source, "tree", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("nodeZ")
 			})
@@ -2765,7 +3211,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("generic struct with type parameter", func() {
 			It(
 				"Should generate generic struct with zod function",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2774,7 +3220,7 @@ var _ = Describe("TS Types Plugin", func() {
 						status int32
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("responseZ")
 				},
@@ -2782,7 +3228,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("struct with map field", func() {
-			It("Should generate record type for map field", func(ctx SpecContext) {
+			It("Should generate record type for map field", func() {
 				source := `
 					@ts output "out"
 
@@ -2790,7 +3236,7 @@ var _ = Describe("TS Types Plugin", func() {
 						settings map<string, record>
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("configZ").
 					ToContain("settings:")
@@ -2798,7 +3244,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("struct extends another struct", func() {
-			It("Should include parent fields in output", func(ctx SpecContext) {
+			It("Should include parent fields in output", func() {
 				source := `
 					@ts output "out"
 
@@ -2811,7 +3257,7 @@ var _ = Describe("TS Types Plugin", func() {
 						extra int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("derivedZ").
 					ToContain("extra:")
@@ -2819,7 +3265,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		DescribeTable("Should instantiate a generic parent with its child's arguments",
-			func(ctx SpecContext, child, expected string) {
+			func(child, expected string) {
 				source := `
 					@ts output "out"
 
@@ -2836,7 +3282,7 @@ var _ = Describe("TS Types Plugin", func() {
 						label string
 					}
 				` + child
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain(expected)
 			},
 			Entry("a concrete argument", `
@@ -2890,7 +3336,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should generate cross-namespace struct field reference with import",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/common"
 
@@ -2901,7 +3347,7 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("taskZ").
 						ToContain("common")
@@ -2912,7 +3358,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("coalesce_type_params", func() {
 			It(
 				"Should generate single schema param for type interface",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2932,7 +3378,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export interface TaskSchemas<`).
 						ToContain(`export const taskZ = <`).
@@ -2945,7 +3391,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should generate coalesced type for extends struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -2974,7 +3420,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export type New<`).
 						ToContain(`S extends NewSchemas = NewSchemas`).
@@ -2982,7 +3428,7 @@ var _ = Describe("TS Types Plugin", func() {
 				},
 			)
 
-			It("Should coalesce conditional field references", func(ctx SpecContext) {
+			It("Should coalesce conditional field references", func() {
 				source := `
 					@ts output "out"
 
@@ -3000,7 +3446,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`S extends TaskSchemas = TaskSchemas`).
 					ToContain(`S["data"]`)
@@ -3008,7 +3454,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should coalesce extend fields referencing type params",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -3053,7 +3499,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export type New<S extends NewSchemas = NewSchemas>`).
 						ToContain(`NewWrapper<S["statusData"]>`)
@@ -3075,7 +3521,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should use package name for different package imports",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/telem"
 
@@ -3086,7 +3532,7 @@ var _ = Describe("TS Types Plugin", func() {
 						data_type telem.DataType
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`import { telem } from "@synnaxlabs/x"`)
 				},
@@ -3110,7 +3556,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should construct telem instances for numeric defaults",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/telem"
 
@@ -3123,7 +3569,7 @@ var _ = Describe("TS Types Plugin", func() {
 						window      telem.TimeSpan = 100
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`sampleRate: telem.rateZ.default(new Rate(10))`,
@@ -3136,7 +3582,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should emit a plain number default when a telem field is overridden to number",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/telem"
 
@@ -3148,7 +3594,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`sampleRate: z.number().default(10)`)
 				},
@@ -3158,7 +3604,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Context("enum variant defaults", func() {
 			It(
 				"Should generate default for same-namespace enum variant",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -3171,7 +3617,7 @@ var _ = Describe("TS Types Plugin", func() {
 						mode Mode = ModeAutomatic
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`mode: modeZ.default(Mode.automatic)`)
 				},
@@ -3179,7 +3625,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should resolve a bare multi-word snake_case variant name as a default",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -3192,7 +3638,7 @@ var _ = Describe("TS Types Plugin", func() {
 						terminal TerminalConfig = cfg_default
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`terminal: terminalConfigZ.default("Cfg_Default")`)
 				},
@@ -3200,7 +3646,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should generate default for cross-namespace enum variant",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/control", `
 					@ts output "x/ts/src/control"
 
@@ -3218,7 +3664,7 @@ var _ = Describe("TS Types Plugin", func() {
 						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`concurrency: control.concurrencyZ.default(control.Concurrency.exclusive)`)
 				},
@@ -3226,7 +3672,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should emit a string literal default for a string-valued enum variant",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "out"
 
@@ -3239,7 +3685,7 @@ var _ = Describe("TS Types Plugin", func() {
 						level Level = LevelInfo
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`level: levelZ.default("info")`)
 				},
@@ -3247,7 +3693,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It(
 				"Should emit a string literal default for a cross-namespace string-valued enum variant",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/text", `
 					@ts output "x/ts/src/text"
 
@@ -3265,7 +3711,7 @@ var _ = Describe("TS Types Plugin", func() {
 						level text.Level = text.LevelP
 					}
 				`
-					resp := MustGenerate(ctx, source, "lineplot", loader, typesPlugin)
+					resp := MustGenerate(source, "lineplot", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`level: text.levelZ.default("p")`)
 				},
@@ -3287,7 +3733,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should generate a discriminated union with per-variant schemas",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3302,7 +3748,7 @@ var _ = Describe("TS Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const linearScaleZ = linearParamsZ.extend({`,
@@ -3317,7 +3763,7 @@ var _ = Describe("TS Union Generation", func() {
 		},
 	)
 
-	It("Should key the schema map by a borrowed enum", func(ctx SpecContext) {
+	It("Should key the schema map by a borrowed enum", func() {
 		source := `
 			@ts output "out"
 
@@ -3330,7 +3776,7 @@ var _ = Describe("TS Union Generation", func() {
 				password Credentials
 			}
 		`
-		resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+		resp := MustGenerate(source, "auth", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`export const METHODS = ["password"] as const;`,
@@ -3340,7 +3786,7 @@ var _ = Describe("TS Union Generation", func() {
 			ToNotContain(`PROOF_TYPES`, `proofTypeZ`, `export type ProofType`)
 	})
 
-	It("Should import a borrowed enum from another namespace", func(ctx SpecContext) {
+	It("Should import a borrowed enum from another namespace", func() {
 		loader.Add("schemas/auth", `
 			@ts output "client/ts/src/auth"
 
@@ -3359,7 +3805,7 @@ var _ = Describe("TS Union Generation", func() {
 				password Credentials
 			}
 		`
-		resp := MustGenerate(ctx, source, "login", loader, typesPlugin)
+		resp := MustGenerate(source, "login", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`import { auth } from "@/auth"`, `[K in auth.Method]`)
 	})
@@ -3379,8 +3825,8 @@ var _ = Describe("TS Union Generation", func() {
 
 		It(
 			"Should wrap each variant in z.lazy when a union has 16 variants",
-			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, unionSource(16), "ni", loader, typesPlugin)
+			func() {
+				resp := MustGenerate(unionSource(16), "ni", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`export const shapeZ = z.discriminatedUnion("variant", [`,
@@ -3393,8 +3839,8 @@ var _ = Describe("TS Union Generation", func() {
 
 		It(
 			"Should reference variants directly when a union has 15 variants",
-			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, unionSource(15), "ni", loader, typesPlugin)
+			func() {
+				resp := MustGenerate(unionSource(15), "ni", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`  v0ShapeZ,`).
 					ToNotContain(`z.lazy(`)
@@ -3404,7 +3850,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should declare inline variant fields directly on the member schema",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3421,7 +3867,7 @@ var _ = Describe("TS Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			content := ExpectContent(resp, "types.gen.ts")
 			content.ToContain(
 				`export const resourceTabZ = tabBaseZ.extend({`,
@@ -3439,7 +3885,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should render a recursive inline variant field as a lazy getter",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3453,7 +3899,7 @@ var _ = Describe("TS Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`get first(): z.ZodType<Node> {`,
 				`return nodeZ;`,
@@ -3462,7 +3908,7 @@ var _ = Describe("TS Union Generation", func() {
 		},
 	)
 
-	It("Should carry inline variants through union composition", func(ctx SpecContext) {
+	It("Should carry inline variants through union composition", func() {
 		source := `
 			@ts output "out"
 
@@ -3480,7 +3926,7 @@ var _ = Describe("TS Union Generation", func() {
 
 			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
 		`
-		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		resp := MustGenerate(source, "schematic", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").ToContain(
 			`export const boxElementConfigZ = z.object({`,
 			`width: z.number(),`,
@@ -3492,7 +3938,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should generate a bare object schema for an inline variant with no bases",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3500,7 +3946,7 @@ var _ = Describe("TS Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`export const emptyTabZ = z.object({`,
 				`variant: z.literal("empty"),`,
@@ -3510,7 +3956,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should break the inference cycle when a variant struct references the union recursively",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3527,7 +3973,7 @@ var _ = Describe("TS Union Generation", func() {
 				split Split
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`get first(): z.ZodType<Node> {`,
@@ -3540,7 +3986,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should camelize multi-word discriminators in the generated schemas",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3551,7 +3997,7 @@ var _ = Describe("TS Union Generation", func() {
 				number Spec
 			}
 		`
-			resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+			resp := MustGenerate(source, "telem", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`valueType: z.literal("boolean"),`,
@@ -3563,7 +4009,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should generate a flat union for a union extending other unions",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3580,7 +4026,7 @@ var _ = Describe("TS Union Generation", func() {
 
 			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
 		`
-			resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+			resp := MustGenerate(source, "schematic", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const elementConfigZ = z.discriminatedUnion("variant", [`,
@@ -3593,7 +4039,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should wrap preserve_keys map fields with caseconv.preserveKeys",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3605,7 +4051,7 @@ var _ = Describe("TS Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+			resp := MustGenerate(source, "schematic", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`configs: caseconv.preserveKeys(z.record(z.string(), configZ).default(() => ({}))),`,
@@ -3615,7 +4061,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should generate a discriminator enum and per-variant interfaces",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3627,7 +4073,7 @@ var _ = Describe("TS Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const SCALE_TYPES = ["linear", "none"] as const;`,
@@ -3640,7 +4086,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should generate a schema map keyed by discriminator value",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3652,7 +4098,7 @@ var _ = Describe("TS Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const SCALE_SCHEMAS: {`,
@@ -3666,7 +4112,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should omit a base field a variant drops",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3688,7 +4134,7 @@ var _ = Describe("TS Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring(
 				"export const aiTempBuiltinChannelZ = baseAIChanZ" +
@@ -3703,7 +4149,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should compose the union base and payload via extend, not flatten",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3717,7 +4163,7 @@ var _ = Describe("TS Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types.gen.ts")
 			// The variant composes the base and payload schemas and adds only the
 			// discriminator; the shared fields live on baseAIChanZ / voltageFieldsZ.
@@ -3731,7 +4177,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should compose a union base schema imported from another namespace",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/common", `
 			@ts output "client/ts/src/common"
 
@@ -3751,7 +4197,7 @@ var _ = Describe("TS Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "ni/types.gen.ts")
 			Expect(content).To(ContainSubstring(`import { common } from "@/common"`))
 			Expect(content).To(ContainSubstring(
@@ -3764,7 +4210,7 @@ var _ = Describe("TS Union Generation", func() {
 
 	It(
 		"Should resolve a union-typed struct field to the union schema",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -3780,13 +4226,13 @@ var _ = Describe("TS Union Generation", func() {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`customScale: scaleZ,`)
 		},
 	)
 
-	It("Should support a variant field that is itself a union", func(ctx SpecContext) {
+	It("Should support a variant field that is itself a union", func() {
 		source := `
 			@ts output "out"
 
@@ -3804,7 +4250,7 @@ var _ = Describe("TS Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		resp := MustGenerate(source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`export const aiVoltageChannelZ = voltageFieldsZ.extend({`,
@@ -3812,7 +4258,7 @@ var _ = Describe("TS Union Generation", func() {
 			)
 	})
 
-	It("Should render the union doc comment", func(ctx SpecContext) {
+	It("Should render the union doc comment", func() {
 		source := `
 			@ts output "out"
 
@@ -3824,7 +4270,7 @@ var _ = Describe("TS Union Generation", func() {
 				@doc value "determines how raw values are transformed."
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		resp := MustGenerate(source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`Scale determines how raw values are transformed.`)
 	})
@@ -3865,9 +4311,8 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 
 	It(
 		"Should render the union doc directly above the discriminatedUnion, not the first variant",
-		func(ctx SpecContext) {
+		func() {
 			resp := MustGenerate(
-				ctx,
 				scaleSource("\t\t\t\tcustomScale Scale"),
 				"ni",
 				loader,
@@ -3885,9 +4330,8 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 
 	It(
 		"Should render a per-variant doc comment directly above the variant schema",
-		func(ctx SpecContext) {
+		func() {
 			resp := MustGenerate(
-				ctx,
 				scaleSource("\t\t\t\tcustomScale Scale"),
 				"ni",
 				loader,
@@ -3903,9 +4347,8 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 
 	It(
 		"Should resolve an optional union-typed field as null-tolerant",
-		func(ctx SpecContext) {
+		func() {
 			resp := MustGenerate(
-				ctx,
 				scaleSource("\t\t\t\tcustomScale Scale?"),
 				"ni",
 				loader,
@@ -3917,9 +4360,8 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		},
 	)
 
-	It("Should resolve an array-of-union field", func(ctx SpecContext) {
+	It("Should resolve an array-of-union field", func() {
 		resp := MustGenerate(
-			ctx,
 			scaleSource("\t\t\t\tscales Scale[]"),
 			"ni",
 			loader,
@@ -3933,7 +4375,7 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 
 	It(
 		"Should import and qualify a cross-namespace union reference",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/scales", `
 			@ts output "client/ts/src/scales"
 
@@ -3954,7 +4396,7 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 				customScale scales.Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			resp := MustGenerate(source, "task", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(`scales.scaleZ`)
 		},
 	)

@@ -23,6 +23,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -32,12 +33,12 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -55,17 +56,24 @@ import {
   awaitTextEditingElement,
   createTestClientWithGrants,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const resourceTab = (): panel.Tab => ({
-  variant: "resource",
-  key: uuid.create(),
-  resource: schematic.ontologyID(uuid.create()),
-});
+const tabProject = await client.projects.create({ name: uniqueName("project") });
+
+const resourceTab = async (): Promise<panel.Tab> => {
+  const sch = await client.schematics.create({
+    name: uniqueName("schematic"),
+    project: tabProject.key,
+  });
+  return {
+    variant: "resource",
+    key: uuid.create(),
+    resource: schematic.resourceID(sch.key),
+  };
+};
 
 const viewTab = (): panel.Tab => ({
   variant: "view",
@@ -98,6 +106,7 @@ const renderMenu = (wrapper: FC<PropsWithChildren>, keys: string[]) =>
         visible
         position={{ x: 0, y: 0 }}
         cursor={{ x: 0, y: 0 }}
+        target={null}
       />
     </Menu.Menu>,
     { wrapper },
@@ -110,7 +119,7 @@ describe("Panel.TabMenuItems", () => {
 
   describe("rename", () => {
     it("offers rename for a resource tab", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, [tab.key]);
       await waitFor(() => expect(screen.getByText("Rename")).toBeTruthy());
@@ -125,7 +134,7 @@ describe("Panel.TabMenuItems", () => {
     });
 
     it("starts editing the tab's name", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       const service: Panel.EditableTabNameService = {
         useEnsure: vi.fn(),
@@ -142,6 +151,7 @@ describe("Panel.TabMenuItems", () => {
               visible
               position={{ x: 0, y: 0 }}
               cursor={{ x: 0, y: 0 }}
+              target={null}
             />
           </Menu.Menu>
         </>,
@@ -158,8 +168,8 @@ describe("Panel.TabMenuItems", () => {
 
   describe("focus", () => {
     it("overlays the tab the menu was opened on, not the panel's front tab", async () => {
-      const front = resourceTab();
-      const background = resourceTab();
+      const front = await resourceTab();
+      const background = await resourceTab();
       const { wrapper, panelKey } = await setup([front, background], background.key);
 
       const { result } = renderHook(
@@ -190,7 +200,7 @@ describe("Panel.TabMenuItems", () => {
     };
 
     it("names the key that performs the action the entry offers", async () => {
-      const front = resourceTab();
+      const front = await resourceTab();
       const { wrapper } = await setup([front], front.key);
       renderMenu(wrapper, [front.key]);
       await waitFor(() => expect(screen.getByText("Focus")).toBeTruthy());
@@ -203,8 +213,8 @@ describe("Panel.TabMenuItems", () => {
     });
 
     it("withholds every hint from a menu open on a tab that is not focused", async () => {
-      const front = resourceTab();
-      const background = resourceTab();
+      const front = await resourceTab();
+      const background = await resourceTab();
       const { wrapper, panelKey, store } = await setup(
         [front, background],
         background.key,
@@ -228,7 +238,7 @@ describe("Panel.TabMenuItems", () => {
 
   describe("no tab", () => {
     it("offers only a console reload when the menu resolved no tab", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, []);
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
@@ -239,17 +249,26 @@ describe("Panel.TabMenuItems", () => {
 
   describe("move to new window", () => {
     it("hides the item in the browser, which cannot open a window", async () => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, [tab.key]);
       await waitFor(() => expect(screen.getByText("Move to panel")).toBeTruthy());
       expect(screen.queryByText("Move to new window")).toBeNull();
     });
 
-    it("mints a panel holding the tab and opens a window showing it", async () => {
+    it("mints a panel named after the tab and opens a window showing it", async () => {
       mocks.engine = "tauri";
-      const moved = resourceTab();
-      const stays = resourceTab();
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const sch = await client.schematics.create({
+        project: proj.key,
+        name: uniqueName("schematic"),
+      });
+      const moved: panel.Tab = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: schematic.resourceID(sch.key),
+      };
+      const stays = await resourceTab();
       const existing = await createServerPanel(client, {
         variant: "leaf",
         tabs: [moved, stays],
@@ -290,6 +309,7 @@ describe("Panel.TabMenuItems", () => {
         expect(panel.findTab(src.root, moved.key)).toBeUndefined();
         expect(panel.findTab(src.root, stays.key)).toBeDefined();
         expect(panel.findTab(dst.root, moved.key)).toEqual(moved);
+        expect(dst.name).toEqual(sch.name);
       });
     });
   });
@@ -298,12 +318,11 @@ describe("Panel.TabMenuItems", () => {
     it("opens the picker on the tab the menu was opened on", async () => {
       const projectKey = (await client.projects.create({ name: uniqueName("project") }))
         .key;
-      const parent = project.ontologyID(projectKey);
-      const [front, moved] = [resourceTab(), resourceTab()];
+      const [front, moved] = await Promise.all([resourceTab(), resourceTab()]);
       const source = await client.panels.create({
         key: uuid.create(),
         name: uniqueName("panel"),
-        parent,
+        project: projectKey,
         // The menu opens on the second tab, so a picker fed the panel's front tab
         // instead moves the wrong one.
         root: { variant: "leaf", tabs: [front, moved] },
@@ -311,7 +330,7 @@ describe("Panel.TabMenuItems", () => {
       const destination = await client.panels.create({
         key: uuid.create(),
         name: uniqueName("panel"),
-        parent,
+        project: projectKey,
         root: { variant: "leaf", tabs: [] },
       });
       const { wrapper } = await createPanelWrapper({
@@ -331,6 +350,7 @@ describe("Panel.TabMenuItems", () => {
                 visible
                 position={{ x: 0, y: 0 }}
                 cursor={{ x: 0, y: 0 }}
+                target={null}
               />
             </Menu.Menu>
             <Modals.Stack />
@@ -395,7 +415,7 @@ describe("Panel.TabMenuItems permissions", () => {
   it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold rename and both moves from a %s",
     async (role) => {
-      const tab = resourceTab();
+      const tab = await resourceTab();
       const wrapper = await setupAs(await roles.get(role), tab);
       renderMenu(wrapper, [tab.key]);
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
@@ -406,7 +426,7 @@ describe("Panel.TabMenuItems permissions", () => {
   );
 
   it("should offer rename and both moves to an engineer", async () => {
-    const tab = resourceTab();
+    const tab = await resourceTab();
     const wrapper = await setupAs(await roles.get("Engineer"), tab);
     renderMenu(wrapper, [tab.key]);
     expect(await screen.findByText("Rename")).toBeTruthy();
@@ -415,15 +435,15 @@ describe("Panel.TabMenuItems permissions", () => {
   });
 
   it("should withhold the tear-off from a subject who cannot create panels", async () => {
-    const tab = resourceTab();
+    const tab = await resourceTab();
     const editor = await createTestClientWithGrants(client, {
       retrieve: [
-        panel.TYPE_ONTOLOGY_ID,
-        project.TYPE_ONTOLOGY_ID,
-        schematic.TYPE_ONTOLOGY_ID,
-        group.TYPE_ONTOLOGY_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        schematic.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
       ],
-      update: [panel.TYPE_ONTOLOGY_ID, schematic.TYPE_ONTOLOGY_ID],
+      update: [panel.TYPE_RESOURCE_ID, schematic.TYPE_RESOURCE_ID],
     });
     const wrapper = await setupAs(editor, tab);
     renderMenu(wrapper, [tab.key]);

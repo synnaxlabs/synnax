@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@/record";
-
-export type IsUndefined<T> = [T] extends [undefined] // T can be assigned to undefined
-  ? [undefined] extends [T] // undefined can be assigned to T
-    ? true // both directions → exactly undefined
-    : false
-  : false;
+import type { record } from "@/record";
 
 export const isObject = <T extends record.Unknown = record.Unknown>(
   item?: unknown,

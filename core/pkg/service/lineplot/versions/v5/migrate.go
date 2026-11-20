@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )

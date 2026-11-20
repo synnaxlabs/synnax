@@ -7,18 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context } from "@synnaxlabs/freighter";
+import type { Context } from "@synnaxlabs/freighter";
 import { errors, id, url } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { auth } from "@/auth";
 import {
   AuthError,
   ExpiredTokenError,
+  InvalidCredentialsError,
   InvalidTokenError,
+  MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
-import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
+import {
+  createEmptyRole,
+  createTestClient,
+  TEST_CREDENTIALS,
+  testClientParams,
+} from "@/testutil";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 
@@ -31,12 +38,12 @@ const DUMMY_CTX: Context = {
 
 describe("auth", () => {
   test("valid credentials", async () => {
-    const transport = new Transport(
-      new url.URL({
-        host: TEST_CLIENT_PARAMS.host,
-        port: Number(TEST_CLIENT_PARAMS.port),
+    const transport = new Transport({
+      url: new url.URL({
+        host: testClientParams().host,
+        port: Number(testClientParams().port),
       }),
-    );
+    });
     const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
     const mw = client.middleware();
     const res = await mw(DUMMY_CTX, async () => DUMMY_CTX);
@@ -44,32 +51,37 @@ describe("auth", () => {
   });
 
   test("invalid credentials", async () => {
-    const transport = new Transport(
-      new url.URL({
-        host: TEST_CLIENT_PARAMS.host,
-        port: Number(TEST_CLIENT_PARAMS.port),
+    const transport = new Transport({
+      url: new url.URL({
+        host: testClientParams().host,
+        port: Number(testClientParams().port),
       }),
-    );
+    });
     const client = new auth.Client(transport.unary, {
       credentials: { username: TEST_CREDENTIALS.username, password: "wrong" },
     });
     const mw = client.middleware();
-    await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(AuthError);
+    await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(
+      InvalidCredentialsError,
+    );
   });
 
   describe("token retry", () => {
     const ERROR_TYPES = [InvalidTokenError, ExpiredTokenError];
     ERROR_TYPES.forEach((ErrorType) => {
       it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
-        const transport = new Transport(
-          new url.URL({
-            host: TEST_CLIENT_PARAMS.host,
-            port: Number(TEST_CLIENT_PARAMS.port),
+        const transport = new Transport({
+          url: new url.URL({
+            host: testClientParams().host,
+            port: Number(testClientParams().port),
           }),
-        );
-        const client = new auth.Client(transport.unary, {
-          credentials: TEST_CREDENTIALS,
         });
+        const onFailure = vi.fn();
+        const client = new auth.Client(
+          transport.unary,
+          { credentials: TEST_CREDENTIALS },
+          { onFailure },
+        );
         const mw = client.middleware();
         let isFirst = true;
         let tkOne: string | undefined;
@@ -86,25 +98,73 @@ describe("auth", () => {
         expect(res).toEqual(DUMMY_CTX);
         expect(tkOne).toBeDefined();
         expect(tkTwo).toBeDefined();
+        expect(onFailure).not.toHaveBeenCalled();
       });
     });
 
-    it("should fail after MAX_RETRIES", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+    it("should fail and report the failure after MAX_RETRIES", async () => {
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
-      const client = new auth.Client(transport.unary, {
-        credentials: TEST_CREDENTIALS,
       });
+      const onFailure = vi.fn();
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS },
+        { onFailure },
+      );
       const mw = client.middleware();
       await expect(
         mw(DUMMY_CTX, async () => {
           throw new InvalidTokenError();
         }),
       ).rejects.toThrow(InvalidTokenError);
+      expect(onFailure).toHaveBeenCalledOnce();
+      expect(InvalidTokenError.matches(onFailure.mock.calls[0][0])).toBe(true);
+    });
+
+    it("should not report a rejected session that new credentials replaced", async () => {
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      });
+      const onFailure = vi.fn();
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS },
+        { onFailure },
+      );
+      const mw = client.middleware();
+      await expect(
+        mw(DUMMY_CTX, async () => {
+          client.setCredentials(TEST_CREDENTIALS);
+          throw new InvalidTokenError();
+        }),
+      ).rejects.toThrow(InvalidTokenError);
+      expect(onFailure).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("retrieveMethods", () => {
+    const client = auth.createTokenlessClient({
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
+    });
+    it("should list the methods the Core accepts without logging in", async () => {
+      const methods = await auth.retrieveMethods(client);
+      expect(methods.toSorted()).toEqual(["api_key", "password"]);
+    });
+    it("should serve repeated requests through one client", async () => {
+      const [first, second] = await Promise.all([
+        auth.retrieveMethods(client),
+        auth.retrieveMethods(client),
+      ]);
+      expect(second).toEqual(first);
+      expect(await auth.retrieveMethods(client)).toEqual(first);
     });
   });
 
@@ -113,23 +173,23 @@ describe("auth", () => {
       credentials: auth.Credentials = TEST_CREDENTIALS,
       observer: auth.Observer = {},
     ) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, { credentials }, observer);
       transport.use(client.middleware());
       return client;
     };
     const makeResumed = (token: string, observer: auth.Observer = {}) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, { token }, observer);
       transport.use(client.middleware());
       return client;
@@ -198,7 +258,8 @@ describe("auth", () => {
     it("should not open a new session when logging out of an ended session", async () => {
       const admin = createTestClient();
       const credentials = { username: id.create(), password: "seldon" };
-      await admin.users.create(credentials);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...credentials, role });
       const ending = makeClient(credentials);
       const other = makeClient(credentials);
       await login(ending);
@@ -271,12 +332,12 @@ describe("auth", () => {
       await first.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       const token = first.token;
       expect(token).toBeDefined();
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       let succeeded = false;
       let username: string | undefined;
       const resumed = new auth.Client(
@@ -298,12 +359,12 @@ describe("auth", () => {
     });
 
     it("should report a dead token as a credential failure", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       let failure: Error | undefined;
       const client = new auth.Client(
         transport.unary,
@@ -319,7 +380,9 @@ describe("auth", () => {
     });
 
     it("should keep a saved token when the Core cannot be reached", async () => {
-      const transport = new Transport(new url.URL({ host: "localhost", port: 1 }));
+      const transport = new Transport({
+        url: new url.URL({ host: "localhost", port: 1 }),
+      });
       let failure: Error | undefined;
       const client = new auth.Client(
         transport.unary,
@@ -341,15 +404,91 @@ describe("auth", () => {
       const attempt = async () =>
         await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       await expect(attempt()).rejects.toSatisfy((e) => AuthError.matches(e));
-      await expect(attempt()).rejects.toThrow(
-        "no credentials, API key, token, or cookie",
+      await expect(attempt()).rejects.toThrow(MissingCredentialsError);
+    });
+
+    it("should report a cookie resume with no cookie as missing credentials", async () => {
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      });
+      const client = new auth.Client(transport.unary, { cookie: true });
+      await expect(
+        client.middleware()(DUMMY_CTX, async () => DUMMY_CTX),
+      ).rejects.toThrow(MissingCredentialsError);
+    });
+
+    it("should end a cookie session once the browser drops its cookie", async () => {
+      const owner = makeClient();
+      await login(owner);
+      let cookie: string | undefined =
+        `synnax-session-${testClientParams().port}=${owner.token}`;
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      });
+      transport.use(async (ctx, next) => {
+        if (cookie != null) ctx.params.Cookie = cookie;
+        return await next(ctx);
+      });
+      const onFailure = vi.fn();
+      const client = new auth.Client(transport.unary, { cookie: true }, { onFailure });
+      transport.use(client.middleware());
+      await client.retrieveSessions();
+      cookie = undefined;
+      await expect(client.retrieveSessions()).rejects.toThrow(SessionEndedError);
+      expect(onFailure).toHaveBeenCalledOnce();
+      expect(SessionEndedError.matches(onFailure.mock.calls[0][0])).toBe(true);
+      // the next request logs in again instead of going out with no session
+      await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
+      expect(onFailure).toHaveBeenCalledTimes(2);
+      await owner.logout();
+    });
+
+    it("should log in again instead of ending a cookie session with credentials", async () => {
+      const owner = makeClient();
+      await login(owner);
+      let cookie: string | undefined =
+        `synnax-session-${testClientParams().port}=${owner.token}`;
+      let logins = 0;
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      });
+      transport.use(async (ctx, next) => {
+        if (ctx.target.endsWith("/auth/session/create")) logins++;
+        if (cookie != null) ctx.params.Cookie = cookie;
+        return await next(ctx);
+      });
+      const onFailure = vi.fn();
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS, cookie: true },
+        { onFailure },
       );
+      transport.use(client.middleware());
+      await client.retrieveSessions();
+      expect(logins).toBe(1);
+      cookie = undefined;
+      // Node keeps no cookies, so each fresh session is lost the same way
+      await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
+      expect(logins).toBeGreaterThan(1);
+      expect(onFailure).toHaveBeenCalledOnce();
+      expect(MissingCredentialsError.matches(onFailure.mock.calls[0][0])).toBe(true);
+      await owner.logout();
     });
 
     it("should let the newest login win when two interleave", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -365,7 +504,8 @@ describe("auth", () => {
     it("should keep a newer login when an older renew answers late", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -386,7 +526,8 @@ describe("auth", () => {
     it("should keep a newer login when an older request is rejected late", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -423,12 +564,12 @@ describe("auth", () => {
     });
 
     it("should end a session whose login is still in flight when released", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       let key: string | undefined;
       const client = new auth.Client(
         transport.unary,
@@ -447,12 +588,12 @@ describe("auth", () => {
     });
 
     it("should leave a persistent session open when released", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, {
         credentials: TEST_CREDENTIALS,
         persistent: true,
@@ -515,24 +656,27 @@ describe("auth", () => {
 
   describe("setPassword", () => {
     const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, authority, observer);
       transport.use(client.middleware());
       return client;
     };
     const createUser = async () => {
       const username = `set-password-${id.create()}`;
-      const u = await createTestClient().users.create({
+      const admin = createTestClient();
+      const { key: role } = await createEmptyRole(admin);
+      const u = await admin.users.create({
         username,
         password: "old",
         name: "Set Password",
+        role,
       });
-      return { username, subject: user.ontologyID(u.key) };
+      return { username, subject: user.resourceID(u.key) };
     };
 
     it("should let an owner set another user's password", async () => {
@@ -544,7 +688,7 @@ describe("auth", () => {
       }).retrieveSessions();
       await expect(
         makeClient({ credentials: { username, password: "old" } }).retrieveSessions(),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should switch to a new session when setting its own password", async () => {
@@ -594,7 +738,7 @@ describe("auth", () => {
       await resumed.setPassword({ password: "new", currentPassword: "old" });
       expect(resumed.token).not.toEqual(token);
       await resumed.retrieveSessions();
-      await expect(opener.retrieveSessions()).rejects.toThrow(AuthError);
+      await expect(opener.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should keep the owner's session when setting another's password", async () => {
@@ -609,12 +753,12 @@ describe("auth", () => {
 
   describe("API keys", () => {
     const makeClient = (authority: auth.Authority) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, authority);
       transport.use(client.middleware());
       return client;
@@ -643,13 +787,38 @@ describe("auth", () => {
       expect((await owner.retrieveKeys()).map((k) => k.key)).not.toContain(key.key);
     });
 
+    it("should read the record key from a token", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createKey({ name: "id" });
+      expect(auth.apiKeyID(token)).toEqual(key.key);
+      await owner.deleteKeys(key.key);
+    });
+
+    it("should refuse a token that is not an API key", () => {
+      expect(() => auth.apiKeyID("sys_abc")).toThrow(
+        new InvalidTokenError("not an API key"),
+      );
+    });
+
+    it("should refuse an API key of the wrong length", () => {
+      expect(() => auth.apiKeyID("syk_c2hvcnQ")).toThrow(
+        new InvalidTokenError("malformed API key"),
+      );
+    });
+
+    it("should refuse an API key that is not base64", () => {
+      expect(() => auth.apiKeyID("syk_!!!")).toThrow(
+        new InvalidTokenError("malformed API key"),
+      );
+    });
+
     it("should fail the next request of a client whose key was deleted", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
       const { token, key } = await owner.createKey({ name: "deleted" });
       const keyed = makeClient({ apiKey: token });
       await keyed.retrieveSessions();
       await owner.deleteKeys(key.key);
-      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
+      await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should forget its key on logout", async () => {
@@ -666,7 +835,7 @@ describe("auth", () => {
 
     it("should reject a key the Core never issued", async () => {
       const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
-      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
+      await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should connect a Synnax client with a key", async () => {

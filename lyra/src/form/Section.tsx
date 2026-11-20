@@ -9,7 +9,7 @@
 
 import "@/form/Section.css";
 
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -20,10 +20,12 @@ export interface SectionsProps extends Flex.BoxProps {}
 
 /**
  * Lays out sections. Stacked (the default), every label in every section shares one
- * column sized to the widest label and every control fills the rest. Side by side
- * (`x`), each section is as wide as its content: fields fill three rows, then
- * continue in a further label and control column pair. The side-by-side strip
- * scrolls horizontally under a vertical mouse wheel.
+ * column sized to the widest label and every control fills the rest. A `Flex.Box x` of
+ * up to three fields is a row: it stays on one line, and its later fields line up with
+ * the later fields of every other row. `--pluto-form-label-column` sets the label
+ * column's track size. Side by side (`x`), each section is as wide as its content:
+ * fields fill three rows, then continue in a further label and control column pair.
+ * The side-by-side strip scrolls horizontally under a vertical mouse wheel.
  */
 export const Sections = ({
   className,
@@ -78,4 +80,16 @@ export const Section = ({
     )}
     <div className={CSS.BE("form-section", "body")}>{children}</div>
   </Flex.Box>
+);
+
+export interface AlignedProps extends Flex.BoxProps {}
+
+/** Lines up its content with the controls of stacked sections, not their labels. */
+export const Aligned = ({ className, ...rest }: AlignedProps): ReactElement => (
+  <Flex.Box
+    className={CSS.cls(CSS.BE("form-section", "aligned"), className)}
+    y
+    empty
+    {...rest}
+  />
 );

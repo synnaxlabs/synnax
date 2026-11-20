@@ -90,8 +90,7 @@ var _ = Describe("MatchOpcodes", func() {
 		It("should provide clear failure messages", func() {
 			bytecode := []byte{byte(wasm.OpI32Add), byte(wasm.OpI32Sub)}
 			matcher := MatchOpcodes(wasm.OpI32Add, wasm.OpI32Mul)
-			success, _ := matcher.Match(bytecode)
-			Expect(success).To(BeFalse())
+			Expect(matcher.Match(bytecode)).To(BeFalse())
 
 			message := matcher.FailureMessage(bytecode)
 			Expect(message).To(ContainSubstring("Opcodes did not match"))

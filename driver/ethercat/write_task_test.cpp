@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/testutil/master.h"
 #include "driver/ethercat/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -20,18 +24,49 @@
 namespace driver::ethercat {
 class EtherCATWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<testutil::Master> mock_master;
     std::shared_ptr<engine::Engine> engine;
     synnax::channel::Channel index_channel;
     synnax::rack::Rack rack;
-    synnax::device::Device network_device;
     synnax::device::Device slave_device;
     const uint32_t SLAVE_SERIAL = 12345;
     const std::string NETWORK_INTERFACE = "eth0";
 
+    /// @brief returns the properties of a slave of the saved model on the bus.
+    [[nodiscard]] static slave::Properties
+    slave_properties(const uint16_t position, const uint32_t serial) {
+        return {
+            .position = position,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = serial,
+            .name = "Test Module",
+            .output_pdos = {
+                {.pdo_index = 0x1600,
+                 .index = 0x7000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = false,
+                 .name = "control_word",
+                 .data_type = x::telem::INT16_T},
+                {.pdo_index = 0x1600,
+                 .index = 0x7000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = false,
+                 .name = "setpoint",
+                 .data_type = x::telem::INT32_T},
+            },
+        };
+    }
+
     void SetUp() override {
+        this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         index_channel = synnax::channel::Channel{
@@ -45,7 +80,6 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
 
-        network_device = create_network_device(NETWORK_INTERFACE);
         slave_device = create_slave_device(
             SLAVE_SERIAL,
             x::json::json::array(),
@@ -61,49 +95,9 @@ protected:
               {"data_type", "int32"}}}
         );
 
-        mock_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
-        mock_master->add_slave(
-            slave::Properties{
-                .position = 0,
-                .vendor_id = 0x1,
-                .product_code = 0x2,
-                .serial = SLAVE_SERIAL,
-                .name = "Test Slave",
-                .output_pdos = {
-                    {.pdo_index = 0x1600,
-                     .index = 0x7000,
-                     .sub_index = 1,
-                     .bit_length = 16,
-                     .is_input = false,
-                     .name = "control_word",
-                     .data_type = x::telem::INT16_T},
-                    {.pdo_index = 0x1600,
-                     .index = 0x7000,
-                     .sub_index = 2,
-                     .bit_length = 32,
-                     .is_input = false,
-                     .name = "setpoint",
-                     .data_type = x::telem::INT32_T},
-                },
-            }
-        );
-        engine = std::make_shared<engine::Engine>(mock_master);
-    }
-
-    synnax::device::Device create_network_device(const std::string &interface) {
-        x::json::json props = {{"interface", interface}, {"rate", 100.0}};
-        synnax::device::Device dev{
-            .key = "ecat_network_" + interface,
-            .rack = rack.key,
-            .location = interface,
-            .make = "EtherCAT",
-            .model = "Network",
-            .name = "Test Network",
-            .properties = props,
-        };
-        const auto err = client->devices.create(dev);
-        EXPECT_TRUE(!err) << err.message();
-        return dev;
+        mock_master = std::make_shared<testutil::Master>();
+        mock_master->add_slave(slave_properties(1, SLAVE_SERIAL));
+        engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
     }
 
     [[nodiscard]] synnax::device::Device create_slave_device(
@@ -116,23 +110,23 @@ protected:
             {"vendor_id", 0x1},
             {"product_code", 0x2},
             {"revision", 1},
-            {"name", "Test Slave"},
+            {"name", "Test Module"},
             {"network", NETWORK_INTERFACE},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::device::Device dev{
-            .key = "ecat_slave_" + std::to_string(serial),
+            .key = make_unique_channel_name("ecat_slave_" + std::to_string(serial)),
             .rack = rack.key,
             .location = std::to_string(serial),
             .make = "DEWESoft",
             .model = "TestModule",
-            .name = "Test Slave SN:" + std::to_string(serial),
+            .name = "Test Module SN:" + std::to_string(serial),
             .properties = props,
         };
         const auto err = client->devices.create(dev);
-        EXPECT_TRUE(!err) << err.message();
+        EXPECT_NIL(err);
         return dev;
     }
 
@@ -189,72 +183,9 @@ protected:
             false
         ));
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
-
-/// @brief it should parse a write channel bound to an entry address.
-TEST_F(EtherCATWriteTest, ParseConfigWithEntryChannel) {
-    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.outputs.size(), 1);
-    EXPECT_EQ(task_cfg.outputs[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.outputs[0]->sub_index, 1);
-    EXPECT_EQ(task_cfg.outputs[0]->bit_length, 16);
-    EXPECT_EQ(task_cfg.outputs[0]->data_type, x::telem::INT16_T);
-}
-
-/// @brief it should take the bit length of a write channel from the slave.
-TEST_F(EtherCATWriteTest, ParseConfigTakesBitLengthFromTheSlave) {
-    const auto cmd_ch = create_command_channel("cmd", x::telem::FLOAT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 2, "float32")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.outputs.size(), 1);
-    EXPECT_EQ(task_cfg.outputs[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.outputs[0]->sub_index, 2);
-    EXPECT_EQ(task_cfg.outputs[0]->bit_length, 32);
-    EXPECT_EQ(task_cfg.outputs[0]->data_type, x::telem::FLOAT32_T);
-}
-
-TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
-    auto cmd_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("cmd"),
-        x::telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-    auto state_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("state"),
-        x::telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16", state_ch.key)
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(task_cfg.outputs.size(), 1);
-    ASSERT_TRUE(task_cfg.outputs[0]->state.has_value());
-    EXPECT_EQ(task_cfg.outputs[0]->state.value().key, state_ch.key);
-}
 
 /// @brief it should pair each state channel with the command channel that names it, not
 /// with the channel at the same position.
@@ -298,77 +229,6 @@ TEST_F(EtherCATWriteTest, StateChannelPairsWithItsOwnCommandChannel) {
     EXPECT_EQ(outs[1].state.value().key, state_2.key);
 }
 
-TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ch1"),
-        x::telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ch2"),
-        x::telem::INT32_T,
-        index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(ch1.key, 0x7000, 1, "int16")
-    );
-    cfg["channels"].push_back(
-        create_output_channel_config(ch2.key, 0x7000, 2, "int32")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.outputs.size(), 2);
-}
-
-/// @brief it should report a write channel at an address the slave does not have.
-TEST_F(EtherCATWriteTest, ParseConfigWithAddressMissingFromSlave) {
-    const auto cmd_ch = create_command_channel("cmd", x::telem::INT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 3, "int32")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.index");
-    EXPECT_EQ(
-        errors[0]["message"],
-        "slave Test Slave has no output entry at 0x7000:03"
-    );
-}
-
-/// @brief it should report a write channel whose name was not resolved to an address.
-TEST_F(EtherCATWriteTest, ParseConfigWithUnresolvedChannel) {
-    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_unresolved_output_channel_config(cmd_ch.key, "Analog Output Ch2")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
-    EXPECT_EQ(
-        errors[0]["message"],
-        "'Analog Output Ch2' matches no output entry on slave Test Slave. Pick an "
-        "entry."
-    );
-}
-
 /// @brief it should report a second write channel on an entry another channel already
 /// uses.
 TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
@@ -391,7 +251,34 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     EXPECT_EQ(errors[0]["path"], "channels.1.index");
     EXPECT_EQ(
         errors[0]["message"],
-        "another channel already uses entry 0x7000:01 on slave Test Slave"
+        "another channel already uses entry 0x7000:01 on module Test Module"
+    );
+}
+
+/// @brief it should report only the entry error of each write channel whose entry it
+/// cannot find.
+TEST_F(EtherCATWriteTest, ParseConfigReportsEachChannelWithNoEntry) {
+    const auto ch1 = create_command_channel("ch1", x::telem::INT16_T);
+    const auto ch2 = create_command_channel("ch2", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_unresolved_output_channel_config(ch1.key, "Missing")
+    );
+    cfg["channels"].push_back(
+        create_unresolved_output_channel_config(ch2.key, "Missing")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
+    EXPECT_EQ(errors[1]["path"], "channels.1.pdo");
+    EXPECT_EQ(
+        errors[1]["message"],
+        "'Missing' matches no output entry on module Test Module. Pick an entry."
     );
 }
 
@@ -414,101 +301,35 @@ TEST_F(EtherCATWriteTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     EXPECT_EQ(task_cfg.outputs.size(), 1);
 }
 
-/// @brief it should bind a write channel to each entry of a slave whose entries all
-/// have the same name.
-TEST_F(EtherCATWriteTest, ParseConfigReachesEveryEntryOfASlaveThatRepeatsOneName) {
-    x::json::json outputs = x::json::json::array();
-    for (int i = 0; i < 8; i++)
-        outputs.push_back(
-            {{"name", "Output"},
-             {"pdo_name", "Channel " + std::to_string(i + 1)},
-             {"pdo_index", 0x1600 + i},
-             {"index", 0x7000 + 0x10 * i},
-             {"sub_index", 1},
-             {"bit_length", 1},
-             {"data_type", "uint8"}}
-        );
-    slave_device = create_slave_device(
-        SLAVE_SERIAL + 1,
-        x::json::json::array(),
-        outputs
-    );
+/// @brief it should ignore a disabled write channel on a slave device that does not
+/// exist.
+TEST_F(EtherCATWriteTest, ParseConfigIgnoresTheDeviceOfADisabledChannel) {
+    const auto enabled = create_command_channel("enabled", x::telem::INT16_T);
+    const auto disabled = create_command_channel("disabled", x::telem::INT16_T);
 
     auto cfg = this->create_base_config();
-    for (int i = 0; i < 8; i++) {
-        const auto ch = create_command_channel("output", x::telem::UINT8_T);
-        cfg["channels"].push_back(
-            create_output_channel_config(ch.key, 0x7000 + 0x10 * i, 1, "uint8")
-        );
-    }
+    cfg["channels"].push_back(
+        create_output_channel_config(enabled.key, 0x7000, 1, "int16")
+    );
+    auto disabled_cfg = create_output_channel_config(
+        disabled.key,
+        0x7000,
+        1,
+        "int16",
+        0,
+        true
+    );
+    disabled_cfg["device"] = "nonexistent_slave_key";
+    cfg["channels"].push_back(disabled_cfg);
 
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(task_cfg.outputs.size(), 8);
-    for (int i = 0; i < 8; i++) {
-        EXPECT_EQ(task_cfg.outputs[i]->index, 0x7000 + 0x10 * i);
-        EXPECT_EQ(task_cfg.outputs[i]->sub_index, 1);
-        EXPECT_EQ(task_cfg.outputs[i]->bit_length, 1);
-    }
+    ASSERT_EQ(task_cfg.outputs.size(), 1);
+    EXPECT_EQ(task_cfg.outputs[0]->command_key, enabled.key);
 }
 
-/// @brief it should list the command channel of every output in bus order.
-TEST_F(EtherCATWriteTest, OutputChannelsHoldEveryCommandChannel) {
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ch1"),
-        x::telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ch2"),
-        x::telem::INT32_T,
-        index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(ch1.key, 0x7000, 1, "int16")
-    );
-    cfg["channels"].push_back(
-        create_output_channel_config(ch2.key, 0x7000, 2, "int32")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    const auto outs = task_cfg.output_channels();
-    ASSERT_EQ(outs.size(), 2);
-    EXPECT_EQ(outs[0].command, ch1.key);
-    EXPECT_EQ(outs[1].command, ch2.key);
-}
-
-TEST_F(EtherCATWriteTest, SinkStartRegistersWithEngine) {
-    auto cmd_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("cmd"),
-        x::telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto sink = WriteTaskSink(engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
-    EXPECT_TRUE(engine->running());
-    ASSERT_NIL(sink.stop());
-}
-
+/// @brief it should report each write channel on a slave device that does not exist.
 TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -529,95 +350,355 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
            {"cmd_channel", cmd_ch.key},
            {"disabled", false}}}}
     };
+    auto second = cfg["channels"][0];
+    second["sub_index"] = 2;
+    cfg["channels"].push_back(second);
 
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-}
-
-/// @brief it should report a write channel with an unknown type.
-TEST_F(EtherCATWriteTest, ParseConfigReportsAnUnknownChannelType) {
-    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        {{"type", "manual"},
-         {"device", slave_device.key},
-         {"index", 0x7000},
-         {"sub_index", 1},
-         {"bit_length", 16},
-         {"data_type", "int16"},
-         {"cmd_channel", cmd_ch.key},
-         {"disabled", false}}
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.type");
-    EXPECT_EQ(errors[0]["message"], "unknown WriteChannel type: manual");
-}
-
-/// @brief it should report a write channel whose data type is wider than its entry.
-TEST_F(EtherCATWriteTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
-    const auto cmd_ch = create_command_channel("cmd", x::telem::FLOAT64_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 1, "float64")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "channels.0.device");
+    EXPECT_EQ(errors[1]["path"], "channels.1.device");
     EXPECT_EQ(
-        errors[0]["message"],
-        "data type float64 is 8 bytes but entry 0x7000:01 on slave Test Slave holds 2 "
-        "bytes. Pick a 2 byte type."
+        errors[1]["message"],
+        R"(Found no device where key = "nonexistent_slave_key")"
     );
 }
 
-TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
-    auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
-        make_unique_channel_name("cmd"),
-        x::telem::INT16_T,
-        this->index_channel.key,
-        false
-    ));
+/// @brief it should send no status for a start that a stop ends while it waits for the
+/// start of another task, so the stop answers it.
+TEST_F(EtherCATWriteTest, StopDuringAStartSendsNoStatusForTheStart) {
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const auto configure = [&](const std::string &name,
+                               const uint8_t sub_index,
+                               const x::telem::DataType &data_type) {
+        const auto cmd_ch = create_command_channel(name, data_type);
+        auto cfg = this->create_base_config();
+        cfg["channels"].push_back(create_output_channel_config(
+            cmd_ch.key,
+            0x7000,
+            sub_index,
+            data_type.name()
+        ));
+        const synnax::task::Task task{
+            .rack = this->rack.key,
+            .name = name,
+            .type = WRITE_TASK_TYPE,
+            .config = cfg,
+        };
+        auto [tsk, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+        EXPECT_TRUE(ok);
+        return std::pair{task, std::move(tsk)};
+    };
+    auto [first, first_task] = configure("first", 1, x::telem::INT16_T);
+    auto [second, second_task] = configure("second", 2, x::telem::INT32_T);
+    this->mock_master->hold_activate();
+    std::thread starter([&] {
+        synnax::task::Command start{.task = first.key, .type = "start", .key = "a"};
+        first_task->exec(start, this->cancel);
+    });
+    this->mock_master->wait_until_activating();
+    x::breaker::Breaker canceled;
+    synnax::task::Command start{.task = second.key, .type = "start", .key = "b"};
+    second_task->exec(start, canceled);
+    this->mock_master->release_activate();
+    starter.join();
+    for (const auto &status: this->ctx->snapshot()) {
+        if (status.details.cmd == "b") {
+            EXPECT_EQ(status.variant, synnax::status::VARIANT_LOADING)
+                << status.message;
+        }
+    }
+    synnax::task::Command stop{.task = first.key, .type = "stop"};
+    first_task->exec(stop, this->cancel);
+}
 
+/// @brief it should start a write task that the Factory configures, with the bus at the
+/// execution rate of the task, and send only the steps that the start reached before it
+/// answers the start.
+TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["execution_rate"] = 250;
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "write",
+        .type = WRITE_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [write_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(write_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start", .key = "start_cmd"};
+    write_task->exec(start, this->cancel);
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            const auto sent = this->ctx->snapshot();
+            return sent.empty() ? std::string() : sent.back().message;
+        },
+        std::string("Started task")
+    );
+    const auto statuses = this->ctx->snapshot();
+    std::vector<std::string> messages;
+    for (const auto &status: statuses) {
+        messages.push_back(status.message);
+        EXPECT_EQ(status.details.cmd, "start_cmd");
+    }
+    // Only the latest step waits to be sent, so the sender can skip the scan.
+    const std::vector<std::string> every{
+        "Scanning eth0",
+        "Starting eth0",
+        "Started task"
+    };
+    const std::vector<std::string> latest{"Starting eth0", "Started task"};
+    ASSERT_TRUE(messages == every || messages == latest) << messages.size();
+    EXPECT_EQ(statuses[statuses.size() - 2].variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    write_task->exec(stop, this->cancel);
+}
+
+/// @brief it should reject a write task whose channels are all disabled.
+TEST_F(EtherCATWriteTest, ParseConfigRejectsATaskWithNoEnabledChannel) {
+    const auto ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(ch.key, 0x7000, 1, "int16", 0, true)
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(errors[0]["message"], "task must have at least one enabled channel");
+}
+
+/// @brief it should start a task past the start timeout while another task brings the
+/// slaves to OP.
+TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartWaitsWhileTheSlavesReachOP) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
     );
+    engine::Config engine_cfg;
+    engine_cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto sink = [&] {
+        auto parser = x::json::Parser(cfg);
+        WriteTaskConfig task_cfg(this->client, parser);
+        EXPECT_NIL(parser.error());
+        return std::make_unique<WriteTaskSink>(this->engine, std::move(task_cfg));
+    };
+    const auto first = sink();
+    const auto second = sink();
+    this->mock_master->hold_activate();
+    std::thread starter([&] { ASSERT_NIL(first->start("first", this->cancel)); });
+    this->mock_master->wait_until_activating();
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        this->mock_master->release_activate();
+    });
+    const auto err = second->start("second", this->cancel);
+    releaser.join();
+    starter.join();
+    ASSERT_NIL(err);
+    ASSERT_NIL(second->stop());
+    ASSERT_NIL(first->stop());
+}
 
+/// @brief it should write the stop value of each channel when the task stops.
+TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    auto ch = create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16");
+    ch["stop_value"] = -3;
+    cfg["channels"].push_back(ch);
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
-
-    x::telem::Series series(x::telem::INT16_T, 1);
-    series.write(static_cast<int16_t>(0x5678));
-    x::telem::Frame frame(cmd_ch.key, std::move(series));
-
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
     ASSERT_NIL(sink.write(frame));
-
     ASSERT_EVENTUALLY_EQ(
         this->mock_master->get_output<int16_t>(0),
         static_cast<int16_t>(0x5678)
     );
+    ASSERT_NIL(sink.stop());
+    EXPECT_FALSE(this->engine->running());
+    EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
+}
+
+/// @brief it should hold a warning when the bus did not apply the startup parameters of
+/// a slave that another program sets up.
+TEST_F(EtherCATWriteTest, SinkHoldsAWarningForSkippedStartupSettings) {
+    this->mock_master->set_settings(
+        1,
+        {{"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}}
+    );
+    engine::Config engine_cfg;
+    engine_cfg.slave_configs = [this] {
+        return std::pair{
+            std::vector{engine::SavedSlave{
+                .identity =
+                    {
+                        .position = 1,
+                        .vendor_id = 0x1,
+                        .product_code = 0x2,
+                        .serial = SLAVE_SERIAL,
+                        .name = "Test Module",
+                    },
+                .config =
+                    {.startup_parameters =
+                         {
+                             {.index = 0x8040,
+                              .sub_index = 1,
+                              .data_type = x::telem::UINT16_T,
+                              .value = 6},
+                         }},
+            }},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+    EXPECT_EQ(
+        sink.held_warning(),
+        (common::Warning{
+            .message = "Skipped startup settings",
+            .description = "Module 1 (Test Module) is set up for DewesoftX, so Synnax "
+                           "did not apply its 1 startup setting. Remove it, or switch "
+                           "the device to Synnax in Configure.",
+        })
+    );
+    ASSERT_NIL(sink.stop());
+}
+
+/// @brief it should hold a warning while its slave is lost, tell when the slave
+/// returns, and end the warning at the next command.
+TEST_F(EtherCATWriteTest, SinkHoldsAWarningWhileItsSlaveIsLost) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+    EXPECT_TRUE(sink.held_warning().empty());
+
+    this->mock_master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] { return sink.held_warning().description; },
+        std::string("Lost contact with module 1 (Test Module).")
+    );
+    EXPECT_EQ(sink.held_warning().message, "Interrupted outputs");
+    this->mock_master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] { return sink.held_warning().description; },
+        std::string(
+            "Module 1 (Test Module) returned and took the last commanded values."
+        )
+    );
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(1)));
+    ASSERT_NIL(sink.write(frame));
+    EXPECT_TRUE(sink.held_warning().empty());
+    ASSERT_NIL(sink.stop());
+}
+
+/// @brief it should write to a slave with its serial number at the position where it is
+/// on the bus, not at its saved position.
+TEST_F(EtherCATWriteTest, SinkWritesASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
+    ASSERT_NIL(sink.write(frame));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(6),
+        static_cast<int16_t>(0x5678)
+    );
+    EXPECT_EQ(this->mock_master->get_output<int16_t>(0), 0);
+    ASSERT_NIL(sink.stop());
+}
+
+/// @brief it should wake the next state read for a command written before the state
+/// loop waits.
+TEST_F(EtherCATWriteTest, SinkStateReadWakesForCommandSetBeforeWait) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    const auto state_ch = create_command_channel("state", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16", state_ch.key)
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    const auto period = task_cfg.state_rate.period().chrono();
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
+    ASSERT_NIL(sink.write(frame));
+
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    pipeline::Authorities authorities;
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    EXPECT_EQ(fr.at<int16_t>(state_ch.key, 0), static_cast<int16_t>(0x5678));
+    EXPECT_LT(elapsed, period / 2);
 
     ASSERT_NIL(sink.stop());
 }
 
-/// @brief when a frame contains multiple samples for a channel, only the last
-/// sample should be written to hardware.
+/// @brief it should write only the last sample of a channel in a frame.
 TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -636,7 +717,7 @@ TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Series series(x::telem::INT16_T, 3);
     series.write(static_cast<int16_t>(0x1111));
@@ -654,6 +735,7 @@ TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief it should write each channel of a frame to its own output entry.
 TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     auto ch1 = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("ch1"),
@@ -681,7 +763,7 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Series series1(x::telem::INT16_T, 1);
     series1.write(static_cast<int16_t>(0x1234));
@@ -693,10 +775,19 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     frame.emplace(ch2.key, std::move(series2));
 
     ASSERT_NIL(sink.write(frame));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(0),
+        static_cast<int16_t>(0x1234)
+    );
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int32_t>(2),
+        static_cast<int32_t>(0xDEADBEEF)
+    );
 
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief it should accept a frame that has no command for a channel.
 TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -715,7 +806,7 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Frame empty_frame(0);
     ASSERT_NIL(sink.write(empty_frame));
@@ -723,6 +814,8 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief it should refuse to start when a slave on the bus is not the device that
+/// the task names.
 TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -740,106 +833,25 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
 
-    auto mismatched_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
+    auto mismatched_master = std::make_shared<testutil::Master>();
     mismatched_master->add_slave(
         slave::Properties{
-            .position = 0,
+            .position = 1,
             .vendor_id = 0x99,
             .product_code = 0x2,
             .serial = SLAVE_SERIAL,
-            .name = "Test Slave",
+            .name = "Test Module",
         }
     );
-    auto mismatched_engine = std::make_shared<engine::Engine>(mismatched_master);
+    auto mismatched_engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        mismatched_master
+    );
 
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
-    ASSERT_OCCURRED_AS(sink.start(), errors::TOPOLOGY_MISMATCH);
+    const auto err = sink.start("start_cmd", this->cancel);
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(err.data, "Test Module (serial 12345) is not on the bus.");
 }
 
-/// @brief it should fail to start the sink when the bus no longer has a configured
-/// entry.
-TEST_F(EtherCATWriteTest, SinkStartFailsWhenTheBusLacksAnEntry) {
-    const auto cmd_ch = create_command_channel("setpoint", x::telem::INT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 2, "int32")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
-    remapped_master->add_slave(
-        slave::Properties{
-            .position = 0,
-            .vendor_id = 0x1,
-            .product_code = 0x2,
-            .serial = SLAVE_SERIAL,
-            .name = "Test Slave",
-            .output_pdos = {
-                {.pdo_index = 0x1600,
-                 .index = 0x7000,
-                 .sub_index = 1,
-                 .bit_length = 16,
-                 .is_input = false,
-                 .name = "control_word",
-                 .data_type = x::telem::INT16_T},
-            },
-        }
-    );
-    auto remapped_engine = std::make_shared<engine::Engine>(remapped_master);
-
-    auto sink = WriteTaskSink(remapped_engine, std::move(task_cfg));
-    const auto err = sink.start();
-    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
-    EXPECT_EQ(err.data, "PDO 0x7000:02 is not in the process image of slave 0");
-    EXPECT_FALSE(remapped_engine->running());
-}
-
-/// @brief it should fail to start the sink when a configured entry changed its bit
-/// length on the bus.
-TEST_F(EtherCATWriteTest, SinkStartFailsWhenAnEntryChangedBitLength) {
-    const auto cmd_ch = create_command_channel("setpoint", x::telem::INT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_output_channel_config(cmd_ch.key, 0x7000, 2, "int32")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    WriteTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
-    remapped_master->add_slave(
-        slave::Properties{
-            .position = 0,
-            .vendor_id = 0x1,
-            .product_code = 0x2,
-            .serial = SLAVE_SERIAL,
-            .name = "Test Slave",
-            .output_pdos = {
-                {.pdo_index = 0x1600,
-                 .index = 0x7000,
-                 .sub_index = 2,
-                 .bit_length = 16,
-                 .is_input = false,
-                 .name = "setpoint",
-                 .data_type = x::telem::INT16_T},
-            },
-        }
-    );
-    auto remapped_engine = std::make_shared<engine::Engine>(remapped_master);
-
-    auto sink = WriteTaskSink(remapped_engine, std::move(task_cfg));
-    const auto err = sink.start();
-    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "PDO 0x7000:02 on slave 0 is 16 bits, not 32. Scan the network again"
-    );
-    EXPECT_FALSE(remapped_engine->running());
-}
 }

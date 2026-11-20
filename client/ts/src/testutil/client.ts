@@ -11,21 +11,27 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterAll, onTestFinished, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
-import { TEST_CORE_ADDRESS } from "@/testutil/address";
+import { testCoreAddress } from "@/testutil/address";
 import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
 /** The root credentials of the test Core. */
 export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
 
-export const TEST_CLIENT_PARAMS: SynnaxParams = {
-  ...TEST_CORE_ADDRESS,
+/**
+ * @returns the params of a client that signs in to the test Core as root.
+ * @throws where {@link testCoreAddress} does.
+ */
+export const testClientParams = (): SynnaxParams => ({
+  ...testCoreAddress(),
   ...TEST_CREDENTIALS,
   retry: {
     maxRetries: 4,
     baseInterval: TimeSpan.seconds(1),
     scale: 1.5,
   },
-};
+  // An exhausted budget still throws, so a retry that succeeds is not a failure.
+  onRetry: () => {},
+});
 
 // A hook registered mid-test is silently dropped by vitest, so per-client afterAll
 // calls leak clients created inside test bodies. This module-level hook registers
@@ -49,7 +55,7 @@ afterAll(async () => {
  * not need to close it themselves.
  */
 export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
-  const client = new Synnax({ ...TEST_CLIENT_PARAMS, ...params });
+  const client = new Synnax({ ...testClientParams(), ...params });
   openClients.push(client);
   return client;
 };
@@ -68,7 +74,7 @@ export const createProxiedTestClient = async (
 ): Promise<ProxiedTestClient> => {
   const proxy = await createSeverableProxy();
   const client = new Synnax({
-    ...TEST_CLIENT_PARAMS,
+    ...testClientParams(),
     ...params,
     // The proxy listens on this machine, even when the Core runs on another.
     host: "localhost",
@@ -104,27 +110,91 @@ export const recordResponses = (
 };
 
 /**
- * Holds each response to target until release is called. responded resolves when the
- * first held response arrives.
+ * Holds each request to target until release is called, so the Core does not get it.
+ * Call it inside a test: the hold ends when that test finishes.
  */
-export const holdResponses = (
+export const holdRequests = (
   client: Synnax,
   target: string,
   field: "transport" = "transport",
 ) => {
   const { unary } = client[field];
   const send = unary.send.bind(unary);
-  let respond = (): void => {};
-  const responded = new Promise<void>((resolve) => (respond = resolve));
-  let release = (): void => {};
-  const released = new Promise<void>((resolve) => (release = resolve));
-  vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+  const released = Promise.withResolvers<void>();
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) await released.promise;
+    return await send(...args);
+  });
+  onTestFinished(() => {
+    released.resolve();
+    spy.mockRestore();
+  });
+  return { release: () => released.resolve() };
+};
+
+/** Rejects with error each request for which matches is true. Sends the others on. */
+export const rejectRequests = (
+  client: Synnax,
+  matches: (target: string, req: unknown) => boolean,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  return vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (matches(args[0], args[1])) throw error;
+    return await send(...args);
+  });
+};
+
+/**
+ * Fails each request to target with the error, so the Core does not get it. Call it
+ * inside a test: the failures end when that test finishes.
+ */
+export const failRequests = (
+  client: Synnax,
+  target: string,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) throw error;
+    return await send(...args);
+  });
+  onTestFinished(() => spy.mockRestore());
+};
+
+/**
+ * Holds each response to target, or to each request that target matches, until release
+ * is called or the test finishes. responded resolves when the first held response
+ * arrives, and sent returns the count of held requests.
+ */
+export const holdResponses = (
+  client: Synnax,
+  target: string | ((target: string, req: unknown) => boolean),
+  field: "transport" = "transport",
+) => {
+  const matches = typeof target === "string" ? (t: string) => t === target : target;
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const { promise: responded, resolve: respond } = Promise.withResolvers<void>();
+  const { promise: released, resolve: release } = Promise.withResolvers<void>();
+  let sent = 0;
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    const held = matches(args[0], args[1]);
+    if (held) sent++;
     const res = await send(...args);
-    if (args[0] === target) {
+    if (held) {
       respond();
       await released;
     }
     return res;
   });
-  return { responded, release };
+  onTestFinished(() => {
+    release();
+    spy.mockRestore();
+  });
+  return { responded, release, sent: () => sent };
 };

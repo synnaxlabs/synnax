@@ -9,7 +9,10 @@
 
 import { status, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -17,7 +20,6 @@ import { Status } from "@/feature/status";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditingElement,
   commitTextEdit,
   createConsoleWrapper,
@@ -27,7 +29,6 @@ import {
   renderHookWithConsole,
   resolveFocusedTab,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -51,7 +52,7 @@ const renderToolbar = async (
   const { wrapper, store } = await createConsoleWrapper({
     client: as,
     preloadedState: {
-      [Session.Status.SLICE_NAME]: { version: 0, favorites },
+      [Session.Status.SLICE_NAME]: { version: 1, favorites },
     },
   });
   const { container } = render(
@@ -110,6 +111,32 @@ describe("status toolbar", () => {
     await waitFor(async () =>
       expect((await client.statuses.retrieve(s.key)).name).toBe(renamed),
     );
+  });
+
+  it("should rename the favorite and not another copy of the status", async () => {
+    const s = await createStatus();
+    const { wrapper } = await createConsoleWrapper({
+      client,
+      preloadedState: {
+        [Session.Status.SLICE_NAME]: { version: 1, favorites: [s.key] },
+      },
+    });
+    render(
+      <>
+        <Text.Editable
+          id={List.itemNameID(s.key)}
+          value="Elsewhere"
+          onChange={() => {}}
+        />
+        <Synchronizers />
+        {Status.TOOLBAR.content}
+        <Modals.Stack />
+      </>,
+      { wrapper },
+    );
+    await openContextMenu(s.name);
+    fireEvent.click(await screen.findByText("Rename"));
+    expect((await awaitTextEditingElement()).textContent).toBe(s.name);
   });
 });
 

@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 export interface NegatedSwitchFieldProps extends Omit<
   Form.FieldProps<boolean, boolean>,
@@ -18,11 +18,11 @@ export interface NegatedSwitchFieldProps extends Omit<
 
 /**
  * Binds a switch to a stored boolean that states its non-default condition, such as
- * `levelHidden` or `dblClickNavDisabled`. The switch reads and writes the affirmative,
- * so `label` names what the switch turns on.
+ * `levelHidden` or `doubleClickNavigationDisabled`. The switch reads and writes the
+ * affirmative, so `label` names what the switch turns on.
  */
 export const NegatedSwitchField = (props: NegatedSwitchFieldProps): ReactElement => (
-  <Form.Field<boolean> {...props}>
+  <Form.Field {...props}>
     {({ value, onChange, ...cp }) => (
       <Input.Switch {...cp} value={!value} onChange={(v) => onChange(!v)} />
     )}

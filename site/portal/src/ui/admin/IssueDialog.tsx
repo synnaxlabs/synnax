@@ -12,13 +12,16 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
-import { type Listed } from "@/server/directory";
+import type { Listed } from "@/server/directory";
 import { navigate, post } from "@/ui/api";
 import { Licenses } from "@/ui/licenses";
 import { Modal } from "@/ui/modal";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = Licenses.termsSchema
   .extend({ organization: z.string().min(1, "Choose an organization") })
@@ -69,13 +72,13 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
         The team's admins get an email with its terms and a link to it.
       </Text.Text>
       {teams.length !== 1 && (
-        <Form.Field<string>
-          path="organization"
+        <Form.Field
+          path={path.organization}
           label="Organization"
           helpText="Register an organization under Organizations first."
         >
           {(p) => (
-            <Select.Simple<string> {...p} resourceName="Organization">
+            <Select.Simple<string> {...p} resourceName="organization">
               {teams.map(({ clerkOrgID, name }) => (
                 <Select.Item key={clerkOrgID} itemKey={clerkOrgID}>
                   {name}

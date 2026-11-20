@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
+import { type bounds, box, location, scale, xy } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { rule } from "@/lineplot/rule/aether";
@@ -36,14 +36,10 @@ const invalidArea = (region: box.Box): boolean =>
 
 export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
-  schema = baseAxisStateZ;
+  override schema = baseAxisStateZ;
 
-  xBounds(): line.DataBounds {
-    const all = this.visibleLines.map((el) => el.xBounds());
-    return {
-      bounds: bounds.max(all.map((b) => b.bounds).filter((b) => bounds.isFinite(b))),
-      loading: all.some((b) => b.loading),
-    };
+  xBounds(): line.DataBounds[] {
+    return this.visibleLines.map((el) => el.xBounds());
   }
 
   bounds(hold: boolean, xBounds: bounds.Bounds): bounds.Bounds {
@@ -100,16 +96,33 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     clearScissor();
   }
 
-  findByXValue(
-    {
-      xDataToDecimalScale,
-      xBounds,
-      plot,
-      viewport,
-      hold,
-    }: Omit<YAxisProps, "canvases">,
+  findByXValue(props: Omit<YAxisProps, "canvases">, target: number): line.FindResult[] {
+    const p = this.lineProps(props);
+    return this.lines.map((el) => ({
+      ...el.findByXValue(p, target),
+      units: this.state.label,
+    }));
+  }
+
+  /** @returns the point each line drew at its last render whose x is nearest target. */
+  findDrawnByXValue(
+    props: Omit<YAxisProps, "canvases">,
     target: number,
   ): line.FindResult[] {
+    const p = this.lineProps(props);
+    return this.lines.map((el) => ({
+      ...el.findDrawnByXValue(p, target),
+      units: this.state.label,
+    }));
+  }
+
+  private lineProps({
+    xDataToDecimalScale,
+    xBounds,
+    plot,
+    viewport,
+    hold,
+  }: Omit<YAxisProps, "canvases">): line.LineProps {
     const [yDataToDecimalScale, , error] = this.dataToDecimalScale(
       hold,
       () => this.dataBounds(xBounds),
@@ -117,11 +130,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     );
     if (error != null) throw error;
     const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
-    const props: line.LineProps = { region: plot, dataToDecimalScale };
-    return this.lines.map((el) => ({
-      ...el.findByXValue(props, target),
-      units: this.state.label,
-    }));
+    return { region: plot, dataToDecimalScale };
   }
 
   get loading(): boolean {

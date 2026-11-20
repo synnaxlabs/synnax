@@ -7,24 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Edge, EdgeSelectable } from "@/feature/mqtt/task/Edge";
-import { Read, ReadSelectable } from "@/feature/mqtt/task/Read";
 import { EDGE_TYPE, READ_TYPE, WRITE_TYPE } from "@/feature/mqtt/task/types";
-import { Write, WriteSelectable } from "@/feature/mqtt/task/Write";
-import { FLAGS } from "@/flags";
-import { type Selector } from "@/platform/selector";
-import { type Task } from "@/platform/task";
+import { Panel } from "@/platform/panel";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/mqtt/task/commands";
-export * from "@/feature/mqtt/task/Edge";
-export * from "@/feature/mqtt/task/Read";
+export * from "@/feature/mqtt/task/create";
+export * from "@/feature/mqtt/task/integration";
 export * from "@/feature/mqtt/task/types";
-export * from "@/feature/mqtt/task/Write";
 
-export const FORMS: Task.Forms = FLAGS.mqtt
-  ? { [READ_TYPE]: Read, [WRITE_TYPE]: Write, [EDGE_TYPE]: Edge }
-  : {};
-
-export const SELECTABLES: Selector.Selectable[] = FLAGS.mqtt
-  ? [ReadSelectable, WriteSelectable, EdgeSelectable]
-  : [];
+export const FORMS: Task.Forms = {
+  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/mqtt/task/Read"), "Read"),
+  [WRITE_TYPE]: Panel.lazyComponent(() => import("@/feature/mqtt/task/Write"), "Write"),
+  [EDGE_TYPE]: Panel.lazyComponent(() => import("@/feature/mqtt/task/Edge"), "Edge"),
+};

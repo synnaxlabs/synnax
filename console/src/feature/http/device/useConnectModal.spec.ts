@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,7 +18,7 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand } from "@/platform/task/testutil";
-import { getSwitchInput, uniqueName } from "@/testutil";
+import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 
@@ -196,6 +197,30 @@ describe("useConnectModal", () => {
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
+  it("should mark the device it connected as connected", async () => {
+    const rack = await createRunningRack(client, "http");
+    const scan = await rack.createTask({
+      name: uniqueName("http_scan"),
+      type: HTTP.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      HTTP.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
+      target: { value: "localhost:8080" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, includeStatus: true });
+    expect(dev.status?.details.connected).toBe(true);
   });
 
   it("should report a device it connected", async () => {

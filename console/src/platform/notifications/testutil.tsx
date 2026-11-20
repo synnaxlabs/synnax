@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, type Synnax } from "@synnaxlabs/client";
+import type { resource, status, Synnax } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Notifications } from "@/platform/notifications";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 /**
  * Renders every notification. {@link Notifications.Feed} shows only four, and specs
@@ -34,10 +35,11 @@ export const UncappedFeed = (): ReactElement => {
 
 interface ForwardProps {
   rules: Notifications.Rules;
+  keyRules?: Notifications.KeyRules;
 }
 
-const Forward = ({ rules }: ForwardProps): ReactElement => {
-  Notifications.useForward(rules);
+const Forward = ({ rules, keyRules }: ForwardProps): ReactElement => {
+  Notifications.useForward(rules, keyRules);
   return <UncappedFeed />;
 };
 
@@ -48,23 +50,24 @@ const Forward = ({ rules }: ForwardProps): ReactElement => {
 export const renderForward = async (
   client: Synnax,
   rules: Notifications.Rules,
+  keyRules?: Notifications.KeyRules,
 ): Promise<void> => {
   await waitForStreamLive(client.connection);
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Forward rules={rules} />, { wrapper });
+  render(<Forward rules={rules} keyRules={keyRules} />, { wrapper });
 };
 
 /**
- * Writes a status with a unique message.
+ * Writes the status of a thing with a unique message.
  * @returns the message of the status.
  */
 export const writeStatus = async (
   client: Synnax,
-  key: status.Key,
+  owner: resource.ID,
   variant: status.Variant,
 ): Promise<string> => {
   const { message } = await client.statuses.set({
-    key,
+    owner,
     name: "",
     variant,
     message: uniqueName("message"),

@@ -18,8 +18,8 @@ import {
   type RenderResult,
 } from "@/vis/axis/axis";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
-import { type render } from "@/vis/render";
+import type { FillTextOptions } from "@/vis/draw2d/canvas";
+import type { render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 5;
 const TICK_PADDING = 6;
@@ -170,7 +170,7 @@ export class Top extends Base implements Axis {
       canvas.fillText(
         tick.label,
         p.x + tick.position - d.width / 2,
-        p.y - TICK_LINE_SIZE - d.height - TICK_PADDING,
+        p.y - TICK_LINE_SIZE - TICK_PADDING,
         undefined,
         FILL_TEXT_OPTIONS,
       );
@@ -181,7 +181,7 @@ export class Top extends Base implements Axis {
       xy.translate(p, { x: tick.position, y: gridSize }),
     ]);
 
-    return { size: maxTickDims.height + TICK_LINE_SIZE };
+    return { size: maxTickDims.height + TICK_LINE_SIZE + TICK_PADDING };
   }
 }
 

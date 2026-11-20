@@ -86,7 +86,8 @@ func (i *IR) IsZero() bool {
 		len(i.Edges) == 0 &&
 		i.Root.IsZero() &&
 		i.Symbols == nil &&
-		i.TypeMap == nil
+		i.TypeMap == nil &&
+		i.FmtStrings == nil
 }
 
 // String returns the string representation of the IR.
@@ -168,5 +169,5 @@ func (i *IR) writeRoot(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(tree.Prefix(last))
 	b.WriteString("Root\n")
 	childPrefix := prefix + tree.Indent(last)
-	b.WriteString(i.Root.StringWithPrefix(childPrefix))
+	b.WriteString(i.Root.stringWithPrefix(childPrefix))
 }

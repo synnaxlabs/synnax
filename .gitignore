@@ -76,10 +76,6 @@ htmlcov/
 # Generated clangd/IntelliSense database (e.g. Hedron compile-commands refresh).
 compile_commands.json
 
-# Lock file for the local boringssl->openssl shim module; only its MODULE.bazel matters
-# as a local_path_override target, never run bazel inside that directory.
-vendor/boringssl/MODULE.bazel.lock
-
 # |||| DATA ||||
 
 **/data
@@ -102,6 +98,8 @@ integration/integration
 core/synnax
 core/pkg/driver/assets/*
 !core/pkg/driver/assets/.gitkeep
+core/pkg/console/update/*
+!core/pkg/console/update/.gitkeep
 console/src-tauri/release.tauri.conf.json
 
 # |||| PROFILING ||||

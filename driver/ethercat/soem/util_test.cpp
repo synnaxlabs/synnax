@@ -61,4 +61,32 @@ TEST(IsWiredInterface, RejectsVirtualInterfaces) {
     ASSERT_FALSE(is_wired_interface("\\Device\\NPF_{9C0D}", "WAN Miniport (IP)"));
 }
 
+/// @brief it should return the braced GUID of an Npcap adapter name.
+TEST(AdapterGUID, ParsesAnNpcapAdapterName) {
+    ASSERT_EQ(
+        adapter_guid("\\Device\\NPF_{126D8109-3B5C-4F1A-9E2D-0A1B2C3D4E5F}"),
+        "{126D8109-3B5C-4F1A-9E2D-0A1B2C3D4E5F}"
+    );
+    ASSERT_EQ(
+        adapter_guid("\\Device\\NPF_{c5f5b5fa-0000-0000-0000-000000000000}"),
+        "{c5f5b5fa-0000-0000-0000-000000000000}"
+    );
+}
+
+/// @brief it should return no GUID for a name that is not an Npcap adapter name.
+TEST(AdapterGUID, RejectsOtherNames) {
+    ASSERT_EQ(adapter_guid("eth0"), std::nullopt);
+    ASSERT_EQ(adapter_guid("\\Device\\NPF_Loopback"), std::nullopt);
+    ASSERT_EQ(adapter_guid("\\Device\\NPF_{1A2B}"), std::nullopt);
+    ASSERT_EQ(adapter_guid("{126D8109-3B5C-4F1A-9E2D-0A1B2C3D4E5F}"), std::nullopt);
+    ASSERT_EQ(
+        adapter_guid("\\Device\\NPF_{126D8109-3B5C-4F1A-9E2D-0A1B2C3D4E5F}\\x"),
+        std::nullopt
+    );
+    ASSERT_EQ(
+        adapter_guid("\\Device\\NPF_{126D8109-3B5C-4F1A-9E2D\\0A1B2C3D4E5F}"),
+        std::nullopt
+    );
+}
+
 }

@@ -12,29 +12,41 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = v2.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v2.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = v2.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v2.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v2.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = v2.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = v2.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = v2.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = v2.FlexAlignmentStretch
 )
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig = v2.CellConfig
+
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant = v2.CellConfigVariant
+
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType = v2.CellConfigType
 
 const (
@@ -61,11 +73,28 @@ type Row struct {
 	Cells []string `json:"cells" msgpack:"cells"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Row) ApplyDefaults() {
-	if r.Size == 0 {
-		r.Size = 36
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Row) SetDefaults() {
+	r.Size = 36
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Row
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Row
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -85,11 +114,28 @@ type Column struct {
 	Size float64 `json:"size" msgpack:"size"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Column) ApplyDefaults() {
-	if c.Size == 0 {
-		c.Size = 72
+// SetDefaults sets every field that has a schema default to that default.
+func (c *Column) SetDefaults() {
+	c.Size = 72
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *Column) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Column
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *Column) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Column
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -119,25 +165,10 @@ type Table struct {
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Table) ApplyDefaults() {
-	for i := range t.Rows {
-		t.Rows[i].ApplyDefaults()
-	}
-	for i := range t.Columns {
-		t.Columns[i].ApplyDefaults()
-	}
-	for key, value := range t.Cells {
-		value.ApplyDefaults()
-		t.Cells[key] = value
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	v.NotEmptyString("name", t.Name)
 	for i := range t.Rows {
 		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
 	}

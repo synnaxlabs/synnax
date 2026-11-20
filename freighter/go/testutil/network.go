@@ -21,7 +21,7 @@ import (
 // scenarios. It serves as a factory for freighter.Stream and freighter.Unary.
 type Network[RQ, RS freighter.Payload] struct {
 	mu struct {
-		entries      []NetworkEntry[RQ, RS]
+		entries      []networkEntry[RQ, RS]
 		unaryRoutes  map[address.Address]*UnaryServer[RQ, RS]
 		streamRoutes map[address.Address]*StreamServer[RQ, RS]
 		sync.RWMutex
@@ -38,24 +38,16 @@ func NewNetwork[RQ, RS freighter.Payload]() *Network[RQ, RS] {
 
 // Entries returns a copy of every unary exchange the network has carried, oldest first.
 // Streams are not recorded.
-func (n *Network[RQ, RS]) Entries() []NetworkEntry[RQ, RS] {
+func (n *Network[RQ, RS]) Entries() []networkEntry[RQ, RS] {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	cp := make([]NetworkEntry[RQ, RS], len(n.mu.entries))
+	cp := make([]networkEntry[RQ, RS], len(n.mu.entries))
 	copy(cp, n.mu.entries)
 	return cp
 }
 
-// EntryCount returns how many unary exchanges the network has carried. It avoids the
-// copy Entries makes when only the count is needed.
-func (n *Network[RQ, RS]) EntryCount() int {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	return len(n.mu.entries)
-}
-
-// NetworkEntry is a single unary exchange in the network's history.
-type NetworkEntry[RQ, RS freighter.Payload] struct {
+// networkEntry is a single unary exchange in the network's history.
+type networkEntry[RQ, RS freighter.Payload] struct {
 	// Request is what the client sent.
 	Request RQ
 	// Response is what the handler returned. Zero valued when Error is not nil.
@@ -144,7 +136,7 @@ func (n *Network[RQ, RS]) appendEntry(
 ) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.mu.entries = append(n.mu.entries, NetworkEntry[RQ, RS]{
+	n.mu.entries = append(n.mu.entries, networkEntry[RQ, RS]{
 		Target:   target,
 		Request:  req,
 		Response: res,

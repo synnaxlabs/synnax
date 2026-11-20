@@ -11,10 +11,13 @@ package errors_test
 
 import (
 	stderrors "errors"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type customError struct{ msg string }
@@ -26,6 +29,40 @@ type aggregateError struct{ errs []error }
 func (e *aggregateError) Error() string { return "aggregate" }
 
 func (e *aggregateError) Unwrap() []error { return e.errs }
+
+type parenError struct{ cause error }
+
+func (e *parenError) Error() string { return "outer (" + e.cause.Error() + ")" }
+
+func (e *parenError) Unwrap() error { return e.cause }
+
+type causeError struct{ cause error }
+
+func (e *causeError) Error() string { return "cause: " + e.cause.Error() }
+
+func (e *causeError) Cause() error { return e.cause }
+
+type panicError struct{}
+
+func (panicError) Error() string { panic("member failed") }
+
+type panicWrapper struct{ cause error }
+
+func (panicWrapper) Error() string { panic("member failed") }
+
+func (e panicWrapper) Unwrap() error { return e.cause }
+
+//go:noinline
+func createFirstMember() error { return errors.New("err1") }
+
+//go:noinline
+func createSecondMember() error { return errors.New("err2") }
+
+var _ = Describe("ErrUnsupported", func() {
+	It("Should be the standard library sentinel", func() {
+		Expect(errors.ErrUnsupported).To(MatchError("unsupported operation"))
+	})
+})
 
 var _ = Describe("Is", func() {
 	Describe("ErrUnsupported", func() {
@@ -219,6 +256,100 @@ var _ = Describe("Is", func() {
 			Expect(errors.UnwrapMulti(joined)).To(HaveLen(2))
 			Expect(joined).To(MatchError("context: err1\nerr2\nerr3"))
 		})
+
+		It("Should print the same message through a formatter", func() {
+			joined := errors.Join(errors.New("err1"), errors.New("err2"))
+			Expect(fmt.Sprintf("%v", joined)).To(Equal("err1\nerr2"))
+			Expect(fmt.Sprintf("%v", errors.Mark(joined, errors.New("mark")))).
+				To(Equal("err1\nerr2"))
+		})
+
+		DescribeTable("Should recover a panic in a member",
+			func(member error, want string) {
+				joined := errors.Join(member, errors.New("err2"))
+				first := joined.Error()
+				Expect(first).To(SatisfyAll(
+					ContainSubstring(want),
+					HaveSuffix("\nerr2"),
+				))
+				Expect(joined.Error()).To(Equal(first))
+			},
+			Entry("a typed nil", (*customError)(nil), "<nil>"),
+			Entry("a member that panics", panicError{}, "member failed"),
+		)
+
+		DescribeTable("Should render an empty member as the formatter does",
+			func(want string, messages ...string) {
+				members := make([]error, len(messages))
+				for i, message := range messages {
+					members[i] = errors.New(message)
+				}
+				joined := errors.Join(members...)
+				Expect(joined.Error()).To(Equal(want))
+				payload := errors.NewCodec().Encode(joined, false)
+				Expect(payload.Data).To(Equal(want))
+			},
+			Entry("before one character", "z", "", "z"),
+			Entry("before a word", "\nerr2", "", "err2"),
+			Entry("between words", "err1\nerr3", "err1", "", "err3"),
+		)
+
+		It("Should keep the member stacks in the verbose format", func() {
+			joined := errors.Join(createFirstMember(), createSecondMember())
+			Expect(fmt.Sprintf("%+v", joined)).To(SatisfyAll(
+				ContainSubstring("errors_test.createFirstMember"),
+				ContainSubstring("errors_test.createSecondMember"),
+			))
+		})
+
+		It("Should stay matchable after transport", func() {
+			sentinel := errors.New("sentinel")
+			codec := errors.NewCodec()
+			payload := codec.Encode(
+				errors.Join(errors.Wrap(sentinel, "context"), errors.New("other")),
+				true,
+			)
+			decoded := codec.Decode(payload)
+			Expect(decoded).To(MatchError("context: sentinel\nother"))
+			Expect(errors.Is(decoded, sentinel)).To(BeTrue())
+			Expect(errors.UnwrapMulti(decoded)).To(HaveLen(2))
+		})
+
+		DescribeTable("Should format a join rewrapped in a loop in polynomial time",
+			func(format func(error) string, wrap func(error) error) {
+				var err error
+				for i := range 64 {
+					err = wrap(errors.Join(err, errors.Newf("err%d", i)))
+				}
+				formatted := make(chan string, 1)
+				go func() { formatted <- format(err) }()
+				Eventually(formatted, 10*time.Second).Should(Receive(Not(BeEmpty())))
+			},
+			Entry("Error under Wrap",
+				error.Error,
+				func(err error) error { return errors.Wrap(err, "context") },
+			),
+			Entry(
+				"Error under Mark",
+				error.Error,
+				func(err error) error { return errors.Mark(err, errors.ErrUnsupported) },
+			),
+			Entry(
+				"Error under two stacks",
+				error.Error,
+				func(err error) error { return errors.WithStack(errors.WithStack(err)) },
+			),
+			Entry("the verbose format under Wrap",
+				func(err error) string { return fmt.Sprintf("%+v", err) },
+				func(err error) error { return errors.Wrap(err, "context") },
+			),
+			Entry("transport encoding under Wrap",
+				func(err error) string {
+					return errors.NewCodec().Encode(err, true).Data
+				},
+				func(err error) error { return errors.Wrap(err, "context") },
+			),
+		)
 	})
 
 	Describe("UnwrapMulti", func() {
@@ -244,6 +375,94 @@ var _ = Describe("Is", func() {
 
 		It("Should return nil for a nil error", func() {
 			Expect(errors.UnwrapMulti(nil)).To(BeNil())
+		})
+	})
+
+	Describe("MessageWithout", func() {
+		ref := errors.New("ref")
+
+		It("Should remove the reference and its separator from a wrap", func() {
+			Expect(
+				errors.MessageWithout(errors.Wrap(ref, "outer"), ref),
+			).To(Equal("outer"))
+		})
+
+		It("Should keep every wrapper above the reference", func() {
+			err := errors.Wrap(errors.Wrapf(ref, "inner %d", 1), "outer")
+			Expect(errors.MessageWithout(err, ref)).To(Equal("outer: inner 1"))
+		})
+
+		It("Should look through a wrapper that adds no message", func() {
+			err := errors.Wrapf(ref, "bad value: %v", errors.New("cause"))
+			Expect(errors.MessageWithout(err, ref)).To(Equal("bad value: cause"))
+		})
+
+		It("Should return an empty message for the reference itself", func() {
+			Expect(errors.MessageWithout(ref, ref)).To(BeEmpty())
+		})
+
+		It("Should remove the reference from each member of a join", func() {
+			err := errors.Join(errors.Wrap(ref, "first"), errors.Wrap(ref, "second"))
+			Expect(errors.MessageWithout(err, ref)).To(Equal("first\nsecond"))
+		})
+
+		It("Should keep the wrapper above a join", func() {
+			err := errors.Wrap(
+				errors.Join(errors.Wrap(ref, "first"), errors.Wrap(ref, "second")),
+				"outer",
+			)
+			Expect(errors.MessageWithout(err, ref)).To(Equal("outer: first\nsecond"))
+		})
+
+		It("Should drop a member of a join that has no message left", func() {
+			err := errors.Join(ref, errors.Wrap(ref, "second"))
+			Expect(errors.MessageWithout(err, ref)).To(Equal("second"))
+		})
+
+		It("Should remove the reference from a standard library join", func() {
+			err := stderrors.Join(errors.Wrap(ref, "first"), errors.New("second"))
+			Expect(errors.MessageWithout(err, ref)).To(Equal("first\nsecond"))
+		})
+
+		DescribeTable("Should recover a panic in a member of a join",
+			func(member error, want string) {
+				err := errors.Join(member, errors.Wrap(ref, "second"))
+				Expect(errors.MessageWithout(err, ref)).To(Equal(want + "\nsecond"))
+			},
+			Entry("a typed nil", (*customError)(nil), "<nil>"),
+			Entry(
+				"a member that panics",
+				panicError{},
+				"%!v(PANIC=SafeFormatter method: member failed)",
+			),
+		)
+
+		It("Should keep the message of an error without the reference", func() {
+			err := errors.Wrap(errors.New("other"), "outer")
+			Expect(errors.MessageWithout(err, ref)).To(Equal("outer: other"))
+		})
+
+		It("Should keep the message of a wrapper that encloses its cause", func() {
+			err := &parenError{cause: errors.Wrap(ref, "inner")}
+			Expect(errors.MessageWithout(err, ref)).To(Equal("outer (inner: ref)"))
+		})
+
+		It("Should return an empty message for a nil error", func() {
+			Expect(errors.MessageWithout(nil, ref)).To(BeEmpty())
+		})
+
+		It("Should recover a panic in a member of a join that holds the reference",
+			func() {
+				err := errors.Join(panicWrapper{cause: ref}, errors.Wrap(ref, "second"))
+				Expect(errors.MessageWithout(err, ref)).To(Equal(
+					"%!v(PANIC=SafeFormatter method: member failed)\nsecond",
+				))
+			},
+		)
+
+		It("Should remove nothing for a nil reference", func() {
+			err := errors.Join(errors.Wrap(ref, "first"), errors.New("second"))
+			Expect(errors.MessageWithout(err, nil)).To(Equal("first: ref\nsecond"))
 		})
 	})
 
@@ -290,6 +509,44 @@ var _ = Describe("Is", func() {
 			err := errors.New("test")
 			var errCustom customError
 			Expect(func() { errors.As(err, errCustom) }).To(Panic())
+		})
+	})
+
+	Describe("AsType", func() {
+		It("Should return the zero value and false for a non-matching type", func() {
+			target, ok := errors.AsType[*customError](errors.New("test"))
+			Expect(ok).To(BeFalse())
+			Expect(target).ToNot(HaveOccurred())
+		})
+
+		It("Should return a wrapped error of the matching type", func() {
+			original := &customError{msg: "test"}
+			target := MustBeOk(
+				errors.AsType[*customError](errors.Wrap(original, "wrapped")),
+			)
+			Expect(target).To(BeIdenticalTo(original))
+		})
+
+		It("Should find a member of a joined error", func() {
+			original := &customError{msg: "test"}
+			target := MustBeOk(errors.AsType[*customError](
+				errors.Join(errors.New("other"), original),
+			))
+			Expect(target).To(BeIdenticalTo(original))
+		})
+
+		It("Should follow a Cause chain", func() {
+			original := &customError{msg: "test"}
+			target := MustBeOk(
+				errors.AsType[*customError](&causeError{cause: original}),
+			)
+			Expect(target).To(BeIdenticalTo(original))
+		})
+
+		It("Should match an interface type", func() {
+			original := &customError{msg: "test"}
+			target := MustBeOk(errors.AsType[interface{ Error() string }](original))
+			Expect(target).To(BeIdenticalTo(original))
 		})
 	})
 })

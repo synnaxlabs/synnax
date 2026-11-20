@@ -7,23 +7,59 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/client";
+import { device, rack, status, type Synnax, task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
-import { id } from "@synnaxlabs/x";
-import { render, type RenderResult } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { Errors } from "@synnaxlabs/pluto";
+import { deep, id, narrow, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import {
+  act,
+  render,
+  type RenderOptions,
+  type RenderResult,
+} from "@testing-library/react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
+import { wrapWithSink } from "@/platform/analytics/testutil";
+import type { Hardware } from "@/platform/device/integration";
 import { Modals } from "@/platform/modals";
+import { createTaskStatus } from "@/platform/task/testutil";
+import type { Tree } from "@/platform/tree";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import { createConsoleWrapper, renderSuspended, type TestStore } from "@/testutil";
+
+const path = deep.path<z.infer<typeof deviceFormSchema>>();
 
 export interface CreateTestDeviceOptions extends Partial<
-  Pick<device.New, "name" | "configured" | "properties" | "make" | "model" | "rack">
+  Pick<
+    device.New,
+    | "key"
+    | "name"
+    | "configured"
+    | "properties"
+    | "make"
+    | "model"
+    | "rack"
+    | "location"
+  >
 > {}
+
+const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> => {
+  await client.statuses.set(
+    status.create<typeof rack.statusDetailsZ>({
+      owner: rack.resourceID(r.key),
+      name: r.name,
+      variant: "success",
+      message: "Driver is running",
+      details: { running: true },
+    }),
+  );
+};
 
 /**
  * Creates a rack on the live Core whose Driver reports as running with the integration.
@@ -38,16 +74,58 @@ export const createRunningRack = async (
     name: uniqueName("rack"),
     integrations: [integration],
   });
+  await reportRackRunning(client, r);
+  return r;
+};
+
+export interface CreateWarningScannerOptions {
+  /** Why the scan fails. */
+  description?: string;
+  /** The data that the warning carries. */
+  data?: unknown;
+}
+
+/** Creates a scanner on a running rack of the hardware, with a warning status. */
+export const createWarningScanner = async (
+  client: Synnax,
+  hardware: Hardware,
+  {
+    description = "Cannot open en1 for raw Ethernet access.",
+    data,
+  }: CreateWarningScannerOptions = {},
+): Promise<task.Task> => {
+  const r = await createRunningRack(client, hardware.key);
+  const scanner = await r.createTask({
+    name: uniqueName("scanner"),
+    type: hardware.scanType,
+    config: {},
+    internal: true,
+  });
   await client.statuses.set(
-    status.create<typeof rack.statusDetailsZ>({
-      key: rack.statusKey(r.key),
-      name: r.name,
-      variant: "success",
-      message: "Driver is running",
-      details: { rack: r.key },
+    createTaskStatus({
+      owner: task.resourceID(scanner.key),
+      variant: "warning",
+      message: "Failed to scan for devices",
+      description,
+      details: { running: true, rack: r.key, data },
     }),
   );
-  return r;
+  return scanner;
+};
+
+const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
+
+/** Reports the rack as running at the rate of a Driver until the test ends. */
+export const startRackHeartbeat = async (
+  client: Synnax,
+  r: rack.Rack,
+): Promise<void> => {
+  await reportRackRunning(client, r);
+  const interval = setInterval(
+    () => void reportRackRunning(client, r),
+    HEARTBEAT_PERIOD.milliseconds,
+  );
+  onTestFinished(() => clearInterval(interval));
 };
 
 /**
@@ -58,22 +136,24 @@ export const createRunningRack = async (
 export const createTestDevice = async (
   client: Synnax,
   {
+    key = id.create(),
     configured = true,
     name,
     properties = {},
     make = "make",
     model = "model",
     rack: rackKey,
+    location = "dev1",
   }: CreateTestDeviceOptions = {},
   schemas?: device.DeviceSchemas,
 ): Promise<device.Device> => {
   rackKey ??= (await client.racks.create({ name: uniqueName("rack") })).key;
   return await client.devices.create(
     {
-      key: id.create(),
+      key,
       name: name ?? uniqueName("device"),
       rack: rackKey,
-      location: "dev1",
+      location,
       make,
       model,
       configured,
@@ -83,20 +163,34 @@ export const createTestDevice = async (
   );
 };
 
-/**
- * Builds the ontology resource the tree hands to device context-menu items, carrying
- * the configured flag in its data payload.
- */
+export const TEST_DEVICE_STATUS_MESSAGE = "Device reported";
+
+/** Writes the status a Driver reports for a device. */
+export const setTestDeviceStatus = async (
+  client: Synnax,
+  { key, name, rack }: Pick<device.Device, "key" | "name" | "rack">,
+): Promise<void> => {
+  await client.statuses.set(
+    status.create<typeof device.statusDetailsZ>({
+      owner: device.resourceID(key),
+      name,
+      variant: "success",
+      message: TEST_DEVICE_STATUS_MESSAGE,
+      details: { rack, connected: true },
+    }),
+  );
+};
+
+/** Builds the tree resource that the tree hands to device context-menu items. */
 export const createDeviceResource = (
-  dev: Pick<device.Device, "key" | "name"> & { configured?: boolean },
-): ontology.Resource =>
-  createResource(device.ontologyID(dev.key), dev.name, {
-    configured: dev.configured ?? false,
-  });
+  dev: Pick<device.Device, "key" | "name">,
+): Tree.Resource => createResource(device.resourceID(dev.key), dev.name);
 
 export interface RenderMenuItemOptions {
   /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Synnax | null;
+  /** Receives every event the item reports; discards them by default. */
+  analytics?: Analytics.Sink;
 }
 
 export interface MenuItemHandle extends RenderResult {
@@ -113,23 +207,30 @@ export interface MenuItemHandle extends RenderResult {
  */
 export const renderMenuItem = async (
   node: ReactElement,
-  { client = null }: RenderMenuItemOptions = {},
+  { client = null, analytics = Analytics.NOOP }: RenderMenuItemOptions = {},
 ): Promise<MenuItemHandle> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+  const wrapper = wrapWithSink(Console, analytics);
   const captured: { modals?: Session.Modals.Store } = {};
   const ModalStoreProbe = (): null => {
     captured.modals = Session.Modals.useStore("renderMenuItem");
     return null;
   };
   ModalStoreProbe.displayName = "ModalStoreProbe";
-  const rendered = render(
-    <>
-      <PMenu.Menu>{node}</PMenu.Menu>
-      <Modals.Stack />
-      <ModalStoreProbe />
-    </>,
-    { wrapper },
-  );
+  let rendered!: RenderResult;
+  // An item can suspend on a device fetch, and a tree bounds its menus the same way.
+  await act(async () => {
+    rendered = render(
+      <>
+        <Errors.SuspenseBoundary loading={null}>
+          <PMenu.Menu>{node}</PMenu.Menu>
+        </Errors.SuspenseBoundary>
+        <Modals.Stack />
+        <ModalStoreProbe />
+      </>,
+      { wrapper },
+    );
+  });
   if (captured.modals == null) throw new Error("modal store was not captured");
   return { ...rendered, store, wrapper, modals: captured.modals };
 };
@@ -143,23 +244,26 @@ interface DeviceFormFixtureProps extends PropsWithChildren {
   deviceKey: string;
   selectableKey?: string;
   channels?: unknown[];
+  mode?: Form.Mode;
 }
 
 const DeviceFormFixture = ({
   deviceKey,
   selectableKey,
   channels = [],
+  mode,
   children,
 }: DeviceFormFixtureProps): ReactElement => {
   const methods = Form.use({
     schema: deviceFormSchema,
     values: { config: { device: deviceKey, channels } },
+    mode,
   });
   return (
     <Form.Form<typeof deviceFormSchema> {...methods}>
       {children}
       {selectableKey != null && (
-        <button onClick={() => methods.set("config.device", selectableKey)}>
+        <button onClick={() => methods.set(path.config.device, selectableKey)}>
           select device
         </button>
       )}
@@ -168,7 +272,10 @@ const DeviceFormFixture = ({
 };
 DeviceFormFixture.displayName = "DeviceFormFixture";
 
-export interface RenderWithDeviceFormOptions {
+export interface RenderWithDeviceFormOptions extends Pick<
+  RenderOptions,
+  "onCaughtError"
+> {
   deviceKey: string;
   /**
    * When set, the fixture renders a "select device" button that writes this key into
@@ -177,6 +284,8 @@ export interface RenderWithDeviceFormOptions {
   selectableKey?: string;
   /** The form's config.channels. Defaults to none. */
   channels?: unknown[];
+  /** Renders the form read-only with "preview". Defaults to "normal". */
+  mode?: Form.Mode;
   client?: Synnax | null;
 }
 
@@ -187,18 +296,26 @@ export interface RenderWithDeviceFormOptions {
  */
 export const renderWithDeviceForm = async (
   ui: ReactElement,
-  { deviceKey, selectableKey, channels, client = null }: RenderWithDeviceFormOptions,
+  {
+    deviceKey,
+    selectableKey,
+    channels,
+    mode,
+    client = null,
+    onCaughtError,
+  }: RenderWithDeviceFormOptions,
 ): Promise<RenderResult & { store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const rendered = render(
+  const rendered = await renderSuspended(
     <DeviceFormFixture
       deviceKey={deviceKey}
       selectableKey={selectableKey}
       channels={channels}
+      mode={mode}
     >
       {ui}
     </DeviceFormFixture>,
-    { wrapper },
+    { wrapper, onCaughtError },
   );
   return { ...rendered, store };
 };
@@ -245,10 +362,10 @@ export const testPropertiesSchema = (
         const aAny = a as Record<string, unknown>;
         for (const key of Object.keys(aAny)) {
           const val = aAny[key];
-          if (val != null && typeof val === "object" && !Array.isArray(val)) {
-            (val as Record<string, unknown>).__test = true;
+          if (narrow.isObject(val)) {
+            val.__test = true;
             expect((b as Record<string, unknown>)[key]).not.toHaveProperty("__test");
-            delete (val as Record<string, unknown>).__test;
+            delete val.__test;
             break;
           }
           if (Array.isArray(val)) {

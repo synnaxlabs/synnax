@@ -11,7 +11,7 @@ import "@/panel/Mosaic.css";
 
 import { panel, query } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type direction } from "@synnaxlabs/x";
+import type { direction } from "@synnaxlabs/x";
 import { type DragEventHandler, memo, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";
@@ -75,7 +75,7 @@ const Tab = ({ tabKey, tabName, onClose, canEdit }: TabProps): ReactElement => {
   const key = Scope.use();
   const client = Synnax.use();
   const handleDragStart: DragEventHandler<HTMLDivElement> = (e) => {
-    const cached = client?.panels.getCached(key);
+    const cached = client?.panels.watch(key).getCached();
     if (!query.isLive(cached)) return;
     const tab = panel.findTab(cached.root, tabKey);
     if (tab == null) return;
@@ -125,7 +125,7 @@ interface CreateTabProps {
  * selection head re-renders the button alone: focus moving between leaves must not
  * re-render either leaf's tabs.
  */
-const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
+const CreateTab = ({ selected, onAdd }: CreateTabProps): ReactElement => {
   // Create acts on the panel's focused tab, so only the leaf holding that tab may
   // advertise the shortcut. An empty leaf holds none, and "" matches no tab.
   const { head } = Select.useItemState(selected ?? "");
@@ -141,7 +141,7 @@ const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
       <Icon.Add color={9} />
     </Button.Button>
   );
-});
+};
 CreateTab.displayName = "Panel.Mosaic.CreateTab";
 
 const Leaf = memo(
@@ -330,20 +330,20 @@ PortalIn.displayName = "Panel.Mosaic.PortalIn";
 // Content renders into portaled elements hosted from each leaf, so moving a tab around
 // the mosaic does not remount it: the destination leaf's Out re-parents the same
 // element, preserving DOM state and expensive resources like WebGL contexts.
-const PortaledContents = memo(
-  ({ children }: Pick<MosaicProps, "children">): ReactElement => {
-    const keys = useTabKeys();
-    return (
-      <>
-        {keys.map((key) => (
-          <PortalIn key={key} itemKey={key}>
-            {children}
-          </PortalIn>
-        ))}
-      </>
-    );
-  },
-);
+const PortaledContents = ({
+  children,
+}: Pick<MosaicProps, "children">): ReactElement => {
+  const keys = useTabKeys();
+  return (
+    <>
+      {keys.map((key) => (
+        <PortalIn key={key} itemKey={key}>
+          {children}
+        </PortalIn>
+      ))}
+    </>
+  );
+};
 PortaledContents.displayName = "Panel.Mosaic.PortaledContents";
 
 export const Mosaic = ({
@@ -374,7 +374,7 @@ export const Mosaic = ({
       dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
       // Another client can close the tab mid-drag, leaving the move a no-op and
       // the key naming a tab this panel no longer holds.
-      const cached = client?.panels.getCached(key);
+      const cached = client?.panels.watch(key).getCached();
       if (query.isLive(cached) && panel.findTab(cached.root, tabKey) != null)
         onSelect?.(tabKey);
       return;
@@ -422,11 +422,7 @@ export const Mosaic = ({
   const menuProps = Menu.useContextMenu();
   const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (props) => {
     const tabKey: panel.TabKey | undefined = props.keys[0];
-    const content = (
-      <Menu.Menu level="small" gap="small">
-        {contextMenu?.(props)}
-      </Menu.Menu>
-    );
+    const content = <Menu.Menu gap="small">{contextMenu?.(props)}</Menu.Menu>;
     if (tabKey == null) return content;
     return <TabScope.Provider value={tabKey}>{content}</TabScope.Provider>;
   };

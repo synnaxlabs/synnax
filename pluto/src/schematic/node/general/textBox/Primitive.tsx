@@ -9,10 +9,10 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -20,8 +20,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.TextBoxNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "textColor"
 > {
+  textColor?: color.Crude;
   className?: string;
   onChange?: (value: string) => void;
 }
@@ -29,7 +30,7 @@ interface RenderProps extends Omit<
 export const TextBox = ({
   className,
   orientation = "left",
-  width,
+  inlineSize,
   textColor,
   level,
   autoFitDisabled,
@@ -38,7 +39,7 @@ export const TextBox = ({
   onChange,
 }: RenderProps): ReactElement => {
   const isVertical = direction.construct(orientation) === "y";
-  const size = autoFitDisabled ? width : "fit-content";
+  const size = autoFitDisabled ? inlineSize : "fit-content";
   const style: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
     [Primitive.SYMBOL_COLOR]: color.rgbaString(textColor),

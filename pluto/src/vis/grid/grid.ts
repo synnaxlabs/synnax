@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, direction, location, xy } from "@synnaxlabs/x";
+import { box, direction, location, math, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const regionZ = z.object({
@@ -39,9 +39,9 @@ export const gridZ = z.record(z.string(), regionZ);
 export type Region = z.input<typeof regionZ>;
 
 /**
- * A uniform grid used to position elements in the outer regions of a container. This grid
- * is particularly useful for positioning axes and other elements that are not part of the
- * main visualization.
+ * A uniform grid used to position elements in the outer regions of a container. This
+ * grid is particularly useful for positioning axes and other elements that are not part
+ * of the main visualization.
  *
  * @example
  * const grid: Grid = {
@@ -85,7 +85,7 @@ export const regions = (loc: location.Outer, grid: Grid): Region[] =>
 /**
  * Calculates the X and Y coordinates of the top-left corner of a region in the grid
  * based on a containing box.
- * @param container The container to calculate the position within.
+ * @param container - The container to calculate the position within.
  * @returns The X and Y coordinates for the region.
  */
 export const position = (key: string, grid: Grid, container: box.Box): xy.XY => {
@@ -98,9 +98,9 @@ export const position = (key: string, grid: Grid, container: box.Box): xy.XY => 
   const otherAxes = regions(filterLoc, grid);
   const index = axes.findIndex(({ key: k }) => k === key);
 
-  const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
+  const offset = math.sum(axes.slice(0, index).map(({ size }) => size));
 
-  const otherOffset = otherAxes.reduce((acc, { size }) => acc + size, 0);
+  const otherOffset = math.sum(otherAxes.map(({ size }) => size));
 
   switch (loc) {
     case "left":
@@ -120,8 +120,8 @@ export const position = (key: string, grid: Grid, container: box.Box): xy.XY => 
 /**
  * Calculates the width and height for the visualization in the center of the grid
  * after accounting for all additional regions and the size of the container.
- * @param grid The grid to calculate the visualization box from.
- * @param container The container to calculate the visualization box within.
+ * @param grid - The grid to calculate the visualization box from.
+ * @param container - The container to calculate the visualization box within.
  * @returns The box for the visualization.
  */
 export const visualizationBox = (grid: Grid, container: box.Box): box.Box => {
@@ -129,10 +129,10 @@ export const visualizationBox = (grid: Grid, container: box.Box): box.Box => {
   const right = regions("right", grid);
   const top = regions("top", grid);
   const bottom = regions("bottom", grid);
-  const leftWidth = left.reduce((acc, { size }) => acc + size, 0);
-  const rightWidth = right.reduce((acc, { size }) => acc + size, 0);
-  const topHeight = top.reduce((acc, { size }) => acc + size, 0);
-  const bottomHeight = bottom.reduce((acc, { size }) => acc + size, 0);
+  const leftWidth = math.sum(left.map(({ size }) => size));
+  const rightWidth = math.sum(right.map(({ size }) => size));
+  const topHeight = math.sum(top.map(({ size }) => size));
+  const bottomHeight = math.sum(bottom.map(({ size }) => size));
   return box.construct(
     xy.translate(box.topLeft(container), { x: leftWidth, y: topHeight }),
     box.width(container) - leftWidth - rightWidth,

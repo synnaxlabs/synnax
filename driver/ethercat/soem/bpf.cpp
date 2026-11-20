@@ -49,7 +49,7 @@ x::errors::Error check_bpf_access(const std::string &ifname, const Open &open) {
             );
         return x::errors::Error(
             errors::INTERFACE_ERROR,
-            "failed to open " + path + " for " + ifname + ": " +
+            "Failed to open " + path + " for " + ifname + ": " +
                 std::generic_category().message(err)
         );
     }

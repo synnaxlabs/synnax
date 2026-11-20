@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { combineReducers } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { describe, expect, it } from "vitest";
 
 import { Nav } from "@/session/nav";
+import { createMinimalStore } from "@/testutil";
 
 const rootReducer = combineReducers({
   [Nav.SLICE_NAME]: Nav.reducer,
@@ -22,7 +23,7 @@ const rootReducer = combineReducers({
 // run dispatches the actions through a store wired with the inject-key middleware, so
 // actions without an explicit windowKey resolve to the active window (MAIN_WINDOW).
 const run = (...actions: Nav.Action[]) => {
-  const store = configureStore({
+  const store = createMinimalStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Nav.MIDDLEWARE),
   });
@@ -334,6 +335,25 @@ describe("Nav Slice", () => {
       expect(s.left().hover).toBe(false);
       expect(s.bottomVisible()).toBe(false);
       expect(s.bottom().hover).toBe(false);
+    });
+  });
+
+  describe("selectSettingsSection", () => {
+    it("should keep the Settings section of each window apart", () => {
+      const s = run(
+        Nav.selectSettingsSection({ section: "labels" }),
+        Nav.selectSettingsSection({ windowKey: "window-2", section: "license" }),
+      );
+      expect(s.windows()[MAIN_WINDOW]?.settings.section).toBe("labels");
+      expect(s.windows()["window-2"]?.settings.section).toBe("license");
+    });
+
+    it("should clear the item when a section opens without one", () => {
+      const s = run(
+        Nav.selectSettingsSection({ section: "certificates", item: "a" }),
+        Nav.selectSettingsSection({ section: "certificates" }),
+      );
+      expect(s.windows()[MAIN_WINDOW]?.settings.item).toBeUndefined();
     });
   });
 

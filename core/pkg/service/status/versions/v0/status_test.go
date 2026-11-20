@@ -28,12 +28,6 @@ var _ = Describe("Status", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Status[any]{}.SetOptions()).To(BeNil())
-		})
-	})
-
 	Describe("CustomTypeName", func() {
 		It("Should return the Status gorp type name", func() {
 			Expect(v0.Status[any]{}.CustomTypeName()).To(Equal("Status"))
@@ -47,6 +41,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Status[any]{Key: "rack-1", Name: "Rack 1"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -66,7 +61,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[v0.Key, v0.Status[any]](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

@@ -10,6 +10,8 @@
 import asyncio
 import threading
 from collections.abc import Iterator
+from datetime import timedelta
+from typing import override
 
 import pytest
 from websockets.frames import Frame, Opcode
@@ -20,7 +22,7 @@ from alamos import NOOP
 from freighter import URL, Empty
 from freighter.websocket import Message
 from synnax.exceptions import create_registry
-from synnax.telem import TimeSpan
+from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
 from x.codec import JSONCodec
 
@@ -33,6 +35,7 @@ def pinged_endpoint() -> Iterator[tuple[URL, threading.Event]]:
     pinged = threading.Event()
 
     class Connection(ServerConnection):
+        @override
         def process_event(self, event: Event) -> None:
             if isinstance(event, Frame) and event.opcode is Opcode.PING:
                 pinged.set()
@@ -63,14 +66,23 @@ class TestTransport:
 
 
 class TestKeepAlive:
-    def test_sync(self, pinged_endpoint: tuple[URL, threading.Event]) -> None:
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [0.05, TimeSpan.MILLISECOND * 50, timedelta(milliseconds=50)],
+        ids=["seconds", "time_span", "timedelta"],
+    )
+    def test_sync(
+        self,
+        pinged_endpoint: tuple[URL, threading.Event],
+        keep_alive: CrudeTimeSpan,
+    ) -> None:
         """Should ping the Core at the keep-alive interval on a sync stream."""
         url, pinged = pinged_endpoint
         transport = Transport(
             url=url,
             instrumentation=NOOP,
             registry=create_registry(),
-            keep_alive=TimeSpan.MILLISECOND * 50,
+            keep_alive=keep_alive,
         )
         stream = transport.stream.stream("/", Empty, Empty)
         assert pinged.wait(2)

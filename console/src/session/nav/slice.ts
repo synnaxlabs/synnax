@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice } from "@reduxjs/toolkit";
-import { type Drift } from "@synnaxlabs/drift";
+import type { Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
 import { Window } from "@/session/window";
@@ -25,7 +25,13 @@ const bottomStateZ = baseStateZ
   .prefault({});
 export interface BottomState extends z.infer<typeof bottomStateZ> {}
 
-const windowStateZ = z.object({ left: leftStateZ, bottom: bottomStateZ }).prefault({});
+const settingsStateZ = z
+  .object({ section: z.string().optional(), item: z.string().optional() })
+  .prefault({});
+
+const windowStateZ = z
+  .object({ left: leftStateZ, bottom: bottomStateZ, settings: settingsStateZ })
+  .prefault({});
 
 export const ZERO_WINDOW_STATE = windowStateZ.parse({});
 
@@ -50,6 +56,12 @@ export interface LeftKeyPayload extends Window.OptionalKeyParams {
 
 export interface ResizePayload extends Window.OptionalKeyParams {
   size: number;
+}
+
+export interface SettingsSectionPayload extends Window.OptionalKeyParams {
+  section: string;
+  /** The key of an item for the section to select and show. */
+  item?: string;
 }
 
 const withKey = Window.createWithKeyHandler(windowStateZ);
@@ -146,6 +158,12 @@ const { actions, reducer } = createSlice({
       bottom.visible = false;
       bottom.hover = false;
     }),
+    selectSettingsSection: withKey<SettingsSectionPayload, SliceState>(
+      ({ settings }, { payload: { section, item } }) => {
+        settings.section = section;
+        settings.item = item;
+      },
+    ),
   },
   extraReducers: Window.handleRemoved,
 });
@@ -166,6 +184,7 @@ export const {
   resizeBottom,
   collapseBottom,
   hideAll,
+  selectSettingsSection,
 } = actions;
 
 export { reducer };
@@ -189,5 +208,6 @@ export const MIDDLEWARE = [
     resizeBottom,
     collapseBottom,
     hideAll,
+    selectSettingsSection,
   ]),
 ];

@@ -15,7 +15,6 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -75,9 +74,9 @@ func (p *Provider) PublishJSON[V any](
 	if err != nil {
 		return nil, err
 	}
-	obs := observe.Translator[V, []change.Change[[]byte, struct{}]]{
+	obs := observe.Translator[V, []Change]{
 		Observable: cfg.Observable,
-		Translate: func(_ context.Context, v V) ([]change.Change[[]byte, struct{}], bool) {
+		Translate: func(_ context.Context, v V) ([]Change, bool) {
 			b, err := json.Marshal(v)
 			if err != nil {
 				p.cfg.L.Error(
@@ -87,10 +86,7 @@ func (p *Provider) PublishJSON[V any](
 				)
 				return nil, false
 			}
-			return []change.Change[[]byte, struct{}]{{
-				Variant: change.VariantSet,
-				Key:     telem.MarshalVariableSample(b),
-			}}, true
+			return []Change{{Sample: telem.MarshalVariableSample(b)}}, true
 		},
 	}
 	return p.PublishFromObservable(ctx, ObservablePublisherConfig{

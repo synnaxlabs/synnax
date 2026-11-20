@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { NotFoundError, task } from "@synnaxlabs/client";
 import { Flux, Task } from "@synnaxlabs/pluto";
 import { verbs } from "@synnaxlabs/x";
 
@@ -35,13 +35,16 @@ export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingPa
     if ((config as Record<string, unknown>).dataSavingDisabled === dataSavingDisabled)
       return data;
     const wasRunning = t.status?.details.running === true;
-    // Never write the status back: the Driver owns it and this copy may be stale.
-    await client.tasks.create({
-      ...t.payload,
-      config: { ...config, dataSavingDisabled },
-      status: undefined,
+    const set = task.set({
+      path: ["config", "dataSavingDisabled"],
+      value: dataSavingDisabled,
     });
-    if (wasRunning) await client.tasks.executeCommand({ task: key, type: "start" });
+    if (!(await client.tasks.dispatch(key, set)))
+      throw new NotFoundError(`Task ${key} is not cached`);
+    if (!wasRunning) return data;
+    // The start sends the cached config hash, which changes only on the Core's echo.
+    await client.tasks.settled(key);
+    await client.tasks.executeCommand({ task: key, type: "start" });
     return data;
   },
 });

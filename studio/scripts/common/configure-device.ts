@@ -7,9 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { Locator } from "playwright";
+
 import { capture, fixtures } from "@/index";
 
 import { DRIVER, fieldItem } from "./task";
+
+/**
+ * enterIdentifier clicks the identifier that the dialog suggests when it is
+ * `identifier`, and types it in the Identifier field otherwise.
+ */
+export const enterIdentifier = async (
+  session: capture.CaptureSession,
+  modal: Locator,
+  identifier: string,
+): Promise<void> => {
+  const suggestion = modal.getByRole("button", { name: identifier, exact: true });
+  if (await suggestion.isVisible()) {
+    await session.click(suggestion);
+    return;
+  }
+  await session.click(fieldItem(modal, "Identifier").locator("input").first(), {
+    text: true,
+  });
+  await session.type(identifier);
+};
 
 /**
  * configureDeviceScript returns a script that right-clicks `device`, an unconfigured
@@ -43,18 +65,20 @@ export const configureDeviceScript =
       await session.hold(600);
       await capture.contextMenu(session, item, "Configure");
 
-      const modal = page.locator(".console-configure").first();
+      // EtherCAT slaves have their own dialog.
+      const modal = page
+        .locator(".console-configure, .console-ethercat-configure__frame")
+        .first();
       const nameInput = modal.locator("input").first();
       await session.waitFor(nameInput);
       await session.zoom(modal);
       await session.hold(600);
+      // Only the generic dialog focuses the name on open.
+      await session.click(nameInput, { text: true });
       await session.press("ControlOrMeta+a");
       await session.type(name);
       await session.hold(500);
-      await session.click(fieldItem(modal, "Identifier").locator("input").first(), {
-        text: true,
-      });
-      await session.type(identifier);
+      await enterIdentifier(session, modal, identifier);
       await session.hold(600);
       await capture.clickButton(session, "Save");
       session.endZoom();

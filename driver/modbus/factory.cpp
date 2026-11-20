@@ -23,15 +23,6 @@ const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
 const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
 
-/// @brief retries a lost server without a limit, so a task waits for it to return.
-x::breaker::Config retry_config(const std::string &name) {
-    return x::breaker::Config{
-        .name = name,
-        .max_retries = x::breaker::RETRY_INFINITELY,
-        .max_interval = 5 * x::telem::SECOND,
-    };
-}
-
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
@@ -44,7 +35,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        retry_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<ReadTaskSource>(devs, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
@@ -82,7 +73,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        retry_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<WriteTaskSink>(devs, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
@@ -91,7 +82,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -101,13 +93,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_write(this->devices, ctx, task);
     else if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->devices, ctx, task);
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     return common::configure_initial_factory_tasks(
         this,
@@ -115,7 +108,8 @@ Factory::configure_initial_tasks(
         rack,
         "Modbus Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 }

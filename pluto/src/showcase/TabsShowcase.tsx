@@ -13,7 +13,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type DragEventHandler, type ReactElement, useState } from "react";
 
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 const TAB_TYPE = "showcase-tab";
 
@@ -49,7 +49,12 @@ const DraggableTab = ({ tabKey, children }: DraggableTabProps): ReactElement => 
   const handleDragStart: DragEventHandler<HTMLDivElement> = (e) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", tabKey);
-    startDrag([{ type: TAB_TYPE, key: tabKey }]);
+    startDrag({
+      event: e,
+      items: [{ type: TAB_TYPE, key: tabKey }],
+      preview: <Haul.Copy of={e.currentTarget} />,
+      anchor: "grab",
+    });
   };
   return (
     <Tabs.Tab

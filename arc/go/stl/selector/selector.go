@@ -19,15 +19,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// TrueOutputParam and FalseOutputParam name the two outputs of the select node. Their
+// trueOutputParam and falseOutputParam name the two outputs of the select node. Their
 // order in the symbol's output params sets the ordinal of each output.
 const (
-	TrueOutputParam  = "true"
-	FalseOutputParam = "false"
+	trueOutputParam  = "true"
+	falseOutputParam = "false"
 )
 
-// trueOutputIdx and falseOutputIdx must match the order of TrueOutputParam and
-// FalseOutputParam in the symbol's outputs.
+// trueOutputIdx and falseOutputIdx must match the order of trueOutputParam and
+// falseOutputParam in the symbol's outputs.
 const (
 	trueOutputIdx  = 0
 	falseOutputIdx = 1
@@ -60,8 +60,8 @@ func NewSymbols() []*symbol.Symbol {
 					{Name: ir.DefaultOutputParam, Type: types.Bool()},
 				},
 				Outputs: types.Params{
-					{Name: TrueOutputParam, Type: types.U8()},
-					{Name: FalseOutputParam, Type: types.U8()},
+					{Name: trueOutputParam, Type: types.U8()},
+					{Name: falseOutputParam, Type: types.U8()},
 				},
 			}),
 			Trigger: symbol.TriggerInput(ir.DefaultOutputParam),
@@ -113,10 +113,10 @@ func (s *selectNode) Next(ctx node.Context) {
 	trueTime := s.OutputTime(trueOutputIdx)
 	falseData := s.Output(falseOutputIdx)
 	falseTime := s.OutputTime(falseOutputIdx)
-	trueData.Resize(trueCount)
-	trueTime.Resize(trueCount)
-	falseData.Resize(falseCount)
-	falseTime.Resize(falseCount)
+	*trueData = trueData.Resized(trueCount)
+	*trueTime = trueTime.Resized(trueCount)
+	*falseData = falseData.Resized(falseCount)
+	*falseTime = falseTime.Resized(falseCount)
 	trueData.Alignment = data.Alignment
 	trueData.TimeRange = data.TimeRange
 	trueTime.Alignment = data.Alignment

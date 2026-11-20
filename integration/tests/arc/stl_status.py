@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -33,7 +33,7 @@ SEQ_ROWS = [
     ("status_seq_c", "33330003"),
     ("status_seq_d", "33330004"),
 ]
-SEQ_EXPECTED = {
+SEQ_EXPECTED: dict[str, tuple[sy.status.Variant, str]] = {
     "status_seq_a": ("info", "seq step a"),
     "status_seq_b": ("warning", "seq step b"),
     "status_seq_c": ("error", "seq step c"),
@@ -89,7 +89,7 @@ class Case(NamedTuple):
 
     name: str
     key: str
-    variant: str
+    variant: sy.status.Variant
     message: str
     key_channel: str
 
@@ -187,7 +187,7 @@ class StlStatus(ArcCase):
                 self.client.statuses.delete(keys)
         super().teardown()
 
-    def _rows(self, name: str) -> list[sy.Status[Any]]:
+    def _rows(self, name: str) -> list[sy.Status]:
         return [
             s for s in self.client.statuses.retrieve(search_term=name) if s.name == name
         ]

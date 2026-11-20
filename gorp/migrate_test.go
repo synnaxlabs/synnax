@@ -25,12 +25,11 @@ import (
 )
 
 type entryV1 struct {
-	ID   int32  `msgpack:"id"   json:"id"`
-	Data string `msgpack:"data" json:"data"`
+	ID   int32  `json:"id"   msgpack:"id"`
+	Data string `json:"data" msgpack:"data"`
 }
 
-func (e entryV1) GorpKey() int32    { return e.ID }
-func (e entryV1) SetOptions() []any { return nil }
+func (e entryV1) GorpKey() int32 { return e.ID }
 
 const testNamespace = "test"
 
@@ -59,7 +58,7 @@ var _ = Describe("Migrate", func() {
 				migrateWithEntryV1(ctx, testDB, []gorp.Migration{migration}),
 			).To(Succeed())
 			versionKey := []byte("gorp.migration." + testNamespace)
-			b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
+			b, closer := MustSucceed2(testDB.Get(versionKey))
 			Expect(closer.Close()).To(Succeed())
 			Expect(string(b)).To(Equal(`["noop"]`))
 		})
@@ -112,6 +111,56 @@ var _ = Describe("Migrate", func() {
 				Expect(executed).To(Equal([]string{"first", "second"}))
 			},
 		)
+	})
+
+	Describe("MovedMigration", func() {
+		var (
+			testDB *gorp.DB
+			runs   int
+			lift   gorp.Migration
+			moved  gorp.Migration
+		)
+		BeforeEach(func() {
+			testDB = DeferClose(OpenGorpMsgpackDB())
+			runs = 0
+			lift = migrate.New(
+				"lift",
+				func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+					runs++
+					return nil
+				},
+			)
+			moved = gorp.MovedMigration("old", lift)
+		})
+		run := func(ctx SpecContext, namespace string, m gorp.Migration) {
+			GinkgoHelper()
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         testDB,
+				Namespace:  namespace,
+				Migrations: []gorp.Migration{m},
+			})).To(Succeed())
+		}
+
+		It(
+			"Should run a migration that its old namespace never ran",
+			func(ctx SpecContext) {
+				run(ctx, testNamespace, moved)
+				Expect(runs).To(Equal(1))
+				run(ctx, testNamespace, moved)
+				Expect(runs).To(Equal(1))
+			},
+		)
+
+		It("Should skip a migration that its old namespace ran", func(ctx SpecContext) {
+			run(ctx, "old", lift)
+			Expect(runs).To(Equal(1))
+			run(ctx, testNamespace, moved)
+			Expect(runs).To(Equal(1))
+		})
+
+		It("Should keep the key of the migration", func() {
+			Expect(moved.Key()).To(Equal("lift"))
+		})
 	})
 
 	Describe("Error handling", func() {

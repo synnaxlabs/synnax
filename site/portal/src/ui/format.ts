@@ -7,15 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Event, type License } from "@/server/db/schema";
+import { array, math } from "@synnaxlabs/x";
+
+import type { Event, License } from "@/server/db/schema";
 import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
+import type { Status } from "@/server/license/status";
 
-export const date = (d: Date | null): string =>
-  d == null ? "" : d.toISOString().slice(0, 10);
+/** Clock reads dates and times in one time zone. */
+export interface Clock {
+  /** date reads the day that holds `d`, such as 2026-11-05. */
+  date: (d: Date | null) => string;
+  /** dateTime reads `d` with its time and zone, such as 2026-11-05 16:10 MST. */
+  dateTime: (d: Date) => string;
+}
 
-export const dateTime = (d: Date): string =>
-  `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+/** clock reads in the time zone `zone`, or in the runtime's zone without one. */
+export const clock = (zone?: string): Clock => {
+  const format = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+  });
+  const partsOf = (d: Date): Record<string, string> =>
+    Object.fromEntries(format.formatToParts(d).map(({ type, value }) => [type, value]));
+  return {
+    date: (d) => {
+      if (d == null) return "";
+      const { year, month, day } = partsOf(d);
+      return `${year}-${month}-${day}`;
+    },
+    dateTime: (d) => {
+      const { year, month, day, hour, minute, timeZoneName } = partsOf(d);
+      return `${year}-${month}-${day} ${hour}:${minute} ${timeZoneName}`;
+    },
+  };
+};
+
+/** expiry reads a license expiry as the UTC day that staff set in its terms. */
+export const expiry = (d: Date): string => d.toISOString().slice(0, 10);
 
 const shortHash = (hashes: string[]): string =>
   hashes.length === 0
@@ -28,29 +63,11 @@ export const machineName = (a: {
   fingerprint: string[];
 }): string => a.name ?? shortHash(a.fingerprint);
 
-export type LicenseStatus = "active" | "expiring" | "expired" | "revoked";
-
-export const STATUSES: LicenseStatus[] = ["active", "expiring", "expired", "revoked"];
-
-export const STATUS_LABELS: Record<LicenseStatus, string> = {
+export const STATUS_LABELS: Record<Status, string> = {
   active: "Active",
   expiring: "Expiring",
   expired: "Expired",
   revoked: "Revoked",
-};
-
-/** EXPIRING is how long before its expiry a license starts asking to be renewed. */
-const EXPIRING = 30 * 24 * 60 * 60 * 1000;
-
-/** statusOf derives a license's state from its dates at `now`. */
-export const statusOf = (lic: License, now: Date): LicenseStatus => {
-  if (lic.revokedAt != null) return "revoked";
-  if (lic.expiresAt == null) return "active";
-  const left = lic.expiresAt.getTime() - now.getTime();
-  if (left <= 0) return "expired";
-  // A Desktop license renews itself on a short term, so a near expiry is normal there.
-  if (lic.edition === "desktop" || left > EXPIRING) return "active";
-  return "expiring";
 };
 
 export interface Standing {
@@ -71,11 +88,12 @@ export const standing = (
   const expiries = live.flatMap(({ license }) =>
     license.expiresAt == null ? [] : [license.expiresAt.getTime()],
   );
+  const nextExpiry = array.minBy(expiries, (time) => time);
   return {
     active: live.length,
-    seats: live.reduce((n, l) => n + l.seats, 0),
-    capacity: live.reduce((n, l) => n + l.license.nodes, 0),
-    nextExpiry: expiries.length === 0 ? null : new Date(Math.min(...expiries)),
+    seats: math.sum(live.map((l) => l.seats)),
+    capacity: math.sum(live.map((l) => l.license.nodes)),
+    nextExpiry: nextExpiry == null ? null : new Date(nextExpiry),
   };
 };
 
@@ -103,6 +121,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   accept_invitation: "Invitation accepted",
   change_role: "Role changed",
   remove_member: "Member removed",
+  change_desktop_channels: "Desktop channels changed",
 };
 
 const REASON_LABELS: Partial<Record<string, string>> = {

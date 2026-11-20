@@ -9,12 +9,13 @@
 
 import { user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Credential } from "@/credential";
@@ -38,11 +39,13 @@ describe("Credential queries", () => {
   };
 
   it("should create a key, list it, and delete it", async () => {
+    const { key: role } = await createEmptyRole(client);
     const u = await client.users.create({
       username: `credential-${id.create()}`,
       password: "p",
+      role,
     });
-    const subject = user.ontologyID(u.key);
+    const subject = user.resourceID(u.key);
     const create = renderHook(() => Credential.useCreateKey(), { wrapper });
     await act(async () => {
       await create.result.current.updateAsync({ subject, name: "ci" });

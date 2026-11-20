@@ -1,0 +1,28 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The fields table scrolls inside the pane instead of widening the form grid. */
+.console-icd-fields {
+    contain: inline-size;
+}
+
+/* The offset sits in the control of the scale, after the scale, with the form's gap.
+   The form gives the offset field its control width. */
+.console-icd-fields__scale {
+    display: flex;
+    gap: 4rem;
+    align-items: center;
+
+    & > :first-child {
+        flex: none;
+        width: var(--pluto-control-width, auto);
+    }
+}

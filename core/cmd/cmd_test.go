@@ -16,14 +16,31 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd"
 	"github.com/synnaxlabs/synnax/pkg/version"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Cmd", func() {
 	It("Should print the version when using the --version flag", func() {
 		var buf bytes.Buffer
-		cmd.Cmd.SetArgs([]string{"--version"})
-		cmd.Cmd.SetOut(&buf)
-		Expect(cmd.Cmd.Execute()).To(Succeed())
+		root := cmd.NewCmd()
+		root.SetArgs([]string{"--version"})
+		root.SetOut(&buf)
+		Expect(root.Execute()).To(Succeed())
 		Expect(buf.String()).To(Equal("Synnax " + version.Full() + "\n"))
+	})
+
+	It("Should report a flag that does not parse as a validation error", func() {
+		root := cmd.NewCmd()
+		root.SetArgs([]string{"version", "--bogus"})
+		root.SetOut(new(bytes.Buffer))
+		root.SetErr(new(bytes.Buffer))
+		Expect(root.Execute()).To(And(
+			MatchError(
+				func(err error) bool { return errors.Is(err, validate.ErrValidation) },
+				"validate.ErrValidation",
+			),
+			MatchError("unknown flag: --bogus"),
+		))
 	})
 })

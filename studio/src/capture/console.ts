@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator, type Page } from "playwright";
+import type { Locator, Page } from "playwright";
 
 import { type CaptureSession, CREDENTIALS } from "@/capture/rig";
 
@@ -119,9 +119,27 @@ export const openToolbar = async (
 };
 
 /**
- * resizeToolbar sets the open left drawer's width by driving its resize
- * handle with synthetic events. The width is per-rail state, so a setup-time
- * resize persists for every toolbar opened on that rail during recording.
+ * openSettings opens the Settings tab from the gear in the top bar and selects
+ * `section` (e.g. "Users") in its section list, as recorded input.
+ */
+export const openSettings = async (
+  session: CaptureSession,
+  section: string,
+): Promise<void> => {
+  const { page } = session;
+  await session.click(page.getByRole("button", { name: "Settings", exact: true }), {
+    zoom: false,
+  });
+  const item = page.getByRole("menuitem", { name: section, exact: true }).first();
+  await session.waitFor(item);
+  await session.click(item, { text: true, zoom: false });
+  await session.waitFor(page.getByRole("heading", { name: section, exact: true }));
+};
+
+/**
+ * resizeToolbar sets the open left drawer's width by dragging its resize handle, then
+ * returns the cursor to the drawer's main-nav icon. The width is per-rail state, so a
+ * setup-time resize persists for every toolbar opened on that rail during recording.
  * Clamped by the active toolbar's min/max size.
  */
 export const resizeToolbar = async (
@@ -133,21 +151,15 @@ export const resizeToolbar = async (
     .locator(".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)")
     .first();
   await session.waitFor(drawer);
-  await drawer.evaluate((el, target) => {
-    const handle = el.querySelector(".lyra-resize__handle");
-    if (handle == null) throw new Error("drawer resize handle not found");
-    const rect = handle.getBoundingClientRect();
-    const x0 = rect.x + rect.width / 2;
-    const y = rect.y + rect.height / 2;
-    const x1 = x0 + (target - el.getBoundingClientRect().width);
-    handle.dispatchEvent(
-      new DragEvent("dragstart", { bubbles: true, clientX: x0, clientY: y }),
-    );
-    window.dispatchEvent(
-      new MouseEvent("mousemove", { clientX: x1, clientY: y, buttons: 1 }),
-    );
-    window.dispatchEvent(new MouseEvent("mouseup", { clientX: x1, clientY: y }));
-  }, width);
+  const handle = await drawer.locator(".lyra-resize__handle").first().boundingBox();
+  const current = (await drawer.boundingBox())?.width;
+  if (handle == null || current == null)
+    throw new Error("drawer resize handle not found");
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await session.drag({ x, y }, { x: x + width - current, y }, { zoom: false });
+  // Left on the handle, the cursor would paint its hover state into the shot.
+  await session.moveTo(page.locator("button.console-main-nav__item.lyra--selected"));
   await session.settle(300);
 };
 
@@ -295,13 +307,6 @@ export const openPalette = async (session: CaptureSession): Promise<Locator> => 
 };
 
 /**
- * field returns the input associated with a form label, for filling or
- * clicking. Matches the Console's label-above-input form layout.
- */
-export const field = (page: Page, label: string): Locator =>
-  page.getByText(label, { exact: true }).locator("..").locator("input").first();
-
-/**
  * pickChannel fills the search of the open channel dropdown with `channel` and clicks
  * the match. It fills instead of typing, so it suits setup, not a recorded beat.
  */
@@ -342,9 +347,8 @@ export const tab = (page: Page, name: string): Locator =>
     .first();
 
 /**
- * treeItem returns a resource-tree item by its ontology type prefix (e.g.
- * "range:", "user:", "channel:") and display name, for clicks, drags, and
- * context menus.
+ * treeItem returns a resource-tree item by its resource type prefix (e.g. "range:",
+ * "user:", "channel:") and display name, for clicks, drags, and context menus.
  */
 export const treeItem = (page: Page, prefix: string, name: string): Locator =>
   page.locator(`div[id^='${prefix}']`).filter({ hasText: name }).first();

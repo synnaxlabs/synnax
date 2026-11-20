@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 #include "open62541/client_config_default.h"
@@ -74,6 +77,41 @@ const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolic
 /// check the URI reject it.
 const std::string FALLBACK_APPLICATION_URI = "urn:synnax.opcua.client";
 
+/// @returns the timeout of each request and connection attempt of cfg.
+uint32_t client_timeout(const Config &cfg) {
+    return cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms : 5000;
+}
+
+std::string security_mode(const UA_MessageSecurityMode mode) {
+    switch (mode) {
+        case UA_MESSAGESECURITYMODE_NONE:
+            return "None";
+        case UA_MESSAGESECURITYMODE_SIGN:
+            return "Sign";
+        case UA_MESSAGESECURITYMODE_SIGNANDENCRYPT:
+            return "SignAndEncrypt";
+        default:
+            return "Invalid";
+    }
+}
+
+std::string user_token_type(const UA_UserTokenType type) {
+    switch (type) {
+        case UA_USERTOKENTYPE_ANONYMOUS:
+            return "anonymous";
+        case UA_USERTOKENTYPE_USERNAME:
+            return "username";
+        case UA_USERTOKENTYPE_CERTIFICATE:
+            return "certificate";
+        default:
+            return "issued_token";
+    }
+}
+
+std::string to_string(const UA_String &str) {
+    return {reinterpret_cast<const char *>(str.data), str.length};
+}
+
 UA_StatusCode priv_key_pass_callback(UA_ClientConfig *, UA_ByteString *) {
     return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
 }
@@ -85,18 +123,18 @@ UA_ByteString byte_string(const std::string &data) {
 /// @brief checks the certificate that the server presents when it opens a secure
 /// channel, and keeps it for server_certificate and the connection error.
 struct Verifier {
-    std::optional<certificate::Certificate> trusted;
+    std::optional<x::x509::Certificate> trusted;
     bool first_certificate_trusted = false;
     bool disabled = false;
     x::telem::NowFunc now;
     std::string client_thumbprint;
-    std::optional<certificate::Certificate> received;
+    std::optional<x::x509::Certificate> received;
     x::errors::Error rejection = x::errors::NIL;
 };
 
 x::errors::Error untrusted_error(
-    const std::optional<certificate::Certificate> &trusted,
-    const certificate::Certificate &received
+    const std::optional<x::x509::Certificate> &trusted,
+    const x::x509::Certificate &received
 ) {
     if (!trusted.has_value())
         return {
@@ -116,7 +154,7 @@ x::errors::Error untrusted_error(
 }
 
 x::errors::Error time_invalid_error(
-    const certificate::Certificate &received,
+    const x::x509::Certificate &received,
     const x::telem::TimeStamp now
 ) {
     return {
@@ -131,7 +169,7 @@ x::errors::Error time_invalid_error(
 
 UA_StatusCode verify_certificate(UA_CertificateGroup *cg, const UA_ByteString *data) {
     auto *v = static_cast<Verifier *>(cg->context);
-    auto [cert, err] = certificate::Certificate::parse(
+    auto [cert, err] = x::x509::Certificate::parse(
         std::string_view(reinterpret_cast<const char *>(data->data), data->length)
     );
     if (err) {
@@ -182,9 +220,8 @@ configure_encryption(const Config &cfg, const Security &sec, UA_ClientConfig *co
     config->privateKeyPasswordCallback = priv_key_pass_callback;
     const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
-    const auto &app_uri = id.certificate.application_uri().empty()
-                            ? FALLBACK_APPLICATION_URI
-                            : id.certificate.application_uri();
+    const auto &app_uri = id.certificate.uri().empty() ? FALLBACK_APPLICATION_URI
+                                                       : id.certificate.uri();
     UA_String_clear(&config->clientDescription.applicationUri);
     config->clientDescription.applicationUri = UA_STRING_ALLOC(app_uri.c_str());
 
@@ -234,8 +271,15 @@ x::errors::Error connect_client(UA_Client *client, const std::string &endpoint) 
         v->received.reset();
         v->rejection = x::errors::NIL;
     }
+    // The first connect closes and opens channels to look up the endpoint, which
+    // noReconnect stops. Outside a connect, noReconnect leaves reconnecting to the
+    // Pool.
+    auto *config = UA_Client_getConfig(client);
+    config->noReconnect = false;
     const auto status = UA_Client_connect(client, endpoint.c_str());
-    if (v == nullptr || status == UA_STATUSCODE_GOOD) return errors::parse(status);
+    config->noReconnect = true;
+    if (v == nullptr || status == UA_STATUSCODE_GOOD)
+        return errors::parse_connect(status);
     if (v->rejection) return v->rejection;
     if (rejected_by_server(status))
         return {
@@ -246,21 +290,67 @@ x::errors::Error connect_client(UA_Client *client, const std::string &endpoint) 
                 v->client_thumbprint +
                 ". Approve it in the server's trusted certificates, then connect again."
         };
-    return errors::parse(status);
+    return errors::parse_connect(status);
 }
+}
+
+x::errors::Error lost(UA_Client *client) {
+    if (client == nullptr) return errors::NO_CONNECTION;
+    UA_SecureChannelState channel = UA_SECURECHANNELSTATE_CLOSED;
+    UA_SessionState session = UA_SESSIONSTATE_CLOSED;
+    UA_Client_getState(client, &channel, &session, nullptr);
+    if (channel == UA_SECURECHANNELSTATE_OPEN && session == UA_SESSIONSTATE_ACTIVATED)
+        return x::errors::NIL;
+    return {errors::NO_CONNECTION, "The connection to the server is lost."};
+}
+
+x::errors::Error read_password(
+    Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant
+) {
+    if (cfg.password_secret.is_nil()) return x::errors::NIL;
+    auto [values, err] = reader.read({cfg.password_secret}, grant);
+    if (err) return err;
+    cfg.password = std::move(values.at(cfg.password_secret));
+    return x::errors::NIL;
+}
+
+x::errors::Error read_certificates(
+    Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant
+) {
+    if (!cfg.server_certificate_item.is_nil()) {
+        auto [pem, err] = reader.read_chain(cfg.server_certificate_item);
+        if (err) return err;
+        auto [cert, parse_err] = x::x509::Certificate::parse(pem);
+        if (parse_err) return parse_err;
+        cfg.server_certificate = std::move(cert);
+    }
+    if (!cfg.uses_client_certificate()) return x::errors::NIL;
+    auto [client, err] = reader.read_certificate(cfg.client_certificate_item, grant);
+    if (err) return err;
+    auto [id, id_err] = certificate::Identity::parse(client.pem, client.private_key);
+    if (id_err) return id_err;
+    cfg.client_identity = std::move(id);
+    return x::errors::NIL;
 }
 
 std::pair<Security, x::errors::Error>
 resolve_security(const Config &cfg, certificate::Store &store) {
     Security sec;
     if (!cfg.secured()) return {sec, x::errors::NIL};
-    if (cfg.uses_files()) {
-        auto [id, err] = certificate::Identity::load(
-            cfg.client_cert,
-            cfg.client_private_key
-        );
-        if (err) return {sec, err};
-        sec.identity = std::move(id);
+    if (cfg.uses_client_certificate()) {
+        if (!cfg.client_identity.has_value())
+            return {
+                sec,
+                x::errors::Error(
+                    errors::CLIENT_CERTIFICATE_INVALID,
+                    "The Driver did not read the client certificate."
+                )
+            };
+        sec.identity = cfg.client_identity;
         return {sec, x::errors::NIL};
     }
     auto [id, err] = store.current();
@@ -284,8 +374,7 @@ connect(const Config &cfg, const Security &sec, std::string log_prefix) {
     config->requestedSessionTimeout = cfg.session_timeout_ms > 0
                                         ? cfg.session_timeout_ms
                                         : 1200000; // Default: 20 minutes
-    config->timeout = cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms
-                                                : 5000; // Default: 5 seconds
+    config->timeout = client_timeout(cfg);
 
     if (const auto enc_err = configure_encryption(cfg, sec, config))
         return {nullptr, enc_err};
@@ -302,20 +391,69 @@ connect(const Config &cfg, const Security &sec, std::string log_prefix) {
     return {std::move(client), err};
 }
 
+x::json::json Endpoint::to_json() const {
+    return {
+        {"url", this->url},
+        {"security_mode", this->security_mode},
+        {"security_policy", this->security_policy},
+        {"user_token_types", this->user_token_types},
+        {"security_level", this->security_level},
+    };
+}
+
+std::pair<std::vector<Endpoint>, x::errors::Error> endpoints(const Config &cfg) {
+    const auto client = std::shared_ptr<UA_Client>(UA_Client_new(), client_deleter());
+    auto *config = UA_Client_getConfig(client.get());
+    config->logging->log = custom_logger;
+    config->timeout = client_timeout(cfg);
+    size_t count = 0;
+    UA_EndpointDescription *descriptions = nullptr;
+    const auto status = UA_Client_getEndpoints(
+        client.get(),
+        cfg.endpoint.c_str(),
+        &count,
+        &descriptions
+    );
+    if (status != UA_STATUSCODE_GOOD) return {{}, errors::parse_connect(status)};
+    std::vector<Endpoint> result;
+    result.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        const auto &desc = descriptions[i];
+        auto policy = to_string(desc.securityPolicyUri);
+        if (const auto hash = policy.find('#'); hash != std::string::npos)
+            policy = policy.substr(hash + 1);
+        Endpoint endpoint{
+            .url = to_string(desc.endpointUrl),
+            .security_mode = security_mode(desc.securityMode),
+            .security_policy = std::move(policy),
+            .security_level = desc.securityLevel,
+        };
+        for (size_t j = 0; j < desc.userIdentityTokensSize; ++j) {
+            auto type = user_token_type(desc.userIdentityTokens[j].tokenType);
+            if (std::ranges::find(endpoint.user_token_types, type) ==
+                endpoint.user_token_types.end())
+                endpoint.user_token_types.push_back(std::move(type));
+        }
+        result.push_back(std::move(endpoint));
+    }
+    UA_Array_delete(descriptions, count, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+    return {std::move(result), x::errors::NIL};
+}
+
 x::errors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint) {
-    const auto err = connect_client(client.get(), endpoint);
-    if (!err) return x::errors::NIL;
+    // A connect does nothing while the channel still reads as open.
+    UA_Client_disconnectSecureChannel(client.get());
     return connect_client(client.get(), endpoint);
 }
 
-std::optional<certificate::Certificate> server_certificate(UA_Client *client) {
+std::optional<x::x509::Certificate> server_certificate(UA_Client *client) {
     const auto *v = verifier(client);
     if (v == nullptr) return std::nullopt;
     return v->received;
 }
 
-std::optional<certificate::Certificate> trusted_certificate(UA_Client *client) {
+std::optional<x::x509::Certificate> trusted_certificate(UA_Client *client) {
     const auto *v = verifier(client);
     if (v == nullptr) return std::nullopt;
     return v->trusted;

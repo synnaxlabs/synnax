@@ -1,0 +1,28 @@
+{
+  "version": 10,
+  "type": "schematic",
+  "name": "Zero Scale",
+  "nodes": [
+    {
+      "key": "v1"
+    },
+    {
+      "key": "g1"
+    }
+  ],
+  "edges": [],
+  "configs": {
+    "v1": {
+      "variant": "valve",
+      "scale": 0,
+      "staleness_timeout": 0
+    },
+    "g1": {
+      "variant": "gauge",
+      "bounds": {
+        "lower": -10,
+        "upper": 0
+      }
+    }
+  }
+}

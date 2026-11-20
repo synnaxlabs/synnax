@@ -1,0 +1,138 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-settings__nav {
+    flex-shrink: 0;
+    width: 40rem;
+    padding: 4rem 2rem;
+    margin: 2rem 0 2rem 2rem;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+
+    /* Shows only the icons. The toggle and each icon keep their place in both modes. */
+    &.console-settings__nav--rail {
+        /* Centers the icons, which start 4rem inside the border. */
+        width: calc(2 * (var(--pluto-border-width) + 4rem) + var(--pluto-p-size));
+
+        .console-settings__nav-heading,
+        .console-settings__nav-name {
+            opacity: 0;
+        }
+
+        .console-settings__nav-group::before {
+            opacity: 1;
+        }
+
+        /* A square centered on the icon. */
+        .console-settings__nav-item {
+            width: var(--pluto-height-medium);
+            padding: 0 calc((var(--pluto-height-medium) - var(--pluto-p-size)) / 2);
+            margin-left: calc(
+                2rem - (var(--pluto-height-medium) - var(--pluto-p-size)) / 2
+            );
+        }
+    }
+}
+
+/* Its icon lines up with the section icons. */
+.console-settings__toggle {
+    align-self: flex-start;
+    margin: 0 0 4rem calc(2rem - (var(--pluto-height-small) - var(--pluto-p-size)) / 2);
+}
+
+.console-settings__nav-group {
+    position: relative;
+
+    /* Takes the place of the heading in the rail, centered in the gap above it. */
+    &::before {
+        content: "";
+        position: absolute;
+        top: -0.25rem;
+        right: 0;
+        left: 0;
+        border-top: var(--pluto-border);
+        opacity: 0;
+    }
+}
+
+.console-settings__nav-group + .console-settings__nav-group {
+    margin-top: 4rem;
+}
+
+.console-settings__nav-heading {
+    padding: 0 2rem 0.5rem;
+    white-space: nowrap;
+}
+
+.console-settings__nav-item {
+    width: 100%;
+    overflow: hidden;
+}
+
+.console-settings__nav-name {
+    white-space: nowrap;
+}
+
+/* A pane that turns narrow snaps to the rail, as it does on mount. */
+@media (prefers-reduced-motion: no-preference) {
+    .console-settings__nav:not(.console-settings__nav--narrow) {
+        transition:
+            width 0.15s ease-in-out,
+            border-radius 0.15s ease-in-out;
+
+        .console-settings__nav-item {
+            transition:
+                var(--pluto-btn-transition),
+                width 0.15s ease-in-out,
+                padding 0.15s ease-in-out,
+                margin 0.15s ease-in-out;
+        }
+
+        .console-settings__nav-heading,
+        .console-settings__nav-name,
+        .console-settings__nav-group::before {
+            transition: opacity 0.15s ease-in-out;
+        }
+    }
+}
+
+/* Keeps the scroll bar's space in every section, so a section long enough to scroll
+   has the same width and place as the others. */
+.console-settings__page {
+    container: settings-page / inline-size;
+    flex-grow: 1;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.console-settings__content {
+    gap: 6rem;
+    width: 100%;
+    max-width: 170rem;
+    padding: 8rem 6rem;
+    margin: 0 auto;
+}
+
+@container settings-page (width < 100rem) {
+    .console-settings__content {
+        gap: 5rem;
+        padding: 5rem 4rem;
+    }
+}
+
+@container settings-page (width < 72rem) {
+    .console-settings__content {
+        gap: 4rem;
+        padding: 3rem 2rem;
+    }
+}

@@ -17,9 +17,9 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -45,13 +45,12 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	for _, param := range fnType.Inputs {
 		if param.Value == nil && !supplied.Contains(param.Name) &&
 			!satisfied.Contains(param.Name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.FuncArgMissing.Atf(
 				site,
-				"missing required argument for parameter '%s' of func '%s'",
+				"missing required argument: parameter '%s' of func '%s'",
 				param.Name,
 				fnName,
-			).
-				WithCode(codes.FuncArgCount).WithNote("signature: " + signature))
+			).WithNote("signature: " + signature))
 		}
 	}
 	if hook != nil {
@@ -83,9 +82,9 @@ func bindArguments[T antlr.ParserRuleContext](
 			continue
 		}
 		if supplied.Contains(param.Name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.FuncArgDuplicate.Atf(
 				arg.AST,
-				"duplicate argument for parameter '%s' of func '%s'",
+				"duplicate argument: parameter '%s' of func '%s'",
 				param.Name,
 				fnName,
 			).
@@ -111,8 +110,8 @@ func matchParam[T antlr.ParserRuleContext](
 	if arg.Name != "" {
 		param, ok := fnType.Inputs.Get(arg.Name)
 		if !ok {
-			ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
-				"unknown parameter '%s' for func '%s'", arg.Name, fnName).
+			ctx.Diagnostics.Add(codes.FuncArgUnknown.Atf(arg.AST,
+				"unknown parameter: '%s' for func '%s'", arg.Name, fnName).
 				WithNote("signature: " + signature))
 			return types.Param{}, false
 		}
@@ -121,14 +120,46 @@ func matchParam[T antlr.ParserRuleContext](
 	positional := fnType.Inputs.Positional(trigger)
 	if arg.Index >= len(positional) {
 		if arg.Index == len(positional) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
-				"too many arguments for func '%s': expected at most %d",
-				fnName, len(positional)).
-				WithCode(codes.FuncArgCount).WithNote("signature: " + signature))
+			ctx.Diagnostics.Add(codes.FuncArgExtra.Atf(
+				arg.AST,
+				"too many arguments: func '%s' takes at most %d",
+				fnName,
+				len(positional),
+			).WithNote("signature: " + signature))
 		}
 		return types.Param{}, false
 	}
 	return positional[arg.Index], true
+}
+
+// parameterType returns the type node of the parameter name of fnName in this module.
+func parameterType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	fnName, name string,
+) antlr.ParserRuleContext {
+	fn, err := ctx.Scope.Resolve(ctx, fnName)
+	if err != nil || fn.Root() != ctx.Scope.Root() {
+		return nil
+	}
+	decl, ok := fn.AST.(parser.IFunctionDeclarationContext)
+	if !ok {
+		return nil
+	}
+	if inputs := decl.InputList(); inputs != nil {
+		for _, input := range inputs.AllInput() {
+			if input.IDENTIFIER().GetText() == name {
+				return input.Type_()
+			}
+		}
+	}
+	if triggers := decl.TriggerList(); triggers != nil {
+		for _, trigger := range triggers.AllTrigger() {
+			if trigger.IDENTIFIER().GetText() == name {
+				return trigger.Type_()
+			}
+		}
+	}
+	return nil
 }
 
 // checkArgType checks arg's type against param, dereferencing a channel argument to
@@ -140,13 +171,86 @@ func checkArgType[T antlr.ParserRuleContext](
 	arg symbol.Argument,
 	signature string,
 ) {
-	argType := atypes.InferFromExpression(ctx.Child(arg.Expr))
+	argType := computedArgType(ctx, arg.Expr)
+	if !argType.IsValid() {
+		argType = atypes.InferFromExpression(ctx.Child(arg.Expr))
+	}
 	if param.Type.Kind != types.KindChan {
 		argType = argType.UnwrapChan()
 	}
-	if err := atypes.Check(ctx.Constraints, param.Type, argType, arg.AST,
-		fmt.Sprintf("argument '%s' of '%s'", param.Name, fnName)); err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, arg.AST).
-			WithCode(codes.FuncArgType).WithNote("signature: " + signature))
+	paramType, check := param.Type, atypes.Check
+	// Lowering warns for a flow variable, which can be a constant.
+	if paramType.Unwrap().Kind != types.KindVariable {
+		converts, ok := CheckUnits(ctx, Write{
+			AST:         arg.AST,
+			Expr:        arg.Expr,
+			Source:      argType,
+			Target:      paramType,
+			Subject:     fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName),
+			Declaration: parameterType(ctx, fnName, param.Name),
+			Lowered:     readsFlowVariable(ctx, arg.Expr),
+		})
+		if !ok {
+			return
+		}
+		if converts {
+			check = atypes.CheckConverted
+		}
 	}
+	if err := check(ctx.Constraints, paramType, argType, arg.AST,
+		fmt.Sprintf("argument '%s' of '%s'", param.Name, fnName)); err != nil {
+		d := codes.TypeMismatch.Wrap(err, arg.AST)
+		if cast, ok := atypes.CastOf(err); ok {
+			d = d.WithFix(arg.Expr, cast+"("+parser.GetExpressionText(arg.Expr)+")")
+		}
+		ctx.Diagnostics.Add(d.WithNote("signature: " + signature))
+	}
+}
+
+// readsFlowVariable reports whether expr names a variable outside a function body.
+func readsFlowVariable[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+) bool {
+	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
+		return false
+	}
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
+		return false
+	}
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	return err == nil && sym.IsValueVariable()
+}
+
+// TakeUnit gives the node registered for expr the unit of the target of its value.
+func TakeUnit[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	unit *types.Unit,
+) {
+	node, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil || len(node.Type.Outputs) == 0 ||
+		!types.UnitsConvertible(node.Type.Outputs[0].Type.Unit, unit) {
+		return
+	}
+	node.Type.Outputs[0].Type.Unit = unit
+	if node.Kind == symbol.KindConstant {
+		node.Type.Inputs[0].Type.Unit = unit
+	}
+}
+
+// computedArgType returns the output type of the node registered for a computed
+// argument, or an invalid type if expr has none. Inferring expr again would replace the
+// node body's types.
+func computedArgType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+) types.Type {
+	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return types.Type{}
+	}
+	out, _ := synth.Type.Outputs.Get(ir.DefaultOutputParam)
+	return out.Type
 }

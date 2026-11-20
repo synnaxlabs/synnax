@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x";
+
 import { REDUCED_MOTION, TOUCH } from "@/components/media/video";
 
 type Media = HTMLImageElement | HTMLVideoElement;
 
 interface Expanded {
   media: Media;
-  /** The element that moved into the lightbox: the media, or a themed image's picture. */
+  /**
+   * The element that moved into the lightbox: the media, or a themed image's picture.
+   */
   moved: Element;
   /** The hidden copy that holds the media's place on the page. */
   placeholder: Element;
+  /** The `sizes` of an image on the page, restored when it returns there. */
+  sizes: string | null;
   closing: boolean;
 }
 
@@ -33,7 +39,14 @@ const RATES = [1, 1.5, 2, 0.5];
 // A video has no duration to seek in until its metadata loads.
 const seek = (video: HTMLVideoElement, time: number): void => {
   if (Number.isFinite(video.duration))
-    video.currentTime = Math.min(Math.max(time, 0), video.duration);
+    video.currentTime = bounds.clamp({ lower: 0, upper: video.duration }, time);
+};
+
+// On the page, `sizes` picks a source for the text column. Expanded, an image takes the
+// viewport width, but never more than its own width, so a small image is not enlarged.
+const setSizes = (moved: Element, sizes: string): void => {
+  for (const el of [moved, ...moved.querySelectorAll("source, img")])
+    if (el.hasAttribute("sizes")) el.setAttribute("sizes", sizes);
 };
 
 const query = <E extends Element>(root: ParentNode, selector: string): E => {
@@ -47,9 +60,14 @@ const clock = (seconds: number): string => {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 };
 
-// An image's text alternative names it best. Otherwise the heading of its section does.
+// The text alternative of an image or the label of a video names it best. A decorative
+// image has neither, so the heading of its section names it.
 const caption = (media: Media): string => {
-  if (media instanceof HTMLImageElement && media.alt !== "") return media.alt;
+  const name =
+    media instanceof HTMLImageElement
+      ? media.alt
+      : (media.getAttribute("aria-label") ?? "");
+  if (name !== "") return name;
   const headings = [...document.querySelectorAll("article :is(h1, h2, h3)")].filter(
     (h) => h.compareDocumentPosition(media) & Node.DOCUMENT_POSITION_FOLLOWING,
   );
@@ -142,12 +160,15 @@ export const start = (): void => {
     if (placeholder instanceof HTMLVideoElement)
       placeholder.style.aspectRatio = `${from.width} / ${from.height}`;
     moved.replaceWith(placeholder);
+    const sizes = media.getAttribute("sizes");
+    if (sizes != null)
+      setSizes(moved, `min(100vw, ${media.getAttribute("width") ?? 0}px)`);
     query(root, ".docs-lightbox__stage").append(moved);
     query(root, ".docs-lightbox__caption").textContent = name;
     root.setAttribute("aria-label", name === "" ? "Expanded media" : name);
     const video = media instanceof HTMLVideoElement;
     root.classList.toggle("docs-lightbox--video", video);
-    expanded = { media, moved, placeholder, closing: false };
+    expanded = { media, moved, placeholder, sizes, closing: false };
     root.showModal();
     // On the dialog, not its first button, so Space plays and pauses a video.
     root.focus();
@@ -192,8 +213,9 @@ export const start = (): void => {
   const restore = (): void => {
     if (expanded == null) return;
     cancelAnimationFrame(frame);
-    const { media, moved, placeholder } = expanded;
+    const { media, moved, placeholder, sizes } = expanded;
     if (media instanceof HTMLVideoElement) setRate(media, 1);
+    if (sizes != null) setSizes(moved, sizes);
     for (const animation of dialog().getAnimations({ subtree: true }))
       animation.cancel();
     placeholder.replaceWith(moved);

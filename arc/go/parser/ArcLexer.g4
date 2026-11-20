@@ -21,6 +21,7 @@ FOR         : 'for';
 BREAK       : 'break';
 CONTINUE    : 'continue';
 IMPORT      : 'import';
+EXPORT      : 'export';
 AS          : 'as';
 
 // Sequencing keywords
@@ -150,8 +151,9 @@ fragment STR_PREFIX
 // Identifiers
 // =============================================================================
 
-// '-' joins an identifier (dashed names on) unless it starts '->' or '-='.
-IDENTIFIER  : [a-zA-Z_] ( [a-zA-Z0-9_] | {p.dashJoinsIdentifier()}? '-' )*;
+// '-' joins an identifier (dashed names on) unless it starts '->' or '-='. The
+// predicate comes after the '-' so that the lexer caches identifiers without one.
+IDENTIFIER  : [a-zA-Z_] ( [a-zA-Z0-9_] | '-' {p.dashJoinsIdentifier()}? )*;
 
 // =============================================================================
 // Comments & Whitespace

@@ -1,0 +1,88 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include "gtest/gtest.h"
+
+#include "driver/ethercat/errors/errors.h"
+
+namespace driver::ethercat::errors {
+/// @brief it should give the CoE meaning of a known abort code.
+TEST(SDOAbortReasonTest, DescribesAKnownCode) {
+    EXPECT_EQ(
+        sdo_abort_reason(0x06020000),
+        "Object does not exist in the object dictionary"
+    );
+}
+
+/// @brief it should report no response for an abort code of 0.
+TEST(SDOAbortReasonTest, ReportsNoResponseForZero) {
+    EXPECT_EQ(sdo_abort_reason(0), "no response");
+}
+
+/// @brief it should give the hexadecimal value of an abort code it does not know.
+TEST(SDOAbortReasonTest, GivesTheValueOfAnUnknownCode) {
+    EXPECT_EQ(sdo_abort_reason(0x0BADC0DE), "unknown abort code 0x0BADC0DE");
+}
+
+/// @brief it should give the reason of each kind of SDO failure.
+TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
+    using Kind = SDOFailure::Kind;
+    EXPECT_EQ(SDOFailure{}.reason(), "no response");
+    EXPECT_EQ(
+        (SDOFailure{.kind = Kind::ABORTED, .abort_code = 0x06090011}).reason(),
+        "Subindex does not exist"
+    );
+    EXPECT_EQ(
+        SDOFailure{.kind = Kind::UNEXPECTED_REPLY}.reason(),
+        "the module sent an unexpected reply"
+    );
+    EXPECT_EQ(
+        SDOFailure{.kind = Kind::REPLY_TOO_LARGE}.reason(),
+        "the reply is larger than the read allows"
+    );
+    EXPECT_EQ(
+        SDOFailure{.kind = Kind::MAILBOX_ERROR}.reason(),
+        "the module refused the mailbox request"
+    );
+}
+
+/// @brief it should call permanent only a failure that a retry does not change.
+TEST(SDOFailureTest, IsPermanentOnlyForAFailureThatARetryDoesNotChange) {
+    using Kind = SDOFailure::Kind;
+    EXPECT_TRUE(
+        (SDOFailure{.kind = Kind::ABORTED, .abort_code = 0x06020000}).permanent()
+    );
+    EXPECT_FALSE(
+        (SDOFailure{.kind = Kind::ABORTED, .abort_code = 0x08000022}).permanent()
+    );
+    EXPECT_FALSE(SDOFailure{}.permanent());
+    EXPECT_FALSE(SDOFailure{.kind = Kind::UNEXPECTED_REPLY}.permanent());
+    EXPECT_TRUE(SDOFailure{.kind = Kind::REPLY_TOO_LARGE}.permanent());
+    EXPECT_TRUE(SDOFailure{.kind = Kind::MAILBOX_ERROR}.permanent());
+}
+
+/// @brief it should treat an abort about the value as a rejection.
+TEST(StartupParameterErrorTest, RejectsAValueAbort) {
+    EXPECT_EQ(
+        startup_parameter_error(0x06090031).type,
+        STARTUP_PARAMETER_REJECTED.type
+    );
+    EXPECT_EQ(
+        startup_parameter_error(0x06020000).type,
+        STARTUP_PARAMETER_REJECTED.type
+    );
+}
+
+/// @brief it should treat no response and a temporary abort as a retryable error.
+TEST(StartupParameterErrorTest, RetriesNoResponseAndTemporaryAborts) {
+    EXPECT_EQ(startup_parameter_error(0).type, STARTUP_PARAMETER_ERROR.type);
+    EXPECT_EQ(startup_parameter_error(0x05040000).type, STARTUP_PARAMETER_ERROR.type);
+    EXPECT_EQ(startup_parameter_error(0x08000022).type, STARTUP_PARAMETER_ERROR.type);
+}
+}

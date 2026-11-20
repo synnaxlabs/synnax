@@ -10,10 +10,10 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 
 import Node from "@/components/reliability/Node.astro";
-import { type Product } from "@/util/reliability";
+import type { Product } from "@/util/reliability";
 
 interface Props {
     product: Product;
@@ -27,15 +27,18 @@ const get = (key: string) => {
     return s;
 };
 
+// Runs of older commits, such as on a release branch, still hold Aspen tests.
+const aspen: [key: string, note: string][] =
+    product.subsystems.aspen != null
+        ? [["aspen", "Keeps metadata in sync across nodes"]]
+        : [];
+
 // Core layers from the API down to the libraries every layer shares.
 const CORE: [key: string, note: string][][] = [
     [["api", "HTTP and WebSocket endpoints every client talks to"]],
     [["services", "Channels, ranges, users, access control, devices, and tasks"]],
-    [["distribution", "Routes reads and writes across the nodes of a cluster"]],
-    [
-        ["aspen", "Keeps metadata in sync across nodes"],
-        ["cesium", "Time-series storage engine"],
-    ],
+    [["distribution", "Channels, and the reads, writes, and streams of frames"]],
+    [...aspen, ["cesium", "Time-series storage engine"]],
     [
         ["freighter", "Network transport"],
         ["x", "Shared libraries"],
@@ -55,12 +58,13 @@ const RUNTIMES: [key: string, note: string][] = [
 
 const ARC_AROUND = ["programs", "tools", "e2e"];
 
-// Flat lists read largest first, with end-to-end tests last.
+// Flat lists read largest first, with end-to-end and hardware tests last.
+const LAST = ["e2e", "hardware"];
 const flat = Object.entries(product.subsystems)
-    .filter(([key]) => key !== "e2e")
+    .filter(([key]) => !LAST.includes(key))
     .sort((a, b) => b[1].count - a[1].count)
     .map(([key]) => key)
-    .concat(product.subsystems.e2e != null ? ["e2e"] : []);
+    .concat(LAST.filter((key) => product.subsystems[key] != null));
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 const max = Math.max(...Object.values(product.subsystems).map((s) => s.count));

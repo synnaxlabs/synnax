@@ -108,22 +108,18 @@ const COLUMNS = [200, 180, 90];
 const SECTION_HEIGHT = 48;
 const ROW_HEIGHT = 82;
 /** A gray that reads as a faint tint on both themes. */
-const SECTION_FILL = "#80808033";
+const SECTION_FILL = { type: "fixed", value: "#80808033" } as const;
 /** A gray legible on both themes, a step quieter than the labels. */
-const UNITS_COLOR = "#8a8f98";
+const UNITS_COLOR = { type: "fixed", value: "#8a8f98" } as const;
 
-type Cells = NonNullable<table.New["cells"]>;
-type CellConfig = Cells[string];
+type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
+type CellConfig = Cell["config"];
 
 /** sensorTable lays out every reading with its label, live value, and units. */
 const sensorTable = (keys: Map<string, channel.Key>): table.New => {
-  const cells: Cells = {};
-  const add = (config: CellConfig): string => {
-    const key = `cell-${Object.keys(cells).length}`;
-    cells[key] = config;
-    return key;
-  };
-  const reading = ([label, name, kind]: Reading): string[] => {
+  let count = 0;
+  const add = (config: CellConfig): Cell => ({ key: `cell-${count++}`, config });
+  const reading = ([label, name, kind]: Reading): Cell[] => {
     const key = keys.get(name);
     if (key == null) throw new Error(`the stand has no channel "${name}"`);
     const { units, bands } = KINDS[kind];
@@ -166,7 +162,6 @@ const sensorTable = (keys: Map<string, channel.Key>): table.New => {
     name: NAME,
     columns: [...COLUMNS, ...COLUMNS].map((size) => ({ size })),
     rows,
-    cells,
   };
 };
 
@@ -187,10 +182,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     if (tpc == null) throw new Error(`no project named "${world.project}"`);
     const names = SECTIONS.flat().flatMap((s) => s.readings.map(([, name]) => name));
     const channels = await client.channels.retrieve(names);
-    await client.tables.create(
-      tpc.key,
-      sensorTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
-    );
+    await client.tables.create({
+      ...sensorTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
+      project: tpc.key,
+    });
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Operations", { exact: true }).first());
@@ -207,6 +202,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.settle(300);
     }
 
+    // On the empty part of the main nav, so nothing on screen shows its hover state.
+    await session.moveTo({ x: 26, y: 600 });
     // Starts the Ox Coldflow sequence, as the schematic's Start Sequence button does.
     const writer = await client.openWriter({
       start: TimeStamp.now(),
@@ -216,13 +213,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await writer.close();
     await session.waitFor(() => world.logged.includes("OX MPV open"), 3600);
     // Partway through the coldflow, the OX side is chilled and the pressurant draining.
-    await session.settle(3000);
-    // On the empty part of the main nav, so nothing on screen shows its hover state.
-    await session.moveTo({ x: 26, y: 600 });
-    // Live values draw on wall time, which virtual ticks outrun.
-    await session.settleWall(1500);
-    await session.settle(1200);
+    // The stand runs on wall time once the capture falls behind it, and it safes about
+    // 12 seconds after the OX main valve opens. Live values draw on wall time too.
+    await session.settleWall(3000);
+    await session.settle(600);
     await session.still("window");
+    if (world.logged.includes("OX MPV closed"))
+      throw new Error("the coldflow ended before the still");
   } finally {
     await client.close();
     await world.stop();

@@ -12,12 +12,12 @@ package control
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -32,10 +32,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Control *control.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -47,7 +43,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Control = override.Nil(c.Control, other.Control)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -55,13 +50,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.control")
 	v.NotNil("control", c.Control)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 // Service exposes the cluster's control state to API clients.
 type Service struct {
-	access   *rbac.Service
 	internal *control.Service
 }
 
@@ -71,7 +64,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Control, access: cfg.RBAC}, nil
+	return &Service{internal: cfg.Control}, nil
 }
 
 // RetrieveRequest is a request to read the control state of a set of channels.
@@ -88,25 +81,26 @@ type RetrieveResponse struct {
 	States []State `json:"states" msgpack:"states"`
 }
 
-// Retrieve returns the control state of the requested channels.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It names the data of each channel in Keys.
+func (r RetrieveRequest) Named() []resource.ID { return framer.ResourceIDs(r.Keys) }
+
+// Retrieve returns the control state of the requested channels. It leaves out each
+// channel whose data the subject cannot retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	states, err := s.internal.Retrieve(ctx, req.Keys...)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	keys := make(channel.Keys, len(states))
-	for i, state := range states {
-		keys[i] = state.Resource
-	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(keys),
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
-	return RetrieveResponse{States: states}, nil
+	ids := framer.ResourceIDs(lo.Map(states, func(st State, _ int) channel.Key {
+		return st.Resource
+	}))
+	return RetrieveResponse{States: lo.Filter(states, func(_ State, i int) bool {
+		return snap.Allowed(ids[i])
+	})}, nil
 }

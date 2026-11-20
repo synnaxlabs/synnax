@@ -8,7 +8,6 @@
     { "name": "arc/cpp", "path": "../arc/cpp" },
     { "name": "arc/go", "path": "../arc/go" },
     { "name": "arc/ts", "path": "../arc/ts" },
-    { "name": "aspen", "path": "../aspen" },
     { "name": "cesium", "path": "../cesium" },
     { "name": "client/cpp", "path": "../client/cpp" },
     { "name": "client/py", "path": "../client/py" },

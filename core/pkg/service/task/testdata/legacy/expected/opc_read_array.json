@@ -1,12 +1,11 @@
 {
-  "array_mode": true,
-  "array_size": 24,
   "auto_start": false,
   "channels": [
     {
       "channel": 6110,
       "data_type": "float32",
       "disabled": false,
+      "field": "",
       "is_index": false,
       "key": "ch-opc-array-0",
       "name": "fixture_opc_array_flow",
@@ -16,6 +15,11 @@
   ],
   "data_saving_disabled": false,
   "device": "fixture-opc-array-device",
+  "nan_fill_enabled": false,
   "sample_rate": 128.5,
+  "sampling": {
+    "size": 24,
+    "type": "array"
+  },
   "stream_rate": 16.5
 }

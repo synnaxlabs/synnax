@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/task"
+import "schemas/x/payload"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/http"
@@ -18,27 +19,35 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/http"
 
 Method enum {
-    get     = "GET"
-    head    = "HEAD"
-    post    = "POST"
-    put     = "PUT"
-    delete  = "DELETE"
-    patch   = "PATCH"
-    options = "OPTIONS"
-    trace   = "TRACE"
-    connect = "CONNECT"
+    get     = "GET" {
+        @doc value "reads a resource."
+    }
+    head    = "HEAD" {
+        @doc value "reads the headers of a resource, with no body."
+    }
+    post    = "POST" {
+        @doc value "submits data to a resource."
+    }
+    put     = "PUT" {
+        @doc value "replaces a resource."
+    }
+    delete  = "DELETE" {
+        @doc value "removes a resource."
+    }
+    patch   = "PATCH" {
+        @doc value "changes part of a resource."
+    }
+    options = "OPTIONS" {
+        @doc value "asks which communication options a resource supports."
+    }
+    trace   = "TRACE" {
+        @doc value "asks the server to echo the request it receives."
+    }
+    connect = "CONNECT" {
+        @doc value "opens a tunnel to the server."
+    }
 
     @doc value "is the HTTP method used when requesting an endpoint."
-}
-
-TimeFormat enum {
-    iso8601  = "iso8601"
-    unix_sec = "unix_sec"
-    unix_ms  = "unix_ms"
-    unix_us  = "unix_us"
-    unix_ns  = "unix_ns"
-
-    @doc value "is the encoding of a timestamp value within a JSON body."
 }
 
 Header struct {
@@ -65,21 +74,6 @@ QueryParam struct {
     @go marshal
 }
 
-EnumEntry struct {
-    label string = "" {
-        @doc value "is the string label in the JSON body."
-    }
-    value float64 = 0 {
-        @doc value "is the numeric channel value the label maps to."
-    }
-
-    @doc value  """
-        maps a string label in a JSON body to a numeric channel value for enum-style
-        parsing (e.g. "ON" -> 1, "OFF" -> 0).
-    """
-    @go marshal
-}
-
 ReadField struct {
     key         string = create {
         @doc value "uniquely identifies the field within the endpoint."
@@ -91,8 +85,22 @@ ReadField struct {
     disabled    bool = false {
         @doc value "is true when the field is excluded from polling."
     }
+    optional    bool = false {
+        @doc value """
+            is true when a missing value is normal for this field. The task writes
+            fill_value, or NaN on a float channel, and sends no warning.
+        """
+    }
+    fill_value  any?                {
+        @doc value """
+            is the value written when an optional field is missing, typed by the
+            channel. Unset writes NaN, which needs a float channel.
+        """
+    }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax channel the extracted value is written to."
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     pointer     string = "" {
         @doc value "is the JSON Pointer to the value within the response body."
@@ -101,13 +109,13 @@ ReadField struct {
         @doc value "is the data type of the extracted value."
         @ts type   "string"
     }
-    time_format TimeFormat?    {
+    time_format payload.TimeFormat? {
         @doc value """
             is the encoding of the JSON value when the target channel holds timestamps.
             Required for timestamp channels.
         """
     }
-    enum_values EnumEntry[]    {
+    enum_values payload.EnumEntry[] {
         @doc value "maps string labels in the response to numeric channel values."
     }
 
@@ -151,11 +159,14 @@ ReadEndpoint struct {
 
 ReadConfig struct extends task.PersistConfig {
     device           device.Key = "" {
-        @doc value "is the key of the HTTP server device to poll."
+        @doc value     "is the key of the HTTP server device to poll."
+        @ref kind      use
+        @ref on_delete restrict
     }
     rate             telem.Rate = 1 {
-        @doc value "is the polling rate applied to all endpoints, in Hertz."
-        @ts type   "number"
+        @doc value   "is the polling rate applied to all endpoints, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     endpoints        ReadEndpoint[] {
         @doc value "contains the endpoints to poll."
@@ -168,28 +179,15 @@ ReadConfig struct extends task.PersistConfig {
         """
     }
 
-    @doc value  """
+    @doc value           """
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
-}
-
-JSONType enum {
-    number  = "number"
-    string  = "string"
-    boolean = "boolean"
-
-    @doc value "is the JSON type a channel value is serialized as in a request body."
-}
-
-GeneratorType enum {
-    uuid      = "uuid"
-    timestamp = "timestamp"
-
-    @doc value "is the kind of value produced for a generated write field."
+    @patch
+    @retrieve references
 }
 
 ChannelField struct {
@@ -200,11 +198,13 @@ ChannelField struct {
             may not declare any additional fields.
         """
     }
-    json_type   JSONType = number {
+    json_type   payload.JSONType = number {
         @doc value "is the JSON type the channel value is serialized as."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax command channel that triggers the request."
+        @doc value     "is the Synnax command channel that triggers the request."
+        @ref kind      use
+        @ref on_delete restrict
     }
     name        string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -213,13 +213,13 @@ ChannelField struct {
         @doc value "is the data type of the command channel."
         @ts type   "string"
     }
-    time_format TimeFormat?    {
+    time_format payload.TimeFormat? {
         @doc value """
             is the output encoding when the command channel holds timestamps. An unset
             format is ISO 8601.
         """
     }
-    enum_values EnumEntry[]    {
+    enum_values payload.EnumEntry[] {
         @doc value """
             maps numeric channel values to string labels. Only valid when json_type is
             'string'.
@@ -245,20 +245,20 @@ BaseWriteField struct {
 
 WriteField union on type extends BaseWriteField {
     static {
-        json_type JSONType = number {
+        json_type payload.JSONType = number {
             @doc value "is the JSON type the value is serialized as."
         }
-        value     any      {
+        value     any              {
             @doc value "is the fixed JSON value placed at the pointer."
         }
 
         @doc value "places a fixed value in the request body."
     }
     generated {
-        generator   GeneratorType = uuid {
+        generator   payload.GeneratorType = uuid {
             @doc value "is the generator that produces a fresh value per request."
         }
-        time_format TimeFormat?   {
+        time_format payload.TimeFormat?   {
             @doc value """
                 is the output encoding for timestamp generators. Defaults to iso8601.
             """
@@ -307,19 +307,23 @@ WriteEndpoint struct {
 
 WriteConfig struct extends task.StartConfig {
     device    device.Key = "" {
-        @doc value "is the key of the HTTP server device to write to."
+        @doc value     "is the key of the HTTP server device to write to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     endpoints WriteEndpoint[] {
         @doc value "contains the endpoints to write to."
     }
 
-    @doc value  """
+    @doc value           """
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -327,4 +331,5 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }

@@ -10,11 +10,12 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
+import { compare } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type Summary } from "@/server/organization";
+import type { Summary } from "@/server/organization";
 import { RegisterDialog } from "@/ui/admin/RegisterDialog";
-import { date, standing } from "@/ui/format";
+import { expiry, standing } from "@/ui/format";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
@@ -35,7 +36,7 @@ export const Organizations = ({ teams, now }: OrganizationsProps): ReactElement 
   const query = search.trim().toLowerCase();
   const shown = teams
     .filter((t) => t.organization.name.toLowerCase().includes(query))
-    .sort((a, b) => a.organization.name.localeCompare(b.organization.name));
+    .sort(compare.by((t) => t.organization.name));
   return (
     <Page
       title="Organizations"
@@ -85,7 +86,7 @@ export const Organizations = ({ teams, now }: OrganizationsProps): ReactElement 
                       {s.active === 0 ? "" : `${s.seats} of ${s.capacity}`}
                     </Text.Text>
                     <Text.Text level="p" color={9}>
-                      {s.nextExpiry == null ? "" : date(s.nextExpiry)}
+                      {s.nextExpiry == null ? "" : expiry(s.nextExpiry)}
                     </Text.Text>
                   </Row>
                 );

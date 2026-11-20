@@ -19,7 +19,7 @@ import {
 
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
-import { type position } from "@/position";
+import type { position } from "@/position";
 import { Text } from "@/text";
 import { Frame } from "@/tooltip/Frame";
 import { useVisibility } from "@/tooltip/useVisibility";
@@ -37,7 +37,8 @@ interface ChildProps {
 }
 
 export interface DialogProps {
-  location?: position.Location;
+  /** The anchor's corner to open at, or both the anchor's and the tooltip's corners. */
+  location?: position.LocationPreference;
   /** Keeps the tooltip hidden. A function decides on each hover or focus. */
   hide?: boolean | ((anchor: HTMLElement) => boolean);
   children: [ReactNode, ReactElement<ChildProps>];

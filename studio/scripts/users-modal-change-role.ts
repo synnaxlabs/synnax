@@ -10,67 +10,39 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/users/modal-change-role`: right-click a user in the Users
- * toolbar, pick "Change role", assign a different role in the dialog, and show
- * the user move under it.
+ * Docs `console/users/modal-change-role`: on the Users page of Settings, pick a
+ * different role in a user's role select.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createUsers([
-    { username: "grace", firstName: "Grace", lastName: "Hopper", role: "Viewer" },
+    { username: "grace", name: "Grace Hopper", role: "Viewer" },
   ]);
   const { page } = session;
   await capture.login(session);
-
-  await capture.openToolbar(session, "user");
-  await capture.resizeToolbar(session, 400);
-  // The toolbar groups users by role and the groups start collapsed.
-  const drawer = page.locator(".console-nav__drawer").first();
-  await session.click(drawer.getByText("Viewer", { exact: true }).first(), {
-    text: true,
-  });
-  const item = capture.treeItem(page, "user:", "grace");
+  await capture.openSettings(session, "Users");
+  const item = page.getByRole("option", { name: "Grace Hopper", exact: true });
   await session.waitFor(item);
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 756, y: 700 });
 
   session.startRecording();
   await session.hold(1800);
 
-  await capture.contextMenu(session, item, "Change role");
-  const modal = page.locator(capture.MODAL).first();
-  // The select opens on the current role rather than a placeholder.
-  const role = modal.getByText("Viewer", { exact: true }).first();
-  await session.waitFor(role);
-  await session.hold(600);
-  await session.zoom(modal);
-
-  await session.click(role, { text: true });
+  await session.click(item.getByText("Viewer", { exact: true }), { text: true });
   // The list order is not deterministic; filter through the auto-focused
   // search so the role is at the top before clicking it.
-  await session.waitFor(page.getByPlaceholder("Search roles...").first());
+  const search = page.getByPlaceholder("Search roles...").first();
+  await session.waitFor(search);
+  // The dropdown runs past the right end of the row, so the zoom frames both.
+  const dropdown = page.locator(".lyra-dialog__dialog").filter({ has: search }).first();
+  await session.zoom([item, dropdown]);
   await session.hold(400);
   await session.type("Engineer");
-  const option = page
-    .locator(".lyra-list__item:not(.lyra-tree__item)")
-    .filter({ hasText: "Engineer" })
-    .first();
+  const option = page.getByRole("option", { name: /^Engineer/ }).first();
   await session.waitFor(option);
   await session.hold(400);
-  await session.click(option.getByText("Engineer", { exact: true }).first(), {
-    text: true,
-  });
-  await session.hold(600);
-
-  await capture.clickButton(session, "Assign");
-  await session.waitForHidden(modal);
+  await session.click(option, { text: true });
+  await session.waitFor(item.getByText("Engineer", { exact: true }));
   session.endZoom();
-  await session.hold(800);
-
-  // No zoom: the whole tree stays in frame while the user moves groups.
-  await session.click(drawer.getByText("Engineer", { exact: true }).first(), {
-    text: true,
-    zoom: false,
-  });
-  await session.waitFor(capture.treeItem(page, "user:", "grace"));
   // Park clear of the component buttons, so none shows a hover state.
   await session.moveTo({ x: 1300, y: 780 });
   await session.hold(2800);

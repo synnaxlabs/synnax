@@ -14,6 +14,7 @@ from console.layout import LayoutClient
 from console.range.surface import FAVORITE_ACTIONS, UNFAVORITE_ACTIONS, Surface
 from console.range.toolbar import Toolbar
 from console.views import ViewsClient
+from x.color import Color
 
 
 class Explorer(Surface):
@@ -32,6 +33,8 @@ class Explorer(Surface):
             layout=layout,
             search_placeholder=self.SEARCH_INPUT_PLACEHOLDER,
             static_view_name=self.STATIC_VIEW_NAME,
+            tab_name="Range explorer",
+            tab_prefix="Ranges",
         )
 
     def open(self) -> None:
@@ -100,6 +103,20 @@ class Explorer(Surface):
             lst.evaluate("el => { el.scrollTop += el.clientHeight * 0.8; }")
             self.layout.page.wait_for_timeout(150)
 
+    def expand(self, name: str) -> None:
+        """Show the child ranges of a range under it in the tree layout. The caret shows
+        once the range has a child.
+
+        :param name: The name of the parent range.
+        """
+        item = self.get_item(name)
+        expand_btn = item.get_by_role("button", name="Expand", exact=True)
+        collapse_btn = item.get_by_role("button", name="Collapse", exact=True)
+        expand_btn.or_(collapse_btn).wait_for(state="visible", timeout=5000)
+        if expand_btn.is_visible():
+            expand_btn.click()
+        collapse_btn.wait_for(state="visible", timeout=5000)
+
     def get_item_time(self, name: str) -> str:
         """Get the displayed time text from an explorer range item.
 
@@ -149,7 +166,7 @@ class Explorer(Surface):
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         self._ctx_action_any(item, UNFAVORITE_ACTIONS)
-        self.toolbar.wait_for_removed(name)
+        self.toolbar.wait_for_removed(name, group="Favorites")
 
     def _deselect_all(self) -> None:
         """Deselect all explorer ranges by clicking their checked checkboxes.
@@ -192,7 +209,7 @@ class Explorer(Surface):
         self._ctx_action_any(last_item, UNFAVORITE_ACTIONS)
         self._deselect_all()
         for name in names:
-            self.toolbar.wait_for_removed(name)
+            self.toolbar.wait_for_removed(name, group="Favorites")
 
     def delete_many(self, names: list[str]) -> None:
         """Delete multiple ranges via multi-select context menu in the
@@ -212,7 +229,7 @@ class Explorer(Surface):
         """
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Copy link")
+        self.ctx_menu.sub_action(item, "Copy", "Link")
 
     def create_child_range(self, parent_name: str, child_name: str) -> None:
         """Create a child range via context menu in the explorer.
@@ -222,7 +239,7 @@ class Explorer(Surface):
         """
         item = self.get_item(parent_name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Create child range")
+        self.ctx_menu.action(item, "Start child range")
         self.fill_create_modal(child_name)
 
     def search(self, term: str) -> None:
@@ -243,10 +260,30 @@ class Explorer(Surface):
         """
         self.views.select_filter("Labels", label_name)
 
-    def clear_label_filter(self, label_name: str) -> None:
-        """Remove a label from the active filter by clicking its chip close
-        button.
+    def get_label(self, range_name: str, *, label_name: str) -> Locator:
+        """Get the tag of a label on a range item in the explorer."""
+        item = self.get_item(range_name)
+        return item.locator(".lyra-tag").filter(has_text=label_name).first
 
-        :param label_name: The name of the label chip to remove.
-        """
-        self.views.clear_filter(label_name)
+    def label_exists(self, range_name: str, *, label_name: str) -> bool:
+        """Check if a label shows on a range item in the explorer."""
+        return self.layout.locator_exists(
+            self.get_label(range_name, label_name=label_name)
+        )
+
+    def wait_for_label_removed(self, range_name: str, *, label_name: str) -> None:
+        """Wait until a label leaves a range item in the explorer."""
+        self.layout.wait_for_hidden(self.get_label(range_name, label_name=label_name))
+
+    def get_label_color(self, range_name: str, *, label_name: str) -> Color | None:
+        """Get the color of a label's dot on a range item in the explorer."""
+        label = self.get_label(range_name, label_name=label_name)
+        if label.count() == 0:
+            return None
+        icon = label.locator("svg").first
+        if icon.count() == 0:
+            return None
+        color = icon.get_attribute("color")
+        if color is None:
+            return None
+        return Color(color)

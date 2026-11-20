@@ -19,6 +19,7 @@ proto_library(
         "//arc/go/program:program_proto",
         "//arc/go/text:text_proto",
         "//core/pkg/service/status:status_proto",
+        "//x/go/filter:filter_proto",
     ],
 )
 
@@ -32,5 +33,6 @@ cpp_grpc_library(
         "//arc/go/program:program_grpc",
         "//arc/go/text:text_grpc",
         "//core/pkg/service/status:status_grpc",
+        "//x/go/filter:filter_grpc",
     ],
 )

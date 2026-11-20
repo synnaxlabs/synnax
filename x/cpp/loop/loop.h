@@ -12,7 +12,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <thread>
 
 #include "x/cpp/breaker/breaker.h"
@@ -29,15 +31,101 @@ const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
 /// @brief Span of one sleep step of a precise sleep.
 const telem::TimeSpan RESOLUTION = (100 * telem::MICROSECOND);
 
+/// @brief a clock that a Timer reads and sleeps on in place of the host's steady clock.
+/// A test passes one whose sleep moves its time forward at once.
+struct Clock {
+    /// @brief returns the current time.
+    std::function<hs_clock::time_point()> now;
+    /// @brief returns once the span has passed on this clock.
+    std::function<void(telem::TimeSpan)> sleep;
+};
+
+/// @brief estimates the most one sleep step takes, as the mean plus one standard
+/// deviation of the measured steps (Welford's online algorithm). It starts at
+/// RESOLUTION, so a sleep longer than one step measures a step.
+///
+/// After WARM_UP steps, it holds back a step longer than OUTLIER_FACTOR times the
+/// estimate (a stall). It adds the stall only when the next stall comes within
+/// OUTLIER_WINDOW steps and within OUTLIER_FACTOR of its size, and then adds both. An
+/// isolated stall is never added, so it cannot raise the estimate past every wait and
+/// stop the timer from measuring steps.
+class StepEstimator {
+    /// @brief steps added as measured before the estimate can hold one back.
+    static constexpr double WARM_UP = 16;
+    /// @brief multiple of the estimate past which a step is held back, and the most
+    /// two stalls can differ in size and still confirm each other.
+    static constexpr double OUTLIER_FACTOR = 4;
+    /// @brief steps within which a second stall confirms a held one.
+    static constexpr int OUTLIER_WINDOW = 10000;
+
+    /// @brief doubles, so a sum of squared nanoseconds cannot overflow.
+    double mean = static_cast<double>(RESOLUTION.nanoseconds());
+    double m2 = 0;
+    double count = 1;
+    telem::TimeSpan value = RESOLUTION;
+    std::optional<double> held;
+    int since_outlier = OUTLIER_WINDOW;
+    double last_outlier = 0;
+
+    void push(const double ns) {
+        const double delta = ns - this->mean;
+        this->mean += delta / this->count;
+        this->m2 += delta * (ns - this->mean);
+        const double stddev = std::sqrt(this->m2 / this->count);
+        this->value = telem::TimeSpan(static_cast<int64_t>(this->mean + stddev));
+        this->count++;
+    }
+
+public:
+    /// @brief adds the measured duration of one step to the estimate.
+    void add(const telem::TimeSpan &step) {
+        const auto ns = static_cast<double>(step.nanoseconds());
+        const auto cutoff = OUTLIER_FACTOR *
+                            static_cast<double>(this->value.nanoseconds());
+        if (this->count <= WARM_UP || ns <= cutoff) {
+            this->push(ns);
+            this->since_outlier = std::min(this->since_outlier + 1, OUTLIER_WINDOW);
+            return;
+        }
+        const bool confirmed = this->since_outlier < OUTLIER_WINDOW &&
+                               ns <= OUTLIER_FACTOR * this->last_outlier &&
+                               this->last_outlier <= OUTLIER_FACTOR * ns;
+        if (!confirmed)
+            this->held = ns;
+        else {
+            if (this->held) this->push(*this->held);
+            this->held.reset();
+            this->push(ns);
+        }
+        this->since_outlier = 0;
+        this->last_outlier = ns;
+    }
+
+    /// @brief returns the most one step is expected to take.
+    [[nodiscard]] telem::TimeSpan estimate() const { return this->value; }
+};
+
 class Timer {
 public:
     Timer() = default;
 
+    /// @brief a timer that waits on the host's steady clock.
     explicit Timer(const telem::TimeSpan &interval):
         interval(interval), last(hs_clock::now()) {}
 
-    explicit Timer(const telem::Rate &rate):
-        interval(rate.period()), last(hs_clock::now()) {}
+    /// @brief a timer that waits on the host's steady clock. A precise timer spins to
+    /// each deadline at any interval. Otherwise, only an interval under
+    /// HIGH_RES_THRESHOLD spins, and a longer one sleeps, which on Windows can wake up
+    /// to 2 ms late.
+    Timer(const telem::TimeSpan &interval, const bool precise):
+        interval(interval), precise(precise), last(hs_clock::now()) {}
+
+    /// @brief a timer that reads and sleeps on clock in place of the host's steady
+    /// clock.
+    Timer(const telem::TimeSpan &interval, Clock clock):
+        interval(interval), clock(std::move(clock)), last(this->clock_now()) {}
+
+    explicit Timer(const telem::Rate &rate): Timer(rate.period()) {}
 
     telem::TimeSpan elapsed(const hs_clock::time_point now) {
         if (!last_set) {
@@ -49,7 +137,7 @@ public:
     }
 
     std::pair<telem::TimeSpan, bool> wait() {
-        const auto now = hs_clock::now();
+        const auto now = this->clock_now();
         const auto elapsed = this->elapsed(now);
         if (elapsed > interval) {
             last = now;
@@ -57,18 +145,20 @@ public:
         }
         const auto remaining = interval - elapsed;
         const auto deadline = now + remaining.chrono();
-        if (this->high_rate())
+        if (this->clock)
+            this->clock->sleep(remaining);
+        else if (this->precise || this->high_rate())
             this->precise_sleep(remaining);
         else
             std::this_thread::sleep_for(remaining.chrono());
         // Anchor to the deadline so a late wake shortens the next sleep instead of
         // stretching every period. An early wake keeps the wake time.
-        last = std::min(deadline, hs_clock::now());
+        last = std::min(deadline, this->clock_now());
         return {telem::TimeSpan(elapsed), true};
     }
 
     std::pair<telem::TimeSpan, bool> wait(breaker::Breaker &breaker) {
-        const auto now = hs_clock::now();
+        const auto now = this->clock_now();
         const auto elapsed = this->elapsed(now);
         if (elapsed > interval) {
             last = now;
@@ -76,14 +166,29 @@ public:
         }
         const auto remaining = interval - elapsed;
         const auto deadline = now + remaining.chrono();
-        if (this->high_rate())
-            this->precise_sleep(remaining);
+        if (this->clock)
+            this->clock->sleep(remaining);
+        else if (this->precise || this->high_rate())
+            this->precise_sleep(remaining, breaker);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else
             breaker.wait_for(remaining);
-        last = std::min(deadline, hs_clock::now());
+        last = std::min(deadline, this->clock_now());
         return {telem::TimeSpan(elapsed), true};
+    }
+
+    /// @brief moves the end of the next wait by offset. A positive offset delays it.
+    /// Has no effect before the first wait(), which always lasts one interval.
+    void shift(const telem::TimeSpan &offset) { this->last += offset.chrono(); }
+
+    /// @brief sleeps for dur without spinning. On Windows 10 1803 and later, the sleep
+    /// waits on a high-resolution timer, so it does not round up to the system tick.
+    void sleep(const telem::TimeSpan &dur) {
+        if (this->clock)
+            this->clock->sleep(dur);
+        else
+            this->step(dur);
     }
 
     /// @brief Fine-grained sleep that ends early when the breaker stops.
@@ -94,7 +199,7 @@ public:
     }
 
 private:
-    /// @brief Fine-grained sleep using Welford's online algorithm for calibration.
+    /// @brief Fine-grained sleep calibrated by a StepEstimator.
     void precise_sleep(const telem::TimeSpan &dur) {
         this->sleep_while(dur, [] { return true; });
     }
@@ -102,24 +207,24 @@ private:
     /// @brief sleeps precisely for dur, and ends early once running returns false.
     template<typename Running>
     void sleep_while(const telem::TimeSpan &dur, const Running &running) {
+        if (this->clock) {
+            if (running()) this->clock->sleep(dur);
+            return;
+        }
         const auto end = hs_clock::now() + dur.chrono();
         while (true) {
             if (!running()) return;
             const auto start = hs_clock::now();
-            if (telem::TimeSpan(end - start) <= sleep_estimate_) break;
-            this->step();
-            const auto curr_end = hs_clock::now();
-            const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
-                                        .count();
-            const telem::TimeSpan delta = elapsed_ns - sleep_mean_;
-            sleep_mean_ += delta / sleep_count_;
-            sleep_M2_ += delta * (elapsed_ns - sleep_mean_);
-            const auto stddev = std::sqrt((sleep_M2_ / sleep_count_).nanoseconds());
-            sleep_estimate_ = sleep_mean_ + static_cast<int64_t>(stddev);
-            sleep_count_++;
+            if (telem::TimeSpan(end - start) <= this->estimator.estimate()) break;
+            this->step(RESOLUTION);
+            this->estimator.add(telem::TimeSpan(hs_clock::now() - start));
         }
         while (end > hs_clock::now())
             if (!running()) return;
+    }
+
+    [[nodiscard]] hs_clock::time_point clock_now() const {
+        return this->clock ? this->clock->now() : hs_clock::now();
     }
 
     [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
@@ -135,25 +240,63 @@ private:
     /// @brief creates the OS state of a sleep step.
     static ImplPtr make_impl();
 
-    /// @brief blocks for one step of a precise sleep. On Windows 10 1803 and later,
-    /// the step waits on a high-resolution timer, so it does not round up to the
-    /// system tick.
-    void step();
+    /// @brief blocks for dur. On Windows 10 1803 and later, the step waits on a
+    /// high-resolution timer, so it does not round up to the system tick.
+    void step(const telem::TimeSpan &dur);
 
     telem::TimeSpan interval;
+    std::optional<Clock> clock;
+    bool precise = false;
     bool last_set = false;
     hs_clock::time_point last;
     /// @brief the OS state of a sleep step.
-    ImplPtr impl_ = make_impl();
+    ImplPtr impl = make_impl();
+    StepEstimator estimator;
+};
 
-    /// @brief Welford's algorithm state: the most one step is expected to take. It
-    /// starts at one step, so a sleep longer than one step measures a step.
-    telem::TimeSpan sleep_estimate_ = RESOLUTION;
-    /// @brief Welford's algorithm state: running mean of step durations.
-    telem::TimeSpan sleep_mean_ = RESOLUTION;
-    /// @brief Welford's algorithm state: sum of squared deviations.
-    telem::TimeSpan sleep_M2_ = telem::TimeSpan::ZERO();
-    /// @brief Welford's algorithm state: sample count.
-    int64_t sleep_count_ = 1;
+/// @brief the host clocks that a loop reads: steady time to wait on and wall time to
+/// stamp with. A default HostClock reads the host.
+class HostClock {
+    telem::TimeStamp wall_start;
+    hs_clock::time_point steady_start;
+    std::optional<Clock> source;
+
+public:
+    HostClock() = default;
+
+    /// @brief reads both times from source. The wall time starts at the host's wall
+    /// time and then moves with source.
+    explicit HostClock(Clock source):
+        wall_start(telem::TimeStamp::now()),
+        steady_start(source.now()),
+        source(std::move(source)) {}
+
+    /// @brief returns the steady time.
+    [[nodiscard]] hs_clock::time_point steady() const {
+        return this->source ? this->source->now() : hs_clock::now();
+    }
+
+    /// @brief returns once span has passed on this clock.
+    void sleep(const telem::TimeSpan &span) const {
+        if (this->source)
+            this->source->sleep(span);
+        else
+            std::this_thread::sleep_for(span.chrono());
+    }
+
+    /// @brief returns a timer that waits on this clock. precise is as for Timer. A
+    /// timer on a source waits exactly at any interval.
+    [[nodiscard]] Timer
+    timer(const telem::TimeSpan &interval, const bool precise = false) const {
+        if (!this->source) return {interval, precise};
+        return {interval, *this->source};
+    }
+
+    /// @brief returns the wall time.
+    [[nodiscard]] telem::TimeStamp now() const {
+        if (!this->source) return telem::TimeStamp::now();
+        return this->wall_start +
+               telem::TimeSpan(this->source->now() - this->steady_start);
+    }
 };
 }

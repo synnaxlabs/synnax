@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
-import { renderLinkHook, resolveFocusedTab, uniqueName } from "@/testutil";
+import { renderLinkHook, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
@@ -23,7 +24,8 @@ describe("Link.createUseOpenResourceTab", () => {
     const project = await client.projects.create({
       name: uniqueName("project"),
     });
-    const created = await client.tables.create(project.key, {
+    const created = await client.tables.create({
+      project: project.key,
       name: uniqueName("table"),
     });
     const { handler, store } = await renderLinkHook(useOpenTable, { client });

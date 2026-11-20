@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/device/Select.css";
+
 import { device } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Access, Device, Synnax } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import { Access, Device } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
-import { Button } from "@/platform/button";
+import { CSS } from "@/platform/css";
+import { useHandleChange } from "@/platform/device/useHandleChange";
+
+const root = deep.path<{ config: { device: device.Key } }>();
 
 export interface SelectConnect {
   /** What the action connects, such as "OPC UA server". */
@@ -47,12 +52,18 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   onConfigure: (deviceKey: device.Key) => void;
   emptyContent?: string;
   label?: string;
+  /** What the select calls a device, such as "connection". */
+  resourceName?: string;
   make: string;
   model?: string;
-  path?: string;
-  icon?: Icon.ReactElement;
+  path?: deep.Target<device.Key>;
+  icon: Icon.ReactElement;
+  /** How the location of each listed device reads. */
+  locationFormat?: Device.LocationFormat;
   /** Adds an action below the list that connects a device and selects it. */
   connect?: SelectConnect;
+  /** Runs after the task form handles a change of device. */
+  onChange?: (key: device.Key, ctx: Form.ContextValue) => void;
 }
 
 export const Select = ({
@@ -60,40 +71,48 @@ export const Select = ({
   emptyContent = "No devices connected",
   filter: filterProp,
   label = "Device",
+  resourceName,
   make,
   model,
-  path = "config.device",
+  path = root.config.device,
   icon,
+  locationFormat,
   connect,
+  onChange,
 }: SelectProps) => {
-  const client = Synnax.use();
-  const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
-  const handleError = Status.useErrorHandler();
-  const handleDeviceChange = (key: device.Key, { set }: Form.ContextValue) => {
-    if (client == null || primitive.isZero(key)) return;
-    handleError(async () => {
-      const { configured, rack } = await client.devices.retrieve({ key });
-      set("rack", rack);
-      if (configured) return;
-      onConfigure(key);
-    }, "Failed to retrieve device");
-  };
+  const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
+  const handleChange = useHandleChange(onConfigure);
+  const [visible, setVisible] = useState(false);
+  Form.useFocusHandler(path, () => setVisible(true));
   const filter = (d: device.Device) =>
     d.make === make &&
     (model == null || d.model === model) &&
     (filterProp?.(d) ?? true);
   return (
-    <Form.Field<string> grow label={label} onChange={handleDeviceChange} path={path}>
+    <Form.Field
+      className={CSS.B("device-select")}
+      grow
+      label={label}
+      onChange={(key, ctx) => {
+        handleChange(key, ctx);
+        onChange?.(key, ctx);
+      }}
+      path={path}
+    >
       {({ value, onChange, preview }) => (
         <Device.SelectSingle
           value={value}
           onChange={onChange}
-          initialQuery={{ makes: [make] }}
+          query={{ where: { make: { eq: make } } }}
           filter={filter}
           emptyContent={emptyContent}
+          resourceName={resourceName}
           grow
           icon={icon}
+          locationFormat={locationFormat}
           preview={preview}
+          visible={visible}
+          onVisibleChange={setVisible}
           footer={
             connect != null &&
             canConnect && <ConnectButton {...connect} onChange={onChange} />

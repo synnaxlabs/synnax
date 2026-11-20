@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::telem {
 /// @brief - it should initialize a timestamp from a long.
@@ -242,6 +243,45 @@ TEST(TimeStampTests, testISO8601Nanoseconds) {
 TEST(TimeStampTests, testISO8601Negative) {
     const auto ts = TimeStamp(-1000000000000000000LL);
     ASSERT_EQ(ts.iso8601(), "1938-04-24T22:13:20Z");
+}
+
+/// @brief it should print an offset east or west of UTC instead of Z.
+TEST(TimeStampTests, testISO8601WithAnOffset) {
+    const auto ts = TimeStamp(1'772'895'845'250'000'000);
+    ASSERT_EQ(ts.iso8601(-7 * 3600), "2026-03-07T08:04:05.25-07:00");
+    ASSERT_EQ(
+        TimeStamp(1'772'895'845'000'000'000).iso8601(19'800),
+        "2026-03-07T20:34:05+05:30"
+    );
+    ASSERT_EQ(ts.iso8601(0), "2026-03-07T15:04:05.25Z");
+}
+
+/// @brief it should drop the seconds of an offset, as Go does.
+TEST(TimeStampTests, testISO8601DropsTheSecondsOfAnOffset) {
+    // Denver's local mean time on January 1, 1800 was UTC-6:59:56.
+    ASSERT_EQ(
+        TimeStamp(-5'364'662'400'000'000'000).iso8601(-25'196),
+        "1799-12-31T17:00:04-06:59"
+    );
+}
+
+/// @brief it should print a large offset at the ends of the timestamp range.
+TEST(TimeStampTests, testISO8601WithAnOffsetAtTheEndsOfTheRange) {
+    ASSERT_EQ(
+        TimeStamp(INT64_MAX).iso8601(14 * 3600),
+        "2262-04-12T13:47:16.854775807+14:00"
+    );
+    ASSERT_EQ(
+        TimeStamp(INT64_MIN).iso8601(-12 * 3600),
+        "1677-09-20T12:12:43.145224192-12:00"
+    );
+}
+
+/// @brief it should format the ends of the timestamp range without overflow.
+TEST(TimeStampTests, testISO8601EndsOfTheRange) {
+    ASSERT_EQ(TimeStamp(INT64_MIN).iso8601(), "1677-09-21T00:12:43.145224192Z");
+    ASSERT_EQ(TimeStamp(INT64_MAX).iso8601(), "2262-04-11T23:47:16.854775807Z");
+    ASSERT_EQ(TimeStamp(-1).iso8601(), "1969-12-31T23:59:59.999999999Z");
 }
 
 /// @brief it should initialize a timespan from a long.
@@ -505,6 +545,31 @@ TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
     ASSERT_TRUE(tr != tr2);
 }
 
+/// @brief it should round-trip a time range through JSON.
+TEST(TimeRangeTests, testJSON) {
+    const auto tr = TimeRange(5, 10);
+    const auto j = tr.to_json();
+    EXPECT_EQ(j["start"], 5);
+    EXPECT_EQ(j["end"], 10);
+    x::json::Parser parser(j);
+    EXPECT_EQ(TimeRange::parse(parser), tr);
+    ASSERT_NIL(parser.error());
+}
+
+/// @brief it should parse a time range whose bounds are strings.
+TEST(TimeRangeTests, testParseStrings) {
+    x::json::Parser parser(x::json::json{{"start", "5"}, {"end", "10"}});
+    EXPECT_EQ(TimeRange::parse(parser), TimeRange(5, 10));
+    ASSERT_NIL(parser.error());
+}
+
+/// @brief it should report a missing bound.
+TEST(TimeRangeTests, testParseMissing) {
+    x::json::Parser parser(x::json::json{{"start", 5}});
+    TimeRange::parse(parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+}
+
 /// @brief it should calculate the period from a rate.
 TEST(RateTests, testPeriod) {
     const auto r = Rate(1);
@@ -517,6 +582,15 @@ TEST(RateTests, testPeriod) {
 TEST(RateTests, testContructor) {
     const auto r = Rate(5);
     ASSERT_EQ(r.hz(), 5);
+}
+
+/// @brief it should hold a rate with double precision.
+TEST(RateTests, testDoublePrecision) {
+    ASSERT_EQ(Rate(0.1).hz(), 0.1);
+    ASSERT_EQ(Rate(16777217.0).hz(), 16777217.0);
+    x::json::json j = Rate(0.1);
+    ASSERT_EQ(j.get<double>(), 0.1);
+    ASSERT_EQ(j.get<Rate>().hz(), 0.1);
 }
 
 /// @brief it should add two rates together.

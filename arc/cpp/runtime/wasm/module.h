@@ -10,8 +10,11 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -26,6 +29,18 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::wasm {
+
+/// @brief returns the cause in a Wasmtime trap message, without its backtrace.
+inline std::string trap_reason(std::string_view message) {
+    constexpr std::string_view CAUSE = "Caused by:\n    ";
+    if (const auto pos = message.rfind(CAUSE); pos != std::string_view::npos)
+        message.remove_prefix(pos + CAUSE.size());
+    constexpr std::string_view PREFIX = "wasm trap: ";
+    if (message.starts_with(PREFIX)) message.remove_prefix(PREFIX.size());
+    while (message.ends_with('\n'))
+        message.remove_suffix(1);
+    return std::string(message);
+}
 
 /// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
 inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
@@ -176,12 +191,29 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
 const auto BASE_ERROR = errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
+/// @brief address space Wasmtime sets aside for a module's linear memory, and again for
+/// each growth past it. Wasmtime's 4 GiB default counts against RLIMIT_MEMLOCK once the
+/// Driver locks its memory.
+constexpr std::uint64_t MEMORY_RESERVATION = std::uint64_t{2} * 1024 * 1024;
+/// @brief size of each guard region around a module's linear memory.
+constexpr std::uint64_t MEMORY_GUARD_SIZE = std::uint64_t{64} * 1024;
+/// @brief name of the exported i64 global that counts the loop iterations and function
+/// calls a guest can still run. The guest traps when it takes the last one. No Arc
+/// function can export the name, because an Arc identifier cannot hold '$'.
+constexpr auto LOOP_BUDGET_EXPORT = "$loop_budget";
+/// @brief loop iterations and function calls that a program can run in one cycle by
+/// default.
+constexpr std::int64_t DEFAULT_LOOP_BUDGET = 100'000'000;
+
 struct ModuleConfig {
     program::Program program;
     std::vector<std::shared_ptr<stl::Module>> modules;
     std::shared_ptr<stl::strings::State> strings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
+    /// @brief loop iterations and function calls that the guest can run between calls
+    /// to reset_loop_budget.
+    std::int64_t loop_budget = DEFAULT_LOOP_BUDGET;
 };
 
 class Module {
@@ -191,6 +223,7 @@ class Module {
     wasmtime::Store store;
     wasmtime::Memory memory;
     wasmtime::Instance instance;
+    wasmtime::Global loop_budget;
 
 public:
     Module(
@@ -199,14 +232,16 @@ public:
         wasmtime::Engine engine,
         wasmtime::Store store,
         wasmtime::Memory memory,
-        wasmtime::Instance instance
+        wasmtime::Instance instance,
+        wasmtime::Global loop_budget
     ):
         cfg(std::move(cfg)),
         module(std::move(module)),
         engine(std::move(engine)),
         store(std::move(store)),
         memory(memory),
-        instance(instance) {}
+        instance(instance),
+        loop_budget(loop_budget) {}
 
     static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
@@ -215,9 +250,21 @@ public:
                 nullptr,
                 x::errors::Error(x::errors::VALIDATION, "wasm bytes are empty")
             };
+        if (cfg.loop_budget <= 0)
+            return {
+                nullptr,
+                x::errors::Error(x::errors::VALIDATION, "loop budget must be positive")
+            };
 
-        wasmtime::Engine engine;
+        wasmtime::Config engine_cfg;
+        engine_cfg.memory_reservation(MEMORY_RESERVATION);
+        engine_cfg.memory_reservation_for_growth(MEMORY_RESERVATION);
+        engine_cfg.memory_guard_size(MEMORY_GUARD_SIZE);
+        engine_cfg.epoch_interruption(true);
+        wasmtime::Engine engine(std::move(engine_cfg));
         wasmtime::Store store(engine);
+        // The default deadline is the current epoch, which traps every call at once.
+        store.context().set_epoch_deadline(1);
 
         auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.program.wasm);
         auto mod_result = wasmtime::Module::compile(
@@ -277,13 +324,28 @@ public:
             };
         auto mem = *mem_ptr;
 
+        const auto budget_opt = instance.get(store, LOOP_BUDGET_EXPORT);
+        const wasmtime::Global *budget_ptr = nullptr;
+        if (budget_opt) budget_ptr = std::get_if<wasmtime::Global>(&*budget_opt);
+        if (budget_ptr == nullptr || !budget_ptr->type(store)->is_mutable() ||
+            budget_ptr->get(store).kind() != wasmtime::ValKind::I64)
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    std::string("WASM module does not export a mutable i64 '") +
+                        LOOP_BUDGET_EXPORT + "' global"
+                )
+            };
+
         auto module = std::make_shared<Module>(
             cfg,
             mod,
             std::move(engine),
             std::move(store),
             mem,
-            instance
+            instance,
+            *budget_ptr
         );
         for (auto &m: module->cfg.modules)
             m->set_wasm_context(&module->store, &module->memory);
@@ -337,7 +399,7 @@ public:
                     this->streamed[i] = true;
                     continue;
                 }
-                if (inputs[i].value.is_string()) {
+                if (inputs[i].type.kind == types::Kind::String) {
                     // A literal string gets a stable handle, not cleared by flush().
                     // strings is null only in tests without host bindings.
                     const auto &s = inputs[i].value.get<std::string>();
@@ -372,9 +434,27 @@ public:
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
                 auto trap = result.err();
+                if (const auto *t = std::get_if<wasmtime::Trap>(&trap.data);
+                    t != nullptr && t->code() == WASMTIME_TRAP_CODE_INTERRUPT)
+                    return x::errors::Error(
+                        errors::INTERRUPTED,
+                        "The runtime stopped the call."
+                    );
+                if (this->module.loop_budget_used()) {
+                    // Later calls would each trap at once and report the error again.
+                    this->module.interrupt();
+                    return x::errors::Error(
+                        errors::LOOP_BUDGET,
+                        "The program ran more than " +
+                            std::to_string(this->module.cfg.loop_budget) +
+                            " loop iterations and function calls in one cycle."
+                    );
+                }
                 auto msg = trap.message();
-                std::string trap_msg(msg.data(), msg.size());
-                return x::errors::Error(errors::WASM_TRAP, trap_msg);
+                return x::errors::Error(
+                    errors::WASM_TRAP,
+                    trap_reason({msg.data(), msg.size()})
+                );
             }
 
             const auto results = result.ok();
@@ -419,9 +499,32 @@ public:
         }
     };
 
+    /// @brief gives the guest its whole loop budget. Call it before each cycle. A call
+    /// that uses the whole budget interrupts the module until resume().
+    void reset_loop_budget() {
+        // open checked that the global is a mutable i64, so the set cannot fail.
+        std::ignore = this->loop_budget.set(
+            this->store,
+            wasmtime::Val(this->cfg.loop_budget)
+        );
+    }
+
+    /// @brief returns true when the guest used its whole loop budget since the last
+    /// call to reset_loop_budget.
+    [[nodiscard]] bool loop_budget_used() {
+        return this->loop_budget.get(this->store).i64() <= 0;
+    }
+
     [[nodiscard]] std::shared_ptr<stl::strings::State> strings() const {
         return this->cfg.strings;
     }
+
+    /// @brief makes a running call, and every later call until resume(), return
+    /// errors::INTERRUPTED. Safe to call from any thread.
+    void interrupt() const { this->engine.increment_epoch(); }
+
+    /// @brief lets calls run again after interrupt(). Call only while no call runs.
+    void resume() { this->store.context().set_epoch_deadline(1); }
 
     [[nodiscard]] bool has_func(const std::string &name) {
         const auto export_opt = this->instance.get(this->store, name);

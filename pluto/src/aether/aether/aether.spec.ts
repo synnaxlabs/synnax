@@ -26,11 +26,11 @@ interface InternalState {
 class ExampleLeaf extends aether.Leaf<typeof exampleProps, InternalState> {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
   /** The values resolved for "key" and "key2" on the most recent afterUpdate. */
   seen: { key?: number; key2?: number } = {};
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     this.seen = {
       key: ctx.getOptional<number>("key") ?? undefined,
@@ -39,7 +39,7 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps, InternalState> {
     this.internal.contextValue = this.seen.key ?? 0;
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 
@@ -55,13 +55,13 @@ class ExampleComposite extends aether.Composite<
 > {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 
@@ -77,14 +77,14 @@ class ContextSetterComposite extends aether.Composite<
 > {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     ctx.set("key", this.state.x);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 
@@ -100,11 +100,11 @@ class SecondaryContextSetter extends aether.Composite<
 > {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
   /** The value resolved for "key" on the most recent afterUpdate. */
   seen: { key?: number } = {};
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     const v = ctx.getOptional<number>("key");
     this.seen = { key: v ?? undefined };
@@ -120,22 +120,24 @@ class SecondaryContextSetter extends aether.Composite<
  * state. */
 class ConditionalReader extends aether.Leaf<typeof exampleProps> {
   updatef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
   seen: number | undefined = undefined;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     this.seen =
       this.state.x > 0 ? (ctx.getOptional<number>("key") ?? undefined) : undefined;
   }
 }
 
-/** Republishes "key" as `state.x * 10`, shadowing an ancestor that also publishes it. */
+/**
+ * Republishes "key" as `state.x * 10`, shadowing an ancestor that also publishes it.
+ */
 class ShadowingSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
   updatef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     ctx.set("key", this.state.x * 10);
   }
@@ -145,9 +147,9 @@ class ShadowingSetter extends aether.Composite<typeof exampleProps, {}, ExampleL
  * pattern. Subscribers must re-run even though the value is reference-equal. */
 class InstanceSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
   updatef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     ctx.set("key", 7);
   }
@@ -165,14 +167,15 @@ const invokeMethodsSchema = {
     output: z.promise(z.number()),
   }),
   throwError: z.function(),
+  isEven: z.function({ input: z.tuple([z.number()]), output: z.boolean() }),
 } satisfies aether.MethodsSchema;
 
 class InvokeLeaf
   extends aether.Leaf<typeof exampleProps, {}, typeof invokeMethodsSchema>
   implements aether.HandlersFromSchema<typeof invokeMethodsSchema>
 {
-  schema = exampleProps;
-  methods = invokeMethodsSchema;
+  override schema = exampleProps;
+  override methods = invokeMethodsSchema;
 
   incrementSpy = vi.fn((n: number) => n + 1);
   greetSpy = vi.fn((args: { name: string }) => `Hello, ${args.name}!`);
@@ -198,12 +201,16 @@ class InvokeLeaf
     return this.asyncMethodSpy(n);
   }
 
+  isEven(n: number): boolean {
+    return n % 2 === 0;
+  }
+
   throwError(): void {
     this.throwErrorSpy();
   }
 
-  afterUpdate(): void {}
-  afterDelete(): void {}
+  override afterUpdate(): void {}
+  override afterDelete(): void {}
 }
 
 class InvokeComposite extends aether.Composite<
@@ -212,11 +219,11 @@ class InvokeComposite extends aether.Composite<
   InvokeLeaf,
   aether.EmptyMethodsSchema
 > {
-  schema = exampleProps;
-  methods = undefined;
+  override schema = exampleProps;
+  override methods = undefined;
 
-  afterUpdate(): void {}
-  afterDelete(): void {}
+  override afterUpdate(): void {}
+  override afterDelete(): void {}
 }
 
 const make =
@@ -241,8 +248,8 @@ const shouldNotCallCreate = (): aether.Component => {
   throw new Error("should not call create");
 };
 
-/** Issues a self/child state update with the standard `{ x }` state. `create` defaults to
- * {@link shouldNotCallCreate} for updates that should not spawn a child. */
+/** Issues a self/child state update with the standard `{ x }` state. `create` defaults
+ * to {@link shouldNotCallCreate} for updates that should not spawn a child. */
 const update = (
   c: aether.Component,
   path: string[],
@@ -595,7 +602,7 @@ describe("Aether Worker", () => {
           args: [5],
           method: "increment",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.incrementSpy).toHaveBeenCalledWith(5);
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -612,7 +619,7 @@ describe("Aether Worker", () => {
           args: [{ name: "World" }],
           method: "greet",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.greetSpy).toHaveBeenCalledWith({ name: "World" });
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -628,7 +635,7 @@ describe("Aether Worker", () => {
           args: [],
           method: "noArgs",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.noArgsSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();
@@ -642,7 +649,7 @@ describe("Aether Worker", () => {
           method: "asyncMethod",
         });
 
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.asyncMethodSpy).toHaveBeenCalledWith(10);
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -660,7 +667,7 @@ describe("Aether Worker", () => {
           method: "throwError",
         });
 
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -681,7 +688,7 @@ describe("Aether Worker", () => {
           args: [],
           method: "throwError",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();
@@ -944,10 +951,10 @@ describe("message", () => {
 });
 
 // Property/oracle test for context propagation. The incremental engine (re-run only the
-// subscribers of a changed key, cascading) is checked against a trivially-correct oracle
-// — a full top-down recompute of the whole tree. For random trees and random update /
-// delete sequences, every live node's resolved context must match the recompute; any
-// missed propagation (a stale node) makes the two disagree.
+// subscribers of a changed key, cascading) is checked against a trivially-correct
+// oracle — a full top-down recompute of the whole tree. For random trees and random
+// update / delete sequences, every live node's resolved context must match the
+// recompute; any missed propagation (a stale node) makes the two disagree.
 
 const stateZ = z.object({ x: z.number(), id: z.string() });
 
@@ -1004,15 +1011,15 @@ const runNode = (state: { x: number; id: string }, ctx: aether.Context): void =>
 };
 
 class PropComposite extends aether.Composite<typeof stateZ> {
-  schema = stateZ;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = stateZ;
+  override afterUpdate(ctx: aether.Context): void {
     runNode(this.state, ctx);
   }
 }
 
 class PropLeaf extends aether.Leaf<typeof stateZ> {
-  schema = stateZ;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = stateZ;
+  override afterUpdate(ctx: aether.Context): void {
     runNode(this.state, ctx);
   }
 }
@@ -1132,7 +1139,8 @@ describe("aether context propagation (property/oracle)", () => {
       const states = new Map<string, number>();
       const randX = () => Math.floor(rand() * 6);
 
-      // Build and drive the tree by routing through the root, exactly as production does.
+      // Build and drive the tree by routing through the root, exactly as production
+      // does.
       const root = mk(nodes[0], null);
       const apply = (
         node: TreeNode,

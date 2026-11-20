@@ -18,7 +18,7 @@ import (
 	"go/token"
 )
 
-// Go is a Formatter that runs `gofmt -s` over its input via stdin/stdout, first
+// Go is a formatter that runs `gofmt -s` over its input via stdin/stdout, first
 // collapsing a parenthesized single-import declaration to the unwrapped form gofmt
 // itself never rewrites.
 type Go struct{}

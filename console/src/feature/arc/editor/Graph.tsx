@@ -9,7 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Arc as Base, Diagram, Viewport } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -50,29 +50,31 @@ export const Graph = (): ReactElement => {
 
   return (
     <>
-      <Base.Graph.Editor
-        enableTriggers={isCurrentlyEditable}
-        extraMenuItems={renderExtraMenuItems}
-        viewport={viewport}
-        viewportMode={viewportMode}
-        onViewportModeChange={handleViewportModeChange}
-        onViewportChange={handleViewportChange}
-        selected={selected}
-        onSelectionChange={handleSelectionChange}
-        onEditableChange={handleEditableChange}
-        editable={isCurrentlyEditable}
-        triggers={triggers}
-        onDoubleClick={handleDoubleClick}
-        fitViewOnResize={fitViewOnResize}
-        setFitViewOnResize={handleSetFitViewOnResize}
-        visible={visible}
-      >
-        <Diagram.Background />
-        <Vis.Controls x>
-          <Diagram.Controls.FitView />
-          {canEdit && <Diagram.Controls.ToggleEdit />}
-        </Vis.Controls>
-      </Base.Graph.Editor>
+      <Vis.GPUBoundary name="Arcs">
+        <Base.Graph.Editor
+          enableTriggers={isCurrentlyEditable}
+          extraMenuItems={renderExtraMenuItems}
+          viewport={viewport}
+          viewportMode={viewportMode}
+          onViewportModeChange={handleViewportModeChange}
+          onViewportChange={handleViewportChange}
+          selected={selected}
+          onSelectionChange={handleSelectionChange}
+          onEditableChange={handleEditableChange}
+          editable={isCurrentlyEditable}
+          triggers={triggers}
+          onDoubleClick={handleDoubleClick}
+          fitViewOnResize={fitViewOnResize}
+          setFitViewOnResize={handleSetFitViewOnResize}
+          visible={visible}
+        >
+          <Diagram.Background />
+          <Vis.Controls x>
+            <Diagram.Controls.FitView />
+            {canEdit && <Diagram.Controls.ToggleEdit />}
+          </Vis.Controls>
+        </Base.Graph.Editor>
+      </Vis.GPUBoundary>
       <TaskControls />
     </>
   );

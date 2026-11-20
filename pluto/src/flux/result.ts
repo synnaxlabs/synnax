@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { caseconv, type state } from "@synnaxlabs/x";
+import { type state, strings } from "@synnaxlabs/x";
 import type z from "zod";
 
 /** Carries `initialStatusDetails` only when the query declares a details schema. */
@@ -29,7 +29,9 @@ export const parseInitialStatusDetails = <StatusDetails extends z.ZodType = z.Zo
   return undefined as z.output<StatusDetails>;
 };
 
-/** @returns the details a result's status carries, or undefined when it carries none. */
+/**
+ * @returns the details a result's status carries, or undefined when it carries none.
+ */
 export const resultStatusDetails = <
   Data extends state.State,
   StatusDetails extends z.ZodType = z.ZodNever,
@@ -134,7 +136,7 @@ export const loadingResult = (<
   variant: "loading",
   status: status.create<StatusDetails, "loading">({
     variant: "loading",
-    message: `${caseconv.capitalize(op)}`,
+    message: `${strings.capitalize(op)}`,
     details: statusDetails as z.output<StatusDetails>,
   }),
   data,
@@ -152,7 +154,7 @@ export const successResult = (<
   variant: "success",
   status: status.create<StatusDetails, "success">({
     variant: "success",
-    message: caseconv.capitalize(op),
+    message: strings.capitalize(op),
     details: statusDetails,
   }),
   data,

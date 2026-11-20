@@ -11,7 +11,7 @@ import "@/components/note/Note.css";
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note as Base } from "@synnaxlabs/lyra/note";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 export type Variant = "info" | "warning" | "error";
 

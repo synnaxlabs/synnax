@@ -10,6 +10,7 @@
 import { capture } from "@/index";
 
 import { kindButton, selectItem } from "./common/channel-dialog";
+import { openProject } from "./common/desktop";
 import { controls, editor } from "./common/sample";
 
 export const desktop = true;
@@ -35,20 +36,6 @@ const type = async (session: capture.CaptureSession, text: string): Promise<void
   session.setSpeed(TYPE_SPEED);
   await session.type(text);
   session.setSpeed(1);
-};
-
-/** openProject creates an empty project from the projects screen of Synnax Desktop. */
-const openProject = async (session: capture.CaptureSession): Promise<void> => {
-  const { page } = session;
-  const create = page.getByText("New project").first();
-  await session.waitFor(create, 1800);
-  await create.click();
-  const name = page.locator(capture.MODAL).getByPlaceholder("Name").first();
-  await session.waitFor(name);
-  await name.fill("My project");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  await session.waitFor(page.locator(".console-palette button"), 1800);
-  await capture.clearPanel(session);
 };
 
 /**
@@ -109,12 +96,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.zoom(modal, 1.6);
   await session.click(name);
   await type(session, "Ramp");
-  await session.click(
-    modal
-      .locator(".console-arc-create-modal__mode-select-button")
-      .filter({ hasText: "Text" })
-      .first(),
-  );
   await session.hold(400);
   await capture.clickButton(session, "Create");
   session.endZoom();
@@ -148,16 +129,21 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
   await capture.zoomCenter(session, drawer, 1.4);
   await capture.addChannels(session, "Y1", ["ramp"], { search: "ramp" });
-  // A new plot starts on Rolling 30s, so the tutorial only checks it.
-  await session.moveTo(drawer.getByText("Rolling 30s", { exact: true }).first(), {
-    text: true,
-  });
+  // A new plot starts on a rolling 30s window, so the tutorial only checks it.
+  const rolling = drawer
+    .locator(".lyra-tag")
+    .filter({ has: page.locator(".console-range-select__live-icon") })
+    .first();
+  await session.moveTo(rolling.getByText("30s", { exact: true }), { text: true });
   await session.hold(1200);
   session.endZoom();
   await session.moveTo(capture.PARK);
   // The ramp draws on wall time, which the capture runs behind, so a few seconds of
   // video show more than one climb.
   await session.hold(4000);
+  // The range dialog reads the selection's status from the virtual clock, which runs
+  // behind the ramp's wall-time stamps.
+  await session.jumpToWall();
 
   const plotBox = await plot.boundingBox();
   if (plotBox == null) throw new Error("the line plot is hidden");
@@ -166,11 +152,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     y: plotBox.y + plotBox.height * fy,
   });
   await session.zoom(plot, 1.2);
+  // The page clock runs behind the ramp's timestamps, so the selection sits far from
+  // the live edge.
   await page.keyboard.down("Alt");
-  await session.drag(at(0.45, 0.35), at(0.75, 0.65));
+  await session.drag(at(0.06, 0.35), at(0.36, 0.65));
   await page.keyboard.up("Alt");
   await session.hold(500);
-  await session.rightClick(at(0.6, 0.5));
+  await session.rightClick(at(0.21, 0.5));
   const menu = page.locator(".lyra-menu-context").first();
   await session.waitFor(menu);
   await session.hold(400);
@@ -184,7 +172,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(name);
   await type(session, "First run");
   await session.hold(400);
-  await capture.clickButton(session, "Save to Core");
+  await capture.clickButton(session, "Create");
   session.endZoom();
   await session.waitForHidden(name);
   await session.moveTo(capture.PARK);

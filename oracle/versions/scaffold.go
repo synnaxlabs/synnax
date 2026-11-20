@@ -11,6 +11,8 @@ package versions
 
 import (
 	"context"
+	"path/filepath"
+	"time"
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
@@ -24,7 +26,7 @@ import (
 // design.
 func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 	current := chain.Current()
-	cur, err := r.File(ctx, chain.LivePath(), current)
+	cur, err := r.File(chain.LivePath(), current)
 	if err != nil {
 		return "", err
 	}
@@ -34,14 +36,14 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 				"revive it", chain.LivePath(), current,
 		)
 	}
-	surf, err := r.Surface(ctx, chain.LivePath(), current)
+	surf, err := r.Surface(chain.LivePath(), current)
 	if err != nil {
 		return "", err
 	}
 	opts := RenderOptions{
 		Imports: fileImports(cur),
 		Qualifier: func(ns string) string {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				return ""
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
@@ -73,7 +75,9 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 			err, "failed to format scaffold for %s", chain.LivePath(),
 		)
 	}
-	return license(ctx, r.RepoRoot(), formatted)
+	return license(
+		ctx, r.RepoRoot(), chain.FilePath(current+1)+".oracle", formatted,
+	)
 }
 
 // fileImports reconstructs a file's import paths: pins as version-file paths, live
@@ -91,13 +95,13 @@ func fileImports(f *File) []string {
 }
 
 // license prepends the repository's license header, the same one every other checked-in
-// file carries.
-func license(ctx context.Context, repoRoot, content string) (string, error) {
-	l, err := format.NewLicense(repoRoot)
+// file carries. It keeps the year of the existing file at the repo-relative path rel.
+func license(ctx context.Context, repoRoot, rel, content string) (string, error) {
+	l, err := format.NewLicense(repoRoot, time.Now().Year(), nil)
 	if err != nil {
 		return "", err
 	}
-	out, err := l.Format(ctx, []byte(content), "v.oracle")
+	out, err := l.Format(ctx, []byte(content), filepath.Join(repoRoot, rel))
 	if err != nil {
 		return "", err
 	}

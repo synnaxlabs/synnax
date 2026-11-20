@@ -12,20 +12,19 @@ package gorp
 import (
 	"cmp"
 	"context"
-	"slices"
+	"math"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// ErrIndexInvalid indicates that a registered secondary index failed to
-// populate. Retrieve.Where(idx.Filter(...)) catches this sentinel and falls
-// back to a sequential scan with a synthesized predicate, so queries continue
-// to return correct results — just at scan cost. Direct callers of Get
-// receive the sentinel and are responsible for their own fallback (see
-// ontology.parentsByIndex for the canonical pattern).
+// ErrIndexInvalid indicates that a registered secondary index failed to populate. The
+// Filter of the index catches this sentinel and falls back to a sequential scan, so
+// queries continue to return correct results at scan cost. Direct callers of Get
+// receive the sentinel and are responsible for their own fallback.
 //
 // A populate failure is logged via the table's instrumentation and stays
 // sticky for the lifetime of the process: there is no automatic rebuild.
@@ -65,12 +64,6 @@ type Index[K Key, E Entry[K]] interface {
 	// When tx has no per-tx identity, the deletion applies to committed
 	// state immediately.
 	stageDelete(tx Tx, key K)
-	// announce shows entry to index filters while a write outside a transaction is in
-	// progress. Committed index state does not change. Pass the returned handle to
-	// withdraw when the write ends.
-	announce(entry *E) uint64
-	// withdraw ends the announce that returned handle.
-	withdraw(handle uint64)
 }
 
 // indexStore is the read side of the engine behind an index.
@@ -89,45 +82,70 @@ func populateErr(name string, err error) error {
 	return errors.Wrapf(ErrIndexInvalid, "%q", name)
 }
 
-// scopeOf returns the per-tx state of tx, or nil when tx is nil or is not a real
+// scopeOf returns the per-tx state of snap, or nil when snap is nil or is not a real
 // transaction.
-func scopeOf(tx Tx) *txState {
-	if tx == nil {
+func scopeOf(snap Snapshot) *txState {
+	if snap == nil {
 		return nil
 	}
-	return tx.txIdentity()
+	return snap.txIdentity()
 }
 
-// indexFilter returns a Filter matching entries whose field, read by extract, is any of
-// values. The filter resolves its keys through store at Exec time and carries an eval
-// predicate for the sequential-scan fallback.
+// probe returns the keys that store maps to any of values, with the changes staged
+// against snap applied. A read outside a transaction can run after a commit writes and
+// before its index changes apply, so probe also includes the keys of each commit in
+// flight. Such a commit can fail, so a caller checks each key against storage.
+//
+// probe waits for store to populate, or for ctx to end.
+func probe[K Key, V comparable](
+	ctx context.Context,
+	store indexStore[K, V],
+	snap Snapshot,
+	values []V,
+) ([]K, error) {
+	if err := store.Wait(ctx); err != nil {
+		return nil, err
+	}
+	committing := store.Committing(values...)
+	keys, err := store.Get(scopeOf(snap), values...)
+	if err != nil || len(committing) == 0 {
+		return keys, err
+	}
+	return lo.Uniq(append(keys, committing...)), nil
+}
+
+// indexFilter returns a Filter matching entries that hold any of values. The filter
+// resolves its keys through store at Exec time. When store failed to populate, it
+// leaves its keys unbounded, so holds checks every entry.
 func indexFilter[K Key, E Entry[K], V comparable](
 	store indexStore[K, V],
-	extract func(e *E) V,
+	holds func(e *E, in func(V) bool) bool,
 	values []V,
 ) Filter[K, E] {
-	captured := append([]V(nil), values...)
+	captured := lo.Uniq(values)
+	in := index.AnyOf(captured)
 	return Filter[K, E]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			if err := store.Wait(ctx); err != nil {
-				return resolved[K, E]{}, err
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			// eval drops the keys of a commit in flight that fails.
+			keys, err := probe(ctx, store, snap, captured)
+			if errors.Is(err, ErrIndexInvalid) {
+				return resolved[K, E]{}, nil
 			}
-			// Observers run before a commit returns, so Get alone misses the entries
-			// that notified them. eval drops the keys of a commit that fails.
-			committing := store.Committing(captured...)
-			keys, err := store.Get(scopeOf(tx), captured...)
 			if err != nil {
 				return resolved[K, E]{}, err
-			}
-			if len(committing) > 0 {
-				keys = lo.Uniq(append(keys, committing...))
 			}
 			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
-			return slices.Contains(captured, extract(e)), nil
+			return holds(e, in), nil
 		},
 	}
+}
+
+// holdsValue returns a predicate reporting whether in holds the field that extract
+// reads.
+func holdsValue[E any, V comparable](extract func(e *E) V) func(*E, func(V) bool) bool {
+	return func(e *E, in func(V) bool) bool { return in(extract(e)) }
 }
 
 // LookupIndex is an in-memory exact-match secondary index on a field of type V
@@ -158,50 +176,39 @@ func NewLookupIndex[K Key, E Entry[K], V comparable](
 // Name implements Index.
 func (l *LookupIndex[K, E, V]) Name() string { return l.name }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert, finish := l.store.Populate()
 	return func(entry E) { insert(entry.GorpKey(), l.extract(&entry)) },
 		func(err error) { finish(populateErr(l.name, err)) }
 }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) set(entry E) {
 	l.store.Set(entry.GorpKey(), l.extract(&entry))
 }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) delete(key K) { l.store.Delete(key) }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) stageSet(tx Tx, entry E) {
 	l.store.Stage(tx.txIdentity(), entry.GorpKey(), l.extract(&entry))
 }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	l.store.StageDelete(tx.txIdentity(), key)
 }
 
-//nolint:unused
-func (l *LookupIndex[K, E, V]) announce(entry *E) uint64 {
-	return l.store.Announce((*entry).GorpKey(), l.extract(entry))
-}
-
-//nolint:unused
-func (l *LookupIndex[K, E, V]) withdraw(handle uint64) { l.store.Withdraw(handle) }
-
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only.
+// snap. Pass a nil snap to read committed state only. Get includes the keys of a commit
+// in flight, which can fail, so check each key against storage.
 //
-// Get blocks until the index has finished populating. After populate settles, Get
-// returns ErrIndexInvalid if population failed; callers should fall back to a
-// sequential scan or surface the error.
-//
-// Returned slices are owned by the caller and may be freely retained.
-func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
-	return l.store.Get(scopeOf(tx), values...)
+// Get waits for the index to populate, or for ctx to end. It returns ErrIndexInvalid
+// if population failed. The caller owns the returned slice.
+func (l *LookupIndex[K, E, V]) Get(
+	ctx context.Context,
+	snap Snapshot,
+	values ...V,
+) ([]K, error) {
+	return probe(ctx, l.store, snap, values)
 }
 
 // Filter returns a Filter[K, E] matching entries whose indexed field is any of values.
@@ -211,21 +218,24 @@ func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 // only.
 //
 // Filter blocks the Retrieve until the index has finished populating. If population
-// fails, the resolver returns ErrIndexInvalid; Retrieve catches the sentinel and falls
-// back to a sequential scan using the eval predicate carried alongside the resolver, so
-// queries continue to return correct results at scan cost.
+// fails, the Filter falls back to a sequential scan, so queries continue to return
+// correct results at scan cost.
 func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return indexFilter[K, E](l.store, l.extract, values)
+	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
 }
 
-// SortedIndex is an ordered in-memory index on a field of type V extracted from entries
-// of type E. V is constrained to cmp.Ordered so the index can compare values without a
-// caller-supplied comparator. SortedIndex supports exact-match lookups via Filter (same
-// semantics as LookupIndex) and ordered cursor-based pagination via Retrieve.OrderBy.
+// Bound is one end of a range of values that SortedIndex.FilterRange matches. A nil
+// *Bound leaves its end of the range open.
+type Bound[V cmp.Ordered] = index.Bound[V]
+
+// SortedIndex is an ordered in-memory index on a value of type V extracted from entries
+// of type E. Entries order by value, then by key, so every walk has one total order.
+// SortedIndex supports exact-match lookups via Filter (same semantics as LookupIndex)
+// and ordered cursor-based pagination via Retrieve.OrderBy.
 //
-// Read-your-own-writes is v1-scoped to equality Filter. Ordered cursor iteration via
-// Retrieve.OrderBy does NOT reflect uncommitted tx writes; an open write tx that staged
-// inserts or deletes will not see those changes during ordered iteration.
+// Read-your-own-writes is scoped to Filter and FilterRange. Ordered cursor iteration
+// via Retrieve.OrderBy does NOT reflect uncommitted tx writes; an open write tx that
+// staged inserts or deletes will not see those changes during ordered iteration.
 type SortedIndex[K Key, E Entry[K], V cmp.Ordered] struct {
 	// name is the human-readable index name, used in diagnostics.
 	name string
@@ -244,52 +254,41 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 	return &SortedIndex[K, E, V]{
 		name:    name,
 		extract: extract,
-		store:   index.NewSorted[*txState, K, V](),
+		store:   index.NewSorted[*txState, K, V](key.Order[K]()),
 	}
 }
 
 // Name implements Index.
 func (s *SortedIndex[K, E, V]) Name() string { return s.name }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert, finish := s.store.Populate()
 	return func(entry E) { insert(entry.GorpKey(), s.extract(&entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) set(entry E) {
 	s.store.Set(entry.GorpKey(), s.extract(&entry))
 }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) delete(key K) { s.store.Delete(key) }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
 	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.extract(&entry))
 }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }
 
-//nolint:unused
-func (s *SortedIndex[K, E, V]) announce(entry *E) uint64 {
-	return s.store.Announce((*entry).GorpKey(), s.extract(entry))
-}
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) withdraw(handle uint64) { s.store.Withdraw(handle) }
-
 // Get returns the primary keys of entries whose indexed field matches any of the
-// provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only. See LookupIndex.Get for the
-// populate-failure contract.
-func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
-	return s.store.Get(scopeOf(tx), values...)
+// provided values. See LookupIndex.Get for its contract.
+func (s *SortedIndex[K, E, V]) Get(
+	ctx context.Context,
+	snap Snapshot,
+	values ...V,
+) ([]K, error) {
+	return probe(ctx, s.store, snap, values)
 }
 
 // Filter returns an exact-match Filter[K, E] matching entries whose indexed field is
@@ -301,5 +300,51 @@ func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 // a sequential scan when populate fails. See LookupIndex.Filter for the
 // populate-failure contract.
 func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return indexFilter[K, E](s.store, s.extract, values)
+	return indexFilter[K, E](s.store, holdsValue(s.extract), values)
+}
+
+// FilterRange returns a Filter matching entries whose indexed value lies between lower
+// and upper. A nil bound leaves its end of the range open. Read-your-own-writes and the
+// populate-failure fallback match Filter.
+func (s *SortedIndex[K, E, V]) FilterRange(lower, upper *Bound[V]) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+				return resolved[K, E]{}, nil
+			} else if err != nil {
+				return resolved[K, E]{}, err
+			}
+			// eval drops the keys of a commit in flight that fails.
+			committing := s.store.CommittingRange(lower, upper)
+			keys, err := s.store.Range(scopeOf(snap), lower, upper)
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			if len(committing) > 0 {
+				keys = lo.Uniq(append(keys, committing...))
+			}
+			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return index.InRange(s.extract(e), lower, upper), nil
+		},
+		span: &span[K]{
+			count: func(ctx context.Context) (int, error) {
+				if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+					return math.MaxInt, nil
+				} else if err != nil {
+					return 0, err
+				}
+				return s.store.Count(lower, upper), nil
+			},
+			keep: func(ctx context.Context, snap Snapshot, keys []K) ([]K, error) {
+				if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+					return keys, nil
+				} else if err != nil {
+					return nil, err
+				}
+				return s.store.Keep(scopeOf(snap), keys, lower, upper), nil
+			},
+		},
+	}
 }

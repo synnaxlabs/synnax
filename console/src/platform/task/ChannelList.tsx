@@ -7,47 +7,55 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { channel } from "@synnaxlabs/client";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Note } from "@synnaxlabs/lyra/note";
 import { Select } from "@synnaxlabs/lyra/select";
-import { array } from "@synnaxlabs/x";
+import { Text } from "@synnaxlabs/lyra/text";
+import { array, deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
-import { type Channel } from "@/platform/task/types";
+import { TareItem } from "@/platform/task/TareItem";
+import type { Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
-export interface ContextMenuItemProps<C extends Channel> {
-  keys: string[];
+export interface ContextMenuItemProps<C extends Channel> extends Pick<
+  Menu.ContextMenuMenuProps,
+  "keys" | "target"
+> {
   channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C["key"], C>,
-  "data" | "remove"
-> {
-  keys: string[];
-  allowTare?: (keys: string[], channels: C[]) => boolean;
+interface ContextMenuProps<C extends Channel>
+  extends
+    Pick<Form.UseFieldListReturn<C>, "data" | "remove">,
+    Pick<Menu.ContextMenuMenuProps, "keys" | "target"> {
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
-  onTare?: (keys: string[], channels: C[]) => void;
-  path: string;
+  /** The list's float read channels can tare while the task runs. */
+  tareable?: boolean;
+  path: deep.Path<C[]>;
   contextMenuItems?: Component.RenderProp<ContextMenuItemProps<C>>;
 }
 
+/** @returns the Synnax channel a read channel binds, or 0 for any other channel. */
+const boundChannel = (c: Channel): channel.Key =>
+  "channel" in c && typeof c.channel === "number" ? c.channel : 0;
+
 const ContextMenu = <C extends Channel>({
-  allowTare,
   keys,
+  target,
   onDuplicate,
   onSelect,
-  onTare,
+  tareable = false,
   path,
   remove,
   contextMenuItems,
@@ -55,24 +63,20 @@ const ContextMenu = <C extends Channel>({
   const isPreview = useIsPreview();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { get, set } = Form.useContext();
-  const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
-    keys.includes(key),
-  );
+  const channels = Form.useFieldValue(path).filter(({ key }) => keys.includes(key));
   const handleDuplicate = () => {
-    const allChannels = get<C[]>(path).value;
+    const allChannels = get(path).value;
     onDuplicate?.(allChannels, keys);
   };
   const isEnabled = (c: C) => !c.disabled;
   const setEnabled = (key: string, enabled: boolean) =>
-    set(`${path}.${key}.disabled`, !enabled);
+    set(deep.widen<Channel[]>(path)[key].disabled, !enabled);
   const handleDisable = () => keys.forEach((key) => setEnabled(key, false));
   const handleEnable = () => keys.forEach((key) => setEnabled(key, true));
-  const handleTare = () => onTare?.(keys, channels);
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
   const canDisable = channels.some(isEnabled);
   const canEnable = channels.some((c) => !isEnabled(c));
-  const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PlatformContextMenu.Menu>
       {!isPreview && (
@@ -84,7 +88,7 @@ const ContextMenu = <C extends Channel>({
             </Menu.Item>
           )}
           <Menu.Divider />
-          {contextMenuItems?.({ channels, keys }) ?? null}
+          {contextMenuItems?.({ channels, keys, target }) ?? null}
           {canEnable && (
             <Menu.Item itemKey="enable" onClick={handleEnable}>
               <Icon.Enable />
@@ -99,11 +103,8 @@ const ContextMenu = <C extends Channel>({
           )}
         </>
       )}
-      {canTare && (
-        <Menu.Item itemKey="tare" onClick={handleTare}>
-          <Icon.Tare />
-          Tare
-        </Menu.Item>
+      {tareable && (
+        <TareItem channels={channels.filter((c) => !c.disabled).map(boundChannel)} />
       )}
       {!isPreview && (
         <>
@@ -117,11 +118,14 @@ const ContextMenu = <C extends Channel>({
   );
 };
 
-export interface ChannelListItemProps extends List.ItemProps<string> {}
+export interface ChannelListItemProps extends List.ItemProps<string> {
+  /** The item shows a tare button for a float channel. */
+  tareable?: boolean;
+}
 
 export interface ChannelListProps<C extends Channel>
   extends
-    Omit<ContextMenuProps<C>, "keys">,
+    Omit<ContextMenuProps<C>, "keys" | "target">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
   /**
    * Null for a list whose entries an outer BindChannels binds, or whose channels no
@@ -167,8 +171,9 @@ export const ChannelList = <C extends Channel>({
   ports,
   ...rest
 }: ChannelListProps<C>) => {
-  const { onSelect, path, data } = rest;
+  const { onSelect, path, data, tareable = false } = rest;
   const { status } = Form.useFieldState(path);
+  Form.useStatusDisplay(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
   const headingsRef = useRef<HTMLDivElement>(null);
@@ -225,18 +230,20 @@ export const ChannelList = <C extends Channel>({
               onContextMenu={menuProps.open}
               onScroll={handleScroll}
             >
-              <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
+              <List.Items<string, C> emptyContent={emptyContent}>
+                {tareable ? (p) => listItem({ ...p, tareable }) : listItem}
+              </List.Items>
             </List.Scroll>
           </Select.Frame>
         )}
       </Menu.ContextMenu>
       {status.variant !== "success" && (
-        <Input.HelpText
+        <Note.Note
           variant={status.variant}
           className={CSS.BE("channel-list", "status")}
         >
-          {status.message}
-        </Input.HelpText>
+          <Text.Text level="small">{status.message}</Text.Text>
+        </Note.Note>
       )}
       {footer}
     </Flex.Box>

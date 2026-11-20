@@ -16,13 +16,16 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/synnax/cmd/exit"
 	"github.com/synnaxlabs/synnax/cmd/service"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // RunMain is the entry point for the Synnax CLI on Windows. It detects whether the
 // process is running as a Windows Service or as an application and routes to the
 // appropriate startup path.
 func RunMain() {
+	msgpack.RegisterUUID()
 	isService, err := service.Is()
 	cobra.CheckErr(err)
 	if isService {
@@ -30,9 +33,7 @@ func RunMain() {
 		cobra.CheckErr(service.Run())
 		return
 	}
-	if err := Cmd.Execute(); err != nil {
-		os.Exit(1)
+	if err := NewCmd().Execute(); err != nil {
+		os.Exit(exit.Code(err))
 	}
 }
-
-func init() { Cmd.AddCommand(service.Cmd) }

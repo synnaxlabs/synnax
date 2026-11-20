@@ -35,7 +35,7 @@ var _ = Describe("Variable-length channel", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -45,7 +45,7 @@ var _ = Describe("Variable-length channel", func() {
 						IsIndex:  true,
 					},
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -56,10 +56,6 @@ var _ = Describe("Variable-length channel", func() {
 					},
 				}))
 				dataDB.SetIndex(indexDB.Index())
-			})
-			AfterAll(func() {
-				Expect(dataDB.Close()).To(Succeed())
-				Expect(indexDB.Close()).To(Succeed())
 			})
 
 			Describe("Write + Read", func() {
@@ -413,8 +409,8 @@ var _ = Describe("Variable-length channel", func() {
 								(800 * telem.SecondTS).Range(806*telem.SecondTS),
 							),
 						)
-						var got []string
-						for i := 0; i < frame.Count(); i++ {
+						got := make([]string, 0, frame.Len())
+						for i := range frame.Count() {
 							got = append(
 								got,
 								frame.SeriesAt(i).Unmarshal[string]()...,
@@ -903,7 +899,7 @@ var _ = Describe("Variable-length channel", func() {
 					var all []string
 					for iter.Next(ctx, telem.TimeSpanMax) {
 						f := iter.Value()
-						for i := 0; i < f.Count(); i++ {
+						for i := range f.Count() {
 							all = append(
 								all,
 								f.SeriesAt(i).Unmarshal[string]()...,

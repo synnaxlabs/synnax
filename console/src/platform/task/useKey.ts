@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { primitive } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
+
+import { formPath } from "@/platform/task/types";
 
 /** Returns null for a task that has not been created yet. */
 export const useKey = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
 ): task.Key | null => {
   // Zero payloads seed the form with an empty key until the row is retrieved.
-  const key = Form.useFieldValue<task.Key>("key", { ctx, optional: true });
+  const key = Form.useFieldValue(formPath.key, { ctx, optional: true });
   return primitive.isZero(key) ? null : key;
 };

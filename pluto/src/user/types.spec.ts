@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type user } from "@synnaxlabs/client";
-import { type Haul } from "@synnaxlabs/lyra/haul";
+import type { user } from "@synnaxlabs/client";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -23,6 +23,7 @@ const USER: user.User = {
   key: "550e8400-e29b-41d4-a716-446655440000",
   name: "Test User",
   rootUser: false,
+  role: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
 };
 
 const OTHER: Haul.Item = { type: "other_type", key: "other" };

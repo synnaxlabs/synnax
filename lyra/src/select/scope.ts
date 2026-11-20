@@ -7,15 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AriaAttributes } from "react";
+import type { AriaAttributes, Dispatch, SetStateAction } from "react";
 
 import { context } from "@/context";
-import { type Status } from "@/status";
+import type { KeyboardHandlers } from "@/select/useCursor";
+import type { Status } from "@/status";
 
 /** True inside a closed select dialog, whose children render into a detached node. */
 export const [ClosedContext, useClosed] = context.create<boolean>({
   defaultValue: false,
   displayName: "Select.ClosedContext",
+});
+
+/**
+ * True inside a `Select.Dialog` whose matching options show in its menu while the menu
+ * filters.
+ */
+export const [InlineContext, useInline] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Select.InlineContext",
+});
+
+/** Sets the count of the options that an inline selection shows in its menu. */
+export const [ShownContext, useShownContext] = context.create<Dispatch<
+  SetStateAction<number>
+> | null>({
+  defaultValue: null,
+  displayName: "Select.ShownContext",
+});
+
+/** True inside a `Select.List`. A fixed item outside one is pinned. */
+export const [ListContext, useInList] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Select.ListContext",
 });
 
 /** How a {@link Buttons} group draws its items. */
@@ -25,6 +49,7 @@ export interface ButtonsContextValue extends Pick<
   AriaAttributes,
   "aria-invalid" | "aria-describedby"
 > {
+  disabled?: boolean;
   preview: boolean;
   variant: ButtonsVariant;
   status?: Status.Variant;
@@ -36,3 +61,17 @@ export const [ButtonsContext, useButtonsContext] =
     defaultValue: null,
     displayName: "Select.ButtonsContext",
   });
+
+const [KeyboardContext, useKeyboardContext] = context.create<KeyboardHandlers>({
+  displayName: "Select.KeyboardContext",
+  providerName: "Select.Frame",
+});
+export { KeyboardContext };
+
+/**
+ * Returns the key handlers that move the enclosing frame's selection. Spread them on
+ * the focusable element whose keys move it. Only a frame whose `cursor` is
+ * `"selection"` answers them.
+ */
+export const useKeyboard = (): KeyboardHandlers =>
+  useKeyboardContext("Select.useKeyboard");

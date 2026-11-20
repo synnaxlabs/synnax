@@ -32,6 +32,10 @@ struct Authorities {
     [[nodiscard]] x::errors::Error validate() const {
         return synnax::framer::validate_authorities(this->keys, this->authorities);
     }
+
+    /// @brief sets the authorities that config opens a writer with to those the writer
+    /// holds after these authorities apply.
+    void apply(synnax::framer::WriterConfig &config) const;
 };
 
 /// @brief an object that reads data from an acquisition computer or another source,
@@ -64,6 +68,16 @@ public:
     /// This method may be called even if stop() was called on the pipeline.
     virtual void stopped_with_err(const x::errors::Error &err) {}
 
+    /// @brief called on the pipeline thread each time the writer opens.
+    virtual void writer_opened() {}
+
+    /// @brief unblocks a read when the pipeline stops. Called on the stopping thread
+    /// after the breaker stops, and before the pipeline joins its thread. It can come
+    /// before the read blocks, so a blocking call made after it must also return. The
+    /// read it ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR. Not called
+    /// when the pipeline already stopped itself.
+    virtual void interrupt() {}
+
     virtual ~Source() = default;
 };
 
@@ -76,6 +90,13 @@ public:
     /// close the writer and conditionally trigger a retry (see the close method).
     [[nodiscard]] virtual x::errors::Error write(const x::telem::Frame &fr) = 0;
 
+    /// @brief writes a frame whose write failed on an earlier writer of the same
+    /// pipeline. A writer that delivers frames somewhere besides the Core already
+    /// delivered this one there, so it sends it to the Core only.
+    [[nodiscard]] virtual x::errors::Error rewrite(const x::telem::Frame &fr) {
+        return this->write(fr);
+    }
+
     /// @brief sets the authority for channels on this writer. If
     /// authorities.keys is empty, the authority applies to all channels.
     [[nodiscard]] virtual x::errors::Error
@@ -84,10 +105,10 @@ public:
     }
 
     /// @brief closes the writer, returning any error that occurred during normal
-    /// operation. If synnax::errors::is_temporarily_unavailable matches the returned
-    /// error, the acquisition pipeline will trigger a breaker (temporary backoff), and
-    /// then retry until the configured number of maximum retries is exceeded. Any other
-    /// error will be considered permanent and the pipeline will exit.
+    /// operation. If the Core is unreachable, the acquisition pipeline backs off and
+    /// retries with no retry limit. If the Core has no valid license, it retries up to
+    /// the breaker limit. Any other error will be considered permanent and the pipeline
+    /// will exit.
     [[nodiscard]] virtual x::errors::Error close() = 0;
 
     virtual ~Writer() = default;
@@ -98,11 +119,10 @@ public:
 class WriterFactory {
 public:
     /// @brief opens the writer with the given configuration. If the writer cannot be
-    /// opened, the method should return an error. If
-    /// synnax::errors::is_temporarily_unavailable matches the error, a breaker will be
-    /// triggered (temporary backoff), and the acquisition pipeline will retry the
-    /// operation until the configured number of maximum retries is exceeded. Any other
-    /// error will be considered permanent and the pipeline will exit.
+    /// opened, the method should return an error. If the Core is unreachable, the
+    /// acquisition pipeline backs off and retries with no retry limit. If the Core has
+    /// no valid license, it retries up to the breaker limit. Any other error will be
+    /// considered permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) = 0;
 
@@ -165,10 +185,30 @@ class Acquisition final : public Base {
     /// to remain open to accept authority handoff.
     bool err_on_unauthorized;
 
-    /// @brief the run function passed to the pipeline thread. Automatically catches
-    /// standard exceptions to ensure the pipeline does not cause the application to
-    /// crash.
     void run() override;
+
+    void stopped_with_err(const x::errors::Error &err) override;
+
+    void interrupt() override { this->source->interrupt(); }
+
+    /// @brief the state one run of the pipeline hands to the next when the Core was
+    /// temporarily unavailable.
+    struct Run {
+        /// @brief the writer configuration, with the authorities last set.
+        synnax::framer::WriterConfig config;
+        /// @brief the frame read but not yet written.
+        x::telem::Frame fr{0};
+        /// @brief the authority changes read but not yet set.
+        Authorities authorities;
+        /// @brief true when a write of fr already failed.
+        bool rewrite = false;
+    };
+
+    /// @brief runs the pipeline until it stops. A run writes what run holds before
+    /// it reads the source again, and leaves it in place when its write fails.
+    /// @returns true when the Core was temporarily unavailable and the breaker allows
+    /// another run.
+    bool run_once(Run &run);
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax

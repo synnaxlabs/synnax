@@ -21,6 +21,7 @@ from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     DriverTask,
     assert_configure_rejected,
+    assert_create_refused,
     assert_start_rejected,
     cleanup_task,
     create_channel,
@@ -34,7 +35,7 @@ class ModbusInvalidConfig(SimulatorCase):
 
     Tests (run sequentially):
         1. Nonexistent device — device key that doesn't exist.
-        2. Zero stream rate — heals to the schema default.
+        2. Zero stream rate — the Core refuses it.
         3. Invalid rates — sample rate less than stream rate.
         4. Nonexistent channel key — Synnax channel that doesn't exist.
         5. Invalid address — register address the device doesn't serve.
@@ -83,12 +84,8 @@ class ModbusInvalidConfig(SimulatorCase):
         self.log(f"  Correctly rejected (nonexistent device): {message}")
 
     def test_zero_stream_rate(self) -> None:
-        """Configure a read task with a stream rate of zero.
-
-        A zero rate means unset, so the core heals it to the schema default
-        instead of rejecting the task.
-        """
-        self.log("Testing: Zero stream rate heals to the schema default")
+        """Save a read task with a stream rate of zero. The Core refuses it."""
+        self.log("Testing: Zero stream rate")
         idx = create_index(self.client, "modbus_inv_rate0_idx")
         task = sy.modbus.ReadTask(
             name="Modbus Zero Stream Rate Test",
@@ -108,14 +105,11 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self.client.tasks.configure(task)
-        try:
-            stored = self.client.tasks.retrieve(keys=[task.key])[0]
-            rate = stored.config.get("stream_rate", stored.config.get("streamRate"))
-            assert rate == 5, f"stream rate should heal to the default 5, got {rate}"
-            self.log(f"  Healed to default stream rate: {rate}")
-        finally:
-            cleanup_task(self.client, task)
+        message = assert_create_refused(self.client, task, "zero stream rate")
+        assert "stream_rate: must be greater than 0" in message, (
+            f"Refusal should name the stream rate, got {message!r}"
+        )
+        self.log(f"  Correctly refused (zero stream rate): {message}")
 
     def test_invalid_rates(self) -> None:
         """Start a read task with sample rate less than stream rate.
@@ -145,7 +139,8 @@ class ModbusInvalidConfig(SimulatorCase):
         self._assert_deploy_fails(task, "invalid rates")
 
     def test_nonexistent_channel_key(self) -> None:
-        """Configure a read task with a Synnax channel key that doesn't exist."""
+        """Save a read task with a Synnax channel key that doesn't exist. The Core
+        refuses it before it reaches the driver."""
         self.log("Testing: Nonexistent Synnax channel key")
         task = sy.modbus.ReadTask(
             name="Modbus Invalid Channel Key Test",
@@ -160,7 +155,11 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "nonexistent channel key")
+        message = assert_create_refused(self.client, task, "nonexistent channel key")
+        assert "channel 999999999 does not exist" in message, (
+            f"Refusal should name the missing channel, got {message!r}"
+        )
+        self.log(f"  Correctly refused (nonexistent channel key): {message}")
 
     def test_invalid_address(self) -> None:
         """Start a read task with a register address the simulator doesn't serve."""
@@ -215,7 +214,7 @@ class ModbusInvalidConfig(SimulatorCase):
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
             channels=[
-                sy.modbus.HoldingRegisterReadChannel(
+                sy.modbus.HoldingRegisterStringReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_str_ch",
@@ -223,14 +222,13 @@ class ModbusInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     address=STRING_START,
-                    data_type=sy.DataType.STRING,
-                    string_length=5,
+                    length=5,
                 ),
             ],
         )
         message = assert_start_rejected(self.client, task, "wide string")
         expected = (
-            "Failed to configure task: channels.0.string_length: needs 3 registers, "
+            "Failed to configure task: channels.0.length: needs 3 registers, "
             "but the device reads at most 2 per request"
         )
         assert message == expected, f"Rejection should be {expected!r}, got {message!r}"

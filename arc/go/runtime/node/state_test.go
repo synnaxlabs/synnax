@@ -10,6 +10,8 @@
 package node_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -2128,7 +2130,7 @@ var _ = Describe("ProgramState", func() {
 			},
 		)
 
-		It("Should re-arm a self-write feeder only on Reset", func(ctx SpecContext) {
+		It("Should re-arm a self-write feeder only on Reset", func() {
 			// A reader writing back into its source variable is a cycle the
 			// analyzer rejects, so build the IR directly.
 			inter := ir.IR{
@@ -2300,7 +2302,7 @@ var _ = Describe("ProgramState", func() {
 
 		It(
 			"Should report an unedged reference input as unsourced",
-			func(ctx SpecContext) {
+			func() {
 				inter := ir.IR{Nodes: ir.Nodes{{
 					Key:  "reader",
 					Type: "reader",
@@ -2802,9 +2804,121 @@ var _ = Describe("ProgramState", func() {
 				To(Equal(uint8(9)))
 		})
 
+		Describe("A variable of another unit", func() {
+			unit := func(name string, scale float64) *types.Unit {
+				return &types.Unit{Dimensions: types.DimTime, Scale: scale, Name: name}
+			}
+			// build binds "span" of c to variable v, in the units from and to.
+			build := func(elem types.Type, from, to *types.Unit, initial any) *node.ProgramState {
+				elem.Unit = from
+				ref := types.VarRef(elem, "v")
+				ref.Unit = to
+				v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: elem},
+				}}
+				c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+					{Name: "span", Type: ref, Value: initial},
+				}}
+				return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+			}
+
+			It("Should convert the latest value to the unit of the input", func() {
+				s := build(
+					types.I64(),
+					unit("s", 1e9),
+					unit("ns", 1),
+					int64(5_000_000_000),
+				)
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](5, 2)
+				Expect(s.Node("c").NumericInput[int64]("span")).
+					To(Equal(int64(2_000_000_000)))
+			})
+
+			It("Should read the declared initial in the unit of the input", func() {
+				s := build(
+					types.I64(),
+					unit("s", 1e9),
+					unit("ns", 1),
+					int64(5_000_000_000),
+				)
+				Expect(s.Node("c").NumericInput[int64]("span")).
+					To(Equal(int64(5_000_000_000)))
+			})
+
+			It("Should keep a large integer exact", func() {
+				s := build(types.I64(), unit("s", 1e9), unit("ns", 1), int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](9_007_199_255)
+				Expect(s.Node("c").NumericInput[int64]("span")).
+					To(Equal(int64(9_007_199_255_000_000_000)))
+			})
+
+			It("Should convert to a larger unit", func() {
+				s := build(types.I64(), unit("ns", 1), unit("s", 1e9), int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](3_000_000_000)
+				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(3)))
+			})
+
+			It("Should keep an integer exact for a larger unit", func() {
+				s := build(types.I64(), unit("ms", 1e6), unit("h", 3600e9), int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](3_600_000, 7_200_000)
+				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(2)))
+			})
+
+			It("Should convert a float", func() {
+				s := build(types.F64(), unit("ms", 1e6), unit("s", 1e9), 0.0)
+				*s.Node("v").Output(0) = telem.NewSeriesV(1500.0)
+				Expect(s.Node("c").NumericInput[float64]("span")).To(Equal(1.5))
+			})
+
+			It("Should convert a pressure by a factor that is not whole", func() {
+				bar := &types.Unit{
+					Dimensions: types.DimPressure,
+					Scale:      1e5,
+					Name:       "bar",
+				}
+				psi := &types.Unit{
+					Dimensions: types.DimPressure,
+					Scale:      6894.76,
+					Name:       "psi",
+				}
+				s := build(types.F64(), bar, psi, 0.0)
+				*s.Node("v").Output(0) = telem.NewSeriesV(2.0)
+				Expect(s.Node("c").NumericInput[float64]("span")).
+					To(BeNumerically("~", 29.0075361579, 1e-9))
+			})
+
+			It("Should keep an integer length exact", func() {
+				um := &types.Unit{Dimensions: types.DimLength, Scale: 1e-6, Name: "um"}
+				nm := &types.Unit{Dimensions: types.DimLength, Scale: 1e-9, Name: "nm"}
+				s := build(types.I64(), um, nm, int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](3)
+				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(3000)))
+			})
+		})
+
 		It("Should return zero for an unknown input", func() {
 			Expect(build().Node("c").NumericInput[uint8]("nope")).To(BeZero())
 		})
+
+		It("Should decode a stored non-finite value", func() {
+			c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+				{Name: "high", Type: types.F64(), Value: "Infinity"},
+				{Name: "low", Type: types.F32(), Value: "-Infinity"},
+				{Name: "missing", Type: types.F64(), Value: "NaN"},
+			}}
+			n := node.New(ir.IR{Nodes: ir.Nodes{c}}).Node("c")
+			Expect(n.NumericInput[float64]("high")).To(Equal(math.Inf(1)))
+			Expect(n.NumericInput[float32]("low")).To(Equal(float32(math.Inf(-1))))
+			Expect(math.IsNaN(n.NumericInput[float64]("missing"))).To(BeTrue())
+		})
+	})
+
+	It("Should seed an unconnected input with its decoded stored value", func() {
+		c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+			{Name: "high", Type: types.F32(), Value: "Infinity"},
+		}}
+		n := node.New(ir.IR{Nodes: ir.Nodes{c}}).Node("c")
+		Expect(n.Input(0)).To(telem.MatchSeries(telem.NewSeriesV(float32(math.Inf(1)))))
 	})
 })
 
@@ -2915,7 +3029,7 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 var _ = Describe("Gating and Absorb Edge Cases", func() {
 	It(
 		"Should gate a value-fed node on an edge into an undeclared param",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{
 				Nodes: ir.Nodes{
 					{
@@ -2954,7 +3068,7 @@ var _ = Describe("Gating and Absorb Edge Cases", func() {
 
 	It(
 		"Should skip reference and unsourced inputs when absorbing",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{
 				Nodes: ir.Nodes{
 					{

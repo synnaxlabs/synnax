@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   type Language,
   loadLanguage,
+  suggestTimeRange,
   suggestTimeSpans,
   suggestTimeStamps,
 } from "@/input/time/suggest";
@@ -114,6 +115,19 @@ describe("suggestTimeSpans", () => {
     expect(first.value.equals(TimeSpan.minutes(150))).toBe(true);
   });
 
+  it("should read a bare number in the given unit and name the unit", () => {
+    const suggestions = suggestTimeSpans("1000", language, TimeSpan.MILLISECOND);
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].value.equals(TimeSpan.SECOND)).toBe(true);
+    expect(suggestions[0].reading).toBe("milliseconds");
+  });
+
+  it("should throw on a unit it cannot name", () => {
+    expect(() => suggestTimeSpans("5", language, TimeSpan.seconds(2))).toThrow(
+      "2s is not a unit of time",
+    );
+  });
+
   it("should read Ms only as megaseconds", () => {
     const suggestions = suggestTimeSpans("5Ms", language);
     expect(suggestions.length).toBeGreaterThan(0);
@@ -138,5 +152,117 @@ describe("suggestTimeSpans", () => {
     expect(
       suggestTimeSpans("five minutes", language)[0].value.equals(TimeSpan.minutes(5)),
     ).toBe(true);
+  });
+});
+
+const local = (day: number, hour: number, minute: number = 0): TimeStamp =>
+  new TimeStamp(new Date(2026, 7, day, hour, minute));
+
+describe("suggestTimeRange", () => {
+  it("should read a day and a span of times", () => {
+    expect(suggestTimeRange("Yesterday from 1pm to 2pm", language, NOW)).toEqual(
+      new TimeRange(local(22, 13), local(22, 14)),
+    );
+    expect(suggestTimeRange("today 9:30-10:15am", language, NOW)).toEqual(
+      new TimeRange(local(23, 9, 30), local(23, 10, 15)),
+    );
+  });
+
+  it("should cover all of a day it names, up to the next midnight", () => {
+    expect(suggestTimeRange("yesterday", language, NOW)).toEqual(
+      new TimeRange(local(22, 0), local(23, 0)),
+    );
+  });
+
+  it("should read a start and a length", () => {
+    expect(suggestTimeRange("2h ago for 1h", language, NOW)).toEqual(
+      new TimeRange(NOW.sub(TimeSpan.hours(2)), NOW.sub(TimeSpan.hours(1))),
+    );
+    expect(suggestTimeRange("yesterday 1pm for half an hour", language, NOW)).toEqual(
+      new TimeRange(local(22, 13), local(22, 13, 30)),
+    );
+  });
+
+  it("should read a start until now", () => {
+    expect(suggestTimeRange("since 1pm", language, NOW)).toEqual(
+      new TimeRange(local(23, 13), NOW),
+    );
+  });
+
+  it("should read two ends", () => {
+    expect(suggestTimeRange("3h ago to 1h ago", language, NOW)).toEqual(
+      new TimeRange(NOW.sub(TimeSpan.hours(3)), NOW.sub(TimeSpan.hours(1))),
+    );
+    expect(suggestTimeRange("30m ago to now", language, NOW)).toEqual(
+      new TimeRange(NOW.sub(TimeSpan.minutes(30)), NOW),
+    );
+  });
+
+  it("should read a range pasted from a window's tooltip", () => {
+    const text = "2026-08-22 13:00:00.000 → 2026-08-22 14:00:00.000";
+    expect(suggestTimeRange(text, language, NOW)).toEqual(
+      new TimeRange(local(22, 13), local(22, 14)),
+    );
+  });
+
+  it("should place a time of day alone on the day of the other end", () => {
+    expect(suggestTimeRange("13:00 to 14:00 yesterday", language, NOW)).toEqual(
+      new TimeRange(local(22, 13), local(22, 14)),
+    );
+    expect(suggestTimeRange("yesterday 10pm to 2am", language, NOW)).toEqual(
+      new TimeRange(local(22, 22), local(23, 2)),
+    );
+    expect(suggestTimeRange("10pm to 2am yesterday", language, NOW)).toEqual(
+      new TimeRange(local(21, 22), local(22, 2)),
+    );
+  });
+
+  it("should place a time of day alone before now", () => {
+    expect(suggestTimeRange("since 3pm", language, NOW)).toEqual(
+      new TimeRange(local(22, 15), NOW),
+    );
+    expect(suggestTimeRange("10pm to 2am", language, NOW)).toEqual(
+      new TimeRange(local(22, 22), local(23, 2)),
+    );
+    expect(suggestTimeRange("1pm to 3pm", language, NOW)).toEqual(
+      new TimeRange(local(23, 13), local(23, 15)),
+    );
+    expect(suggestTimeRange("22:00", language, NOW)).toEqual(
+      new TimeRange(local(22, 22), local(22, 23)),
+    );
+  });
+
+  it("should end on the last day of a span of days", () => {
+    expect(suggestTimeRange("aug 17 through aug 19", language, NOW)).toEqual(
+      new TimeRange(local(17, 0), local(20, 0)),
+    );
+  });
+
+  it("should read nothing when other words name a range", () => {
+    expect(suggestTimeRange("monday test", language, NOW)).toBeNull();
+  });
+
+  it("should read an instant alone as the hour after it", () => {
+    expect(suggestTimeRange("3h ago", language, NOW)).toEqual(
+      new TimeRange(NOW.sub(TimeSpan.hours(3)), NOW.sub(TimeSpan.hours(2))),
+    );
+    expect(suggestTimeRange("yesterday 1pm", language, NOW)).toEqual(
+      new TimeRange(local(22, 13), local(22, 14)),
+    );
+  });
+
+  it("should end the hour after an instant at now", () => {
+    expect(suggestTimeRange("10m ago", language, NOW)).toEqual(
+      new TimeRange(NOW.sub(TimeSpan.minutes(10)), NOW),
+    );
+  });
+
+  it("should read nothing for an instant after now", () => {
+    expect(suggestTimeRange("in 2 hours", language, NOW)).toBeNull();
+  });
+
+  it("should read nothing for text that names no time", () => {
+    expect(suggestTimeRange("purple", language, NOW)).toBeNull();
+    expect(suggestTimeRange("", language, NOW)).toBeNull();
   });
 });

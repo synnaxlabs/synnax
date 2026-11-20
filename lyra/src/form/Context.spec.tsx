@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { deep, type record, TimeStamp } from "@synnaxlabs/x";
 import { render, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -20,6 +20,12 @@ const mockSchema = z.object({
   name: z.string().min(1, "Name is required"),
   age: z.number().min(0, "Age must be positive"),
 });
+
+const path = deep.path<unknown>();
+const keyed = deep.path<{
+  items: record.Keyed<string>[];
+  tags: record.Keyed<string>[];
+}>();
 
 const mockInitialValues = {
   name: "John Doe",
@@ -52,8 +58,12 @@ const mockOverride: Form.ContextValue = {
   validateAsync: async () => false,
   has: () => false,
   setStatus: () => {},
+  clearStatus: () => {},
   clearStatuses: () => {},
   addCheck: () => () => {},
+  focus: () => false,
+  addFocusHandler: () => () => {},
+  addStatusDisplay: () => () => {},
   setCurrentStateAsInitialValues: () => {},
   getStatuses: () => [],
 };
@@ -205,7 +215,7 @@ describe("useContext", () => {
       const { result } = renderHook(
         () => {
           const ctx = useContext();
-          const fieldState = ctx.get("name");
+          const fieldState = ctx.get(path.name);
           return {
             hasGetMethod: typeof ctx.get === "function",
             hasSetMethod: typeof ctx.set === "function",
@@ -229,15 +239,15 @@ describe("useContext", () => {
     describe("Field component error messages", () => {
       it("should throw error with Field path when used outside Form context", () => {
         expect(() => {
-          render(<Form.Field path="user.name" />);
+          render(<Form.Field path={path.user.name} />);
         }).toThrow("Field(user.name) must be used within a Form context value");
       });
 
       it("should throw error with complex Field path when used outside Form context", () => {
         expect(() => {
-          render(<Form.Field path="settings.appearance.theme.colors[0]" />);
+          render(<Form.Field path={path.settings.appearance.theme.colors[0]} />);
         }).toThrow(
-          "Field(settings.appearance.theme.colors[0]) must be used within a Form context value",
+          "Field(settings.appearance.theme.colors.0) must be used within a Form context value",
         );
       });
     });
@@ -245,15 +255,15 @@ describe("useContext", () => {
     describe("useField hook error messages", () => {
       it("should throw error with useField path when used outside Form context", () => {
         expect(() => {
-          renderHook(() => Form.useField("profile.email"));
+          renderHook(() => Form.useField(path.profile.email));
         }).toThrow("useField(profile.email) must be used within a Form context value");
       });
 
       it("should throw error with complex useField path when used outside Form context", () => {
         expect(() => {
-          renderHook(() => Form.useField("data.metrics.performance[0].value"));
+          renderHook(() => Form.useField(path.data.metrics.performance[0].value));
         }).toThrow(
-          "useField(data.metrics.performance[0].value) must be used within a Form context value",
+          "useField(data.metrics.performance.0.value) must be used within a Form context value",
         );
       });
     });
@@ -261,7 +271,7 @@ describe("useContext", () => {
     describe("useFieldState hook error messages", () => {
       it("should throw error with default function name when used outside Form context", () => {
         expect(() => {
-          renderHook(() => Form.useFieldState("status"));
+          renderHook(() => Form.useFieldState(path.status));
         }).toThrow("Form.useContext must be used within a Form context value");
       });
     });
@@ -269,7 +279,7 @@ describe("useContext", () => {
     describe("useFieldValue hook error messages", () => {
       it("should throw error with default function name when used outside Form context", () => {
         expect(() => {
-          renderHook(() => Form.useFieldValue("count"));
+          renderHook(() => Form.useFieldValue(path.count));
         }).toThrow("Form.useContext must be used within a Form context value");
       });
     });
@@ -277,13 +287,13 @@ describe("useContext", () => {
     describe("other form hooks error messages", () => {
       it("should throw error for useContext in Form.useFieldList", () => {
         expect(() => {
-          renderHook(() => Form.useFieldList("items"));
+          renderHook(() => Form.useFieldList(keyed.items));
         }).toThrow("Form.useContext must be used within a Form context value");
       });
 
       it("should throw error for useContext in Form.useFieldListUtils", () => {
         expect(() => {
-          renderHook(() => Form.useFieldListUtils("tags"));
+          renderHook(() => Form.useFieldListUtils(keyed.tags));
         }).toThrow("Form.useContext must be used within a Form context value");
       });
     });

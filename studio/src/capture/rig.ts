@@ -11,6 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { TimeStamp } from "@synnaxlabs/client";
+import { array, box, errors, sleep, TimeSpan } from "@synnaxlabs/x";
 import {
   type Browser,
   type CDPSession,
@@ -31,14 +32,7 @@ import {
 } from "@/director/constants";
 import { minimumJerk } from "@/director/cursor";
 import { fitAmount } from "@/director/zoom";
-import {
-  type CursorKind,
-  type Event,
-  type Meta,
-  type Point,
-  type Rect,
-  type Timeline,
-} from "@/timeline";
+import type { CursorKind, Event, Meta, Point, Rect, Timeline } from "@/timeline";
 
 export interface CaptureOptions {
   /** URL of the Console web build. */
@@ -85,15 +79,55 @@ const DEV_PORT_KEY = "synnax-dev-connection-port";
 
 /**
  * Stands in for the Synnax Desktop shell, which tells a Desktop build of the Console
- * how to reach its embedded Core. It answers that the core at `connection` runs, and
- * records every other command so that the capture fails on it.
+ * how to reach its embedded Core. It answers that the core at `connection` runs, the
+ * API key and diagnostics commands with sample values, and records every other command
+ * so that the capture fails on it.
  */
 const desktopShell = (connection: Record<string, string | number>): string => `(() => {
   const unanswered = [];
   window.__studioDesktop = { asked: false, unanswered };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
   let callbacks = 0;
+  let apiKey = null;
+  const line = (age, level, logger, msg) =>
+    JSON.stringify({ level, ts: Date.now() / 1000 - age, logger, msg });
+  const answers = {
+    supervisor_api_key: () => apiKey,
+    supervisor_legacy_api_key: () => null,
+    supervisor_save_api_key: (args) => {
+      apiKey = args.apiKey;
+      return true;
+    },
+    supervisor_diagnostics: () => ({
+      version: "0.62.0",
+      history: {
+        starts: 1,
+        exits: 0,
+        failures: 0,
+        readies: 1,
+        readyAt: Date.now() - 540000,
+        timeToReadyMs: 1840,
+        lastExit: null,
+        waits: 0,
+        lastWaitMs: null,
+      },
+      dataDir: "/Users/synnax/Library/Application Support/Synnax/core",
+      logDir: "/Users/synnax/Library/Logs/Synnax",
+      dataSize: 184549376,
+    }),
+    supervisor_log_tail: () =>
+      [
+        line(540, "info", "cesium", "opened database"),
+        line(539, "info", "aspen", "joined cluster"),
+        line(539, "info", "api", "serving on 127.0.0.1:9090"),
+        line(538, "info", "core", "ready"),
+        line(120, "info", "auth", "created API key"),
+      ].join("\\n"),
+    supervisor_export_diagnostics: () => null,
+    "plugin:dialog|save": () => "/Users/synnax/Desktop/synnax-diagnostics.zip",
+  };
   window.__TAURI_INTERNALS__ = {
+    metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
     transformCallback: () => ++callbacks,
     unregisterCallback: () => {},
     invoke: async (cmd, args) => {
@@ -103,6 +137,7 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
       }
       if (cmd === "plugin:event|listen") return args.handler;
       if (cmd === "plugin:event|unlisten") return null;
+      if (cmd in answers) return answers[cmd](args);
       unanswered.push(cmd);
       throw new Error("Studio's Desktop shell cannot answer " + cmd);
     },
@@ -111,6 +146,30 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
 
 /** WebP quality of a still, from 0 to 100. */
 const STILL_QUALITY = 92;
+
+/** Virtual time each step of jumpToWall runs. Longer steps can time out connections. */
+const JUMP_STEP_MS = 100;
+
+/** Real time between jumpToWall steps, so requests answer before they time out. */
+const JUMP_PAUSE_MS = 20;
+
+/** Steps in a row without a new low in the lag after which jumpToWall gives up. */
+const JUMP_STALL_STEPS = 20;
+
+/** The step limit of jumpToWall, as a multiple of the steps the lag needs at best. */
+const JUMP_STEP_BUDGET = 10;
+
+/** How long a failed worker call waits for its worker to close before it throws. */
+const WORKER_CLOSE_GRACE_MS = 1000;
+
+/** A page worker with the Studio clock installed. */
+interface StudioWorker {
+  worker: Worker;
+  /** Resolves once the clock and frame hooks are in the worker. */
+  installed: Promise<void>;
+  /** Resolves when the worker closes. */
+  closed: Promise<void>;
+}
 
 /**
  * Pauses any newly discovered Web Animations (CSS transitions/animations, WAAPI)
@@ -149,6 +208,39 @@ const PERFORMANCE_ENTRIES = `(() => {
     const entries = base(...args);
     return entries.length > 0 ? entries : [{ duration: 0, startTime: 0 }];
   };
+})();`;
+
+/**
+ * The browser draws a drag's picture outside the page, so screenshots miss it. A copy
+ * of the element passed to `setDragImage` follows the pointer in its place until the
+ * drag ends. No mouse events fire during a drag, so the next one means it has ended.
+ */
+const DRAG_PREVIEW = `(() => {
+  const setDragImage = DataTransfer.prototype.setDragImage;
+  let ghost = null;
+  let offset = { x: 0, y: 0 };
+  const clear = () => {
+    ghost?.remove();
+    ghost = null;
+  };
+  DataTransfer.prototype.setDragImage = function (image, x, y) {
+    clear();
+    ghost = image.cloneNode(true);
+    ghost.style.visibility = "hidden";
+    ghost.style.opacity = "0.8";
+    offset = { x, y };
+    document.body.appendChild(ghost);
+    return setDragImage.call(this, image, x, y);
+  };
+  addEventListener("dragover", (e) => {
+    if (ghost == null) return;
+    const left = e.clientX - offset.x;
+    const top = e.clientY - offset.y;
+    ghost.style.transform = "translate(" + left + "px, " + top + "px)";
+    ghost.style.visibility = "visible";
+  }, true);
+  for (const type of ["drop", "dragend", "mousemove", "mousedown"])
+    addEventListener(type, clear, true);
 })();`;
 
 /**
@@ -207,12 +299,12 @@ interface Bounds {
   bottom: number;
 }
 
-const bounds = (rects: Rect[]): Bounds => ({
-  left: Math.min(...rects.map((r) => r.x)),
-  top: Math.min(...rects.map((r) => r.y)),
-  right: Math.max(...rects.map((r) => r.x + r.width)),
-  bottom: Math.max(...rects.map((r) => r.y + r.height)),
-});
+const bounds = (rects: Rect[]): Bounds => {
+  const { one, two } = box.bound(
+    rects.map(({ x, y, width, height }) => box.construct(x, y, width, height)),
+  );
+  return { left: one.x, top: one.y, right: two.x, bottom: two.y };
+};
 
 /**
  * CaptureSession drives the Console under a stepped virtual clock, saving one
@@ -233,7 +325,7 @@ export class CaptureSession {
   private appMs = 0;
   /** Wall time in epoch milliseconds at which the virtual clock started. */
   private readonly origin0: number;
-  private readonly workers: Set<Promise<Worker>>;
+  private readonly workers: Set<StudioWorker>;
   private recording = false;
   private speed = 1;
   private cursor: Point;
@@ -254,7 +346,7 @@ export class CaptureSession {
     cdp: CDPSession,
     opts: Required<CaptureOptions>,
     origin: number,
-    workers: Set<Promise<Worker>>,
+    workers: Set<StudioWorker>,
   ) {
     this.origin0 = origin;
     this.workers = workers;
@@ -298,17 +390,23 @@ export class CaptureSession {
     const page = await context.newPage();
     const origin = Date.now();
     await page.clock.install({ time: origin });
-    const workers = new Set<Promise<Worker>>();
+    const workers = new Set<StudioWorker>();
     page.on("worker", (worker) => {
-      const installed = worker
-        .evaluate(workerClock(origin))
-        .then(async () => await worker.evaluate(WORKER_FRAMES))
-        .then(() => worker);
-      workers.add(installed);
-      worker.on("close", () => workers.delete(installed));
+      const handle: StudioWorker = {
+        worker,
+        installed: worker
+          .evaluate(workerClock(origin))
+          .then(async () => await worker.evaluate(WORKER_FRAMES)),
+        closed: new Promise((resolve) => worker.once("close", () => resolve())),
+      };
+      // inWorkers awaits the install, so a real install failure still throws there.
+      handle.installed.catch(() => undefined);
+      workers.add(handle);
+      void handle.closed.then(() => workers.delete(handle));
     });
     await page.addInitScript(ANIMATION_STEPPER);
     await page.addInitScript(PERFORMANCE_ENTRIES);
+    await page.addInitScript(DRAG_PREVIEW);
     await page.addInitScript(
       `localStorage.setItem(${JSON.stringify(DEV_PORT_KEY)}, ${JSON.stringify(String(opts.corePort))});`,
     );
@@ -366,12 +464,50 @@ export class CaptureSession {
     this.appMs += ms;
     const now = this.origin0 + this.appMs;
     const app = this.appMs;
+    await this.inWorkers(`globalThis.__studioSetClock(${now}, ${app})`);
+  }
+
+  /** inWorkers runs script in every live worker, skipping one that closes during it. */
+  private async inWorkers(script: string): Promise<void> {
     await Promise.all(
-      [...this.workers].map(
-        async (w) =>
-          await (await w).evaluate(`globalThis.__studioSetClock(${now}, ${app})`),
-      ),
+      [...this.workers].map(async ({ worker, installed, closed }) => {
+        try {
+          await installed;
+          await worker.evaluate(script);
+        } catch (e) {
+          const gone = await Promise.race([
+            closed.then(() => true),
+            sleep.sleep(TimeSpan.milliseconds(WORKER_CLOSE_GRACE_MS)).then(() => false),
+          ]);
+          if (!gone) throw errors.fromUnknown(e);
+        }
+      }),
     );
+  }
+
+  /**
+   * jumpToWall runs the virtual clock forward to wall time without capturing. Use it
+   * before UI that compares the time now with samples stamped on wall time, which the
+   * virtual clock falls behind. Throws if the clock stops catching up or runs out of
+   * steps.
+   */
+  async jumpToWall(): Promise<void> {
+    const lag = (): number => Date.now() - (this.origin0 + this.appMs);
+    let current = lag();
+    let lowest = current;
+    let stalled = 0;
+    const budget = JUMP_STEP_BUDGET * Math.ceil(current / JUMP_STEP_MS);
+    for (let step = 0; current > JUMP_STEP_MS; step++) {
+      if (step >= budget || stalled >= JUMP_STALL_STEPS)
+        throw new Error("the virtual clock cannot catch up to wall time");
+      await this.advance(JUMP_STEP_MS);
+      await sleep.sleep(TimeSpan.milliseconds(JUMP_PAUSE_MS));
+      current = lag();
+      if (current < lowest) {
+        lowest = current;
+        stalled = 0;
+      } else stalled++;
+    }
   }
 
   private get tickMs(): number {
@@ -451,7 +587,7 @@ export class CaptureSession {
     const boxes: Record<string, Rect> = {};
     for (const [region, targets] of Object.entries(regions)) {
       const rects = [];
-      for (const target of Array.isArray(targets) ? targets : [targets])
+      for (const target of array.toArray(targets))
         for (const el of await target.all()) {
           const box = await el.boundingBox();
           if (box != null && box.width > 0 && box.height > 0) rects.push(box);
@@ -486,11 +622,7 @@ export class CaptureSession {
 
   /** drawn waits for every worker that animates to draw two more frames. */
   private async drawn(): Promise<void> {
-    await Promise.all(
-      [...this.workers].map(
-        async (w) => await (await w).evaluate("globalThis.__studioFrames?.(2)"),
-      ),
-    );
+    await this.inWorkers("globalThis.__studioFrames?.(2)");
   }
 
   /** settle advances virtual time without capturing; use during setup. */
@@ -511,7 +643,7 @@ export class CaptureSession {
    * uses this to let a plot's stream buffer fill before recording starts.
    */
   async settleWall(ms: number): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, ms));
+    await sleep.sleep(TimeSpan.milliseconds(ms));
   }
 
   /**
@@ -714,7 +846,7 @@ export class CaptureSession {
     await this.page.mouse.down();
     await this.hold(120);
 
-    const stops = Array.isArray(to) ? to : [to];
+    const stops = array.toArray(to);
     for (const [i, stop] of stops.entries()) {
       if (i > 0) await this.hold(opts?.pauseMs ?? 120);
       const origin = this.cursor;

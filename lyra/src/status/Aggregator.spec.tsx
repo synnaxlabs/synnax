@@ -9,7 +9,7 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
@@ -99,7 +99,9 @@ describe("Aggregator", () => {
       });
 
       it("should count from when it gets a status, not from the status time", () => {
-        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout", "Date", "Temporal"],
+        });
         const { result } = renderHook(
           () => ({
             add: Status.useAdder(),

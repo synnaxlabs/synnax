@@ -7,22 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type WebsocketMessage } from "@synnaxlabs/freighter";
+import type { WebsocketMessage } from "@synnaxlabs/freighter";
 import {
   binary,
   DataType,
   type SeriesPayload,
   TimeRange,
   TimeStamp,
+  type zod,
 } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { ValidationError } from "@/errors";
-import { type Frame, type Payload } from "@/framer/frame";
-import { type StreamerResponse } from "@/framer/streamer";
+import type { Frame, Payload } from "@/framer/frame";
+import type { StreamerResponse } from "@/framer/streamer";
 import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
-import { type WriteRequest } from "@/framer/writer";
+import type { WriteRequest } from "@/framer/writer";
 
 const BITS_PER_BYTE = 8;
 
@@ -424,11 +425,15 @@ export class WSWriterCodec implements binary.Codec {
     return data;
   }
 
-  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
+  decode<P extends z.ZodType>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P,
+    opts?: zod.ParseOptions,
+  ): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
     if (codec === LOW_PERF_SPECIAL_CHAR)
-      return this.lowPerfCodec.decode(data.slice(1), schema);
+      return this.lowPerfCodec.decode(data.slice(1), schema, opts);
     const v: WebsocketMessage<WriteRequest> = { type: "data" };
     const frame = this.base.decode(data, 1);
     v.payload = { command: WriterCommand.Write, frame };
@@ -450,11 +455,15 @@ export class WSStreamerCodec implements binary.Codec {
     return this.lowPerfCodec.encode(payload);
   }
 
-  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
+  decode<P extends z.ZodType>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P,
+    opts?: zod.ParseOptions,
+  ): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
     if (codec === LOW_PERF_SPECIAL_CHAR)
-      return this.lowPerfCodec.decode(data.slice(1), schema);
+      return this.lowPerfCodec.decode(data.slice(1), schema, opts);
     const v: WebsocketMessage<StreamerResponse> = {
       type: "data",
       payload: { frame: this.base.decode(data, 1) },
@@ -477,11 +486,15 @@ export class WSIteratorCodec implements binary.Codec {
     return this.lowPerfCodec.encode(payload);
   }
 
-  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
+  decode<P extends z.ZodType>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P,
+    opts?: zod.ParseOptions,
+  ): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
     if (codec === LOW_PERF_SPECIAL_CHAR)
-      return this.lowPerfCodec.decode(data.slice(1), schema);
+      return this.lowPerfCodec.decode(data.slice(1), schema, opts);
     const v: WebsocketMessage<unknown> = {
       type: "data",
       payload: {

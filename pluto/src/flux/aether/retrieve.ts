@@ -30,6 +30,18 @@ export interface Definition<Query extends query.Params, Data extends query.Data>
   getCached?: (params: RetrieveParams<Query>) => query.Cached<Data> | undefined;
 }
 
+/**
+ * Returns the reads of a definition whose query lists records. They read through the
+ * live list of the query, so a fetch and the cached reads share one window.
+ */
+export const listReads = <Query extends query.Params, E extends query.Data>(
+  watch: (params: RetrieveParams<Query>) => query.List<E, unknown>,
+): Required<Omit<Definition<Query, E[]>, "name">> => ({
+  retrieve: async (params) => (await watch(params).retrieve()).records,
+  onChange: (params, handler) => watch(params).onChange((w) => handler(w?.records)),
+  getCached: (params) => watch(params).getCached()?.records,
+});
+
 export interface RetrieveArgs<Query extends query.Params, Data extends query.Data> {
   definition: Definition<Query, Data>;
   /** Fires whenever the answer changes: a live value, a deletion, or undefined when

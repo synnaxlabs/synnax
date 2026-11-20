@@ -1,8 +1,8 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
 # Stage 1: Download dependencies
-ARG GO_VERSION
-FROM golang:${GO_VERSION} AS deps
+# The tag must match the go line in go.mod.
+FROM golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS deps
 WORKDIR /workspace
 
 # Copy go.mod and go.sum files from all modules for better caching
@@ -11,7 +11,6 @@ COPY freighter/go/go.mod freighter/go/go.sum ./freighter/go/
 COPY alamos/go/go.mod alamos/go/go.sum ./alamos/go/
 COPY x/go/go.mod x/go/go.sum ./x/go/
 COPY cesium/go.mod cesium/go.sum ./cesium/
-COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY arc/go/go.mod arc/go/go.sum ./arc/go/
 COPY gorp/go.mod gorp/go.sum ./gorp/
 
@@ -36,7 +35,6 @@ COPY freighter/go ./freighter/go
 COPY alamos/go ./alamos/go
 COPY x/go ./x/go
 COPY cesium ./cesium
-COPY aspen ./aspen
 COPY arc/go ./arc/go
 COPY gorp ./gorp
 COPY core ./core
@@ -92,7 +90,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     fi
 
 # Stage 3: Minimal runtime image with glibc for driver support
-FROM ubuntu:26.04
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
 
 # Pass build args to final stage
 ARG VERSION=
@@ -101,7 +99,7 @@ ARG BUILD_DATE=unknown
 
 # OCI standard labels for image metadata
 LABEL org.opencontainers.image.title="Synnax"
-LABEL org.opencontainers.image.description="Horizontally-scalable observability and control platform for hardware telemetry systems"
+LABEL org.opencontainers.image.description="Observability and control platform for hardware telemetry systems"
 LABEL org.opencontainers.image.vendor="Synnax Labs, Inc."
 LABEL org.opencontainers.image.source="https://github.com/synnaxlabs/synnax"
 LABEL org.opencontainers.image.documentation="https://docs.synnaxlabs.com"

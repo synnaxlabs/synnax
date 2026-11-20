@@ -26,6 +26,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/runtime.h"
+#include "arc/cpp/runtime/testutil/module.h"
 #include "arc/cpp/runtime/testutil/timing.h"
 #include "arc/cpp/types/types.h"
 
@@ -110,7 +111,10 @@ void measure_interval(const x::telem::TimeSpan period, std::int64_t &median_ns) 
     auto state = std::make_shared<state::State>(
         state::Config{.ir = prog, .channels = {}}
     );
-    auto time_module = std::make_shared<stl::time::Module>();
+    auto time_module = std::make_shared<stl::time::Module>(
+        std::make_shared<stl::strings::State>(),
+        [](const std::string &, const std::string &) {}
+    );
     auto recorder = std::make_unique<Recorder>(
         ASSERT_NIL_P(time_module->create(
             node::Config(prog, prog.nodes[0], ASSERT_NIL_P(state->node(TIMER_KEY)))
@@ -136,7 +140,7 @@ void measure_interval(const x::telem::TimeSpan period, std::int64_t &median_ns) 
     };
     const auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(sched),
         loop::create(loop_cfg),

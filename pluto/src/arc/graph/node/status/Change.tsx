@@ -13,8 +13,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 
 import { Base } from "@/arc/graph/node/Base";
-import { type Config } from "@/arc/graph/node/status/config";
-import { type types } from "@/arc/graph/node/types";
+import type { Config } from "@/arc/graph/node/status/config";
+import type { types } from "@/arc/graph/node/types";
 
 const RED_HEX = color.construct("#DC136C");
 
@@ -24,7 +24,7 @@ export const Symbol = ({ config: { message, variant } }: SymbolProps) => (
   <Base
     type="Change status"
     Icon={<Icon.Notification />}
-    color={color.cssString(color.setAlpha(RED_HEX, 0.2))}
+    color={color.cssString(color.setOpacity(RED_HEX, 0.2))}
     textColor={color.cssString(RED_HEX)}
     sinks={[{ key: "output", Icon: Icon.Value }]}
   >

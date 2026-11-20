@@ -13,41 +13,50 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/freighter/noop"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
+	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
-	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
-	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
+	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
+	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
-	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/certificate"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
+	grpcicd "github.com/synnaxlabs/synnax/pkg/transport/grpc/icd"
+	nichassis "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
-	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/secret"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
 )
@@ -55,23 +64,31 @@ import (
 // Bind constructs the gRPC transport for every API service, binds the API layer's
 // handlers and middleware to it, and returns the bindable transports for registration
 // with the server's gRPC branch. The framer codec resolves channel data types through
-// the API layer's channel service.
+// the API layer's channel service, and the services encode errors with the API layer's
+// codec.
 func Bind(layer *api.Layer) []grpc.BindableTransport {
-	var t api.Transport
+	var (
+		t    api.Transport
+		errs = layer.Errors()
+	)
 	transports := grpc.CompoundBindableTransport{
-		channel.New(&t),
-		framer.New(&t, layer.Channel),
-		connectivity.New(&t),
-		auth.New(&t),
-		ranger.New(&t),
-		kv.New(&t),
-		alias.New(&t),
-		rack.New(&t),
-		task.New(&t),
-		device.New(&t),
-		status.New(&t),
-		arc.New(&t),
-		control.New(&t),
+		channel.New(&t, errs),
+		framer.New(&t, layer.Channel, errs),
+		connectivity.New(&t, errs),
+		auth.New(&t, errs),
+		ranger.New(&t, errs),
+		kv.New(&t, errs),
+		rack.New(&t, errs),
+		task.New(&t, errs),
+		device.New(&t, errs),
+		status.New(&t, errs),
+		arc.New(&t, errs),
+		control.New(&t, errs),
+		nidevice.New(&t, errs),
+		nichassis.New(&t, errs),
+		secret.New(&t, errs),
+		certificate.New(&t, errs),
+		grpcicd.New(&t, errs),
 	}
 
 	// AUTH
@@ -87,65 +104,67 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
 
 	// CHANNEL
-	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
-	t.ChannelRetrieveGroup = noop.UnaryServer[apichannel.RetrieveGroupRequest, apichannel.RetrieveGroupResponse]{}
+	t.ChannelCountLimited = noop.UnaryServer[
+		apichannel.CountLimitedRequest,
+		apichannel.CountLimitedResponse,
+	]{}
+	t.ChannelDispatch = noop.UnaryServer[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]{}
 
 	// FRAME
 	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}
 
 	// USER
-	t.UserRename = noop.UnaryServer[user.RenameRequest, struct{}]{}
-	t.UserChangeUsername = noop.UnaryServer[user.ChangeUsernameRequest, struct{}]{}
 	t.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
+	t.UserDispatch = noop.UnaryServer[user.DispatchRequest, struct{}]{}
 
-	// ONTOLOGY
-	t.OntologyRetrieve = noop.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]{}
-	t.OntologyAddChildren = noop.UnaryServer[ontology.AddChildrenRequest, struct{}]{}
-	t.OntologyRemoveChildren = noop.UnaryServer[ontology.RemoveChildrenRequest, struct{}]{}
-	t.OntologyMoveChildren = noop.UnaryServer[ontology.MoveChildrenRequest, struct{}]{}
+	// RESOURCE
+	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
+	t.ResourceRetrieve = noop.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]{}
 
 	// GROUP
 	t.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
 	t.GroupDelete = noop.UnaryServer[group.DeleteRequest, struct{}]{}
-	t.GroupRename = noop.UnaryServer[group.RenameRequest, struct{}]{}
+	t.GroupDispatch = noop.UnaryServer[group.DispatchRequest, struct{}]{}
 	t.GroupRetrieve = noop.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]{}
+	t.GroupRetrieveAncestors = noop.UnaryServer[
+		group.RetrieveAncestorsRequest,
+		group.RetrieveAncestorsResponse,
+	]{}
+
+	// BATCH
+	t.Batch = noop.UnaryServer[batch.ExecRequest, batch.ExecResponse]{}
 
 	// PROJECT
 	t.ProjectCreate = noop.UnaryServer[project.CreateRequest, project.CreateResponse]{}
 	t.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, struct{}]{}
-	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
+	t.ProjectDispatch = noop.UnaryServer[project.DispatchRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
-	// RENAME
-	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
-	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
-	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
+	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
-	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
-
-	// TASK
-	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
 
 	// RANGE
-	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
+	t.KVDispatch = noop.UnaryServer[apikv.DispatchRequest, struct{}]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
 	t.SchematicDelete = noop.UnaryServer[schematic.DeleteRequest, struct{}]{}
 	t.SchematicRetrieve = noop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
-	t.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, struct{}]{}
+	t.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, schematic.DispatchResponse]{}
 	t.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
 	// SCHEMATIC SYMBOL
 	t.SchematicSymbolCreate = noop.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]{}
 	t.SchematicSymbolRetrieve = noop.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]{}
 	t.SchematicSymbolDelete = noop.UnaryServer[symbol.DeleteRequest, struct{}]{}
-	t.SchematicSymbolRename = noop.UnaryServer[symbol.RenameRequest, struct{}]{}
-	t.SchematicSymbolRetrieveGroup = noop.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]{}
+	t.SchematicSymbolDispatch = noop.UnaryServer[symbol.DispatchRequest, struct{}]{}
 	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
 	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
 	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, struct{}]{}
@@ -154,30 +173,37 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, struct{}]{}
-	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, struct{}]{}
+	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]{}
+
+	// ICD
+	t.ICDCheck = noop.UnaryServer[icd.CheckRequest, icd.CheckResponse]{}
+	t.ICDDispatch = noop.UnaryServer[icd.DispatchRequest, struct{}]{}
+	t.ICDImport = noop.UnaryServer[icd.ImportRequest, icd.ImportResponse]{}
+	t.ICDDelete = noop.UnaryServer[icd.DeleteRequest, struct{}]{}
 
 	// PANEL
 	t.PanelCreate = noop.UnaryServer[panel.CreateRequest, panel.CreateResponse]{}
 	t.PanelRetrieve = noop.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]{}
 	t.PanelDelete = noop.UnaryServer[panel.DeleteRequest, struct{}]{}
-	t.PanelDispatch = noop.UnaryServer[panel.DispatchRequest, struct{}]{}
+	t.PanelDispatch = noop.UnaryServer[panel.DispatchRequest, panel.DispatchResponse]{}
 
 	// LOG
 	t.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
 	t.LogRetrieve = noop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, struct{}]{}
-	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, struct{}]{}
+	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, log.DispatchResponse]{}
 
 	// VIEW
 	t.ViewCreate = noop.UnaryServer[view.CreateRequest, view.CreateResponse]{}
 	t.ViewRetrieve = noop.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]{}
 	t.ViewDelete = noop.UnaryServer[view.DeleteRequest, struct{}]{}
+	t.ViewDispatch = noop.UnaryServer[view.DispatchRequest, struct{}]{}
 
 	// TABLE
 	t.TableCreate = noop.UnaryServer[table.CreateRequest, table.CreateResponse]{}
 	t.TableRetrieve = noop.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]{}
 	t.TableDelete = noop.UnaryServer[table.DeleteRequest, struct{}]{}
-	t.TableDispatch = noop.UnaryServer[table.DispatchRequest, struct{}]{}
+	t.TableDispatch = noop.UnaryServer[table.DispatchRequest, table.DispatchResponse]{}
 
 	// LABEL
 	t.LabelCreate = noop.UnaryServer[label.CreateRequest, label.CreateResponse]{}
@@ -187,15 +213,55 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LabelRemove = noop.UnaryServer[label.RemoveRequest, struct{}]{}
 	t.LabelDispatch = noop.UnaryServer[label.DispatchRequest, struct{}]{}
 
+	// COLOR
+	t.ColorCreate = noop.UnaryServer[color.CreateRequest, color.CreateResponse]{}
+	t.ColorRetrieve = noop.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]{}
+	t.ColorDelete = noop.UnaryServer[color.DeleteRequest, struct{}]{}
+	t.ColorDispatch = noop.UnaryServer[color.DispatchRequest, struct{}]{}
+	t.ColorRetrieveBuiltins = noop.UnaryServer[
+		struct{},
+		color.RetrieveBuiltinsResponse,
+	]{}
+
+	// ENUMERATION
+	t.EnumerationCreate = noop.UnaryServer[
+		enumeration.CreateRequest,
+		enumeration.CreateResponse,
+	]{}
+	t.EnumerationRetrieve = noop.UnaryServer[
+		enumeration.RetrieveRequest,
+		enumeration.RetrieveResponse,
+	]{}
+	t.EnumerationDelete = noop.UnaryServer[enumeration.DeleteRequest, struct{}]{}
+	t.EnumerationDispatch = noop.UnaryServer[enumeration.DispatchRequest, struct{}]{}
+	t.EnumerationRetrieveBuiltins = noop.UnaryServer[
+		struct{},
+		enumeration.RetrieveBuiltinsResponse,
+	]{}
+	t.EnumerationRetrieveDependents = noop.UnaryServer[
+		enumeration.RetrieveDependentsRequest,
+		enumeration.RetrieveDependentsResponse,
+	]{}
+
 	// ACCESS
-	t.AccessCreatePolicy = noop.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]{}
-	t.AccessDeletePolicy = noop.UnaryServer[access.DeletePolicyRequest, struct{}]{}
-	t.AccessRetrievePolicy = noop.UnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse]{}
-	t.AccessCreateRole = noop.UnaryServer[access.CreateRoleRequest, access.CreateRoleResponse]{}
-	t.AccessDeleteRole = noop.UnaryServer[access.DeleteRoleRequest, struct{}]{}
-	t.AccessRetrieveRole = noop.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse]{}
-	t.AccessAssignRole = noop.UnaryServer[access.AssignRoleRequest, struct{}]{}
-	t.AccessUnassignRole = noop.UnaryServer[access.UnassignRoleRequest, struct{}]{}
+	t.AccessCreatePolicy = noop.UnaryServer[policy.CreateRequest, policy.CreateResponse]{}
+	t.AccessDeletePolicy = noop.UnaryServer[policy.DeleteRequest, struct{}]{}
+	t.AccessRetrievePolicy = noop.UnaryServer[policy.RetrieveRequest, policy.RetrieveResponse]{}
+	t.AccessCreateRole = noop.UnaryServer[role.CreateRequest, role.CreateResponse]{}
+	t.AccessDeleteRole = noop.UnaryServer[role.DeleteRequest, struct{}]{}
+	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
+	t.AccessDispatchPolicy = noop.UnaryServer[policy.DispatchRequest, struct{}]{}
+	t.AccessDispatchRole = noop.UnaryServer[role.DispatchRequest, struct{}]{}
+
+	// SECRET
+	t.SecretSet = noop.UnaryServer[apisecret.SetRequest, apisecret.SetResponse]{}
+	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
+	t.SecretDispatch = noop.UnaryServer[apisecret.DispatchRequest, struct{}]{}
+	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
+
+	// CERTIFICATE
+	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
+	t.CertificateDispatch = noop.UnaryServer[apicertificate.DispatchRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
@@ -204,6 +270,16 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}
 	t.ArcUpdateTask = noop.UnaryServer[apiarc.UpdateTaskRequest, apiarc.UpdateTaskResponse]{}
+	t.ArcRetrieveDirectory = noop.UnaryServer[
+		apiarcdirectory.RetrieveRequest,
+		apiarcdirectory.RetrieveResponse,
+	]{}
+	t.ArcCreateDirectory = noop.UnaryServer[
+		apiarc.CreateDirectoryRequest,
+		apiarc.CreateDirectoryResponse,
+	]{}
+	t.ArcDispatchDirectory = noop.UnaryServer[apiarc.DispatchDirectoryRequest, struct{}]{}
+	t.ArcDeleteDirectory = noop.UnaryServer[apiarc.DeleteDirectoryRequest, struct{}]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

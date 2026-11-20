@@ -11,7 +11,8 @@
  * Joins an array of strings into a natural language list.
  *
  * @param strings - The array of strings to join.
- * @param zeroLength - The string to return if the array is empty. Defaults to an empty string.
+ * @param zeroLength - The string to return if the array is empty. Defaults to an empty
+ * string.
  * @returns A string that represents the natural language list.
  *
  * @example
@@ -28,61 +29,47 @@ export const naturalLanguageJoin = (
   zeroLength: string = "",
 ): string => {
   if (typeof strings === "string") return strings;
-  const length = strings.length;
-  if (length === 0) return zeroLength;
-  if (length === 1) return strings[0];
-  if (length === 2) return `${strings[0]} and ${strings[1]}`;
-  return `${strings.slice(0, -1).join(", ")}, and ${strings[length - 1]}`;
+  const [first, second, ...rest] = strings;
+  if (first == null) return zeroLength;
+  if (second == null) return first;
+  const last = rest.pop();
+  if (last == null) return `${first} and ${second}`;
+  return `${[first, second, ...rest].join(", ")}, and ${last}`;
 };
 
 /**
  * Creates a list of short identifiers from a given name.
  *
  * @param name - The name to create identifiers from.
- * @returns An array of unique short identifiers.
+ * @returns An array of unique short identifiers. Each starts with a letter and holds
+ * only letters, digits, and underscores.
  *
  * @example
  * ```typescript
  * createShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
- * createShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
+ * createShortIdentifiers("Alice 123");
+ * // ["a1", "a_1", "a123", "a_123", "ali123", "ali_123"]
  * createShortIdentifiers("Bob"); // ["bob"]
  * ```
  */
 export const createShortIdentifiers = (name: string): string[] => {
-  const words = name.split(" ");
+  const words = name
+    .split(" ")
+    .filter((word) => word !== "")
+    .map((word) => word.toLowerCase().replace(/-/g, "_"));
   const identifiers = new Set<string>();
-
-  const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
-  identifiers.add(initials.replace(/-/g, "_"));
-  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
-
-  const regex = /\d+/g;
-  const hasNumbers = name.match(regex);
-
-  if (hasNumbers)
-    words.forEach((word, index) => {
-      if (regex.test(word)) {
-        const abbreviatedWords = words
-          .map((w, i) => (i !== index ? w.charAt(0).toLowerCase() : w))
-          .join("");
-        identifiers.add(abbreviatedWords.replace(/-/g, "_"));
-        identifiers.add(
-          abbreviatedWords.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_"),
-        ); // Insert underscores
-      }
-    });
-
-  const wordAbbreviations = words.map((word) =>
-    (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
+  const add = (parts: string[]) => {
+    identifiers.add(parts.join(""));
+    identifiers.add(parts.join("_"));
+  };
+  add(words.map((word) => word.charAt(0)));
+  words.forEach((word, index) => {
+    if (/\d/.test(word)) add(words.map((w, i) => (i === index ? w : w.charAt(0))));
+  });
+  add(words.map((word) => word.substring(0, 3)));
+  return Array.from(identifiers).filter(
+    (id) => id.length >= 2 && id.length <= 12 && /^[a-zA-Z]\w*$/.test(id),
   );
-  identifiers.add(wordAbbreviations.join("").replace(/-/g, "_"));
-  identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
-
-  const filteredIdentifiers = Array.from(identifiers).filter(
-    (id) => id.length >= 2 && id.length <= 12 && !/^\d/.test(id),
-  );
-
-  return filteredIdentifiers;
 };
 
 /**
@@ -90,7 +77,8 @@ export const createShortIdentifiers = (name: string): string[] => {
  *
  * @param str - The string to remove the prefix from.
  * @param prefix - The prefix to remove.
- * @returns The string with the prefix removed if it was present, otherwise the original string.
+ * @returns The string with the prefix removed if it was present, otherwise the original
+ * string.
  *
  * @example
  * ```typescript
@@ -120,3 +108,79 @@ export const escapeHTML = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+/** Capitalizes the first character of the given string. */
+export const capitalize = (str: string): string => {
+  if (str.length === 0) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+/** Converts a string to kebab-case, splitting on spaces, camelCase, and capitals. */
+export const toKebab = (str: string): string =>
+  str
+    .replace(/[\s_]+/g, "-")
+    .replace(
+      /([a-z0-9])([A-Z])/g,
+      (_, p1: string, p2: string) => `${p1}-${p2.toLowerCase()}`,
+    )
+    .toLowerCase();
+
+/** Splits snake_case, kebab-case, camelCase, and PascalCase into spaced words. */
+const splitWords = (str: string): string => {
+  let result = str.replace(/[_-]/g, " ");
+
+  // Insert spaces before capital letters (for camelCase/PascalCase)
+  // but not at the start or when there are consecutive capitals
+  result = result.replace(
+    /([a-z0-9])([A-Z])/g,
+    (_, p1: string, p2: string) => `${p1} ${p2}`,
+  );
+
+  // Handle consecutive capitals (e.g., "XMLParser" -> "XML Parser")
+  result = result.replace(
+    /([A-Z]+)([A-Z][a-z])/g,
+    (_, p1: string, p2: string) => `${p1} ${p2}`,
+  );
+
+  return result.replace(/\s+/g, " ").trim();
+};
+
+/** Converts a string to proper noun format, capitalizing every word. */
+export const toProperNoun = (str: string): string => {
+  if (str.length === 0) return str;
+  return splitWords(str).replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const ACRONYM_REGEX = /^[A-Z0-9]{2,}$/;
+
+/** Converts a string to sentence case. Acronyms keep their casing. */
+export const toSentence = (str: string): string => {
+  const spaced = splitWords(str);
+  if (spaced.length === 0) return spaced;
+  const words = spaced.split(" ");
+  return words
+    .map((word, i) => {
+      if (ACRONYM_REGEX.test(word)) return word;
+      const lower = word.toLowerCase();
+      return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(" ");
+};
+
+/**
+ * Formats a count with a noun that agrees with it.
+ *
+ * @param n - The count.
+ * @param noun - The singular noun.
+ * @param plural - The plural noun. Defaults to the noun with an "s" added.
+ * @returns the count followed by the noun, singular only when the count is 1.
+ *
+ * @example
+ * ```typescript
+ * count(1, "cell"); // "1 cell"
+ * count(3, "cell"); // "3 cells"
+ * count(0, "entry", "entries"); // "0 entries"
+ * ```
+ */
+export const count = (n: number, noun: string, plural: string = `${noun}s`): string =>
+  `${n} ${n === 1 ? noun : plural}`;

@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 
 #include "arc/cpp/types/types.h"
 
@@ -230,6 +233,21 @@ std::ostream &operator<<(std::ostream &os, const Type &t) {
     return os << t.to_string();
 }
 
+namespace {
+/// @brief reads a float IR value, which is a JSON number, or text for NaN and infinity
+/// because JSON has no form for them.
+template<typename T>
+std::optional<T> to_float(const x::json::json &value) {
+    if (value.is_number()) return value.get<T>();
+    if (!value.is_string()) return std::nullopt;
+    const auto text = value.get<std::string>();
+    if (text == "NaN") return std::numeric_limits<T>::quiet_NaN();
+    if (text == "Infinity") return std::numeric_limits<T>::infinity();
+    if (text == "-Infinity") return -std::numeric_limits<T>::infinity();
+    return std::nullopt;
+}
+}
+
 std::optional<x::telem::SampleValue>
 to_sample_value(const x::json::json &value, const Type &type) {
     if (value.is_null()) return std::nullopt;
@@ -274,10 +292,9 @@ to_sample_value(const x::json::json &value, const Type &type) {
                 return static_cast<uint64_t>(std::stoull(value.get<std::string>()));
             return std::nullopt;
         case Kind::F32:
-            return value.is_number() ? std::optional(value.get<float>()) : std::nullopt;
+            return to_float<float>(value);
         case Kind::F64:
-            return value.is_number() ? std::optional(value.get<double>())
-                                     : std::nullopt;
+            return to_float<double>(value);
         case Kind::Bool:
             if (value.is_boolean())
                 return static_cast<uint8_t>(value.get<bool>() ? 1 : 0);
@@ -297,6 +314,28 @@ to_sample_value(const x::json::json &value, const Type &type) {
             return std::nullopt;
     }
     return std::nullopt;
+}
+
+namespace {
+/// @brief returns what to multiply a value in from by to get its value in to. A factor
+/// that floating point puts next to a whole number is that whole number.
+double unit_factor(const Unit &from, const Unit &to) {
+    const double factor = from.scale / to.scale;
+    const double whole = std::round(factor);
+    const double tolerance = 4 * std::numeric_limits<double>::epsilon();
+    if (whole != 0 && std::abs(factor - whole) <= tolerance * std::abs(whole))
+        return whole;
+    return factor;
+}
+}
+
+std::pair<double, double> input_scale(const Type &type) {
+    if (type.kind != Kind::VarRef || !type.unit.has_value() || !type.elem.has_value() ||
+        !type.elem->unit.has_value())
+        return {1, 1};
+    const auto &from = *type.elem->unit;
+    const auto &to = *type.unit;
+    return {unit_factor(from, to), unit_factor(to, from)};
 }
 
 }

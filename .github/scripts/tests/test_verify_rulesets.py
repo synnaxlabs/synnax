@@ -14,38 +14,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "verify_rulesets.sh"
-
-# Stands in for gh: serves the canned rulesets from FAKE_GH_DIR and applies the
-# requested jq expression.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-ENDPOINT=""
-EXPR="."
-while [ $# -gt 0 ]; do
-    case "$1" in
-        api | --paginate) shift ;;
-        --jq)
-            EXPR=$2
-            shift 2
-            ;;
-        *)
-            ENDPOINT=$1
-            shift
-            ;;
-    esac
-done
-case "$ENDPOINT" in
-    */rulesets\\?*) FILE="$FAKE_GH_DIR/rulesets.json" ;;
-    */rulesets/*) FILE="$FAKE_GH_DIR/ruleset-${ENDPOINT##*/}.json" ;;
-    *)
-        echo "unexpected endpoint: $ENDPOINT" >&2
-        exit 1
-        ;;
-esac
-jq -r "$EXPR" "$FILE"
-"""
 
 
 def ruleset(name: str, *, count: int = 0) -> dict[str, Any]:
@@ -70,19 +41,12 @@ class Harness:
 
     def __init__(self, path: Path) -> None:
         self.root = path
-        self.data = path / "gh"
-        self.data.mkdir()
         self.files = path / ".github" / "rulesets"
         self.files.mkdir(parents=True)
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
+        self.gh = FakeGH(path)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_DIR": str(self.data),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
 
@@ -101,8 +65,15 @@ class Harness:
                 **rules,
                 "rules": list(reversed(rules["rules"])),
             }
-            (self.data / f"ruleset-{key}.json").write_text(json.dumps(served))
-        (self.data / "rulesets.json").write_text(json.dumps(listing))
+            self.gh.serve(f"api */rulesets/{key}", served)
+        self.gh.serve("api */rulesets[?]*", listing)
+
+    def approval(self, policy: str) -> None:
+        """Sets which fork contributors need approval to run workflows."""
+        self.gh.serve(
+            "api */actions/permissions/fork-pr-contributor-approval",
+            {"approval_policy": policy},
+        )
 
     def run(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -119,6 +90,7 @@ def harness(tmp_path: Path) -> Harness:
     harness = Harness(tmp_path)
     harness.file(ruleset("main"))
     harness.live(ruleset("main"))
+    harness.approval("all_external_contributors")
     return harness
 
 
@@ -149,3 +121,33 @@ class TestRulesets:
         result = harness.run()
         assert result.returncode != 0
         assert "with no file in .github/rulesets:\n  release" in result.stderr
+
+
+class TestForkApproval:
+    """Tests for the approval that fork workflow runs need."""
+
+    def test_passes_when_every_outside_contributor_needs_approval(
+        self, harness: Harness
+    ) -> None:
+        result = harness.run()
+        assert result.returncode == 0, result.stderr
+        assert "every outside contributor needs approval" in result.stdout
+
+    @pytest.mark.parametrize(
+        "policy",
+        ["first_time_contributors", "first_time_contributors_new_to_github"],
+    )
+    def test_fails_on_a_weaker_policy(self, harness: Harness, policy: str) -> None:
+        harness.approval(policy)
+        result = harness.run()
+        assert result.returncode != 0
+        assert (
+            f"fork workflow approval is {policy}, not all_external_contributors"
+            in result.stderr
+        )
+
+    def test_fails_loud_when_the_policy_cannot_be_read(self, harness: Harness) -> None:
+        harness.gh.fail("api */fork-pr-contributor-approval", "HTTP 403")
+        result = harness.run()
+        assert result.returncode != 0
+        assert "every outside contributor" not in result.stdout

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+import type { Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -35,7 +35,10 @@ const getItems = () => screen.queryAllByRole("option");
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderWrite = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(Modbus.Task.Write, options);
+  const rendered = await renderTaskFormTab(
+    Modbus.Task.FORMS[Modbus.Task.WRITE_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };
@@ -592,11 +595,14 @@ describe("Write", () => {
         device: dev.key,
         channels: [holding(0, "uint16"), holding(3, "uint16")],
       });
-      const { container } = await renderTaskFormTab(Modbus.Task.Write, {
-        client,
-        taskKey: draft.key,
-        as: await createTaskReadOnlyClient(client),
-      });
+      const { container } = await renderTaskFormTab(
+        Modbus.Task.FORMS[Modbus.Task.WRITE_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+          as: await createTaskReadOnlyClient(client),
+        },
+      );
       await waitFor(() => expect(getItems()).toHaveLength(2));
       const track = container.querySelector<HTMLElement>(".console-modbus__track");
       if (track == null) throw new Error("no track");
@@ -619,6 +625,38 @@ describe("Write", () => {
   });
 
   describe("add channel", () => {
+    it("should give a new channel no channel of its own", async () => {
+      const dev = await createModbusDevice(client);
+      const bound = await client.channels.create({
+        name: `modbus_cmd_${id.create()}`,
+        dataType: "uint8",
+        virtual: true,
+      });
+      const draft = await createDraft(client, {
+        ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [
+          Modbus.Task.WRITE_CHANNEL_SCHEMAS.coil.parse({
+            type: "coil",
+            key: id.create(),
+            address: 10,
+            channel: bound.key,
+            name: "valve",
+          }),
+        ],
+      });
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(dev.name);
+      fireEvent.click(getIconButton(container, "add"));
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: Modbus.Task.WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels[1]).toMatchObject({ channel: 0, name: "" });
+      });
+    });
+
     it.each([
       { bit: 3, address: 10, nextBit: 4 },
       { bit: 15, address: 11, nextBit: 0 },

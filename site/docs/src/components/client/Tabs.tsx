@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Client } from "@/components/client/choice";
+import type { Client } from "@/components/client/choice";
 import { INFO } from "@/components/client/Client";
-import { type FilterProps, Tabs as Base } from "@/components/tabs/Tabs";
+import { Tabs as Base } from "@/components/tabs";
 
 const TABS = INFO.map(({ key, ...c }) => ({ ...c, tabKey: key }));
 
-export type TabsProps = FilterProps<Client>;
+export type TabsProps = Base.FilterProps<Client>;
 
 export const Tabs = (props: TabsProps) => (
-  <Base queryParamKey="client" tabs={TABS} {...props} />
+  <Base.Tabs queryParamKey="client" tabs={TABS} {...props} />
 );

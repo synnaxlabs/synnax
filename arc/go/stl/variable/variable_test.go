@@ -338,6 +338,21 @@ var _ = Describe("Variable", func() {
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
 			})
 
+			It("Should stay a register when its first input has no value", func() {
+				n := MustSucceed(factory.Create(node.Config{
+					Node: ir.Node{
+						Type:   "stateful_variable",
+						Inputs: types.Params{{Name: "f0", Type: types.I64()}},
+					},
+					State: v,
+				}))
+				emit(f, int64(7), 10)
+				n.Reset(node.Context{})
+				n.Next(nodeCtx)
+				Expect(marked).To(ConsistOf(0))
+				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+			})
+
 			It(
 				"Should leave pending feeder values consumable after Reset",
 				func() {

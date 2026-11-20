@@ -22,7 +22,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
@@ -32,10 +32,10 @@ const TOOLTIP_PADDING: xy.XY = xy.construct(6);
 
 export const tooltipStateZ = z.object({
   position: xy.xyZ.or(z.null()),
-  textColor: color.colorZ.default(color.ZERO),
-  backgroundColor: color.colorZ.default(color.ZERO),
-  borderColor: color.colorZ.default(color.ZERO),
-  ruleColor: color.colorZ.default(color.ZERO),
+  textColor: color.colorZ.optional(),
+  backgroundColor: color.colorZ.optional(),
+  borderColor: color.colorZ.optional(),
+  ruleColor: color.colorZ.optional(),
   ruleStrokeWidth: z.number().default(1),
   ruleStrokeDash: z.number().default(0),
 });
@@ -56,15 +56,13 @@ export interface TooltipProps {
 
 export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
-  schema = tooltipStateZ;
+  override schema = tooltipStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const theme = theming.use(ctx);
     const { textColor, ruleColor } = this.state;
-    this.internal.textColor = color.isZero(textColor) ? theme.colors.text : textColor;
-    this.internal.ruleColor = color.isZero(ruleColor)
-      ? theme.colors.gray.l7
-      : ruleColor;
+    this.internal.textColor = textColor ?? theme.colors.text;
+    this.internal.ruleColor = ruleColor ?? theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
 
@@ -73,7 +71,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     render.request(ctx, "tool");
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "tool");
   }
 
@@ -107,8 +105,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     validValues.forEach((r) => {
       if (!Number.isFinite(r.value.y)) return;
       const position = scale_.pos(r.position);
-      draw.circle({ fill: color.setAlpha(r.color, 0.5), radius: 8, position });
-      draw.circle({ fill: color.setAlpha(r.color, 0.8), radius: 5, position });
+      draw.circle({ fill: color.setOpacity(r.color, 0.5), radius: 8, position });
+      draw.circle({ fill: color.setOpacity(r.color, 0.8), radius: 5, position });
       draw.circle({
         fill: color.pickByContrast(
           r.color,
@@ -126,6 +124,12 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (relativePosition.x > 0.6) root.x = "right";
     if (relativePosition.y > 0.6) root.y = "bottom";
 
+    // The time takes one item, and "and N more" always fits.
+    const maxLines = Math.max(1, fit(box.height(region)) - 1);
+    const listed =
+      validValues.length <= maxLines ? validValues : validValues.slice(0, maxLines - 1);
+    const dropped = validValues.length - listed.length;
+
     let maxLabelLength = values.reduce((p, c) => Math.max(p, c.label?.length ?? 0), 0);
     const timeValueLength = avgXValue.toString("preciseDate", "local").length;
     if (timeValueLength > maxLabelLength) maxLabelLength = timeValueLength;
@@ -133,12 +137,13 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     draw.list({
       root,
       offset: TOOLTIP_LIST_OFFSET,
-      length: validValues.length + 1,
+      length: listed.length + (dropped > 0 ? 2 : 1),
       padding: TOOLTIP_PADDING,
       itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
       spacing: TOOLTIP_LIST_SPACING,
       width: maxLabelLength * 7 + 48,
       position: this.state.position,
+      bound: region,
       draw: (i, b) => {
         let label: string;
         let value: string;
@@ -146,8 +151,11 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
         if (i === 0) {
           label = "Time";
           value = avgXValue.toString("preciseDate", "local");
+        } else if (i > listed.length) {
+          label = `and ${dropped} more`;
+          value = "";
         } else {
-          const v = validValues[i - 1];
+          const v = listed[i - 1];
           label = v.label ?? "";
           value = formatValue(v);
           color = v.color;
@@ -171,6 +179,13 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
   }
 }
+
+// fit is how many list items fit in height.
+const fit = (height: number): number =>
+  Math.floor(
+    (height - TOOLTIP_PADDING.y * 2 + TOOLTIP_LIST_SPACING) /
+      (TOOLTIP_LIST_ITEM_HEIGHT + TOOLTIP_LIST_SPACING),
+  );
 
 const formatValue = ({ value: { y }, bounds }: FindResult): string => {
   if (y === Infinity) return "∞";

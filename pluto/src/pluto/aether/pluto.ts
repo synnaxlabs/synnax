@@ -11,6 +11,7 @@ import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos"
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { color } from "@/color/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { log } from "@/log/aether";
@@ -27,6 +28,7 @@ import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
 import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
+import { latestSample } from "@/vis/latestSample/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { scale } from "@/vis/scale/aether";
@@ -46,11 +48,13 @@ export const render = (): void => {
     ...diagram.REGISTRY,
     ...eraser.REGISTRY,
     ...input.REGISTRY,
+    ...latestSample.REGISTRY,
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
     ...range.REGISTRY,
     ...scale.REGISTRY,
+    ...color.REGISTRY,
     ...setpoint.REGISTRY,
     ...staleness.REGISTRY,
     ...stateIndicator.REGISTRY,

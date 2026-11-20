@@ -12,12 +12,13 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
+  map,
   type record,
   state,
   TimeSpan,
   zod,
 } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { aether } from "@/aether/aether";
 
@@ -40,12 +41,12 @@ interface PendingRequest {
 
 class InvokeTracker {
   private pending = new Map<string, PendingRequest>();
-  private counters = new Map<string, number>();
+  // One count for every component: a component that re-attaches at the same path must
+  // not reuse a key that a late answer to its predecessor still carries.
+  private counter = 0;
 
   nextKey(componentID: string): string {
-    const counter = this.counters.get(componentID) ?? 0;
-    this.counters.set(componentID, counter + 1);
-    return `${componentID}-${counter}`;
+    return `${componentID}-${this.counter++}`;
   }
 
   track(
@@ -84,10 +85,6 @@ class InvokeTracker {
     this.pending.forEach(({ controller }) => controller.abort(reason));
     this.pending.clear();
   }
-
-  clearCounter(id: string): void {
-    this.counters.delete(id);
-  }
 }
 
 /** Setter argument accepted by {@link Handle.setState}: a new state value or a function
@@ -103,9 +100,9 @@ type Listener = () => void;
  * and waiting for the next flush; `live` means its create message has been sent. */
 type Phase = "staged" | "queued" | "live";
 
-/** Worker component tracked by the store. Generic over its schema so {@link Store.stage}
- * and the handle it returns keep the per-entry state and callback types without
- * re-asserting at every field access. */
+/** Worker component tracked by the store. Generic over its schema so
+ * {@link Store.stage} and the handle it returns keep the per-entry state and callback
+ * types without re-asserting at every field access. */
 interface Entry<
   StateSchema extends z.ZodType<record.Unknown, record.Unknown> = z.ZodType<
     record.Unknown,
@@ -128,6 +125,7 @@ interface Entry<
   /** Invokes issued before the create message flushed. The worker cannot resolve a path
    * it has not seen, so they ride out immediately after it. */
   pendingInvokes: aether.MainInvokeRequest[];
+  invokeTimeout?: CrudeTimeSpan;
 }
 
 /** Arguments accepted by {@link Store.stage}. */
@@ -137,7 +135,9 @@ export interface StageParams<
 > {
   /** Component type, matched against the worker-side registry. */
   type: string;
-  /** Component path in the aether tree; its flattened form is the component's identity. */
+  /**
+   * Component path in the aether tree; its flattened form is the component's identity.
+   */
   path: readonly string[];
   /** Zod schema validating both `initialState` and worker-pushed state. */
   schema: StateSchema;
@@ -146,6 +146,8 @@ export interface StageParams<
   initialTransfer?: Transferable[];
   /** Optional method-call schema; powers `methods` on the returned handle. */
   methodsSchema?: Methods;
+  /** Timeout for async methods. Defaults to the store's timeout. */
+  invokeTimeout?: CrudeTimeSpan;
   /** Ref to a callback fired on worker-pushed state changes only. */
   onReceiveRef?: { current: ((state: z.infer<StateSchema>) => void) | undefined };
 }
@@ -170,8 +172,8 @@ export interface Handle<
   /** Latest state, readable in every phase. Owned by the handle rather than the store
    * so it stays stable across a detach/attach cycle. */
   getState: () => z.infer<StateSchema>;
-  /** Subscribes to this component's state changes. Fires on both worker pushes and local
-   * {@link Handle.setState}, and persists across detach-attach cycles. Returns an
+  /** Subscribes to this component's state changes. Fires on both worker pushes and
+   * local {@link Handle.setState}, and persists across detach-attach cycles. Returns an
    * unsubscribe function. */
   subscribe: (listener: Listener) => destructor.Destructor;
   /** Publishes the component to the store and queues its create message. Call from a
@@ -337,12 +339,7 @@ export class Store {
    * detach-attach cycles. Returns an unsubscribe function. */
   subscribe(path: readonly string[], listener: Listener): () => void {
     const id = pathID(path);
-    let set = this.listeners.get(id);
-    if (set == null) {
-      set = new Set();
-      this.listeners.set(id, set);
-    }
-    set.add(listener);
+    map.getOrInsert(this.listeners, id, () => new Set()).add(listener);
     return () => {
       const s = this.listeners.get(id);
       if (s == null) return;
@@ -367,6 +364,7 @@ export class Store {
       initialState,
       initialTransfer = [],
       methodsSchema,
+      invokeTimeout,
     } = params;
     if (path.length === 0 || path[path.length - 1].length === 0)
       throw new ValidationError(
@@ -392,15 +390,16 @@ export class Store {
       displaced: false,
       transfer: [...initialTransfer],
       pendingInvokes: [],
+      invokeTimeout,
     };
     return this.buildHandle(entry, methodsSchema);
   }
 
-  /** Appends the creates attached since the last flush, shallowest path first: React runs
-   * layout effects children before parents, but the worker rejects a child whose parent
-   * it has never seen, and an ancestor's path is always shorter than its descendant's.
-   * They land at the tail of the batch, so deletes buffered earlier in the commit still
-   * lead and a re-parent tears down before it rebuilds. */
+  /** Appends the creates attached since the last flush, shallowest path first: React
+   * runs layout effects children before parents, but the worker rejects a child whose
+   * parent it has never seen, and an ancestor's path is always shorter than its
+   * descendant's. They land at the tail of the batch, so deletes buffered earlier in
+   * the commit still lead and a re-parent tears down before it rebuilds. */
   private drainCreates(): void {
     if (this.queued.length === 0) return;
     const queued = this.queued;
@@ -431,8 +430,8 @@ export class Store {
 
   /** Returns `entry` to the staged phase. Sends a delete only when its create message
    * already went out; a component that never flushed does not exist on the worker.
-   * `displaced` marks a same-path replacement, which must not clear the successor's
-   * entry or invoke counter. */
+   * `displaced` marks a same-path replacement, which must not delete the successor's
+   * entry. */
   private detachEntry(entry: Entry, displaced = false): void {
     if (entry.phase === "staged") return;
     const id = pathID(entry.path);
@@ -458,7 +457,6 @@ export class Store {
       return;
     }
     this.entries.delete(id);
-    this.invokeTracker.clearCounter(id);
   }
 
   private handleWorkerMessage(msg: aether.WorkerMessage): void {
@@ -503,10 +501,7 @@ export class Store {
     ): void => {
       if (entry.displaced) return;
       const prev = entry.state;
-      const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
-        next,
-        prev,
-      );
+      const raw = state.resolve<z.input<StateSchema>, z.infer<StateSchema>>(next, prev);
       entry.state = zod.parse(entry.schema, raw, { label: entry.type });
       // Before the create message flushes the worker has no component to update, so
       // the state rides along on that message instead and the transfer list merges
@@ -541,7 +536,9 @@ export class Store {
       method: string,
       args: unknown[],
       signal: AbortSignal = AbortSignal.timeout(
-        new TimeSpan(this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
+        new TimeSpan(
+          entry.invokeTimeout ?? this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT,
+        ).milliseconds,
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { device } from "@synnaxlabs/client";
 import { Flux } from "@synnaxlabs/pluto";
 
 export interface ChangeIdentifierParams {
@@ -25,11 +25,10 @@ export const { useUpdate: useChangeIdentifier } =
     },
     update: async ({ client, data }) => {
       const { key, identifier } = data;
-      const d = await client.devices.retrieve({ key, includeStatus: true });
-      await client.devices.create({
-        ...d,
-        properties: { ...d.properties, identifier },
-      });
+      await client.devices.dispatch(
+        key,
+        device.set({ path: ["properties", "identifier"], value: identifier }),
+      );
       return data;
     },
   });

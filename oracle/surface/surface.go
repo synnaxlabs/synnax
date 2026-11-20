@@ -28,14 +28,17 @@ func Write(w io.Writer, table *resolution.Table) error {
 	slices.SortFunc(types, func(a, b resolution.Type) int {
 		return strings.Compare(a.QualifiedName, b.QualifiedName)
 	})
-	var lines []string
+	var b strings.Builder
 	for _, t := range types {
-		lines = append(lines, typeLines(t)...)
+		for _, line := range typeLines(t) {
+			b.WriteString(line)
+			b.WriteByte('\n')
+		}
 	}
-	if len(lines) == 0 {
+	if b.Len() == 0 {
 		return nil
 	}
-	_, err := io.WriteString(w, strings.Join(lines, "\n")+"\n")
+	_, err := io.WriteString(w, b.String())
 	return err
 }
 
@@ -52,11 +55,7 @@ func typeLines(t resolution.Type) []string {
 			lines = append(lines, qn+" omits "+name)
 		}
 		lines = append(lines, fieldLines(qn+".", f.Fields)...)
-		for _, a := range f.Actions {
-			lines = append(lines, qn+" action "+a.Name)
-			lines = append(lines, fieldLines(qn+"!"+a.Name+".", a.Fields)...)
-		}
-		return lines
+		return append(lines, actionLines(qn, f.Actions)...)
 	case resolution.EnumForm:
 		lines := []string{qn + " enum" + refs(" extends ", f.Extends)}
 		for _, v := range f.Values {
@@ -74,7 +73,7 @@ func typeLines(t resolution.Type) []string {
 		for _, v := range f.Variants {
 			lines = append(lines, qn+"|"+v.Name+" "+ref(v.Type))
 		}
-		return lines
+		return append(lines, actionLines(qn, f.Actions)...)
 	case resolution.AliasForm:
 		return []string{qn + params(f.TypeParams) + " = " + ref(f.Target)}
 	case resolution.DistinctForm:
@@ -82,6 +81,19 @@ func typeLines(t resolution.Type) []string {
 	default:
 		panic(fmt.Sprintf("surface: unknown form %T of %s", t.Form, qn))
 	}
+}
+
+func actionLines(qn string, actions []resolution.Action) []string {
+	var lines []string
+	for _, a := range actions {
+		if a.IsAlias() {
+			lines = append(lines, qn+" action "+a.Name+" = "+ref(a.Alias))
+			continue
+		}
+		lines = append(lines, qn+" action "+a.Name)
+		lines = append(lines, fieldLines(qn+"!"+a.Name+".", a.Fields)...)
+	}
+	return lines
 }
 
 func fieldLines(prefix string, fields []resolution.Field) []string {

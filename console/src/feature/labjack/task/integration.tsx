@@ -1,0 +1,25 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+import { ReadSelectable, WriteSelectable } from "@/feature/labjack/task/create";
+import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/labjack/task/types";
+import { Task } from "@/platform/task";
+
+const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(READ_SCHEMAS.config.parse(config).channels);
+
+export const INTEGRATION: Task.Integration = {
+  prefix: PREFIX,
+  name: "LabJack",
+  icon: <Icon.Logo.LabJack />,
+  selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
+};

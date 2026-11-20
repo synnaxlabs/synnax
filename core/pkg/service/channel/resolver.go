@@ -12,11 +12,15 @@ package channel
 import (
 	"context"
 	"strconv"
+	"sync"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -24,8 +28,9 @@ import (
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient
 // prelude at analysis time.
 type symbolResolver struct {
-	svc *Service
-	tx  gorp.Tx
+	svc     *Service
+	snap    gorp.Snapshot
+	filters []Filter
 }
 
 var _ symbol.Resolver = (*symbolResolver)(nil)
@@ -40,6 +45,14 @@ func toSymbol(ch Channel) *symbol.Symbol {
 	}
 }
 
+func (r *symbolResolver) retrieve() Retrieve {
+	q := r.svc.NewRetrieve()
+	for _, f := range r.filters {
+		q = q.Where(f)
+	}
+	return q
+}
+
 // Resolve resolves a single cluster channel by name or numeric key.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
@@ -47,13 +60,13 @@ func (r *symbolResolver) Resolve(
 ) (*symbol.Symbol, error) {
 	key, err := strconv.ParseUint(name, 10, 32)
 	var ch Channel
-	q := r.svc.NewRetrieve().Entry(&ch)
+	q := r.retrieve().Entry(&ch)
 	if err == nil {
 		q = q.Where(MatchKeys(Key(key)))
 	} else {
 		q = q.Where(MatchNames(name))
 	}
-	if err = q.Exec(ctx, r.tx); err != nil {
+	if err = q.Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	return toSymbol(ch), nil
@@ -65,13 +78,92 @@ func (r *symbolResolver) Search(
 	name string,
 ) ([]*symbol.Symbol, error) {
 	var results []Channel
-	if err := r.svc.NewRetrieve().
+	if err := r.retrieve().
 		Where(MatchInternal(false)).
 		Search(name).
-		Entries(&results).Exec(ctx, r.tx); err != nil {
+		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
 		return toSymbol(item)
 	}), nil
+}
+
+// NewConsistentResolver returns a resolver that answers each name the way r first
+// answered it. Arc resolves a name several times in one analysis or compile, and a
+// rename that commits part way through would otherwise give that pass both answers.
+// Use one per analysis or compile. It is safe for concurrent use.
+func NewConsistentResolver(r arc.SymbolResolver) arc.SymbolResolver {
+	return &consistentResolver{
+		SymbolResolver: r,
+		resolved:       make(map[string]resolution),
+	}
+}
+
+// NewCheckedResolver returns a consistent resolver that looks up channels in snap and
+// records each name it looks up in lookups, for CompileConsistent.
+func (s *Service) NewCheckedResolver(
+	snap gorp.Snapshot,
+	lookups *Lookups,
+) arc.SymbolResolver {
+	return &consistentResolver{
+		SymbolResolver: s.NewArcSymbolResolver(snap),
+		resolved:       make(map[string]resolution),
+		record: func(name string, first resolution) {
+			lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+				return first.same(s.NewArcSymbolResolver(snap).Resolve(ctx, name))
+			})
+		},
+	}
+}
+
+type resolution struct {
+	sym *symbol.Symbol
+	err error
+}
+
+// same reports whether a second lookup, which returned sym and err, gives the answer of
+// res: the same symbol ID, type, and name, or not found both times. It returns err when
+// the second lookup fails for another reason.
+func (res resolution) same(sym *symbol.Symbol, err error) (bool, error) {
+	notFound := errors.Is(err, query.ErrNotFound)
+	if err != nil && !notFound {
+		return false, err
+	}
+	if res.err != nil || notFound {
+		return notFound && errors.Is(res.err, query.ErrNotFound), nil
+	}
+	return res.sym.ID == sym.ID &&
+		res.sym.Name == sym.Name &&
+		types.Equal(res.sym.Type, sym.Type), nil
+}
+
+type consistentResolver struct {
+	arc.SymbolResolver
+	// record is called once for each name that the resolver looks up. It is nil when
+	// the resolver records nothing.
+	record   func(name string, first resolution)
+	mu       sync.Mutex
+	resolved map[string]resolution
+}
+
+func (r *consistentResolver) Resolve(
+	ctx context.Context,
+	name string,
+) (*symbol.Symbol, error) {
+	r.mu.Lock()
+	res, ok := r.resolved[name]
+	if !ok {
+		res.sym, res.err = r.SymbolResolver.Resolve(ctx, name)
+		r.resolved[name] = res
+		if r.record != nil {
+			r.record(name, res)
+		}
+	}
+	r.mu.Unlock()
+	if res.err != nil {
+		return nil, res.err
+	}
+	sym := *res.sym
+	return &sym, nil
 }

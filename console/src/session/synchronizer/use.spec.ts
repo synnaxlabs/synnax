@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/testutil";
-import { type breaker, TimeSpan } from "@synnaxlabs/x";
+import { type breaker, scheduler, sleep, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -23,8 +23,7 @@ const quiet = (): void => {};
 describe("Synchronizer.use", () => {
   it("should run reconciles sequentially in declaration order", async () => {
     const calls: string[] = [];
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const { wrapper } = await createConsoleWrapper({ client });
     renderHook(
       () =>
@@ -59,8 +58,7 @@ describe("Synchronizer.use", () => {
 
   it("should stop a pass once the hook unmounts", async () => {
     const calls: string[] = [];
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const { wrapper } = await createConsoleWrapper({ client });
     const { unmount } = renderHook(
       () =>
@@ -94,13 +92,38 @@ describe("Synchronizer.use", () => {
     expect(calls).toEqual(["first:start", "first:end"]);
   });
 
+  it("should tell a reconcile that its pass ended", async () => {
+    const seen: boolean[] = [];
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { unmount } = renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "first",
+            use: () => ({
+              reconcile: async ({ ended }) => {
+                seen.push(ended());
+                await gate;
+                seen.push(ended());
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(seen).toEqual([false]));
+    unmount();
+    release();
+    await waitFor(() => expect(seen).toEqual([false, true]));
+  });
+
   it("should drop a pass whose client closes while it runs", async () => {
     const error = vi.spyOn(console, "error");
     try {
       const closing = createTestClient();
       const calls: string[] = [];
-      let release: () => void = () => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const { wrapper } = await createConsoleWrapper({ client: closing });
       renderHook(
         () =>
@@ -130,7 +153,7 @@ describe("Synchronizer.use", () => {
       await closing.close();
       release();
       await gate;
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await scheduler.nextTask();
       expect(calls).toEqual(["first:start"]);
       expect(error).not.toHaveBeenCalled();
     } finally {
@@ -202,9 +225,55 @@ describe("Synchronizer.use", () => {
     expect(destroyed).toBe(true);
   });
 
+  it("should tell a listener that its client closed", async () => {
+    const closing = createTestClient();
+    let ended: (() => boolean) | undefined;
+    const { wrapper } = await createConsoleWrapper({ client: closing });
+    renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "listener",
+            use: () => ({
+              listen: (params) => {
+                ended = params.ended;
+                return () => {};
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(ended?.()).toBe(false));
+    await closing.close();
+    expect(ended?.()).toBe(true);
+  });
+
+  it("should tell a listener that it was torn down", async () => {
+    let ended: (() => boolean) | undefined;
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { unmount } = renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "listener",
+            use: () => ({
+              listen: (params) => {
+                ended = params.ended;
+                return () => {};
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(ended?.()).toBe(false));
+    unmount();
+    expect(ended?.()).toBe(true);
+  });
+
   it("should report verified only after a full pass completes", async () => {
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const { wrapper } = await createConsoleWrapper({ client });
     const { result } = renderHook(
       () =>
@@ -281,7 +350,7 @@ describe("Synchronizer.use", () => {
         ]),
       { wrapper },
     );
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await sleep.sleep(TimeSpan.milliseconds(50));
     expect(calls).toEqual([]);
   });
 });

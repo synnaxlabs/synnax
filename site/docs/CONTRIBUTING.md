@@ -21,7 +21,7 @@ referring to "George Washington" the first time, and then "Washington" thereafte
 
 Console components are common nouns. Write them in lowercase mid-sentence, and
 capitalize only at the start of a sentence or heading. Proper nouns inside a name keep
-their capital ("Core selector", "Arc explorer"):
+their capital ("Core selector", "Arcs toolbar"):
 
 - channels toolbar
 - Core selector
@@ -29,7 +29,6 @@ their capital ("Core selector", "Arc explorer"):
 - ranges toolbar
 - search and command palette
 - tasks toolbar
-- users toolbar
 - project selector
 - projects toolbar
 

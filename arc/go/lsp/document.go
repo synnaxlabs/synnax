@@ -24,51 +24,82 @@ import (
 
 type documentMetadata struct {
 	isFunctionBlock bool
+	isModule        bool
 }
 
 func extractMetadataFromURI(docURI uri.URI) *documentMetadata {
 	uriStr := string(docURI)
 	return &documentMetadata{
 		isFunctionBlock: strings.HasPrefix(uriStr, "arc://block/"),
+		isModule:        strings.HasPrefix(uriStr, "arc://module/"),
 	}
 }
 
-type Document struct {
+type document struct {
 	metadata    *documentMetadata
 	Content     string
 	URI         uri.URI
 	IR          ir.IR
 	Diagnostics diagnostics.Diagnostics
-	Version     int32
-	debouncer   *debounce.Debouncer
+	// analyzed is the content that IR and Diagnostics come from.
+	analyzed  string
+	Version   int32
+	debouncer *debounce.Debouncer
 }
 
-func (d *Document) isBlock() bool {
+func (d *document) isBlock() bool {
 	return d.metadata != nil && d.metadata.isFunctionBlock
 }
 
-func (d *Document) displayContent() string {
+func (d *document) displayContent() string {
 	return d.Content
 }
 
-func (d *Document) toDocPosition(pos protocol.Position) protocol.Position {
+func (d *document) toDocPosition(pos protocol.Position) protocol.Position {
 	if !d.isBlock() {
 		return pos
 	}
+	return unwrapPosition(pos)
+}
+
+// unwrapPosition moves a position in a parsed block to its place in the document.
+func unwrapPosition(pos protocol.Position) protocol.Position {
 	if pos.Line == 0 && pos.Character > 0 {
-		return protocol.Position{Line: pos.Line, Character: pos.Character - 1}
+		pos.Character--
 	}
 	return pos
 }
 
-func (d *Document) toDocRange(r protocol.Range) protocol.Range {
+func unwrapPositions(r protocol.Range) protocol.Range {
+	return protocol.Range{Start: unwrapPosition(r.Start), End: unwrapPosition(r.End)}
+}
+
+// unwrapDiagnostics moves the positions of diags, from analysis of a parsed block, to
+// their places in the document. It modifies diags in place.
+func unwrapDiagnostics(diags diagnostics.Diagnostics) diagnostics.Diagnostics {
+	for i := range diags {
+		d := &diags[i]
+		d.Range = unwrapPositions(d.Range)
+		for j := range d.Notes {
+			d.Notes[j].Location.Range = unwrapPositions(d.Notes[j].Location.Range)
+		}
+		for _, fix := range d.Fixes {
+			for k := range fix.Edits {
+				fix.Edits[k].Range = unwrapPositions(fix.Edits[k].Range)
+			}
+		}
+	}
+	return diags
+}
+
+func (d *document) toDocRange(r protocol.Range) protocol.Range {
 	return protocol.Range{
 		Start: d.toDocPosition(r.Start),
 		End:   d.toDocPosition(r.End),
 	}
 }
 
-func (d *Document) toDocLocation(loc *protocol.Location) *protocol.Location {
+func (d *document) toDocLocation(loc *protocol.Location) *protocol.Location {
 	if loc == nil {
 		return nil
 	}
@@ -78,7 +109,7 @@ func (d *Document) toDocLocation(loc *protocol.Location) *protocol.Location {
 	}
 }
 
-func (d *Document) toDocLocations(locs []protocol.Location) []protocol.Location {
+func (d *document) toDocLocations(locs []protocol.Location) []protocol.Location {
 	if locs == nil {
 		return nil
 	}
@@ -89,15 +120,15 @@ func (d *Document) toDocLocations(locs []protocol.Location) []protocol.Location 
 	return result
 }
 
-func (d *Document) getWordAtPosition(pos protocol.Position) string {
+func (d *document) getWordAtPosition(pos protocol.Position) string {
 	return lsp.GetWordAtPosition(d.displayContent(), pos)
 }
 
-func (d *Document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
+func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
 	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
-func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
+func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
 	return findScopeAt(d.IR.Symbols, d.isBlock(), pos)
 }
 
@@ -120,7 +151,16 @@ func findScopeAt(
 	return findScopeAtInternalPosition(symbols, fromProtocol(astPos))
 }
 
-func (d *Document) resolveSymbolAtPosition(
+// symbolAt returns the symbol at pos, or nil when no symbol resolves there.
+func (d *document) symbolAt(ctx context.Context, pos protocol.Position) *symbol.Symbol {
+	sym, err := d.resolveSymbolAtPosition(ctx, pos)
+	if err != nil {
+		return nil
+	}
+	return sym
+}
+
+func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {

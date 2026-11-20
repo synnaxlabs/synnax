@@ -171,7 +171,6 @@ class DevicesToolbar(ConsoleCase):
         properties: dict[str, JsonValue] | None = None,
     ) -> sy.Device:
         """Create a device with auto-suffixed key/name and track for teardown."""
-        parent_id = sy.ontology.ID(type="device", key=parent) if parent else None
         dev = self.client.devices.create(
             sy.Device(
                 key=f"{key}-{self.suffix}",
@@ -182,7 +181,7 @@ class DevicesToolbar(ConsoleCase):
                 location=location,
                 configured=configured,
                 properties=properties or {},
-                parent=parent_id,
+                parent=parent or None,
             ),
         )
         self._live_keys.add(dev.key)
@@ -190,23 +189,17 @@ class DevicesToolbar(ConsoleCase):
 
     def _move_device(self, device: sy.Device, target_chassis: sy.Device) -> sy.Device:
         """Move a device to a different chassis and verify in UI."""
-        updated = self.client.devices.create(
-            sy.Device(
-                key=device.key,
-                rack=self.rack.key,
-                name=device.name,
-                make=device.make,
-                model=device.model,
-                location=device.location,
-                properties=device.properties,
-                parent=sy.ontology.ID(type="device", key=target_chassis.key),
+        self.client.devices.dispatch(
+            device.key,
+            sy.device.set_rack(
+                sy.device.SetRackPayload(rack=self.rack.key, parent=target_chassis.key)
             ),
         )
         self.console.devices.expand(target_chassis.name)
         assert self.console.devices.is_child_of(device.name, target_chassis.name), (
             f"'{device.name}' should be under '{target_chassis.name}'"
         )
-        return updated
+        return self.client.devices.retrieve(key=device.key)
 
     def _assert_modules_under(self, chassis_name: str) -> None:
         """Assert all modules are visible children of the given chassis."""
@@ -278,11 +271,9 @@ class DevicesToolbar(ConsoleCase):
         )
 
         props = self.console.devices.copy_properties("LabJack T4")
-        assert props["configured"] is True, (
-            f"Expected configured=True, got {props['configured']}"
-        )
-        assert props["name"] == "LabJack T4", (
-            f"Expected name 'LabJack T4', got '{props['name']}'"
+        assert props.configured, f"Expected configured=True, got {props.configured}"
+        assert props.name == "LabJack T4", (
+            f"Expected name 'LabJack T4', got '{props.name}'"
         )
 
         retrieved = self.client.devices.retrieve(key=dev.key)
@@ -329,9 +320,8 @@ class DevicesToolbar(ConsoleCase):
             self.ethercat_dev,
         ]:
             status = self.console.devices.get_status(dev.name)
-            assert status["variant"] == "disabled", (
-                f"Expected 'disabled' variant for '{dev.name}', "
-                f"got '{status['variant']}'"
+            assert status.variant == "disabled", (
+                f"Expected 'disabled' variant for '{dev.name}', got '{status.variant}'"
             )
 
     def test_change_identifier(self) -> None:

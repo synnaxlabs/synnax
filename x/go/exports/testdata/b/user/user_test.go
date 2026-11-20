@@ -10,6 +10,7 @@
 package user_test
 
 import (
+	"example.com/a/fake"
 	"example.com/a/lib"
 	"example.com/a/testutil"
 )
@@ -17,4 +18,5 @@ import (
 var (
 	_ = lib.OtherTests
 	_ = testutil.Helper
+	_ = fake.Server
 )

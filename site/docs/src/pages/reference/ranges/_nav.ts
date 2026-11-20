@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/tree";
+import type { Nav } from "@/components/nav";
 
-export const RANGES_NAV: PageNavNode = {
+export const RANGES_NAV: Nav.PageNavNode = {
   key: "ranges",
   name: "Ranges",
   children: [
@@ -38,20 +38,16 @@ export const RANGES_NAV: PageNavNode = {
       name: "Metadata and labels",
     },
     {
-      href: "/reference/ranges/aliases",
-      name: "Channel aliases",
-    },
-    {
-      href: "/reference/ranges/snapshots",
-      name: "Snapshots",
-    },
-    {
       href: "/reference/ranges/data",
       name: "Read and write range data",
     },
     {
       href: "/reference/ranges/export",
       name: "Export data",
+    },
+    {
+      href: "/reference/ranges/sift",
+      name: "Send data to Sift",
     },
     {
       href: "/reference/ranges/reference",

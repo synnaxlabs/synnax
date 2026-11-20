@@ -34,7 +34,7 @@ var _ = Describe("Tx", Ordered, func() {
 				Expect(kv.WithTx(ctx, db, func(tx kv.Tx) error {
 					return tx.Set(ctx, k, v)
 				})).To(Succeed())
-				ov, closer := MustSucceed2(db.Get(ctx, k))
+				ov, closer := MustSucceed2(db.Get(k))
 				Expect(ov).To(Equal([]byte("value")))
 				Expect(closer.Close()).To(Succeed())
 			},
@@ -48,7 +48,7 @@ var _ = Describe("Tx", Ordered, func() {
 					Expect(tx.Set(ctx, k, []byte("value"))).To(Succeed())
 					return err
 				})).To(MatchError(err))
-				Expect(db.Get(ctx, k)).Error().To(MatchError(query.ErrNotFound))
+				Expect(db.Get(k)).Error().To(MatchError(query.ErrNotFound))
 			},
 		)
 	})

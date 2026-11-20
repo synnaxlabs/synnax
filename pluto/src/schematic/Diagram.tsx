@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { useStoreApi, useUpdateNodeInternals } from "@xyflow/react";
+import { useReactFlowStoreApi, useUpdateNodeInternals } from "@xyflow/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -20,12 +20,14 @@ import {
 } from "react";
 
 import { Edge } from "@/schematic/edge";
-import { type ElementConfig } from "@/schematic/element";
+import type { ElementConfig } from "@/schematic/element";
+import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 import {
   useAllEdges,
   useConfigs,
   useElementConfig,
+  useParentOf,
   useSingleDispatch,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
@@ -89,12 +91,12 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   const edges = useAllEdges({ key });
   const edgeKeys = edges.map((e) => e.key);
   const configs = useConfigs({ key, keys: edgeKeys });
-  const rfStore = useStoreApi();
+  const { nodesStore, viewportStore } = useReactFlowStoreApi();
   const [jumpStore] = useState(Edge.Jumps.createStore);
 
   const recompute = () => {
-    const { nodeLookup, transform } = rfStore.getState();
-    const zoom = transform[2];
+    const { nodeLookup } = nodesStore.getState();
+    const zoom = viewportStore.getState().transform[2];
     const polylines: Edge.Jumps.Polyline[] = [];
     edges.forEach((edge, order) => {
       const sourceNode = nodeLookup.get(edge.source.node);
@@ -102,14 +104,14 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       if (sourceNode == null || targetNode == null) return;
       const source = resolveEndpoint(sourceNode.internals, edge.source.param);
       const target = resolveEndpoint(targetNode.internals, edge.target.param);
-      if (source == null || target == null) return;
       const cfg = configs.get(edge.key) as Edge.Config | undefined;
+      if (source == null || target == null || cfg == null) return;
       const segments = Edge.Segmented.build({
         source,
         target,
         sourceBox: internalNodeBox(sourceNode),
         targetBox: internalNodeBox(targetNode),
-        middleSegments: cfg?.segments ?? [],
+        middleSegments: cfg.segments,
       });
       const points = Edge.Segmented.segmentsToPoints(
         source.position,
@@ -117,13 +119,17 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         zoom,
         true,
       );
-      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
+      if (points.length < 2) return;
+      const { strokeWidth } = cfg;
+      const width = Edge.resolveSpec(cfg.variant).renderedWidth(strokeWidth);
+      polylines.push({ key: edge.key, points, order, strokeWidth, width });
     });
     jumpStore.commit(Edge.Jumps.findCrossings(polylines));
   };
 
-  // Coalesce React Flow's many per-interaction store updates into one recompute per frame,
-  // skipping frames where no node geometry or zoom changed (panning, selection, hover).
+  // Coalesce React Flow's many per-interaction store updates into one recompute per
+  // frame, skipping frames where no node geometry or zoom changed (panning, selection,
+  // hover).
   const frameRef = useRef<number | null>(null);
   const geometryRef = useRef("");
   useEffect(() => {
@@ -132,8 +138,8 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       if (frameRef.current != null) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null;
-        const { nodeLookup, transform } = rfStore.getState();
-        let geometry = `${transform[2]}`;
+        const { nodeLookup } = nodesStore.getState();
+        let geometry = `${viewportStore.getState().transform[2]}`;
         for (const node of nodeLookup.values()) {
           const { x, y } = node.internals.positionAbsolute;
           geometry += `;${x},${y},${node.measured.width},${node.measured.height}`;
@@ -143,24 +149,36 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         recompute();
       });
     };
-    const unsubscribe = rfStore.subscribe(schedule);
+    const unsubscribeNodes = nodesStore.subscribe(schedule);
+    const unsubscribeViewport = viewportStore.subscribe(schedule);
     return () => {
-      unsubscribe();
+      unsubscribeNodes();
+      unsubscribeViewport();
       if (frameRef.current != null) {
         cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
       }
     };
-  }, [recompute, rfStore]);
+  }, [recompute, nodesStore, viewportStore]);
 
   return <Edge.Jumps.Context value={jumpStore}>{children}</Edge.Jumps.Context>;
+};
+
+const Provider = ({ children }: PropsWithChildren): ReactElement => {
+  const parentOf = useParentOf();
+  const members = Group.childrenOf(parentOf);
+  return (
+    <Node.GroupBox.MembersProvider value={members}>
+      <EdgeJumpProvider>{children}</EdgeJumpProvider>
+    </Node.GroupBox.MembersProvider>
+  );
 };
 
 export const Diagram = Base.create({
   node: Component.renderProp(NodeRenderer),
   edge: Component.renderProp(EdgeRenderer),
   connectionLine: Component.renderProp(Edge.ConnectionLine),
-  Provider: EdgeJumpProvider,
+  Provider,
 });
 
 export const nodeChangesToActions = (
@@ -174,6 +192,9 @@ export const nodeChangesToActions = (
         return;
       case "remove":
         actions.push(schematic.removeNode({ key: ch.key }));
+        break;
+      case "select":
+        break;
     }
   });
   return actions;
@@ -184,10 +205,8 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
     switch (ch.type) {
       case "add":
         return [
-          schematic.addEdge({ edge: ch.edge }),
-          schematic.setConfig({
-            key: ch.edge.key,
-            config: Edge.REGISTRY.pipe.defaultConfig(),
+          schematic.addEdge({
+            edge: { ...ch.edge, config: Edge.REGISTRY.pipe.defaultConfig() },
           }),
         ];
       case "remove":

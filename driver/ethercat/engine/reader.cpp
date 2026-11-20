@@ -21,10 +21,18 @@ namespace {
 const auto WAIT_SLICE = x::telem::MILLISECOND * 100;
 /// @brief slack added to the read timeout for scheduling jitter.
 const auto READ_TIMEOUT_SLACK = x::telem::MILLISECOND * 200;
+/// @brief how long warning() keeps a drop after the last call that saw one.
+const auto DROP_HOLD = x::telem::SECOND * 10;
 }
 
 Engine::Reader::Reader(Engine &engine, std::shared_ptr<Input> input):
-    engine(engine), input(std::move(input)) {}
+    engine(engine), input(std::move(input)) {
+    size_t width = 0;
+    for (const auto &entry: this->input->entries)
+        width = std::max(width, entry.decoder.type().density());
+    this->values.resize(this->input->samples_per_read * width);
+    this->slave_drops.resize(this->input->slaves.size());
+}
 
 Engine::Reader::~Reader() {
     this->engine.close_input(this->input);
@@ -68,42 +76,79 @@ x::errors::Error Engine::Reader::read(
         if (in.failed_samples.exchange(0, std::memory_order_relaxed) > 0)
             return x::errors::Error(
                 errors::CYCLE_FAILED,
-                "every bus cycle failed: " + this->engine.cycle_error().data
+                errors::sentence(
+                    "Every bus cycle failed: " + this->engine.cycle_error().data
+                )
             );
+        if (std::ranges::any_of(in.slaves, [](const Input::Slave &slave) {
+                return slave.lost.load(std::memory_order_relaxed);
+            }))
+            return x::errors::NIL;
         return x::errors::Error(
             errors::CYCLE_OVERRUN,
             std::format(
-                "no inputs from {} within {}",
-                this->engine.interface_name(),
+                "No inputs from {} within {}.",
+                this->engine.network_name,
                 timeout.to_string()
             )
         );
     }
-    for (size_t s = 0; s < count; ++s) {
-        const size_t slot = (tail + s) % in.capacity;
-        const uint8_t *sample = in.samples.get() + slot * in.sample_size;
-        for (size_t i = 0; i < in.entries.size(); ++i)
-            telem::read_pdo_to_series(
-                sample + in.sample_offsets[i],
-                in.offsets[i].bit,
-                in.entries[i].bit_length,
-                in.entries[i].data_type,
-                frame.series->at(i)
+    const auto slot = [&](const size_t s) { return (tail + s) % in.capacity; };
+    for (size_t i = 0; i < in.entries.size(); ++i) {
+        const auto &decoder = in.entries[i].decoder;
+        const size_t width = decoder.type().density();
+        const uint8_t *entry = in.samples.get() + in.entries[i].sample_offset;
+        for (size_t s = 0; s < count; ++s)
+            decoder.decode(
+                entry + slot(s) * in.sample_size,
+                this->values.data() + s * width
             );
-        times.write(in.times[slot]);
+        frame.series->at(i).write_casted(this->values.data(), count, decoder.type());
     }
+    for (size_t s = 0; s < count; ++s)
+        times.write(in.times[slot(s)]);
     in.tail.store(tail + count, std::memory_order_release);
     return x::errors::NIL;
 }
 
 std::string Engine::Reader::warning() {
+    const auto now = this->engine.config.host_clock.steady();
     std::string msg;
-    if (this->input->failed_samples.exchange(0, std::memory_order_relaxed) > 0)
-        msg = "Bus cycles failed: " + this->engine.cycle_error().data + ".";
-    if (this->input->overflowed_samples.exchange(0, std::memory_order_relaxed) > 0)
-        msg += std::string(msg.empty() ? "" : " ") +
-               "The task cannot keep up with the bus. Lower the stream rate for the "
-               "task.";
+    const auto add = [&msg](const std::string &sentence) {
+        msg += (msg.empty() ? "" : " ") + sentence;
+    };
+    const auto hold = [&](Drop &drop, const bool dropped, auto reason) {
+        if (dropped) drop = {reason(), now};
+        if (!drop.reason.empty() && now - drop.at < DROP_HOLD.chrono())
+            add(drop.reason);
+    };
+    const auto samples_dropped = [](std::atomic<uint64_t> &samples) {
+        return samples.exchange(0, std::memory_order_relaxed) > 0;
+    };
+    hold(this->failed, samples_dropped(this->input->failed_samples), [this] {
+        return errors::sentence(
+            "Bus cycles failed: " + this->engine.cycle_error().data
+        );
+    });
+    for (size_t i = 0; i < this->input->slaves.size(); ++i) {
+        auto &slave = this->input->slaves[i];
+        hold(
+            this->slave_drops[i],
+            slave.lost.exchange(false, std::memory_order_acquire),
+            [&slave] {
+                return out_of_op(
+                    slave.position,
+                    slave.name,
+                    slave.silent.load(std::memory_order_relaxed)
+                );
+            }
+        );
+    }
+    hold(this->overflowed, samples_dropped(this->input->overflowed_samples), [] {
+        return std::string(
+            "The task cannot keep up with the bus. Lower the stream rate for the task."
+        );
+    });
     return msg;
 }
 }

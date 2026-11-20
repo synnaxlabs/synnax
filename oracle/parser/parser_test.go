@@ -16,14 +16,18 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Helper to get StructFullContext from a struct definition
+// Helper to get StructFullContext from a struct definition.
 func asStructFull(structDef parser.IStructDefContext) *parser.StructFullContext {
-	return structDef.(*parser.StructFullContext)
+	full, ok := structDef.(*parser.StructFullContext)
+	Expect(ok).To(BeTrue())
+	return full
 }
 
-// Helper to get TypeRefNormalContext from a type reference
+// Helper to get TypeRefNormalContext from a type reference.
 func asTypeRefNormal(typeRef parser.ITypeRefContext) *parser.TypeRefNormalContext {
-	return typeRef.(*parser.TypeRefNormalContext)
+	normal, ok := typeRef.(*parser.TypeRefNormalContext)
+	Expect(ok).To(BeTrue())
+	return normal
 }
 
 var _ = Describe("Parser", func() {
@@ -251,6 +255,102 @@ var _ = Describe("Parser", func() {
 			Expect(
 				asTypeRefNormal(refs[1]).QualifiedIdent().IDENT(0).GetText(),
 			).To(Equal("B"))
+		})
+
+		It("Should parse an action that aliases a struct", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Set = patch.Set
+
+					action Rename {
+						name string
+					}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			actions := structDef.StructBody().AllActionDef()
+			Expect(actions).To(HaveLen(2))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Set"))
+			Expect(actions[0].ActionBody()).To(BeNil())
+			qi := asTypeRefNormal(actions[0].TypeRef()).QualifiedIdent()
+			Expect(qi.IDENT(0).GetText()).To(Equal("patch"))
+			Expect(qi.IDENT(1).GetText()).To(Equal("Set"))
+			Expect(actions[1].TypeRef()).To(BeNil())
+		})
+
+		It("Should parse the doc body of an action alias", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					action Set = patch.Set {
+						@doc value "sets a value."
+					}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			action := structDef.StructBody().ActionDef(0)
+			Expect(action.TypeRef().GetText()).To(Equal("patch.Set"))
+			domains := action.AliasBody().AllDomain()
+			Expect(domains).To(HaveLen(1))
+			Expect(domains[0].IDENT().GetText()).To(Equal("doc"))
+			Expect(domains[0].DomainContent().GetText()).
+				To(Equal(`value"sets a value."`))
+		})
+
+		It("Should reject a field in the body of an action alias", func() {
+			_, diag := parser.Parse(`
+				Schematic struct {
+					action Set = patch.Set {
+						name string
+					}
+				}
+			`)
+			Expect(diag).To(MatchError(ContainSubstring(
+				"extraneous input 'name' expecting {'}', '@', NEWLINE}",
+			)))
+			Expect(diag.Ok()).To(BeFalse())
+		})
+
+		It("Should parse actions in a union body beside its variants", func() {
+			schema := MustSucceed(parser.Parse(`
+				Shape union on type {
+					circle {
+						radius float64
+					}
+					square Square
+
+					action Rename {
+						name string
+					}
+
+					action Move extends Offset {}
+				}
+			`))
+			body := schema.Definition(0).UnionDef().UnionBody()
+			Expect(body.AllUnionVariant()).To(HaveLen(2))
+			actions := body.AllActionDef()
+			Expect(actions).To(HaveLen(2))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Rename"))
+			Expect(actions[1].IDENT().GetText()).To(Equal("Move"))
+			Expect(actions[1].EXTENDS()).NotTo(BeNil())
+		})
+
+		It("Should parse a union action with only domains as an action", func() {
+			schema := MustSucceed(parser.Parse(`
+				Shape union on type {
+					circle {}
+
+					action Reset {
+						@doc value "resets the shape."
+					}
+				}
+			`))
+			body := schema.Definition(0).UnionDef().UnionBody()
+			Expect(body.AllUnionVariant()).To(HaveLen(1))
+			actions := body.AllActionDef()
+			Expect(actions).To(HaveLen(1))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Reset"))
 		})
 	})
 
@@ -587,7 +687,7 @@ var _ = Describe("Parser", func() {
 						self
 					}
 
-					@ontology type "range"
+					@resource type "range"
 				}
 			`))
 			Expect(schema.AllImportStmt()).To(HaveLen(1))

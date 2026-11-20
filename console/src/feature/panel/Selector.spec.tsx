@@ -9,6 +9,7 @@
 
 import { access, panel, project, user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
@@ -17,19 +18,28 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireDragEvent } from "@synnaxlabs/lyra/testutil";
 import { Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { color, uuid } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
 import { Selector } from "@/feature/panel/Selector";
 import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -38,7 +48,6 @@ import {
   getIconButton,
   HaulProvider,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -49,7 +58,7 @@ const createTab = (): panel.Tab => ({
   type: "t",
 });
 
-interface CreateProjectPanelProps extends Pick<panel.New, "icon" | "color"> {
+interface CreateProjectPanelProps extends Pick<panel.New, "icon" | "color" | "owner"> {
   name?: string;
   key?: panel.Key;
   tab?: panel.Tab;
@@ -68,7 +77,7 @@ const createProjectPanel = async (
     key,
     ...rest,
     name: uniqueName(name),
-    parent: project.ontologyID(projectKey),
+    project: projectKey,
     root: { variant: "leaf", tabs: [tab] },
   });
 
@@ -292,6 +301,10 @@ describe("Panel.Selector", () => {
   // The strip is the only destination a tab can reach without opening a second
   // window, so a pill has to accept a tab and the create button has to mint one.
   describe("tab drop", () => {
+    const TABS: Panel.Tabs = {
+      t: { Content: () => null, Name: () => null, Icon: () => null, iconKey: "valve" },
+    };
+
     interface Harness {
       store: TestStore;
       source: panel.Panel;
@@ -315,10 +328,12 @@ describe("Panel.Selector", () => {
       store.dispatch(Session.Panel.select({ key: source.key }));
       await act(async () => {
         render(
-          <Haul.Provider>
-            <TabDragSource source={source.key} tab={tab} />
-            <Selector />
-          </Haul.Provider>,
+          <Panel.RendererContext value={TABS}>
+            <Haul.Provider>
+              <TabDragSource source={source.key} tab={tab} />
+              <Selector />
+            </Haul.Provider>
+          </Panel.RendererContext>,
           { wrapper },
         );
       });
@@ -356,7 +371,7 @@ describe("Panel.Selector", () => {
       );
     });
 
-    it("should mint a panel for a tab dropped on the create button", async () => {
+    it("should mint a panel with the tab's icon for a tab dropped on create", async () => {
       const { store, source, tab } = await createHarness(0);
       await startDrag();
       await act(async () => {
@@ -375,6 +390,7 @@ describe("Panel.Selector", () => {
         ]);
         expect(panel.findTab(mintedDoc.root, tab.key)).toEqual(tab);
         expect(panel.findTab(srcDoc.root, tab.key)).toBeUndefined();
+        expect(mintedDoc.icon).toEqual("valve");
       });
     });
 
@@ -455,6 +471,32 @@ describe("Panel.Selector", () => {
     });
   });
 
+  describe("drafts", () => {
+    it("should mark the user's drafts and hide the drafts of others", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const me = (await client.users.current.retrieve()).key;
+      const role = await createEmptyRole(client);
+      const other = await client.users.create({
+        username: uuid.create(),
+        password: "test",
+        name: "other",
+        role: role.key,
+      });
+      const shared = await createProjectPanel(proj.key, { name: "shared" });
+      const mine = await createProjectPanel(proj.key, { name: "mine", owner: me });
+      const theirs = await createProjectPanel(proj.key, {
+        name: "theirs",
+        owner: other.key,
+      });
+      await renderStrip([shared, mine], proj.key);
+      expect(screen.queryByText(theirs.name)).toBeNull();
+      const pill = (name: string) =>
+        screen.getAllByRole("tab").find((tab) => tab.textContent?.includes(name));
+      expect(pill(mine.name)?.textContent).toContain("Draft");
+      expect(pill(shared.name)?.textContent).not.toContain("Draft");
+    });
+  });
+
   // Deleting the selected panel hands the window to the panel beside it in the
   // strip, the way closing a browser tab does.
   describe("delete", () => {
@@ -509,11 +551,11 @@ describe("Panel.Selector", () => {
       const viewer = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          panel.TYPE_ONTOLOGY_ID,
-          project.TYPE_ONTOLOGY_ID,
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });
@@ -581,12 +623,16 @@ describe("Panel.Selector", () => {
 
     it("should tint the pill icon and keep the picker open on a color", async () => {
       const pan = await openPicker();
+      const frame = picker();
+      if (frame == null) throw new Error("the icon picker is not open");
+      const [swatch] = within(frame).getAllByRole("button", { name: /^#[0-9a-f]+$/ });
+      const [r, g, b] = color.construct(swatch.getAttribute("aria-label") ?? "");
       await act(async () => {
-        fireEvent.click(screen.getByLabelText("#dc136c"));
+        fireEvent.click(swatch);
       });
       await waitFor(() =>
         expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
-          "220, 19, 108",
+          `${r}, ${g}, ${b}`,
         ),
       );
       expect(picker()).not.toBeNull();
@@ -625,7 +671,7 @@ describe("Panel.Selector", () => {
     });
 
     it("should clear the color on Auto", async () => {
-      const pan = await openPicker({ color: "#dc136c" });
+      const pan = await openPicker({ color: { type: "fixed", value: "#dc136c" } });
       await act(async () => {
         fireEvent.click(screen.getByLabelText("Auto"));
       });
@@ -641,6 +687,8 @@ describe("Panel.Selector", () => {
     it("should set a custom color once the custom picker closes", async () => {
       const pan = await openPicker();
       fireEvent.click(screen.getByLabelText("Custom color"));
+      // With no color set, the picker opens on its Library tab.
+      fireEvent.click(await screen.findByText("Custom"));
       fireEvent.change(await screen.findByLabelText("Hex"), {
         target: { value: "123456" },
       });
@@ -655,7 +703,32 @@ describe("Panel.Selector", () => {
       );
       expect(picker()).not.toBeNull();
       const stored = await client.panels.retrieve({ key: pan.key });
-      expect(stored.color).toEqual(color.construct("#123456"));
+      expect(stored.color).toEqual({
+        type: "fixed",
+        value: color.construct("#123456"),
+      });
+    });
+
+    it("should link the panel to a named color picked from a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: uniqueName("palette"),
+      });
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+        group: palette.key,
+      });
+      const pan = await openPicker();
+      fireEvent.click(screen.getByLabelText("Custom color"));
+      fireEvent.click(await screen.findByRole("button", { name: named.name }));
+      await waitFor(() =>
+        expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
+          "18, 52, 86",
+        ),
+      );
+      const stored = await client.panels.retrieve({ key: pan.key });
+      expect(stored.color).toEqual({ type: "named", key: named.key });
     });
 
     it("should hide the item from a user who cannot edit the panel", async () => {
@@ -664,11 +737,11 @@ describe("Panel.Selector", () => {
       const viewer = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          panel.TYPE_ONTOLOGY_ID,
-          project.TYPE_ONTOLOGY_ID,
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });
@@ -682,6 +755,38 @@ describe("Panel.Selector", () => {
       fireEvent.contextMenu(await screen.findByText(pan.name));
       await screen.findByText("Reload Console");
       expect(screen.queryByText("Change icon")).toBeNull();
+    });
+
+    it("should offer the edits of a draft to its owner without update access", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const me = (await viewer.users.current.retrieve()).key;
+      const draft = await viewer.panels.create({
+        name: uniqueName("draft"),
+        project: proj.key,
+        owner: me,
+      });
+      const { wrapper } = await createPanelWrapper({
+        client: viewer,
+        project: proj.key,
+      });
+      await act(async () => {
+        render(<Selector />, { wrapper });
+      });
+      fireEvent.contextMenu(await screen.findByText(draft.name));
+      expect(await screen.findByText("Change icon")).toBeTruthy();
+      expect(screen.getByText("Rename")).toBeTruthy();
+      expect(screen.getByText("Delete")).toBeTruthy();
     });
   });
 

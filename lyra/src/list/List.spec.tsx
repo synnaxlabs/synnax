@@ -9,7 +9,7 @@
 
 import { observe, type record } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { createRef, type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -265,6 +265,35 @@ describe("List", () => {
           expect(fetchMore).toHaveBeenCalledTimes(1);
           fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
+        });
+
+        it("should call onFetchMore again when empty list items are re-mounted", () => {
+          const fetchMore = vi.fn();
+          const Component = () => {
+            const [listItemsVisible, setListItemsVisible] = useState(true);
+            const [renders, setRenders] = useState(0);
+            return (
+              <List.Frame data={[]} virtual={context.virtual} onFetchMore={fetchMore}>
+                <Button.Button onClick={() => setListItemsVisible(!listItemsVisible)}>
+                  Toggle
+                </Button.Button>
+                <Button.Button onClick={() => setRenders(renders + 1)}>
+                  Render
+                </Button.Button>
+                {listItemsVisible && (
+                  <List.Scroll>
+                    <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+                  </List.Scroll>
+                )}
+              </List.Frame>
+            );
+          };
+          const result = render(<Component />);
+          fireEvent.click(result.getByText("Render"));
+          expect(fetchMore).toHaveBeenCalledTimes(1);
+          fireEvent.click(result.getByText("Toggle"));
+          fireEvent.click(result.getByText("Toggle"));
+          expect(fetchMore).toHaveBeenCalledTimes(2);
         });
       });
     });
@@ -531,6 +560,21 @@ describe("List", () => {
       const scrolls = result.container.querySelectorAll(".lyra-list__scroll");
       expect(scrolls).toHaveLength(1);
       expect(scrolls[0].textContent).toBe("fixed12");
+    });
+
+    it("should pass its element to a given ref and still window the items", () => {
+      const ref = createRef<HTMLDivElement>();
+      const result = render(
+        <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT}>
+          <List.Scroll ref={ref}>
+            <List.Items>{item}</List.Items>
+          </List.Scroll>
+        </List.Frame>,
+      );
+      expect(ref.current).toBe(result.container.querySelector(".lyra-list__scroll"));
+      const rows = result.container.querySelectorAll(".lyra-list__item");
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.length).toBeLessThan(DATA.length);
     });
 
     it("should throw when no Scroll encloses the items", () => {

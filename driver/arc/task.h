@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <mutex>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -42,12 +43,16 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
+    /// @brief loop iterations and function calls that the program can run in one
+    /// cycle. Not read from the task's JSON config.
+    std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET;
 
     TaskConfig(TaskConfig &&other) noexcept:
         ::synnax::task::PersistConfig(std::move(other)),
         arc_key(other.arc_key),
         program(std::move(other.program)),
-        loop(other.loop) {}
+        loop(other.loop),
+        loop_budget(other.loop_budget) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -61,12 +66,23 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
+        auto [arc_data, arc_err] = client->arcs.retrieve(
             cfg.arc_key,
-            synnax::arc::RetrieveOptions{.compile = true}
+            synnax::arc::RetrieveOptions{.include_program = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        if (!arc_data.program.has_value())
+        const auto *automation = std::get_if<synnax::arc::AutomationArc>(&arc_data);
+        if (automation == nullptr)
+            return {
+                std::move(cfg),
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "Modules cannot be deployed independently. Import \"" +
+                        synnax::arc::base(arc_data).name +
+                        "\" from an automation instead."
+                )
+            };
+        if (!automation->program.has_value())
             return {
                 std::move(cfg),
                 x::errors::Error(
@@ -74,7 +90,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
                     "The Arc program is not compiled."
                 )
             };
-        cfg.program = *arc_data.program;
+        cfg.program = *automation->program;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -142,12 +158,16 @@ class Task final : public task::Task {
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
-            return this->task.runtime->write(std::move(frame));
+            const auto err = this->task.runtime->write(std::move(frame));
+            // A runtime that stopped itself already reported why, so the frame drops.
+            if (err.matches(::arc::runtime::errors::CLOSED)) return x::errors::NIL;
+            return err;
         }
 
-        // The start status waits for the streamer, so a client that waits for it can
-        // send commands at once.
+        // The start status and the runtime wait for the streamer. A client can then
+        // send commands at once, and the program reads its own first writes.
         void opened() override {
+            this->task.start_runtime();
             std::lock_guard lock(this->task.state_mu);
             if (this->task.opening) this->task.answer_pending_starts();
         }
@@ -169,6 +189,13 @@ class Task final : public task::Task {
         const std::shared_ptr<task::Context> &ctx
     ):
         state(ctx, task_meta) {}
+
+    /// @brief starts the runtime and the pipeline that writes its outputs.
+    /// @returns false if the runtime already runs.
+    bool start_runtime() {
+        if (!this->runtime->start()) return false;
+        return !this->acquisition || this->acquisition->start();
+    }
 
 public:
     static std::pair<std::unique_ptr<Task>, x::errors::Error> create(
@@ -232,12 +259,24 @@ public:
                     ),
                 },
             .rt_handle = rt_handle,
+            .report =
+                [task_ptr = task.get()](
+                    const std::string &message,
+                    const std::string &description
+                ) {
+                    std::lock_guard lock(task_ptr->state_mu);
+                    task_ptr->state.send_warning(message, description);
+                },
+            .loop_budget = cfg.loop_budget,
         };
 
         const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {
+            const auto *message = err.matches(::arc::runtime::errors::LOOP_BUDGET)
+                                    ? "Program ran too long"
+                                    : "Failed to run Arc program";
             {
                 std::lock_guard lock(task_ptr->state_mu);
-                task_ptr->state.send_error(err, "Failed to run Arc program");
+                task_ptr->state.send_error(err, message);
             }
             task_ptr->runtime->close_outputs();
         };
@@ -248,11 +287,12 @@ public:
              fail](const ::arc::ir::Node &node, const x::errors::Error &err) {
                 const auto description = "The " + node.type +
                                          " node failed: " + err.data;
-                if (err.matches(::arc::runtime::errors::WARNING)) {
-                    std::lock_guard lock(task_ptr->state_mu);
-                    task_ptr->state.send_warning("Node failed", description);
-                } else
+                if (err.matches(::arc::runtime::errors::LOOP_BUDGET)) {
                     fail(x::errors::Error(err, description));
+                    return;
+                }
+                std::lock_guard lock(task_ptr->state_mu);
+                task_ptr->state.send_warning("Node failed", description);
             }
         );
         if (err) return {nullptr, err};
@@ -309,27 +349,35 @@ public:
     /// @brief starts the task. A task whose runtime is already running is not
     /// restarted: the command is answered with the current status.
     bool start(const std::string &cmd_key) {
-        if (!this->runtime->start()) {
-            std::lock_guard lock(this->state_mu);
-            if (this->opening)
-                this->pending_starts.push_back(cmd_key);
-            else
-                this->state.ack(cmd_key, true);
-            return false;
-        }
-        auto acq_started = true;
-        if (this->acquisition) acq_started = this->acquisition->start();
-        if (!this->control) {
-            std::lock_guard lock(this->state_mu);
-            this->state.send_start(cmd_key);
-            return acq_started;
-        }
         {
             std::lock_guard lock(this->state_mu);
-            this->opening = true;
-            this->pending_starts = {cmd_key};
+            if (this->opening) {
+                this->pending_starts.push_back(cmd_key);
+                return false;
+            }
+            if (this->runtime->running()) {
+                this->state.ack(cmd_key, true);
+                return false;
+            }
+            if (this->control) {
+                this->opening = true;
+                this->pending_starts = {cmd_key};
+            }
         }
-        return this->control->start() && acq_started;
+        if (this->control) {
+            if (this->control->start()) return true;
+            // The pipeline of a start that failed can still be on its way out.
+            std::lock_guard lock(this->state_mu);
+            for (const auto &key: this->pending_starts)
+                this->state.ack(key, false);
+            this->pending_starts.clear();
+            this->opening = false;
+            return false;
+        }
+        const auto started = this->start_runtime();
+        std::lock_guard lock(this->state_mu);
+        this->state.send_start(cmd_key);
+        return started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
@@ -349,10 +397,10 @@ public:
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(synnax::task::Command &cmd) override {
-        if (cmd.type == "start")
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+        if (cmd.type == synnax::task::START_CMD_TYPE)
             this->start(cmd.key);
-        else if (cmd.type == "stop")
+        else if (cmd.type == synnax::task::STOP_CMD_TYPE)
             this->stop(cmd.key, true);
         else
             LOG(WARNING) << "[arc] unknown command type: " << cmd.type;

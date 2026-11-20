@@ -7,8 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel, project, query, ranger } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  panel,
+  type project,
+  query,
+  ranger,
+  type resource,
+  type user,
+} from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createPanelProject,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -18,11 +30,18 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { FC, PropsWithChildren, ReactElement } from "react";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+} from "vitest";
 
 import { Errors } from "@/errors";
-import { Ontology } from "@/ontology";
 import { Panel } from "@/panel";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -31,6 +50,9 @@ const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client
 // must pick up through the action channel.
 const writer = createTestClient();
+
+const PINK = { type: "fixed", value: "#dc136c" } as const;
+const PINK_REF = { type: "fixed", value: color.construct("#dc136c") };
 
 const newTab = (): panel.Tab => ({
   variant: "view",
@@ -41,10 +63,10 @@ const newTab = (): panel.Tab => ({
 const asView = (tab?: panel.Tab | null): panel.ViewTab | undefined =>
   tab?.variant === "view" ? tab : undefined;
 
-const newResourceTab = (resource: ontology.ID): panel.ResourceTab => ({
+const newResourceTab = (id: resource.ID): panel.ResourceTab => ({
   variant: "resource",
   key: uuid.create(),
-  resource,
+  resource: id,
 });
 
 describe("Panel queries", () => {
@@ -52,10 +74,10 @@ describe("Panel queries", () => {
   let wrapper: FC<PropsWithChildren>;
   // Panel creation requires a parent; panels whose project is irrelevant to the
   // test at hand share this one.
-  let defaultParent: ontology.ID;
+  let defaultProject: project.Key;
 
   beforeAll(async () => {
-    defaultParent = await createPanelParent(client);
+    defaultProject = await createPanelProject(client);
   });
   beforeEach(async () => {
     controller = new AbortController();
@@ -68,7 +90,7 @@ describe("Panel queries", () => {
   const createPanel = async (): Promise<panel.Panel> =>
     await client.panels.create({
       name: `panel-${uuid.create()}`,
-      parent: defaultParent,
+      project: defaultProject,
     });
 
   const asSplit = (node?: panel.Node): panel.SplitNode | undefined =>
@@ -124,7 +146,7 @@ describe("Panel queries", () => {
     it("should fetch a panel by key", async () => {
       const created = await client.panels.create({
         name: "retrieve-target",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = await renderHookSuspended(
         () => Panel.use({ key: created.key }),
@@ -232,7 +254,7 @@ describe("Panel queries", () => {
         await result.current.updateAsync({
           key,
           name: "created-panel",
-          parent: defaultParent,
+          project: defaultProject,
         });
       });
       expect(result.current.variant).toEqual("success");
@@ -256,7 +278,7 @@ describe("Panel queries", () => {
         await result.current.updateAsync({
           key,
           name: "stored-panel",
-          parent: defaultParent,
+          project: defaultProject,
         });
       });
 
@@ -264,57 +286,30 @@ describe("Panel queries", () => {
       expect(root.current).toEqual({ variant: "leaf", tabs: [] });
     });
 
-    it("should parent the panel under the given resource", async () => {
-      const parentProject = await client.projects.create({
-        name: `parent-${uuid.create()}`,
-      });
-      const parent = project.ontologyID(parentProject.key);
+    it("should put the panel in the given project", async () => {
+      const owner = await client.projects.create({ name: `owner-${uuid.create()}` });
 
       const { result } = renderHook(() => Panel.useCreate(), { wrapper });
       const key = uuid.create();
       await act(async () => {
-        await result.current.updateAsync({ key, name: "parented-panel", parent });
+        await result.current.updateAsync({
+          key,
+          name: "owned-panel",
+          project: owner.key,
+        });
       });
 
-      const children = await client.ontology.children.retrieve({ ids: parent });
-      expect(children.map((c) => c.id.key)).toContain(key);
-    });
-  });
-
-  describe("useList", () => {
-    it("should return panels including those created beforehand", async () => {
-      const p1 = await client.panels.create({ name: "list-a", parent: defaultParent });
-      const p2 = await client.panels.create({ name: "list-b", parent: defaultParent });
-
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(p1.key);
-      expect(result.current.data).toContain(p2.key);
-    });
-
-    it("should expose individual panels via getItem", async () => {
-      const target = await client.panels.create({
-        name: "get-item-target",
-        parent: defaultParent,
-      });
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const item = result.current.getItem(target.key);
-      expect(item?.key).toEqual(target.key);
-      expect(item?.name).toEqual("get-item-target");
+      const owned = await client.panels.retrieve({ projects: [owner.key] });
+      expect(owned.map((p) => p.key)).toContain(key);
     });
   });
 
   describe("useKeysByProject", () => {
+    let me: user.Key;
+    beforeAll(async () => {
+      me = (await client.users.current.retrieve()).key;
+    });
+
     const newProject = async (): Promise<project.Key> =>
       (
         await client.projects.create({
@@ -332,20 +327,22 @@ describe("Panel queries", () => {
         </Provider>
       );
       const rendered: RenderHookResult<panel.Key[], unknown> =
-        await renderHookSuspended(() => Panel.useKeysByProject({ project: key }), {
-          wrapper: suspended,
-        });
+        await renderHookSuspended(
+          () => Panel.useKeysByProject({ project: key, user: me }),
+          {
+            wrapper: suspended,
+          },
+        );
       await waitFor(() => expect(rendered.result.current).not.toBeNull());
       return rendered;
     };
 
-    it("should return only the panels parented to the project", async () => {
+    it("should return only the panels of the project", async () => {
       const projectKey = await newProject();
-      const parent = project.ontologyID(projectKey);
-      const mine = await client.panels.create({ name: "mine", parent });
+      const mine = await client.panels.create({ name: "mine", project: projectKey });
       const theirs = await client.panels.create({
         name: "theirs",
-        parent: project.ontologyID(await newProject()),
+        project: await newProject(),
       });
 
       const { result } = await retrieveKeys(projectKey);
@@ -353,8 +350,28 @@ describe("Panel queries", () => {
       expect(result.current).not.toContain(theirs.key);
     });
 
-    it("should reject creating a panel without a parent", async () => {
-      await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(/parent/);
+    it("should return the shared panels and the drafts of the user", async () => {
+      const projectKey = await newProject();
+      const role = await createEmptyRole(client);
+      const other = await client.users.create({
+        username: uuid.create(),
+        password: "test",
+        name: "other",
+        role: role.key,
+      });
+      const [shared, mine] = await client.panels.create([
+        { name: "shared", project: projectKey },
+        { name: "mine", project: projectKey, owner: me },
+        { name: "theirs", project: projectKey, owner: other.key },
+      ]);
+      const { result } = await retrieveKeys(projectKey);
+      expect([...result.current].sort()).toEqual([shared.key, mine.key].sort());
+    });
+
+    it("should reject creating a panel without a project", async () => {
+      await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(
+        /must belong to a project/,
+      );
     });
 
     it("should return an empty list for a project with no panels", async () => {
@@ -362,14 +379,14 @@ describe("Panel queries", () => {
       expect(result.current).toEqual([]);
     });
 
-    it("should add a panel parented to the project after the initial retrieve", async () => {
+    it("should add a panel of the project after the initial retrieve", async () => {
       const projectKey = await newProject();
       const { result } = await retrieveKeys(projectKey);
       expect(result.current).toEqual([]);
 
       const added = await client.panels.create({
         name: "added",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       await waitFor(() => expect(result.current).toContain(added.key));
     });
@@ -382,7 +399,7 @@ describe("Panel queries", () => {
 
       const added = await client.panels.create({
         name: "added-while-unmounted",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       const second = await retrieveKeys(projectKey);
       await waitFor(() => expect(second.result.current).toContain(added.key));
@@ -394,7 +411,7 @@ describe("Panel queries", () => {
 
       const outside = await client.panels.create({
         name: "outside",
-        parent: defaultParent,
+        project: defaultProject,
       });
       await act(async () => {
         await client.panels.rename(outside.key, "outside-renamed");
@@ -406,7 +423,7 @@ describe("Panel queries", () => {
       const projectKey = await newProject();
       const target = await client.panels.create({
         name: "before-rename",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       const { result } = await retrieveKeys(projectKey);
       const before = result.current;
@@ -417,11 +434,10 @@ describe("Panel queries", () => {
       // The rename reaches the project's cached answer, so the subscription fired
       // and the hook had every chance to hand back a new array.
       await waitFor(() => {
-        const cached = client.panels.getCached({
-          parent: project.ontologyID(projectKey),
-        });
-        if (!query.isLive(cached)) throw new Error("project answer not cached");
-        expect(cached.map(({ name }) => name)).toContain("after-rename");
+        const window = client.panels
+          .watch({ where: panel.visibleTo(projectKey, me) })
+          .getCached();
+        expect(window?.records.map(({ name }) => name)).toContain("after-rename");
       });
       expect(result.current).toBe(before);
     });
@@ -430,7 +446,7 @@ describe("Panel queries", () => {
       const projectKey = await newProject();
       const target = await client.panels.create({
         name: "to-delete",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       const { result } = await retrieveKeys(projectKey);
       expect(result.current).toEqual([target.key]);
@@ -446,7 +462,7 @@ describe("Panel queries", () => {
     it("should rename an existing panel", async () => {
       const target = await client.panels.create({
         name: "before-rename",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = renderHook(() => Panel.useRename(), { wrapper });
 
@@ -459,36 +475,18 @@ describe("Panel queries", () => {
       expect(fetched.name).toEqual("after-rename");
     });
 
-    it("should run afterOptimistic against the renamed panel", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const target = await client.panels.create({
-        name: "before-optimistic-rename",
-        parent: defaultParent,
+        name: "before-cache-rename",
+        project: defaultProject,
       });
-      const order: string[] = [];
-      const { result } = renderHook(
-        () =>
-          Panel.useRename({
-            // The client applies the rename before it calls back, so the cached panel
-            // already carries the new name here.
-            afterOptimistic: ({ client: c, data }) => {
-              const cached = c.panels.getCached(data.key);
-              order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper },
-      );
-
+      const { result } = renderHook(() => Panel.useRename(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync({
-          key: target.key,
-          name: "after-optimistic-rename",
-        });
+        await result.current.updateAsync({ key: target.key, name: "renamed-in-cache" });
       });
-
-      expect(order).toEqual(["optimistic:after-optimistic-rename", "success"]);
+      expect(client.panels.watch(target.key).getCached()).toMatchObject({
+        name: "renamed-in-cache",
+      });
     });
   });
 
@@ -496,7 +494,7 @@ describe("Panel queries", () => {
     it("should delete an existing panel", async () => {
       const target = await client.panels.create({
         name: "to-delete",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = renderHook(() => Panel.useDelete(), { wrapper });
 
@@ -741,7 +739,11 @@ describe("Panel queries", () => {
     it("set_tab_resource swaps a view tab to a resource and persists it", async () => {
       const created = await createPanel();
       const tab = newTab();
-      const resource = { type: "lineplot", key: uuid.create() } as const;
+      const resource = {
+        type: "lineplot",
+        key: (await client.lineplots.create({ name: "plot", project: defaultProject }))
+          .key,
+      } as const;
       const { result } = await loadAndUse(created.key, () => ({
         retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
@@ -1042,6 +1044,59 @@ describe("Panel queries", () => {
     });
   });
 
+  describe("useResultAppearance", () => {
+    it("should follow a change to the icon or the color of a panel", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      const { result } = renderHook(
+        () => Panel.useResultAppearance({ key: created.key }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data).toEqual({ icon: undefined, color: undefined }),
+      );
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setIcon({ icon: "valve" }), panel.setColor({ color: PINK })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.data).toEqual({
+          icon: "valve",
+          color: PINK_REF,
+        }),
+      );
+    });
+
+    it("should keep the appearance when only the layout or an equal color changes", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setColor({ color: PINK })],
+        });
+      });
+      const { result } = renderHook(
+        () => Panel.useResultAppearance({ key: created.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.data?.color).toEqual(PINK_REF));
+      const before = result.current.data;
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [
+            panel.insertTabs({ tabs: [newTab()], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.setColor({ color: PINK }),
+          ],
+        });
+      });
+      expect(result.current.data).toBe(before);
+    });
+  });
+
   describe("structural and granular selectors", () => {
     const createTab = async (tab: panel.Tab) => {
       const created = await createPanel();
@@ -1055,10 +1110,18 @@ describe("Panel queries", () => {
       return { created, ops };
     };
 
-    it("useTabType resolves a resource tab to its ontology type", async () => {
+    it("useTabType resolves a resource tab to its resource type", async () => {
       const tab = newTab();
       const { created, ops } = await createTab(tab);
-      const resource = { type: "schematic", key: uuid.create() } as const;
+      const resource = {
+        type: "schematic",
+        key: (
+          await client.schematics.create({
+            name: "schematic",
+            project: defaultProject,
+          })
+        ).key,
+      } as const;
 
       const type = await loadAndCount(created.key, () =>
         Panel.useTabType({ key: created.key, tabKey: tab.key }),
@@ -1108,7 +1171,11 @@ describe("Panel queries", () => {
     it("useSetCurrentTabResource swaps the scoped tab to the resource", async () => {
       const tab = newTab();
       const { created } = await createTab(tab);
-      const resource = { type: "lineplot", key: uuid.create() } as const;
+      const resource = {
+        type: "lineplot",
+        key: (await client.lineplots.create({ name: "plot", project: defaultProject }))
+          .key,
+      } as const;
 
       const composed = ({ children }: PropsWithChildren): ReactElement => {
         const Synnax = wrapper;
@@ -1139,7 +1206,7 @@ describe("Panel queries", () => {
         result.current.setResource(resource);
       });
       await waitFor(() => expect(result.current.variant).toEqual("resource"));
-      const cached = client.panels.getCached(created.key);
+      const cached = client.panels.watch(created.key).getCached();
       expect(query.isLive(cached)).toBe(true);
       if (!query.isLive(cached)) return;
       const updated = panel.findTab(cached.root, tab.key);
@@ -1334,7 +1401,7 @@ describe("Panel queries", () => {
     it("useName returns the name and updates after a rename", async () => {
       const created = await client.panels.create({
         name: "name-before",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const ops = await loadAndUse(created.key, () => Panel.useRename());
       const { result } = await loadAndUse(created.key, () =>
@@ -1376,10 +1443,10 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatchAsync({
           key: created.key,
-          actions: [panel.setColor({ color: "#dc136c" })],
+          actions: [panel.setColor({ color: PINK })],
         });
       });
-      await waitFor(() => expect(result.current).toEqual(color.construct("#dc136c")));
+      await waitFor(() => expect(result.current).toEqual(PINK_REF));
     });
 
     it("useTabLeaf returns the leaf holding the given tab", async () => {
@@ -1485,7 +1552,7 @@ describe("Panel queries", () => {
     it("should propagate rename through the channel listener to use", async () => {
       const target = await client.panels.create({
         name: "reactive-before",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = await renderHookSuspended(
         () => Panel.use({ key: target.key }),
@@ -1523,31 +1590,15 @@ describe("Panel queries", () => {
         expect(leafTabKeys(root?.last)).toEqual([tabB.key]);
       });
     });
-
-    it("should propagate deletes through the channel listener", async () => {
-      const target = await client.panels.create({
-        name: "reactive-delete",
-        parent: defaultParent,
-      });
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.data).toContain(target.key));
-
-      await writer.panels.delete(target.key);
-
-      await waitFor(() => expect(result.current.data).not.toContain(target.key));
-    });
   });
 
   describe("useCloseResourceTabs", () => {
-    const createRange = async (): Promise<ontology.ID> => {
+    const createRange = async (): Promise<resource.ID> => {
       const created = await client.ranges.create({
         name: `range-${uuid.create()}`,
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      return ranger.ontologyID(created.key);
+      return ranger.resourceID(created.key);
     };
 
     const insert = async (
@@ -1605,13 +1656,9 @@ describe("Panel queries", () => {
       );
 
       const deleted: string[] = [];
-      renderHook(
-        () => {
-          Panel.useCloseResourceTabs();
-          Ontology.useResourceDeleteSynchronizer((id) => deleted.push(id.key));
-        },
-        { wrapper },
-      );
+      const off = client.ranges.onDelete((key) => deleted.push(key));
+      onTestFinished(off);
+      renderHook(() => Panel.useCloseResourceTabs(), { wrapper });
       await act(async () => {
         await writer.ranges.delete(resource.key);
       });
@@ -1622,12 +1669,12 @@ describe("Panel queries", () => {
   });
 
   describe("useMoveTabToPanel", () => {
-    const createRange = async (): Promise<ontology.ID> => {
+    const createRange = async (): Promise<resource.ID> => {
       const created = await client.ranges.create({
         name: `range-${uuid.create()}`,
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      return ranger.ontologyID(created.key);
+      return ranger.resourceID(created.key);
     };
 
     const loadPair = async (source: panel.Key, destination: panel.Key) => {
@@ -1704,6 +1751,50 @@ describe("Panel queries", () => {
       ]);
       expect(leafTabKeys(src.root)).toEqual([]);
       expect(leafTabKeys(dst.root)).toEqual([open.key]);
+    });
+  });
+
+  describe("useCanEdit", () => {
+    const roles = new RoleClients(client);
+
+    const renderCanEdit = async (as: typeof client, key: panel.Key) => {
+      const Synnax = await createAsyncSynnaxWrapper({ client: as });
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Synnax>
+          <Panel.Scope.Provider value={key}>{children}</Panel.Scope.Provider>
+        </Synnax>
+      );
+      return renderHook(
+        () => ({
+          edit: Panel.useCanEdit(),
+          loaded: Panel.useResult({ key }).data != null,
+        }),
+        { wrapper: Wrapper },
+      );
+    };
+
+    it("should let a Viewer edit its own draft", async () => {
+      const viewer = await roles.get("Viewer");
+      const me = (await viewer.users.current.retrieve()).key;
+      const draft = await viewer.panels.create({
+        name: "draft",
+        project: await createPanelProject(client),
+        owner: me,
+      });
+      const { result } = await renderCanEdit(viewer, draft.key);
+      await waitFor(() => expect(result.current.edit).toBe(true));
+    });
+
+    it("should not let a Viewer edit a shared panel", async () => {
+      const viewer = await roles.get("Viewer");
+      const shared = await client.panels.create({
+        name: "shared",
+        project: await createPanelProject(client),
+      });
+      const { result } = await renderCanEdit(viewer, shared.key);
+      await waitFor(() => expect(result.current.loaded).toBe(true));
+      await act(async () => {});
+      expect(result.current.edit).toBe(false);
     });
   });
 });

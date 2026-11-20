@@ -55,11 +55,11 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	defer r.PopDepth()
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "leaf":
 		var v LeafNode
 		{
@@ -158,11 +158,11 @@ func (t Tab) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (t *Tab) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "resource":
 		var v ResourceTab
 		if err := v.TabBase.DecodeOrc(r); err != nil {

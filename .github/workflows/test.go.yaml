@@ -23,8 +23,7 @@ on:
         default: ""
       shards:
         description:
-          How many jobs split the Ginkgo suites on each OS, from 1 to 4. A cached run is
-          one job.
+          How many jobs split the test suites and the lint on each OS, from 1 to 4
         required: false
         type: number
         default: 1
@@ -54,6 +53,13 @@ on:
         required: false
         type: boolean
         default: false
+      os_specific:
+        description:
+          Whether the module has code that only some operating systems build. Lint then
+          skips the type-check for Windows and macOS, which a full run lints instead.
+        required: false
+        type: boolean
+        default: false
       cached:
         description:
           Whether to run go test, which reuses the results that main saves, instead of
@@ -61,6 +67,16 @@ on:
         required: false
         type: boolean
         default: false
+      warmed:
+        description:
+          Whether warm.go.yaml saves a go test cache of this module on Ubuntu, which a
+          Ginkgo run on Ubuntu then restores
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 
@@ -73,18 +89,57 @@ env:
 
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
-  # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
-  # one GOOS, which fits the Ubuntu runner's disk.
+  # for a cold lint. A full run lints each GOOS in its own job, which keeps each
+  # runner's cache to one GOOS. Other runs lint only for Linux, and that job also
+  # type-checks a module with no OS-specific code for Windows and macOS. Without a
+  # limit, a hung lint holds the runner for up to 6 hours.
   lint:
-    name: Lint (${{ matrix.goos }})
+    name:
+      Lint (${{ matrix.goos }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
+      inputs.shards) || '' }})
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        goos: [linux, windows, darwin]
+        goos:
+          ${{ fromJSON((inputs.windows || inputs.macos) && '["linux", "windows",
+          "darwin"]' || '["linux"]') }}
+        shard: [1, 2, 3, 4]
+        exclude:
+          - shard: ${{ inputs.shards < 2 && 2 }}
+          - shard: ${{ inputs.shards < 3 && 3 }}
+          - shard: ${{ inputs.shards < 4 && 4 }}
     steps:
+      # Lint reports only issues since the merge base with origin/main, so it needs
+      # the history back to that commit.
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Check that the module has no OS-specific code
+        if: ${{ !inputs.os_specific && matrix.goos == 'linux' && matrix.shard == 1 }}
+        working-directory: ${{ inputs.directory }}
+        run: |
+          os='aix|android|darwin|dragonfly|freebsd|illumos|ios|js|linux|netbsd|openbsd'
+          os="$os|plan9|solaris|unix|wasip1|windows"
+          tag="^//go:build(.*[^A-Za-z0-9_])?($os)([^A-Za-z0-9_]|$)"
+          found=$(
+            {
+              git ls-files -z -- '*.go' ':(exclude)**/testdata/**' |
+                tr '\0' '\n' | grep -E "_($os)(_[a-z0-9]+)?(_test)?\.go$" || true
+              git grep -lE "$tag" -- '*.go' ':(exclude)**/testdata/**' || true
+            } | sort -u
+          )
+          if [ -n "$found" ]; then
+            echo "::error::These files build only on some operating systems:"
+            echo "$found"
+            echo "Set os_specific: true for this module in ci.yaml."
+            exit 1
+          fi
 
       # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
       # compile overflows the disk they leave free.
@@ -95,7 +150,7 @@ jobs:
           df -h /
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
           cache: false
@@ -120,7 +175,7 @@ jobs:
       # cache of the module.
       - name: Restore the Go caches
         id: cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: &lint-cache |
             ~/.cache/go-build
@@ -132,10 +187,60 @@ jobs:
             ${{ steps.key.outputs.module }}
 
       - name: Download the Go modules
-        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: .github/scripts/go_mod_download.sh "$DIRECTORY"
+
+      # A download adds missing go.sum entries, so a changed go.mod or go.sum means the
+      # committed ones were not tidy. Tidiness does not depend on GOOS.
+      - name: Check that go.mod and go.sum are tidy
+        if: matrix.goos == 'linux' && matrix.shard == 1
+        working-directory: ${{ inputs.directory }}
+        run: |
+          git diff --exit-code -- go.mod go.sum
+          go mod tidy -diff
+
+      # golangci-lint drops each report on a line that a //nolint directive names,
+      # including a report about the directive itself, so a grep forbids them.
+      - name: Forbid //nolint directives
+        if: matrix.goos == 'linux' && matrix.shard == 1
+        working-directory: ${{ inputs.directory }}
+        run: "! git grep -nE '//[/ ]*nolint( |:|$)' -- '*.go'"
+
+      # Each job and GOOS restores its own module cache from an earlier run, and a
+      # download checks go.sum only for modules it fetches.
+      - name: Verify the Go module cache
+        working-directory: ${{ inputs.directory }}
+        run: go mod verify
+
+      # go fix -diff prints the fixes that the modernizers suggest and fails if there
+      # are any. Build constraints hide files, so each GOOS checks its own.
+      - name: Check that go fix has no fixes
+        if: matrix.shard == 1
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+        run: go fix -diff ./...
+
+      # Code with no build constraint can still use an API that some operating systems
+      # lack, so a module with no OS-specific code type-checks for the others. Main runs
+      # it too, so the cache it saves holds the objects that pull requests build.
+      - name: Type-check for Windows and macOS
+        if: >-
+          ${{ !inputs.os_specific && matrix.goos == 'linux' && matrix.shard == 1 &&
+          (github.ref == 'refs/heads/main' || !inputs.windows && !inputs.macos) }}
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+        # go vet would also report on generated files, so the test binaries are built,
+        # and run with `true` in place of the binary.
+        run: |
+          GOOS=windows go test -exec=true -run='^$' ./...
+          GOOS=darwin go test -exec=true -run='^$' ./...
 
       - name: Build the custom golangci-lint binary
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: v2.15.0
           working-directory: ${{ inputs.directory }}
@@ -145,21 +250,35 @@ jobs:
           # the paths resolve, which the action adds only to a lint it runs itself.
           problem-matchers: true
 
+      # The config reports only lines changed since the merge base, which the
+      # complexity linters need until their old findings are split (SY-6110). Every
+      # other linter reports the whole module, so the merge queue and main still catch
+      # a finding on a line no change touched.
       - name: Lint
+        shell: bash
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
+          COMPLEXITY: funlen,gocognit,maintidx,nestif
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
+        # Each shard lints every nth package in path order.
         run: |
           ./custom-gcl config verify
-          ./custom-gcl run --path-mode=abs
+          packages=$(go list -f '.{{slice .ImportPath (len .Module.Path)}}' ./... |
+            awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
+          read -ra packages <<< "${packages//$'\n'/ }"
+          ./custom-gcl run --path-mode=abs --new-from-merge-base= \
+            --disable "$COMPLEXITY" "${packages[@]}"
+          ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY" "${packages[@]}"
 
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
       # they use it, so deleting the oldest files first keeps the ones this lint read.
       # One cold lint fills about 11 GB.
       - name: Trim the Go caches
-        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         env:
           BUDGET: 14000000000
         run: |
@@ -170,18 +289,19 @@ jobs:
           du -sh ~/.cache/go-build ~/.cache/golangci-lint
 
       # A failed lint leaves a cache that pull requests would restore, so only a
-      # passing lint on main saves.
+      # passing lint on main saves. The shards restore one cache, so only the first
+      # saves. It holds the shared packages, and a cache per shard is near full size.
       - name: Save the Go caches
-        if: ${{ success() && github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v6
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: *lint-cache
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
   test:
     name:
-      Test (${{ matrix.os }}${{ !inputs.cached && inputs.shards > 1 && format(',
-      {0}/{1}', matrix.shard, inputs.shards) || '' }})
+      Test (${{ matrix.os }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
+      inputs.shards) || '' }})
     strategy:
       fail-fast: false
       matrix:
@@ -191,14 +311,23 @@ jobs:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
-          - shard: ${{ (inputs.cached || inputs.shards < 2) && 2 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 3) && 3 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 4) && 4 }}
+          - shard: ${{ inputs.shards < 2 && 2 }}
+          - shard: ${{ inputs.shards < 3 && 3 }}
+          - shard: ${{ inputs.shards < 4 && 4 }}
         include:
           - os: ubuntu-latest
             shard: 1
             codegen: true
     runs-on: ${{ matrix.os }}
+    # Tests read no DWARF, and race reports get function names and lines without it.
+    # Dropping it cuts compile time and halves link time.
+    env:
+      GOFLAGS: -gcflags=all=-dwarf=false -ldflags=-w
+      # The relative path of each package that has tests.
+      SUITE:
+        "{{if or .TestGoFiles .XTestGoFiles}}.{{slice .ImportPath (len
+        .Module.Path)}}{{end}}"
+    timeout-minutes: 180
     steps:
       # The matrix holds four shards, so a larger count would skip suites.
       - name: Check the shard count
@@ -208,7 +337,9 @@ jobs:
           exit 1
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # Go keeps its caches and build scratch on the OS disk (C:), whose ~14GB of
       # free space a --race --cover build of a large module overflows. RUNNER_TEMP
@@ -223,29 +354,36 @@ jobs:
           Add-Content $env:GITHUB_ENV "GOMODCACHE=$env:RUNNER_TEMP\gomod"
           Add-Content $env:GITHUB_ENV "GOTMPDIR=$env:RUNNER_TEMP\gotmp"
 
-      # The Ubuntu image ships toolchains these tests never use, and Ginkgo keeps every
-      # --race --cover test binary of the Core until its last suite ends, which
-      # overflows the disk they leave free. go test deletes each binary after its run.
+      # The Ubuntu image ships toolchains these tests never use. Ginkgo keeps every
+      # --race --cover test binary of the Core until its last suite ends, and a go test
+      # run restores a cache of about 6 GB before it builds. Each overflows the disk
+      # they leave free.
       - name: Free disk space
-        if: runner.os == 'Linux' && !inputs.cached
+        if: runner.os == 'Linux'
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
             /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           df -h /
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
           cache: false
 
       # This workflow file salts the key: cache archives store absolute paths, so one
-      # saved before a cache-path move would restore to the old spot.
+      # saved before a cache-path move would restore to the old spot. The trim keeps
+      # only what a run used, and a Ginkgo run uses no test results, so a Ginkgo run
+      # never saves under the go test key. On Ubuntu, a Ginkgo run of a warmed module
+      # restores a go test cache before a Ginkgo one: go test compiles the same
+      # packages, and the warm run saves that cache on each merge.
       - name: Key the Go caches
         id: key
         shell: bash
         env:
           DIRECTORY: ${{ inputs.directory }}
+          KIND: ${{ inputs.cached && 'test' || 'ginkgo' }}
+          WARMED: ${{ inputs.warmed && !inputs.cached && runner.os == 'Linux' }}
           SUM:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
@@ -253,32 +391,46 @@ jobs:
           {
             echo "build=$(go env GOCACHE)"
             echo "modules=$(go env GOMODCACHE)"
-            echo "module=go-test-${{ runner.os }}-$DIRECTORY-"
-            echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-"
+            echo "module=go-$KIND-$RUNNER_OS-$DIRECTORY-"
+            echo "sum=go-$KIND-$RUNNER_OS-$DIRECTORY-$SUM-"
+            if [ "$WARMED" = true ]; then
+              echo "test_module=go-test-$RUNNER_OS-$DIRECTORY-"
+              echo "test_sum=go-test-$RUNNER_OS-$DIRECTORY-$SUM-"
+            fi
           } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
-      # cache of the module.
+      # cache of the module. The go test keys are empty unless the module is warmed.
       - name: Restore the Go caches
         id: cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ${{ steps.key.outputs.build }}
             ${{ steps.key.outputs.modules }}
           key: ${{ steps.key.outputs.sum }}${{ github.run_id }}
           restore-keys: |
+            ${{ steps.key.outputs.test_sum }}
+            ${{ steps.key.outputs.test_module }}
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
+      - name: Mark the start of the build
+        id: start
+        shell: bash
+        run: echo "seconds=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Download the Go modules
         shell: bash
-        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
-      - name: Install stringer
-        if: matrix.codegen
-        run: go install golang.org/x/tools/cmd/stringer@v0.52.0
+      - name: Verify the Go module cache
+        shell: bash
+        working-directory: ${{ inputs.directory }}
+        run: go mod verify
 
       - name: Install antlr4
         if: matrix.codegen && inputs.install_antlr4
@@ -288,22 +440,48 @@ jobs:
 
       - name: Verify `go generate` is up to date
         if: matrix.codegen
-        run: scripts/check_go_generate.sh ${{ inputs.directory }}
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: scripts/check_go_generate.sh "$DIRECTORY"
 
       # go test reuses a result only while each file the test read keeps its
       # modification time, which a checkout resets. Runs after go generate, which
       # rewrites files.
       - name: Pin the modification times
         if: inputs.cached
-        run: python3 -I .github/scripts/pin_mtimes.py ${{ inputs.directory }}
+        shell: bash
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+        run: python3 -I .github/scripts/pin_mtimes.py "$DIRECTORY"
 
-      # macOS skips race and cover until it runs on stronger machines.
+      # macOS skips race and cover until it runs on stronger machines. With -cover, go
+      # test adds counters to each named package that has no tests, which changes the
+      # build of each package that imports it. Ginkgo compiles one suite at a time and
+      # adds none, so naming only the suites keeps the builds the same as Ginkgo's.
       - name: Test
         if: inputs.cached
         timeout-minutes: 150
-        run: >-
-          go test ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' ||
-          '' }} -timeout=30m ./...
+        shell: bash
+        env:
+          FLAGS:
+            ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' || '' }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
+        run: |
+          suites=$(go list -f "$SUITE" ./... |
+            awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
+          read -ra flags <<< "$FLAGS"
+          read -ra suites <<< "${suites//$'\n'/ }"
+          go test "${flags[@]}" -timeout=30m "${suites[@]}"
+        working-directory: ${{ inputs.directory }}
+
+      # go test -cover adds a sync/atomic import to each package it names, so its build
+      # of a package differs from the one Ginkgo makes when a suite imports that
+      # package. A plain build makes the Ginkgo one, so a Ginkgo run that restores this
+      # cache compiles only the test mains.
+      - name: Build the packages that the Ginkgo suites import
+        if: inputs.cached && github.ref == 'refs/heads/main'
+        run: go build ${{ runner.os != 'macOS' && '-race' || '' }} ./...
         working-directory: ${{ inputs.directory }}
 
       # Each shard takes every nth suite in path order, which spreads the versions of
@@ -318,44 +496,47 @@ jobs:
             --coverprofile=cover.out --race' }} ${{ inputs.ginkgo_flags }}
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ inputs.shards }}
-          SUITE:
-            "{{if or .TestGoFiles .XTestGoFiles}}.{{slice .ImportPath (len
-            .Module.Path)}}{{end}}"
         run: |
           suites=$(go list -f "$SUITE" ./... |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
-          # shellcheck disable=SC2086 # Splits the flags and suites into arguments.
-          go run github.com/onsi/ginkgo/v2/ginkgo $FLAGS --randomize-suites \
-            --fail-on-empty --keep-going --trace --timeout=2h --github-output $suites
+          read -ra flags <<< "$FLAGS"
+          read -ra suites <<< "${suites//$'\n'/ }"
+          go tool ginkgo "${flags[@]}" --randomize-suites \
+            --fail-on-empty --keep-going --trace --timeout=2h --github-output \
+            "${suites[@]}"
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their
-      # extraction fills the disk. Go refreshes an entry's mtime when it uses it, so
-      # deleting the oldest files first keeps the ones this run read. One compile of
-      # the Core tests reads or writes about 16 GB.
+      # extraction fills the disk. Go refreshes the mtime of an entry it uses, unless
+      # that mtime is less than an hour old, so an entry older than an hour before the
+      # build did not serve this run. A size budget below the size of one build deletes
+      # entries that the run used. A failed run used only a part of the cache, so only
+      # a run that passes trims and saves. A Ginkgo run that restored a go test cache
+      # saves nothing, because the warm run keeps that cache at the head of main.
       - name: Trim the Go build cache
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        if: >-
+          ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 &&
+          (inputs.cached || !startsWith(steps.cache.outputs.cache-matched-key,
+          'go-test-')) }}
         shell: bash
         env:
-          BUDGET: 20000000000
           BUILD: ${{ steps.key.outputs.build }}
+          START: ${{ steps.start.outputs.seconds }}
         run: |
           cd "$BUILD"
           du -sh .
-          if [ "$RUNNER_OS" = macOS ]; then
-            find . -type f -exec stat -f '%m %z %N' {} +
-          else
-            find . -type f -printf '%T@ %s %p\n'
-          fi |
-            sort -rn | awk -v budget="$BUDGET" '(total += $2) > budget { print $3 }' |
-            xargs -r rm -f
+          find . -type f -mmin "+$(( ($(date +%s) - START) / 60 + 61 ))" -delete
           du -sh .
 
       # The shards restore the same cache and save under one key, so only the first
-      # saves.
+      # saves. Its cache holds no test build of the other shards, by design: it holds
+      # most of the packages they import, and a cache for each shard is about 1.8 GB.
       - name: Save the Go caches
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
-        uses: actions/cache/save@v6
+        if: >-
+          ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 &&
+          (inputs.cached || !startsWith(steps.cache.outputs.cache-matched-key,
+          'go-test-')) }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ${{ steps.key.outputs.build }}
@@ -364,7 +545,9 @@ jobs:
 
       - name: Upload coverage
         if: runner.os != 'macOS'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

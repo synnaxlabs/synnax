@@ -24,16 +24,31 @@ export const installPortalRoot = (): void => {
 };
 
 /**
- * Right-clicks the element with the given text and waits for the context menu to
- * open. Retries with a fresh query: async flux resolutions (permissions, labels) can
- * replace the target node between lookup and dispatch, detaching the first match.
+ * Right-clicks the element with the given text, or the element that find returns, and
+ * waits for the context menu to open. Retries with a fresh query: async flux
+ * resolutions (permissions, labels) can replace the target node between lookup and
+ * dispatch, detaching the first match.
  */
-export const openContextMenu = async (text: string): Promise<void> => {
+export const openContextMenu = async (
+  target: string | (() => HTMLElement),
+): Promise<void> => {
   await waitFor(() => {
-    fireEvent.contextMenu(screen.getByText(text));
+    fireEvent.contextMenu(
+      typeof target === "string" ? screen.getByText(target) : target(),
+    );
     if (document.querySelector(".lyra-menu-context") == null)
-      throw new Error(`context menu did not open for ${text}`);
+      throw new Error("context menu did not open");
   });
+};
+
+/**
+ * Clicks the menu item that opens the named submenu.
+ *
+ * @returns the content of the submenu.
+ */
+export const openSubmenu = async (name: string): Promise<HTMLElement> => {
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+  return await screen.findByRole("dialog", { name });
 };
 
 /**
@@ -84,23 +99,6 @@ export const findIconButton = async (
   icon: string,
 ): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
 
-/**
- * Finds the text input whose pluto node placeholder (a rendered sibling element, not
- * an HTML placeholder attribute) contains the given text.
- */
-export const getInputByNodePlaceholder = (
-  container: ParentNode,
-  text: string,
-): HTMLInputElement => {
-  const placeholders = Array.from(
-    container.querySelectorAll<HTMLElement>(".lyra-input__placeholder"),
-  );
-  const target = placeholders.find((el) => (el.textContent ?? "").includes(text));
-  const input = target?.parentElement?.querySelector("input");
-  if (input == null) throw new Error(`no input with node placeholder ${text}`);
-  return input;
-};
-
 /** Queries container for the given selector, throwing when nothing matches. */
 export const getBySelector = <E extends Element = Element>(
   container: ParentNode,
@@ -112,8 +110,8 @@ export const getBySelector = <E extends Element = Element>(
 };
 
 /** Finds the pluto input item element labeled with labelText in the document. */
-export const getInputItem = (labelText: string): Element => {
-  const item = screen.getByText(labelText).closest(".lyra-input__item");
+export const getInputItem = (labelText: string): HTMLElement => {
+  const item = screen.getByText(labelText).closest<HTMLElement>(".lyra-input__item");
   if (item == null) throw new Error(`no input item wraps label ${labelText}`);
   return item;
 };
@@ -124,6 +122,14 @@ export const getInputItem = (labelText: string): Element => {
  */
 export const getLabeledInput = (labelText: string): HTMLInputElement =>
   getBySelector<HTMLInputElement>(getInputItem(labelText), "input");
+
+/**
+ * Hides the name of a collapsible select trigger, as a narrow layout does. jsdom
+ * applies no stylesheets, so the trigger otherwise always fits its name.
+ */
+export const collapseSelectTrigger = (trigger: HTMLElement): void => {
+  getBySelector<HTMLElement>(trigger, ".lyra-select__label").style.display = "none";
+};
 
 /**
  * Waits for the live dialog trigger of the mounted select whose current value renders
@@ -171,28 +177,6 @@ export const getInputByItemLabel = (
   if (input == null) throw new Error(`no input in item labeled ${label}`);
   return input;
 };
-
-/**
- * Finds the button whose subtree renders every one of the given pluto icons, for
- * icon-only composite buttons (e.g. group + add) with no accessible text.
- */
-export const getCompositeIconButton = (
-  container: ParentNode,
-  icons: string[],
-): HTMLButtonElement => {
-  const [btn] = getCompositeIconButtons(container, icons);
-  if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
-  return btn;
-};
-
-/** Like getCompositeIconButton, but returns every match instead of throwing on none. */
-export const getCompositeIconButtons = (
-  container: ParentNode,
-  icons: string[],
-): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll("button")).filter((b) =>
-    icons.every((i) => b.querySelector(`.lyra-icon--${i}`) != null),
-  );
 
 /** A handle on the pluto input table inside an input item. */
 export interface InputTable {
@@ -259,4 +243,29 @@ export const withControlHeld = (run: () => void): void => {
   } finally {
     fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
   }
+};
+
+/** Drags one element onto another, with one DataTransfer carried through the drag. */
+export const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
+  const dataTransfer = new DataTransfer();
+  fireEvent.dragStart(from, { dataTransfer });
+  fireEvent.dragOver(to, { dataTransfer });
+  fireEvent.drop(to, { dataTransfer });
+  fireEvent.dragEnd(from, { dataTransfer });
+};
+
+/**
+ * Makes each canvas transfer to an offscreen canvas that gives no WebGL context, the
+ * way a machine without a GPU does. Call it inside the describe block that needs it.
+ */
+export const installMissingGPU = (): void => {
+  beforeEach(() => {
+    Object.defineProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen", {
+      configurable: true,
+      value: () => ({ getContext: () => null }),
+    });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen");
+  });
 };

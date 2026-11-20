@@ -23,7 +23,11 @@ class Repo:
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        for f in ["scripts/fix.sh", "scripts/update_copyrights.sh"]:
+        for f in [
+            "scripts/fix.sh",
+            "scripts/update_copyrights.sh",
+            "scripts/common/copyright.sh",
+        ]:
             (path / f).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / f, path / f)
         (path / "licenses/headers").mkdir(parents=True)
@@ -226,6 +230,12 @@ class TestFix:
         repo.write("a.sh", "echo a\n")
         assert repo.fix("--staged").returncode == 0
         assert not repo.header("a.sh")
+
+    def test_should_pass_when_no_staged_file_needs_a_header(self, repo: Repo) -> None:
+        repo.write("a.md", "# a\n")
+        repo.git("add", "a.md")
+        assert repo.fix("--staged").returncode == 0
+        assert not repo.header("a.md")
 
 
 class TestPreCommitHook:

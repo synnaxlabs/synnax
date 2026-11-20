@@ -12,6 +12,7 @@ package cmd_test
 import (
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/cmd"
+	"github.com/synnaxlabs/oracle/paths"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -66,12 +68,12 @@ func succeed(args ...string) string {
 	return stdout
 }
 
-// fail runs oracle with args, expects exit code code, and returns what it printed to
+// fail runs oracle with args, expects exit code 1, and returns what it printed to
 // stderr.
-func fail(code int, args ...string) string {
+func fail(args ...string) string {
 	GinkgoHelper()
-	stdout, stderr, actual := run(args...)
-	Expect(actual).To(Equal(code), stdout+stderr)
+	stdout, stderr, code := run(args...)
+	Expect(code).To(Equal(1), stdout+stderr)
 	return stderr
 }
 
@@ -91,6 +93,27 @@ func printOnce(msg string) types.GomegaMatcher {
 		func(out string) int { return strings.Count(out, msg) },
 		Equal(1),
 	)
+}
+
+// releaseMiniRepo makes repoDir a Git repository whose HEAD is the stable release
+// core/v0.1.0, which the versions gate compares with.
+func releaseMiniRepo(repoDir string) {
+	GinkgoHelper()
+	Expect(os.RemoveAll(filepath.Join(repoDir, ".git"))).To(Succeed())
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main"},
+		{"add", "-A"},
+		{"commit", "-q", "-m", "release"},
+		{"tag", "core/v0.1.0"},
+	} {
+		proc := exec.Command("git", append([]string{
+			"-c", "user.name=Test", "-c", "user.email=test@example.com",
+			"-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false",
+		}, args...)...)
+		proc.Dir = repoDir
+		out, err := proc.CombinedOutput()
+		Expect(err).ToNot(HaveOccurred(), string(out))
+	}
 }
 
 // setupMiniRepo creates a temp directory that looks like a minimal oracle repo:
@@ -149,7 +172,7 @@ var _ = Describe("help", func() {
 	DescribeTable(
 		"Should print one error and exit with 1 for a usage error",
 		func(msg string, args ...string) {
-			Expect(fail(1, args...)).To(SatisfyAll(printOnce(msg), printOnce("✗")))
+			Expect(fail(args...)).To(SatisfyAll(printOnce(msg), printOnce("✗")))
 		},
 		Entry("an unknown subcommand",
 			`unknown command "nonexistent" for "oracle"`, "nonexistent"),
@@ -165,9 +188,11 @@ var _ = Describe("check command", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo(map[string]string{
+		var repoDir string
+		repoDir, cleanup = setupMiniRepo(map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
+		releaseMiniRepo(repoDir)
 	})
 
 	AfterAll(func() { cleanup() })
@@ -189,7 +214,7 @@ var _ = Describe("commands with no schemas", Ordered, func() {
 
 	DescribeTable("Should print one error when no schema files exist",
 		func(command string) {
-			Expect(fail(1, command)).To(printOnce("no schema files found"))
+			Expect(fail(command)).To(printOnce("no schema files found"))
 		},
 		Entry("check", "check"),
 		Entry("fmt", "fmt"),
@@ -233,7 +258,7 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 
 	It("discovers and flags unformatted schemas in subdirectories", func() {
 		Expect(
-			fail(1, "fmt", "--check"),
+			fail("fmt", "--check"),
 		).To(printOnce("file(s) need formatting"))
 	})
 
@@ -265,7 +290,7 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 
 	It("leaves files not named in the arguments untouched", func() {
 		Expect(
-			fail(1, "fmt", "--check", "schemas/x/other.oracle"),
+			fail("fmt", "--check", "schemas/x/other.oracle"),
 		).To(printOnce("file(s) need formatting"))
 	})
 })
@@ -283,7 +308,7 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 	})
 
 	It("propagates the recursive-discovery error when no arguments are given", func() {
-		Expect(fail(1, "fmt")).To(printOnce("walk schema directory"))
+		Expect(fail("fmt")).To(printOnce("walk schema directory"))
 	})
 })
 
@@ -297,7 +322,7 @@ var _ = Describe("fmt command argument error", Ordered, func() {
 	})
 
 	It("propagates the glob error for a malformed pattern argument", func() {
-		Expect(fail(1, "fmt", "schemas/[")).To(printOnce("invalid glob pattern"))
+		Expect(fail("fmt", "schemas/[")).To(printOnce("invalid glob pattern"))
 	})
 })
 
@@ -315,7 +340,7 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail check mode when schemas need formatting", func() {
-		Expect(fail(1, "fmt", "--check")).To(printOnce("1 file(s) need formatting"))
+		Expect(fail("fmt", "--check")).To(printOnce("1 file(s) need formatting"))
 	})
 })
 
@@ -335,7 +360,7 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 	})
 
 	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
-		Expect(fail(1, "migrate")).To(SatisfyAll(
+		Expect(fail("migrate")).To(SatisfyAll(
 			printOnce("name the resources to bump"),
 			Not(ContainSubstring("no schema files found")),
 		))
@@ -360,7 +385,9 @@ var _ = Describe("fmt command with file patterns", func() {
 
 	schema := func(name string) string {
 		GinkgoHelper()
-		return string(MustSucceed(os.ReadFile(filepath.Join(repoDir, "schemas", name))))
+		return string(
+			MustSucceed(paths.ReadFile(filepath.Join("schemas", name), repoDir)),
+		)
 	}
 
 	DescribeTable(
@@ -379,8 +406,15 @@ var _ = Describe("fmt command with file patterns", func() {
 	)
 
 	It("Should fail when no file matches a pattern", func() {
-		Expect(fail(1, "fmt", "nonexistent/*.xyz")).
+		Expect(fail("fmt", "nonexistent/*.xyz")).
 			To(printOnce("no schema files found"))
+	})
+
+	It("Should not format a file outside the repository", func() {
+		outside := filepath.Join(GinkgoT().TempDir(), "c.oracle")
+		Expect(os.WriteFile(outside, []byte(unformatted), 0o644)).To(Succeed())
+		Expect(fail("fmt", outside)).To(ContainSubstring("escapes"))
+		Expect(os.ReadFile(filepath.Clean(outside))).To(BeEquivalentTo(unformatted))
 	})
 })
 
@@ -406,9 +440,11 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo(map[string]string{
+		var repoDir string
+		repoDir, cleanup = setupMiniRepo(map[string]string{
 			"bad.oracle": "this is not valid oracle syntax {{{{",
 		})
+		releaseMiniRepo(repoDir)
 	})
 
 	AfterAll(func() { cleanup() })
@@ -419,6 +455,6 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 	})
 
 	It("should print one error when surface cannot analyze the schemas", func() {
-		Expect(fail(1, "surface")).To(printOnce("analysis failed"))
+		Expect(fail("surface")).To(printOnce("analysis failed"))
 	})
 })

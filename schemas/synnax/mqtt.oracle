@@ -9,7 +9,9 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
+import "schemas/synnax/icd"
 import "schemas/synnax/task"
+import "schemas/x/payload"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/mqtt"
@@ -17,94 +19,63 @@ import "schemas/x/telem"
 @ts output "client/ts/src/mqtt"
 
 QoS enum {
-    at_most_once  = "at_most_once"
-    at_least_once = "at_least_once"
-    exactly_once  = "exactly_once"
+    at_most_once  = "at_most_once" {
+        @doc value "is level 0, which delivers a message at most once."
+    }
+    at_least_once = "at_least_once" {
+        @doc value "is level 1, which delivers a message at least once."
+    }
+    exactly_once  = "exactly_once" {
+        @doc value "is level 2, which delivers a message exactly once."
+    }
 
     @doc value """
         is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
     """
 }
 
-TimeFormat enum {
-    iso8601  = "iso8601"
-    unix_sec = "unix_sec"
-    unix_ms  = "unix_ms"
-    unix_us  = "unix_us"
-    unix_ns  = "unix_ns"
-
-    @doc value "is the encoding of a timestamp value within a JSON payload."
-}
-
-EnumEntry struct {
-    label string = "" {
-        @doc value "is the string label in the JSON payload."
-    }
-    value float64 = 0 {
-        @doc value "is the numeric channel value the label maps to."
-    }
-
-    @doc value  """
-        maps a string label in a JSON payload to a numeric channel value for enum-style
-        parsing (e.g. "ON" -> 1, "OFF" -> 0).
-    """
-    @go marshal
-}
-
 SparkplugDataType enum {
-    int8      = "int8"
-    int16     = "int16"
-    int32     = "int32"
-    int64     = "int64"
-    uint8     = "uint8"
-    uint16    = "uint16"
-    uint32    = "uint32"
-    uint64    = "uint64"
-    float     = "float"
-    double    = "double"
-    boolean   = "boolean"
-    string    = "string"
-    date_time = "date_time"
+    int8      = "int8" {
+        @doc value "is a signed 8-bit integer."
+    }
+    int16     = "int16" {
+        @doc value "is a signed 16-bit integer."
+    }
+    int32     = "int32" {
+        @doc value "is a signed 32-bit integer."
+    }
+    int64     = "int64" {
+        @doc value "is a signed 64-bit integer."
+    }
+    uint8     = "uint8" {
+        @doc value "is an unsigned 8-bit integer."
+    }
+    uint16    = "uint16" {
+        @doc value "is an unsigned 16-bit integer."
+    }
+    uint32    = "uint32" {
+        @doc value "is an unsigned 32-bit integer."
+    }
+    uint64    = "uint64" {
+        @doc value "is an unsigned 64-bit integer."
+    }
+    float     = "float" {
+        @doc value "is a 32-bit floating point number."
+    }
+    double    = "double" {
+        @doc value "is a 64-bit floating point number."
+    }
+    boolean   = "boolean" {
+        @doc value "is a true or false value."
+    }
+    string    = "string" {
+        @doc value "is a string."
+    }
+    date_time = "date_time" {
+        @doc value "is a point in time, as milliseconds since the Unix epoch."
+    }
 
     @doc value "is the Sparkplug B data type of a tag."
-}
-
-ReadField struct {
-    key         string = create {
-        @doc value "uniquely identifies the field within the entry."
-        @key
-    }
-    name        string = "" {
-        @doc value "is the human-readable field name."
-    }
-    disabled    bool = false {
-        @doc value "is true when the field is excluded from the task."
-    }
-    channel     channel.Key = 0 {
-        @doc value "is the Synnax channel the extracted value is written to."
-    }
-    pointer     string = "" {
-        @doc value """
-            is the JSON Pointer to the value within the payload. An empty pointer takes
-            the whole payload.
-        """
-    }
-    data_type   telem.DataType = "float64" {
-        @doc value "is the data type of the extracted value."
-        @ts type   "string"
-    }
-    time_format TimeFormat?    {
-        @doc value """
-            is the encoding of the JSON value when the target channel holds timestamps.
-            Required for timestamp channels.
-        """
-    }
-    enum_values EnumEntry[]    {
-        @doc value "maps string labels in the payload to numeric channel values."
-    }
-
-    @doc value  "is a single value extracted from the JSON payload of a topic."
-    @go marshal
 }
 
 BaseReadEntry struct {
@@ -118,6 +89,41 @@ BaseReadEntry struct {
 
     @doc value  "carries the fields every read entry shares."
     @go marshal
+}
+
+InlineEntry struct extends BaseReadEntry {
+    at               uint32 = 0 {
+        @doc value "is the index of the entry in the entries of its config."
+    }
+    topic            string = "" {
+        @doc value "is the topic to subscribe to."
+    }
+    qos              QoS = at_most_once {
+        @doc value "is the quality of service of the subscription."
+    }
+    retained_ignored bool = false {
+        @doc value "is true when the task drops the retained message on subscribe."
+    }
+    fields           ReadField[] = [] {
+        @doc value "are the fields of the entry."
+    }
+    index            string = "" {
+        @doc value "is the key of the index field. Empty for arrival timing."
+    }
+
+    @doc value "is a plain entry from before ICDs, which held its fields inline."
+    @py omit
+    @ts omit
+}
+
+InlineRead struct {
+    entries InlineEntry[] = [] {
+        @doc value "are the plain entries that hold their fields inline."
+    }
+
+    @doc value "holds the plain entries of a read config from before ICDs."
+    @py omit
+    @ts omit
 }
 
 ReadEntry union on type extends BaseReadEntry {
@@ -134,17 +140,19 @@ ReadEntry union on type extends BaseReadEntry {
                 on subscribe.
             """
         }
-        fields           ReadField[] {
-            @doc value "contains the values to extract from each payload."
+        icd              icd.Key           {
+            @doc value     "is the key of the ICD that holds the messages of the topic."
+            @ref kind      use
+            @ref on_delete restrict
         }
-        index            string = "" {
+        messages         icd.ReadMessage[] = [] {
             @doc value """
-                is the key of the field whose channel indexes the others. Empty when the
-                task stamps samples on arrival.
+                are the messages the topic carries. Each payload is read as the message
+                whose match rule it meets.
             """
         }
 
-        @doc value "reads JSON payloads from one topic."
+        @doc value "reads the JSON payloads of one topic as the messages of an ICD."
     }
     sparkplug {
         group     string = "" {
@@ -160,7 +168,9 @@ ReadEntry union on type extends BaseReadEntry {
             @doc value "is the name of the tag."
         }
         channel   channel.Key = 0 {
-            @doc value "is the Synnax channel the tag value is written to."
+            @doc value     "is the Synnax channel the tag value is written to."
+            @ref kind      use
+            @ref on_delete restrict
         }
         name      string = "" {
             @doc value "is the human-readable name of the channel."
@@ -182,34 +192,32 @@ ReadEntry union on type extends BaseReadEntry {
 
 ReadConfig struct extends task.PersistConfig {
     device  device.Key = "" {
-        @doc value "is the key of the broker device to read from."
+        @doc value     "is the key of the broker device to read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     entries ReadEntry[] {
         @doc value "contains the topics and tags to read."
     }
+    inline  InlineRead? {
+        @doc value  """
+            holds the plain entries of a config from before ICDs. A write moves their
+            fields into a new ICD, adds the entries, and clears it.
+        """
+        @go marshal omit
+        @py omit
+        @ts omit
+    }
 
-    @doc value  """
+    @doc value           """
         configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
         a broker device and writes their values to Synnax channels.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
-}
-
-JSONType enum {
-    number  = "number"
-    string  = "string"
-    boolean = "boolean"
-
-    @doc value "is the JSON type a channel value is serialized as in a payload."
-}
-
-GeneratorType enum {
-    uuid      = "uuid"
-    timestamp = "timestamp"
-
-    @doc value "is the kind of value produced for a generated write field."
+    @patch
+    @retrieve references
 }
 
 ChannelField struct {
@@ -220,11 +228,13 @@ ChannelField struct {
             target may not declare any additional fields.
         """
     }
-    json_type   JSONType = number {
+    json_type   payload.JSONType = number {
         @doc value "is the JSON type the channel value is serialized as."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax command channel that triggers the publish."
+        @doc value     "is the Synnax command channel that triggers the publish."
+        @ref kind      use
+        @ref on_delete restrict
     }
     name        string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -233,13 +243,13 @@ ChannelField struct {
         @doc value "is the data type of the command channel."
         @ts type   "string"
     }
-    time_format TimeFormat?    {
+    time_format payload.TimeFormat? {
         @doc value """
             is the output encoding when the command channel holds timestamps. An unset
             format is ISO 8601.
         """
     }
-    enum_values EnumEntry[]    {
+    enum_values payload.EnumEntry[] {
         @doc value """
             maps numeric channel values to string labels. Only valid when json_type is
             'string'.
@@ -265,20 +275,20 @@ BaseWriteField struct {
 
 WriteField union on type extends BaseWriteField {
     static {
-        json_type JSONType = number {
+        json_type payload.JSONType = number {
             @doc value "is the JSON type the value is serialized as."
         }
-        value     any      {
+        value     any              {
             @doc value "is the fixed JSON value placed at the pointer."
         }
 
         @doc value "places a fixed value in the payload."
     }
     generated {
-        generator   GeneratorType = uuid {
+        generator   payload.GeneratorType = uuid {
             @doc value "is the generator that produces a fresh value per publish."
         }
-        time_format TimeFormat?   {
+        time_format payload.TimeFormat?   {
             @doc value """
                 is the output encoding for timestamp generators. Defaults to iso8601.
             """
@@ -344,7 +354,11 @@ WriteTarget union on type extends BaseWriteTarget {
             @doc value "is the Sparkplug B data type the command value is sent as."
         }
         channel   channel.Key = 0 {
-            @doc value "is the Synnax command channel whose writes trigger the command."
+            @doc value     """
+                is the Synnax command channel whose writes trigger the command.
+            """
+            @ref kind      use
+            @ref on_delete restrict
         }
         name      string = "" {
             @doc value "is the human-readable name of the command channel."
@@ -362,19 +376,23 @@ WriteTarget union on type extends BaseWriteTarget {
 
 WriteConfig struct extends task.StartConfig {
     device  device.Key = "" {
-        @doc value "is the key of the broker device to write to."
+        @doc value     "is the key of the broker device to write to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     targets WriteTarget[] {
         @doc value "contains the topics and tags to write to."
     }
 
-    @doc value  """
+    @doc value           """
         configures an MQTT write task, which publishes a message whenever a value is
         written to the command channel of a target.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -382,6 +400,7 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }
 
 EdgeTag struct {
@@ -396,16 +415,20 @@ EdgeTag struct {
         @doc value "is the Sparkplug B name of the tag."
     }
     channel              channel.Key = 0 {
-        @doc value "is the Synnax channel whose value the tag publishes."
+        @doc value     "is the Synnax channel whose value the tag publishes."
+        @ref kind      use
+        @ref on_delete restrict
     }
     tag_type             SparkplugDataType = double {
         @doc value "is the Sparkplug B data type the tag is published as."
     }
     command_channel      channel.Key = 0 {
-        @doc value """
+        @doc value     """
             is the Synnax channel that takes values written to the tag. Zero when the
             tag rejects writes.
         """
+        @ref kind      use
+        @ref on_delete restrict
     }
     command_channel_name string?           {
         @doc value """
@@ -420,7 +443,9 @@ EdgeTag struct {
 
 EdgeConfig struct extends task.StartConfig {
     device    device.Key = "" {
-        @doc value "is the key of the broker device to publish to."
+        @doc value     "is the key of the broker device to publish to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     group     string = "" {
         @doc value "is the Sparkplug group ID of the edge node."
@@ -438,11 +463,52 @@ EdgeConfig struct extends task.StartConfig {
         @doc value "contains the tags the edge node publishes."
     }
 
-    @doc value  """
+    @doc value           """
         configures a Sparkplug B edge node task, which publishes Synnax channels as the
         tags of one edge node and writes inbound tag commands to Synnax channels.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
+}
+
+ReadField struct {
+    key         string = create {
+        @doc value "uniquely identifies the field within the entry."
+        @key
+    }
+    name        string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled    bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer     string = "" {
+        @doc value """
+            is the JSON Pointer to the value within the payload. An empty pointer takes
+            the whole payload.
+        """
+    }
+    data_type   telem.DataType = "float64" {
+        @doc value "is the data type of the extracted value."
+    }
+    time_format payload.TimeFormat? {
+        @doc value """
+            is the encoding of the JSON value when the target channel holds timestamps.
+            Required for timestamp channels.
+        """
+    }
+    enum_values payload.EnumEntry[] {
+        @doc value "maps string labels in the payload to numeric channel values."
+    }
+
+    @doc value  "is a single value extracted from the JSON payload of a topic."
+    @go marshal
+    @py omit
+    @ts omit
 }

@@ -10,25 +10,42 @@
 import {
   arc,
   device,
+  group,
   ni,
   NotFoundError,
-  type ontology,
   rack,
+  type resource,
+  status,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { binary } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
+import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 import { Rack } from "@/feature/rack";
+import { Arc } from "@/platform/arc";
+import { answerNextCommand } from "@/platform/task/testutil";
+import { Tree } from "@/platform/tree";
 import {
+  createHostItems,
   createResource,
+  expandTreeRow,
   findModalButton,
+  findTreeRow,
+  HOST_ID,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
+import { createTestClientWithGrants, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -36,6 +53,12 @@ const roles = new RoleClients(client);
 const Item = Rack.TREE_ITEMS.rack;
 
 const createRack = async () => await client.racks.create({ name: uniqueName("rack") });
+
+const createArcRack = async () =>
+  await client.racks.create({
+    name: uniqueName("arc_rack"),
+    integrations: [Arc.INTEGRATION_KEY],
+  });
 
 const createNIRackWithScanner = async () => {
   const r = await client.racks.create({
@@ -53,8 +76,21 @@ const createNIRackWithScanner = async () => {
   return { rack: r, scanTask };
 };
 
+const createOPCUARackWithScanner = async () => {
+  const r = await client.racks.create({
+    name: uniqueName("opcua_rack"),
+    integrations: [OPCUA.Device.INTEGRATION_KEY],
+  });
+  const scanTask = await r.createTask({
+    name: uniqueName("opcua_scanner"),
+    type: OPCUA.Task.SCAN_TYPE,
+    config: {},
+  });
+  return { rack: r, scanTask };
+};
+
 const rackResource = (key: number, name: string) =>
-  createResource(rack.ontologyID(key), name);
+  createResource(rack.resourceID(key), name);
 
 const renderMenu = async (
   racks: { key: number; name: string }[],
@@ -71,22 +107,67 @@ const renderMenu = async (
 
 /**
  * A client that may rename racks and read everything the menu touches, differing only
- * in the type it may create.
+ * in the types it may create.
  */
-const createRackWriter = async (creatable: ontology.ID) =>
+const createRackWriter = async (...creatable: resource.ID[]) =>
   await createTestClientWithGrants(client, {
-    retrieve: [rack.TYPE_ONTOLOGY_ID, task.TYPE_ONTOLOGY_ID, arc.TYPE_ONTOLOGY_ID],
-    update: [rack.TYPE_ONTOLOGY_ID],
-    create: [creatable],
+    retrieve: [rack.TYPE_RESOURCE_ID, task.TYPE_RESOURCE_ID, arc.TYPE_RESOURCE_ID],
+    update: [rack.TYPE_RESOURCE_ID],
+    create: creatable,
   });
 
-describe("rack ontology service", () => {
+describe("rack tree item", () => {
+  describe("drop", () => {
+    const root = device.TYPE_RESOURCE_ID;
+    const destination = createResource(rack.resourceID(1), "rack");
+    const canDrop = (id: resource.ID, ancestors: resource.ID[]): boolean =>
+      Item.canDrop({
+        source: { key: "tree", type: PTree.HAUL_TYPE },
+        items: [PTree.createHaulItem(`${id.type}:${id.key}`)],
+        root,
+        destination,
+        ancestors: [root],
+        moved: [{ id, ancestors }],
+      });
+
+    it("should accept a device or group of its own rack", () => {
+      expect(canDrop(device.resourceID("d"), [rack.resourceID(1), root])).toBe(true);
+      expect(canDrop(group.resourceID("g"), [rack.resourceID(1), root])).toBe(true);
+    });
+
+    it("should refuse a device or group from another rack", () => {
+      expect(canDrop(device.resourceID("d"), [rack.resourceID(2), root])).toBe(false);
+      expect(canDrop(group.resourceID("g"), [rack.resourceID(2), root])).toBe(false);
+    });
+
+    it("should refuse a device under another device", () => {
+      expect(
+        canDrop(device.resourceID("d"), [
+          device.resourceID("p"),
+          rack.resourceID(1),
+          root,
+        ]),
+      ).toBe(false);
+    });
+
+    it("should refuse a rack", () => {
+      expect(canDrop(rack.resourceID(2), [root])).toBe(false);
+    });
+  });
+
   it("should expose rename, arc creation, and delete for a single rack", async () => {
+    const r = await createArcRack();
+    await renderMenu([r]);
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(screen.getByText("Rename")).toBeTruthy();
+    expect(screen.getByText("Delete")).toBeTruthy();
+  });
+
+  it("should hide arc creation for a rack without the Arc integration", async () => {
     const r = await createRack();
     await renderMenu([r]);
-    expect(await screen.findByText("Rename")).toBeTruthy();
-    expect(screen.getByText("Create Arc automation")).toBeTruthy();
-    expect(screen.getByText("Delete")).toBeTruthy();
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Create Arc automation")).toBeNull();
   });
 
   it("should offer Reload Console", async () => {
@@ -119,11 +200,20 @@ describe("rack ontology service", () => {
     });
   });
 
-  it("should open the arc creation modal from the context menu", async () => {
-    const r = await createRack();
-    await renderMenu([r]);
+  it("should bind an automation created from the context menu to the rack", async () => {
+    const r = await createArcRack();
+    const name = uniqueName("arc");
+    const { store } = await renderMenu([r]);
+    await selectTestProject(store, client);
     fireEvent.click(await screen.findByText("Create Arc automation"));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    fireEvent.change(await screen.findByPlaceholderText("Arc name"), {
+      target: { value: name },
+    });
+    fireEvent.click(findModalButton("Create"));
+    await waitFor(async () => {
+      const a = await client.arcs.retrieve({ name });
+      expect((await client.arcs.task.retrieve(a.key))?.rack).toBe(r.key);
+    });
   });
 
   it("should open the device picker scoped to the rack", async () => {
@@ -144,6 +234,29 @@ describe("rack ontology service", () => {
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
+  it("should hide the OPC UA Driver certificate for a rack without the OPC UA integration", async () => {
+    const r = await createRack();
+    await renderMenu([r]);
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Show OPC UA Driver certificate")).toBeNull();
+  });
+
+  it("should open the OPC UA Driver certificate of the rack", async () => {
+    const { rack: r, scanTask } = await createOPCUARackWithScanner();
+    const { answered } = await answerNextCommand(client, scanTask, {
+      type: OPCUA.Task.GET_CERTIFICATE_COMMAND_TYPE,
+      data: { current: SERVER_CERTIFICATE },
+    });
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Show OPC UA Driver certificate"));
+    await answered;
+    expect(
+      await screen.findByText(
+        "FF:65:16:FC:E0:22:F9:7F:23:B6:F6:79:17:9D:B7:FE:68:CB:2D:9C",
+      ),
+    ).toBeTruthy();
+  });
+
   it("should toggle the NI scanner's disabled flag from the rack context menu", async () => {
     const { rack: r, scanTask } = await createNIRackWithScanner();
     await renderMenu([r]);
@@ -158,9 +271,57 @@ describe("rack ontology service", () => {
   });
 });
 
+describe("rack children", () => {
+  it("should list only the devices that sit directly on the rack", async () => {
+    const r = await createRack();
+    const make = async (name: string, parent?: device.Key) =>
+      await client.devices.create({
+        key: uniqueName(name),
+        name: uniqueName(name),
+        rack: r.key,
+        location: name,
+        make: "make",
+        model: "model",
+        properties: {},
+        parent,
+      });
+    const chassis = await make("chassis");
+    const module = await make("module", chassis.key);
+    await renderLiveTree({
+      client,
+      root: HOST_ID,
+      items: {
+        ...Rack.TREE_ITEMS,
+        ...Device.TREE_ITEMS,
+        ...createHostItems((c) => [
+          Tree.createSource(c.racks, { key: [r.key] }, (rk) =>
+            Tree.toResource("rack")(rk.payload),
+          ),
+        ]),
+      },
+    });
+    await findTreeRow(r.name);
+    expandTreeRow(r.name);
+    await findTreeRow(chassis.name);
+    expect(screen.queryByText(module.name)).toBeNull();
+  });
+});
+
+describe("copy properties", () => {
+  it("should copy the stored rack as JSON", async () => {
+    const writeText = stubClipboardWriteText();
+    const r = await createRack();
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Copy properties"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(binary.JSON_CODEC.encodeString(r.payload)),
+    );
+  });
+});
+
 describe("permission to write the rack", () => {
   it("should withhold rename, arc creation, and delete from a viewer", async () => {
-    const r = await createRack();
+    const r = await createArcRack();
     await renderMenu([r], await roles.get("Viewer"));
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
@@ -168,29 +329,56 @@ describe("permission to write the rack", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
+  it("should withhold the OPC UA Driver certificate from a viewer", async () => {
+    const { rack: r } = await createOPCUARackWithScanner();
+    await renderMenu([r], await roles.get("Viewer"));
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Show OPC UA Driver certificate")).toBeNull();
+  });
+
   it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
-    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
+    expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
   it("should withhold Connect device from a subject who cannot create devices", async () => {
     const r = await createRack();
-    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
+    expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Connect device")).toBeNull();
+  });
+
+  it("should withhold arc creation from a subject who cannot create tasks", async () => {
+    const r = await createArcRack();
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Create Arc automation")).toBeNull();
+  });
+
+  it("should offer arc creation to a subject who may create Arcs, tasks, and statuses", async () => {
+    const r = await createArcRack();
+    await renderMenu(
+      [r],
+      await createRackWriter(
+        arc.TYPE_RESOURCE_ID,
+        task.TYPE_RESOURCE_ID,
+        status.TYPE_RESOURCE_ID,
+      ),
+    );
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
   });
 
   it("should offer Connect device to a subject who may create devices", async () => {
     const r = await createRack();
-    await renderMenu([r], await createRackWriter(device.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(device.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Connect device")).toBeTruthy();
   });
 
   it("should offer the scanner toggle to a subject who may create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
-    await renderMenu([r], await createRackWriter(task.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(task.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Toggle NI device scanner")).toBeTruthy();
   });
 });

@@ -13,7 +13,6 @@ import {
   DataType,
   lineplot,
   NotFoundError,
-  project,
   schematic,
   status,
   type Synnax,
@@ -23,8 +22,8 @@ import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 
 const NAME = "Sample project";
 
-// Fixed keys make each new sample overwrite the last one, even after a rename, so only
-// one copy of the Arc programs drives the sample channels.
+// Fixed keys let each new sample replace the last one, even after a rename, so only one
+// copy of the Arc programs drives the sample channels.
 export const KEYS = {
   project: "adacd22e-b3a6-4b20-a587-136795288889",
   schematic: "07ba9c3b-d84e-4e85-934d-e2c750355791",
@@ -88,78 +87,94 @@ const createSchematic = (ch: Channels): schematic.New => ({
   key: KEYS.schematic,
   name: "Tank",
   nodes: [
-    { key: "press_vlv", position: { x: 155, y: 180 } },
-    { key: "tank", position: { x: 300, y: 0 } },
-    { key: "vent_vlv", position: VENT_VLV_POSITION },
+    {
+      key: "press_vlv",
+      position: { x: 155, y: 180 },
+      config: {
+        variant: "valve",
+        label: { label: "Press valve" },
+        commandChannel: ch[PRESS_VLV_CMD],
+        stateChannel: ch[PRESS_VLV_STATE],
+      },
+    },
+    {
+      key: "tank",
+      position: { x: 300, y: 0 },
+      config: {
+        variant: "tank",
+        label: { label: "Tank" },
+        channel: ch[TANK_PT],
+        bounds: { lower: 0, upper: 500 },
+      },
+    },
+    {
+      key: "vent_vlv",
+      position: VENT_VLV_POSITION,
+      config: {
+        variant: "valve",
+        label: { label: "Vent valve" },
+        commandChannel: ch[VENT_VLV_CMD],
+        stateChannel: ch[VENT_VLV_STATE],
+      },
+    },
     {
       key: "vent",
       position: {
         x: 590,
         y: VENT_VLV_POSITION.y + VALVE_HANDLE_Y - VENT_HANDLE_Y,
       },
+      config: { variant: "vent" },
     },
-    { key: "tank_pt", position: { x: 310, y: 244 } },
-    { key: "start", position: { x: 270, y: 292 } },
-    { key: "abort", position: { x: 394, y: 292 } },
+    {
+      key: "tank_pt",
+      position: { x: 310, y: 244 },
+      config: {
+        variant: "value",
+        label: { label: "Tank pressure" },
+        channel: ch[TANK_PT],
+        units: "psi",
+        precision: 1,
+      },
+    },
+    {
+      key: "start",
+      position: { x: 270, y: 292 },
+      config: {
+        variant: "button",
+        label: { label: "Start" },
+        commandChannel: ch[START_CMD],
+      },
+    },
+    {
+      key: "abort",
+      position: { x: 394, y: 292 },
+      config: {
+        variant: "button",
+        label: { label: "Abort" },
+        commandChannel: ch[ABORT_CMD],
+      },
+    },
   ],
   edges: [
     {
       key: "press_vlv_to_tank",
       source: { node: "press_vlv", param: "2" },
       target: { node: "tank", param: "5" },
+      config: { variant: "pipe" },
     },
     {
       key: "tank_to_vent_vlv",
       source: { node: "tank", param: "3" },
       target: { node: "vent_vlv", param: "1" },
+      config: { variant: "pipe" },
     },
     {
       key: "vent_vlv_to_vent",
       source: { node: "vent_vlv", param: "2" },
       target: { node: "vent", param: "1" },
+      config: { variant: "pipe" },
     },
   ],
-  configs: {
-    press_vlv: {
-      variant: "valve",
-      label: { label: "Press valve" },
-      commandChannel: ch[PRESS_VLV_CMD],
-      stateChannel: ch[PRESS_VLV_STATE],
-    },
-    tank: {
-      variant: "tank",
-      label: { label: "Tank" },
-      channel: ch[TANK_PT],
-      bounds: { lower: 0, upper: 500 },
-    },
-    vent_vlv: {
-      variant: "valve",
-      label: { label: "Vent valve" },
-      commandChannel: ch[VENT_VLV_CMD],
-      stateChannel: ch[VENT_VLV_STATE],
-    },
-    vent: { variant: "vent" },
-    tank_pt: {
-      variant: "value",
-      label: { label: "Tank pressure" },
-      channel: ch[TANK_PT],
-      units: "psi",
-      precision: 1,
-    },
-    start: {
-      variant: "button",
-      label: { label: "Start" },
-      commandChannel: ch[START_CMD],
-    },
-    abort: {
-      variant: "button",
-      label: { label: "Abort" },
-      commandChannel: ch[ABORT_CMD],
-    },
-    press_vlv_to_tank: { variant: "pipe" },
-    tank_to_vent_vlv: { variant: "pipe" },
-    vent_vlv_to_vent: { variant: "pipe" },
-  },
 });
 
 const createLinePlot = (ch: Channels): lineplot.New => ({
@@ -175,9 +190,8 @@ const createLinePlot = (ch: Channels): lineplot.New => ({
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   const racks = await client.racks.retrieve({
-    integration: "arc",
+    integrations: "arc",
     embedded: true,
-    hostIsNode: true,
   });
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });
@@ -191,10 +205,7 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
 };
 
 export const exists = async (client: Synnax): Promise<boolean> => {
-  const found = await client.projects.retrieve({
-    keys: [KEYS.project],
-    ignoreNotFoundError: true,
-  });
+  const found = await client.projects.retrieve({ key: { eq: KEYS.project } });
   return found.length > 0;
 };
 
@@ -213,28 +224,30 @@ export interface Programs {
  */
 export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
-  await client.projects.create({ key: KEYS.project, name: NAME });
-  await client.schematics.create(KEYS.project, createSchematic(ch));
-  await client.lineplots.create(KEYS.project, createLinePlot(ch));
-  // Overwriting an existing schematic or line plot does not link it to the project,
-  // which matters after the user deletes the project.
-  await client.ontology.addChildren(
-    project.ontologyID(KEYS.project),
-    schematic.ontologyID(KEYS.schematic),
-    lineplot.ontologyID(KEYS.linePlot),
-  );
+  // A reset keeps the project, so the visualizations that the user added to it stay.
+  if (await exists(client)) await client.projects.rename(KEYS.project, NAME);
+  else await client.projects.create({ key: KEYS.project, name: NAME });
+  // Deleting an Arc deletes its task, which stops the old program.
+  await Promise.all([
+    client.arcs.delete([KEYS.simulator, KEYS.sequence]),
+    client.panels.delete(KEYS.panel),
+    client.schematics.delete(KEYS.schematic),
+    client.lineplots.delete(KEYS.linePlot),
+  ]);
+  await client.schematics.create({ ...createSchematic(ch), project: KEYS.project });
+  await client.lineplots.create({ ...createLinePlot(ch), project: KEYS.project });
   await client.arcs.create([
     {
       key: KEYS.simulator,
       name: "Tank simulator",
-      mode: "text",
-      text: { raw: programs.simulator },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.simulator } },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
-      mode: "text",
-      text: { raw: programs.sequence },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.sequence } },
     },
   ]);
   await deploy(client, KEYS.simulator);
@@ -242,7 +255,7 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   await client.panels.create({
     key: KEYS.panel,
     name: NAME,
-    parent: project.ontologyID(KEYS.project),
+    project: KEYS.project,
     root: {
       variant: "split",
       direction: "x",
@@ -254,19 +267,19 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
         first: {
           variant: "leaf",
           tabs: [
-            { variant: "resource", resource: schematic.ontologyID(KEYS.schematic) },
+            { variant: "resource", resource: schematic.resourceID(KEYS.schematic) },
           ],
         },
         last: {
           variant: "leaf",
-          tabs: [{ variant: "resource", resource: lineplot.ontologyID(KEYS.linePlot) }],
+          tabs: [{ variant: "resource", resource: lineplot.resourceID(KEYS.linePlot) }],
         },
       },
       last: {
         variant: "leaf",
         tabs: [
-          { variant: "resource", resource: arc.ontologyID(KEYS.sequence) },
-          { variant: "resource", resource: arc.ontologyID(KEYS.simulator) },
+          { variant: "resource", resource: arc.resourceID(KEYS.sequence) },
+          { variant: "resource", resource: arc.resourceID(KEYS.simulator) },
         ],
       },
     },

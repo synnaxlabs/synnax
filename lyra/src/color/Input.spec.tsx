@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Color } from "@/color";
@@ -60,6 +60,25 @@ describe("Input", () => {
     expect(swatch?.className).toContain(CSS.M("mixed"));
   });
 
+  it("should show the name of the named color that the value follows", () => {
+    const c = renderInput({
+      value: RED,
+      library: {
+        palettes: [
+          {
+            key: "p",
+            name: "Alarms",
+            colors: [{ key: "fault", name: "Fault", light: RED }],
+          },
+        ],
+        named: "fault",
+        onNamedChange: vi.fn(),
+      },
+    });
+    expect(textOf(c).value).toEqual("");
+    expect(textOf(c).placeholder).toEqual("Fault");
+  });
+
   it("should apply a typed hex while mixed", () => {
     const onChange = vi.fn();
     const c = renderInput({ mixed: true, onChange });
@@ -87,14 +106,14 @@ describe("Input", () => {
     const onChange = vi.fn();
     const c = renderInput({ value: "#ff000080", onChange });
     fireEvent.change(textOf(c), { target: { value: "0000ff" } });
-    expect(color.aValue(lastValue(onChange) ?? color.ZERO)).toBeCloseTo(0.5, 2);
+    expect(color.opacity(lastValue(onChange) ?? color.TRANSPARENT)).toBeCloseTo(0.5, 2);
   });
 
   it("should make a typed hex opaque from Auto on a clear fallback", () => {
     const onChange = vi.fn();
-    const c = renderInput({ fallback: color.ZERO, onChange });
+    const c = renderInput({ fallback: color.TRANSPARENT, onChange });
     fireEvent.change(textOf(c), { target: { value: "0000ff" } });
-    expect(color.aValue(lastValue(onChange) ?? color.ZERO)).toEqual(1);
+    expect(color.opacity(lastValue(onChange) ?? color.TRANSPARENT)).toEqual(1);
   });
 
   it("should apply a pasted CSS color at once", () => {

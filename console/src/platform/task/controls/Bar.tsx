@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
-import { type Flex } from "@synnaxlabs/lyra/flex";
+import type { status } from "@synnaxlabs/client";
+import type { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { Actions } from "@/platform/task/controls/Actions";
@@ -18,24 +18,28 @@ import { StartStopButton } from "@/platform/task/controls/StartStopButton";
 import { Status } from "@/platform/task/controls/Status";
 
 export interface BarProps extends Flex.BoxProps {
-  status: status.Status;
+  /** Absent for a task with no status. */
+  status?: status.Status;
   running: boolean;
   /** Shows the redeploy button when the deployed config is stale. */
   drifted?: boolean;
+  /** Replaces the redeploy button's tooltip, to say what is stale. */
+  redeployTooltip?: ReactNode;
   /** Hides the action row entirely, for a caller that cannot command the task. */
   hideActions?: boolean;
   /** Disables the deploy and start/stop actions. */
   disabled?: boolean;
   /** Shown when the status message is empty. */
   fallbackMessage?: string;
-  /** Status variant forwarded to the start/stop button. */
+  /** Status variant of the start/stop button. A loading one leaves an enabled Stop. */
   startStopVariant?: status.Variant;
   /** Rendered inside the action row, before the deploy controls. */
   extraActions?: ReactNode;
   /** The task's settings, first in the action row. They show when the actions hide. */
   settings?: ReactNode;
-  onDeploy: () => void;
-  onStop: () => void;
+  /** Unused when the actions hide. */
+  onDeploy?: () => void;
+  onStop?: () => void;
 }
 
 /**
@@ -46,6 +50,7 @@ export const Bar = ({
   status: stat,
   running,
   drifted = false,
+  redeployTooltip,
   hideActions = false,
   disabled = false,
   fallbackMessage,
@@ -59,7 +64,10 @@ export const Bar = ({
   const [expanded, setExpanded] = useState(false);
   const handleToggle = () => setExpanded((prev) => !prev);
   const handleContract = () => setExpanded(false);
-  const handleStartStop = () => (running ? onStop() : onDeploy());
+  // The button stays a working Stop while a start or stop loads.
+  const loading = startStopVariant === "loading";
+  const stoppable = running || loading;
+  const handleStartStop = () => (stoppable ? onStop?.() : onDeploy?.());
   return (
     <Frame expanded={expanded} onContract={handleContract} {...props}>
       <Status
@@ -76,14 +84,15 @@ export const Bar = ({
               {extraActions}
               <RedeployButton
                 visible={drifted}
-                onClick={onDeploy}
-                disabled={disabled || startStopVariant === "loading"}
+                tooltip={redeployTooltip}
+                onClick={() => onDeploy?.()}
+                disabled={disabled || loading}
               />
               <StartStopButton
-                running={running}
+                running={stoppable}
                 onClick={handleStartStop}
                 disabled={disabled}
-                statusVariant={startStopVariant}
+                statusVariant={loading ? undefined : startStopVariant}
               />
             </>
           )}

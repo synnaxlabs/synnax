@@ -11,11 +11,12 @@ import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
 import {
   createBaseProps,
@@ -23,7 +24,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
@@ -39,11 +40,7 @@ const renderContextMenuItems = async () => {
     configured: true,
     properties: HTTP.Device.ZERO_PROPERTIES,
   });
-  const resource = createDeviceResource({
-    key: dev.key,
-    name: dev.name,
-    configured: true,
-  });
+  const resource = createDeviceResource(dev);
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
@@ -70,7 +67,7 @@ describe("HTTP device ContextMenuItems", () => {
     fireEvent.click(await screen.findByText("Create read task"));
     const readTab = await resolveFocusedTab(store, client);
     if (readTab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(readTab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(readTab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const read = await client.tasks.retrieve({ key: readTab.resource.key });
     expect(read.type).toBe(HTTP.Task.READ_TYPE);
     expect(read.config).toMatchObject({ device: deviceKey });

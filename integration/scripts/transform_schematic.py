@@ -18,7 +18,8 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+
+from pydantic import JsonValue
 
 
 def load_channel_mapping(mapping_path: Path) -> dict[int, int]:
@@ -38,14 +39,13 @@ def load_channel_mapping(mapping_path: Path) -> dict[int, int]:
 
 
 def transform_value(
-    value: Any, *, key_map: dict[int, int], stats: dict[str, int]
-) -> Any:
+    value: JsonValue, *, key_map: dict[int, int], stats: dict[str, int]
+) -> JsonValue:
     """Recursively transform values, replacing config keys with synnax keys.
 
-    Args:
-        value: The value to transform
-        key_map: Mapping of config_key -> synnax_key
-        stats: Dictionary to track replacement statistics
+    :param value: The value to transform
+    :param key_map: Mapping of config_key -> synnax_key
+    :param stats: Dictionary to track replacement statistics
     """
     if isinstance(value, dict):
         return {
@@ -121,7 +121,7 @@ def main() -> None:
         epilog="""
 Examples:
   %(prog)s schematic.json mapping.json
-  %(prog)s ~/Desktop/fh_debug/CTS_Operator_CP.json ~/Desktop/fh_debug/channel_mapping.json
+  %(prog)s ~/schematics/operator.json ~/schematics/mapping.json
   %(prog)s schematic.json mapping.json --output transformed.json
 
 This script reads a schematic JSON file and replaces all config channel keys
@@ -133,7 +133,7 @@ The script will:
   3. Replace config keys with Synnax keys
   4. Replace unknown keys (>1000000) with 0
   5. Save the transformed schematic with '_transformed' suffix
-        """,  # noqa: E501
+        """,
     )
     parser.add_argument(
         "schematic", type=str, help="Path to schematic JSON file to transform"

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
   type Aggregation,
@@ -15,6 +15,7 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
   type direction,
   type MultiSeries,
@@ -40,7 +41,7 @@ import {
   finiteRuns,
 } from "@/vis/line/aether/draw";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
-import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
+import { groupSize, inView, Reducer, type View } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -110,6 +111,8 @@ export interface FindResult {
 export interface DataBounds {
   bounds: bounds.Bounds;
   loading: boolean;
+  /** Set when the bounds end at the newest sample. */
+  edge?: telem.Edge;
 }
 
 export interface LineProps {
@@ -323,15 +326,21 @@ interface InternalState {
   // aggregation and loadingState come from the data the line last drew.
   aggregation?: Aggregation;
   loadingState?: LoadingState;
-  // loaded is true once both sources leave loading, until either source changes.
+  // loaded is true once both sources leave loading, until either source or spec
+  // changes.
   loaded?: boolean;
+  // drawn holds the ops of the last render, xBounds the bounds of its x data, and
+  // groupSize the size that reduced them.
+  drawn: DrawOperation[];
+  xBounds: bounds.Bounds;
+  groupSize: number;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
-  schema: typeof stateZ = stateZ;
+  override schema: typeof stateZ = stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const createOptions: telem.CreateOptions = {
       onStatusChange: status.useAdder(ctx),
@@ -339,11 +348,22 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem } = i;
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
-    if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
+    const { x, y } = this.state;
+    const prev = this.prevState;
+    if (
+      i.xTelem !== xTelem ||
+      i.yTelem !== yTelem ||
+      !deep.equal(x, prev.x) ||
+      !deep.equal(y, prev.y)
+    )
+      i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
     i.reducer ??= new Reducer();
+    i.drawn ??= [];
+    i.xBounds ??= bounds.INVALID;
+    i.groupSize ??= 1;
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
@@ -351,7 +371,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender("layout");
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     clearTimeout(i.settleTimer);
     i.xTelem.cleanup?.();
@@ -372,7 +392,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x) };
+    return { bounds: x.data[0], loading: isLoading(x), edge: x.edge };
   }
 
   /**
@@ -383,7 +403,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    */
   yBounds(xWindow: bounds.Bounds): DataBounds {
     const { xTelem, yTelem } = this.internal;
-    const valueProps = { extremesKept: true };
+    const valueProps = { extremesKept: true, bounds: xWindow };
     const y = yTelem.value(valueProps);
     const [b, yData] = y.data;
     if (!bounds.isFinite(xWindow)) return { bounds: b, loading: isLoading(y) };
@@ -397,7 +417,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
     const valueProps = this.read(view(props));
-    const [, xData] = xTelem.value(valueProps).data;
+    const [xBounds, xData] = xTelem.value(valueProps).data;
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -407,6 +427,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (valid) [index, series] = [v, i];
       return valid;
     });
+    // A target past every sample takes the last one, and reaches decides.
+    if (index === -1) {
+      series = xData.series.findLastIndex((x) => x.length > 0);
+      if (series !== -1) index = xData.series[series].length - 1;
+    }
     const { key } = this;
     const { color, label } = this.state;
     const result = {
@@ -433,7 +458,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       },
     );
     if (ySeries == null) return result;
-    result.value.x = safelyGetDataValue(series, index, xData);
+    const x = safelyGetDataValue(series, index, xData);
+    if (!reaches(props, xBounds, target, x)) return result;
+    result.value.x = x;
 
     result.value.y = Number(ySeries.atAlignment(alignment, true));
 
@@ -443,6 +470,36 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       x: props.dataToDecimalScale.x.pos(result.value.x),
       y: props.dataToDecimalScale.y.pos(result.value.y),
     };
+    return result;
+  }
+
+  /**
+   * @returns the point the line drew at its last render whose x is nearest target, and
+   * the y bounds of every point drawn. The value of a point the line reduced has
+   * float32 precision.
+   */
+  findDrawnByXValue(props: LineProps, target: number): FindResult {
+    const { key } = this;
+    const { color, label, visible } = this.state;
+    const result: FindResult = {
+      key,
+      color,
+      label,
+      position: { x: 0, y: 0 },
+      value: { x: NaN, y: NaN },
+      bounds: { lower: 0, upper: 0 },
+    };
+    const { drawn } = this.internal;
+    const found = visible ? nearest(drawn, target) : null;
+    if (found == null) return result;
+    const [{ x, y, xOffset, yOffset }, i] = found;
+    const foundX = Number(x.at(xOffset + i, true));
+    if (!reaches(props, this.internal.xBounds, target, foundX)) return result;
+    result.value = { x: foundX, y: Number(y.at(yOffset + i, true)) };
+    result.bounds = bounds.union(
+      drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
+    );
+    result.position = props.dataToDecimalScale.pos(result.value);
     return result;
   }
 
@@ -479,13 +536,20 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const valueProps = this.read(v);
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
+    i.xBounds = x.data[0];
     i.loadingState = loadingState(x, y, i.loaded === true, loadingHidden);
     if (!isLoading(x) && !isLoading(y)) i.loaded = true;
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, v, groupsPerColumn);
-    const ops = reducer.reduce(full, i.aggregation, size);
+    const size = groupSize(full, v, groupsPerColumn, i.aggregation, i.groupSize);
+    i.groupSize = size;
+    const cut =
+      x.sorted === true && bounds.isFinite(v.bounds)
+        ? inView(full, v.bounds, size)
+        : full;
+    const ops = reducer.reduce(cut, i.aggregation, size);
+    i.drawn = ops;
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.renderCtx);
@@ -527,11 +591,56 @@ const view = ({ region, dataToDecimalScale }: LineProps): View => {
   };
 };
 
-/** Just makes sure that the lines we draw to make stuff thick are really close together. */
+// Returns the op and op index of the sample whose x is nearest target. The x samples of
+// each op must ascend.
+const nearest = (
+  ops: DrawOperation[],
+  target: number,
+): [DrawOperation, number] | null => {
+  let found: [DrawOperation, number] | null = null;
+  let distance = Infinity;
+  for (const op of ops) {
+    const { x, xOffset, count } = op;
+    const after = bounds.clamp(
+      { lower: 0, upper: count },
+      x.binarySearch(target) - xOffset,
+    );
+    for (const i of [after - 1, after]) {
+      if (i < 0 || i >= count) continue;
+      const d = Math.abs(Number(x.at(xOffset + i, true)) - target);
+      if (Number.isNaN(d) || d >= distance) continue;
+      found = [op, i];
+      distance = d;
+    }
+  }
+  return found;
+};
+
+// HOVER_DISTANCE is how far in pixels a found point may sit from a target outside the
+// line's window, so a short range stays easy to point at when zoomed out.
+const HOVER_DISTANCE = 12;
+
+// reaches is true if a line has a value at target: target is inside xBounds, the bounds
+// of the line's x data (its window when x is time), or x, the x of the point found, is
+// within HOVER_DISTANCE pixels of it.
+const reaches = (
+  { dataToDecimalScale: { x: scale }, region }: LineProps,
+  xBounds: bounds.Bounds,
+  target: number,
+  x: number,
+): boolean => {
+  if (target >= xBounds.lower && target <= xBounds.upper) return true;
+  const pixels = Math.abs(scale.pos(x) - scale.pos(target)) * box.width(region);
+  return pixels <= HOVER_DISTANCE;
+};
+
+/**
+ * Just makes sure that the lines we draw to make stuff thick are really close together.
+ */
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>
-  replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
+  replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth)).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 

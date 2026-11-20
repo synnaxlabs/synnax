@@ -7,41 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { Color } from "@synnaxlabs/lyra/color";
-import { type Flex } from "@synnaxlabs/lyra/flex";
+import type { channel, table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type notation, type text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { color, deep, notation, TimeSpan } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { Notation } from "@/notation";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
+const path = deep.path<table.ValueCellConfig>();
+const textPath = deep.path<table.TextCellConfig>();
+
 /** The colors a cell paints while one of its colors is absent. */
 export const colorFallbacks = {
   textColor: (theme: Theming.Theme): color.Color => theme.colors.gray.l11,
-  fillColor: (): color.Color => color.ZERO,
+  fillColor: (): color.Color => color.TRANSPARENT,
 };
 
 /** Props for a cell variant's form. */
 export interface FormProps extends Properties.SelectionProps {}
 
-interface TelemFormT {
-  channel: channel.Key;
-  rollingAverage: number;
-  precision?: number;
-  notation: notation.Notation;
-}
-
 const TelemForm = () => {
-  const { value, onChange } = Form.useField<TelemFormT>("");
+  const theme = Theming.use();
+  const { value, onChange } = Form.useField(path);
   return (
     <>
       <Form.Section title="Source">
@@ -74,13 +70,18 @@ const TelemForm = () => {
         <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
             value={value.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
             onChange={(precision) => onChange({ ...value, precision })}
+            integer
+            bounds={notation.PRECISION_BOUNDS}
           />
         </Input.Item>
       </Form.Section>
       <Form.Section title="Staleness">
-        <Staleness.Fields />
+        <Color.Field
+          path={path.stalenessColor}
+          fallback={Staleness.resolveColor(undefined, theme)}
+        />
+        <Staleness.TimeoutField unit={TimeSpan.SECOND} />
       </Form.Section>
     </>
   );
@@ -88,6 +89,8 @@ const TelemForm = () => {
 
 export const ValueForm = ({ tab, onTabChange }: FormProps) => {
   const theme = Theming.use();
+  const resolve = Color.useResolve();
+  const fill = Form.useFieldValue(path.fillColor, { optional: true });
   return (
     <Properties.Tabs
       tabs={["telemetry", "style", "redline"]}
@@ -98,16 +101,16 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
         <Form.Sections x>
           <Form.Section title="Appearance">
             <Color.Field
-              path="textColor"
+              path={path.textColor}
               label="Text"
               fallback={colorFallbacks.textColor(theme)}
             />
             <Color.Field
-              path="fillColor"
+              path={path.fillColor}
               label="Fill"
               fallback={colorFallbacks.fillColor()}
             />
-            <Form.Field<text.Level> path="level" label="Size" padHelpText={false}>
+            <Form.Field path={path.level} label="Size" padHelpText={false}>
               {(p) => <Select.Text.Level {...p} />}
             </Form.Field>
           </Form.Section>
@@ -119,7 +122,10 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
         </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
-        <Value.RedlineForm path="redline" />
+        <Value.RedlineForm
+          path={path.redline}
+          background={resolve(fill ?? undefined)}
+        />
       </Tabs.Content>
     </Properties.Tabs>
   );
@@ -130,25 +136,25 @@ export const TextForm = (): ReactElement => {
   return (
     <Form.Sections x>
       <Form.Section title="Text">
-        <Form.TextField path="value" label="Text" padHelpText={false} />
-        <Form.Field<text.Level> path="level" label="Size" padHelpText={false}>
+        <Form.TextField path={textPath.value} label="Text" padHelpText={false} />
+        <Form.Field path={textPath.level} label="Size" padHelpText={false}>
           {(p) => <Select.Text.Level {...p} />}
         </Form.Field>
-        <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
+        <Form.Field path={textPath.weight} label="Weight" padHelpText={false}>
           {(p) => <Select.Text.Weight {...p} />}
         </Form.Field>
-        <Form.Field<Flex.Alignment> path="align" label="Alignment" padHelpText={false}>
+        <Form.Field path={textPath.align} label="Alignment" padHelpText={false}>
           {(p) => <Select.Flex.Alignment {...p} />}
         </Form.Field>
       </Form.Section>
       <Form.Section title="Appearance">
         <Color.Field
-          path="textColor"
+          path={textPath.textColor}
           label="Text"
           fallback={colorFallbacks.textColor(theme)}
         />
         <Color.Field
-          path="fillColor"
+          path={textPath.fillColor}
           label="Fill"
           fallback={colorFallbacks.fillColor()}
         />

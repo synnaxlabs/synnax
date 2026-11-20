@@ -12,7 +12,6 @@ package http
 import (
 	"bufio"
 	"compress/gzip"
-	"context"
 	"io"
 	"sync"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/set"
@@ -55,7 +55,7 @@ func WithRequestDecoders(decoders ...http.Decoder) UnaryServerOption {
 }
 
 // WithResponseEncoders overrides the set of encoders the unary server matches against
-// the request's Accept header.
+// the request's Accept header. Errors are always JSON, whatever the encoders.
 func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }
@@ -81,8 +81,8 @@ func WithStreamingResponse(compressed ...http.Encoder) UnaryServerOption {
 
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
-		requestDecoders:  defaultDecoders,
-		responseEncoders: defaultEncoders,
+		requestDecoders:  []http.Decoder{json.Codec},
+		responseEncoders: []http.Encoder{json.Codec},
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -93,17 +93,15 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 type unaryServer[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	unaryServerOptions
-	// serverCtx outlives the request, so a streamed body can keep using it after the
-	// fiber context is recycled.
-	serverCtx context.Context
-	handle    freighter.UnaryHandler[RQ, RS]
-	path      string
+	errs   *errors.Codec
+	handle freighter.UnaryHandler[RQ, RS]
+	path   string
 	freighter.MiddlewareCollector
 }
 
 // Report describes the unary server's protocol and the content types it accepts on
 // requests vs emits on responses. Accept and emit lists may differ — e.g. an import
-// endpoint that accepts JSON|YAML|TOML but emits only JSON|MessagePack.
+// endpoint that accepts JSON|YAML|TOML but emits only JSON.
 func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol": unaryProtocol,
@@ -144,7 +142,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path()), false),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
-			err := decoder.Decode(ctx, fCtx.BodyRaw(), &req)
+			err := decoder.Decode(fCtx.BodyRaw(), &req)
 			oCtx := freighter.Context{
 				Protocol: ctx.Protocol,
 				Params:   make(freighter.Params),
@@ -162,7 +160,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	if closer, ok := any(res).(io.Closer); ok && handled && err != nil {
 		err = errors.Combine(err, closer.Close())
 	}
-	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
+	fErr := s.errs.Encode(err, false)
 	if fErr.Type == errors.TypeNil {
 		setResponseCtx(fCtx, oMD)
 		if s.streaming {
@@ -173,27 +171,12 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	return s.writeError(fCtx, fErr)
 }
 
-// writeError answers the request with fErr as a 400.
+// writeError answers the request with fErr as a 400 in JSON. Errors skip the route's
+// response encoders, which may carry only one payload shape.
 func (s *unaryServer[RQ, RS]) writeError(fCtx fiber.Ctx, fErr errors.Payload) error {
-	errEncoder := resolveErrorEncoder(fCtx)
-	fCtx.Set(fiber.HeaderContentType, errEncoder.ContentType())
+	fCtx.Set(fiber.HeaderContentType, json.Codec.ContentType())
 	fCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fCtx, errEncoder, fErr)
-}
-
-// Errors skip the route's response encoders, which may carry only one payload shape.
-func resolveErrorEncoder(fCtx fiber.Ctx) http.Encoder {
-	offers := lo.Map(defaultEncoders, func(e http.Encoder, _ int) string {
-		return e.ContentType()
-	})
-	if matched := fCtx.Accepts(offers...); matched != "" {
-		for _, e := range defaultEncoders {
-			if e.ContentType() == matched {
-				return e
-			}
-		}
-	}
-	return defaultEncoders[0]
+	return encodeAndWrite(fCtx, json.Codec, fErr)
 }
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
@@ -235,7 +218,6 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 	encoder http.Encoder,
 	v any,
 ) error {
-	ctx := s.serverCtx
 	var gz *gzip.Writer
 	if s.compressed.Contains(encoder.ContentType()) && acceptsGzip(c) {
 		var err error
@@ -257,7 +239,7 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 			gz.Reset(w)
 			dst = gz
 		}
-		err := encoder.EncodeStream(ctx, dst, v)
+		err := encoder.EncodeStream(dst, v)
 		if gz != nil && err == nil {
 			err = gz.Close()
 		}
@@ -284,7 +266,7 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 	case <-started:
 	case err := <-done:
 		if err != nil {
-			return s.writeError(c, errors.Encode(c.RequestCtx(), err, false))
+			return s.writeError(c, s.errs.Encode(err, false))
 		}
 	}
 	if gz != nil {
@@ -321,5 +303,5 @@ func acceptsGzip(c fiber.Ctx) bool {
 // encodeAndWrite encodes v straight into the response rather than into a buffer the
 // caller then copies, so a large response body is written once.
 func encodeAndWrite(c fiber.Ctx, encoder http.Encoder, v any) error {
-	return encoder.EncodeStream(c.RequestCtx(), c, v)
+	return encoder.EncodeStream(c, v)
 }

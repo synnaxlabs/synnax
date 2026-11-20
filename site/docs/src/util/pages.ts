@@ -7,59 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { enabled } from "@/flags";
-import { normalizeRoute } from "@/util/route";
+import { compare } from "@synnaxlabs/x";
+import { type CollectionEntry, getCollection } from "astro:content";
 
-interface Frontmatter {
-  title: string;
-  heading?: string;
-  description?: string;
-  /** An ISO 8601 date, set on blog posts. */
-  published?: string;
-  flag?: string;
-}
+import { NOTES_PAGE } from "@/util/releaseNotes";
 
 export interface Page {
   route: string;
   title: string;
-  description?: string;
-  published?: string;
+  description: string;
+  published?: Date;
 }
 
-// Astro does not route files that start with an underscore.
-const FRONTMATTER = import.meta.glob<Frontmatter>(
-  ["/src/pages/**/*.mdx", "!/src/pages/**/_*.mdx"],
-  { import: "frontmatter", eager: true },
-);
+const toPage = ({
+  id,
+  data: { title, heading, description },
+}: CollectionEntry<"reference" | "blog">): Page => ({
+  route: `/${id}`,
+  title: (heading ?? title).replace(/`/g, ""),
+  description,
+});
 
-const toRoute = (file: string): string =>
-  normalizeRoute(
-    file
-      .replace(/^\/src\/pages/, "")
-      .replace(/\.mdx$/, "")
-      .replace(/(^|\/)index$/, "$1"),
-  );
-
-/** Every published MDX page. A page behind a flag is published while the flag is on. */
-export const PAGES: Page[] = Object.entries(FRONTMATTER)
-  .map(([file, frontmatter]) => ({ route: toRoute(file), ...frontmatter }))
-  .filter(({ flag }) => flag == null || enabled(flag))
-  .map(({ route, title, heading, description, published }) => ({
-    route,
-    title: (heading ?? title).replace(/`/g, ""),
-    description,
-    published,
-  }))
-  .sort((a, b) => a.route.localeCompare(b.route));
+/** Every published docs page. */
+export const PAGES: Page[] = [
+  ...(await getCollection("reference")).map(toPage),
+  ...(await getCollection("blog")).map((post) => ({
+    ...toPage(post),
+    published: post.data.published,
+  })),
+  NOTES_PAGE,
+].sort(compare.by((p) => p.route));
 
 /** The blog posts, newest first. */
 export const POSTS: Page[] = PAGES.filter(({ route }) =>
   route.startsWith("/blog/"),
-).sort((a, b) => (b.published ?? "").localeCompare(a.published ?? ""));
+).sort(compare.reverse(compare.by((p) => p.published?.toISOString() ?? "")));
 
 /**
  * Every route a search engine should index. The other Astro pages redirect or rewrite
- * to an MDX page.
+ * to a docs page.
  */
 export const ROUTES: string[] = [
   ...PAGES.map(({ route }) => route),

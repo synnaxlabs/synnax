@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { arc, type rack, status, task } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { compare, type record, verbs, xy } from "@synnaxlabs/x";
+import { array, deep, type record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
 import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Task } from "@/task";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
@@ -44,22 +44,45 @@ export type RetrieveQuery = {
   key: arc.Key;
 };
 
-export const { use, useEnsure, useTombstone, useResult, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, arc.Arc>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-    onChange: ({ client, query: { key } }, handler) =>
-      client.arcs.onChange({ key }, handler),
-    getCached: ({ client, query: { key } }) => client.arcs.getCached({ key }),
-    awaitCreation: true,
-  });
+export const {
+  use,
+  useEnsure,
+  useTombstone,
+  useResult,
+  createSelector,
+  createResultSelector,
+} = Flux.createRetrieve<RetrieveQuery, arc.Arc>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.arcs.watch({ key }).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.arcs.watch({ key }).getCached(),
+  awaitCreation: true,
+});
+
+export const useResultType = createResultSelector(({ type }) => type);
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  arc.RetrieveMultipleParams,
+  arc.Arc[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client, query }) => client.arcs.watch(query)),
+});
+
+// graphOf returns the graph of a graph-mode Arc. Only the graph editor reads it, and it
+// renders only for a graph-mode Arc.
+const graphOf = (a: arc.Arc): arc.graph.Graph => {
+  if (a.source.mode !== "graph") throw new Error(`${a.name} is not a graph-mode Arc`);
+  return a.source.graph;
+};
 
 // useAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated cache updates.
 export const useAllNodes = Scope.bindHook(
-  createSelector<Diagram.Node[]>(({ graph }) => graph.nodes),
+  createSelector<Diagram.Node[]>((a) => graphOf(a).nodes),
 );
 
 export interface NodesParams extends KeyParams {
@@ -71,12 +94,12 @@ export interface NodesParams extends KeyParams {
 // when its nodes change, not on every node mutation.
 export const useNodes = Scope.bindHook(
   createSelector<Diagram.Node[], NodesParams>(
-    ({ graph }, { keys }) => {
+    (a, { keys }) => {
       if (keys.length === 0) return [];
       const keySet = new Set(keys);
-      return graph.nodes.filter((n) => keySet.has(n.key));
+      return graphOf(a).nodes.filter((n) => keySet.has(n.key));
     },
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 
@@ -85,7 +108,7 @@ export const useNodes = Scope.bindHook(
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated cache updates.
 export const useAllEdges = Scope.bindHook(
-  createSelector<Diagram.Edge[]>(({ graph }) => graph.edges),
+  createSelector<Diagram.Edge[]>((a) => graphOf(a).edges),
 );
 
 export interface NodePropsParams extends KeyParams {
@@ -96,7 +119,7 @@ export interface NodePropsParams extends KeyParams {
 // reference, so the selection only re-runs when that node's config changes.
 export const useNodeConfig = Scope.bindHook(
   createSelector<Node.Config, NodePropsParams>(
-    ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
+    (a, { nodeKey }) => graphOf(a).inputs[nodeKey] as Node.Config,
   ),
 );
 
@@ -110,7 +133,7 @@ const useDocumentNodeForm = Flux.createDocumentForm<
   schema: Node.configZ,
   domain: (client) => client.arcs,
   useEnsure,
-  toValues: ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
+  toValues: (a, { nodeKey }) => graphOf(a).inputs[nodeKey] as Node.Config,
   pathOf: ({ nodeKey }) => ["graph", "inputs", nodeKey],
 });
 
@@ -122,16 +145,22 @@ export const useNodeForm = Scope.bindHook(useNodeFormBase);
 // useMode returns the representation mode of the Arc with the given key. It
 // requires the arc to be cached, so callers must render it beneath an Arc.Suspended
 // boundary that has retrieved the arc.
-export const useMode = Scope.bindHook(createSelector(({ mode }) => mode));
+export const useMode = Scope.bindHook(createSelector(({ source }) => source.mode));
 
 // useHasText reports whether the Arc with the given key has a cached document.
 // It returns a stable boolean, so an editor that drives its document imperatively
 // re-renders only when the document first becomes available, not on every edit.
 export const useHasText = Scope.bindHook(
-  createSelector(({ text }) => text.doc != null),
+  createSelector(({ source }) => source.mode === "text" && source.text.doc != null),
 );
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
+
+export const useType = Scope.bindHook(createSelector(({ type }) => type));
+
+export const useDirectory = Scope.bindHook(
+  createSelector(({ directory }) => directory),
+);
 
 export interface AddNodeProps {
   key: string;
@@ -164,19 +193,6 @@ export const useAddNode = (keyOverride?: arc.Key) => {
   };
 };
 
-export type ListQuery = List.PagerParams & {
-  keys?: arc.Key[];
-};
-
-export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
-  onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.arcs.onChange(key, handler),
-  getCached: ({ client, query }) => client.arcs.getCached(query),
-});
-
 export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
   verbs: verbs.DELETE,
@@ -188,15 +204,30 @@ export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   },
 });
 
-export const formSchema = z.object({
-  key: arc.keyZ.optional(),
-  name: z.string().min(1, "Name is required"),
-  mode: arc.modeZ,
-});
+export const formSchema = z
+  .object({
+    key: arc.keyZ.optional(),
+    name: z.string().min(1, "Name is required"),
+    mode: arc.modeZ,
+    type: arc.typeZ,
+  })
+  .superRefine(({ name, type }, ctx) => {
+    if (type !== "module" || name === "") return;
+    const res = arc.identifierZ.safeParse(name);
+    if (!res.success)
+      ctx.addIssue({
+        code: "custom",
+        path: ["name"],
+        message: res.error.issues[0].message,
+      });
+  });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   mode: "text",
+  type: "automation",
 };
 
 export type FormQuery = Record<string, never>;
@@ -206,12 +237,13 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value, set }) => {
-    const res = await client.arcs.create(value());
-    set("key", res.key);
+    const { mode, ...rest } = value();
+    const res = await client.arcs.create({ ...rest, source: { mode } });
+    set(formPath.key, res.key);
   },
 });
 
-export interface CreateParams extends arc.New {}
+export type CreateParams = arc.New;
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,
@@ -227,11 +259,9 @@ export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.arcs.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.arcs.rename(key, name);
     return data;
   },
 });
@@ -255,15 +285,14 @@ export type RetrieveTaskParams = {
 };
 
 export const {
-  use: useTask,
   useResult: useResultTask,
   createResultSelector: createTaskResultSelector,
 } = Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({
   name: "task",
   retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
   onChange: ({ client, query }, handler) =>
-    client.arcs.task.onChange(query.arcKey, handler),
-  getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
+    client.arcs.task.watch(query.arcKey).onChange(handler),
+  getCached: ({ client, query }) => client.arcs.task.watch(query.arcKey).getCached(),
 });
 
 const useDriftedResult = createTaskResultSelector(
@@ -273,8 +302,9 @@ const useDriftedResult = createTaskResultSelector(
 /**
  * Whether the arc's running instance was deployed from different content, config, or
  * rack than its task now holds. The Core rewrites the task config whenever the arc's
- * semantic content changes, so content drift surfaces as ordinary task config drift.
- * Arcs that are not running never drift. Re-renders only when the boolean changes.
+ * compiled program changes, including by an edit to a module it imports, so content
+ * drift surfaces as ordinary task config drift. Arcs that are not running never drift.
+ * Re-renders only when the boolean changes.
  */
 export const useDrifted = (query: RetrieveTaskParams): boolean =>
   useDriftedResult(query).data === true;
@@ -292,6 +322,48 @@ export interface UseTaskControlsReturn {
   onStartStop: () => void;
   taskStatus: status.Status;
 }
+
+const { useResult: useResultModuleStatus } = Flux.createRetrieve<
+  RetrieveQuery,
+  status.Status | null
+>({
+  name: "Arc status",
+  retrieve: async ({ client, query }) => await client.arcs.status.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.arcs.status.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.arcs.status.watch(query.key).getCached(),
+});
+
+/**
+ * The stored compile status of the module with the given key, or the read status
+ * until it loads.
+ */
+export const useModuleStatus = (key: arc.Key): status.Status => {
+  const { data, variant, status: readStatus } = useResultModuleStatus({ key });
+  return variant !== "success" || data == null ? readStatus : data;
+};
+
+export type RetrieveChangesQuery = {
+  key: arc.Key;
+  /** The task's config hash. The Core rewrites the changes with the task, so a new
+   * hash is what asks again. */
+  configHash: string;
+};
+
+const { useResult: useResultChanges } = Flux.createRetrieve<
+  RetrieveChangesQuery,
+  arc.Change[]
+>({
+  name: "Arc changes",
+  retrieve: async ({ client, query }) => await client.arcs.retrieveChanges(query.key),
+});
+
+/**
+ * What changed in the automation since its task was deployed, as the Core last saw
+ * it. Empty until it loads.
+ */
+export const useChanges = (query: RetrieveChangesQuery): arc.Change[] =>
+  useResultChanges(query).data ?? [];
 
 const notDeployed = (name: string) =>
   status.create({ name, variant: "disabled", message: "Task not deployed" });

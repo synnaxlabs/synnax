@@ -7,32 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm } from "@/platform/task/testutil";
+import {
+  awaitTare,
+  findChannelListNote,
+  renderInTaskForm,
+  renderInTaskFormWithClient,
+} from "@/platform/task/testutil";
+
+const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 const resolve = () => null;
 
-const listItem = Component.renderProp(
-  ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.Item itemKey={itemKey} {...p}>
-      item-{itemKey}
-    </Select.Item>
-  ),
+const ListItem = ({ itemKey, tareable, ...p }: Task.ChannelListItemProps) => (
+  <Select.Item itemKey={itemKey} {...p}>
+    item-{itemKey}
+  </Select.Item>
 );
+
+const listItem = Component.renderProp(ListItem);
 
 interface HarnessProps {
   selected?: string[];
   onSelect?: (keys: string[]) => void;
   onDuplicate?: (channels: Task.Channel[], keys: string[]) => void;
-  onTare?: (keys: string[], channels: Task.Channel[]) => void;
-  allowTare?: (keys: string[], channels: Task.Channel[]) => boolean;
+  tareable?: boolean;
   ports?: ReactNode;
 }
 
@@ -40,25 +50,23 @@ const Harness = ({
   selected = [],
   onSelect = vi.fn(),
   onDuplicate,
-  onTare,
-  allowTare,
+  tareable,
   ports,
 }: HarnessProps) => {
-  const { data, remove } = Form.useFieldList<string, Task.Channel>("config.channels");
+  const { data, remove } = Form.useFieldList(path.config.channels);
   return (
     <Task.ChannelList<Task.Channel>
       resolve={resolve}
       data={data}
       remove={remove}
-      path="config.channels"
+      path={path.config.channels}
       header={<div>My Header</div>}
       emptyContent={<div>Nothing here</div>}
       listItem={listItem}
       selected={selected}
       onSelect={onSelect}
       onDuplicate={onDuplicate}
-      onTare={onTare}
-      allowTare={allowTare}
+      tareable={tareable}
       ports={ports}
     />
   );
@@ -83,6 +91,7 @@ const PORTS: Task.Port.Group[] = [
         column: 1,
         state: "used",
         channel: "a",
+        channels: ["a"],
         tooltip: "ai0: a",
       },
       {
@@ -92,6 +101,7 @@ const PORTS: Task.Port.Group[] = [
         row: 1,
         column: 2,
         state: "free",
+        channels: [],
         tooltip: "ai1 is free",
       },
     ],
@@ -106,17 +116,26 @@ describe("ChannelList", () => {
     await waitFor(() => expect(screen.getByText("Nothing here")).toBeTruthy());
   });
 
-  it("should show the list's error under the list", async () => {
-    const { form } = await renderInTaskForm(<Harness />, { values: twoChannels });
-    act(() =>
-      form.current?.setStatus("config.channels", {
-        key: "config.channels",
-        variant: "error",
-        message: "List error",
-      }),
-    );
-    expect(await screen.findByText("List error")).toBeTruthy();
-  });
+  it.each(["error", "warning"] as const)(
+    "should show a list %s in a note under the channels",
+    async (variant) => {
+      const { form } = await renderInTaskForm(<Harness />, { values: twoChannels });
+      act(() =>
+        form.current?.setStatus(path.config.channels, {
+          key: "config.channels",
+          variant,
+          message: "List problem",
+        }),
+      );
+      const note = await findChannelListNote("List problem");
+      expect(note.variant).toBe(variant);
+      const last = screen.getAllByRole("option").at(-1);
+      assertDefined(last, "no channel option");
+      expect(
+        last.compareDocumentPosition(note.note) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
 
   it("should select the clicked channel", async () => {
     const onSelect = vi.fn();
@@ -131,7 +150,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-a"));
       fireEvent.click(await screen.findByText("Disable"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels.a.disabled").value).toBe(true),
+        expect(form.current?.get(path.config.channels.a.disabled).value).toBe(true),
       );
     });
 
@@ -140,7 +159,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-b"));
       fireEvent.click(await screen.findByText("Enable"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels.b.disabled").value).toBe(false),
+        expect(form.current?.get(path.config.channels.b.disabled).value).toBe(false),
       );
     });
 
@@ -152,7 +171,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-a"));
       fireEvent.click(await screen.findByText("Remove"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels").value).toEqual([CHANNEL_B]),
+        expect(form.current?.get(path.config.channels).value).toEqual([CHANNEL_B]),
       );
       expect(onSelect).toHaveBeenCalledWith(["b"]);
     });
@@ -169,38 +188,18 @@ describe("ChannelList", () => {
       );
     });
 
-    it("should pass the selected keys and channels to onTare when allowed", async () => {
-      const onTare = vi.fn();
-      await renderInTaskForm(<Harness onTare={onTare} allowTare={() => true} />, {
-        values: twoChannels,
-      });
-      fireEvent.contextMenu(await screen.findByText("item-a"));
-      fireEvent.click(await screen.findByText("Tare"));
-      await waitFor(() => expect(onTare).toHaveBeenCalledWith(["a"], [CHANNEL_A]));
-    });
-
-    it("should not offer a Tare action when disallowed", async () => {
-      await renderInTaskForm(<Harness allowTare={() => false} />, {
-        values: twoChannels,
-      });
-      fireEvent.contextMenu(await screen.findByText("item-a"));
-      await waitFor(() => expect(screen.getByText("Remove")).toBeTruthy());
-      expect(screen.queryByText("Tare")).toBeNull();
-    });
-
-    it("should hide the edit actions but keep Tare in preview", async () => {
+    it("should hide the edit actions in preview", async () => {
       const onDuplicate = vi.fn();
-      await renderInTaskForm(
-        <Harness onDuplicate={onDuplicate} onTare={vi.fn()} allowTare={() => true} />,
-        { values: twoChannels, mode: "preview" },
-      );
+      await renderInTaskForm(<Harness onDuplicate={onDuplicate} />, {
+        values: twoChannels,
+        mode: "preview",
+      });
       fireEvent.contextMenu(await screen.findByText("item-a"));
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       expect(screen.queryByText("Remove")).toBeNull();
       expect(screen.queryByText("Duplicate")).toBeNull();
       expect(screen.queryByText("Disable")).toBeNull();
       expect(screen.queryByText("Enable")).toBeNull();
-      expect(screen.getByText("Tare")).toBeTruthy();
     });
 
     it("should act on the channel on a used port of the ports view", async () => {
@@ -210,7 +209,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByRole("button", { name: "ai0" }));
       fireEvent.click(await screen.findByText("Remove"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels").value).toEqual([CHANNEL_B]),
+        expect(form.current?.get(path.config.channels).value).toEqual([CHANNEL_B]),
       );
     });
 
@@ -219,6 +218,85 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByRole("button", { name: "ai1" }));
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       expect(screen.queryByText("Remove")).toBeNull();
+    });
+  });
+
+  describe("tare", () => {
+    const client = createTestClient();
+
+    const createChannel = async (dataType: string) =>
+      (
+        await client.channels.create({
+          name: uniqueName("tare"),
+          dataType,
+          virtual: true,
+        })
+      ).key;
+
+    const renderTareable = async (
+      taskKey: task.Key,
+      channels: (Task.Channel & { channel: number })[],
+      mode?: "preview",
+    ) =>
+      await renderInTaskFormWithClient(
+        <Harness tareable selected={channels.map(({ key }) => key)} />,
+        {
+          client,
+          mode,
+          values: {
+            key: taskKey,
+            status: { details: { running: true } },
+            config: { channels },
+          },
+        },
+      );
+
+    it("should tare the enabled float channels of the selection", async () => {
+      const [float, disabledFloat, integer] = await Promise.all([
+        createChannel("float32"),
+        createChannel("float64"),
+        createChannel("uint8"),
+      ]);
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await rack.createTask({
+        name: uniqueName("tsk"),
+        type: "opc_read",
+        config: {},
+      });
+      const args = await awaitTare(client, tsk.key, async () => {
+        await renderTareable(tsk.key, [
+          { key: "a", disabled: false, channel: float },
+          { key: "b", disabled: true, channel: disabledFloat },
+          { key: "c", disabled: false, channel: integer },
+        ]);
+        fireEvent.contextMenu(await screen.findByText("item-a"));
+        fireEvent.click(await screen.findByText("Tare"));
+      });
+      expect(args).toEqual({ keys: [float] });
+    });
+
+    it("should keep Tare in preview", async () => {
+      const float = await createChannel("float32");
+      await renderTareable(
+        "task-1",
+        [{ key: "a", disabled: false, channel: float }],
+        "preview",
+      );
+      fireEvent.contextMenu(await screen.findByText("item-a"));
+      expect(await screen.findByText("Tare")).toBeTruthy();
+    });
+
+    it("should withdraw Tare when the task stops", async () => {
+      const float = await createChannel("float32");
+      const { form } = await renderTareable("task-1", [
+        { key: "a", disabled: false, channel: float },
+      ]);
+      fireEvent.contextMenu(await screen.findByText("item-a"));
+      expect(await screen.findByText("Tare")).toBeTruthy();
+      const running = deep.path<{ status: { details: { running: boolean } } }>().status
+        .details.running;
+      act(() => form.current?.set(running, false));
+      await waitFor(() => expect(screen.queryByText("Tare")).toBeNull());
     });
   });
 });

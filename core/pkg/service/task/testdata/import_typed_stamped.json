@@ -1,8 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "type": "pagerduty_alert",
   "name": "Stamped Typed Task",
-  "routing_key": "stampedstampedstampedstamped1234",
+  "routing_key": "5a3c0e7d-91b4-4f2e-8d6a-3b7f0c1e2d48",
   "auto_start": true,
   "alerts": [
     {

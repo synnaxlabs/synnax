@@ -12,21 +12,19 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apichannel.ServiceConfig {
 		return apichannel.ServiceConfig{
+			DB:      &gorp.DB{},
 			RBAC:    &rbac.Service{},
 			Channel: &channel.Service{},
-			Ranger:  &ranger.Service{},
-			Alias:   &alias.Service{},
 			Status:  &status.Service{},
 		}
 	}
@@ -38,11 +36,16 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a service is missing",
-			func(clear func(*apichannel.ServiceConfig), msg string) {
+			func(unset func(*apichannel.ServiceConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
+			Entry(
+				"db",
+				func(c *apichannel.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
 			Entry(
 				"rbac",
 				func(c *apichannel.ServiceConfig) { c.RBAC = nil },
@@ -52,16 +55,6 @@ var _ = Describe("ServiceConfig", func() {
 				"channel",
 				func(c *apichannel.ServiceConfig) { c.Channel = nil },
 				"channel: must be non-nil",
-			),
-			Entry(
-				"ranger",
-				func(c *apichannel.ServiceConfig) { c.Ranger = nil },
-				"ranger: must be non-nil",
-			),
-			Entry(
-				"alias",
-				func(c *apichannel.ServiceConfig) { c.Alias = nil },
-				"alias: must be non-nil",
 			),
 			Entry(
 				"status",
@@ -75,20 +68,18 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apichannel.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
-			Expect(merged.Ranger).To(BeIdenticalTo(cfg.Ranger))
-			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apichannel.ServiceConfig{})
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
-			Expect(merged.Ranger).To(BeIdenticalTo(cfg.Ranger))
-			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 		})
 	})

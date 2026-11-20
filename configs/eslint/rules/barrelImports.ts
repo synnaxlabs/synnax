@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Rule } from "eslint";
+import type { Rule } from "eslint";
 import fs from "fs";
 import path from "path";
+
+import { contains, findSrc } from "./packageSrc";
 
 const INDEX_FILES = ["index.ts", "index.tsx"];
 const CODE_EXTENSIONS = [".ts", ".tsx"];
@@ -22,18 +24,6 @@ const isModule = (dir: string): boolean =>
 
 const isFile = (file: string): boolean =>
   fs.existsSync(file) && fs.statSync(file).isFile();
-
-const contains = (dir: string, file: string): boolean =>
-  file.startsWith(`${dir}${path.sep}`);
-
-const findSrc = (file: string): string | null => {
-  for (let dir = path.dirname(file); dir !== path.dirname(dir); dir = path.dirname(dir))
-    if (fs.existsSync(path.join(dir, "package.json"))) {
-      const src = path.join(dir, "src");
-      return contains(src, file) ? src : null;
-    }
-  return null;
-};
 
 const resolve = (src: string, importer: string, specifier: string): string | null => {
   let base: string;

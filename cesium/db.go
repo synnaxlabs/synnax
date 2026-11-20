@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"io"
 	"sync"
 	"sync/atomic"
 
@@ -20,8 +19,10 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -51,14 +52,20 @@ func NewAlignmentCounter() *AlignmentCounter {
 }
 
 type DB struct {
-	shutdown io.Closer
+	// removals tracks the background removals of deleted channel data.
+	removals sync.WaitGroup
 	*options
 	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
-	controlUpdates observe.Observer[ControlUpdate]
+	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
-	mu             struct {
+	// lifecycle orders the start of Run against Close.
+	lifecycle struct {
+		sync.Mutex
+		state runState
+	}
+	mu struct {
 		dbs struct {
 			unary   map[ChannelKey]unary.DB
 			virtual map[ChannelKey]virtual.DB
@@ -67,7 +74,9 @@ type DB struct {
 	}
 }
 
-// Write writes the frame to database at the specified start time.
+// Write writes the frame to database at the specified start time. It returns
+// control.ErrUnauthorized if another writer controls a channel in the frame, and then
+// it may have committed only some of the channels.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -84,10 +93,14 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if _, err = w.Write(frame); err != nil {
 		return err
 	}
-	if _, err = w.Commit(); err != nil {
+	_, authorized, err := w.Commit()
+	if err != nil {
 		return err
 	}
-	return span.Error(w.Close())
+	if !authorized {
+		err = errors.Wrap(xcontrol.ErrUnauthorized, "another writer controls the frame")
+	}
+	return span.Error(errors.Combine(err, w.Close()))
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.
@@ -139,28 +152,72 @@ func (db *DB) Metrics() Metrics {
 	return Metrics{DiskSize: size}
 }
 
-// Close closes the database.
+// runState is the stage of DB.Run.
+type runState uint8
+
+const (
+	runIdle runState = iota
+	runRunning
+	runStopped
+)
+
+// Run runs the relay that feeds writes to streamers, and the garbage collector, until
+// ctx ends. It then waits for them to stop and returns the first error that either
+// returned. Writes block once the relay buffer fills while Run is not running, and
+// streamers do not start. Call Run once, after Open and before Close. A second Run
+// returns an error, and a Run after Close returns ErrDBClosed.
+func (db *DB) Run(ctx context.Context) error {
+	db.lifecycle.Lock()
+	if db.closed.Load() {
+		db.lifecycle.Unlock()
+		return ErrDBClosed
+	}
+	if db.lifecycle.state != runIdle {
+		db.lifecycle.Unlock()
+		return errors.New("run called twice")
+	}
+	db.lifecycle.state = runRunning
+	db.lifecycle.Unlock()
+	defer func() {
+		db.lifecycle.Lock()
+		db.lifecycle.state = runStopped
+		db.lifecycle.Unlock()
+	}()
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(db.Instrumentation),
+	)
+	defer cancel()
+	db.relay.flow(sCtx)
+	db.startGC(sCtx, db.options)
+	return errors.Skip(sCtx.Wait(), context.Canceled)
+}
+
+// Close closes the database. Call it only after Run returns: while Run runs, Close
+// returns an error wrapping resource.ErrOpen and closes nothing. Close is not safe to
+// call with any other DB methods concurrently.
 //
-// Close is not safe to call with any other DB methods concurrently.
-//
-// Note that if this method is called while writers are still open on channels in the
-// database, a deadlock is caused since the signal context is closed while the writers
-// attempt to send to relay.
+// Writers still open after Run returns stop sending to streamers.
 //
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.
 func (db *DB) Close() error {
-	if !db.closed.CompareAndSwap(false, true) {
+	db.lifecycle.Lock()
+	if db.lifecycle.state == runRunning {
+		db.lifecycle.Unlock()
+		return errors.Wrap(resource.ErrOpen, "close called while Run runs")
+	}
+	closing := db.closed.CompareAndSwap(false, true)
+	db.lifecycle.Unlock()
+	if !closing {
 		return nil
 	}
-
-	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
-	// require a mutex lock to exit.
-	err := db.shutdown.Close()
+	var err error
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
+	db.removals.Wait()
 	return err
 }

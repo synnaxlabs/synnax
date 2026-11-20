@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createTestDevice } from "@/platform/device/testutil";
-import { CaptureStatuses, createConsoleWrapper, uniqueName } from "@/testutil";
+import { CaptureStatuses, createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -44,21 +47,29 @@ describe("device/useListenForChanges", () => {
     const model = uniqueName("model");
     const dev = await createTestDevice(client, { configured: false, model });
     await waitFor(() =>
-      expect(
-        statuses().find((s) => s.message === `New ${model} connected`),
-      ).toBeDefined(),
+      expect(statuses().find((s) => s.message === `${model} connected`)).toBeDefined(),
     );
-    await client.devices.create(dev);
+    await client.devices.dispatch(
+      dev.key,
+      device.set({ path: ["location"], value: uniqueName("location") }),
+    );
     const other = uniqueName("model");
     await createTestDevice(client, { configured: false, model: other });
     await waitFor(() =>
-      expect(
-        statuses().find((s) => s.message === `New ${other} connected`),
-      ).toBeDefined(),
+      expect(statuses().find((s) => s.message === `${other} connected`)).toBeDefined(),
     );
-    const first = statuses().find((s) => s.message === `New ${model} connected`);
+    const first = statuses().find((s) => s.message === `${model} connected`);
     expect(first?.count).toBe(1);
     expect(first?.name).toBe(dev.name);
+  });
+
+  it("names a model by the name that its integration gives it", async () => {
+    const { statuses } = await renderListener();
+    const rack = await client.racks.create({ name: uniqueName("rack") });
+    await createSlaveDevice(client, rack.key, {}, false);
+    await waitFor(() =>
+      expect(statuses().find((s) => s.message === "Module connected")).toBeDefined(),
+    );
   });
 
   it("does not notify for devices that are already configured", async () => {
@@ -68,12 +79,10 @@ describe("device/useListenForChanges", () => {
     const model = uniqueName("model");
     await createTestDevice(client, { configured: false, model });
     await waitFor(() =>
-      expect(
-        statuses().find((s) => s.message === `New ${model} connected`),
-      ).toBeDefined(),
+      expect(statuses().find((s) => s.message === `${model} connected`)).toBeDefined(),
     );
     expect(
-      statuses().find((s) => s.message === `New ${configuredModel} connected`),
+      statuses().find((s) => s.message === `${configuredModel} connected`),
     ).toBeUndefined();
   });
 });

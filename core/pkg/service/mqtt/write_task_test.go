@@ -60,6 +60,14 @@ func plainTarget(
 	}
 }
 
+// setEnumValues sets the enum values of the channel of target.
+func setEnumValues(target map[string]any, values ...any) {
+	GinkgoHelper()
+	ch, ok := target["channel"].(map[string]any)
+	Expect(ok).To(BeTrue())
+	ch["enum_values"] = values
+}
+
 func staticField(pointer, jsonType string, value any) map[string]any {
 	return map[string]any{
 		"key":       pointer,
@@ -105,7 +113,7 @@ var _ = Describe("Write task", func() {
 
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -167,6 +175,15 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should publish bytes as base64", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.BytesT)
+			start(ctx, writeConfig(dev, plainTarget("plant/blob", ch, "/b", "string")))
+			value := telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})
+			command(ctx, ch, value, func(g Gomega) {
+				g.Expect(payloads("plant/blob")).To(ContainElement(`{"b":"AP8/"}`))
+			})
+		})
+
 		It("Should publish a timestamp as ISO 8601 when no time format is set",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.TimestampT)
@@ -183,14 +200,30 @@ var _ = Describe("Write task", func() {
 		It("Should publish the label of an enum value", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Uint8T)
 			target := plainTarget("plant/valve3/set", ch, "/state", "string")
-			target["channel"].(map[string]any)["enum_values"] = []any{
+			setEnumValues(
+				target,
 				map[string]any{"label": "closed", "value": 0},
 				map[string]any{"label": "open", "value": 1},
-			}
+			)
 			start(ctx, writeConfig(dev, target))
 			command(ctx, ch, telem.NewSeriesV[uint8](1), func(g Gomega) {
 				g.Expect(payloads("plant/valve3/set")).
 					To(ContainElement(`{"state":"open"}`))
+			})
+		})
+
+		It("Should publish a value outside the enum as text", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.Uint8T)
+			target := plainTarget("plant/valve4/set", ch, "/state", "string")
+			setEnumValues(
+				target,
+				map[string]any{"label": "closed", "value": 0},
+				map[string]any{"label": "open", "value": 1},
+			)
+			start(ctx, writeConfig(dev, target))
+			command(ctx, ch, telem.NewSeriesV[uint8](5), func(g Gomega) {
+				g.Expect(payloads("plant/valve4/set")).
+					To(ContainElement(`{"state":"5"}`))
 			})
 		})
 
@@ -206,18 +239,37 @@ var _ = Describe("Write task", func() {
 				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
 					g.Expect(payloads("plant/pump/set")).ToNot(BeEmpty())
 				})
-				var ids []string
-				for _, payload := range payloads("plant/pump/set") {
+				published := payloads("plant/pump/set")
+				ids := make([]string, 0, len(published))
+				for _, payload := range published {
 					var doc map[string]any
 					Expect(json.Unmarshal([]byte(payload), &doc)).To(Succeed())
 					Expect(doc).To(HaveKeyWithValue("rpm", BeEquivalentTo(1200)))
 					Expect(doc).To(HaveKeyWithValue("unit", "rpm"))
 					Expect(doc).To(HaveKeyWithValue("priority", BeEquivalentTo(3)))
-					id := doc["id"].(string)
+					id, ok := doc["id"].(string)
+					Expect(ok).To(BeTrue())
 					MustSucceed(uuid.Parse(id))
 					ids = append(ids, id)
 				}
 				Expect(lo.Uniq(ids)).To(HaveLen(len(ids)))
+			},
+		)
+
+		It(
+			"Should write the members of a payload in config order",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Int32T)
+				start(ctx, writeConfig(dev, plainTarget(
+					"plant/order/set", ch, "/reading/value", "number",
+					staticField("/source", "string", "plc"),
+					staticField("/reading/unit", "string", "rpm"),
+				)))
+				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
+					g.Expect(payloads("plant/order/set")).To(ContainElement(
+						`{"reading":{"value":1200,"unit":"rpm"},"source":"plc"}`,
+					))
+				})
 			},
 		)
 
@@ -283,8 +335,7 @@ var _ = Describe("Write task", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Message).To(Equal("Failed to write data"))
 					g.Expect(stat.Description).To(Equal(
-						"target plant/nan: cannot convert NaN to JSON: value is not " +
-							"finite: json conversion failed: validation error",
+						"target plant/nan: NaN is not a JSON number: validation error",
 					))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				})
@@ -333,7 +384,68 @@ var _ = Describe("Write task", func() {
 				Expect(payloads("plant/outage")).ToNot(ContainElement(`{"v":1}`))
 			},
 		)
+
+		It("Should warn and keep running when the connection drops under a publish",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				target := plainTarget("plant/unacked", ch, "/v", "number")
+				target["qos"] = "at_least_once"
+				unacked := &unackedHook{topic: "plant/unacked"}
+				Expect(broker.server.AddHook(unacked, nil)).To(Succeed())
+				t := start(ctx, writeConfig(dev, target))
+				command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
+					g.Expect(unacked.held.Load()).To(BeNumerically(">", 0))
+				})
+				unacked.released.Store(true)
+				broker.dropClients()
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}, 5*time.Second).Should(Succeed())
+				Eventually(
+					func() status.Variant { return taskStatus(ctx, t).Variant },
+					10*time.Second,
+				).
+					Should(Equal(status.VariantSuccess))
+				command(ctx, ch, telem.NewSeriesV(2.0), func(g Gomega) {
+					g.Expect(payloads("plant/unacked")).To(ContainElement(`{"v":2}`))
+				})
+			},
+		)
 	})
+
+	DescribeTable("Should report a drop that strands a publish in the client",
+		func(ctx SpecContext, blocks bool) {
+			stall := newPublishStall(blocks)
+			factory = stall.factory()
+			ch := createVirtual(ctx, telem.Float64T)
+			t := start(ctx, writeConfig(
+				dev, plainTarget("plant/stalled", ch, "/v", "number"),
+			))
+			DeferCleanup(stall.release)
+			stall.armed.Store(true)
+			command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
+				g.Expect(stall.stalled.Load()).To(BeTrue())
+			})
+			broker.dropClients()
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Description).To(ContainSubstring("not connected"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+			}, 3*time.Second).Should(Succeed())
+			stall.release()
+			Eventually(
+				func() status.Variant { return taskStatus(ctx, t).Variant },
+				10*time.Second,
+			).
+				Should(Equal(status.VariantSuccess))
+		},
+		Entry("with a token that never completes", false),
+		Entry("with a call that blocks", true),
+	)
 
 	Describe("Configuration errors", func() {
 		expectRejected := func(
@@ -342,7 +454,7 @@ var _ = Describe("Write task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
 				To(MatchError(ContainSubstring(message)))
 			stat := taskStatus(ctx, t)
@@ -390,6 +502,15 @@ var _ = Describe("Write task", func() {
 						"topic plant/+/set: must not hold the wildcards + or #"
 				},
 			),
+			Entry("an unknown QoS",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					target := plainTarget("plant/x", ch, "", "number")
+					target["qos"] = "bogus"
+					return writeConfig(dev, target),
+						`target plant/x: qos: unknown value "bogus"`
+				},
+			),
 			Entry("a channel that does not exist",
 				func(context.Context) (msgpack.EncodedJSON, string) {
 					ch := channel.Channel{Name: "missing", DataType: telem.Float64T}
@@ -402,16 +523,17 @@ var _ = Describe("Write task", func() {
 					ch := createVirtual(ctx, telem.StringT)
 					return writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
 						"target plant/x: channel " + ch.Name +
-							": cannot convert string to a JSON number"
+							": data type string only serializes as a string"
 				},
 			),
 			Entry("enum values for a JSON type that is not string",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Uint8T)
 					target := plainTarget("plant/x", ch, "/v", "number")
-					target["channel"].(map[string]any)["enum_values"] = []any{
+					setEnumValues(
+						target,
 						map[string]any{"label": "open", "value": 1},
-					}
+					)
 					return writeConfig(dev, target),
 						"target plant/x: enum values require the string JSON type"
 				},
@@ -420,10 +542,11 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "", "number", unit)
 					return writeConfig(dev, target),
-						"a channel value that is the whole payload " +
-							"allows no other fields"
+						`target plant/x: channel.pointer "" and field "unit" "/unit" ` +
+							`overlap`
 				},
 			),
 			Entry("a static value that is not of its JSON type",
@@ -439,30 +562,34 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "/unit/value", "number", unit)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /unit"
+						`target plant/x: channel.pointer "/unit/value" and ` +
+							`field "unit" "/unit" overlap`
 				},
 			),
 			Entry("a channel value at the parent of a field",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/reading/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "/reading", "number", unit)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /reading"
+						`target plant/x: channel.pointer "/reading" and ` +
+							`field "unit" "/reading/unit" overlap`
 				},
 			),
 			Entry("two fields at one pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					target := plainTarget(
-						"plant/x", ch, "/v", "number",
-						staticField("/unit", "string", "rpm"),
-						staticField("/unit", "string", "rps"),
-					)
+					rpm := staticField("/unit", "string", "rpm")
+					rps := staticField("/unit", "string", "rps")
+					rpm["key"], rps["key"] = "rpm", "rps"
+					target := plainTarget("plant/x", ch, "/v", "number", rpm, rps)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /unit"
+						`target plant/x: field "rpm" "/unit" and field "rps" "/unit" ` +
+							`overlap`
 				},
 			),
 		)

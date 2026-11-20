@@ -29,7 +29,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit regex with custom message when pattern provides one",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -39,13 +39,13 @@ var _ = Describe("Validation Rules", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`.regex(/^[a-z]+$/, "must be lowercase letters")`)
 		},
 	)
 
-	It("Should emit regex without message for pattern only", func(ctx SpecContext) {
+	It("Should emit regex without message for pattern only", func() {
 		source := `
 			@ts output "out"
 
@@ -55,12 +55,12 @@ var _ = Describe("Validation Rules", func() {
 				}
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.regex(/^[a-z]+$/)`)
 	})
 
-	It("Should emit min/max for number fields", func(ctx SpecContext) {
+	It("Should emit min/max for number fields", func() {
 		source := `
 			@ts output "out"
 
@@ -69,13 +69,13 @@ var _ = Describe("Validation Rules", func() {
 				high int32 @validate { max 100 }
 			}
 		`
-		resp := MustGenerate(ctx, source, "range", loader, p)
+		resp := MustGenerate(source, "range", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).To(ContainSubstring(".min(0)"))
 		Expect(content).To(ContainSubstring(".max(100)"))
 	})
 
-	It("Should emit float min/max for float fields", func(ctx SpecContext) {
+	It("Should emit float min/max for float fields", func() {
 		source := `
 			@ts output "out"
 
@@ -84,13 +84,29 @@ var _ = Describe("Validation Rules", func() {
 				high float64 @validate { max 99.5 }
 			}
 		`
-		resp := MustGenerate(ctx, source, "range", loader, p)
+		resp := MustGenerate(source, "range", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).To(ContainSubstring(".min(0.500000)"))
 		Expect(content).To(ContainSubstring(".max(99.500000)"))
 	})
 
-	It("Should emit string default", func(ctx SpecContext) {
+	It("Should emit gt for number fields", func() {
+		source := `
+			@ts output "out"
+
+			Wave struct {
+				cycles    int32 @validate { gt 0 }
+				frequency float64 @validate { gt 0.5 }
+			}
+		`
+		resp := MustGenerate(source, "wave", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(".gt(0)"))
+		Expect(content).To(ContainSubstring(".gt(0.500000)"))
+		Expect(content).ToNot(ContainSubstring(".min("))
+	})
+
+	It("Should emit string default", func() {
 		source := `
 			@ts output "out"
 
@@ -98,14 +114,14 @@ var _ = Describe("Validation Rules", func() {
 				name string = "untitled"
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default("untitled")`)
 	})
 
 	It(
 		"Should emit supplementary-plane characters as surrogate pairs, not \\U",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -113,14 +129,14 @@ var _ = Describe("Validation Rules", func() {
 				name string = "a😀b"
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring("\\uD83D\\uDE00"))
 			Expect(content).ToNot(ContainSubstring("\\U"))
 		},
 	)
 
-	It("Should emit int default", func(ctx SpecContext) {
+	It("Should emit int default", func() {
 		source := `
 			@ts output "out"
 
@@ -128,12 +144,12 @@ var _ = Describe("Validation Rules", func() {
 				count int32 = 5
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(5)`)
 	})
 
-	It("Should emit float default", func(ctx SpecContext) {
+	It("Should emit float default", func() {
 		source := `
 			@ts output "out"
 
@@ -141,12 +157,12 @@ var _ = Describe("Validation Rules", func() {
 				ratio float64 = 1.5
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(1.500000)`)
 	})
 
-	It("Should emit bool default", func(ctx SpecContext) {
+	It("Should emit bool default", func() {
 		source := `
 			@ts output "out"
 
@@ -154,14 +170,14 @@ var _ = Describe("Validation Rules", func() {
 				active bool = false
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(false)`)
 	})
 
 	It(
 		"Should emit id.create() default for string keys with create ident",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -169,7 +185,7 @@ var _ = Describe("Validation Rules", func() {
 				key string = create
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`.default(id.create)`)
 		},
@@ -177,7 +193,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit uuid.create() default for uuid keys with create ident",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -185,7 +201,7 @@ var _ = Describe("Validation Rules", func() {
 				key uuid = create
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`.default(uuid.create)`)
 		},
@@ -193,7 +209,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should default an empty array default to (() => []), not a misplaced element default",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -201,7 +217,7 @@ var _ = Describe("Validation Rules", func() {
 				vals float64[] = []
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -212,7 +228,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should apply a populated array default to the wrapped array, not the element",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -220,7 +236,7 @@ var _ = Describe("Validation Rules", func() {
 				vals float64[] = [1.5, 2.5]
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -229,7 +245,7 @@ var _ = Describe("Validation Rules", func() {
 		},
 	)
 
-	It("Should emit a struct default as a typed object literal", func(ctx SpecContext) {
+	It("Should emit a struct default as a typed object literal", func() {
 		source := `
 			@ts output "out"
 
@@ -248,7 +264,7 @@ var _ = Describe("Validation Rules", func() {
 				p Point = { x = 1, y = 2, level = LevelHigh }
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(
 			content,
@@ -257,7 +273,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit nested struct and array values in a struct default",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -273,7 +289,7 @@ var _ = Describe("Validation Rules", func() {
 				m Mid = { inner = { tags = ["a", "b"] } }
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -283,7 +299,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit .prefault() for a struct override in an extending input struct, not .partial()",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -302,7 +318,7 @@ var _ = Describe("Validation Rules", func() {
 				@ts use_input
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -313,7 +329,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should resolve enum-extends variants and generics in a nested struct default via typeless override",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -356,7 +372,7 @@ var _ = Describe("Validation Rules", func() {
 				@ts use_input
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -364,7 +380,7 @@ var _ = Describe("Validation Rules", func() {
 		},
 	)
 
-	It("Should emit min/max length for string fields", func(ctx SpecContext) {
+	It("Should emit min/max length for string fields", func() {
 		source := `
 			@ts output "out"
 
@@ -375,13 +391,38 @@ var _ = Describe("Validation Rules", func() {
 				}
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(".min(1)"))
-		Expect(content).To(ContainSubstring(".max(64)"))
+		Expect(content).To(ContainSubstring(".min(1).check(zod.maxLength(64))"))
+		Expect(content).To(ContainSubstring(`import { zod } from "@synnaxlabs/x"`))
 	})
 
-	It("Should emit min(1, ...) for required string", func(ctx SpecContext) {
+	It("Should check a minimum length above 1 in code points", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				name string @validate { min_length 2 }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(`.check(zod.minLength(2))`)
+	})
+
+	It("Should keep a length check chainable with a default", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				name string = "x" @validate { max_length 64 }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`z.string().check(zod.maxLength(64)).default("x")`)
+	})
+
+	It("Should emit min(1, ...) for required string", func() {
 		source := `
 			@ts output "out"
 
@@ -389,12 +430,12 @@ var _ = Describe("Validation Rules", func() {
 				name string @validate { required }
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.min(1, "name is required")`)
 	})
 
-	It("Should leave fields without validation untouched", func(ctx SpecContext) {
+	It("Should leave fields without validation untouched", func() {
 		source := `
 			@ts output "out"
 
@@ -402,7 +443,7 @@ var _ = Describe("Validation Rules", func() {
 				name string
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).ToNot(ContainSubstring(".min("))
 		Expect(content).ToNot(ContainSubstring(".max("))

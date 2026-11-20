@@ -11,6 +11,3 @@ package v1
 
 // GorpKey implements gorp.Entry.
 func (a Arc) GorpKey() Key { return a.Key }
-
-// SetOptions implements gorp.Entry.
-func (Arc) SetOptions() []any { return nil }

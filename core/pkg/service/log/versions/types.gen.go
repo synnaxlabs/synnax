@@ -11,18 +11,17 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/log/versions/v6"
 
 // Key is a unique identifier for a log, represented as a UUID.
-type Key = v3.Key
+type Key = v6.Key
 
-// TimestampConfig is per-channel timestamp display configuration.
-type TimestampConfig = v3.TimestampConfig
+// TimestampConfig is how a timestamp channel shows its values.
+type TimestampConfig = v6.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
-type ChannelEntry = v3.ChannelEntry
+type ChannelEntry = v6.ChannelEntry
 
-// Log is a timestamped event and message logging component. Logs display chronological
-// records of events, system messages, and audit trails with filtering and formatting
-// capabilities.
-type Log = v3.Log
+// Log is a visualization that shows the samples of its channels as text, one line per
+// sample, in time order.
+type Log = v6.Log

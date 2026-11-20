@@ -20,7 +20,7 @@ const CreateCommand = Command.create({
   name: "Create status",
   icon: <Status.CreateIcon />,
   useOnSelect: PlatformStatus.useCreateModal,
-  useVisible: () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(status.TYPE_RESOURCE_ID),
 });
 
 const OpenExplorerCommand = Command.create({
@@ -28,7 +28,7 @@ const OpenExplorerCommand = Command.create({
   name: "Open status explorer",
   icon: <Status.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
-  useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(status.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [CreateCommand, OpenExplorerCommand];

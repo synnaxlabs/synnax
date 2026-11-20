@@ -22,11 +22,35 @@ import random
 import signal
 import sys
 from pathlib import Path
-from typing import Any
+from types import FrameType
+from typing import TypedDict
 
 import numpy as np
+from pydantic import BaseModel, Field, TypeAdapter
 
 import synnax as sy
+
+
+class _ChannelConfig(BaseModel):
+    """A channel of a task config file."""
+
+    enabled: bool = True
+    type: str | None = None
+    line: int = 0
+    port: int | str = 0
+    channel: int | None = None
+    cmd_channel: int | None = Field(default=None, alias="cmdChannel")
+    state_channel: int | None = Field(default=None, alias="stateChannel")
+    thermocouple_type: str = Field(default="K", alias="thermocoupleType")
+
+
+_CHANNEL_CONFIGS: TypeAdapter[list[_ChannelConfig]] = TypeAdapter(list[_ChannelConfig])
+
+
+class _Mapping(TypedDict):
+    name: str
+    config_key: int
+    synnax_key: int
 
 
 def _latest(frame: sy.Frame, name: str) -> float | None:
@@ -65,7 +89,7 @@ class SimDAQ:
         self.indices: dict[str, sy.Channel] = {}
 
         # Channel mapping: config_key -> {name, synnax_key}
-        self.channel_mapping: list[dict[str, Any]] = []
+        self.channel_mapping: list[_Mapping] = []
 
     def get_index(self, name: str) -> sy.Channel:
         """Get or create an index channel."""
@@ -92,9 +116,9 @@ class SimDAQ:
 
             # Handle two formats: {"channels": [...]} or just [...]
             if isinstance(config, list):
-                channels = config
+                channels = _CHANNEL_CONFIGS.validate_python(config)
             elif isinstance(config, dict):
-                channels = config.get("channels", [])
+                channels = _CHANNEL_CONFIGS.validate_python(config.get("channels", []))
             else:
                 print(f"[{json_file.name}] ⚠ Skipping - unknown format")
                 continue
@@ -105,13 +129,13 @@ class SimDAQ:
             first = channels[0]
 
             # Digital/analog outputs with cmd/state pairs
-            if "cmdChannel" in first and "stateChannel" in first:
-                if first.get("type") == "digital_output":
+            if first.cmd_channel is not None and first.state_channel is not None:
+                if first.type == "digital_output":
                     self._create_digital_outputs(channels, json_file.name)
-                elif first.get("type", "").startswith("ao_"):
+                elif (first.type or "").startswith("ao_"):
                     self._create_analog_outputs(channels, json_file.name)
             # Analog inputs (sensors)
-            elif "channel" in first:
+            elif first.channel is not None:
                 self._create_analog_inputs(channels, json_file.name)
 
         print(f"\n{'=' * 70}")
@@ -126,7 +150,7 @@ class SimDAQ:
         self._save_channel_mapping()
 
     def _create_digital_outputs(
-        self, channels: list[dict[str, Any]], filename: str
+        self, channels: list[_ChannelConfig], filename: str
     ) -> None:
         """Create digital output channels (valves)."""
         print(f"[{filename}] Digital outputs")
@@ -134,12 +158,12 @@ class SimDAQ:
         state_idx = self.get_index("daq_time")
 
         for ch in channels:
-            if not ch.get("enabled", True):
+            if not ch.enabled:
                 continue
 
-            line = ch.get("line", 0)
-            config_cmd_key = ch.get("cmdChannel")
-            config_state_key = ch.get("stateChannel")
+            line = ch.line
+            config_cmd_key = ch.cmd_channel
+            config_state_key = ch.state_channel
 
             # Create simple sequential names like valve_1_cmd, valve_1_state
             cmd_name = f"valve_{line}_cmd"
@@ -185,7 +209,7 @@ class SimDAQ:
             print(f"  ✓ {cmd_name} / {state_name}")
 
     def _create_analog_inputs(
-        self, channels: list[dict[str, Any]], filename: str
+        self, channels: list[_ChannelConfig], filename: str
     ) -> None:
         """Create analog input channels (sensors)."""
         print(f"[{filename}] Analog inputs")
@@ -193,12 +217,12 @@ class SimDAQ:
         data_idx = self.get_index("daq_time")
 
         for i, ch in enumerate(channels):
-            if not ch.get("enabled", True):
+            if not ch.enabled:
                 continue
 
-            port = ch.get("port", 0)
-            ch_type = ch.get("type", "ai")
-            config_key = ch.get("channel")
+            port = ch.port
+            ch_type = ch.type or "ai"
+            config_key = ch.channel
 
             # Generate descriptive name
             name = self._generate_sensor_name(ch, port, ch_type, i)
@@ -224,7 +248,7 @@ class SimDAQ:
             print(f"  ✓ {name}")
 
     def _create_analog_outputs(
-        self, channels: list[dict[str, Any]], filename: str
+        self, channels: list[_ChannelConfig], filename: str
     ) -> None:
         """Create analog output channels."""
         print(f"[{filename}] Analog outputs")
@@ -232,12 +256,12 @@ class SimDAQ:
         state_idx = self.get_index("daq_time")
 
         for ch in channels:
-            if not ch.get("enabled", True):
+            if not ch.enabled:
                 continue
 
-            port = ch.get("port", 0)
-            config_cmd_key = ch.get("cmdChannel")
-            config_state_key = ch.get("stateChannel")
+            port = ch.port
+            config_cmd_key = ch.cmd_channel
+            config_state_key = ch.state_channel
 
             # Simple sequential naming
             cmd_name = f"ao_{port}_cmd"
@@ -283,7 +307,7 @@ class SimDAQ:
             print(f"  ✓ {cmd_name} / {state_name}")
 
     def _generate_sensor_name(
-        self, ch: dict[str, Any], port: int, ch_type: str, index: int
+        self, ch: _ChannelConfig, port: int | str, ch_type: str, index: int
     ) -> str:
         """Generate a descriptive sensor name."""
         if ch_type == "ai_voltage":
@@ -296,7 +320,7 @@ class SimDAQ:
             return f"bridge_{port}"
 
         if ch_type == "ai_thermocouple":
-            tc_type = ch.get("thermocoupleType", "K")
+            tc_type = ch.thermocouple_type
             return f"temp_tc{tc_type}_{port}"
 
         if ch_type == "ai_rtd":
@@ -363,7 +387,7 @@ class SimDAQ:
         print("=" * 70)
 
         # Setup signal handler
-        def stop(s: int, f: Any) -> None:
+        def stop(s: int, f: FrameType | None) -> None:
             self.running = False
 
         signal.signal(signal.SIGINT, stop)

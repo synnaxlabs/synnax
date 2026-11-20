@@ -20,11 +20,12 @@ var _ = Describe("Config", func() {
 		It("should fail when DB is nil", func() {
 			cfg := driver.Config{
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
-				Host:      hostProvider,
+				HostKey:   1,
 			}
 			Expect(
 				cfg.Validate(),
@@ -38,7 +39,7 @@ var _ = Describe("Config", func() {
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
-				Host:      hostProvider,
+				HostKey:   1,
 			}
 			Expect(
 				cfg.Validate(),
@@ -49,10 +50,11 @@ var _ = Describe("Config", func() {
 			cfg := driver.Config{
 				DB:        db,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
-				Host:      hostProvider,
+				HostKey:   1,
 			}
 			Expect(
 				cfg.Validate(),
@@ -63,17 +65,18 @@ var _ = Describe("Config", func() {
 			cfg := driver.Config{
 				DB:      db,
 				Rack:    rackService,
+				RackKey: coreRack,
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
-				Host:    hostProvider,
+				HostKey: 1,
 			}
 			Expect(
 				cfg.Validate(),
 			).To(MatchError(ContainSubstring("factories: must be non-empty")))
 		})
 
-		It("should fail when Host is zero", func() {
+		It("should fail when RackKey is zero", func() {
 			cfg := driver.Config{
 				DB:        db,
 				Rack:      rackService,
@@ -81,10 +84,26 @@ var _ = Describe("Config", func() {
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
+				HostKey:   1,
 			}
 			Expect(
 				cfg.Validate(),
-			).To(MatchError(ContainSubstring("host: must be non-nil")))
+			).To(MatchError(ContainSubstring("rack_key: must be non-zero")))
+		})
+
+		It("should fail when HostKey is zero", func() {
+			cfg := driver.Config{
+				DB:        db,
+				Rack:      rackService,
+				RackKey:   coreRack,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{&mockFactory{name: "test"}},
+			}
+			Expect(
+				cfg.Validate(),
+			).To(MatchError(ContainSubstring("host_key: must be non-zero")))
 		})
 	})
 })

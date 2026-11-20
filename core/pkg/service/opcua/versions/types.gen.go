@@ -11,22 +11,44 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v2"
 
 // BaseChannel carries the fields every OPC UA channel shares.
-type BaseChannel = v1.BaseChannel
+type BaseChannel = v2.BaseChannel
 
 // ReadChannel is a single OPC UA node the task reads from.
-type ReadChannel = v1.ReadChannel
+type ReadChannel = v2.ReadChannel
 
 // WriteChannel is a single OPC UA node the task drives.
-type WriteChannel = v1.WriteChannel
+type WriteChannel = v2.WriteChannel
 
 // ReadConfig configures an OPC UA read task.
-type ReadConfig = v1.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // WriteConfig configures an OPC UA write task.
-type WriteConfig = v1.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
-type ScanConfig = v1.ScanConfig
+type ScanConfig = v2.ScanConfig
+
+// Sampling selects how a read task samples its nodes.
+type Sampling = v2.Sampling
+
+// SamplingVariant is implemented by every Sampling variant.
+type SamplingVariant = v2.SamplingVariant
+
+// SamplingType is the "type" value that selects a variant of Sampling.
+type SamplingType = v2.SamplingType
+
+const (
+	// UnarySamplingType reads one sample per node at the sample rate.
+	UnarySamplingType SamplingType = v2.UnarySamplingType
+	// ArraySamplingType reads an array of samples from each node on each read.
+	ArraySamplingType SamplingType = v2.ArraySamplingType
+)
+
+// UnarySampling reads one sample per node at the sample rate.
+type UnarySampling = v2.UnarySampling
+
+// ArraySampling reads an array of samples from each node on each read.
+type ArraySampling = v2.ArraySampling

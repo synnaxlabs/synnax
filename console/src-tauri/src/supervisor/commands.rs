@@ -11,9 +11,13 @@
 //! place in the app lifecycle.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+use tauri::{AppHandle, Emitter, ExitRequestApi, Manager, RESTART_EXIT_CODE, Runtime, State};
+use tokio::sync::Mutex;
+
+use desktop::discovery;
 
 use super::{Config, History, Status, Supervisor, diagnostics};
 use crate::install;
@@ -35,6 +39,72 @@ pub struct Paths {
     log_dir: PathBuf,
 }
 
+/// The discovery file and API key, managed as app state. Each window of the app writes
+/// them.
+pub struct Discovery {
+    path: PathBuf,
+    /// The absolute path of the program that prints the API key.
+    api_key_helper: PathBuf,
+    /// Makes the compare and the write of each save one step.
+    lock: Mutex<()>,
+}
+
+/// The exit of the app, managed as app state. The app exits only once its Core has
+/// stopped, so the next launch finds the data directory free.
+#[derive(Default)]
+struct Quit {
+    /// Set once the stop for the exit starts.
+    started: AtomicBool,
+    /// Set once the Core has stopped.
+    done: AtomicBool,
+    /// Set when the app is launched again during the stop.
+    relaunched: AtomicBool,
+}
+
+/// What a request to exit the app does.
+#[derive(Debug, PartialEq)]
+enum Decision {
+    /// Hold the exit and stop the Core.
+    Stop,
+    /// Hold the exit until the stop that runs ends.
+    Hold,
+    /// Restart the app instead of the exit.
+    Restart,
+    /// Let the exit go ahead.
+    Exit,
+}
+
+impl Quit {
+    /// Starts the stop for the exit. Returns false when it has already started.
+    fn start(&self) -> bool {
+        !self.started.swap(true, Ordering::SeqCst)
+    }
+
+    fn finish(&self) {
+        self.done.store(true, Ordering::SeqCst);
+    }
+
+    fn relaunch(&self) {
+        if self.started.load(Ordering::SeqCst) {
+            self.relaunched.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn decide(&self, code: Option<i32>) -> Decision {
+        if !self.done.load(Ordering::SeqCst) {
+            return if self.start() {
+                Decision::Stop
+            } else {
+                Decision::Hold
+            };
+        }
+        if self.relaunched.load(Ordering::SeqCst) && code != Some(RESTART_EXIT_CODE) {
+            return Decision::Restart;
+        }
+        Decision::Exit
+    }
+}
+
 /// What the diagnostics dialog shows beside the status.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,22 +120,18 @@ pub struct Diagnostics {
 /// Starts the supervisor, manages it as app state, and forwards its status to every
 /// window.
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
-    // Tauri installs a sidecar next to the app executable.
-    let program = tauri::utils::platform::current_exe()?
+    // Tauri installs a sidecar and the key helper next to the app executable.
+    let bin_dir = tauri::utils::platform::current_exe()?
         .parent()
         .ok_or("the app executable has no parent directory")?
-        .join(PROGRAM);
+        .to_path_buf();
+    let program = bin_dir.join(PROGRAM);
     let local = app.path().app_local_data_dir()?;
     let log_dir = app.path().app_log_dir()?;
     let version = app.package_info().version.to_string();
     let data_dir = local.join("core");
-    let cfg = Config::new(
-        program,
-        version.clone(),
-        local,
-        data_dir.clone(),
-        log_dir.clone(),
-    );
+    let discovery_path = discovery::path(&app.path().home_dir()?);
+    let cfg = Config::new(program, local, data_dir.clone(), log_dir.clone());
     // Supervisor::open spawns onto the current runtime, which setup does not enter.
     let supervisor = tauri::async_runtime::block_on(async { Supervisor::open(cfg) })?;
     let mut status = supervisor.subscribe();
@@ -84,7 +150,46 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
         data_dir,
         log_dir,
     });
+    app.manage(Discovery {
+        path: discovery_path,
+        api_key_helper: bin_dir.join(discovery::KEY_HELPER),
+        lock: Mutex::new(()),
+    });
+    app.manage(Quit::default());
     Ok(())
+}
+
+/// Stops the Core, then exits the app with `code`. The exit request that follows goes
+/// ahead, or restarts the app when it was launched again during the stop.
+async fn stop_and_exit<R: Runtime>(app: AppHandle<R>, code: Option<i32>) {
+    app.state::<Supervisor>().stop_for_exit().await;
+    app.state::<Quit>().finish();
+    match code {
+        Some(RESTART_EXIT_CODE) => app.request_restart(),
+        code => app.exit(code.unwrap_or(0)),
+    }
+}
+
+/// Holds an exit of the app until its Core has stopped. Call it on each
+/// `RunEvent::ExitRequested`.
+pub fn exit_requested<R: Runtime>(app: &AppHandle<R>, code: Option<i32>, api: &ExitRequestApi) {
+    match app.state::<Quit>().decide(code) {
+        Decision::Stop => {
+            api.prevent_exit();
+            tauri::async_runtime::spawn(stop_and_exit(app.clone(), code));
+        }
+        Decision::Hold => api.prevent_exit(),
+        Decision::Restart => {
+            api.prevent_exit();
+            app.request_restart();
+        }
+        Decision::Exit => {}
+    }
+}
+
+/// Records a second launch of the app. One that arrives while the app exits restarts it.
+pub fn relaunched<R: Runtime>(app: &AppHandle<R>) {
+    app.state::<Quit>().relaunch();
 }
 
 /// Stops the Core and returns once its process has exited. Call it before the app
@@ -121,6 +226,15 @@ pub async fn supervisor_stop(supervisor: State<'_, Supervisor>) -> Result<(), ()
     Ok(())
 }
 
+/// Stops the Core while the windows stay open, then exits the app.
+#[tauri::command]
+pub async fn supervisor_quit<R: Runtime>(app: AppHandle<R>) -> Result<(), ()> {
+    if app.state::<Quit>().start() {
+        stop_and_exit(app, Some(0)).await;
+    }
+    Ok(())
+}
+
 /// Erases everything the Core stored, then starts the app again. A new launch is the
 /// one state in which no window holds data of the erased Core.
 #[tauri::command]
@@ -128,6 +242,7 @@ pub async fn supervisor_reset<R: Runtime>(
     app: AppHandle<R>,
     supervisor: State<'_, Supervisor>,
     paths: State<'_, Paths>,
+    discovery: State<'_, Discovery>,
 ) -> Result<(), String> {
     let data_dir = paths.data_dir.clone();
     let local = app
@@ -140,7 +255,88 @@ pub async fn supervisor_reset<R: Runtime>(
         eprintln!("failed to record the reset: {err}");
     }
     supervisor.reset().await.map_err(|err| err.to_string())?;
+    // The erased Core took the saved API key with it.
+    let path = discovery.path.clone();
+    blocking(move || discovery::remove_file(&path)).await?;
+    // The data is gone, so a keychain that fails must not stop the restart. Without a
+    // keychain there is no key to delete.
+    if let Err(err) =
+        blocking(|| discovery::key_entry().and_then(|key| discovery::remove_key(&key))).await
+    {
+        eprintln!("failed to delete the API key from the keychain: {err}");
+    }
     app.restart()
+}
+
+/// Returns the API key saved in the keychain, or null when none is saved. With no
+/// keychain, nothing is saved, and the save that follows reports the error.
+#[tauri::command]
+pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Option<String>, String> {
+    let _guard = discovery.lock.lock().await;
+    blocking(|| match discovery::key_entry() {
+        Ok(key) => discovery::read_key(&key),
+        Err(_) => Ok(None),
+    })
+    .await
+}
+
+/// Returns the API key that Synnax Desktop 1.1 saved in plaintext in the discovery
+/// file, or null. The caller revokes it in the Core, then calls
+/// `supervisor_forget_legacy_api_key`.
+#[tauri::command]
+pub async fn supervisor_legacy_api_key(
+    discovery: State<'_, Discovery>,
+) -> Result<Option<String>, String> {
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::legacy_key(&path)).await
+}
+
+/// Removes `api_key`, a key from `supervisor_legacy_api_key`, from the discovery file.
+/// Call it only after the Core revoked the key.
+#[tauri::command]
+pub async fn supervisor_forget_legacy_api_key(
+    api_key: String,
+    discovery: State<'_, Discovery>,
+) -> Result<(), String> {
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::forget_legacy_key(&path, &api_key)).await
+}
+
+/// Saves `api_key` in the keychain and the address of the running Core in the discovery
+/// file, but only while the saved key is `replaces`, the key the caller read. `None`
+/// means no saved key.
+///
+/// Returns false, with no write, when another window changed the key first.
+#[tauri::command]
+pub async fn supervisor_save_api_key(
+    api_key: String,
+    replaces: Option<String>,
+    supervisor: State<'_, Supervisor>,
+    discovery: State<'_, Discovery>,
+) -> Result<bool, String> {
+    let Status::Running { connection } = supervisor.status() else {
+        return Err("Synnax is not running".to_string());
+    };
+    let file = discovery::File {
+        host: connection.host,
+        port: connection.port,
+        secure: false,
+        api_key_helper: discovery.api_key_helper.clone(),
+    };
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || {
+        discovery::swap(
+            &path,
+            &discovery::key_entry()?,
+            &file,
+            &api_key,
+            replaces.as_deref(),
+        )
+    })
+    .await
 }
 
 /// Stores the size of the data a reset is about to erase, for the next launch to report.
@@ -240,6 +436,41 @@ fn reveal(dir: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn holds_each_exit_until_the_core_stops_and_stops_it_once() {
+        let quit = Quit::default();
+        assert_eq!(quit.decide(None), Decision::Stop);
+        assert_eq!(quit.decide(Some(0)), Decision::Hold);
+        assert!(!quit.start());
+    }
+
+    #[test]
+    fn lets_the_exit_go_ahead_once_the_core_stopped() {
+        let quit = Quit::default();
+        quit.decide(None);
+        quit.finish();
+        assert_eq!(quit.decide(Some(0)), Decision::Exit);
+    }
+
+    #[test]
+    fn restarts_the_app_for_a_launch_during_the_stop() {
+        let quit = Quit::default();
+        assert!(quit.start());
+        quit.relaunch();
+        quit.finish();
+        assert_eq!(quit.decide(Some(0)), Decision::Restart);
+        assert_eq!(quit.decide(Some(RESTART_EXIT_CODE)), Decision::Exit);
+    }
+
+    #[test]
+    fn ignores_a_launch_before_the_exit() {
+        let quit = Quit::default();
+        quit.relaunch();
+        quit.decide(None);
+        quit.finish();
+        assert_eq!(quit.decide(Some(0)), Decision::Exit);
+    }
 
     #[test]
     fn records_the_size_of_the_data_a_reset_erases() {

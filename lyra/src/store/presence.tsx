@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { destructor, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -39,8 +39,8 @@ export interface PresenceProps<
  */
 export interface Presence<K extends record.Key = record.Key> {
   /**
-   * Context distributes the single present key to keyed consumers. On change it notifies
-   * only the previous and next holders, so at most two items re-render.
+   * Context distributes the single present key to keyed consumers. On change it
+   * notifies only the previous and next holders, so at most two items re-render.
    */
   Context: (props: PresenceProps<K>) => ReactElement;
   useContext: () => ContextValue<K>;
@@ -49,22 +49,22 @@ export interface Presence<K extends record.Key = record.Key> {
    * only when this key gains or loses presence.
    */
   useIsPresent: (key: K) => boolean;
-  /** usePresent returns the currently present key, or undefined when none is present. */
+  /**
+   * usePresent returns the currently present key, or undefined when none is present.
+   */
   usePresent: () => K | undefined;
 }
-
-const NOOP = () => {};
 
 /**
  * createPresence mints a typed presence context: a Provider that publishes at most one
  * present key and hooks that read it. Presence is a single-valued membership: the
  * hovered item, the active item, the keyboard cursor. Call once per use case so each
  * presence carries its own React context and nests independently of other presences.
- * @param name identifies the presence in the context display name.
+ * @param name - identifies the presence in the context display name.
  */
 export const createPresence = (name: string): Presence => {
   const [BaseContext, useCtx] = context.create<ContextValue>({
-    defaultValue: { getPresent: () => undefined, subscribe: () => NOOP },
+    defaultValue: { getPresent: () => undefined, subscribe: () => destructor.NOOP },
     displayName: `${name}.Context`,
   });
 

@@ -17,16 +17,16 @@ import { type Diff, diff } from "@/code/text";
 // client's edits never collide with the seed.
 const SEED_REPLICA = 1;
 
-// randomReplica returns a replica id in [2, 2^32) for a client editing session, avoiding
-// the reserved seed replica.
+// randomReplica returns a replica id in [2, 2^32) for a client editing session,
+// avoiding the reserved seed replica.
 const randomReplica = (): number =>
   SEED_REPLICA + 1 + Math.floor(Math.random() * (0xffffffff - SEED_REPLICA - 1));
 
 const codePoints = (s: string): string[] => Array.from(s);
 
 /** TextChange is the subset of an editor content change the binding consumes: a UTF-16
- * offset and length into the previous value, plus the inserted text. It matches Monaco's
- * IModelContentChange. */
+ * offset and length into the previous value, plus the inserted text. It matches
+ * Monaco's IModelContentChange. */
 export interface TextChange {
   rangeOffset: number;
   rangeLength: number;
@@ -82,8 +82,8 @@ export class CollabText {
 
   /** applyChanges applies a batch of code-point changes to the document and returns the
    * operations to broadcast. The changes must be ordered highest-index-first (as
-   * changesToDiffs produces) so each applies against indices the others have not shifted.
-   * Returns an empty array when the batch is a no-op. */
+   * changesToDiffs produces) so each applies against indices the others have not
+   * shifted. Returns an empty array when the batch is a no-op. */
   applyChanges(changes: Diff[]): arc.Action[] {
     const inserts: crdt.Insert[] = [];
     const deletes: crdt.Delete[] = [];
@@ -95,8 +95,8 @@ export class CollabText {
   }
 
   /** edit reconciles the document to next via a single whole-value diff and returns the
-   * operations that describe the change. Prefer applyChanges with precise editor changes;
-   * this is a convenience for callers that only have the new value. */
+   * operations that describe the change. Prefer applyChanges with precise editor
+   * changes; this is a convenience for callers that only have the new value. */
   edit(next: string): arc.Action[] {
     const d = diff(this.value(), next);
     if (d.deleteCount === 0 && d.insert.length === 0) return [];
@@ -110,9 +110,10 @@ export class CollabText {
       else if (a.type === "delete_char") this.doc.applyDelete(a.deleteChar);
   }
 
-  /** sync integrates every operation in snapshot that the document has not already seen,
-   * pulling in remote edits while preserving this replica's authoring state. Integration
-   * is idempotent, so re-syncing the full snapshot after every change is safe. */
+  /** sync integrates every operation in snapshot that the document has not already
+   * seen, pulling in remote edits while preserving this replica's authoring state.
+   * Integration is idempotent, so re-syncing the full snapshot after every change is
+   * safe. */
   sync(snapshot: { inserts: crdt.Insert[]; deletes: crdt.Delete[] }): void {
     this.doc.applyInsert(...snapshot.inserts);
     this.doc.applyDelete(...snapshot.deletes);

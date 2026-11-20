@@ -10,8 +10,12 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Image, Video } from "@/components/media/Media";
-import { CDN_ROOT } from "@/components/media/url";
+import { Media } from "@/components/media";
+import { CDN } from "@/components/media/cdn";
+import videos from "@/components/media/videos.json";
+
+const [[ID, { version: VERSION, width: WIDTH, height: HEIGHT }]] =
+  Object.entries(videos);
 
 const show = (html: string): void => {
   document.body.innerHTML = html;
@@ -26,20 +30,31 @@ const sources = (): [string | null, string | null][] =>
 describe("Media", () => {
   describe("Video", () => {
     it("should offer the dark and light versions by color scheme", () => {
-      show(renderToString(<Video id="clip" />));
+      show(renderToString(<Media.Video id={ID} label="A video" />));
       expect(sources()).toEqual([
-        ["(prefers-color-scheme: dark)", `${CDN_ROOT}/clip-dark.mp4#t=0.001`],
-        [null, `${CDN_ROOT}/clip-light.mp4#t=0.001`],
+        [
+          "(prefers-color-scheme: dark)",
+          `${CDN.ROOT}/${ID}/${VERSION}-dark.mp4#t=0.001`,
+        ],
+        [null, `${CDN.ROOT}/${ID}/${VERSION}-light.mp4#t=0.001`],
       ]);
     });
 
     it("should offer one version when not themed", () => {
-      show(renderToString(<Video id="clip" themed={false} />));
-      expect(sources()).toEqual([[null, `${CDN_ROOT}/clip.mp4#t=0.001`]]);
+      show(renderToString(<Media.Video id={ID} label="A video" themed={false} />));
+      expect(sources()).toEqual([[null, `${CDN.ROOT}/${ID}/${VERSION}.mp4#t=0.001`]]);
+    });
+
+    it("should throw for a video with no uploaded version", () => {
+      expect(() =>
+        renderToString(<Media.Video id="console/missing" label="A video" />),
+      ).toThrow(
+        "no version of video console/missing: add an entry to studio/videos.ts, then run pnpm upload console/missing in studio/",
+      );
     });
 
     it("should render a muted looping video that loads only its metadata", () => {
-      show(renderToString(<Video id="clip" />));
+      show(renderToString(<Media.Video id={ID} label="A video" />));
       const video = document.querySelector(".docs-video > video") as HTMLVideoElement;
       expect(video.loop).toBe(true);
       expect(video.hasAttribute("muted")).toBe(true);
@@ -47,25 +62,18 @@ describe("Media", () => {
       expect(video.getAttribute("preload")).toBe("metadata");
       expect(document.querySelector(".docs-video__play")).not.toBeNull();
     });
-  });
 
-  describe("Image", () => {
-    it("should offer the dark version by color scheme and fall back to light", () => {
-      show(renderToString(<Image id="shot" alt="Shot" />));
-      expect(sources()).toEqual([
-        ["(prefers-color-scheme: dark)", `${CDN_ROOT}/shot-dark.png`],
-      ]);
-      const img = document.querySelector("picture > img") as HTMLImageElement;
-      expect(img.getAttribute("src")).toBe(`${CDN_ROOT}/shot-light.png`);
-      expect(img.alt).toBe("Shot");
-      expect(img.getAttribute("loading")).toBe("lazy");
+    it("should reserve the space of the video before it loads", () => {
+      show(renderToString(<Media.Video id={ID} label="A video" />));
+      expect(document.querySelector("video")?.style.aspectRatio).toBe(
+        `auto ${WIDTH} / ${HEIGHT}`,
+      );
     });
 
-    it("should render a plain image when not themed", () => {
-      show(renderToString(<Image id="logo" extension="svg" themed={false} />));
-      expect(document.querySelector("picture")).toBeNull();
-      expect(document.querySelector("img")?.getAttribute("src")).toBe(
-        `${CDN_ROOT}/logo.svg`,
+    it("should name the video with its label", () => {
+      show(renderToString(<Media.Video id={ID} label="Create a line plot" />));
+      expect(document.querySelector("video")?.getAttribute("aria-label")).toBe(
+        "Create a line plot",
       );
     });
   });

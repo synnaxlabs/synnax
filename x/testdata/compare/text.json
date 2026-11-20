@@ -1,0 +1,35 @@
+{
+  "ordered": [
+    "",
+    " leading space",
+    "!bang",
+    "0",
+    "10",
+    "2",
+    "_underscore",
+    "a",
+    "a b",
+    "ab",
+    "Abc",
+    "abd",
+    "İstanbul",
+    "Line 1",
+    "line 10",
+    "Line 2",
+    "Z",
+    "zebra",
+    "~tilde",
+    "é",
+    "ας",
+    "ΑΣ",
+    "日本",
+    "￿",
+    "𝓐"
+  ],
+  "equal": [
+    ["Pressure", "pressure", "PRESSURE"],
+    ["ΣΊΣΥΦΟΣ", "σίσυφοσ"],
+    ["Ǆ", "ǅ", "ǆ"],
+    ["İ", "i"]
+  ]
+}

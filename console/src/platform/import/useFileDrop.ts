@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
+import type { Store } from "@reduxjs/toolkit";
 import {
   DisconnectedError,
   imex,
-  type ontology,
   project,
+  type resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Mosaic, Synnax } from "@synnaxlabs/pluto";
 
 import { FS } from "@/platform/fs";
-import { type BundleImporter } from "@/platform/import/import";
+import type { BundleImporter } from "@/platform/import/import";
 import { useImportBatch } from "@/platform/import/useImportBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Session } from "@/session";
@@ -37,7 +37,7 @@ interface ImportContext {
 const importEntry = async (
   entry: FileSystemEntry,
   { client, importBundle, projectKey, store }: ImportContext,
-): Promise<void | ontology.ID> => {
+): Promise<void | resource.ID> => {
   if (FS.isDirectoryEntry(entry)) {
     const bundle = zipFiles(await FS.readDirectoryFiles(entry));
     return await importBundle(entry.name, bundle, { client, store });
@@ -52,7 +52,7 @@ const importEntry = async (
   return await client.imex.import(file, {
     ...imex.JSON_OPTIONS,
     fileName: file.name,
-    parent: project.ontologyID(projectKey),
+    parent: project.resourceID(projectKey),
   });
 };
 

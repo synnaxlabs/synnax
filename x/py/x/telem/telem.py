@@ -9,10 +9,15 @@
 
 from __future__ import annotations
 
+# On Python 3.15 and later, pandas loads on first use. Older versions ignore this.
+__lazy_modules__ = ["pandas"]
+
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from fractions import Fraction
 from math import trunc
+from time import time_ns
 from typing import Any, ClassVar, Literal, NoReturn, TypeAlias, overload, override
 
 import numpy as np
@@ -22,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler
 from pydantic_core import core_schema
 
 from x.exceptions import ContiguityError
+from x.params import deprecate_positional
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
@@ -62,7 +68,9 @@ def _int64(value: int, name: str) -> int:
 def _stamp_nanoseconds(value: CrudeTimeStamp) -> int:
     if isinstance(value, str):
         return int(value)
-    if isinstance(value, pd.Timestamp):
+    # A value cannot be a pandas object while pandas is not loaded, and the check
+    # keeps pandas unloaded.
+    if "pandas" in sys.modules and isinstance(value, pd.Timestamp):
         return int(value.value)
     if isinstance(value, datetime):
         return _timedelta_nanoseconds(value.astimezone() - _EPOCH)
@@ -80,15 +88,54 @@ def _stamp_nanoseconds(value: CrudeTimeStamp) -> int:
 def _span_nanoseconds(value: CrudeTimeSpan) -> int:
     if isinstance(value, str):
         return int(value)
-    if isinstance(value, pd.Timedelta):
+    if "pandas" in sys.modules and isinstance(value, pd.Timedelta):
         return int(value.value)
     if isinstance(value, timedelta):
         return _timedelta_nanoseconds(value)
     if isinstance(value, np.timedelta64):
         return _timedelta64_nanoseconds(value)
-    if isinstance(value, (int, float, np.integer, np.floating)):
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, Rate):
+        return int(value.period)
+    if isinstance(value, (float, np.floating)):
         return int(value)
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
+
+
+def _exact_float(value: float | np.floating) -> float | Fraction:
+    """Converts a float to a value that compares with an int as the float does,
+    without truncating it to nanoseconds or rounding a wider NumPy float.
+    """
+    if isinstance(value, float) or not np.isfinite(value):
+        return float(value)
+    return Fraction(*value.as_integer_ratio())
+
+
+def _stamp_operand(
+    value: CrudeTimeStamp | float | np.integer | np.floating | np.timedelta64,
+) -> int | float | Fraction:
+    if isinstance(value, (float, np.floating)):
+        return _exact_float(value)
+    # np.timedelta64 is an np.integer, so it must convert by its unit first.
+    if isinstance(value, np.timedelta64):
+        return _timedelta64_nanoseconds(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    return _stamp_nanoseconds(value)
+
+
+def _span_operand(
+    value: CrudeTimeSpan | np.integer | np.floating,
+) -> int | float | Fraction:
+    if isinstance(value, (float, np.floating)):
+        return _exact_float(value)
+    # np.timedelta64 is an np.integer, so it must convert by its unit first.
+    if isinstance(value, np.timedelta64):
+        return _timedelta64_nanoseconds(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    return _span_nanoseconds(value)
 
 
 def _operand_error(op: str, lhs: object, rhs: object) -> TypeError:
@@ -143,7 +190,7 @@ class TimeStamp(int):
     @classmethod
     def now(cls) -> TimeStamp:
         """:returns: the current time as a TimeStamp."""
-        return TimeStamp(datetime.now(UTC))
+        return TimeStamp(time_ns())
 
     @classmethod
     def since(cls, ts: CrudeTimeStamp) -> TimeSpan:
@@ -184,25 +231,25 @@ class TimeStamp(int):
         :param ts: The TimeStamp to compare to.
 
         """
-        return super().__gt__(_stamp_nanoseconds(ts))
+        return int(self) > _stamp_operand(ts)
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
-        """:return: True if the TimeStamp is after or equal to the given TimeStamp.
+        """:returns: True if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__ge__(_stamp_nanoseconds(ts))
+        return int(self) >= _stamp_operand(ts)
 
     def before(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is strictly before the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__lt__(_stamp_nanoseconds(ts))
+        return int(self) < _stamp_operand(ts)
 
     def before_eq(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is before or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__le__(_stamp_nanoseconds(ts))
+        return int(self) <= _stamp_operand(ts)
 
     def span_range(self, span: TimeSpan) -> TimeRange:
         """:returns: A TimeRange that spans the given TimeSpan
@@ -211,7 +258,7 @@ class TimeStamp(int):
         return TimeRange(self, self + span).make_valid()
 
     def range(self, ts: CrudeTimeStamp) -> TimeRange:
-        """:return: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
+        """:returns: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
         TimeRange is guaranteed to be valid i.e. start before or equal to end.
         :param ts: The second time stamp
         """
@@ -285,10 +332,15 @@ class TimeStamp(int):
     @override
     def __eq__(self, rhs: object) -> bool:
         if not isinstance(
-            rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
+            rhs,
+            (int, float, np.integer, np.floating, datetime, timedelta, np.datetime64),
         ):
             return False
-        return super().__eq__(_stamp_nanoseconds(rhs))
+        return int(self) == _stamp_operand(rhs)
+
+    @override
+    def __ne__(self, rhs: object) -> bool:
+        return not self == rhs
 
     @override
     def __hash__(self) -> int:
@@ -317,6 +369,7 @@ class TimeSpan(int):
     * timedelta - The duration of the timedelta.
     * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
+    * Rate - The period of the rate, so 2 Hz is 500 milliseconds.
     * str - Parses a decimal string of nanoseconds.
     """
 
@@ -381,14 +434,15 @@ class TimeSpan(int):
 
     @staticmethod
     def from_seconds(span: CrudeTimeSpan) -> TimeSpan:
-        """An alternative constructor for TimeSpan that parses raw numeric values as
-        seconds instead of nanoseconds.
+        """Converts a duration parameter. Every Python API that takes a duration uses
+        this conversion, so a bare number is seconds. The TimeSpan constructor reads a
+        bare number as nanoseconds instead.
         """
-        if isinstance(span, TimeSpan):
-            return span
+        if isinstance(span, (TimeSpan, TimeStamp)):
+            return TimeSpan(span)
         if isinstance(span, Rate):
             return span.period
-        if isinstance(span, (float, int)):
+        if isinstance(span, (int, float, np.integer, np.floating)):
             return TimeSpan.SECOND * span
         return TimeSpan(span)
 
@@ -513,7 +567,8 @@ class TimeSpan(int):
         """:returns: The TimeSpan represented as a datetime.timedelta."""
         return timedelta(seconds=self.seconds)
 
-    # The int overloads keep the int signature, but a bare number raises TypeError.
+    # The int overloads keep the int signature, but a bare number raises TypeError. An
+    # int 0 before a span is the one exception, so sum() works.
     @overload
     def __add__(self, rhs: TimeStamp) -> TimeStamp: ...
     @overload
@@ -530,7 +585,11 @@ class TimeSpan(int):
         return NotImplemented
 
     @override
-    def __radd__(self, lhs: int) -> NoReturn:
+    def __radd__(self, lhs: int) -> TimeSpan:
+        # sum() starts from the int 0. An empty sum() returns that int, so pass
+        # TimeSpan(0) as the start when the iterable can be empty.
+        if type(lhs) is int and lhs == 0:
+            return self
         raise _operand_error("+", lhs, self)
 
     @overload
@@ -607,27 +666,32 @@ class TimeSpan(int):
     # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
     @override
     def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__gt__(_span_nanoseconds(rhs))
+        return int(self) > _span_operand(rhs)
 
     @override
     def __ge__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__ge__(_span_nanoseconds(rhs))
+        return int(self) >= _span_operand(rhs)
 
     @override
     def __lt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__lt__(_span_nanoseconds(rhs))
+        return int(self) < _span_operand(rhs)
 
     @override
     def __le__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__le__(_span_nanoseconds(rhs))
+        return int(self) <= _span_operand(rhs)
 
     @override
     def __eq__(self, rhs: object) -> bool:
-        if isinstance(rhs, (int, float)):
-            return int(self) == rhs
-        if not isinstance(rhs, (timedelta, np.timedelta64)):
+        if not isinstance(
+            rhs, (int, float, np.integer, np.floating, timedelta, np.timedelta64)
+        ):
             return NotImplemented
-        return super().__eq__(_span_nanoseconds(rhs))
+        return int(self) == _span_operand(rhs)
+
+    @override
+    def __ne__(self, rhs: object) -> bool:
+        eq = self.__eq__(rhs)
+        return eq if eq is NotImplemented else not eq
 
     @override
     def __hash__(self) -> int:
@@ -710,6 +774,7 @@ def _div_toward_zero(a: int, b: int) -> int:
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
+@deprecate_positional("_from", "to")
 def convert_time_units(
     data: np.ndarray, *, _from: TimeSpanUnits, to: TimeSpanUnits
 ) -> np.ndarray:
@@ -718,7 +783,7 @@ def convert_time_units(
     :param data: the numpy array to convert.
     :param _from: the units of the data
     :param to: the units to convert to
-    :return: the data in the new units
+    :returns: the data in the new units
     """
     if _from == "iso":
         data = np.array([datetime.fromisoformat(v).timestamp() for v in data])
@@ -772,6 +837,7 @@ class Rate(float):
         """:returns: the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span).seconds * self)
 
+    @deprecate_positional("density")
     def byte_size(self, time_span: CrudeTimeSpan, *, density: Density) -> Size:
         """:returns: the amount of bytes occupied by the given TimeSpan at this rate
         and the given sample density.
@@ -790,6 +856,7 @@ class Rate(float):
         rate = Fraction(repr(float(self)))
         return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
+    @deprecate_positional("density")
     def size_span(self, size: Size, *, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
         rate and the given sample density."""
@@ -808,6 +875,7 @@ class Rate(float):
         return f"Rate({super().__repr__()} Hz)"
 
     # The float overloads keep the float signature, but a bare number raises TypeError.
+    # An int 0 before a rate is the one exception, so sum() works.
     @overload
     def __add__(self, rhs: Rate) -> Rate: ...
     @overload
@@ -820,7 +888,11 @@ class Rate(float):
         return NotImplemented
 
     @override
-    def __radd__(self, lhs: float) -> NoReturn:
+    def __radd__(self, lhs: float) -> Rate:
+        # sum() starts from the int 0. An empty sum() returns that int, so pass
+        # Rate(0) as the start when the iterable can be empty.
+        if type(lhs) is int and lhs == 0:
+            return self
         raise _operand_error("+", lhs, self)
 
     @overload
@@ -945,6 +1017,7 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
+    @deprecate_positional("delta")
     def overlaps_with(self, tr: TimeRange, *, delta: CrudeTimeSpan = 0) -> bool:
         """:returns: True if the time ranges share at least delta of time. Ranges that
         only touch at a boundary do not overlap.
@@ -1179,8 +1252,6 @@ Size.MB_UNITS = "mb"
 Size.GB = Size(1024) * Size.MB
 Size.GB_UNITS = "gb"
 
-_SizeUnits = ["gb", "mb", "kb", "b"]
-
 
 class DataType(str):
     """DataType represents a data type as a string."""
@@ -1223,6 +1294,8 @@ class DataType(str):
     def _from_sample(value: Any) -> DataType:
         if isinstance(value, str):
             return DataType.STRING
+        if isinstance(value, bytes):
+            return DataType.BYTES
         if isinstance(value, dict):
             return DataType.JSON
         if isinstance(value, TimeStamp):
@@ -1286,7 +1359,7 @@ class DataType(str):
     @property
     def np(self) -> np.dtype:
         """Converts a built-in DataType to a numpy type Scalar Type
-        :return: The numpy type
+        :returns: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
         if not isinstance(npt, np.dtype):
@@ -1383,7 +1456,7 @@ CrudeTimeStamp: TypeAlias = (
     int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64 | str
 )
 CrudeTimeSpan: TypeAlias = (
-    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64 | str
+    int | float | TimeSpan | TimeStamp | Rate | timedelta | np.timedelta64 | str
 )
 _ComparableTimeSpan: TypeAlias = int | float | timedelta
 CrudeRate: TypeAlias = int | float | np.integer | np.floating | TimeSpan | Rate

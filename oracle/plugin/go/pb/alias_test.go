@@ -82,10 +82,9 @@ Edge = base.Edge
 
 var _ = Describe("Go PB aliases", func() {
 	DescribeTable("Should translate a use of an alias as a use of its target",
-		func(ctx SpecContext, use string, expected ...string) {
+		func(use string, expected ...string) {
 			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
 			resp := MustGenerate(
-				ctx,
 				aliasHead+use,
 				"test",
 				loader,
@@ -202,10 +201,8 @@ var _ = Describe("Go PB aliases", func() {
 				status Status<Details>
 			}
 		`,
-			"StatusToPB(r.Status, DetailsToPBAny)",
-			"func DetailsToPBAny(v base.Details) (*anypb.Any, error) {",
-			"pb, err := basepb.DetailsToPB(v)",
-			"var pb basepb.Details",
+			"StatusToPB(r.Status, xpb.ToAny[base.Details])",
+			"StatusFromPB(pb.Status, xpb.FromAny[base.Details])",
 		),
 		Entry("a nested array's element", `
 			Members = Member[]

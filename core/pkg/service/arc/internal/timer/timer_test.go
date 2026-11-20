@@ -28,24 +28,6 @@ var _ = Describe("Now", func() {
 	})
 })
 
-var _ = Describe("Wall", func() {
-	It("Should read the wall clock", func() {
-		Expect(timer.Wall()).To(BeTemporally("~", time.Now(), 20*time.Millisecond))
-	})
-
-	It("Should advance in steps finer than 0.1 ms", func() {
-		start := timer.Wall()
-		var step time.Duration
-		for range 10_000_000 {
-			if step = timer.Wall().Sub(start); step > 0 {
-				break
-			}
-		}
-		Expect(step).To(BeNumerically(">", 0))
-		Expect(step).To(BeNumerically("<", 100*time.Microsecond))
-	})
-})
-
 // Serial, because a spec that spins holds a CPU core, and other specs running at the
 // same time make the lateness that these specs measure.
 var _ = Describe("Timer", Serial, func() {

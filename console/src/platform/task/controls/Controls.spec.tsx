@@ -7,18 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import {
   clickRedeploy,
   createTaskStatus,
   isRedeployHidden,
+  renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
 import { findIconButton, queryIconButton } from "@/testutil";
+
+const path = deep.path<{
+  config: { dataSavingDisabled: boolean; autoStart: boolean };
+}>();
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -35,7 +43,6 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
   configHash: CONFIG_HASH,
   status: createTaskStatus({
     details: {
-      task: "1",
       running: true,
       configHash: overrides.configHash ?? CONFIG_HASH,
       rack: overrides.rack ?? 2,
@@ -44,15 +51,6 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
 });
 
 describe("Controls.Controls", () => {
-  it("should hide the actions when the task is a snapshot", async () => {
-    const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { client, values: { snapshot: true } },
-    );
-    await waitFor(() => expect(screen.getByText("Task not deployed")).toBeTruthy());
-    expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
-  });
-
   it("should invoke onDeploy when the start button is pressed", async () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskFormWithClient(
@@ -73,6 +71,19 @@ describe("Controls.Controls", () => {
     fireEvent.click(await findIconButton(container, "stop"));
     expect(onStop).toHaveBeenCalledTimes(1);
     expect(onDeploy).not.toHaveBeenCalled();
+  });
+
+  it("should keep only stop enabled on a running task while it configures", async () => {
+    const onStop = vi.fn();
+    const { container } = await renderInTaskFormWithClient(
+      <Task.Controls.Controls configuring onDeploy={vi.fn()} onStop={onStop} />,
+      { client, values: runningValues({ configHash: "stale" }) },
+    );
+    await screen.findByText("Configuring task");
+    const redeploy = screen.getByRole("button", { name: "Redeploy" });
+    expect(redeploy.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(await findIconButton(container, "stop"));
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 
   it("should not invoke onDeploy when the task has no key", async () => {
@@ -126,6 +137,17 @@ describe("Controls.Controls", () => {
     expect(isRedeployHidden()).toBe(true);
   });
 
+  it("should show no status for a task that has none", async () => {
+    await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      {
+        values: { key: "1", status: null },
+        schema: z.object({ status: task.statusZ().optional().nullable() }),
+      },
+    );
+    expect(await screen.findByText("No status")).toBeTruthy();
+  });
+
   it("should expand the status on click and contract it on a second click", async () => {
     await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
@@ -152,7 +174,7 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.textContent).toBe("On");
       fireEvent.click(button);
-      expect(form.current?.get("config.dataSavingDisabled").value).toBe(true);
+      expect(form.current?.get(path.config.dataSavingDisabled).value).toBe(true);
       expect(getSetting("Data saving").textContent).toBe("Off");
     });
 
@@ -164,19 +186,19 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Auto start"));
       expect(button.textContent).toBe("Off");
       fireEvent.click(button);
-      expect(form.current?.get("config.autoStart").value).toBe(true);
+      expect(form.current?.get(path.config.autoStart).value).toBe(true);
       expect(getSetting("Auto start").textContent).toBe("On");
     });
 
-    it("should show the settings of a snapshot without letting them change", async () => {
+    it("should show the settings in preview mode without letting them change", async () => {
       const { form } = await renderInTaskFormWithClient(
         <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-        { client, values: { snapshot: true, config: SETTINGS }, mode: "preview" },
+        { client, values: { config: SETTINGS }, mode: "preview" },
       );
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(button);
-      expect(form.current?.get("config.dataSavingDisabled").value).toBe(false);
+      expect(form.current?.get(path.config.dataSavingDisabled).value).toBe(false);
     });
 
     it("should leave out a setting the config does not carry", async () => {

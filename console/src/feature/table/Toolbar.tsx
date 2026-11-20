@@ -25,24 +25,26 @@ import {
   Staleness,
   Table,
 } from "@synnaxlabs/pluto";
-import { deep, type text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { type z } from "zod";
+import { deep, type text, TimeSpan } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
+import type { z } from "zod";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { MultiEdit } from "@/platform/multiedit";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
+
+const path = deep.path<{ variant: Table.Cell.Variant }>();
 
 const Internal = (): ReactElement => {
   const key = Table.useKey();
   const name = Table.useName();
   const editable = Session.Table.useSelectEditable();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   const canEdit = hasUpdatePermission && editable;
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
   const cellsByKey = Table.useCells({ cellKeys: selectedCellKeys });
@@ -79,8 +81,8 @@ const Internal = (): ReactElement => {
           )}
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
-          <Export.ToolbarButton id={table.ontologyID(key)} />
-          <Core.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
+          <Export.ToolbarButton id={table.resourceID(key)} />
+          <Core.CopyLinkToolbarButton name={name} resourceID={table.resourceID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
@@ -167,11 +169,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement => {
   const handleTabChange = (tab: Properties.TabKey) =>
     sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
   const { form } = Table.useCellForm({ cellKey });
-  const variant = Form.useFieldValue<
-    Table.Cell.Variant,
-    Table.Cell.Variant,
-    typeof Table.Cell.configZ
-  >("variant", { ctx: form });
+  const variant = Form.useFieldValue(path.variant, { ctx: form });
   const C = Table.Cell.REGISTRY[variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...form}>
@@ -193,7 +191,7 @@ interface NotEditableContentProps {
 const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => {
   const key = Table.useKey();
   const dispatch = Session.useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   return (
     <Empty.Action
       message={`${name} is not editable`}
@@ -215,6 +213,7 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Table.useCells({ cellKeys });
   const dispatch = Table.useSingleDispatch();
+  const setChanged = Table.useSetChanged();
   const theme = Theming.use();
 
   // One dispatch per change so undo collapses to one step.
@@ -223,8 +222,12 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     fields: FIELDS,
     onChange: (updates) =>
       dispatch(
-        updates.flatMap(({ key, base, next }) =>
-          table.setChanged({ key, base, next: Table.Cell.configZ.parse(next) }),
+        setChanged(
+          updates.map(({ key, base, next }) => ({
+            key,
+            base,
+            next: Table.Cell.configZ.parse(next),
+          })),
         ),
       ),
   });
@@ -270,6 +273,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
             Staleness.resolveColor(undefined, theme),
           )}
           timeout={selection.first("stalenessTimeout")}
+          unit={TimeSpan.SECOND}
           onColorChange={(c) => selection.set("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
         />

@@ -12,7 +12,10 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "time",
-    hdrs = ["time.h"],
+    hdrs = [
+        "strftime.h",
+        "time.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
@@ -20,8 +23,11 @@ cc_library(
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
+        "//arc/cpp/stl/strings:state",
+        "//x/cpp/date",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "//x/cpp/tz",
     ],
 )
 
@@ -33,13 +39,16 @@ cc_test(
         ":time",
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/testutil:compile",
+        "//arc/cpp/stl/strings:state",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/mem",
         "//x/cpp/testutil",
+        "//x/cpp/thread/rt",
         "@googletest//:gtest_main",
     ],
 )

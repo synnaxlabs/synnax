@@ -12,8 +12,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 
-import { InputShowcaseText } from "./InputShowcase";
-import { SubcategorySection } from "./SubcategorySection";
+import { InputShowcaseText } from "@/showcase/InputShowcase";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 const INPUT_PLACEHOLDER = (
   <>

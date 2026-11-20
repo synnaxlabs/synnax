@@ -27,14 +27,56 @@ import (
 	"go.uber.org/zap"
 )
 
-func BindTo(f *fiber.App) error {
-	router, err := http.NewRouter(http.RouterConfig{
-		Instrumentation:     testutil.Instrumentation("freighter-integration"),
+// BindTo binds the integration endpoints to f. Streams end when life ends.
+func BindTo(life context.Context, f *fiber.App) error {
+	router, err := http.NewRouter(life, http.RouterConfig{
+		Instrumentation: testutil.Instrumentation("freighter-integration"),
+		Errors: errors.NewCodec(
+			freighter.ErrorProvider(),
+			errorProvider(),
+		),
 		StreamWriteDeadline: 50 * time.Millisecond,
 	})
 	if err != nil {
 		return err
 	}
+	bindStreamServers(router)
+	bindUnaryServers(router)
+	bindMiddlewareServers(router)
+
+	timeouts := newSeen()
+	streamSlamMessagesServer := router.NewStreamServer[message, message](
+		"/stream/slamMessages",
+	)
+	streamSlamMessagesServer.BindHandler(streamSlamMessages(timeouts))
+	slamMessagesTimeoutCheck := router.NewUnaryServer[message, message](
+		"/unary/slamMessagesTimeoutCheck",
+	)
+	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler(timeouts))
+
+	streamEventuallyResponseWithMessageServer := router.NewStreamServer[message, message](
+		"/stream/eventuallyResponseWithMessage",
+	)
+	streamEventuallyResponseWithMessageServer.BindHandler(
+		streamEventuallyResponseWithMessage,
+	)
+
+	// Uncompressed, so the body leaves the server before the encoder fails.
+	unaryTruncatedServer := router.NewUnaryServer[message, message](
+		"/unary/truncated",
+		http.WithResponseEncoders(truncatingEncoder{}),
+		http.WithStreamingResponse(),
+	)
+	unaryTruncatedServer.BindHandler(
+		func(_ context.Context, req message) (message, error) { return req, nil },
+	)
+
+	router.BindTo(f)
+	bindRawRoutes(f)
+	return nil
+}
+
+func bindStreamServers(router *http.Router) {
 	echoServer := router.NewStreamServer[message, message]("/stream/echo")
 	echoServer.BindHandler(streamEcho)
 
@@ -64,13 +106,17 @@ func BindTo(f *fiber.App) error {
 		"/stream/respondWithTenMessages",
 	)
 	streamRespondWithTenMessagesServer.BindHandler(streamRespondWithTenMessages)
+}
 
+func bindUnaryServers(router *http.Router) {
 	unaryGetEchoServer := router.NewUnaryServer[message, message]("/unary/echo")
 	unaryGetEchoServer.BindHandler(unaryEcho)
 
 	unaryParamEchoServer := router.NewUnaryServer[message, message]("/unary/paramEcho")
 	unaryParamEchoServer.BindHandler(unaryParamEcho)
+}
 
+func bindMiddlewareServers(router *http.Router) {
 	unaryMiddlewareCheckServer := router.NewUnaryServer[message, message](
 		"/unary/middlewareCheck",
 	)
@@ -82,40 +128,14 @@ func BindTo(f *fiber.App) error {
 	)
 	streamMiddlewareCheckServer.BindHandler(streamEcho)
 	streamMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
+}
 
-	streamSlamMessagesServer := router.NewStreamServer[message, message](
-		"/stream/slamMessages",
-	)
-	streamSlamMessagesServer.BindHandler(streamSlamMessages)
-	slamMessagesTimeoutCheck := router.NewUnaryServer[message, message](
-		"/unary/slamMessagesTimeoutCheck",
-	)
-	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler)
-
-	streamEventuallyResponseWithMessageServer := router.NewStreamServer[message, message](
-		"/stream/eventuallyResponseWithMessage",
-	)
-	streamEventuallyResponseWithMessageServer.BindHandler(
-		streamEventuallyResponseWithMessage,
-	)
-
-	// Uncompressed, so the body leaves the server before the encoder fails.
-	unaryTruncatedServer := router.NewUnaryServer[message, message](
-		"/unary/truncated",
-		http.WithResponseEncoders(truncatingEncoder{}),
-		http.WithStreamingResponse(),
-	)
-	unaryTruncatedServer.BindHandler(
-		func(_ context.Context, req message) (message, error) { return req, nil },
-	)
-
-	router.BindTo(f)
-
+func bindRawRoutes(f *fiber.App) {
 	// Bound as a raw fiber route rather than a freighter unary server because freighter
 	// maps every handler error to 400, and this endpoint needs to return 503 to model a
 	// transient, retryable transport failure (a 400 validation error would not, and
 	// must not, be retried).
-	f.Post("/unary/flakyUnavailable", flakyUnavailable)
+	f.Post("/unary/flakyUnavailable", flakyUnavailable(newSeen()))
 
 	// Bound as a raw fiber route so it can return a 200 with a genuinely empty body,
 	// which a freighter unary server would never produce; lets clients verify they
@@ -124,8 +144,6 @@ func BindTo(f *fiber.App) error {
 		c.Status(fiber.StatusOK)
 		return nil
 	})
-
-	return nil
 }
 
 // truncatingEncoder writes the message once per unit of its ID, then fails. It lets
@@ -134,11 +152,11 @@ type truncatingEncoder struct{}
 
 func (truncatingEncoder) ContentType() string { return "application/x-truncated" }
 
-func (truncatingEncoder) Encode(context.Context, any) ([]byte, error) {
+func (truncatingEncoder) Encode(any) ([]byte, error) {
 	return nil, errors.New("truncating encoder only streams")
 }
 
-func (truncatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+func (truncatingEncoder) EncodeStream(w io.Writer, v any) error {
 	msg, ok := v.(message)
 	if !ok {
 		return errors.Newf("truncating encoder cannot encode %T", v)
@@ -183,10 +201,30 @@ func unaryParamEcho(ctx context.Context, req message) (message, error) {
 	return message{Message: strings.Join(values, "|")}, nil
 }
 
-var (
-	flakyMu   sync.Mutex
-	flakySeen = set.New[string]()
-)
+// seen records the messages that a handler has seen, across requests.
+type seen struct {
+	mu       sync.Mutex
+	messages set.Set[string]
+}
+
+func newSeen() *seen { return &seen{messages: set.New[string]()} }
+
+// add records msg and returns true if it was not recorded yet.
+func (s *seen) add(msg string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.messages.Contains(msg) {
+		return false
+	}
+	s.messages.Add(msg)
+	return true
+}
+
+func (s *seen) contains(msg string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.messages.Contains(msg)
+}
 
 // flakyUnavailable responds with 503 Service Unavailable the first time it sees a given
 // message, then echoes nominally on every subsequent request for that message. A 503
@@ -194,27 +232,26 @@ var (
 // (unlike a validation error), so it lets clients exercise retry behavior
 // deterministically: a caller that retries recovers on the second attempt, while a
 // caller that does not retry surfaces the 503.
-func flakyUnavailable(c fiber.Ctx) error {
-	var req message
-	if err := json.Unmarshal(c.Body(), &req); err != nil {
-		return err
+func flakyUnavailable(flaky *seen) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		var req message
+		if err := json.Unmarshal(c.Body(), &req); err != nil {
+			return err
+		}
+		c.Set(fiber.HeaderContentType, "application/json")
+		if flaky.add(req.Message) {
+			c.Status(fiber.StatusServiceUnavailable)
+			return c.SendString(
+				`{"type":"integration.error","data":"1,transient unavailable"}`,
+			)
+		}
+		req.ID++
+		body, err := json.Marshal(req)
+		if err != nil {
+			return err
+		}
+		return c.Send(body)
 	}
-	c.Set(fiber.HeaderContentType, "application/json")
-	flakyMu.Lock()
-	defer flakyMu.Unlock()
-	if !flakySeen.Contains(req.Message) {
-		flakySeen.Add(req.Message)
-		c.Status(fiber.StatusServiceUnavailable)
-		return c.SendString(
-			`{"type":"integration.error","data":"1,transient unavailable"}`,
-		)
-	}
-	req.ID++
-	body, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	return c.Send(body)
 }
 
 func streamEcho(_ context.Context, stream serverStream) error {
@@ -239,25 +276,22 @@ func streamRespondWithTenMessages(_ context.Context, stream serverStream) error 
 	return nil
 }
 
-var (
-	timeoutMu sync.Mutex
-	timeouts  = set.New[string]()
-)
-
-func streamSlamMessages(_ context.Context, stream serverStream) error {
-	msg, err := stream.Receive()
-	if err != nil {
-		return err
-	}
-	for i := range 1_000_000 {
-		if err := stream.Send(message{Message: "hello", ID: i}); err != nil {
-			timeoutMu.Lock()
-			timeouts.Add(msg.Message)
-			timeoutMu.Unlock()
+func streamSlamMessages(
+	timeouts *seen,
+) func(context.Context, serverStream) error {
+	return func(_ context.Context, stream serverStream) error {
+		msg, err := stream.Receive()
+		if err != nil {
 			return err
 		}
+		for i := range 1_000_000 {
+			if err := stream.Send(message{Message: "hello", ID: i}); err != nil {
+				timeouts.add(msg.Message)
+				return err
+			}
+		}
+		return nil
 	}
-	return nil
 }
 
 func streamEventuallyResponseWithMessage(_ context.Context, stream serverStream) error {
@@ -269,19 +303,21 @@ func streamEventuallyResponseWithMessage(_ context.Context, stream serverStream)
 	return stream.Send(message{Message: "hello", ID: 1})
 }
 
-func slamMessagesTimeoutCheckHandler(_ context.Context, msg message) (message, error) {
-	timeoutMu.Lock()
-	defer timeoutMu.Unlock()
-	if timeouts.Contains(msg.Message) {
-		return message{Message: "timeout"}, nil
+func slamMessagesTimeoutCheckHandler(
+	timeouts *seen,
+) func(context.Context, message) (message, error) {
+	return func(_ context.Context, msg message) (message, error) {
+		if timeouts.contains(msg.Message) {
+			return message{Message: "timeout"}, nil
+		}
+		return message{Message: "success"}, nil
 	}
-	return message{Message: "success"}, nil
 }
 
 func streamSendMessageAfterClientClose(_ context.Context, stream serverStream) error {
 	for {
 		msg, err := stream.Receive()
-		if errors.Is(err, freighter.EOF) {
+		if errors.Is(err, io.EOF) {
 			return stream.Send(message{Message: "Close Acknowledged"})
 		}
 		if err != nil {

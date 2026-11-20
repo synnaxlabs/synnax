@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore } from "@reduxjs/toolkit";
-import { type panel } from "@synnaxlabs/client";
+import { combineReducers } from "@reduxjs/toolkit";
+import type { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { deep, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
+import { createMinimalStore } from "@/testutil";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
@@ -23,7 +24,7 @@ const rootReducer = combineReducers({
 type TestState = ReturnType<typeof rootReducer>;
 
 const createStore = () =>
-  configureStore({
+  createMinimalStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
   });
@@ -105,6 +106,20 @@ describe("Panel Slice", () => {
     it("should record selected panels most recently selected first", () => {
       const state = selectAll(KEYS[0], KEYS[1], KEYS[2]);
       expect(mounted(state)).toEqual([KEYS[2], KEYS[1], KEYS[0]]);
+    });
+
+    it("should keep a hydrated selection mounted once the window leaves it", () => {
+      let hydrated = run(Panel.select({ key: KEYS[0] }));
+      Panel.PERSIST_EXCLUDE.forEach(
+        (exclude) => (hydrated = exclude(deep.copy(hydrated))),
+      );
+      const store = createMinimalStore({
+        reducer: rootReducer,
+        preloadedState: { [Panel.SLICE_NAME]: hydrated[Panel.SLICE_NAME] },
+        middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
+      });
+      store.dispatch(Panel.select({ key: KEYS[1] }));
+      expect(mounted(store.getState())).toEqual([KEYS[1], KEYS[0]]);
     });
 
     it("should move a reselected panel back to the front without duplicating it", () => {
@@ -240,7 +255,7 @@ describe("Panel Slice", () => {
     });
 
     it("should leave a no-op re-selection referentially unchanged", () => {
-      const store = configureStore({
+      const store = createMinimalStore({
         reducer: rootReducer,
         middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
       });
@@ -415,7 +430,7 @@ describe("Panel Slice", () => {
     // Cross-window echoes of the action re-apply against already-converged state, so
     // an in-invariant selection must not churn its reference.
     it("should leave a consistent selection referentially unchanged", () => {
-      const store = configureStore({
+      const store = createMinimalStore({
         reducer: rootReducer,
         middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
       });

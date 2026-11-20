@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	// TimeStampMin represents the minimum value for a TimeStamp
+	// TimeStampMin represents the minimum value for a TimeStamp.
 	TimeStampMin TimeStamp = versions.TimeStampMin
-	// TimeStampMax represents the maximum value for a TimeStamp
+	// TimeStampMax represents the maximum value for a TimeStamp.
 	TimeStampMax TimeStamp = versions.TimeStampMax
 	// NanosecondTS is a TimeStamp 1 nanosecond after the unix epoch.
 	NanosecondTS TimeStamp = versions.NanosecondTS
@@ -35,9 +35,6 @@ const (
 	// DayTS is a TimeStamp 1 day after the unix epoch.
 	DayTS TimeStamp = versions.DayTS
 )
-
-// Now returns the current time as a TimeStamp.
-func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }

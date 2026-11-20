@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -59,7 +59,7 @@ export const Indicator = ({
   let parsedColor: color.Crude;
   if (status.details?.color != null)
     parsedColor = color.colorZ.parse(status.details.color);
-  else if (colorVal != null && !color.isZero(colorVal)) parsedColor = colorVal;
+  else if (colorVal != null) parsedColor = colorVal;
   else parsedColor = "var(--pluto-gray-l10)";
   const cssColor = color.cssString(parsedColor);
   const style = { [INDICATOR_COLOR]: cssColor };

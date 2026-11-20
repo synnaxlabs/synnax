@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 export interface MenuProps extends PropsWithChildren {}
 
@@ -20,5 +20,5 @@ export interface MenuProps extends PropsWithChildren {}
  * dividers next to nothing hide themselves.
  */
 export const Menu = (props: MenuProps): ReactElement => (
-  <PMenu.Menu {...props} level="small" gap="small" />
+  <PMenu.Menu {...props} gap="small" />
 );

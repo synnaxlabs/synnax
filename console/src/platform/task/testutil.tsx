@@ -19,13 +19,14 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -41,39 +42,40 @@ import {
   type ReactElement,
   useImperativeHandle,
 } from "react";
-import { onTestFinished } from "vitest";
-import { type z } from "zod";
+import { expect, onTestFinished } from "vitest";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
-import { type FormTabProps } from "@/platform/task/Form";
-import { type CreateParams, type UseCreate } from "@/platform/task/useCreate";
+import type { FormTabProps } from "@/platform/task/Form";
+import type { PlotChannels } from "@/platform/task/plot";
+import { type Registry, RegistryProvider } from "@/platform/task/registry";
+import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
 import { Session } from "@/session";
 import {
-  assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
   createTestClientWithGrants,
   createTestStore,
   findDialogTriggerByText,
+  HaulProvider,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
   type RenderWithConsoleOptions,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const defaultClient = createTestClient();
 
 const TASK_FORM_READS = [
-  task.TYPE_ONTOLOGY_ID,
-  device.TYPE_ONTOLOGY_ID,
-  rack.TYPE_ONTOLOGY_ID,
-  channel.TYPE_ONTOLOGY_ID,
-  panel.TYPE_ONTOLOGY_ID,
-  project.TYPE_ONTOLOGY_ID,
-  group.TYPE_ONTOLOGY_ID,
+  task.TYPE_RESOURCE_ID,
+  device.TYPE_RESOURCE_ID,
+  rack.TYPE_RESOURCE_ID,
+  channel.TYPE_RESOURCE_ID,
+  panel.TYPE_RESOURCE_ID,
+  project.TYPE_RESOURCE_ID,
+  group.TYPE_RESOURCE_ID,
 ];
 
 /**
@@ -83,7 +85,7 @@ const TASK_FORM_READS = [
 export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
   await createTestClientWithGrants(client, {
     retrieve: TASK_FORM_READS,
-    update: [task.TYPE_ONTOLOGY_ID],
+    update: [task.TYPE_RESOURCE_ID],
   });
 
 /**
@@ -97,43 +99,65 @@ export type TaskFormValues = Record<string, unknown>;
 
 export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
+const TASK_ICON = <Icon.Task />;
+
+/** Creates a task registry that plots the channels of the given task types. */
+export const createRegistry = (
+  plotChannels: Record<string, PlotChannels> = {},
+): Registry => ({
+  getIcon: () => TASK_ICON,
+  parseType: (type) => type,
+  getPlotChannels: (type) => plotChannels[type],
+});
+
+const DEFAULT_REGISTRY = createRegistry();
+
 /**
  * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
- * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning,
- * useIsSnapshot) be exercised in isolation without mounting the full task Form UI.
+ * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
+ * exercised in isolation without mounting the full task Form UI.
  */
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
+  schema?: z.ZodType,
 ) => {
   const useHarness = () => {
-    const ctx = PForm.use<z.ZodType>({ values });
+    const ctx = PForm.use<z.ZodType>({ values, schema });
     return { ctx, value: useValue(ctx) };
   };
   return await renderHookWithConsole(useHarness);
 };
 
-export interface TaskFormProviderProps extends PropsWithChildren {
+interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;
   mode?: PForm.Mode;
   formRef?: FormRef;
+  /** Field schemas the form reads through, such as an optional field. */
+  schema?: z.ZodType;
+  /** The task registry; one that plots no task type by default. */
+  registry?: Registry;
 }
 
 /**
- * Provides a real pluto Form context to its children so ambient form-context task hooks
- * (e.g. useTare, which reads the "key" and "status" fields without an explicit ctx) can
- * be rendered against seeded form values. When `formRef` is provided, the live form
- * context is exposed through it for reading/writing form state in specs.
+ * Gives its children a real form with the values and a task registry. The form is
+ * exposed through formRef if given.
  */
-export const TaskFormProvider = ({
+const TaskFormProvider = ({
   values,
   mode,
   formRef,
+  schema,
+  registry = DEFAULT_REGISTRY,
   children,
 }: TaskFormProviderProps): ReactElement => {
-  const ctx = PForm.use<z.ZodType>({ values, mode });
+  const ctx = PForm.use<z.ZodType>({ values, mode, schema });
   useImperativeHandle(formRef, () => ctx, [ctx]);
-  return <PForm.Form {...ctx}>{children}</PForm.Form>;
+  return (
+    <RegistryProvider registry={registry}>
+      <PForm.Form {...ctx}>{children}</PForm.Form>
+    </RegistryProvider>
+  );
 };
 TaskFormProvider.displayName = "TaskFormProvider";
 
@@ -155,9 +179,9 @@ export const createTaskStatus = (
     message: "Running smoothly",
     description: "",
     time: TimeStamp.now(),
+    labels: [],
     ...rest,
     details: {
-      task: "0",
       running: false,
       cmd: "",
       configHash: "",
@@ -175,8 +199,8 @@ export const createTaskStatus = (
 const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
+  type: "test",
   rack: 0,
-  snapshot: false,
   configHash: "",
   status: createTaskStatus({
     variant: "disabled",
@@ -209,10 +233,10 @@ export const createSelectedPanel = async (
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
-  await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+  await client.panels.create({ ...doc, project: await createPanelProject(client) });
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
-  onTestFinished(client.panels.onChange(doc.key, () => {}));
+  onTestFinished(client.panels.watch(doc.key).onChange(() => {}));
   await client.panels.retrieve(doc.key);
   act(() => {
     store.dispatch(
@@ -232,7 +256,7 @@ export const awaitTaskResourceTab = async ({
   panelKey,
 }: CreatedPanel): Promise<task.Key> =>
   await waitFor(() => {
-    const cached = client.panels.getCached(panelKey);
+    const cached = client.panels.watch(panelKey).getCached();
     if (!query.isLive(cached)) throw new Error("panel doc not found");
     const doc = cached;
     const tabs: panel.Tab[] = [];
@@ -245,7 +269,7 @@ export const awaitTaskResourceTab = async ({
     };
     visit(doc.root);
     const match = tabs.find(
-      (t) => t.variant === "resource" && t.resource.type === task.TYPE_ONTOLOGY_ID.type,
+      (t) => t.variant === "resource" && t.resource.type === task.TYPE_RESOURCE_ID.type,
     );
     if (match == null || match.variant !== "resource")
       throw new Error("task resource tab not found");
@@ -272,7 +296,8 @@ export const createWithHook = async <S extends task.Schemas>(
   return await defaultClient.tasks.retrieve({ key, schemas });
 };
 
-export interface RenderInTaskFormOptions extends RenderWithConsoleOptions {
+export interface RenderInTaskFormOptions
+  extends RenderWithConsoleOptions, Pick<TaskFormProviderProps, "schema" | "registry"> {
   values?: TaskFormValues;
   mode?: PForm.Mode;
 }
@@ -311,7 +336,7 @@ export const renderInTaskForm = async (
   ui: ReactElement,
   options: RenderInTaskFormOptions = {},
 ): Promise<RenderInTaskFormResult> => {
-  const { values, mode, ...rest } = options;
+  const { values, mode, schema, registry, ...rest } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
   const merged: TaskFormValues = {
@@ -322,7 +347,13 @@ export const renderInTaskForm = async (
   const tabKey = uuid.create();
   const result = await renderWithConsole(
     <PanelScopes panelKey={uuid.create()} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+      <TaskFormProvider
+        values={merged}
+        mode={mode}
+        formRef={formRef}
+        schema={schema}
+        registry={registry}
+      >
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -350,7 +381,16 @@ export const renderInTaskFormWithClient = async (
   ui: ReactElement,
   options: RenderInTaskFormWithClientOptions = {},
 ): Promise<RenderInTaskFormWithClientResult> => {
-  const { client = null, values, mode, preloadedState, store, ...rest } = options;
+  const {
+    client = null,
+    values,
+    mode,
+    schema,
+    registry,
+    preloadedState,
+    store,
+    ...rest
+  } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
   const merged: TaskFormValues = {
@@ -367,7 +407,13 @@ export const renderInTaskFormWithClient = async (
   const tabKey = uuid.create();
   const result = await renderSuspended(
     <PanelScopes panelKey={panelKey} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+      <TaskFormProvider
+        values={merged}
+        mode={mode}
+        formRef={formRef}
+        schema={schema}
+        registry={registry}
+      >
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -401,9 +447,9 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
- * whose single leaf holds a resource tab for the task, then mounts the form inside
- * the panel and tab scopes within the full console provider stack. A modal stack
- * renders beside the panel, as in a window, so dialogs the form opens mount.
+ * whose single leaf holds a resource tab for the task, then mounts the form inside the
+ * panel and tab scopes within the full console provider stack. The drag and drop
+ * provider and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -420,24 +466,26 @@ export const renderTaskFormTab = async (
   const tab: panel.Tab = {
     variant: "resource",
     key: uuid.create(),
-    resource: task.ontologyID(taskKey),
+    resource: task.resourceID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
   if (as !== client) {
     // The panel scopes resolve against the rendering client's cache, so prime it
     // the same way createSelectedPanel primes the creating client's.
-    onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+    onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <Haul.Provider>
-        <Modals.Stack />
-        <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-          <Form taskKey={taskKey} />
-          {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-        </PanelScopes>
-      </Haul.Provider>
+      <RegistryProvider registry={DEFAULT_REGISTRY}>
+        <HaulProvider>
+          <Modals.Stack />
+          <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+            <Form taskKey={taskKey} />
+            {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+          </PanelScopes>
+        </HaulProvider>
+      </RegistryProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );
@@ -471,6 +519,24 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
 };
 
 /**
+ * Clicks Start on a task that cannot start, then waits until Start is enabled again, so
+ * a toast that the start raised has shown.
+ */
+export const clickFailedDeploy = async (container: HTMLElement): Promise<void> => {
+  await clickDeploy(container);
+  await waitFor(() => {
+    const b = within(container).getByRole("button", { name: "Start" });
+    if (b.getAttribute("aria-disabled") === "true") throw new Error("still starting");
+  });
+  await act(async () => {});
+};
+
+/** Matches the toast of a start that failed. */
+export const START_FAILURE = expect.objectContaining({
+  message: "Failed to start task",
+});
+
+/**
  * Finds the channel list row showing the text, such as a port or a channel name. The
  * details header for the selected channel shows the same text, so a plain text query is
  * ambiguous.
@@ -483,6 +549,28 @@ export const findChannelListItem = async (text: string): Promise<HTMLElement> =>
     assertDefined(match, `channel list item showing "${text}" not found`);
     return match;
   });
+
+/** Finds the note under the channel list that shows the message, and its variant. */
+export const findChannelListNote = async (
+  message: string,
+): Promise<{ note: HTMLElement; variant?: "error" | "warning" | "info" }> => {
+  const text = await screen.findByText(message);
+  const note = text.closest<HTMLElement>(".console-channel-list__status");
+  assertDefined(note, `channel list note showing "${message}" not found`);
+  const variant = (["error", "warning", "info"] as const).find((v) =>
+    note.classList.contains(`lyra--${v}`),
+  );
+  return { note, variant };
+};
+
+/** @returns the status that a channel list item shows, or undefined for none. */
+export const getChannelItemStatus = (
+  item: HTMLElement,
+): "error" | "warning" | undefined => {
+  if (item.classList.contains("console-channel-item--error")) return "error";
+  if (item.classList.contains("console-channel-item--warning")) return "warning";
+  return undefined;
+};
 
 /**
  * Opens the dialog select whose trigger currently shows triggerText and clicks the
@@ -529,6 +617,24 @@ export const awaitCommand = async (
 };
 
 /**
+ * Runs the action, then resolves with the arguments of the tare command that it sends
+ * to the task.
+ */
+export const awaitTare = async (
+  client: Client,
+  taskKey: task.Key,
+  action: () => Promise<void>,
+): Promise<unknown> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await action();
+    return (await awaitCommand(streamer, taskKey, "tare")).args;
+  } finally {
+    streamer.close();
+  }
+};
+
+/**
  * Clicks the form's deploy button, waits for the resulting start command, then returns
  * the persisted task. The streamer opens before the click because deploy saves the task
  * and issues the command in one pass.
@@ -560,8 +666,8 @@ export const reportTaskRunning = async (
 ): Promise<void> => {
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(tsk.key),
-      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+      owner: task.resourceID(tsk.key),
+      details: { running: true, configHash, rack: tsk.rack },
     }),
   );
 };
@@ -575,13 +681,13 @@ export const reportTaskStopped = async (
   client: Client,
   tsk: task.Payload,
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(tsk.key),
       message: "Task stopped",
-      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+      details: { running: false, configHash: tsk.configHash },
     }),
-  });
+  );
 };
 
 export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"> {
@@ -592,6 +698,25 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
 }
 
 /**
+ * Answers cmd as a Driver does, with a success status unless answer overrides its
+ * fields.
+ */
+export const answerCommand = async (
+  client: Client,
+  tsk: task.Task,
+  cmd: task.Command,
+  { data, ...answer }: Omit<CommandAnswer, "type"> = {},
+): Promise<void> => {
+  await client.statuses.set(
+    createTaskStatus({
+      ...answer,
+      owner: task.resourceID(tsk.key),
+      details: { cmd: cmd.key, rack: tsk.rack, data },
+    }),
+  );
+};
+
+/**
  * Answers the next command sent to the task as a Driver does, with a success status
  * unless answer overrides its fields. Specs run without a Driver, so a caller that
  * waits for the answer otherwise times out. Resolves once it listens, with a promise
@@ -600,25 +725,56 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
 export const answerNextCommand = async (
   client: Client,
   tsk: task.Task,
-  { type, data, ...answer }: CommandAnswer = {},
+  { type, ...answer }: CommandAnswer = {},
 ): Promise<{ answered: Promise<task.Command> }> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
   const respond = async (): Promise<task.Command> => {
     try {
       const cmd = await awaitCommand(streamer, tsk.key, type);
-      await client.tasks.create({
-        ...tsk.payload,
-        status: createTaskStatus({
-          ...answer,
-          details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
-        }),
-      });
+      await answerCommand(client, tsk, cmd, answer);
       return cmd;
     } finally {
       streamer.close();
     }
   };
   return { answered: respond() };
+};
+
+/**
+ * Answers each command sent to the tasks as a Driver does, with the answer that answers
+ * holds for its type, else a success status. Resolves once it listens, with a promise
+ * that resolves with the commands once it answers one of the type last. Rejects after
+ * 10 seconds without one.
+ */
+export const answerCommandsUntil = async (
+  client: Client,
+  tasks: task.Task[],
+  last: string,
+  answers: Record<string, Omit<CommandAnswer, "type">> = {},
+): Promise<{ answered: Promise<task.Command[]> }> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  const respond = async (): Promise<task.Command[]> => {
+    const commands: task.Command[] = [];
+    for (;;) {
+      const frame = await streamer.read();
+      for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+        const cmd = task.commandZ.parse(sample);
+        const tsk = tasks.find((t) => t.key === cmd.task);
+        if (tsk == null) continue;
+        commands.push(cmd);
+        await answerCommand(client, tsk, cmd, answers[cmd.type]);
+        if (cmd.type === last) return commands;
+      }
+    }
+  };
+  const answered = sync
+    .withTimeout(
+      respond(),
+      TimeSpan.seconds(10),
+      () => new Error(`no ${last} command received within 10s`),
+    )
+    .finally(() => streamer.close());
+  return { answered };
 };
 
 /** Finds the single text input rendered by a task form field. */

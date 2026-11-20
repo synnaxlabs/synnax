@@ -10,7 +10,6 @@
 version: v2
 modules:
   - includes:
-      - aspen
       - core
       - freighter/go
       - freighter/integration

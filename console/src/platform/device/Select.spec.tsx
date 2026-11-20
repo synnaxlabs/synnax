@@ -7,32 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger, uniqueName } from "@/testutil";
+import { findDialogTrigger } from "@/testutil";
+
+const path = deep.path<{ rack: number }>();
 
 const client = createTestClient();
 
 const RackProbe = (): ReactElement => {
-  const value = Form.useFieldValue<number>("rack", { optional: true });
+  const value = Form.useFieldValue(path.rack, { optional: true });
   return <div>{`rack:${value ?? "none"}`}</div>;
 };
 RackProbe.displayName = "RackProbe";
 
-const renderSelect = async (
-  props: Device.SelectProps,
-): ReturnType<typeof renderWithDeviceForm> =>
+const DEVICE_ICON = <Icon.Device />;
+
+const renderSelect = async ({
+  icon = DEVICE_ICON,
+  ...props
+}: Omit<Device.SelectProps, "icon"> &
+  Partial<Pick<Device.SelectProps, "icon">>): ReturnType<typeof renderWithDeviceForm> =>
   await renderWithDeviceForm(
     <>
-      <Device.Select {...props} />
+      <Device.Select icon={icon} {...props} />
       <RackProbe />
       <Modals.Stack />
     </>,
@@ -55,6 +64,17 @@ describe("Device.Select", () => {
     const trigger = await findDialogTrigger();
     expect(trigger.textContent).toContain(dev.name);
     expect(onConfigure).not.toHaveBeenCalled();
+  });
+
+  it("should run onChange with the key of the selected device", async () => {
+    const make = uniqueName("make");
+    const dev = await createTestDevice(client, { make, configured: true });
+    const onChange = vi.fn();
+    await renderSelect({ make, onConfigure: vi.fn(), onChange });
+    await openAndClick(dev.name);
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(dev.key, expect.anything()),
+    );
   });
 
   it("should call onConfigure with the device key when an unconfigured device is selected", async () => {
@@ -100,6 +120,16 @@ describe("Device.Select", () => {
     await waitFor(() => expect(screen.getByText(`rack:${dev.rack}`)).toBeTruthy());
     const trigger = await findDialogTrigger();
     await waitFor(() => expect(trigger.textContent).toContain(dev.name));
+  });
+
+  it("should show its icon in the trigger", async () => {
+    await renderSelect({
+      make: uniqueName("make"),
+      icon: <Icon.Logo.Modbus />,
+      onConfigure: vi.fn(),
+    });
+    const trigger = await findDialogTrigger();
+    expect(trigger.querySelector(".lyra-icon--logo-modbus")).not.toBeNull();
   });
 
   it("should show the empty content when no devices match the make", async () => {

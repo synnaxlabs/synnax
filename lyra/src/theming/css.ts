@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
-import { type theme } from "@/theme";
+import type { theme } from "@/theme";
 
 const OPACITIES: readonly number[] = [
   95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5,
@@ -85,13 +85,16 @@ export const toCSSVars = (
     "black-rgb": color.rgbString(theme.colors.black),
     "text-color": color.hex(theme.colors.text),
     "text-color-rgb": color.rgbString(theme.colors.text),
-    "text-disabled": color.hex(color.setAlpha(theme.colors.gray.l9, 0.45)),
-    "text-placeholder": color.hex(color.setAlpha(theme.colors.gray.l9, 0.65)),
+    "text-disabled": color.hex(color.setOpacity(theme.colors.gray.l9, 0.45)),
+    "text-placeholder": color.hex(color.setOpacity(theme.colors.gray.l9, 0.65)),
     "text-on-primary": color.hex(theme.colors.textOnPrimary),
     "text-on-warning": color.hex(theme.colors.textOnWarning),
     "primary-text": color.hex(theme.colors.primaryText),
     "error-text": color.hex(theme.colors.errorText),
     "warning-text": color.hex(theme.colors.warningText),
+    "auto-z": color.hex(theme.colors.auto),
+    ...CSS.createHexOpacityVariants("auto-z", theme.colors.auto, OPACITIES),
+    "auto-text": color.hex(theme.colors.autoText),
     "border-color": color.hex(theme.colors.border),
     "base-size": CSS.unitProperty(theme.sizes.base, "px"),
     "border-radius": `var(${CSS.variable(`${addPrefix}border-radius-tiny`)})`,

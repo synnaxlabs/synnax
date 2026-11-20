@@ -79,21 +79,18 @@ def _assert_driver_rejects_value(
     index_keys = list({ch.index for ch in channels if ch.index != 0})
 
     with client.open_streamer(["sy_status_set"]) as streamer:
-        writer = client.open_writer(
+        with client.open_writer(
             start=sy.TimeStamp.now(),
             channels=cmd_keys + index_keys,
             name=writer_name,
             enable_auto_commit=True,
-        )
-        try:
+        ) as writer:
             writer.write(
                 {
                     **dict.fromkeys(cmd_keys, value),
                     **{k: sy.TimeStamp.now() for k in index_keys},
                 }
             )
-        finally:
-            writer.close()
 
         timer = sy.Timer()
         while timer.elapsed() < timeout:
@@ -107,7 +104,7 @@ def _assert_driver_rejects_value(
                     status = sy.task.Status.model_validate(raw)
                 except ValidationError:
                     continue
-                if status.details is None or status.details.task != task_key:
+                if status.owner != sy.task.resource_id(task_key):
                     continue
                 if status.variant in ("warning", "error"):
                     return
@@ -363,21 +360,23 @@ def _send_oob_and_assert_state_clamped(
     writes OOB command values, then reads the state channels and asserts
     the actual state does NOT match the commanded OOB values.
     """
-    cmd_keys = [ch.cmd_channel for ch in tsk.config.channels]
-    state_keys = [ch.state_channel for ch in tsk.config.channels]
+    commanded = [
+        ch for ch in tsk.config.channels if not isinstance(ch, sy.ni.AOFuncGenChannel)
+    ]
+    cmd_keys = [ch.cmd_channel for ch in commanded]
+    state_keys = [ch.state_channel for ch in commanded]
 
     channels = client.channels.retrieve(cmd_keys)
     index_keys = list({ch.index for ch in channels if ch.index != 0})
     all_writer_keys = cmd_keys + index_keys
 
     with client.open_streamer(state_keys) as streamer:
-        writer = client.open_writer(
+        with client.open_writer(
             start=sy.TimeStamp.now(),
             channels=all_writer_keys,
             name=f"{task_name}_oob_writer",
             enable_auto_commit=True,
-        )
-        try:
+        ) as writer:
             cmd_frame = {
                 key: float(v) for key, v in zip(cmd_keys, oob_values, strict=True)
             }
@@ -411,8 +410,6 @@ def _send_oob_and_assert_state_clamped(
                         f"matches OOB command {oob_val} — expected "
                         f"clamped value"
                     )
-        finally:
-            writer.close()
 
 
 class _NIAnalogWriteOOBBase(NIAnalogWriteTaskCase):

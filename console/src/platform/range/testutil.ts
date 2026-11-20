@@ -7,50 +7,79 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger, type Synnax } from "@synnaxlabs/client";
-import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import type { ranger, Synnax } from "@synnaxlabs/client";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { onTestFinished } from "vitest";
 
 import { createKeyEndingIn } from "@/testutil";
 
-/** Generates a Core-safe unique range name: letters, digits, and underscores. */
-export const uniqueRangeName = (prefix = "range"): string =>
-  `${prefix}_${id.create().replace(/-/g, "_")}`;
-
 /**
  * Creates a real range on the connected Core with a unique name and a valid, non-zero
- * time range, so range specs share one place for building fixtures.
+ * time range, so range specs share one place for building fixtures. The overrides
+ * replace those defaults. The range is deleted once the test finishes, so call it only
+ * inside a test.
  */
-export const createTestRange = async (client: Synnax): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  return await client.ranges.create({
-    name: uniqueRangeName(),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+export const createTestRange = async (
+  client: Synnax,
+  overrides: Partial<ranger.New> = {},
+): Promise<ranger.Range> => {
+  // Each start or end after now makes the stage readers of parallel specs, such as the
+  // range toolbar, read again, so the range ends in the past.
+  const end = TimeStamp.now().sub(TimeSpan.MINUTE);
+  const rng = await client.ranges.create({
+    name: uniqueName("range"),
+    timeRange: new TimeRange(end.sub(TimeSpan.seconds(10)), end),
+    ...overrides,
   });
+  onTestFinished(async () => await client.ranges.delete(rng.key));
+  return rng;
 };
 
-/** Matches the default page size of List.usePager, which every range list uses. */
-const PAGE_SIZE = 10;
+/**
+ * Creates a unique range name for a range that the spec creates through the Console,
+ * and deletes the ranges with that name once the test finishes.
+ */
+export const createTestRangeName = (client: Synnax, prefix: string): string => {
+  const name = uniqueName(prefix);
+  onTestFinished(async () => {
+    const ranges = await client.ranges.retrieve([name]);
+    await client.ranges.delete(ranges.map((r) => r.key));
+  });
+  return name;
+};
+
+/** Creates a range with no start. It sorts above every other range. */
+export const createPlannedTestRange = async (
+  client: Synnax,
+  name: string,
+): Promise<ranger.Range> =>
+  await createTestRange(client, {
+    name,
+    timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+  });
+
+/** Matches the default page size of Flux.useList, which the range select uses. */
+const PAGE_SIZE = 50;
 
 /**
  * Creates a range that no list shows on its first page, plus enough ranges ahead of it
  * to fill one. Gorp orders ranges by the trailing bytes of the key, so a key of all
  * ones sorts last and one of all zeros sorts first. Only a search reaches the returned
  * range, so a spec must assert it is absent before searching: that way a change to the
- * ordering fails the spec instead of quietly restoring it to the first page.
+ * ordering fails the spec instead of quietly restoring it to the first page. All of the
+ * ranges are deleted once the test finishes.
  */
 export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
-  await client.ranges.create(
+  const end = TimeStamp.now().sub(TimeSpan.MINUTE);
+  const timeRange = new TimeRange(end.sub(TimeSpan.seconds(10)), end);
+  const ahead = await client.ranges.create(
     Array.from({ length: PAGE_SIZE }, () => ({
       key: createKeyEndingIn("0"),
-      name: uniqueRangeName("ahead"),
+      name: uniqueName("ahead"),
       timeRange,
     })),
   );
-  return await client.ranges.create({
-    key: createKeyEndingIn("f"),
-    name: uniqueRangeName(),
-    timeRange,
-  });
+  onTestFinished(async () => await client.ranges.delete(ahead.map((r) => r.key)));
+  return await createTestRange(client, { key: createKeyEndingIn("f"), timeRange });
 };

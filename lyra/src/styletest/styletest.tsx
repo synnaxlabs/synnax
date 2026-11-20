@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import { scheduler } from "@synnaxlabs/x";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 import { afterEach } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render, type RenderResult } from "vitest-browser-react";
@@ -15,12 +16,14 @@ import { render, type RenderResult } from "vitest-browser-react";
 import { Theming } from "@/theming";
 
 // Every host sets border-box on every element (console/src/app/App.css), and Lyra's
-// layout depends on it. A spec reads a computed style at once, so a transition would
-// leave it mid-way.
-const HOST_RULES = `
-  * { box-sizing: border-box; }
-  *, *::before, *::after { transition: none !important; animation: none !important; }
-`;
+// layout depends on it.
+const HOST_RULES = "* { box-sizing: border-box; }";
+
+// A spec reads a computed style at once, so a transition would leave it mid-way.
+const MOTION_RULES =
+  "*, *::before, *::after { transition: none !important; animation: none !important; }";
+
+const MOTION_ATTRIBUTE = "data-styletest-motion";
 
 /**
  * Prepares the document for style specs. Call it once from a Vitest browser setup file.
@@ -28,7 +31,10 @@ const HOST_RULES = `
 export const setupBrowser = (): void => {
   const host = document.createElement("style");
   host.textContent = HOST_RULES;
-  document.head.appendChild(host);
+  const motion = document.createElement("style");
+  motion.setAttribute(MOTION_ATTRIBUTE, "");
+  motion.textContent = MOTION_RULES;
+  document.head.append(host, motion);
   // The pointer stays where a spec left it, so the next spec's element would render
   // hovered.
   afterEach(async () => {
@@ -38,6 +44,9 @@ export const setupBrowser = (): void => {
     document.body.appendChild(corner);
     await userEvent.hover(corner, { force: true });
     corner.remove();
+    // WebKit can draw no frames for seconds after the first pointer move, and a forced
+    // hover does not wait for them. The next spec then waits on a frame that is late.
+    await scheduler.nextFrame();
   });
 };
 
@@ -72,3 +81,45 @@ export const computed = (el: Element, property: string): string =>
 
 /** @returns the rendered height of the element in pixels. */
 export const height = (el: Element): number => el.getBoundingClientRect().height;
+
+/**
+ * Runs fn with transitions and animations on, so that it can read the motion an element
+ * declares.
+ * @throws {Error} if {@link setupBrowser} has not run.
+ */
+export const withMotion = <T,>(fn: () => T): T => {
+  const sheet = document.head.querySelector<HTMLStyleElement>(
+    `style[${MOTION_ATTRIBUTE}]`,
+  )?.sheet;
+  if (sheet == null) throw new Error("setupBrowser has not run");
+  sheet.disabled = true;
+  try {
+    return fn();
+  } finally {
+    sheet.disabled = false;
+  }
+};
+
+/** Runs fn while the body turns selection off, as the Console does. */
+export const withBodySelectionOff = async <T,>(fn: () => Promise<T>): Promise<T> => {
+  const { style } = document.body;
+  style.setProperty("-webkit-user-select", "none");
+  style.setProperty("user-select", "none");
+  try {
+    return await fn();
+  } finally {
+    style.removeProperty("-webkit-user-select");
+    style.removeProperty("user-select");
+  }
+};
+
+/**
+ * @returns the text that a triple click on the element selects while the body turns
+ * selection off, as the Console does.
+ */
+export const selectedByTripleClick = async (el: Element): Promise<string> =>
+  await withBodySelectionOff(async () => {
+    getSelection()?.removeAllRanges();
+    await userEvent.tripleClick(el);
+    return getSelection()?.toString() ?? "";
+  });

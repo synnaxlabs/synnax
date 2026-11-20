@@ -15,12 +15,13 @@ import re
 from collections import Counter
 from concurrent.futures import Executor, Future
 from datetime import datetime
+from typing import NamedTuple, Self
 
 import synnax as sy
 
 from github import GitHub
 from log import Log
-from scaler import Pool, pool_of
+from pools import Pool, pool_of
 
 # Distinct runs polled for step detail per cycle. At a 5 s cycle this is 3600 calls an
 # hour, which leaves room under GitHub's 5000 for the runner status poll.
@@ -28,6 +29,20 @@ STEP_RUNS_PER_CYCLE = 5
 # How often the queued set is rebuilt from the API, so a delivery GitHub never landed
 # cannot leave the scaler acting on a job that no longer exists.
 RESYNC_INTERVAL = 5 * sy.TimeSpan.MINUTE
+
+
+class Queued(NamedTuple):
+    """A job that waits for a runner."""
+
+    labels: set[str]
+    since: sy.TimeStamp
+
+    @classmethod
+    def of(cls, job: dict) -> Self:
+        return cls(
+            labels=set(job.get("labels", [])),
+            since=sy.TimeStamp(datetime.fromisoformat(job["created_at"])),
+        )
 
 
 def view(job: dict) -> dict:
@@ -52,42 +67,52 @@ def duration(start: str | None, end: str | None) -> str:
     return str(span.trunc(sy.TimeSpan.SECOND)) if span >= sy.TimeSpan.SECOND else "<1s"
 
 
-def line(view: dict, *, tail: str) -> str:
-    """<workflow> <step> <ticket or branch> | <url>"""
+def title(view: dict) -> str:
+    """<workflow> / <job>"""
     # A run name can trail the workflow name, as in "Test - Integration 2886/merge".
     workflow = re.split(r"\s+(?=\S*[\d/])", view["workflow"])[0]
     workflow = re.sub(r"\s+", "", workflow)
-    branch = view["branch"]
+    return f"{workflow} / {view['name']}"
+
+
+def ref(branch: str) -> str:
+    """The pull request, the ticket, or the name of a branch."""
+    if queued := re.fullmatch(r"gh-readonly-queue/.+/pr-(\d+)-[0-9a-f]+", branch):
+        return f"#{queued.group(1)}"
     if key := re.match(r"[A-Za-z]+-\d+", branch):
-        branch = key.group()
-    return f"{workflow} {tail} {branch} | {view['url']}"
+        return key.group()
+    return branch
 
 
-def step_events(view: dict, *, before: list[dict], after: list[dict]) -> list[str]:
+def step_events(*, before: list[dict], after: list[dict]) -> list[str]:
+    """One line per step that changed since before."""
     seen = {s["number"]: (s["status"], s["conclusion"]) for s in before}
     lines = []
     for s in after:
         if (s["status"], s["conclusion"]) == seen.get(s["number"]):
             continue
         if s["status"] == "in_progress":
-            lines.append(line(view, tail=f"{s['name']} started"))
+            lines.append(f"{s['name']} started")
         elif s["status"] == "completed" and s["conclusion"] != "skipped":
             taken = duration(s["started_at"], s["completed_at"])
-            lines.append(line(view, tail=f"{s['name']} {s['conclusion']} {taken}"))
+            lines.append(f"{s['name']} {s['conclusion']} {taken}")
     return lines
 
 
 def started_line(view: dict) -> str:
-    return line(view, tail="started")
+    return f"{title(view)} started  {ref(view['branch'])}  {view['url']}"
 
 
 def completed_line(job: dict) -> str:
+    """The URL is left off a success."""
+    current = view(job)
     taken = duration(job.get("started_at"), job.get("completed_at"))
-    return line(view(job), tail=f"done {job['conclusion']} {taken}")
+    text = f"{title(current)} {job['conclusion']} {taken}  {ref(current['branch'])}"
+    return text if job["conclusion"] == "success" else f"{text}  {current['url']}"
 
 
 class Jobs:
-    """Holds the job each runner is running and the labels of every queued job. Both
+    """Holds the job each runner is running and every job that waits for one. Both
     are driven by deliveries; the step poll doubles as the reconciler, finishing a job
     whose completed delivery never arrived."""
 
@@ -95,9 +120,13 @@ class Jobs:
         self.github = github
         self.log = log
         self.pool = pool
-        self.syncing: Future[tuple[dict[int, set[str]], list[dict]]] | None = None
+        self.syncing: Future[tuple[dict[int, Queued], list[dict]]] | None = None
         self.active: dict[str, dict] = {}
-        self.queued: dict[int, set[str]] = {}
+        self.queued: dict[int, Queued] = {}
+        # The jobs the last queue read found queued, and when that read started.
+        self.read: set[int] = set()
+        self.read_at = sy.TimeStamp(0)
+        self.reading = sy.TimeStamp(0)
         # Rotates the step poll over the active runs when there are more than a cycle
         # can afford.
         self.cursor = 0
@@ -109,7 +138,7 @@ class Jobs:
 
     def queue(self, job: dict, *, action: object) -> None:
         if action == "queued":
-            self.queued[job["id"]] = set(job.get("labels", []))
+            self.queued[job["id"]] = Queued.of(job)
         else:
             self.queued.pop(job["id"], None)
 
@@ -135,16 +164,14 @@ class Jobs:
                 self.active[runner] = current
                 lines = events.setdefault(runner, [])
                 lines.append(started_line(current))
-                lines.extend(step_events(current, before=[], after=job["steps"]))
+                lines.extend(step_events(before=[], after=job["steps"]))
             elif action == "completed":
                 last = self.active.get(runner)
                 lines = events.setdefault(runner, [])
                 # A late completion of an earlier job leaves the current one active.
                 if last is not None and last["id"] == job["id"]:
                     del self.active[runner]
-                    lines.extend(
-                        step_events(current, before=last["steps"], after=job["steps"])
-                    )
+                    lines.extend(step_events(before=last["steps"], after=job["steps"]))
                 lines.append(completed_line(job))
         return {r: lines for r, lines in events.items() if lines}
 
@@ -175,7 +202,7 @@ class Jobs:
         if runner is None or last is None or last["id"] != job["id"]:
             return
         lines = events.setdefault(runner, [])
-        lines.extend(step_events(view(job), before=last["steps"], after=job["steps"]))
+        lines.extend(step_events(before=last["steps"], after=job["steps"]))
         if job["status"] == "completed":
             # The completed delivery never arrived, so finish the job from the poll.
             del self.active[runner]
@@ -186,11 +213,30 @@ class Jobs:
     def counts(self) -> dict[Pool, int]:
         """Queued jobs per pool, what the scaler starts instances against."""
         pools: Counter[Pool] = Counter()
-        for labels in self.queued.values():
-            pool = pool_of(labels)
+        for job in self.queued.values():
+            pool = pool_of(job.labels)
             if pool is not None:
                 pools[pool] += 1
         return dict(pools)
+
+    def waits(self, now: sy.TimeStamp) -> dict[Pool, int]:
+        """Seconds the oldest queued job of each pool has waited."""
+        oldest: dict[Pool, sy.TimeStamp] = {}
+        for job in self.queued.values():
+            pool = pool_of(job.labels)
+            if pool is not None:
+                oldest[pool] = min(oldest.get(pool, job.since), job.since)
+        return {p: int(now.span(since).seconds) for p, since in oldest.items()}
+
+    def stuck(self, *, after: sy.TimeSpan) -> list[set[str]]:
+        """The labels of the queued jobs that the last queue read found queued after
+        they had waited at least after. A job that a runner takes without a delivery
+        stays queued until the next read, so it can count until then."""
+        return [
+            job.labels
+            for id, job in self.queued.items()
+            if id in self.read and self.read_at.span(job.since) >= after
+        ]
 
     def resync(self, now: sy.TimeStamp) -> None:
         """Rebuilds the queued jobs from the API and adds the running jobs that no
@@ -202,7 +248,7 @@ class Jobs:
                 return
             # Stamped before the calls, so a failure waits out the interval instead of
             # retrying every cycle.
-            self.synced = now
+            self.synced = self.reading = now
             self.syncing = self.pool.submit(self.fetch)
         if not self.syncing.done():
             return
@@ -214,6 +260,8 @@ class Jobs:
             self.log.error("queued resync", e)
             return
         self.queued = queued
+        self.read = set(queued)
+        self.read_at = self.reading
         self.ready = True
         for payload in pending:
             self.queue(payload["workflow_job"], action=payload.get("action"))
@@ -225,13 +273,13 @@ class Jobs:
             if job["id"] not in done:
                 self.active.setdefault(job["runner_name"], view(job))
 
-    def fetch(self) -> tuple[dict[int, set[str]], list[dict]]:
-        queued: dict[int, set[str]] = {}
+    def fetch(self) -> tuple[dict[int, Queued], list[dict]]:
+        queued: dict[int, Queued] = {}
         running: list[dict] = []
         for run in self.github.unfinished_runs():
             for job in self.github.run_jobs(run):
                 if job["status"] == "queued":
-                    queued[job["id"]] = set(job.get("labels", []))
+                    queued[job["id"]] = Queued.of(job)
                 elif job["status"] == "in_progress" and job.get("runner_name"):
                     running.append(job)
         return queued, running

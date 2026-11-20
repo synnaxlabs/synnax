@@ -14,20 +14,18 @@ import "go.opentelemetry.io/otel/codes"
 // Status represents the general status of an operation.
 type Status uint8
 
-var otelStatusCodes = map[Status]codes.Code{
-	statusOk:    codes.Ok,
-	statusError: codes.Error,
-}
-
 func (s Status) otel() codes.Code {
-	v, ok := otelStatusCodes[s]
-	if !ok {
+	switch s {
+	case statusOk:
+		return codes.Ok
+	case statusError:
+		return codes.Error
+	default:
 		return codes.Unset
 	}
-	return v
 }
 
 const (
-	statusOk    Status = iota
-	statusError        = 1
+	statusOk Status = iota
+	statusError
 )

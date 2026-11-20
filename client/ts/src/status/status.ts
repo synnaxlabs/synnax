@@ -9,16 +9,18 @@
 
 import {
   errors,
-  id,
   narrow,
   type optional,
   primitive,
   record,
   TimeStamp,
+  uuid,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Status, type Variant } from "@/status/types.gen";
+import type { label } from "@/label";
+import type { resource } from "@/resource";
+import type { Status, Variant } from "@/status/types.gen";
 
 // Input type for creating statuses - uses conditional typing for optional details
 type Base<V extends Variant> = {
@@ -28,13 +30,15 @@ type Base<V extends Variant> = {
   message: string;
   description?: string;
   time: TimeStamp;
+  labels: label.Key[];
+  owner?: resource.ID;
 };
 
-/** A status before it is stamped with a key, a time, and a name. */
+/** A status before it is stamped with a key, a time, a name, and labels. */
 export type Crude<
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
-> = optional.Optional<Base<V>, "key" | "time" | "name"> &
+> = optional.Optional<Base<V>, "key" | "time" | "name" | "labels"> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
 /**
@@ -126,7 +130,7 @@ const cloneSafeValue = (v: unknown, depth: number): unknown => {
   if (depth <= 0) return errors.fromUnknown(v).message;
   try {
     if (Array.isArray(v)) return v.map((e) => cloneSafeValue(e, depth - 1));
-    if (typeof v === "object" && v != null) {
+    if (narrow.isObject(v)) {
       const out: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(v))
         if (typeof value !== "function" && typeof value !== "symbol")
@@ -169,13 +173,25 @@ const cloneSafeError = (err: Error, depth: number = 8): Error => {
   return safe;
 };
 
-/** Flattens an error's cause chain into one readable line. */
+const joinParts = (parts: Array<string | undefined>, separator: string): string =>
+  parts.filter((part) => part != null && part.length > 0).join(separator);
+
+/**
+ * Flattens an error's cause chain into one readable line. A cause with a toStatus()
+ * description reads as its status and ends the chain.
+ */
 const causeChain = (err: Error): string | undefined => {
   const parts: string[] = [];
-  let cause: unknown = err.cause;
-  for (let i = 0; i < 8 && cause instanceof Error; i++) {
+  for (const cause of errors.causes(err, 8)) {
+    if (!(cause instanceof Error)) break;
+    const custom = safeToStatus(cause);
+    if (custom?.description != null) {
+      parts.push(
+        joinParts([custom.message ?? cause.message, custom.description], ". "),
+      );
+      break;
+    }
     if (cause.message.length > 0) parts.push(cause.message);
-    cause = cause.cause;
   }
   if (parts.length === 0) return undefined;
   return parts.join(": ");
@@ -186,9 +202,6 @@ const causeChain = (err: Error): string | undefined => {
  * and the name of what the status is about.
  */
 export type Heading = string | Pick<Base<Variant>, "message" | "name">;
-
-const joinParts = (parts: Array<string | undefined>, separator: string): string =>
-  parts.filter((part) => part != null && part.length > 0).join(separator);
 
 /**
  * Turns any thrown value into an error status. The heading sets the message and name.
@@ -206,11 +219,12 @@ export const fromException = (
   // `toStatus()` method still contributes its status fields.
   const custom = safeToStatus(exc);
   const reason = custom?.description ?? joinParts([err.message, causeChain(err)], ": ");
+  const lead = custom?.message === message ? undefined : custom?.message;
   return create<typeof exceptionDetailsSchema, "error">({
     variant: "error",
     name,
     message,
-    description: joinParts([custom?.message, reason], ". "),
+    description: joinParts([lead, reason], ". "),
     details: { stack: err.stack ?? "", error: cloneSafeError(err), ...custom?.details },
   });
 };
@@ -243,7 +257,7 @@ export const toError = (s: Status): Error & Custom => {
   return err;
 };
 
-/** Stamps a {@link Crude} status with a fresh key and the current time. */
+/** Stamps a {@link Crude} status with a fresh key, the current time, and no labels. */
 export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
@@ -251,9 +265,10 @@ export const create = <
   spec: Crude<DetailsSchema, V>,
 ): Status<DetailsSchema, z.ZodType<V>> =>
   ({
-    key: id.create(),
+    key: uuid.create(),
     time: TimeStamp.now(),
     name: "",
+    labels: [] as label.Key[],
     ...spec,
     description: spec.description ?? "",
   }) as Status<DetailsSchema, z.ZodType<V>>;

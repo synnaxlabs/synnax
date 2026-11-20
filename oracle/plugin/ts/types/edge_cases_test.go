@@ -27,54 +27,54 @@ var _ = Describe("Edge Cases", func() {
 		p = types.New(types.DefaultOptions())
 	})
 
-	Describe("Ontology key zero values", func() {
-		It("Should emit a string zero for uuid keys", func(ctx SpecContext) {
+	Describe("Resource key zero values", func() {
+		It("Should emit a string zero for uuid keys", func() {
 			source := `
 				@ts output "out"
 
 				Item struct {
 					key uuid @key
-					@ontology type "item"
+					@resource type "item"
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring(`""`))
 		})
 
-		It("Should emit a numeric zero for int32 keys", func(ctx SpecContext) {
+		It("Should emit a numeric zero for int32 keys", func() {
 			source := `
 				@ts output "out"
 
 				Item struct {
 					key int32 @key
-					@ontology type "item"
+					@resource type "item"
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring(`ontologyID(0)`))
+			Expect(content).To(ContainSubstring(`resourceID(0)`))
 		})
 
-		It("Should emit a boolean zero for bool keys", func(ctx SpecContext) {
+		It("Should emit a boolean zero for bool keys", func() {
 			source := `
 				@ts output "out"
 
 				Item struct {
 					key bool @key
-					@ontology type "item"
+					@resource type "item"
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring(`ontologyID(false)`))
+			Expect(content).To(ContainSubstring(`resourceID(false)`))
 		})
 	})
 
 	Describe("Type parameter constraints", func() {
 		It(
 			"Should produce a typeof enum fallback for type-param fields constrained on an enum",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -87,7 +87,7 @@ var _ = Describe("Edge Cases", func() {
 					value V
 				}
 			`
-				resp := MustGenerate(ctx, source, "holder", loader, p)
+				resp := MustGenerate(source, "holder", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring("variantZ"))
 			},
@@ -97,7 +97,7 @@ var _ = Describe("Edge Cases", func() {
 	Describe("Auto-generated key defaults", func() {
 		It(
 			"Should emit id.create() default for string key fields with create",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -108,7 +108,7 @@ var _ = Describe("Edge Cases", func() {
 					name string
 				}
 			`
-				resp := MustGenerate(ctx, source, "item", loader, p)
+				resp := MustGenerate(source, "item", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring(".default(id.create)"))
 			},
@@ -116,7 +116,7 @@ var _ = Describe("Edge Cases", func() {
 
 		It(
 			"Should emit uuid.create() default for uuid key fields with create",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -127,7 +127,7 @@ var _ = Describe("Edge Cases", func() {
 					name string
 				}
 			`
-				resp := MustGenerate(ctx, source, "item", loader, p)
+				resp := MustGenerate(source, "item", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring(".default(uuid.create)"))
 			},

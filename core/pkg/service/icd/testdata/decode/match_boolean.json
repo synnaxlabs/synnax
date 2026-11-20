@@ -1,0 +1,81 @@
+{
+  "description": "Boolean match rules match only a JSON boolean.",
+  "messages": [
+    {
+      "name": "on",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "boolean",
+          "pointer": "/on",
+          "value": true
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "off",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "boolean",
+          "pointer": "/on",
+          "value": false
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": { "on": true, "v": 1 },
+      "message": "on",
+      "samples": [1]
+    },
+    {
+      "document": { "on": false, "v": 2 },
+      "message": "off",
+      "samples": [2]
+    },
+    {
+      "document": { "on": 1, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "on": "true", "v": 1 },
+      "unmatched": true
+    }
+  ]
+}

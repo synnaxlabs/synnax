@@ -12,12 +12,32 @@
 /* The placeholder is lyra-text too, so a bare class ties with its color and loses
    when its stylesheet loads first, in a build. */
 .lyra-text.lyra-select-multiple-trigger-placeholder {
-    padding: 0 1rem;
     color: var(--pluto-text-placeholder);
+}
+
+/* A placeholder that is a button takes the padding of its size. */
+.lyra-text.lyra-select-multiple-trigger-placeholder:not(.lyra-btn) {
+    padding: 0 1rem;
+}
+
+/* The frame gives way with its tags. Around a stepped group, it fills the container
+   that sets the step. */
+.lyra-dialog__frame:has(> .lyra-tags) {
+    min-width: 0;
+}
+
+.lyra-dialog__frame:has(> .lyra-tags--stepped) {
+    flex: 1 1 0;
 }
 
 /* A status colors the trigger, and the placeholder takes that color. */
 :is(.lyra--status-warning, .lyra--status-error)
     > .lyra-text.lyra-select-multiple-trigger-placeholder {
     color: inherit;
+}
+
+/* A click on a shadow trigger's tag opens it, so its tags drop their remove buttons.
+   The dialog removes them instead. */
+.lyra-dialog__trigger.lyra-btn--shadow .lyra-tag__close {
+    display: none;
 }

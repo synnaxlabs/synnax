@@ -15,13 +15,13 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -38,23 +38,14 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	// HostProvider is used to assign keys to racks.
+	// HostKey is the key of the host node. Rack keys embed it.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostKey node.Key
 	// DB is the gorp database that racks will be stored in.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between racks and other resources
-	// in the Synnax cluster.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is used to create rack related groups of ontology resources.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Status is used to define and process statuses for racks.
 	//
 	// [REQUIRED]
@@ -74,6 +65,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL - defaults to telem.Now]
 	Now func() telem.TimeStamp
+	// EmbeddedDriverDisabled is true when the embedded Driver does not run. The Core
+	// then creates no rack for it. A stored rack stays with no integrations, can be
+	// deleted, and passes a disabled status to its tasks and devices.
+	//
+	// [OPTIONAL - defaults to false]
+	EmbeddedDriverDisabled bool
 }
 
 var (
@@ -91,9 +88,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.DriverRole = override.UUID(c.DriverRole, other.DriverRole)
 	c.HealthCheckInterval = override.Numeric(
@@ -101,6 +96,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 		other.HealthCheckInterval,
 	)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.EmbeddedDriverDisabled = override.If(
+		c.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+	)
 	return c
 }
 
@@ -108,9 +108,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rack")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
-	v.NotNil("host", c.HostProvider)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("status", c.Status)
 	v.Ternary("driver_role", c.DriverRole == uuid.Nil(), "must be set")
 	v.Positive("health", c.HealthCheckInterval)
@@ -120,11 +118,13 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	closer          xio.MultiCloser
 	localKeyCounter *kv.AtomicInt64Counter
-	group           group.Group
 	monitor         *monitor
 	table           *gorp.Table[Key, Rack]
+	state           *actions.State[Key, Action]
 	indexes         indexes
 	ServiceConfig
+	// EmbeddedKey is the key of the embedded Driver's rack. It is zero when the
+	// embedded Driver is disabled and no rack for it is stored.
 	EmbeddedKey Key
 }
 
@@ -136,15 +136,21 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, indexes: newIndexes()}
+	s = &Service{
+		ServiceConfig: cfg,
+		indexes:       newIndexes(),
+		state:         actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			HostProvider: cfg.HostProvider,
-			Status:       cfg.Status,
+			HostKey: cfg.HostKey,
+			Status:  cfg.Status,
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -158,34 +164,33 @@ func OpenService(
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
+	counterKey := []byte(cfg.HostKey.String() + ".rack.counter")
+	if s.localKeyCounter, err = kv.NewCounter(
 		ctx,
-		"Devices",
-		ontology.RootID,
+		cfg.DB.KV(),
+		counterKey,
 	); !ok(
 		err,
 		nil,
 	) {
 		return nil, err
 	}
-	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
-	if s.localKeyCounter, err = kv.NewCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
-		return nil, err
-	}
 	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if s.monitor, err = openMonitor(ctx, s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
 	return s, nil
 }
 
-// Observe returns an observable that notifies callers of changes to rack entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
-	return s.table.Observe()
+// Changes returns the changes that c made to racks.
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Rack] {
+	return s.table.Changes(c)
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // OnSuspect calls handler with the outage of each rack that stops reporting, once for
 // each outage. A handler that returns an error is called again on the next health check
@@ -195,58 +200,97 @@ func (s *Service) OnSuspect(handler SuspectHandler) observe.Disconnect {
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
-	r, err := s.RetrieveOrCreateEmbedded(
-		ctx,
-		fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey()),
-		nil,
-	)
-	if err != nil {
+	name := fmt.Sprintf("Node %s Embedded Driver", s.HostKey)
+	if !s.EmbeddedDriverDisabled {
+		r, err := s.RetrieveOrCreateEmbedded(ctx, name)
+		s.EmbeddedKey = r.Key
 		return err
 	}
-	s.EmbeddedKey = r.Key
-	return nil
+	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		r, err := s.retrieveEmbedded(ctx, tx, name)
+		if errors.Is(err, query.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		s.EmbeddedKey = r.Key
+		if len(r.Integrations) == 0 {
+			return nil
+		}
+		// The Driver sets its integrations again when it next starts.
+		return s.NewWriter(tx).Apply(ctx, r.Key, NewSetAction(SetPayload{
+			Path:  []string{"integrations"},
+			Value: []string{},
+		}))
+	})
+}
+
+// retrieveEmbedded returns the embedded rack of this Core that was created with name.
+func (s *Service) retrieveEmbedded(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+) (r Rack, err error) {
+	q := s.NewRetrieve().Entry(&r)
+	b, closer, err := tx.Get(s.embeddedBindingKey(name))
+	switch {
+	case err == nil:
+		q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
+		if err = closer.Close(); err != nil {
+			return r, err
+		}
+	case errors.Is(err, query.ErrNotFound):
+		q = q.
+			Where(MatchNames(name)).
+			Where(MatchEmbedded(true)).
+			Where(MatchNode(s.HostKey))
+	default:
+		return r, err
+	}
+	return r, q.Exec(ctx, tx)
+}
+
+func (s *Service) embeddedBindingKey(name string) []byte {
+	return []byte(s.HostKey.String() + ".rack.embedded." + name)
 }
 
 // RetrieveOrCreateEmbedded returns the embedded rack of this Core that was created with
 // name, creating it if it does not exist. The rack keeps its identity across renames
-// and restarts. edit, if non-nil, changes the rack before it is saved.
+// and restarts. acts apply to a new rack before it is created, and to an existing rack
+// through Writer.Apply.
 func (s *Service) RetrieveOrCreateEmbedded(
 	ctx context.Context,
 	name string,
-	edit func(*Rack),
+	acts ...Action,
 ) (r Rack, err error) {
-	bindingKey := []byte(s.HostProvider.HostKey().String() + ".rack.embedded." + name)
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		q := s.NewRetrieve().Entry(&r)
-		b, closer, err := tx.Get(ctx, bindingKey)
-		if err == nil {
-			q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
-			if err = closer.Close(); err != nil {
+		w := s.NewWriter(tx)
+		r, err = s.retrieveEmbedded(ctx, tx, name)
+		switch {
+		case errors.Is(err, query.ErrNotFound):
+			if r, err = Reduce(Rack{Name: name, Embedded: true}, acts...); err != nil {
 				return err
 			}
-		} else if errors.Is(err, query.ErrNotFound) {
-			q = q.
-				Where(MatchNames(name)).
-				Where(MatchEmbedded(true)).
-				Where(MatchNode(s.HostProvider.HostKey()))
-		} else {
+			if err = w.Create(ctx, &r); err != nil {
+				return err
+			}
+		case err != nil:
 			return err
-		}
-		if err = q.Exec(ctx, tx); errors.Is(err, query.ErrNotFound) {
-			r = Rack{Name: name}
-		} else if err != nil {
-			return err
-		}
-		r.Embedded = true
-		if edit != nil {
-			edit(&r)
-		}
-		if err = s.NewWriter(tx).Create(ctx, &r); err != nil {
-			return err
+		case len(acts) > 0:
+			if err = w.Apply(ctx, r.Key, acts...); err != nil {
+				return err
+			}
+			if err = s.NewRetrieve().
+				Where(MatchKeys(r.Key)).
+				Entry(&r).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
 		}
 		return tx.Set(
 			ctx,
-			bindingKey,
+			s.embeddedBindingKey(name),
 			binary.LittleEndian.AppendUint32(nil, uint32(r.Key)),
 		)
 	})
@@ -259,29 +303,31 @@ func (s *Service) RetrieveOrCreateEmbedded(
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
 		tx:         tx,
-		otg:        s.Ontology.NewWriter(tx),
 		newKey:     s.newKey,
-		group:      s.group,
 		status:     s.Status.NewWriter(tx),
+		statuses:   s.Status,
 		table:      s.table,
 		driverRole: s.DriverRole,
+		dispatcher: s.state.Dispatcher(),
+		deletableEmbedded: lo.Ternary(
+			s.EmbeddedDriverDisabled,
+			s.EmbeddedKey,
+			0,
+		),
 	}
 }
 
 func (s *Service) newKey(ctx context.Context) (Key, error) {
 	n, err := s.localKeyCounter.Add(ctx, 1)
-	return NewKey(s.HostProvider.HostKey(), uint16(n)), err
+	return NewKey(s.HostKey, uint16(n)), err
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		indexes:      s.indexes,
-		baseTX:       s.DB,
-		gorp:         s.table.NewRetrieve(),
-		hostProvider: s.HostProvider,
+		indexes: s.indexes,
+		gorp:    s.table.NewRetrieve(),
 	}
 }
 
@@ -291,22 +337,15 @@ func newDriverRoleMigration(s *Service) gorp.Migration {
 	return migrate.New(
 		"v0.driver_role",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			var racks []Rack
-			if err := s.NewRetrieve().Entries(&racks).Exec(ctx, tx); err != nil {
-				return err
-			}
-			w := s.Ontology.NewWriter(tx)
-			for _, r := range racks {
-				if err := w.DefineRelationships(
-					ctx,
-					role.OntologyID(s.DriverRole),
-					ontology.RelationshipTypeParentOf,
-					r.OntologyID(),
-				); err != nil {
-					return err
-				}
-			}
-			return nil
+			return s.table.NewUpdate().
+				Where(gorp.Match(func(_ gorp.Context, r *Rack) (bool, error) {
+					return r.Role == uuid.Nil(), nil
+				})).
+				Change(func(_ gorp.Context, r Rack) Rack {
+					r.Role = s.DriverRole
+					return r
+				}).
+				Exec(ctx, tx)
 		},
 	)
 }

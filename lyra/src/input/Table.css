@@ -9,13 +9,32 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A table wider than its container scrolls. A scroll box clips an outset ring, so
+   rings in it draw inset. */
+.lyra-input__table-scroll {
+    --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
+
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+}
+
 /* A ruled grid. The data cells join into one box with shared lines. Row labels and
    remove buttons sit outside it. */
 .lyra-input__table {
     width: 100%;
+
+    /* The table takes the width its columns need, past which its container scrolls. */
+    min-width: var(--pluto-input-table-width);
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
+
+    --pluto-input-table-gutter-width: 5rem;
+    --pluto-input-table-action-width: 5rem;
+    --pluto-input-table-width: calc(
+        var(--pluto-input-table-columns-width) + var(--pluto-input-table-action-width)
+    );
 
     /* Inner lines are separators. The outer edge is a control border, as on inputs. */
     --pluto-table-line: var(--pluto-gray-l6);
@@ -25,6 +44,23 @@
     --pluto-table-cell-radius: calc(
         var(--pluto-border-radius-tiny) - var(--pluto-border-width)
     );
+
+    &:has(> colgroup > .lyra-input__table-gutter) {
+        --pluto-input-table-width: calc(
+            var(--pluto-input-table-columns-width) +
+                var(--pluto-input-table-action-width) +
+                var(--pluto-input-table-gutter-width)
+        );
+    }
+
+    /* Columns that all declare a width keep it, so the table does not stretch. */
+    &.lyra--sized {
+        width: var(--pluto-input-table-width);
+    }
+
+    & .lyra-input__table-action {
+        width: var(--pluto-input-table-action-width);
+    }
 
     & th,
     & td {
@@ -46,7 +82,7 @@
 
     & th:last-child,
     & td:last-child {
-        width: 5rem;
+        width: var(--pluto-input-table-action-width);
         text-align: center;
     }
 
@@ -61,7 +97,7 @@
     }
 
     & .lyra-input__table-gutter {
-        width: 5rem;
+        width: var(--pluto-input-table-gutter-width);
         padding-right: 1rem;
 
         & > .lyra-text {
@@ -119,7 +155,8 @@
     & tbody tr:last-child > :nth-last-child(2) {
         border-bottom-right-radius: var(--pluto-border-radius-tiny);
 
-        & > * {
+        & > *,
+        & .lyra-btn--shadow {
             border-bottom-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -128,7 +165,8 @@
     &:not(:has(thead)) tbody tr:first-child > :nth-last-child(2) {
         border-top-right-radius: var(--pluto-border-radius-tiny);
 
-        & > * {
+        & > *,
+        & .lyra-btn--shadow {
             border-top-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -142,7 +180,8 @@
         ) {
         border-bottom-left-radius: var(--pluto-border-radius-tiny);
 
-        & > * {
+        & > *,
+        & .lyra-btn--shadow {
             border-bottom-left-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -163,15 +202,18 @@
         ) {
         border-top-left-radius: var(--pluto-border-radius-tiny);
 
-        & > * {
+        & > *,
+        & .lyra-btn--shadow {
             border-top-left-radius: var(--pluto-table-cell-radius);
         }
     }
 
-    /* A cell draws its border on the grid line, so focus and hover frame the whole
-       cell. The focused cell stays above its neighbors. */
-    & tbody .lyra-input {
+    /* A cell control takes the cell variant, wrapped or not. It draws its border on the
+       grid line, so focus and hover frame the whole cell. The focused cell stays above
+       its neighbors. */
+    & tbody .lyra-btn--shadow {
         border-width: 0;
+        border-radius: 0;
         outline: var(--pluto-border-width) solid var(--pluto-btn-border-color);
         outline-offset: 0;
         transition:

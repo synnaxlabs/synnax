@@ -20,6 +20,8 @@ export const Select = () => {
       emptyContent="No Modbus servers connected"
       label="Modbus server"
       make={MAKE}
+      icon={NETWORK.icon}
+      locationFormat={NETWORK.location}
       connect={{ title: NETWORK.title, open: () => openConnect() }}
     />
   );

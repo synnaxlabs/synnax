@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Context,
-  type Middleware,
-  type Next,
-  type UnaryClient,
-} from "@synnaxlabs/freighter";
-import { errors, TimeStamp } from "@synnaxlabs/x";
+import type { Context, Middleware, Next, UnaryClient } from "@synnaxlabs/freighter";
+import { binary, errors, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   type Credentials,
+  type Method,
+  methodZ,
   type Proof,
   proofZ,
   type Session,
@@ -27,11 +24,14 @@ import {
 } from "@/auth/types.gen";
 import {
   AuthError,
+  errorsMiddleware,
   ExpiredTokenError,
   InvalidTokenError,
+  MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
+import { Transport } from "@/transport";
 import { user } from "@/user";
 
 const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
@@ -41,7 +41,7 @@ const createResZ = z.object({
   user: user.userZ.optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
-const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const retrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
@@ -53,7 +53,7 @@ const apiKeyZ = z.object({
   /** key is the unique identifier for this API key. */
   key: apiKeyKeyZ,
   /** subject is the user or rack the key logs in as. */
-  subject: ontology.idZ,
+  subject: resource.idZ,
   /** name is a label that tells the subject's keys apart. */
   name: z.string(),
   /** created is when the key was created. */
@@ -62,22 +62,44 @@ const apiKeyZ = z.object({
 /** APIKey is an API key as the API returns it: the stored record without its hash. */
 export interface APIKey extends z.infer<typeof apiKeyZ> {}
 
+const API_KEY_PREFIX = "syk_";
+/** An API key token holds the 16 bytes of the record key and a 32 byte secret. */
+const API_KEY_LENGTH = 48;
+
+/**
+ * Returns the key of the API key record that a token belongs to.
+ * @throws {InvalidTokenError} when the token is not an API key.
+ */
+export const apiKeyID = (token: string): APIKeyKey => {
+  if (!token.startsWith(API_KEY_PREFIX)) throw new InvalidTokenError("not an API key");
+  let raw: Uint8Array;
+  try {
+    raw = binary.decodeBase64(token.slice(API_KEY_PREFIX.length), {
+      alphabet: "base64url",
+    });
+  } catch {
+    throw new InvalidTokenError("malformed API key");
+  }
+  if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
+  return uuid.fromBytes(raw);
+};
+
 export interface NewAPIKey {
   /** The user or rack the key logs in as. Defaults to the caller. */
-  subject?: ontology.ID;
+  subject?: resource.ID;
   /** A label that tells the subject's keys apart. */
   name: string;
 }
 
-const keyCreateReqZ = z.object({ subject: ontology.idZ.optional(), name: z.string() });
+const keyCreateReqZ = z.object({ subject: resource.idZ.optional(), name: z.string() });
 const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
-const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const keyRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
-  subject?: ontology.ID;
+  subject?: resource.ID;
   /** The new password. */
   password: string;
   /** The caller's current password. Required when the caller sets its own. */
@@ -85,7 +107,7 @@ export interface SetPasswordParams {
 }
 
 const passwordSetReqZ = z.object({
-  subject: ontology.idZ.optional(),
+  subject: resource.idZ.optional(),
   password: z.string(),
   currentPassword: z.string().optional(),
   cookie: z.boolean().optional(),
@@ -93,6 +115,7 @@ const passwordSetReqZ = z.object({
 const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
 // the login route a Core without sessions serves; kept for one release
+const METHODS_ENDPOINT = "/auth/methods";
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
@@ -113,7 +136,58 @@ const KEY_DELETE_ENDPOINT = "/auth/key/delete";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
-const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
+const TOKENLESS_ENDPOINTS = [
+  METHODS_ENDPOINT,
+  SESSION_CREATE_ENDPOINT,
+  LEGACY_LOGIN_ENDPOINT,
+];
+
+// a newer Core may accept methods this client does not know, so they are dropped
+const methodsResZ = z.object({
+  methods: z
+    .unknown()
+    .array()
+    .transform((ms) =>
+      ms.flatMap((m) => {
+        const r = methodZ.safeParse(m);
+        return r.success ? [r.data] : [];
+      }),
+    ),
+});
+
+/** The address of a Core, for a request that needs no session. */
+export interface TokenlessParams {
+  host: string;
+  port: number | string;
+  secure?: boolean;
+}
+
+/**
+ * Creates a client for the routes a Core serves without a session. Create one per Core
+ * address and reuse it across requests.
+ */
+export const createTokenlessClient = ({
+  host,
+  port,
+  secure = false,
+}: TokenlessParams): UnaryClient => {
+  const transport = new Transport({
+    url: new url.URL({ host, port: Number(port) }),
+    secure,
+  });
+  transport.use(errorsMiddleware);
+  return transport.unaryNoRetry;
+};
+
+/**
+ * Retrieves the login methods a Core accepts, without logging in.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> => {
+  const res = await client.send(METHODS_ENDPOINT, {}, z.object({}), methodsResZ);
+  return res.methods;
+};
 
 const MAX_RETRIES = 3;
 
@@ -159,7 +233,10 @@ export interface Observer {
    * opens a new session.
    */
   onSuccess?: (session: SessionKey) => void;
-  /** Fires on a definitive credential rejection, never on token self-heal. */
+  /**
+   * Fires on a definitive credential rejection, and when the Core keeps rejecting fresh
+   * sessions after every token retry. Never fires for a token error a retry fixes.
+   */
   onFailure?: (error: Error) => void;
 }
 
@@ -213,7 +290,7 @@ export class Client {
   }
 
   /** The subject the client logged in as, once logged in. */
-  get subject(): ontology.ID | undefined {
+  get subject(): resource.ID | undefined {
     return this.authState.authenticated ? this.authState.session.subject : undefined;
   }
 
@@ -274,7 +351,7 @@ export class Client {
    * sessions.
    * @throws {AuthError} when the login before the request fails.
    */
-  async retrieveSessions(subjects?: ontology.ID[]): Promise<Session[]> {
+  async retrieveSessions(subjects?: resource.ID[]): Promise<Session[]> {
     const res = await this.client.send(
       SESSION_RETRIEVE_ENDPOINT,
       { subjects },
@@ -313,7 +390,7 @@ export class Client {
    * @throws {AccessDeniedError} when the caller may not retrieve another subject's
    * keys.
    */
-  async retrieveKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
+  async retrieveKeys(subjects?: resource.ID[]): Promise<APIKey[]> {
     const res = await this.client.send(
       KEY_RETRIEVE_ENDPOINT,
       { subjects },
@@ -466,7 +543,9 @@ export class Client {
         u = res.user;
         owned = false;
       } else
-        throw new AuthError("no credentials, API key, token, or cookie to log in with");
+        throw new MissingCredentialsError(
+          "no credentials, API key, token, or cookie to log in with",
+        );
       if (generation !== this.generation) return null;
       this.authState = state;
       this.ownsSession = owned;
@@ -516,13 +595,29 @@ export class Client {
         }
       }
       // a cookie session has no token to send; the browser attaches the cookie
-      const { authState } = this;
+      const { authState, generation } = this;
       if (authState.authenticated && authState.token !== "")
         reqCtx.params.Authorization = `Bearer ${authState.token}`;
       try {
         return await next(reqCtx);
       } catch (err) {
-        if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
+        const parsed = errors.fromUnknown(err);
+        // the browser dropped the cookie, so the session is over
+        const cookieLost =
+          MissingCredentialsError.matches(parsed) &&
+          authState.authenticated &&
+          authState.token === "";
+        if (cookieLost && this.proof() == null) {
+          if (this.authState === authState) {
+            this.authState = { authenticated: false };
+            this.authenticating = undefined;
+          }
+          const ended = new SessionEndedError(parsed.message, { cause: parsed });
+          if (generation === this.generation) this.observer.onFailure?.(ended);
+          throw ended;
+        }
+        if (!cookieLost && !RETRY_ON.some((e) => e.matches(parsed))) throw parsed;
+        if (retries < MAX_RETRIES) {
           // only the session this request carried is dead; a login that finished in
           // the meantime holds a different one
           if (this.authState === authState) {
@@ -531,7 +626,10 @@ export class Client {
           }
           return await attempt(reqCtx, next, retries + 1);
         }
-        throw errors.fromUnknown(err);
+        // the Core rejects every fresh session, so logging in again cannot fix it. A
+        // session from before a setCredentials says nothing about the new credentials.
+        if (generation === this.generation) this.observer.onFailure?.(parsed);
+        throw parsed;
       }
     };
     return async (reqCtx, next) => await attempt(reqCtx, next, 0);

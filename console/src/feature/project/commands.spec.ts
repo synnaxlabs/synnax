@@ -9,8 +9,9 @@
 
 import { log, project } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -19,13 +20,11 @@ import { Project } from "@/feature/project";
 import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   captureBrowserDownloads,
   fakePickedFile,
   interceptFilePicker,
   removeSaveFilePicker,
   renderHookWithConsole,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -37,7 +36,7 @@ const createProjectWithPanel = async (): Promise<{
 }> => {
   const proj = await client.projects.create({ name: uniqueName("proj") });
   const logName = uniqueName("log");
-  const createdLog = await client.logs.create(proj.key, { name: logName });
+  const createdLog = await client.logs.create({ project: proj.key, name: logName });
   await client.panels.create({
     name: "Main",
     root: {
@@ -46,11 +45,11 @@ const createProjectWithPanel = async (): Promise<{
         {
           variant: "resource",
           key: uuid.create(),
-          resource: log.ontologyID(createdLog.key),
+          resource: log.resourceID(createdLog.key),
         },
       ],
     },
-    parent: project.ontologyID(proj.key),
+    project: proj.key,
   });
   return { proj, logName };
 };
@@ -130,14 +129,13 @@ describe("Project Commands", () => {
     const imported = Session.Project.selectSelected(store.getState());
     const proj = await client.projects.retrieve(imported);
     expect(proj.name).toEqual(name);
-    const children = await client.ontology.retrieveChildren(
-      project.ontologyID(imported),
-    );
-    expect(children).toHaveLength(1);
-    expect(children[0].name).toEqual("Propulsion");
-    expect(children[0].id.type).toEqual("group");
-    const grandChildren = await client.ontology.retrieveChildren(children[0].id);
-    expect(grandChildren.map(({ name }) => name)).toEqual(["Pressure"]);
+    const groups = await client.groups.retrieve({
+      parents: [project.resourceID(imported)],
+    });
+    expect(groups.map(({ name }) => name)).toEqual(["Propulsion"]);
+    const logs = await client.logs.retrieve({ projects: [imported] });
+    expect(logs.map(({ name }) => name)).toEqual(["Pressure"]);
+    expect(logs[0].group).toEqual(groups[0].key);
   });
 
   it("should raise an error when the picked folder is not a bundle", async () => {

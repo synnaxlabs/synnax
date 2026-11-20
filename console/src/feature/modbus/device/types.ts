@@ -13,7 +13,7 @@ import { z } from "zod";
 export const MAKE = "Modbus";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
-export const INTEGRATION = "modbus";
+export const INTEGRATION_KEY = "modbus";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("Modbus");
 
@@ -128,7 +128,6 @@ const propertiesZ = z.object({
 export interface Properties extends z.infer<typeof propertiesZ> {}
 
 export type Connection = Properties["connection"];
-export type Requests = Properties["requests"];
 
 /** The connection a device starts with on each transport. */
 export const ZERO_CONNECTIONS = {

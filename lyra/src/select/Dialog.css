@@ -34,3 +34,38 @@
         /* stylelint-enable declaration-no-important */
     }
 }
+
+/* At the dialog's height cap, the list gives up space, never the footer. */
+.lyra-select__body > :not(.lyra-list__scroll) {
+    flex-shrink: 0;
+}
+
+/* Options and dividers pinned under the list line up with its options. The menu panel
+   pads them itself. Other footers keep their own spacing. */
+.lyra-select__dialog:not(.lyra-menu-dialog) .lyra-select__body {
+    & > .lyra-list__item {
+        width: auto;
+        margin-inline: 1rem;
+
+        &:last-child {
+            margin-bottom: 1rem;
+        }
+    }
+
+    & > .lyra-divider.lyra--direction-x {
+        margin-inline: 1rem;
+    }
+}
+
+/* On a menu surface, the list and its footer sit in the panel's padding with no box of
+   their own, and an empty list takes the height of one item. */
+.lyra-dialog__dialog.lyra-menu-dialog {
+    & .lyra-select__body {
+        border: none;
+        border-radius: 0;
+    }
+
+    &.lyra--visible .lyra-list__scroll--empty {
+        min-height: var(--pluto-height-medium);
+    }
+}

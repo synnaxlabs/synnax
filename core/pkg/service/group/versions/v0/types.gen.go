@@ -11,11 +11,7 @@
 
 package v0
 
-import (
-	"uuid"
-
-	"github.com/synnaxlabs/x/validate"
-)
+import "uuid"
 
 // Key is a unique identifier for a group, represented as a UUID.
 type Key = uuid.UUID
@@ -27,12 +23,4 @@ type Group struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the group.
 	Name string `json:"name" msgpack:"name"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (g Group) Validate() error {
-	v := validate.New("Group")
-	v.NotEmptyString("name", g.Name)
-	return v.Error()
 }

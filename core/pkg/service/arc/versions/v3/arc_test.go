@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,16 +30,11 @@ var _ = Describe("Arc", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v3.Arc{}.SetOptions()).To(BeNil())
-		})
-	})
-	Describe("OntologyID", func() {
-		It("Should return the Arc ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the Arc resource identifier", func() {
 			k := uuid.New()
-			Expect(v3.Arc{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeArc, Key: k.String(),
+			Expect(v3.Arc{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeArc, Key: k.String(),
 			}))
 		})
 	})

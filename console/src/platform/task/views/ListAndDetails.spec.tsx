@@ -9,34 +9,41 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Select } from "@synnaxlabs/lyra/select";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { deep } from "@synnaxlabs/x";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { getIconButton } from "@/testutil";
 
-const listItem = Component.renderProp(
-  ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.Item itemKey={itemKey} {...p}>
-      item-{itemKey}
-    </Select.Item>
-  ),
+const path = deep.path<{ config: { channels: Channel[]; endpoints: Channel[] } }>();
+
+const ListItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
+  <Select.Item itemKey={itemKey} {...p}>
+    item-{itemKey}
+  </Select.Item>
 );
 
-const details = Component.renderProp(({ path }: { path: string }) => (
-  <span>details-for-{path}</span>
-));
+const listItem = Component.renderProp(ListItem);
+
+const Details = ({ path }: Task.Views.DetailsProps<Channel>) => (
+  <span>details-for-{String(path)}</span>
+);
+
+const details = Component.renderProp(Details);
 
 const resolve = () => null;
 
 // Picks channel b, and names the channels it shows as selected.
-const ports = Component.renderProp(({ selected, onSelect }: Task.Views.PortsProps) => (
+const Ports = ({ selected, onSelect }: Task.Views.PortsProps<Channel>) => (
   <button type="button" onClick={() => onSelect(["b"])}>
     ports-{selected.join(",")}
   </button>
-));
+);
+
+const ports = Component.renderProp(Ports);
 
 const renderListAndDetails = (
   channels: Channel[],
@@ -45,6 +52,7 @@ const renderListAndDetails = (
 ) =>
   renderInTaskForm(
     <Task.Views.ListAndDetails<Channel>
+      path={path.config.channels}
       createChannel={createChannel}
       listItem={listItem}
       details={details}
@@ -89,6 +97,35 @@ describe("layouts.ListAndDetails", () => {
     expect(screen.queryByText("details-for-config.channels.a")).toBeNull();
   });
 
+  it("should read the channels at the path it gets", async () => {
+    await renderInTaskForm(
+      <Task.Views.ListAndDetails<Channel>
+        path={path.config.endpoints}
+        createChannel={() => null}
+        listItem={listItem}
+        details={details}
+        resolve={resolve}
+      />,
+      { values: { config: { endpoints: [{ key: "a", disabled: false }] } } },
+    );
+    await waitFor(() =>
+      expect(screen.getByText("details-for-config.endpoints.a")).toBeTruthy(),
+    );
+  });
+
+  it("should hand the channel path to the ports view", async () => {
+    const PathPorts = ({ path }: Task.Views.PortsProps<Channel>) => (
+      <span>ports-at-{String(path)}</span>
+    );
+    await renderListAndDetails(
+      [{ key: "a", disabled: false }],
+      undefined,
+      Component.renderProp(PathPorts),
+    );
+    fireEvent.click(await screen.findByText("Ports"));
+    expect(await screen.findByText("ports-at-config.channels")).toBeTruthy();
+  });
+
   it("should offer no view switch without a ports view", async () => {
     await renderListAndDetails([{ key: "a", disabled: false }]);
     await screen.findByText("item-a");
@@ -130,9 +167,20 @@ describe("layouts.ListAndDetails", () => {
     await waitFor(() => expect(createChannel).toHaveBeenCalled());
     expect(createChannel.mock.calls[0][1]).toBe("a");
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(2),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(2),
     );
     expect(screen.getByText("item-new_a")).toBeTruthy();
+  });
+
+  it("should add and select a channel from the empty details panel", async () => {
+    const createChannel = (): Channel => ({ key: "new", disabled: false });
+    const { form } = await renderListAndDetails([], createChannel);
+    const empty = await screen.findByText("No channel selected");
+    fireEvent.click(within(empty).getByText("Add channel"));
+    await waitFor(() =>
+      expect(screen.getByText("details-for-config.channels.new")).toBeTruthy(),
+    );
+    expect(form.current?.get(path.config.channels).value).toHaveLength(1);
   });
 
   it("should duplicate the selected channels through the context menu and select the copies", async () => {
@@ -148,7 +196,7 @@ describe("layouts.ListAndDetails", () => {
     fireEvent.contextMenu(await screen.findByText("item-a"));
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(2),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(2),
     );
     expect(screen.getByText("item-dup_a_0")).toBeTruthy();
     await screen.findByText("details-for-config.channels.dup_a_0");
@@ -163,7 +211,7 @@ describe("layouts.ListAndDetails", () => {
     fireEvent.contextMenu(screen.getByText("item-a"));
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(0),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(0),
     );
     await waitFor(() => expect(screen.queryByText(/details-for-/)).toBeNull());
   });

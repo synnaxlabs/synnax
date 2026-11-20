@@ -11,6 +11,7 @@ import pytest
 
 import synnax as sy
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 
@@ -265,6 +266,56 @@ class TestHTTPReadTask:
         assert config.auto_start is False
         assert config.nan_fill_enabled is False
 
+    def test_read_field_optional_defaults_false(self) -> None:
+        """Test that a ReadField is not optional unless set."""
+        field = sy.http.ReadField(pointer="/value", channel=1)
+        assert field.optional is False
+        assert sy.http.ReadField(pointer="/value", channel=1, optional=True).optional
+
+    def test_read_field_fill_value_defaults_unset(self) -> None:
+        """Test that a ReadField has no fill value unless set."""
+        assert sy.http.ReadField(pointer="/value", channel=1).fill_value is None
+
+    @pytest.mark.parametrize("fill_value", [0, 1.5, "OFF", "", False])
+    def test_read_field_fill_value_reaches_the_payload(
+        self, fill_value: int | float | str | bool
+    ) -> None:
+        """Test that a fill value survives serialization, zero values included."""
+        task = sy.http.ReadTask(
+            name="Test Task",
+            device="dev-key",
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/data",
+                    fields=[
+                        sy.http.ReadField(
+                            pointer="/value",
+                            channel=1,
+                            optional=True,
+                            fill_value=fill_value,
+                        )
+                    ],
+                ),
+            ],
+        )
+        ep = obj(arr(task.to_payload().config, "endpoints")[0])
+        assert obj(arr(ep, "fields")[0])["fill_value"] == fill_value
+
+    def test_read_field_unset_fill_value_left_out_of_the_payload(self) -> None:
+        """Test that an unset fill value is left out, not sent as null."""
+        task = sy.http.ReadTask(
+            name="Test Task",
+            device="dev-key",
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/data",
+                    fields=[sy.http.ReadField(pointer="/value", channel=1)],
+                ),
+            ],
+        )
+        ep = obj(arr(task.to_payload().config, "endpoints")[0])
+        assert "fill_value" not in obj(arr(ep, "fields")[0])
+
     def test_read_task_nan_fill_enabled(self) -> None:
         """Test that the ReadTask carries nan_fill_enabled into its config."""
         task = sy.http.ReadTask(device="dev-key", nan_fill_enabled=True)
@@ -292,7 +343,9 @@ class TestHTTPReadTask:
         assert "timestamp_format" not in field
         assert field["enum_values"] == []
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.http.ReadTask(
             name="test-http-read-task",
@@ -314,7 +367,9 @@ class TestHTTPReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
+            rack=task_targets.rack,
             name="test-http-read-task",
             type="http_read",
             config=task.config.model_dump(exclude_none=True),
@@ -578,7 +633,9 @@ class TestHTTPWriteTask:
         assert ep["query_params"] == []
         assert "time_format" not in obj(ep, "channel")
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.http.WriteTask(
             name="test-http-write-task",
@@ -596,14 +653,18 @@ class TestHTTPWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
+            rack=task_targets.rack,
             name="test-http-write-task",
             type="http_write",
             config=task.config.model_dump(exclude_none=True),
         )
         sy.http.WriteTask(created)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original = sy.http.WriteTask(
             name="test-round-trip",
@@ -631,7 +692,9 @@ class TestHTTPWriteTask:
                 ),
             ],
         )
+        task_targets.attach(original.config)
         created = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="http_write",
             config=original.config.model_dump(exclude_none=True),
@@ -654,7 +717,7 @@ class TestHTTPDevice:
 
     def test_device_defaults(self) -> None:
         """Test that Device has correct defaults."""
-        dev = sy.http.Device(host="127.0.0.1:8080")
+        dev = sy.http.Device(name="Test Device", rack=1, host="127.0.0.1:8080")
         assert dev.location == "127.0.0.1:8080"
         assert dev.make == "http"
         assert dev.model == "HTTP server"
@@ -671,6 +734,7 @@ class TestHTTPDevice:
     def test_device_custom_config(self) -> None:
         """Test that Device accepts custom configuration."""
         dev = sy.http.Device(
+            rack=1,
             host="192.168.1.100:9090",
             secure=False,
             timeout_ms=5000,
@@ -703,6 +767,8 @@ class TestHTTPDevice:
     def test_device_basic_auth(self) -> None:
         """Test device with basic authentication."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             auth={"type": "basic", "username": "admin", "password": "secret"},
         )
@@ -714,6 +780,8 @@ class TestHTTPDevice:
     def test_device_api_key_header_auth(self) -> None:
         """Test device with API key in header."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             auth={
                 "type": "api_key",
@@ -731,6 +799,8 @@ class TestHTTPDevice:
     def test_device_api_key_query_param_auth(self) -> None:
         """Test device with API key in query parameter."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             auth={
                 "type": "api_key",
@@ -746,8 +816,8 @@ class TestHTTPDevice:
 
     def test_device_auto_key_generation(self) -> None:
         """Test that Device auto-generates a key if not provided."""
-        dev1 = sy.http.Device(host="localhost:8080")
-        dev2 = sy.http.Device(host="localhost:8080")
+        dev1 = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
+        dev2 = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
         assert dev1.key != ""
         assert dev2.key != ""
         assert dev1.key != dev2.key
@@ -798,7 +868,7 @@ class TestHTTPHealthCheck:
 
     def test_health_check_none_excluded_from_device_properties(self) -> None:
         """Test that None values are excluded from health check in device properties."""
-        dev = sy.http.Device(host="localhost:8080")
+        dev = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
         hc = obj(dev.properties, "health_check")
         assert "headers" not in hc
         assert "query_params" not in hc
@@ -808,6 +878,8 @@ class TestHTTPHealthCheck:
     def test_health_check_in_device(self) -> None:
         """Test that health check is properly stored in device properties."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
                 path="/api/status",
@@ -821,9 +893,11 @@ class TestHTTPHealthCheck:
 
     def test_health_check_validate_response_flag(self) -> None:
         """Test that validate_response mirrors whether a response is configured."""
-        dev = sy.http.Device(host="localhost:8080")
+        dev = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
         assert obj(dev.properties, "health_check")["validate_response"] is False
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
                 response=sy.http.ExpectedResponse(

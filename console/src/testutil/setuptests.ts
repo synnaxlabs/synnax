@@ -10,12 +10,15 @@
 import "zod/compile";
 import "fake-indexeddb/auto";
 
-import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { shortenKeepAlive } from "@synnaxlabs/client/testutil";
+import { installDragEvent, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
+
+await shortenKeepAlive();
 
 // Live-core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.
@@ -26,6 +29,8 @@ failOnConsoleOutput();
 // Clients constructed at spec module scope start connecting immediately, so the
 // crash-proof WebSocket must be in place before spec imports, not in beforeAll.
 installTestWebSocket();
+
+installDragEvent();
 
 // jsdom lays everything out at zero size, which collapses virtualized lists and trees
 // to no rows. Every element measures 100x100 instead, and ResizeObserver (absent in
@@ -127,6 +132,9 @@ preloadTimeLanguage();
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", SizeFiringResizeObserver);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+  // jsdom implements no pointer capture.
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
   Object.defineProperty(Element.prototype, "getBoundingClientRect", {
     configurable: true,
     writable: true,
@@ -178,6 +186,11 @@ beforeAll(() => {
           removeListener: () => {},
         }),
     });
+  // jsdom has no font set. Fonts never load, so Lyra's tag step sees no load event.
+  Object.defineProperty(document, "fonts", {
+    value: new EventTarget(),
+    configurable: true,
+  });
   // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
   // the selected tab.
   if (typeof Element.prototype.scrollIntoView !== "function")

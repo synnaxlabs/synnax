@@ -11,6 +11,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -27,15 +29,14 @@ import (
 const (
 	validateImportPath = "github.com/synnaxlabs/x/validate"
 	strconvImportPath  = "strconv"
+	msgpackImportPath  = "github.com/vmihailenco/msgpack/v5"
 )
 
 // defaultFillData describes a single field assignment emitted by a generated
-// ApplyDefaults method: when the field equals ZeroLit, Setup runs and the field is set
-// to Expr.
+// SetDefaults method: Setup runs, and the field is set to Expr.
 type defaultFillData struct {
-	GoName  string
-	ZeroLit string
-	Expr    string
+	GoName string
+	Expr   string
 	// Setup holds the statements that build a union literal's variant in local
 	// variables before Expr assigns it. Empty for every other default.
 	Setup []string
@@ -46,13 +47,18 @@ type defaultFillData struct {
 type enumCheckData struct {
 	GoName    string
 	FieldName string
+	// Optional is true for an optional field, which the check reads only when present.
+	Optional bool
+	// MapKey is true for a map keyed by the enum, whose check reads each key.
+	MapKey bool
 }
 
 // goDefaultFills returns the fills for a field's static default. A scalar default
 // yields a single fill; a struct-literal default (e.g. `x1 Axis = { key = AxisKeyX1 }`)
-// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key). It
-// returns nil for fields with no default, nullable/optional fields, defaults that equal
-// the zero value (nothing to fill), and non-static defaults such as create/now.
+// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key), and
+// a fill for a zero leaf that overrides a nested default. It returns nil for fields
+// with no default, nullable/optional fields, defaults that equal the zero value, and
+// non-static defaults such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
 		return nil
@@ -84,9 +90,9 @@ func componentFill(
 }
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
-// component. prefix is the Go selector to the struct field (e.g. "X1"), structRef its
-// type, and val the literal. Nested struct components recurse with an extended
-// selector.
+// component and a fill per zero leaf that overrides a nested default. prefix is the Go
+// selector to the struct field (e.g. "X1"), structRef its type, and val the literal.
+// Nested struct components recurse with an extended selector.
 func structDefaultFills(
 	prefix string,
 	structRef resolution.TypeRef,
@@ -101,6 +107,9 @@ func structDefaultFills(
 	if !ok {
 		return nil
 	}
+	// SetDefaults fills a type that sets defaults before these fills run, so a zero
+	// leaf must be written out to override it.
+	defaulted := typeSetsDefaults(structRef, data, set.New[string]())
 	var fills []defaultFillData
 	for _, comp := range val.Fields {
 		f, ok := form.Field(comp.Name)
@@ -121,9 +130,95 @@ func structDefaultFills(
 		}
 		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
 			fills = append(fills, fill)
+		} else if defaulted {
+			if fill, ok := zeroFill(selector, comp.Value); ok {
+				fills = append(fills, fill)
+			}
 		}
 	}
 	return fills
+}
+
+// overrideFills returns the fills of a field that restates an inherited field's
+// default. SetDefaults sets the parent's default first, so a zero default must be
+// written out.
+func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
+	if fill, ok := structOverrideFill(field, data); ok {
+		return []defaultFillData{fill}
+	}
+	if fills := goDefaultFills(field, data); len(fills) > 0 ||
+		field.Default == nil || field.Optional {
+		return fills
+	}
+	if fill, ok := zeroFill(naming.GetFieldName(field), *field.Default); ok {
+		return []defaultFillData{fill}
+	}
+	return nil
+}
+
+// structOverrideFill returns the fill of a field that restates an inherited
+// struct default with a struct literal. It builds the whole value, so no leaf of the
+// parent's default survives: the type's own defaults, then every leaf of the literal.
+// It returns ok=false when the default is not a plain struct literal.
+func structOverrideFill(
+	field resolution.Field,
+	data *templateData,
+) (defaultFillData, bool) {
+	if field.Default == nil || field.Optional ||
+		field.Default.Kind != resolution.ValueKindStruct {
+		return defaultFillData{}, false
+	}
+	if _, ok := unionLiteralFill("", field.Type, *field.Default, data); ok {
+		return defaultFillData{}, false
+	}
+	goType := stripPointer(data.resolver.ResolveTypeRef(field.Type, data.ctx))
+	setup := []string{"v0 := " + goType + "{}"}
+	defaulted := typeSetsDefaults(field.Type, data, set.New[string]())
+	groups := typeHasGroups(field.Type, data, set.New[string]())
+	setup = append(setup, literalDefaultsSetup("v0", defaulted, groups)...)
+	next := 1
+	lines, ok := literalAssignments(
+		"v0",
+		field.Type,
+		false,
+		defaulted,
+		*field.Default,
+		data,
+		&next,
+	)
+	if !ok {
+		return defaultFillData{}, false
+	}
+	return defaultFillData{
+		GoName: naming.GetFieldName(field),
+		Expr:   "v0",
+		Setup:  append(setup, lines...),
+	}, true
+}
+
+// isEmptyList reports whether v is an empty list literal. In a value that SetDefaults
+// never filled, the zero value already holds it, so no assignment is needed.
+func isEmptyList(v resolution.ExpressionValue) bool {
+	return v.Kind == resolution.ValueKindArray && len(v.Elements) == 0
+}
+
+// zeroFill returns the fill that writes the zero value v to the Go selector goName. It
+// returns ok=false for a kind whose zero has no plain literal, such as an enum member.
+func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, bool) {
+	var lit string
+	switch v.Kind {
+	case resolution.ValueKindString:
+		lit = `""`
+	case resolution.ValueKindInt, resolution.ValueKindFloat:
+		lit = "0"
+	case resolution.ValueKindBool:
+		lit = "false"
+	case resolution.ValueKindArray:
+		lit = "nil"
+	case resolution.ValueKindIdent, resolution.ValueKindStruct:
+		return defaultFillData{}, false
+	}
+	return defaultFillData{GoName: goName, Expr: lit}, true
 }
 
 // unionLiteralFill returns the fill for a union field defaulted by an object literal
@@ -142,10 +237,9 @@ func unionLiteralFill(
 		return defaultFillData{}, false
 	}
 	return defaultFillData{
-		GoName:  goName + ".Variant",
-		ZeroLit: "nil",
-		Expr:    variable,
-		Setup:   setup,
+		GoName: goName + ".Variant",
+		Expr:   variable,
+		Setup:  setup,
 	}, true
 }
 
@@ -166,15 +260,8 @@ func unionLiteral(
 	if !ok {
 		return nil, "", false
 	}
-	var variant resolution.UnionVariant
-	found := false
-	for _, comp := range val.Fields {
-		if comp.Name == form.Discriminator {
-			variant, found = form.Variant(comp.Value.StringValue)
-			break
-		}
-	}
-	if !found {
+	variant, ok := literalVariant(form, val)
+	if !ok {
 		return nil, "", false
 	}
 	fields := resolution.UnifiedVariantFields(resolved, variant, data.table)
@@ -185,39 +272,97 @@ func unionLiteral(
 		variable + " := " +
 			casing.QualifiedVariantTypeName(unionType, variant.Name, ".") + "{}",
 	}
+	defaulted := variantSetsDefaults(form, variant, data)
+	groups := variantHasGroups(form, variant, data)
+	setup = append(setup, literalDefaultsSetup(variable, defaulted, groups)...)
+	comps := lo.Filter(val.Fields, func(comp resolution.StructFieldValue, _ int) bool {
+		return comp.Name != form.Discriminator
+	})
+	lines, ok := fieldAssignments(variable, fields, comps, defaulted, data, next)
+	if !ok {
+		return nil, "", false
+	}
+	setup = append(setup, lines...)
+	if groups {
+		setup = append(setup, variable+".DefaultGroups()")
+	}
+	return setup, variable, true
+}
+
+// literalVariant returns the variant of form that the discriminator of the union
+// literal val names.
+func literalVariant(
+	form resolution.UnionForm, val resolution.ExpressionValue,
+) (resolution.UnionVariant, bool) {
 	for _, comp := range val.Fields {
 		if comp.Name == form.Discriminator {
-			continue
+			return form.Variant(comp.Value.StringValue)
 		}
+	}
+	return resolution.UnionVariant{}, false
+}
+
+// fieldAssignments renders the statements that assign each of comps to its field of the
+// value at selector. defaulted reports whether SetDefaults filled that value.
+func fieldAssignments(
+	selector string,
+	fields []resolution.Field,
+	comps []resolution.StructFieldValue,
+	defaulted bool,
+	data *templateData,
+	next *int,
+) ([]string, bool) {
+	var lines []string
+	for _, comp := range comps {
 		f, ok := lo.Find(fields, func(f resolution.Field) bool {
 			return f.Name == comp.Name
 		})
 		if !ok {
-			return nil, "", false
+			return nil, false
 		}
-		lines, ok := literalAssignments(
-			variable+"."+naming.GetFieldName(f),
+		if !defaulted && isEmptyList(comp.Value) {
+			continue
+		}
+		sub, ok := literalAssignments(
+			selector+"."+naming.GetFieldName(f),
 			f.Type,
 			f.Optional,
+			defaulted,
 			comp.Value,
 			data,
 			next,
 		)
 		if !ok {
-			return nil, "", false
+			return nil, false
 		}
-		setup = append(setup, lines...)
+		lines = append(lines, sub...)
 	}
-	return setup, variable, true
+	return lines, true
+}
+
+// literalDefaultsSetup returns the statement that sets the defaults of the literal
+// value in variable before its members are assigned. It leaves the default groups of
+// the value to a later DefaultGroups call, so a member the literal sets keeps the rest
+// of its group at zero.
+func literalDefaultsSetup(variable string, defaulted, groups bool) []string {
+	switch {
+	case groups:
+		return []string{variable + ".SetUngroupedDefaults()"}
+	case defaulted:
+		return []string{variable + ".SetDefaults()"}
+	}
+	return nil
 }
 
 // literalAssignments renders the statements that assign the literal v to the Go
 // selector of type typeRef, recursing into struct and union literals. An optional
-// selector is a pointer, so the statements allocate its value first.
+// selector is a pointer, so the statements allocate its value first. defaulted reports
+// whether SetDefaults filled the value the selector reaches into.
 func literalAssignments(
 	selector string,
 	typeRef resolution.TypeRef,
 	optional bool,
+	defaulted bool,
 	v resolution.ExpressionValue,
 	data *templateData,
 	next *int,
@@ -225,65 +370,29 @@ func literalAssignments(
 	goType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
 	switch v.Kind {
 	case resolution.ValueKindStruct:
-		var lines []string
-		if optional {
-			lines = append(lines, selector+" = &"+goType+"{}")
-		}
-		if setup, variable, ok := unionLiteral(typeRef, v, data, next); ok {
-			lines = append(lines, setup...)
-			return append(lines, selector+".Variant = "+variable), true
-		}
-		resolved, structRef, ok := resolution.Dealias(typeRef, data.table)
-		if !ok {
-			return nil, false
-		}
-		fields := resolution.UnifiedFields(resolved, data.table)
-		if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
-			fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
-				f.Type = bindTypeArgs(f.Type, form.TypeParams, structRef.TypeArgs, data)
-				return f
-			})
-		}
-		for _, comp := range v.Fields {
-			f, ok := lo.Find(fields, func(f resolution.Field) bool {
-				return f.Name == comp.Name
-			})
-			if !ok {
-				return nil, false
-			}
-			sub, ok := literalAssignments(
-				selector+"."+naming.GetFieldName(f),
-				f.Type,
-				f.Optional,
-				comp.Value,
-				data,
-				next,
-			)
-			if !ok {
-				return nil, false
-			}
-			lines = append(lines, sub...)
-		}
-		return lines, true
+		return structLiteralAssignments(
+			selector, goType, typeRef, optional, defaulted, v, data, next,
+		)
 	case resolution.ValueKindArray:
 		if len(v.Elements) == 0 {
-			return nil, true
+			// The literal overrides a default list that SetDefaults set.
+			return []string{selector + " = nil"}, true
 		}
 		setup, expr, ok := arrayLiteral(typeRef, v, data, next)
 		if !ok {
 			return nil, false
 		}
 		return append(setup, selector+" = "+expr), true
-	}
-	if v.Kind == resolution.ValueKindIdent {
-		if expr, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
-			if optional {
-				return []string{
-					selector + " = &" + goType + "{Variant: " + expr + "}",
-				}, true
-			}
-			return []string{selector + ".Variant = " + expr}, true
+	case resolution.ValueKindIdent:
+		if lines, ok := emptyVariantAssignments(
+			selector, goType, typeRef, optional, v, data, next,
+		); ok {
+			return lines, true
 		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool:
 	}
 	lit, ok := goLiteral(typeRef, &v, data)
 	if !ok {
@@ -293,6 +402,74 @@ func literalAssignments(
 		return []string{selector + " = new(" + goType + "(" + lit + "))"}, true
 	}
 	return []string{selector + " = " + lit}, true
+}
+
+// structLiteralAssignments renders the statements that assign the struct or union
+// literal v to selector, whose Go type is goType.
+func structLiteralAssignments(
+	selector string,
+	goType string,
+	typeRef resolution.TypeRef,
+	optional bool,
+	defaulted bool,
+	v resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, bool) {
+	var lines []string
+	if optional {
+		lines = append(lines, selector+" = &"+goType+"{}")
+		defaulted = false
+	}
+	if setup, variable, ok := unionLiteral(typeRef, v, data, next); ok {
+		lines = append(lines, setup...)
+		return append(lines, selector+".Variant = "+variable), true
+	}
+	resolved, structRef, ok := resolution.Dealias(typeRef, data.table)
+	if !ok {
+		return nil, false
+	}
+	fields := resolution.UnifiedFields(resolved, data.table)
+	if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
+		fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
+			f.Type = bindTypeArgs(f.Type, form.TypeParams, structRef.TypeArgs, data)
+			return f
+		})
+	}
+	sub, ok := fieldAssignments(selector, fields, v.Fields, defaulted, data, next)
+	if !ok {
+		return nil, false
+	}
+	return append(lines, sub...), true
+}
+
+// emptyVariantAssignments renders the statements that assign the empty variant that
+// the identifier literal v names to selector. It returns ok=false when v names no
+// empty variant of typeRef.
+func emptyVariantAssignments(
+	selector string,
+	goType string,
+	typeRef resolution.TypeRef,
+	optional bool,
+	v resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, bool) {
+	expr, defaulted, ok := emptyVariant(v.IdentValue, typeRef, data)
+	if !ok {
+		return nil, false
+	}
+	var lines []string
+	if defaulted {
+		variable := fmt.Sprintf("v%d", *next)
+		*next++
+		lines = []string{variable + " := " + expr, variable + ".SetDefaults()"}
+		expr = variable
+	}
+	if optional {
+		return append(lines, selector+" = &"+goType+"{Variant: "+expr+"}"), true
+	}
+	return append(lines, selector+".Variant = "+expr), true
 }
 
 // bindTypeArgs returns ref with each of params replaced by the type argument at its
@@ -357,7 +534,15 @@ func arrayLiteral(
 		}
 		variable := fmt.Sprintf("v%d", *next)
 		*next++
-		lines, ok := literalAssignments(variable, elemRef, false, elem, data, next)
+		lines, ok := literalAssignments(
+			variable,
+			elemRef,
+			false,
+			false,
+			elem,
+			data,
+			next,
+		)
 		if !ok {
 			return nil, "", false
 		}
@@ -390,10 +575,9 @@ func arrayFill(
 		return defaultFillData{}, false
 	}
 	return defaultFillData{
-		GoName:  goName,
-		ZeroLit: "nil",
-		Expr:    expr,
-		Setup:   setup,
+		GoName: goName,
+		Expr:   expr,
+		Setup:  setup,
 	}, true
 }
 
@@ -410,7 +594,7 @@ func goLiteral(
 	case resolution.ValueKindString:
 		return strconv.Quote(v.StringValue), true
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue), true
+		return strconv.FormatInt(v.IntValue, 10), true
 	case resolution.ValueKindFloat:
 		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64), true
 	case resolution.ValueKindBool:
@@ -421,6 +605,7 @@ func goLiteral(
 			return "", false
 		}
 		return enumConstRef(typeRef, ev, data), true
+	case resolution.ValueKindArray, resolution.ValueKindStruct:
 	}
 	return "", false
 }
@@ -441,37 +626,38 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: `""`,
-			Expr:    strconv.Quote(d.StringValue),
+			GoName: goName,
+			Expr:   strconv.Quote(d.StringValue),
 		}, true
 	case resolution.ValueKindInt:
 		if d.IntValue == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: "0",
-			Expr:    fmt.Sprintf("%d", d.IntValue),
+			GoName: goName,
+			Expr:   strconv.FormatInt(d.IntValue, 10),
 		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: "0",
-			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
+			GoName: goName,
+			Expr:   strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
 		}, true
 	case resolution.ValueKindIdent:
-		if expr, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
+		if expr, defaulted, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
 			// The wrapper holds the active variant behind a nil-able interface, so
 			// the fill targets that field rather than the wrapper itself.
-			return defaultFillData{
-				GoName:  goName + ".Variant",
-				ZeroLit: "nil",
-				Expr:    expr,
-			}, true
+			fill := defaultFillData{
+				GoName: goName + ".Variant",
+				Expr:   expr,
+			}
+			if defaulted {
+				fill.Setup = []string{"v0 := " + expr, "v0.SetDefaults()"}
+				fill.Expr = "v0"
+			}
+			return fill, true
 		}
 		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)
 		if !ok {
@@ -484,30 +670,33 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: `""`,
-			Expr:    enumConstRef(typeRef, ev, data),
+			GoName: goName,
+			Expr:   enumConstRef(typeRef, ev, data),
 		}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return defaultFillData{}, false
 }
 
 // emptyVariant renders the empty Go variant struct that a bare-name union default such
-// as `= const_val` selects. It returns ok=false when typeRef is not a union with that
-// variant.
+// as `= const_val` selects, and reports whether that struct has SetDefaults. It returns
+// ok=false when typeRef is not a union with that variant.
 func emptyVariant(
 	ident string,
 	typeRef resolution.TypeRef,
 	data *templateData,
-) (string, bool) {
+) (expr string, defaulted, ok bool) {
 	uv, ok := validation.ResolveUnionVariant(ident, typeRef, data.table)
 	if !ok {
-		return "", false
+		return "", false, false
 	}
 	// The variant structs live with the union, not with an alias of it.
 	_, unionRef, _ := resolution.Dealias(typeRef, data.table)
 	unionType := stripPointer(data.resolver.ResolveTypeRef(unionRef, data.ctx))
-	return casing.QualifiedVariantTypeName(unionType, uv.Variant.Name, ".") + "{}", true
+	expr = casing.QualifiedVariantTypeName(unionType, uv.Variant.Name, ".") + "{}"
+	return expr, variantSetsDefaults(uv.Union, uv.Variant, data), true
 }
 
 // enumConstRef renders the Go constant of the enum member ev that a value of type
@@ -527,8 +716,8 @@ func enumConstRef(
 type constraintCheckData struct {
 	GoName    string
 	FieldName string
-	// Kind selects the assertion form: non_empty_string, min_len, max_len (string), or
-	// ge, le (numeric).
+	// Kind selects the assertion form: non_empty_string, min_len, max_len (string),
+	// non_zero (numeric or uuid), or ge, le (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one.
 	Arg string
@@ -539,19 +728,20 @@ type constraintCheckData struct {
 	Deref bool
 }
 
-// goConstraintChecks returns the @validate constraint assertions for a field,
-// classified against the field type's underlying primitive so a distinct numeric type
-// (e.g. a Key over uint32) validates as a number. An optional field is checked only
-// when present, and never for being required.
+// goConstraintChecks returns the @validate constraint assertions for a field and its
+// type chain, classified against the field type's underlying primitive so a distinct
+// numeric type (e.g. a Key over uint32) validates as a number. An optional field is
+// checked only when present, and never for being required. An inherited field checks
+// only its own rules, since the embedded parent's Validate checks its type's rules.
 func goConstraintChecks(
 	field resolution.Field,
+	inherited bool,
 	data *templateData,
 ) []constraintCheckData {
-	domain, ok := field.Domains["validate"]
-	if !ok {
-		return nil
+	rules := validation.FieldRules(field, data.table)
+	if inherited {
+		rules = validation.Parse(field.Domains["validate"])
 	}
-	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) {
 		return nil
 	}
@@ -567,39 +757,73 @@ func goConstraintChecks(
 			Deref:     field.Optional,
 		}
 	}
+	required := rules.Required && !field.Optional
 	var checks []constraintCheckData
-	if resolution.IsStringPrimitive(base) {
-		switch {
-		case rules.Required && !field.Optional,
-			rules.MinLength != nil && *rules.MinLength == 1:
-			checks = append(checks, check("non_empty_string", ""))
-		case rules.MinLength != nil && *rules.MinLength > 1:
-			checks = append(
-				checks,
-				check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
-			)
-		}
-		if rules.MaxLength != nil {
-			checks = append(
-				checks,
-				check("max_len", strconv.FormatInt(*rules.MaxLength, 10)),
-			)
-		}
-	}
-	if resolution.IsNumberPrimitive(base) {
-		if rules.Required && !field.Optional {
+	switch {
+	case base == "uuid":
+		if required {
 			checks = append(checks, check("non_zero", ""))
 		}
-		if rules.Min != nil {
-			checks = append(checks, check("ge", numberLiteral(rules.Min)))
-		}
-		if rules.Max != nil {
-			checks = append(checks, check("le", numberLiteral(rules.Max)))
-		}
+	case resolution.IsStringPrimitive(base):
+		checks = stringChecks(rules, required, check)
+	}
+	if resolution.IsNumberPrimitive(base) {
+		checks = append(checks, numberChecks(rules, required, check)...)
 	}
 	if field.Optional && len(checks) > 0 {
 		checks[0].Opens = true
 		checks[len(checks)-1].Closes = true
+	}
+	return checks
+}
+
+// constraintCheck builds the check of one constraint kind with its argument.
+type constraintCheck func(kind, arg string) constraintCheckData
+
+// stringChecks returns the length checks of a string field. required reports whether
+// the field must be non-empty.
+func stringChecks(
+	rules *validation.Rules, required bool, check constraintCheck,
+) []constraintCheckData {
+	var checks []constraintCheckData
+	switch {
+	case rules.MinLength != nil && *rules.MinLength > 1:
+		checks = append(
+			checks,
+			check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
+		)
+	case required, rules.MinLength != nil && *rules.MinLength == 1:
+		checks = append(checks, check("non_empty_string", ""))
+	}
+	if rules.MaxLength != nil {
+		checks = append(
+			checks,
+			check("max_len", strconv.FormatInt(*rules.MaxLength, 10)),
+		)
+	}
+	return checks
+}
+
+// numberChecks returns the zero and bound checks of a numeric field. required reports
+// whether the field must be non-zero.
+func numberChecks(
+	rules *validation.Rules, required bool, check constraintCheck,
+) []constraintCheckData {
+	var checks []constraintCheckData
+	if required {
+		checks = append(checks, check("non_zero", ""))
+	}
+	if rules.Min != nil {
+		checks = append(checks, check("ge", numberLiteral(rules.Min)))
+	}
+	if rules.GT != nil {
+		checks = append(checks, check("gt", numberLiteral(rules.GT)))
+	}
+	if rules.Max != nil {
+		checks = append(checks, check("le", numberLiteral(rules.Max)))
+	}
+	if rules.Finite {
+		checks = append(checks, check("finite", ""))
 	}
 	return checks
 }
@@ -612,14 +836,16 @@ func numberLiteral(n *validation.Number) string {
 	return strconv.FormatFloat(n.Float, 'g', -1, 64)
 }
 
-// goEnumCheck returns an enum-membership validation for a required field whose type is
-// an enum. Nullable and optional fields are skipped: their pointer may be nil, and
-// absence is legitimate.
+// goEnumCheck returns an enum-membership validation for a field whose type is an enum,
+// or for each key of a map keyed by an enum. An optional field is checked only when
+// present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
-	if field.Optional {
-		return enumCheckData{}, false
+	ref, mapKey := field.Type, false
+	m := unaliasContainer(field.Type, data)
+	if m.Name == "Map" && len(m.TypeArgs) == 2 {
+		ref, mapKey = m.TypeArgs[0], true
 	}
-	resolved, _, ok := resolution.Dealias(field.Type, data.table)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return enumCheckData{}, false
 	}
@@ -637,38 +863,44 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	return enumCheckData{
 		GoName:    naming.GetFieldName(field),
 		FieldName: field.Name,
+		Optional:  field.Optional,
+		MapKey:    mapKey,
 	}, true
 }
 
 // stripPointer removes a leading pointer marker from a resolved Go type.
 func stripPointer(goType string) string { return strings.TrimPrefix(goType, "*") }
 
-// recurseKind describes how a generated ApplyDefaults or Validate method reaches into a
-// field whose type carries its own method: a direct value, a nilable pointer, the
-// elements of a slice/array, or the values of a map.
+// recurseKind describes how a generated Validate method reaches into a field whose type
+// carries its own Validate: a direct value, a nilable pointer, the elements of a
+// slice/array, or the values of a map.
 type recurseKind string
 
 const (
 	recurseValue   recurseKind = "value"
 	recursePointer recurseKind = "pointer"
 	recurseSlice   recurseKind = "slice"
-	recurseMap     recurseKind = "map"
+	// recurseNestedSlice reaches the elements of each slice in a slice of slices.
+	recurseNestedSlice recurseKind = "nested_slice"
+	recurseMap         recurseKind = "map"
 )
 
 // recurseStepData describes one nested call a generated method makes into a field (or
-// an embedded type) whose own type carries an ApplyDefaults/Validate method. JSONName
-// is the wire field name used as the Validate error path segment; it is empty for an
-// embedded type, whose fields are promoted to the embedder's level and so take no path
-// segment.
+// an embedded type) whose own type carries the method. JSONName is the wire field name
+// used as the Validate error path segment; it is empty for an embedded type, whose
+// fields are promoted to the embedder's level and so take no path segment.
 type recurseStepData struct {
 	GoName   string
 	JSONName string
 	Kind     recurseKind
+	// Groups marks a SetDefaults step into a type that has a `@default group`, which
+	// splits its defaults into SetUngroupedDefaults and DefaultGroups.
+	Groups bool
 }
 
 // fieldHasOwn reports whether a field is itself a reason for its struct to emit a
-// method, independent of any nested type: a fillable static default for ApplyDefaults,
-// an enum membership check for Validate.
+// method, independent of any nested type: an enum membership or constraint check for
+// Validate.
 type fieldHasOwn func(resolution.Field, *templateData) bool
 
 func defaultsHasOwn(f resolution.Field, data *templateData) bool {
@@ -680,11 +912,26 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	if _, ok := goEnumCheck(f, probe); ok {
 		return true
 	}
-	return len(goConstraintChecks(f, probe)) > 0
+	return len(goConstraintChecks(f, false, probe)) > 0
 }
 
-// neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.
-func neverSkip(resolution.Field, *templateData) bool { return false }
+// methodRule selects the types that emit a recursive method.
+type methodRule struct {
+	// hasOwn reports that a field is itself a reason for its struct to emit the method.
+	hasOwn fieldHasOwn
+	// skip reports that a field is out of the method and of any recursion into it.
+	skip fieldHasOwn
+	// everyUnion reports that every union emits the method.
+	everyUnion bool
+}
+
+// validateRule makes every union emit Validate, which rejects a union with no
+// variant.
+var validateRule = methodRule{
+	hasOwn:     validateHasOwn,
+	skip:       validateSkip,
+	everyUnion: true,
+}
 
 // validateSkip reports whether a field carries `@validate skip`, excluding it from
 // generated validation and any recursion into it. Used for reference fields (a parent
@@ -697,14 +944,14 @@ func validateSkip(f resolution.Field, _ *templateData) bool {
 	return validation.Parse(domain).Skip
 }
 
-// resolvesToMethodType reports whether ref resolves directly to a struct or union — a
-// type that can carry an ApplyDefaults/Validate method — rather than a primitive, a
+// resolvesToMethodType reports whether ref resolves, through any aliases, to a struct
+// or union — a type that can carry a Validate method — rather than a primitive, a
 // builtin container (Array/Map), or a type parameter.
 func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
 		return false
 	}
-	resolved, ok := ref.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return false
 	}
@@ -727,18 +974,18 @@ func probeData(data *templateData) *templateData {
 	return &d
 }
 
-// typeNeedsMethod reports whether the type named by ref emits a recursive method: it
-// has a field satisfying hasOwn, or a nested struct field, slice/array element, map
-// value, or union variant payload that (transitively) does. Generic types and type
-// parameters never emit a method. visited guards against cycles in recursive types.
-// Probing must not leak imports into the emitted file, so hasOwn runs against a
-// scratch-import copy of data.
+// typeNeedsMethod reports whether the type named by ref emits the method of rule: it is
+// a union and rule.everyUnion is set, or it has a field satisfying rule.hasOwn, or a
+// nested struct field, slice/array element, map value, union base, or union variant
+// payload that (transitively) does. Generic types and type parameters never emit a
+// method. visited guards against cycles in recursive types. Probing must not leak
+// imports into the emitted file, so rule.hasOwn runs against a scratch-import copy of
+// data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
 	visited set.Set[string],
-	hasOwn fieldHasOwn,
-	skip fieldHasOwn,
+	rule methodRule,
 ) bool {
 	if ref.IsTypeParam() {
 		return false
@@ -746,10 +993,10 @@ func typeNeedsMethod(
 	switch ref.Name {
 	case "Array":
 		return len(ref.TypeArgs) == 1 &&
-			typeNeedsMethod(ref.TypeArgs[0], data, visited, hasOwn, skip)
+			typeNeedsMethod(ref.TypeArgs[0], data, visited, rule)
 	case "Map":
 		return len(ref.TypeArgs) == 2 &&
-			typeNeedsMethod(ref.TypeArgs[1], data, visited, hasOwn, skip)
+			typeNeedsMethod(ref.TypeArgs[1], data, visited, rule)
 	}
 	if visited.Contains(ref.Name) {
 		return false
@@ -761,29 +1008,58 @@ func typeNeedsMethod(
 	}
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		if form.IsGeneric() {
-			return false
-		}
-		probe := probeData(data)
-		for _, field := range resolution.UnifiedFields(resolved, data.table) {
-			if skip(field, data) {
-				continue
-			}
-			if hasOwn(field, probe) ||
-				typeNeedsMethod(field.Type, data, visited, hasOwn, skip) {
-				return true
-			}
-		}
+		return structNeedsMethod(resolved, form, data, visited, rule)
 	case resolution.UnionForm:
-		for _, variant := range form.Variants {
-			if typeNeedsMethod(variant.Type, data, visited, hasOwn, skip) {
-				return true
-			}
-		}
+		return unionNeedsMethod(form, data, visited, rule)
 	case resolution.AliasForm:
-		return typeNeedsMethod(form.Target, data, visited, hasOwn, skip)
+		return typeNeedsMethod(form.Target, data, visited, rule)
 	case resolution.DistinctForm:
-		return typeNeedsMethod(form.Base, data, visited, hasOwn, skip)
+		return typeNeedsMethod(form.Base, data, visited, rule)
+	}
+	return false
+}
+
+func structNeedsMethod(
+	resolved resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+	visited set.Set[string],
+	rule methodRule,
+) bool {
+	if form.IsGeneric() {
+		return false
+	}
+	probe := probeData(data)
+	for _, field := range resolution.UnifiedFields(resolved, data.table) {
+		if rule.skip(field, data) {
+			continue
+		}
+		if rule.hasOwn(field, probe) ||
+			typeNeedsMethod(field.Type, data, visited, rule) {
+			return true
+		}
+	}
+	return false
+}
+
+func unionNeedsMethod(
+	form resolution.UnionForm,
+	data *templateData,
+	visited set.Set[string],
+	rule methodRule,
+) bool {
+	if rule.everyUnion {
+		return true
+	}
+	for _, base := range form.Extends {
+		if typeNeedsMethod(base, data, visited, rule) {
+			return true
+		}
+	}
+	for _, variant := range form.Variants {
+		if typeNeedsMethod(variant.Type, data, visited, rule) {
+			return true
+		}
 	}
 	return false
 }
@@ -792,20 +1068,40 @@ func typeNeedsMethod(
 // the strconv import for the index path segment in a generated Validate method.
 func hasSliceRecurse(steps []recurseStepData) bool {
 	for _, step := range steps {
-		if step.Kind == recurseSlice {
+		if step.Kind == recurseSlice || step.Kind == recurseNestedSlice {
 			return true
 		}
 	}
 	return false
 }
 
+// unaliasContainer returns the Array or Map that ref names through aliases, or ref
+// itself when it names neither.
+func unaliasContainer(ref resolution.TypeRef, data *templateData) resolution.TypeRef {
+	for visited := set.New[string](); !visited.Contains(ref.Name); {
+		visited.Add(ref.Name)
+		resolved, ok := ref.Resolve(data.table)
+		if !ok {
+			return ref
+		}
+		alias, ok := resolved.Form.(resolution.AliasForm)
+		if !ok {
+			return ref
+		}
+		if alias.Target.Name == "Array" || alias.Target.Name == "Map" {
+			return alias.Target
+		}
+		ref = alias.Target
+	}
+	return ref
+}
+
 // goRecurseStep returns the nested-method step for a field whose type (transitively)
-// needs the method identified by hasOwn, or ok=false when the field needs no recursion.
+// needs the method of rule, or ok=false when the field needs no recursion.
 func goRecurseStep(
 	field resolution.Field,
 	data *templateData,
-	hasOwn fieldHasOwn,
-	skip fieldHasOwn,
+	rule methodRule,
 ) (recurseStepData, bool) {
 	ref := field.Type
 	step := recurseStepData{
@@ -814,11 +1110,21 @@ func goRecurseStep(
 	}
 	needs := func(r resolution.TypeRef) bool {
 		return resolvesToMethodType(r, data) &&
-			typeNeedsMethod(r, data, set.New[string](), hasOwn, skip)
+			typeNeedsMethod(r, data, set.New[string](), rule)
 	}
+	ref = unaliasContainer(ref, data)
 	switch ref.Name {
 	case "Array":
-		if len(ref.TypeArgs) == 1 && needs(ref.TypeArgs[0]) {
+		if len(ref.TypeArgs) != 1 {
+			return recurseStepData{}, false
+		}
+		elem := unaliasContainer(ref.TypeArgs[0], data)
+		if elem.Name == "Array" && len(elem.TypeArgs) == 1 &&
+			needs(elem.TypeArgs[0]) {
+			step.Kind = recurseNestedSlice
+			return step, true
+		}
+		if needs(elem) {
 			step.Kind = recurseSlice
 			return step, true
 		}
@@ -840,12 +1146,18 @@ func goRecurseStep(
 	return step, true
 }
 
+// groupMemberData is the zero comparison for one member of a default group.
+type groupMemberData struct {
+	GoName  string
+	ZeroLit string
+}
+
 // defaultGroupData describes a set of fields whose defaults apply as a unit. The
-// generated ApplyDefaults fills every member only when all of them hold their zero
-// value, so a deliberate zero on any member survives the fill.
+// generated DefaultGroups sets every member only when all of them hold their zero
+// value, so an input that sets part of the group keeps its zero members.
 type defaultGroupData struct {
 	// Members is every field in the group, rendered into the all-zero guard.
-	Members []defaultFillData
+	Members []groupMemberData
 	// Fills is the subset of members carrying a non-zero default, the only ones with
 	// anything to assign.
 	Fills []defaultFillData
@@ -871,7 +1183,8 @@ func goDefaultGroups(
 		if name == "" || f.Default == nil || f.Optional {
 			continue
 		}
-		member, ok := groupMember(f, data)
+		fd := data.forField(f)
+		member, ok := groupMember(f, fd)
 		if !ok {
 			continue
 		}
@@ -882,7 +1195,7 @@ func goDefaultGroups(
 			order = append(order, name)
 		}
 		g.Members = append(g.Members, member)
-		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
+		g.Fills = append(g.Fills, goDefaultFills(f, fd)...)
 	}
 	groups := make([]defaultGroupData, 0, len(order))
 	for _, name := range order {
@@ -896,16 +1209,13 @@ func goDefaultGroups(
 // groupMember returns the zero comparison for one group member. It returns ok=false
 // for a default kind with no zero literal, which checkDefaultGroups rejects from a
 // group.
-func groupMember(
-	f resolution.Field,
-	data *templateData,
-) (defaultFillData, bool) {
+func groupMember(f resolution.Field, data *templateData) (groupMemberData, bool) {
 	name := naming.GetFieldName(f)
 	switch f.Default.Kind {
 	case resolution.ValueKindString:
-		return defaultFillData{GoName: name, ZeroLit: `""`}, true
+		return groupMemberData{GoName: name, ZeroLit: `""`}, true
 	case resolution.ValueKindInt, resolution.ValueKindFloat:
-		return defaultFillData{GoName: name, ZeroLit: "0"}, true
+		return groupMemberData{GoName: name, ZeroLit: "0"}, true
 	case resolution.ValueKindIdent:
 		ev, ok := validation.ResolveEnumVariant(
 			f.Default.IdentValue,
@@ -913,13 +1223,177 @@ func groupMember(
 			data.table,
 		)
 		if !ok {
-			return defaultFillData{}, false
+			return groupMemberData{}, false
 		}
 		form, isEnum := ev.Type.Form.(resolution.EnumForm)
 		if !isEnum || form.IsIntEnum {
-			return defaultFillData{}, false
+			return groupMemberData{}, false
 		}
-		return defaultFillData{GoName: name, ZeroLit: `""`}, true
+		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
-	return defaultFillData{}, false
+	return groupMemberData{}, false
+}
+
+// variantSetsDefaults reports whether the Go struct of variant v of form emits
+// SetDefaults, by the rule the generated variant follows.
+func variantSetsDefaults(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	data *templateData,
+) bool {
+	// A named payload embeds the union's bases beside it.
+	if !v.Inline {
+		return lo.SomeBy(
+			append(slices.Clone(form.Extends), v.Type),
+			func(ref resolution.TypeRef) bool {
+				return typeSetsDefaults(ref, data, set.New[string]())
+			},
+		)
+	}
+	payload, ok := v.Type.Resolve(data.table)
+	if !ok {
+		return false
+	}
+	inherited, declared := resolver.VariantBases(form, v, "go", data.table)
+	for _, ref := range inherited {
+		if typeSetsDefaults(ref, data, set.New[string]()) {
+			return true
+		}
+	}
+	pform, _ := payload.Form.(resolution.StructForm)
+	probe := probeData(data)
+	return lo.SomeBy(
+		slices.Concat(declared, pform.Fields),
+		func(f resolution.Field) bool {
+			return defaultsHasOwn(f, probe) ||
+				(!f.Optional && typeSetsDefaults(f.Type, data, set.New[string]()))
+		},
+	)
+}
+
+// typeSetsDefaults reports whether ref names a struct that emits SetDefaults: one with
+// a field that has a static default, or with a required struct field or embedded
+// parent whose type emits SetDefaults. A union never does, since its zero value holds
+// no variant. visited guards against cycles in recursive types.
+func typeSetsDefaults(
+	ref resolution.TypeRef,
+	data *templateData,
+	visited set.Set[string],
+) bool {
+	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" ||
+		visited.Contains(ref.Name) {
+		return false
+	}
+	visited.Add(ref.Name)
+	// An alias names the same Go type as its target.
+	resolved, _, ok := resolution.Dealias(ref, data.table)
+	if !ok {
+		return false
+	}
+	form, ok := resolved.Form.(resolution.StructForm)
+	if !ok || form.IsGeneric() {
+		return false
+	}
+	probe := probeData(data)
+	return lo.SomeBy(
+		resolution.UnifiedFields(resolved, data.table),
+		func(f resolution.Field) bool {
+			return defaultsHasOwn(f, probe) ||
+				(!f.Optional && typeSetsDefaults(f.Type, data, visited))
+		},
+	)
+}
+
+// setDefaultsSteps returns the SetDefaults calls a generated SetDefaults makes into
+// embedded types and required struct fields. Optional, slice, and map fields hold no
+// value until the input supplies one, so their own decode hooks default them.
+func setDefaultsSteps(
+	embeds []embeddedType,
+	fields []resolution.Field,
+	data *templateData,
+) []recurseStepData {
+	var steps []recurseStepData
+	for _, e := range embeds {
+		if typeSetsDefaults(e.ref, data, set.New[string]()) {
+			steps = append(steps, recurseStepData{
+				GoName: embedFieldName(e.rendered),
+				Groups: typeHasGroups(e.ref, data, set.New[string]()),
+			})
+		}
+	}
+	for _, f := range fields {
+		if !f.Optional && typeSetsDefaults(f.Type, data, set.New[string]()) {
+			steps = append(steps, recurseStepData{
+				GoName: naming.GetFieldName(f),
+				Groups: typeHasGroups(f.Type, data, set.New[string]()),
+			})
+		}
+	}
+	return steps
+}
+
+// variantHasGroups reports whether the variant v of the union form has a `@default
+// group` in its payload or in a type it sets the defaults of.
+func variantHasGroups(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	data *templateData,
+) bool {
+	hasGroups := func(ref resolution.TypeRef) bool {
+		return typeHasGroups(ref, data, set.New[string]())
+	}
+	if !v.Inline {
+		return lo.SomeBy(append(slices.Clone(form.Extends), v.Type), hasGroups)
+	}
+	payload, ok := v.Type.Resolve(data.table)
+	if !ok {
+		return false
+	}
+	inherited, declared := resolver.VariantBases(form, v, "go", data.table)
+	if lo.SomeBy(inherited, hasGroups) {
+		return true
+	}
+	pform, _ := payload.Form.(resolution.StructForm)
+	probe := probeData(data)
+	return lo.SomeBy(
+		slices.Concat(declared, pform.Fields),
+		func(f resolution.Field) bool {
+			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
+				(!f.Optional && hasGroups(f.Type))
+		},
+	)
+}
+
+// typeHasGroups reports whether ref names a struct that has a `@default group` with a
+// default to set, in its own fields or in a required struct field or embedded parent.
+// visited guards against cycles in recursive types.
+func typeHasGroups(
+	ref resolution.TypeRef,
+	data *templateData,
+	visited set.Set[string],
+) bool {
+	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" ||
+		visited.Contains(ref.Name) {
+		return false
+	}
+	visited.Add(ref.Name)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
+	if !ok {
+		return false
+	}
+	form, ok := resolved.Form.(resolution.StructForm)
+	if !ok || form.IsGeneric() {
+		return false
+	}
+	probe := probeData(data)
+	return lo.SomeBy(
+		resolution.UnifiedFields(resolved, data.table),
+		func(f resolution.Field) bool {
+			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
+				(!f.Optional && typeHasGroups(f.Type, data, visited))
+		},
+	)
 }

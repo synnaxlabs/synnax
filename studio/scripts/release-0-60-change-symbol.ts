@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
 
 import { capture, fixtures } from "@/index";
 
@@ -15,9 +15,10 @@ import { isolateTab, mosaicTab } from "./common/panels";
 
 const NAME = "Pressurant Feed";
 const PURPLE = "#b300ff";
+const FIXED_PURPLE = { type: "fixed", value: PURPLE } as const;
 const VALVE = "booster-iso";
 
-type Config = NonNullable<schematic.New["configs"]>[string];
+type Config = NonNullable<schematic.New["nodes"]>[number]["config"];
 
 /** Symbols draw this much larger than their default size, to read on camera. */
 const SCALE = 1.4;
@@ -35,7 +36,7 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     variant: "tank",
     label: label(""),
     dimensions: { width: 200, height: 340 },
-    strokeColor: PURPLE,
+    strokeColor: FIXED_PURPLE,
     levelHidden: true,
   };
   const value = (text: string, ch: string, units: string, inlineSize = 90): Config => ({
@@ -43,7 +44,7 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     label: label(text),
     channel: key(ch),
     units,
-    strokeColor: PURPLE,
+    strokeColor: FIXED_PURPLE,
     level: "h4",
     inlineSize,
   });
@@ -82,7 +83,11 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     [
       "ox-tank",
       { x: 1270, y: 274.5 },
-      { variant: "off_page_reference", label: label("OX Tank"), fillColor: PURPLE },
+      {
+        variant: "off_page_reference",
+        label: label("OX Tank"),
+        fillColor: FIXED_PURPLE,
+      },
     ],
   ];
   const pipes: Array<[string, string, string, string]> = [
@@ -92,22 +97,15 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     ["press", "8", "press-iso", "1"],
     ["press-iso", "2", "ox-tank", "2"],
   ];
-  const configs: Record<string, Config> = {};
-  for (const [k, , config] of nodes) configs[k] = config;
-  const edges = pipes.map(([source, sp, target, tp]) => {
-    const k = `${source}-${target}`;
-    configs[k] = { variant: "pipe", strokeColor: PURPLE, segments: [] };
-    return {
-      key: k,
-      source: { node: source, param: sp },
-      target: { node: target, param: tp },
-    };
-  });
   return {
     name: NAME,
-    nodes: nodes.map(([k, position]) => ({ key: k, position })),
-    edges,
-    configs,
+    nodes: nodes.map(([k, position, config]) => ({ key: k, position, config })),
+    edges: pipes.map(([source, sp, target, tp]) => ({
+      key: `${source}-${target}`,
+      source: { node: source, param: sp },
+      target: { node: target, param: tp },
+      config: { variant: "pipe", strokeColor: FIXED_PURPLE, segments: [] },
+    })),
   };
 };
 
@@ -142,7 +140,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       if (k == null) throw new Error(`the stand has no channel "${name}"`);
       return k;
     };
-    await client.schematics.create(tpc.key, feed(key));
+    await client.schematics.create({ ...feed(key), project: tpc.key });
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Operations", { exact: true }).first());

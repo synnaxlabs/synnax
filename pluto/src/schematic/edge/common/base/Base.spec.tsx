@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Base } from "@/schematic/edge/common/base";
@@ -41,7 +41,7 @@ describe("edge Base", () => {
 
   it("should pass a fully transparent color through as a choice", () => {
     const { container } = renderEdge(
-      <Base.Base path="M0 0 L10 10" color={color.ZERO} />,
+      <Base.Base path="M0 0 L10 10" color={color.TRANSPARENT} />,
     );
     expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
@@ -50,11 +50,27 @@ describe("edge Base", () => {
 
   it("should carry the alpha channel so a translucent edge stays translucent", () => {
     const { container } = renderEdge(
-      <Base.Base path="M0 0 L10 10" color={[255, 0, 0, 0.5]} />,
+      <Base.Base path="M0 0 L10 10" color={[255, 0, 0, 51]} />,
     );
     expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "255, 0, 0, 0.5",
+      "255, 0, 0, 0.2",
     );
+  });
+
+  it("should draw at the default stroke width when given none", () => {
+    const { container } = renderEdge(<Base.Base path="M0 0 L10 10" />);
+    expect(queryPath(container).style.strokeWidth).toBe(`${Base.DEFAULT_STROKE_WIDTH}`);
+  });
+
+  it("should draw at the given stroke width", () => {
+    const { container } = renderEdge(<Base.Base path="M0 0 L10 10" strokeWidth={6} />);
+    expect(queryPath(container).style.strokeWidth).toBe("6");
+  });
+
+  it("should keep the hit area wider than the widest stroke", () => {
+    const { container } = renderEdge(<Base.Base path="M0 0 L10 10" strokeWidth={20} />);
+    const hitArea = container.querySelector(".react-flow__edge-interaction");
+    expect(Number(hitArea?.getAttribute("stroke-width"))).toBeGreaterThan(20);
   });
 
   it("should stroke a CSS variable string directly and skip the transform", () => {

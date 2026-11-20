@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
@@ -22,18 +23,23 @@ import (
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = v1.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment string
 
 const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = "start"
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = "center"
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = "end"
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
@@ -48,13 +54,17 @@ func (f FlexAlignment) IsValid() bool {
 	}
 }
 
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType string
 
 const (
-	TextCellConfigType  CellConfigType = "text"
+	// TextCellConfigType is the configuration for static text cells.
+	TextCellConfigType CellConfigType = "text"
+	// ValueCellConfigType is the configuration for live telemetry value cells.
 	ValueCellConfigType CellConfigType = "value"
 )
 
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant interface {
 	isCellConfigVariant()
 }
@@ -78,17 +88,11 @@ type TextCellConfig struct {
 
 func (TextCellConfig) isCellConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TextCellConfig) ApplyDefaults() {
-	if t.Level == "" {
-		t.Level = text.LevelH5
-	}
-	if t.Weight == 0 {
-		t.Weight = 400
-	}
-	if t.Align == "" {
-		t.Align = FlexAlignmentCenter
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextCellConfig) SetDefaults() {
+	t.Level = text.LevelH5
+	t.Weight = 400
+	t.Align = FlexAlignmentCenter
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -135,20 +139,12 @@ type ValueCellConfig struct {
 
 func (ValueCellConfig) isCellConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValueCellConfig) ApplyDefaults() {
-	if va.RollingAverage == 0 {
-		va.RollingAverage = 1
-	}
-	if va.Notation == "" {
-		va.Notation = notation.NotationStandard
-	}
-	if va.Level == "" {
-		va.Level = text.LevelH5
-	}
-	if va.StalenessTimeout == 0 {
-		va.StalenessTimeout = 5
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValueCellConfig) SetDefaults() {
+	va.RollingAverage = 1
+	va.Notation = notation.NotationStandard
+	va.Level = text.LevelH5
+	va.StalenessTimeout = 5
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -162,8 +158,8 @@ func (va ValueCellConfig) Validate() error {
 	return v.Error()
 }
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig struct {
 	Variant CellConfigVariant
 }
@@ -213,6 +209,7 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CellConfigType `json:"variant"`
 			TextCellConfig
 		}
+		v.TextCellConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -222,39 +219,33 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CellConfigType `json:"variant"`
 			ValueCellConfig
 		}
+		v.ValueCellConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v.ValueCellConfig
 	default:
-		return errors.Newf("CellConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CellConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *CellConfig) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case TextCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValueCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u CellConfig) Validate() error {
+	v := validate.New("CellConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case TextCellConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValueCellConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Row is a single row in a table, with height and ordered cell keys.
@@ -266,11 +257,28 @@ type Row struct {
 	Cells []string `json:"cells" msgpack:"cells"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Row) ApplyDefaults() {
-	if r.Size == 0 {
-		r.Size = 36
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Row) SetDefaults() {
+	r.Size = 36
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Row
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Row
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Column is a single column in a table, with width.
@@ -279,11 +287,28 @@ type Column struct {
 	Size float64 `json:"size" msgpack:"size"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Column) ApplyDefaults() {
-	if c.Size == 0 {
-		c.Size = 72
+// SetDefaults sets every field that has a schema default to that default.
+func (c *Column) SetDefaults() {
+	c.Size = 72
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *Column) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Column
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *Column) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Column
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
 }
 
 // Table is a tabular data display component for viewing structured telemetry data.
@@ -302,20 +327,6 @@ type Table struct {
 	// derived from rows[*].cells[*] references; cells not referenced by any row are
 	// orphaned and will be pruned on the next structural edit.
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Table) ApplyDefaults() {
-	for i := range t.Rows {
-		t.Rows[i].ApplyDefaults()
-	}
-	for i := range t.Columns {
-		t.Columns[i].ApplyDefaults()
-	}
-	for key, value := range t.Cells {
-		value.ApplyDefaults()
-		t.Cells[key] = value
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

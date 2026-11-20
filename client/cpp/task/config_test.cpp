@@ -11,6 +11,7 @@
 
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::task {
 /// @brief it should parse the generated StartConfig with auto_start present.
@@ -71,7 +72,7 @@ TEST(StartConfig, testParseWithoutKey) {
     auto parser = x::json::Parser(json);
     const auto config = StartConfig::parse(parser);
 
-    EXPECT_FALSE(parser.error()) << parser.error().message();
+    ASSERT_NIL(parser.error());
     EXPECT_FALSE(config.key.is_nil());
 }
 

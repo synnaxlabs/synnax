@@ -14,6 +14,7 @@ package v9
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -26,6 +27,7 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -76,18 +78,27 @@ func (s SegmentedEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
 type EdgeConfigType string
 
 const (
-	PipeEdgeConfigType      EdgeConfigType = "pipe"
-	ElectricEdgeConfigType  EdgeConfigType = "electric"
+	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	PipeEdgeConfigType EdgeConfigType = "pipe"
+	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	ElectricEdgeConfigType EdgeConfigType = "electric"
+	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
 	SecondaryEdgeConfigType EdgeConfigType = "secondary"
-	JacketedEdgeConfigType  EdgeConfigType = "jacketed"
+	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	JacketedEdgeConfigType EdgeConfigType = "jacketed"
+	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
 	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
+	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
 	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
-	DataEdgeConfigType      EdgeConfigType = "data"
+	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	DataEdgeConfigType EdgeConfigType = "data"
 )
 
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
 type EdgeConfigVariant interface {
 	isEdgeConfigVariant()
 }
@@ -190,8 +201,8 @@ func (d DataEdgeConfig) Validate() error {
 	return v.Error()
 }
 
-// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
-// variant selects the visual style of the connection.
+// EdgeConfig is the configuration of one edge. The variant selects the visual style of
+// the connection.
 type EdgeConfig struct {
 	Variant EdgeConfigVariant
 }
@@ -325,40 +336,50 @@ func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.DataEdgeConfig
 	default:
-		return errors.Newf("EdgeConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u EdgeConfig) Validate() error {
+	v := validate.New("EdgeConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case PipeEdgeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricEdgeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SecondaryEdgeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case JacketedEdgeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HydraulicEdgeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PneumaticEdgeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case DataEdgeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment string
 
 const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = "start"
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = "center"
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = "end"
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
@@ -377,11 +398,16 @@ func (f FlexAlignment) IsValid() bool {
 type ComponentSize string
 
 const (
-	ComponentSizeTiny   ComponentSize = "tiny"
-	ComponentSizeSmall  ComponentSize = "small"
+	// ComponentSizeTiny is the smallest preset.
+	ComponentSizeTiny ComponentSize = "tiny"
+	// ComponentSizeSmall is the preset between tiny and medium.
+	ComponentSizeSmall ComponentSize = "small"
+	// ComponentSizeMedium is the default preset.
 	ComponentSizeMedium ComponentSize = "medium"
-	ComponentSizeLarge  ComponentSize = "large"
-	ComponentSizeHuge   ComponentSize = "huge"
+	// ComponentSizeLarge is the preset between medium and huge.
+	ComponentSizeLarge ComponentSize = "large"
+	// ComponentSizeHuge is the largest preset.
+	ComponentSizeHuge ComponentSize = "huge"
 )
 
 // IsValid reports whether c is one of the defined ComponentSize
@@ -400,9 +426,12 @@ func (c ComponentSize) IsValid() bool {
 type ButtonMode string
 
 const (
-	ButtonModeFire      ButtonMode = "fire"
+	// ButtonModeFire writes once on click.
+	ButtonModeFire ButtonMode = "fire"
+	// ButtonModeMomentary writes on press and clears on release.
 	ButtonModeMomentary ButtonMode = "momentary"
-	ButtonModePulse     ButtonMode = "pulse"
+	// ButtonModePulse writes a one-cycle pulse.
+	ButtonModePulse ButtonMode = "pulse"
 )
 
 // IsValid reports whether b is one of the defined ButtonMode
@@ -432,23 +461,32 @@ type LabelConfig struct {
 	Align FlexAlignment `json:"align" msgpack:"align"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LabelConfig) ApplyDefaults() {
-	if l.Level == "" {
-		l.Level = text.LevelH5
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabelConfig) SetDefaults() {
+	l.Level = text.LevelH5
+	l.Orientation = spatial.LocationTop
+	l.Direction = spatial.DirectionX
+	l.MaxInlineSize = 150
+	l.Align = FlexAlignmentCenter
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LabelConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LabelConfig
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	if l.Orientation == "" {
-		l.Orientation = spatial.LocationTop
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LabelConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LabelConfig
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	if l.Direction == "" {
-		l.Direction = spatial.DirectionX
-	}
-	if l.MaxInlineSize == 0 {
-		l.MaxInlineSize = 150
-	}
-	if l.Align == "" {
-		l.Align = FlexAlignmentCenter
-	}
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -470,12 +508,10 @@ type LabeledConfig struct {
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LabeledConfig) ApplyDefaults() {
-	if l.Orientation == "" {
-		l.Orientation = spatial.OuterLocationLeft
-	}
-	l.Label.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabeledConfig) SetDefaults() {
+	l.Label.SetDefaults()
+	l.Orientation = spatial.OuterLocationLeft
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -493,11 +529,17 @@ type ScaledConfig struct {
 	Scale float64 `json:"scale" msgpack:"scale"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaledConfig) ApplyDefaults() {
-	if s.Scale == 0 {
-		s.Scale = 1
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaledConfig) SetDefaults() {
+	s.Scale = 1
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScaledConfig) Validate() error {
+	v := validate.New("ScaledConfig")
+	v.GreaterThan("scale", s.Scale, 0)
+	return v.Error()
 }
 
 // StalenessConfig is the staleness detection shared by every symbol that reads a
@@ -510,11 +552,9 @@ type StalenessConfig struct {
 	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StalenessConfig) ApplyDefaults() {
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StalenessConfig) SetDefaults() {
+	s.StalenessTimeout = 5
 }
 
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
@@ -530,14 +570,10 @@ type NumericTelemConfig struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (n *NumericTelemConfig) ApplyDefaults() {
-	if n.Precision == 0 {
-		n.Precision = 2
-	}
-	if n.Notation == "" {
-		n.Notation = "standard"
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NumericTelemConfig) SetDefaults() {
+	n.Precision = 2
+	n.Notation = "standard"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -564,11 +600,28 @@ type ControlStateConfig struct {
 	Orientation spatial.Location `json:"orientation" msgpack:"orientation"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ControlStateConfig) ApplyDefaults() {
-	if c.Orientation == "" {
-		c.Orientation = spatial.LocationBottom
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ControlStateConfig) SetDefaults() {
+	c.Orientation = spatial.LocationBottom
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *ControlStateConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ControlStateConfig
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *ControlStateConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ControlStateConfig
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -595,14 +648,11 @@ type ToggleConfig struct {
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ToggleConfig) ApplyDefaults() {
-	t.LabeledConfig.ApplyDefaults()
-	t.ScaledConfig.ApplyDefaults()
-	t.StalenessConfig.ApplyDefaults()
-	if t.Control != nil {
-		t.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.ScaledConfig.SetDefaults()
+	t.StalenessConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -610,6 +660,7 @@ func (t *ToggleConfig) ApplyDefaults() {
 func (t ToggleConfig) Validate() error {
 	v := validate.New("ToggleConfig")
 	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(t.ScaledConfig.Validate)
 	if t.Control != nil {
 		v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
 	}
@@ -624,10 +675,10 @@ type StaticSymbolConfig struct {
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticSymbolConfig) ApplyDefaults() {
-	s.LabeledConfig.ApplyDefaults()
-	s.ScaledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticSymbolConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaledConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -635,6 +686,7 @@ func (s *StaticSymbolConfig) ApplyDefaults() {
 func (s StaticSymbolConfig) Validate() error {
 	v := validate.New("StaticSymbolConfig")
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -646,9 +698,9 @@ type ToggleSymbolConfig struct {
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ToggleSymbolConfig) ApplyDefaults() {
-	t.ToggleConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleSymbolConfig) SetDefaults() {
+	t.ToggleConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -673,10 +725,10 @@ type DummyToggleSymbolConfig struct {
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DummyToggleSymbolConfig) ApplyDefaults() {
-	d.LabeledConfig.ApplyDefaults()
-	d.ScaledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DummyToggleSymbolConfig) SetDefaults() {
+	d.LabeledConfig.SetDefaults()
+	d.ScaledConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -684,6 +736,7 @@ func (d *DummyToggleSymbolConfig) ApplyDefaults() {
 func (d DummyToggleSymbolConfig) Validate() error {
 	v := validate.New("DummyToggleSymbolConfig")
 	v.Exec(d.LabeledConfig.Validate)
+	v.Exec(d.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -717,22 +770,14 @@ type ScaleIndicatorConfig struct {
 	Level text.Level `json:"level" msgpack:"level"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleIndicatorConfig) ApplyDefaults() {
-	if s.Bounds.Upper == 0 {
-		s.Bounds.Upper = 100
-	}
-	if s.Side == "" {
-		s.Side = spatial.OuterLocationRight
-	}
-	if s.CaretSide == "" {
-		s.CaretSide = spatial.OuterLocationRight
-	}
-	if s.Level == "" {
-		s.Level = text.LevelSmall
-	}
-	s.NumericTelemConfig.ApplyDefaults()
-	s.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaleIndicatorConfig) SetDefaults() {
+	s.NumericTelemConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.Bounds.Upper = 100
+	s.Side = spatial.OuterLocationRight
+	s.CaretSide = spatial.OuterLocationRight
+	s.Level = text.LevelSmall
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -762,10 +807,14 @@ type StateMapping struct {
 type PageType string
 
 const (
+	// PageTypeSchematic is a schematic page.
 	PageTypeSchematic PageType = "schematic"
-	PageTypeLineplot  PageType = "lineplot"
-	PageTypeLog       PageType = "log"
-	PageTypeTable     PageType = "table"
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = "lineplot"
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = "log"
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = "table"
 )
 
 // IsValid reports whether p is one of the defined PageType
@@ -795,115 +844,243 @@ func (p Page) Validate() error {
 	return v.Error()
 }
 
+// NodeConfigType is the "variant" value that selects a variant of NodeConfig.
 type NodeConfigType string
 
 const (
-	CapNodeConfigType                            NodeConfigType = "cap"
-	FilterNodeConfigType                         NodeConfigType = "filter"
-	FlowStraightenerNodeConfigType               NodeConfigType = "flow_straightener"
-	HeaterElementNodeConfigType                  NodeConfigType = "heater_element"
-	IsoCapNodeConfigType                         NodeConfigType = "iso_cap"
-	IsoFilterNodeConfigType                      NodeConfigType = "iso_filter"
-	NozzleNodeConfigType                         NodeConfigType = "nozzle"
-	OrificeNodeConfigType                        NodeConfigType = "orifice"
-	OrificePlateNodeConfigType                   NodeConfigType = "orifice_plate"
-	StrainerNodeConfigType                       NodeConfigType = "strainer"
-	StrainerConeNodeConfigType                   NodeConfigType = "strainer_cone"
-	ThrusterNodeConfigType                       NodeConfigType = "thruster"
-	VentNodeConfigType                           NodeConfigType = "vent"
-	FlowmeterGeneralNodeConfigType               NodeConfigType = "flowmeter_general"
-	FlowmeterElectromagneticNodeConfigType       NodeConfigType = "flowmeter_electromagnetic"
-	FlowmeterVariableAreaNodeConfigType          NodeConfigType = "flowmeter_variable_area"
-	FlowmeterCoriolisNodeConfigType              NodeConfigType = "flowmeter_coriolis"
-	FlowmeterNozzleNodeConfigType                NodeConfigType = "flowmeter_nozzle"
-	FlowmeterVenturiNodeConfigType               NodeConfigType = "flowmeter_venturi"
-	FlowmeterRingPistonNodeConfigType            NodeConfigType = "flowmeter_ring_piston"
-	FlowmeterPositiveDisplacementNodeConfigType  NodeConfigType = "flowmeter_positive_displacement"
-	FlowmeterTurbineNodeConfigType               NodeConfigType = "flowmeter_turbine"
-	FlowmeterPulseNodeConfigType                 NodeConfigType = "flowmeter_pulse"
-	FlowmeterFloatSensorNodeConfigType           NodeConfigType = "flowmeter_float_sensor"
-	FlowmeterOrificeNodeConfigType               NodeConfigType = "flowmeter_orifice"
-	BoxNodeConfigType                            NodeConfigType = "box"
-	ButtonNodeConfigType                         NodeConfigType = "button"
-	CircleNodeConfigType                         NodeConfigType = "circle"
-	GaugeNodeConfigType                          NodeConfigType = "gauge"
-	InputNodeConfigType                          NodeConfigType = "input"
-	LightNodeConfigType                          NodeConfigType = "light"
-	LineNodeConfigType                           NodeConfigType = "line"
-	OffPageReferenceNodeConfigType               NodeConfigType = "off_page_reference"
-	PolygonNodeConfigType                        NodeConfigType = "polygon"
-	SelectNodeConfigType                         NodeConfigType = "select"
-	ScaleNodeConfigType                          NodeConfigType = "scale"
-	SetpointNodeConfigType                       NodeConfigType = "setpoint"
-	StateIndicatorNodeConfigType                 NodeConfigType = "state_indicator"
-	StringDisplayNodeConfigType                  NodeConfigType = "string_display"
-	SwitchNodeConfigType                         NodeConfigType = "switch"
-	TextBoxNodeConfigType                        NodeConfigType = "text_box"
-	ValueNodeConfigType                          NodeConfigType = "value"
-	AgitatorNodeConfigType                       NodeConfigType = "agitator"
-	CrossBeamAgitatorNodeConfigType              NodeConfigType = "cross_beam_agitator"
-	FlatBladeAgitatorNodeConfigType              NodeConfigType = "flat_blade_agitator"
-	HeatExchangerGeneralNodeConfigType           NodeConfigType = "heat_exchanger_general"
-	HeatExchangerMNodeConfigType                 NodeConfigType = "heat_exchanger_m"
-	HeatExchangerStraightTubeNodeConfigType      NodeConfigType = "heat_exchanger_straight_tube"
-	HelicalAgitatorNodeConfigType                NodeConfigType = "helical_agitator"
-	PaddleAgitatorNodeConfigType                 NodeConfigType = "paddle_agitator"
-	PropellerAgitatorNodeConfigType              NodeConfigType = "propeller_agitator"
-	RotaryMixerNodeConfigType                    NodeConfigType = "rotary_mixer"
-	StaticMixerNodeConfigType                    NodeConfigType = "static_mixer"
-	CavityPumpNodeConfigType                     NodeConfigType = "cavity_pump"
-	CentrifugalCompressorNodeConfigType          NodeConfigType = "centrifugal_compressor"
-	CompressorNodeConfigType                     NodeConfigType = "compressor"
-	DiaphragmPumpNodeConfigType                  NodeConfigType = "diaphragm_pump"
-	EjectionPumpNodeConfigType                   NodeConfigType = "ejection_pump"
-	EjectorCompressorNodeConfigType              NodeConfigType = "ejector_compressor"
-	LiquidRingCompressorNodeConfigType           NodeConfigType = "liquid_ring_compressor"
-	PistonPumpNodeConfigType                     NodeConfigType = "piston_pump"
-	PumpNodeConfigType                           NodeConfigType = "pump"
-	RollerVaneCompressorNodeConfigType           NodeConfigType = "roller_vane_compressor"
-	ScrewPumpNodeConfigType                      NodeConfigType = "screw_pump"
-	TurboCompressorNodeConfigType                NodeConfigType = "turbo_compressor"
-	VacuumPumpNodeConfigType                     NodeConfigType = "vacuum_pump"
-	BurstDiscNodeConfigType                      NodeConfigType = "burst_disc"
-	FlameArrestorNodeConfigType                  NodeConfigType = "flame_arrestor"
-	FlameArrestorDetonationNodeConfigType        NodeConfigType = "flame_arrestor_detonation"
-	FlameArrestorExplosionNodeConfigType         NodeConfigType = "flame_arrestor_explosion"
-	FlameArrestorFireResNodeConfigType           NodeConfigType = "flame_arrestor_fire_res"
+	// CapNodeConfigType selects the CapNodeConfig variant.
+	CapNodeConfigType NodeConfigType = "cap"
+	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	FilterNodeConfigType NodeConfigType = "filter"
+	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	FlowStraightenerNodeConfigType NodeConfigType = "flow_straightener"
+	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	HeaterElementNodeConfigType NodeConfigType = "heater_element"
+	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	IsoCapNodeConfigType NodeConfigType = "iso_cap"
+	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	IsoFilterNodeConfigType NodeConfigType = "iso_filter"
+	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	NozzleNodeConfigType NodeConfigType = "nozzle"
+	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	OrificeNodeConfigType NodeConfigType = "orifice"
+	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	OrificePlateNodeConfigType NodeConfigType = "orifice_plate"
+	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	StrainerNodeConfigType NodeConfigType = "strainer"
+	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	StrainerConeNodeConfigType NodeConfigType = "strainer_cone"
+	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	ThrusterNodeConfigType NodeConfigType = "thruster"
+	// VentNodeConfigType selects the VentNodeConfig variant.
+	VentNodeConfigType NodeConfigType = "vent"
+	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	FlowmeterGeneralNodeConfigType NodeConfigType = "flowmeter_general"
+	// FlowmeterElectromagneticNodeConfigType selects the
+	// FlowmeterElectromagneticNodeConfig variant.
+	FlowmeterElectromagneticNodeConfigType NodeConfigType = "flowmeter_electromagnetic"
+	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
+	// variant.
+	FlowmeterVariableAreaNodeConfigType NodeConfigType = "flowmeter_variable_area"
+	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	FlowmeterCoriolisNodeConfigType NodeConfigType = "flowmeter_coriolis"
+	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	FlowmeterNozzleNodeConfigType NodeConfigType = "flowmeter_nozzle"
+	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	FlowmeterVenturiNodeConfigType NodeConfigType = "flowmeter_venturi"
+	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
+	// variant.
+	FlowmeterRingPistonNodeConfigType NodeConfigType = "flowmeter_ring_piston"
+	// FlowmeterPositiveDisplacementNodeConfigType selects the
+	// FlowmeterPositiveDisplacementNodeConfig variant.
+	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = "flowmeter_positive_displacement"
+	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	FlowmeterTurbineNodeConfigType NodeConfigType = "flowmeter_turbine"
+	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	FlowmeterPulseNodeConfigType NodeConfigType = "flowmeter_pulse"
+	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
+	// variant.
+	FlowmeterFloatSensorNodeConfigType NodeConfigType = "flowmeter_float_sensor"
+	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	FlowmeterOrificeNodeConfigType NodeConfigType = "flowmeter_orifice"
+	// BoxNodeConfigType is the configuration for box annotation symbols.
+	BoxNodeConfigType NodeConfigType = "box"
+	// ButtonNodeConfigType is the configuration for button symbols.
+	ButtonNodeConfigType NodeConfigType = "button"
+	// CircleNodeConfigType is the configuration for circle annotation symbols.
+	CircleNodeConfigType NodeConfigType = "circle"
+	// GaugeNodeConfigType is the configuration for gauge symbols.
+	GaugeNodeConfigType NodeConfigType = "gauge"
+	// InputNodeConfigType is the configuration for free-form input symbols.
+	InputNodeConfigType NodeConfigType = "input"
+	// LightNodeConfigType is the configuration for indicator light symbols.
+	LightNodeConfigType NodeConfigType = "light"
+	// LineNodeConfigType is the configuration for straight line symbols.
+	LineNodeConfigType NodeConfigType = "line"
+	// OffPageReferenceNodeConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceNodeConfigType NodeConfigType = "off_page_reference"
+	// PolygonNodeConfigType is the configuration for polygon annotation symbols.
+	PolygonNodeConfigType NodeConfigType = "polygon"
+	// SelectNodeConfigType is the configuration for select symbols.
+	SelectNodeConfigType NodeConfigType = "select"
+	// ScaleNodeConfigType is the configuration for standalone scale symbols.
+	ScaleNodeConfigType NodeConfigType = "scale"
+	// SetpointNodeConfigType is the configuration for numeric setpoint symbols.
+	SetpointNodeConfigType NodeConfigType = "setpoint"
+	// StateIndicatorNodeConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorNodeConfigType NodeConfigType = "state_indicator"
+	// StringDisplayNodeConfigType is the configuration for live string display symbols.
+	StringDisplayNodeConfigType NodeConfigType = "string_display"
+	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	SwitchNodeConfigType NodeConfigType = "switch"
+	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
+	TextBoxNodeConfigType NodeConfigType = "text_box"
+	// ValueNodeConfigType is the configuration for live telemetry value symbols.
+	ValueNodeConfigType NodeConfigType = "value"
+	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	AgitatorNodeConfigType NodeConfigType = "agitator"
+	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	CrossBeamAgitatorNodeConfigType NodeConfigType = "cross_beam_agitator"
+	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	FlatBladeAgitatorNodeConfigType NodeConfigType = "flat_blade_agitator"
+	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
+	// variant.
+	HeatExchangerGeneralNodeConfigType NodeConfigType = "heat_exchanger_general"
+	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	HeatExchangerMNodeConfigType NodeConfigType = "heat_exchanger_m"
+	// HeatExchangerStraightTubeNodeConfigType selects the
+	// HeatExchangerStraightTubeNodeConfig variant.
+	HeatExchangerStraightTubeNodeConfigType NodeConfigType = "heat_exchanger_straight_tube"
+	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	HelicalAgitatorNodeConfigType NodeConfigType = "helical_agitator"
+	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	PaddleAgitatorNodeConfigType NodeConfigType = "paddle_agitator"
+	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	PropellerAgitatorNodeConfigType NodeConfigType = "propeller_agitator"
+	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	RotaryMixerNodeConfigType NodeConfigType = "rotary_mixer"
+	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	StaticMixerNodeConfigType NodeConfigType = "static_mixer"
+	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	CavityPumpNodeConfigType NodeConfigType = "cavity_pump"
+	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
+	// variant.
+	CentrifugalCompressorNodeConfigType NodeConfigType = "centrifugal_compressor"
+	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	CompressorNodeConfigType NodeConfigType = "compressor"
+	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	DiaphragmPumpNodeConfigType NodeConfigType = "diaphragm_pump"
+	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	EjectionPumpNodeConfigType NodeConfigType = "ejection_pump"
+	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	EjectorCompressorNodeConfigType NodeConfigType = "ejector_compressor"
+	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
+	// variant.
+	LiquidRingCompressorNodeConfigType NodeConfigType = "liquid_ring_compressor"
+	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	PistonPumpNodeConfigType NodeConfigType = "piston_pump"
+	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	PumpNodeConfigType NodeConfigType = "pump"
+	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
+	// variant.
+	RollerVaneCompressorNodeConfigType NodeConfigType = "roller_vane_compressor"
+	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	ScrewPumpNodeConfigType NodeConfigType = "screw_pump"
+	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	TurboCompressorNodeConfigType NodeConfigType = "turbo_compressor"
+	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	VacuumPumpNodeConfigType NodeConfigType = "vacuum_pump"
+	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
+	BurstDiscNodeConfigType NodeConfigType = "burst_disc"
+	// FlameArrestorNodeConfigType selects the FlameArrestorNodeConfig variant.
+	FlameArrestorNodeConfigType NodeConfigType = "flame_arrestor"
+	// FlameArrestorDetonationNodeConfigType selects the
+	// FlameArrestorDetonationNodeConfig variant.
+	FlameArrestorDetonationNodeConfigType NodeConfigType = "flame_arrestor_detonation"
+	// FlameArrestorExplosionNodeConfigType selects the FlameArrestorExplosionNodeConfig
+	// variant.
+	FlameArrestorExplosionNodeConfigType NodeConfigType = "flame_arrestor_explosion"
+	// FlameArrestorFireResNodeConfigType selects the FlameArrestorFireResNodeConfig
+	// variant.
+	FlameArrestorFireResNodeConfigType NodeConfigType = "flame_arrestor_fire_res"
+	// FlameArrestorFireResDetonationNodeConfigType selects the
+	// FlameArrestorFireResDetonationNodeConfig variant.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = "flame_arrestor_fire_res_detonation"
-	IsoBurstDiscNodeConfigType                   NodeConfigType = "iso_burst_disc"
-	AngledValveNodeConfigType                    NodeConfigType = "angled_valve"
-	AngledReliefValveNodeConfigType              NodeConfigType = "angled_relief_valve"
-	AngledSpringLoadedReliefValveNodeConfigType  NodeConfigType = "angled_spring_loaded_relief_valve"
-	BallValveNodeConfigType                      NodeConfigType = "ball_valve"
-	BreatherValveNodeConfigType                  NodeConfigType = "breather_valve"
-	ButterflyValveOneNodeConfigType              NodeConfigType = "butterfly_valve_one"
-	ButterflyValveTwoNodeConfigType              NodeConfigType = "butterfly_valve_two"
-	CheckValveNodeConfigType                     NodeConfigType = "check_valve"
-	CheckValveWithArrowNodeConfigType            NodeConfigType = "check_valve_with_arrow"
-	ElectricRegulatorNodeConfigType              NodeConfigType = "electric_regulator"
-	ElectricRegulatorMotorizedNodeConfigType     NodeConfigType = "electric_regulator_motorized"
-	FourWayValveNodeConfigType                   NodeConfigType = "four_way_valve"
-	GateValveNodeConfigType                      NodeConfigType = "gate_valve"
-	IsoCheckValveNodeConfigType                  NodeConfigType = "iso_check_valve"
-	ManualValveNodeConfigType                    NodeConfigType = "manual_valve"
-	NeedleValveNodeConfigType                    NodeConfigType = "needle_valve"
-	RegulatorNodeConfigType                      NodeConfigType = "regulator"
-	RegulatorManualNodeConfigType                NodeConfigType = "regulator_manual"
-	ReliefValveNodeConfigType                    NodeConfigType = "relief_valve"
-	SolenoidValveNodeConfigType                  NodeConfigType = "solenoid_valve"
-	SpringLoadedReliefValveNodeConfigType        NodeConfigType = "spring_loaded_relief_valve"
-	ThreeWayValveNodeConfigType                  NodeConfigType = "three_way_valve"
-	ThreeWayBallValveNodeConfigType              NodeConfigType = "three_way_ball_valve"
-	ValveNodeConfigType                          NodeConfigType = "valve"
-	CrossJunctionNodeConfigType                  NodeConfigType = "cross_junction"
-	CylinderNodeConfigType                       NodeConfigType = "cylinder"
-	TankNodeConfigType                           NodeConfigType = "tank"
-	TJunctionNodeConfigType                      NodeConfigType = "t_junction"
-	CustomActuatorNodeConfigType                 NodeConfigType = "custom_actuator"
-	CustomStaticNodeConfigType                   NodeConfigType = "custom_static"
-	GroupBoxNodeConfigType                       NodeConfigType = "group_box"
+	// IsoBurstDiscNodeConfigType selects the IsoBurstDiscNodeConfig variant.
+	IsoBurstDiscNodeConfigType NodeConfigType = "iso_burst_disc"
+	// AngledValveNodeConfigType selects the AngledValveNodeConfig variant.
+	AngledValveNodeConfigType NodeConfigType = "angled_valve"
+	// AngledReliefValveNodeConfigType selects the AngledReliefValveNodeConfig variant.
+	AngledReliefValveNodeConfigType NodeConfigType = "angled_relief_valve"
+	// AngledSpringLoadedReliefValveNodeConfigType selects the
+	// AngledSpringLoadedReliefValveNodeConfig variant.
+	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = "angled_spring_loaded_relief_valve"
+	// BallValveNodeConfigType selects the BallValveNodeConfig variant.
+	BallValveNodeConfigType NodeConfigType = "ball_valve"
+	// BreatherValveNodeConfigType selects the BreatherValveNodeConfig variant.
+	BreatherValveNodeConfigType NodeConfigType = "breather_valve"
+	// ButterflyValveOneNodeConfigType selects the ButterflyValveOneNodeConfig variant.
+	ButterflyValveOneNodeConfigType NodeConfigType = "butterfly_valve_one"
+	// ButterflyValveTwoNodeConfigType selects the ButterflyValveTwoNodeConfig variant.
+	ButterflyValveTwoNodeConfigType NodeConfigType = "butterfly_valve_two"
+	// CheckValveNodeConfigType selects the CheckValveNodeConfig variant.
+	CheckValveNodeConfigType NodeConfigType = "check_valve"
+	// CheckValveWithArrowNodeConfigType selects the CheckValveWithArrowNodeConfig
+	// variant.
+	CheckValveWithArrowNodeConfigType NodeConfigType = "check_valve_with_arrow"
+	// ElectricRegulatorNodeConfigType selects the ElectricRegulatorNodeConfig variant.
+	ElectricRegulatorNodeConfigType NodeConfigType = "electric_regulator"
+	// ElectricRegulatorMotorizedNodeConfigType selects the
+	// ElectricRegulatorMotorizedNodeConfig variant.
+	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = "electric_regulator_motorized"
+	// FourWayValveNodeConfigType selects the FourWayValveNodeConfig variant.
+	FourWayValveNodeConfigType NodeConfigType = "four_way_valve"
+	// GateValveNodeConfigType selects the GateValveNodeConfig variant.
+	GateValveNodeConfigType NodeConfigType = "gate_valve"
+	// IsoCheckValveNodeConfigType selects the IsoCheckValveNodeConfig variant.
+	IsoCheckValveNodeConfigType NodeConfigType = "iso_check_valve"
+	// ManualValveNodeConfigType selects the ManualValveNodeConfig variant.
+	ManualValveNodeConfigType NodeConfigType = "manual_valve"
+	// NeedleValveNodeConfigType selects the NeedleValveNodeConfig variant.
+	NeedleValveNodeConfigType NodeConfigType = "needle_valve"
+	// RegulatorNodeConfigType selects the RegulatorNodeConfig variant.
+	RegulatorNodeConfigType NodeConfigType = "regulator"
+	// RegulatorManualNodeConfigType selects the RegulatorManualNodeConfig variant.
+	RegulatorManualNodeConfigType NodeConfigType = "regulator_manual"
+	// ReliefValveNodeConfigType selects the ReliefValveNodeConfig variant.
+	ReliefValveNodeConfigType NodeConfigType = "relief_valve"
+	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveNodeConfigType NodeConfigType = "solenoid_valve"
+	// SpringLoadedReliefValveNodeConfigType selects the
+	// SpringLoadedReliefValveNodeConfig variant.
+	SpringLoadedReliefValveNodeConfigType NodeConfigType = "spring_loaded_relief_valve"
+	// ThreeWayValveNodeConfigType selects the ThreeWayValveNodeConfig variant.
+	ThreeWayValveNodeConfigType NodeConfigType = "three_way_valve"
+	// ThreeWayBallValveNodeConfigType selects the ThreeWayBallValveNodeConfig variant.
+	ThreeWayBallValveNodeConfigType NodeConfigType = "three_way_ball_valve"
+	// ValveNodeConfigType selects the ValveNodeConfig variant.
+	ValveNodeConfigType NodeConfigType = "valve"
+	// CrossJunctionNodeConfigType selects the CrossJunctionNodeConfig variant.
+	CrossJunctionNodeConfigType NodeConfigType = "cross_junction"
+	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
+	CylinderNodeConfigType NodeConfigType = "cylinder"
+	// TankNodeConfigType is the configuration for tank vessel symbols.
+	TankNodeConfigType NodeConfigType = "tank"
+	// TJunctionNodeConfigType selects the TJunctionNodeConfig variant.
+	TJunctionNodeConfigType NodeConfigType = "t_junction"
+	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorNodeConfigType NodeConfigType = "custom_actuator"
+	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
+	CustomStaticNodeConfigType NodeConfigType = "custom_static"
+	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxNodeConfigType NodeConfigType = "group_box"
 )
 
+// NodeConfigVariant is implemented by every NodeConfig variant.
 type NodeConfigVariant interface {
 	isNodeConfigVariant()
 }
@@ -914,9 +1091,9 @@ type CapNodeConfig struct {
 
 func (CapNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CapNodeConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CapNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -933,9 +1110,9 @@ type FilterNodeConfig struct {
 
 func (FilterNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FilterNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FilterNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -952,9 +1129,9 @@ type FlowStraightenerNodeConfig struct {
 
 func (FlowStraightenerNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowStraightenerNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowStraightenerNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -971,9 +1148,9 @@ type HeaterElementNodeConfig struct {
 
 func (HeaterElementNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeaterElementNodeConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeaterElementNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -990,9 +1167,9 @@ type IsoCapNodeConfig struct {
 
 func (IsoCapNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCapNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCapNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1009,9 +1186,9 @@ type IsoFilterNodeConfig struct {
 
 func (IsoFilterNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoFilterNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoFilterNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1028,9 +1205,9 @@ type NozzleNodeConfig struct {
 
 func (NozzleNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (n *NozzleNodeConfig) ApplyDefaults() {
-	n.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NozzleNodeConfig) SetDefaults() {
+	n.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1047,9 +1224,9 @@ type OrificeNodeConfig struct {
 
 func (OrificeNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OrificeNodeConfig) ApplyDefaults() {
-	o.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificeNodeConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1066,9 +1243,9 @@ type OrificePlateNodeConfig struct {
 
 func (OrificePlateNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OrificePlateNodeConfig) ApplyDefaults() {
-	o.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificePlateNodeConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1085,9 +1262,9 @@ type StrainerNodeConfig struct {
 
 func (StrainerNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StrainerNodeConfig) ApplyDefaults() {
-	s.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerNodeConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1104,9 +1281,9 @@ type StrainerConeNodeConfig struct {
 
 func (StrainerConeNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StrainerConeNodeConfig) ApplyDefaults() {
-	s.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerConeNodeConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1123,9 +1300,9 @@ type ThrusterNodeConfig struct {
 
 func (ThrusterNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThrusterNodeConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThrusterNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1142,9 +1319,9 @@ type VentNodeConfig struct {
 
 func (VentNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (ve *VentNodeConfig) ApplyDefaults() {
-	ve.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (ve *VentNodeConfig) SetDefaults() {
+	ve.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1161,9 +1338,9 @@ type FlowmeterGeneralNodeConfig struct {
 
 func (FlowmeterGeneralNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterGeneralNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterGeneralNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1180,9 +1357,9 @@ type FlowmeterElectromagneticNodeConfig struct {
 
 func (FlowmeterElectromagneticNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterElectromagneticNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterElectromagneticNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1199,9 +1376,9 @@ type FlowmeterVariableAreaNodeConfig struct {
 
 func (FlowmeterVariableAreaNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterVariableAreaNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVariableAreaNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1218,9 +1395,9 @@ type FlowmeterCoriolisNodeConfig struct {
 
 func (FlowmeterCoriolisNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterCoriolisNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterCoriolisNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1237,9 +1414,9 @@ type FlowmeterNozzleNodeConfig struct {
 
 func (FlowmeterNozzleNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterNozzleNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterNozzleNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1256,9 +1433,9 @@ type FlowmeterVenturiNodeConfig struct {
 
 func (FlowmeterVenturiNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterVenturiNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVenturiNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1275,9 +1452,9 @@ type FlowmeterRingPistonNodeConfig struct {
 
 func (FlowmeterRingPistonNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterRingPistonNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterRingPistonNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1294,9 +1471,9 @@ type FlowmeterPositiveDisplacementNodeConfig struct {
 
 func (FlowmeterPositiveDisplacementNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterPositiveDisplacementNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPositiveDisplacementNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1313,9 +1490,9 @@ type FlowmeterTurbineNodeConfig struct {
 
 func (FlowmeterTurbineNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterTurbineNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterTurbineNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1332,9 +1509,9 @@ type FlowmeterPulseNodeConfig struct {
 
 func (FlowmeterPulseNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterPulseNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPulseNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1351,9 +1528,9 @@ type FlowmeterFloatSensorNodeConfig struct {
 
 func (FlowmeterFloatSensorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterFloatSensorNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterFloatSensorNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1370,9 +1547,9 @@ type FlowmeterOrificeNodeConfig struct {
 
 func (FlowmeterOrificeNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterOrificeNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterOrificeNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1400,21 +1577,13 @@ type BoxNodeConfig struct {
 
 func (BoxNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BoxNodeConfig) ApplyDefaults() {
-	if b.Dimensions.Width == 0 {
-		b.Dimensions.Width = 125
-	}
-	if b.Dimensions.Height == 0 {
-		b.Dimensions.Height = 200
-	}
-	if b.BorderRadius == 0 {
-		b.BorderRadius = 3
-	}
-	if b.StrokeWidth == 0 {
-		b.StrokeWidth = 2
-	}
-	b.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BoxNodeConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Dimensions.Width = 125
+	b.Dimensions.Height = 200
+	b.BorderRadius = 3
+	b.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1446,18 +1615,11 @@ type ButtonNodeConfig struct {
 
 func (ButtonNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *ButtonNodeConfig) ApplyDefaults() {
-	if b.Size == "" {
-		b.Size = ComponentSizeMedium
-	}
-	if b.Mode == "" {
-		b.Mode = ButtonModeFire
-	}
-	b.LabeledConfig.ApplyDefaults()
-	if b.Control != nil {
-		b.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButtonNodeConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Size = ComponentSizeMedium
+	b.Mode = ButtonModeFire
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1465,6 +1627,9 @@ func (b *ButtonNodeConfig) ApplyDefaults() {
 func (b ButtonNodeConfig) Validate() error {
 	v := validate.New("ButtonNodeConfig")
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
+	if b.Level != nil {
+		v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", *b.Level)
+	}
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
@@ -1488,15 +1653,11 @@ type CircleNodeConfig struct {
 
 func (CircleNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CircleNodeConfig) ApplyDefaults() {
-	if c.Radius == 0 {
-		c.Radius = 20
-	}
-	if c.StrokeWidth == 0 {
-		c.StrokeWidth = 2
-	}
-	c.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CircleNodeConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.Radius = 20
+	c.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1530,29 +1691,17 @@ type GaugeNodeConfig struct {
 
 func (GaugeNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GaugeNodeConfig) ApplyDefaults() {
-	if g.Bounds.Upper == 0 {
-		g.Bounds.Upper = 100
-	}
-	if g.BarWidth == 0 {
-		g.BarWidth = 10
-	}
-	if g.Location.X == "" {
-		g.Location.X = spatial.XCenterLocationLeft
-	}
-	if g.Location.Y == "" {
-		g.Location.Y = spatial.YCenterLocationCenter
-	}
-	if g.Units == "" {
-		g.Units = "RPM"
-	}
-	if g.Level == "" {
-		g.Level = text.LevelH5
-	}
-	g.LabeledConfig.ApplyDefaults()
-	g.NumericTelemConfig.ApplyDefaults()
-	g.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GaugeNodeConfig) SetDefaults() {
+	g.LabeledConfig.SetDefaults()
+	g.NumericTelemConfig.SetDefaults()
+	g.StalenessConfig.SetDefaults()
+	g.Bounds.Upper = 100
+	g.BarWidth = 10
+	g.Location.X = spatial.XCenterLocationLeft
+	g.Location.Y = spatial.YCenterLocationCenter
+	g.Units = "RPM"
+	g.Level = text.LevelH5
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1587,15 +1736,10 @@ type InputNodeConfig struct {
 
 func (InputNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputNodeConfig) ApplyDefaults() {
-	if i.Size == "" {
-		i.Size = ComponentSizeMedium
-	}
-	i.LabeledConfig.ApplyDefaults()
-	if i.Control != nil {
-		i.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (i *InputNodeConfig) SetDefaults() {
+	i.LabeledConfig.SetDefaults()
+	i.Size = ComponentSizeMedium
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1627,11 +1771,11 @@ type LightNodeConfig struct {
 
 func (LightNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LightNodeConfig) ApplyDefaults() {
-	l.LabeledConfig.ApplyDefaults()
-	l.ScaledConfig.ApplyDefaults()
-	l.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LightNodeConfig) SetDefaults() {
+	l.LabeledConfig.SetDefaults()
+	l.ScaledConfig.SetDefaults()
+	l.StalenessConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1639,6 +1783,7 @@ func (l *LightNodeConfig) ApplyDefaults() {
 func (l LightNodeConfig) Validate() error {
 	v := validate.New("LightNodeConfig")
 	v.Exec(l.LabeledConfig.Validate)
+	v.Exec(l.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -1656,14 +1801,10 @@ type LineNodeConfig struct {
 
 func (LineNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LineNodeConfig) ApplyDefaults() {
-	if l.End.X == 0 {
-		l.End.X = 100
-	}
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LineNodeConfig) SetDefaults() {
+	l.End.X = 100
+	l.StrokeWidth = 2
 }
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
@@ -1680,12 +1821,10 @@ type OffPageReferenceNodeConfig struct {
 
 func (OffPageReferenceNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OffPageReferenceNodeConfig) ApplyDefaults() {
-	if o.Orientation == "" {
-		o.Orientation = spatial.OuterLocationRight
-	}
-	o.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OffPageReferenceNodeConfig) SetDefaults() {
+	o.LabeledConfig.SetDefaults()
+	o.Orientation = spatial.OuterLocationRight
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1721,18 +1860,12 @@ type PolygonNodeConfig struct {
 
 func (PolygonNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PolygonNodeConfig) ApplyDefaults() {
-	if p.NumSides == 0 {
-		p.NumSides = 6
-	}
-	if p.SideLength == 0 {
-		p.SideLength = 20
-	}
-	if p.StrokeWidth == 0 {
-		p.StrokeWidth = 2
-	}
-	p.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PolygonNodeConfig) SetDefaults() {
+	p.LabeledConfig.SetDefaults()
+	p.NumSides = 6
+	p.SideLength = 20
+	p.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1766,18 +1899,11 @@ type SelectNodeConfig struct {
 
 func (SelectNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SelectNodeConfig) ApplyDefaults() {
-	if s.Size == "" {
-		s.Size = ComponentSizeMedium
-	}
-	if s.InlineSize == 0 {
-		s.InlineSize = 100
-	}
-	s.LabeledConfig.ApplyDefaults()
-	if s.Control != nil {
-		s.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SelectNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.InlineSize = 100
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1805,19 +1931,13 @@ type ScaleNodeConfig struct {
 
 func (ScaleNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleNodeConfig) ApplyDefaults() {
-	if s.Orientation == "" {
-		s.Orientation = spatial.OuterLocationTop
-	}
-	if s.Dimensions.Width == 0 {
-		s.Dimensions.Width = 34
-	}
-	if s.Dimensions.Height == 0 {
-		s.Dimensions.Height = 160
-	}
-	s.LabeledConfig.ApplyDefaults()
-	s.ScaleIndicatorConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaleNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaleIndicatorConfig.SetDefaults()
+	s.Orientation = spatial.OuterLocationTop
+	s.Dimensions.Width = 34
+	s.Dimensions.Height = 160
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1853,18 +1973,11 @@ type SetpointNodeConfig struct {
 
 func (SetpointNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SetpointNodeConfig) ApplyDefaults() {
-	if s.Size == "" {
-		s.Size = ComponentSizeMedium
-	}
-	if s.Units == "" {
-		s.Units = "mV"
-	}
-	s.LabeledConfig.ApplyDefaults()
-	if s.Control != nil {
-		s.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SetpointNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.Units = "mV"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1897,16 +2010,12 @@ type StateIndicatorNodeConfig struct {
 
 func (StateIndicatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StateIndicatorNodeConfig) ApplyDefaults() {
-	if s.InlineSize == 0 {
-		s.InlineSize = 100
-	}
-	if s.Size == "" {
-		s.Size = ComponentSizeMedium
-	}
-	s.LabeledConfig.ApplyDefaults()
-	s.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StateIndicatorNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Size = ComponentSizeMedium
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1938,16 +2047,12 @@ type StringDisplayNodeConfig struct {
 
 func (StringDisplayNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StringDisplayNodeConfig) ApplyDefaults() {
-	if s.InlineSize == 0 {
-		s.InlineSize = 100
-	}
-	if s.Level == "" {
-		s.Level = text.LevelH4
-	}
-	s.LabeledConfig.ApplyDefaults()
-	s.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StringDisplayNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Level = text.LevelH4
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1965,9 +2070,9 @@ type SwitchNodeConfig struct {
 
 func (SwitchNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SwitchNodeConfig) ApplyDefaults() {
-	s.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SwitchNodeConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1997,21 +2102,13 @@ type TextBoxNodeConfig struct {
 
 func (TextBoxNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TextBoxNodeConfig) ApplyDefaults() {
-	if t.Width == 0 {
-		t.Width = 75
-	}
-	if t.Align == "" {
-		t.Align = FlexAlignmentCenter
-	}
-	if t.Level == "" {
-		t.Level = text.LevelP
-	}
-	if t.Value == "" {
-		t.Value = "Text box"
-	}
-	t.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextBoxNodeConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Width = 75
+	t.Align = FlexAlignmentCenter
+	t.Level = text.LevelP
+	t.Value = "Text box"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2054,26 +2151,16 @@ type ValueNodeConfig struct {
 
 func (ValueNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValueNodeConfig) ApplyDefaults() {
-	if va.Units == "" {
-		va.Units = "psi"
-	}
-	if va.InlineSize == 0 {
-		va.InlineSize = 70
-	}
-	if va.Level == "" {
-		va.Level = text.LevelH4
-	}
-	if va.Location.X == "" {
-		va.Location.X = spatial.XCenterLocationLeft
-	}
-	if va.Location.Y == "" {
-		va.Location.Y = spatial.YCenterLocationCenter
-	}
-	va.LabeledConfig.ApplyDefaults()
-	va.NumericTelemConfig.ApplyDefaults()
-	va.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValueNodeConfig) SetDefaults() {
+	va.LabeledConfig.SetDefaults()
+	va.NumericTelemConfig.SetDefaults()
+	va.StalenessConfig.SetDefaults()
+	va.Units = "psi"
+	va.InlineSize = 70
+	va.Level = text.LevelH4
+	va.Location.X = spatial.XCenterLocationLeft
+	va.Location.Y = spatial.YCenterLocationCenter
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2093,9 +2180,9 @@ type AgitatorNodeConfig struct {
 
 func (AgitatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AgitatorNodeConfig) ApplyDefaults() {
-	a.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AgitatorNodeConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2112,9 +2199,9 @@ type CrossBeamAgitatorNodeConfig struct {
 
 func (CrossBeamAgitatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CrossBeamAgitatorNodeConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossBeamAgitatorNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2131,9 +2218,9 @@ type FlatBladeAgitatorNodeConfig struct {
 
 func (FlatBladeAgitatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlatBladeAgitatorNodeConfig) ApplyDefaults() {
-	f.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlatBladeAgitatorNodeConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2150,9 +2237,9 @@ type HeatExchangerGeneralNodeConfig struct {
 
 func (HeatExchangerGeneralNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeatExchangerGeneralNodeConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerGeneralNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2169,9 +2256,9 @@ type HeatExchangerMNodeConfig struct {
 
 func (HeatExchangerMNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeatExchangerMNodeConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerMNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2188,9 +2275,9 @@ type HeatExchangerStraightTubeNodeConfig struct {
 
 func (HeatExchangerStraightTubeNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeatExchangerStraightTubeNodeConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerStraightTubeNodeConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2207,9 +2294,9 @@ type HelicalAgitatorNodeConfig struct {
 
 func (HelicalAgitatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HelicalAgitatorNodeConfig) ApplyDefaults() {
-	h.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HelicalAgitatorNodeConfig) SetDefaults() {
+	h.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2226,9 +2313,9 @@ type PaddleAgitatorNodeConfig struct {
 
 func (PaddleAgitatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PaddleAgitatorNodeConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PaddleAgitatorNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2245,9 +2332,9 @@ type PropellerAgitatorNodeConfig struct {
 
 func (PropellerAgitatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PropellerAgitatorNodeConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PropellerAgitatorNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2264,9 +2351,9 @@ type RotaryMixerNodeConfig struct {
 
 func (RotaryMixerNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RotaryMixerNodeConfig) ApplyDefaults() {
-	r.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RotaryMixerNodeConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2283,9 +2370,9 @@ type StaticMixerNodeConfig struct {
 
 func (StaticMixerNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticMixerNodeConfig) ApplyDefaults() {
-	s.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticMixerNodeConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2302,9 +2389,9 @@ type CavityPumpNodeConfig struct {
 
 func (CavityPumpNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CavityPumpNodeConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CavityPumpNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2321,9 +2408,9 @@ type CentrifugalCompressorNodeConfig struct {
 
 func (CentrifugalCompressorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CentrifugalCompressorNodeConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CentrifugalCompressorNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2340,9 +2427,9 @@ type CompressorNodeConfig struct {
 
 func (CompressorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CompressorNodeConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CompressorNodeConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2359,9 +2446,9 @@ type DiaphragmPumpNodeConfig struct {
 
 func (DiaphragmPumpNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DiaphragmPumpNodeConfig) ApplyDefaults() {
-	d.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DiaphragmPumpNodeConfig) SetDefaults() {
+	d.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2378,9 +2465,9 @@ type EjectionPumpNodeConfig struct {
 
 func (EjectionPumpNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EjectionPumpNodeConfig) ApplyDefaults() {
-	e.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectionPumpNodeConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2397,9 +2484,9 @@ type EjectorCompressorNodeConfig struct {
 
 func (EjectorCompressorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EjectorCompressorNodeConfig) ApplyDefaults() {
-	e.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectorCompressorNodeConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2416,9 +2503,9 @@ type LiquidRingCompressorNodeConfig struct {
 
 func (LiquidRingCompressorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LiquidRingCompressorNodeConfig) ApplyDefaults() {
-	l.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LiquidRingCompressorNodeConfig) SetDefaults() {
+	l.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2435,9 +2522,9 @@ type PistonPumpNodeConfig struct {
 
 func (PistonPumpNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PistonPumpNodeConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PistonPumpNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2454,9 +2541,9 @@ type PumpNodeConfig struct {
 
 func (PumpNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PumpNodeConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PumpNodeConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2473,9 +2560,9 @@ type RollerVaneCompressorNodeConfig struct {
 
 func (RollerVaneCompressorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RollerVaneCompressorNodeConfig) ApplyDefaults() {
-	r.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RollerVaneCompressorNodeConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2492,9 +2579,9 @@ type ScrewPumpNodeConfig struct {
 
 func (ScrewPumpNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScrewPumpNodeConfig) ApplyDefaults() {
-	s.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScrewPumpNodeConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2511,9 +2598,9 @@ type TurboCompressorNodeConfig struct {
 
 func (TurboCompressorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TurboCompressorNodeConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TurboCompressorNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2530,9 +2617,9 @@ type VacuumPumpNodeConfig struct {
 
 func (VacuumPumpNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *VacuumPumpNodeConfig) ApplyDefaults() {
-	va.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (va *VacuumPumpNodeConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2549,9 +2636,9 @@ type BurstDiscNodeConfig struct {
 
 func (BurstDiscNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BurstDiscNodeConfig) ApplyDefaults() {
-	b.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BurstDiscNodeConfig) SetDefaults() {
+	b.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2568,9 +2655,9 @@ type FlameArrestorNodeConfig struct {
 
 func (FlameArrestorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2587,9 +2674,9 @@ type FlameArrestorDetonationNodeConfig struct {
 
 func (FlameArrestorDetonationNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorDetonationNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorDetonationNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2606,9 +2693,9 @@ type FlameArrestorExplosionNodeConfig struct {
 
 func (FlameArrestorExplosionNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorExplosionNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorExplosionNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2625,9 +2712,9 @@ type FlameArrestorFireResNodeConfig struct {
 
 func (FlameArrestorFireResNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorFireResNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2644,9 +2731,9 @@ type FlameArrestorFireResDetonationNodeConfig struct {
 
 func (FlameArrestorFireResDetonationNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorFireResDetonationNodeConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResDetonationNodeConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2663,9 +2750,9 @@ type IsoBurstDiscNodeConfig struct {
 
 func (IsoBurstDiscNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoBurstDiscNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoBurstDiscNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2682,9 +2769,9 @@ type AngledValveNodeConfig struct {
 
 func (AngledValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AngledValveNodeConfig) ApplyDefaults() {
-	a.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledValveNodeConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2701,9 +2788,9 @@ type AngledReliefValveNodeConfig struct {
 
 func (AngledReliefValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AngledReliefValveNodeConfig) ApplyDefaults() {
-	a.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledReliefValveNodeConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2720,9 +2807,9 @@ type AngledSpringLoadedReliefValveNodeConfig struct {
 
 func (AngledSpringLoadedReliefValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AngledSpringLoadedReliefValveNodeConfig) ApplyDefaults() {
-	a.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledSpringLoadedReliefValveNodeConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2739,9 +2826,9 @@ type BallValveNodeConfig struct {
 
 func (BallValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BallValveNodeConfig) ApplyDefaults() {
-	b.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BallValveNodeConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2758,9 +2845,9 @@ type BreatherValveNodeConfig struct {
 
 func (BreatherValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BreatherValveNodeConfig) ApplyDefaults() {
-	b.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BreatherValveNodeConfig) SetDefaults() {
+	b.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2777,9 +2864,9 @@ type ButterflyValveOneNodeConfig struct {
 
 func (ButterflyValveOneNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *ButterflyValveOneNodeConfig) ApplyDefaults() {
-	b.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveOneNodeConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2796,9 +2883,9 @@ type ButterflyValveTwoNodeConfig struct {
 
 func (ButterflyValveTwoNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *ButterflyValveTwoNodeConfig) ApplyDefaults() {
-	b.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveTwoNodeConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2815,9 +2902,9 @@ type CheckValveNodeConfig struct {
 
 func (CheckValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CheckValveNodeConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2834,9 +2921,9 @@ type CheckValveWithArrowNodeConfig struct {
 
 func (CheckValveWithArrowNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CheckValveWithArrowNodeConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveWithArrowNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2853,9 +2940,9 @@ type ElectricRegulatorNodeConfig struct {
 
 func (ElectricRegulatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *ElectricRegulatorNodeConfig) ApplyDefaults() {
-	e.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorNodeConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2872,9 +2959,9 @@ type ElectricRegulatorMotorizedNodeConfig struct {
 
 func (ElectricRegulatorMotorizedNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *ElectricRegulatorMotorizedNodeConfig) ApplyDefaults() {
-	e.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorMotorizedNodeConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2891,9 +2978,9 @@ type FourWayValveNodeConfig struct {
 
 func (FourWayValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FourWayValveNodeConfig) ApplyDefaults() {
-	f.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FourWayValveNodeConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2910,9 +2997,9 @@ type GateValveNodeConfig struct {
 
 func (GateValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GateValveNodeConfig) ApplyDefaults() {
-	g.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GateValveNodeConfig) SetDefaults() {
+	g.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2929,9 +3016,9 @@ type IsoCheckValveNodeConfig struct {
 
 func (IsoCheckValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCheckValveNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCheckValveNodeConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2948,9 +3035,9 @@ type ManualValveNodeConfig struct {
 
 func (ManualValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *ManualValveNodeConfig) ApplyDefaults() {
-	m.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualValveNodeConfig) SetDefaults() {
+	m.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2967,9 +3054,9 @@ type NeedleValveNodeConfig struct {
 
 func (NeedleValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (n *NeedleValveNodeConfig) ApplyDefaults() {
-	n.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NeedleValveNodeConfig) SetDefaults() {
+	n.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2986,9 +3073,9 @@ type RegulatorNodeConfig struct {
 
 func (RegulatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RegulatorNodeConfig) ApplyDefaults() {
-	r.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorNodeConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3005,9 +3092,9 @@ type RegulatorManualNodeConfig struct {
 
 func (RegulatorManualNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RegulatorManualNodeConfig) ApplyDefaults() {
-	r.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorManualNodeConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3024,9 +3111,9 @@ type ReliefValveNodeConfig struct {
 
 func (ReliefValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReliefValveNodeConfig) ApplyDefaults() {
-	r.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReliefValveNodeConfig) SetDefaults() {
+	r.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3046,9 +3133,9 @@ type SolenoidValveNodeConfig struct {
 
 func (SolenoidValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SolenoidValveNodeConfig) ApplyDefaults() {
-	s.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SolenoidValveNodeConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3065,9 +3152,9 @@ type SpringLoadedReliefValveNodeConfig struct {
 
 func (SpringLoadedReliefValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SpringLoadedReliefValveNodeConfig) ApplyDefaults() {
-	s.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SpringLoadedReliefValveNodeConfig) SetDefaults() {
+	s.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3084,9 +3171,9 @@ type ThreeWayValveNodeConfig struct {
 
 func (ThreeWayValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThreeWayValveNodeConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayValveNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3103,9 +3190,9 @@ type ThreeWayBallValveNodeConfig struct {
 
 func (ThreeWayBallValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThreeWayBallValveNodeConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayBallValveNodeConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3122,9 +3209,9 @@ type ValveNodeConfig struct {
 
 func (ValveNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValveNodeConfig) ApplyDefaults() {
-	va.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValveNodeConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3141,9 +3228,9 @@ type CrossJunctionNodeConfig struct {
 
 func (CrossJunctionNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CrossJunctionNodeConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossJunctionNodeConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3170,16 +3257,12 @@ type CylinderNodeConfig struct {
 
 func (CylinderNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CylinderNodeConfig) ApplyDefaults() {
-	if c.Dimensions.Width == 0 {
-		c.Dimensions.Width = 66
-	}
-	if c.Dimensions.Height == 0 {
-		c.Dimensions.Height = 181
-	}
-	c.LabeledConfig.ApplyDefaults()
-	c.ScaledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CylinderNodeConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
+	c.Dimensions.Width = 66
+	c.Dimensions.Height = 181
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3187,6 +3270,7 @@ func (c *CylinderNodeConfig) ApplyDefaults() {
 func (c CylinderNodeConfig) Validate() error {
 	v := validate.New("CylinderNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -3243,60 +3327,26 @@ type TankNodeConfig struct {
 
 func (TankNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TankNodeConfig) ApplyDefaults() {
-	if t.Precision == 0 {
-		t.Precision = 2
-	}
-	if t.Notation == "" {
-		t.Notation = "standard"
-	}
-	if t.StalenessTimeout == 0 {
-		t.StalenessTimeout = 5
-	}
-	if t.Bounds.Upper == 0 {
-		t.Bounds.Upper = 100
-	}
-	if t.CaretSide == "" {
-		t.CaretSide = spatial.OuterLocationRight
-	}
-	if t.Level == "" {
-		t.Level = text.LevelSmall
-	}
-	if t.Dimensions.Width == 0 {
-		t.Dimensions.Width = 125
-	}
-	if t.Dimensions.Height == 0 {
-		t.Dimensions.Height = 200
-	}
-	if t.BorderRadius.TopLeft.X == 0 {
-		t.BorderRadius.TopLeft.X = 50
-	}
-	if t.BorderRadius.TopLeft.Y == 0 {
-		t.BorderRadius.TopLeft.Y = 10
-	}
-	if t.BorderRadius.TopRight.X == 0 {
-		t.BorderRadius.TopRight.X = 50
-	}
-	if t.BorderRadius.TopRight.Y == 0 {
-		t.BorderRadius.TopRight.Y = 10
-	}
-	if t.BorderRadius.BottomLeft.X == 0 {
-		t.BorderRadius.BottomLeft.X = 50
-	}
-	if t.BorderRadius.BottomLeft.Y == 0 {
-		t.BorderRadius.BottomLeft.Y = 10
-	}
-	if t.BorderRadius.BottomRight.X == 0 {
-		t.BorderRadius.BottomRight.X = 50
-	}
-	if t.BorderRadius.BottomRight.Y == 0 {
-		t.BorderRadius.BottomRight.Y = 10
-	}
-	if t.Side == "" {
-		t.Side = spatial.OuterLocationLeft
-	}
-	t.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TankNodeConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Precision = 2
+	t.Notation = "standard"
+	t.StalenessTimeout = 5
+	t.Bounds.Upper = 100
+	t.CaretSide = spatial.OuterLocationRight
+	t.Level = text.LevelSmall
+	t.Dimensions.Width = 125
+	t.Dimensions.Height = 200
+	t.BorderRadius.TopLeft.X = 50
+	t.BorderRadius.TopLeft.Y = 10
+	t.BorderRadius.TopRight.X = 50
+	t.BorderRadius.TopRight.Y = 10
+	t.BorderRadius.BottomLeft.X = 50
+	t.BorderRadius.BottomLeft.Y = 10
+	t.BorderRadius.BottomRight.X = 50
+	t.BorderRadius.BottomRight.Y = 10
+	t.Side = spatial.OuterLocationLeft
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3317,9 +3367,9 @@ type TJunctionNodeConfig struct {
 
 func (TJunctionNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TJunctionNodeConfig) ApplyDefaults() {
-	t.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TJunctionNodeConfig) SetDefaults() {
+	t.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3342,9 +3392,9 @@ type CustomActuatorNodeConfig struct {
 
 func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CustomActuatorNodeConfig) ApplyDefaults() {
-	c.ToggleConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomActuatorNodeConfig) SetDefaults() {
+	c.ToggleConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3368,10 +3418,10 @@ type CustomStaticNodeConfig struct {
 
 func (CustomStaticNodeConfig) isNodeConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CustomStaticNodeConfig) ApplyDefaults() {
-	c.LabeledConfig.ApplyDefaults()
-	c.ScaledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomStaticNodeConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3379,6 +3429,7 @@ func (c *CustomStaticNodeConfig) ApplyDefaults() {
 func (c CustomStaticNodeConfig) Validate() error {
 	v := validate.New("CustomStaticNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -3393,8 +3444,8 @@ type GroupBoxNodeConfig struct {
 
 func (GroupBoxNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfig is the per-node configuration stored in the schematic configs map. The
-// variant selects the symbol rendered for the node and the fields that accompany it.
+// NodeConfig is the configuration of one node. The variant selects the symbol rendered
+// for the node and the fields that accompany it.
 type NodeConfig struct {
 	Variant NodeConfigVariant
 }
@@ -3954,6 +4005,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CapNodeConfig
 		}
+		v.CapNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3963,6 +4015,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FilterNodeConfig
 		}
+		v.FilterNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3972,6 +4025,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowStraightenerNodeConfig
 		}
+		v.FlowStraightenerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3981,6 +4035,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeaterElementNodeConfig
 		}
+		v.HeaterElementNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3990,6 +4045,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoCapNodeConfig
 		}
+		v.IsoCapNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -3999,6 +4055,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoFilterNodeConfig
 		}
+		v.IsoFilterNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4008,6 +4065,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			NozzleNodeConfig
 		}
+		v.NozzleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4017,6 +4075,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			OrificeNodeConfig
 		}
+		v.OrificeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4026,6 +4085,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			OrificePlateNodeConfig
 		}
+		v.OrificePlateNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4035,6 +4095,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StrainerNodeConfig
 		}
+		v.StrainerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4044,6 +4105,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StrainerConeNodeConfig
 		}
+		v.StrainerConeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4053,6 +4115,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ThrusterNodeConfig
 		}
+		v.ThrusterNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4062,6 +4125,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			VentNodeConfig
 		}
+		v.VentNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4071,6 +4135,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterGeneralNodeConfig
 		}
+		v.FlowmeterGeneralNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4080,6 +4145,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterElectromagneticNodeConfig
 		}
+		v.FlowmeterElectromagneticNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4089,6 +4155,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterVariableAreaNodeConfig
 		}
+		v.FlowmeterVariableAreaNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4098,6 +4165,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterCoriolisNodeConfig
 		}
+		v.FlowmeterCoriolisNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4107,6 +4175,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterNozzleNodeConfig
 		}
+		v.FlowmeterNozzleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4116,6 +4185,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterVenturiNodeConfig
 		}
+		v.FlowmeterVenturiNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4125,6 +4195,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterRingPistonNodeConfig
 		}
+		v.FlowmeterRingPistonNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4134,6 +4205,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterPositiveDisplacementNodeConfig
 		}
+		v.FlowmeterPositiveDisplacementNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4143,6 +4215,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterTurbineNodeConfig
 		}
+		v.FlowmeterTurbineNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4152,6 +4225,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterPulseNodeConfig
 		}
+		v.FlowmeterPulseNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4161,6 +4235,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterFloatSensorNodeConfig
 		}
+		v.FlowmeterFloatSensorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4170,6 +4245,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlowmeterOrificeNodeConfig
 		}
+		v.FlowmeterOrificeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4179,6 +4255,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BoxNodeConfig
 		}
+		v.BoxNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4188,6 +4265,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ButtonNodeConfig
 		}
+		v.ButtonNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4197,6 +4275,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CircleNodeConfig
 		}
+		v.CircleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4206,6 +4285,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			GaugeNodeConfig
 		}
+		v.GaugeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4215,6 +4295,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			InputNodeConfig
 		}
+		v.InputNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4224,6 +4305,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			LightNodeConfig
 		}
+		v.LightNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4233,6 +4315,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			LineNodeConfig
 		}
+		v.LineNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4242,6 +4325,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			OffPageReferenceNodeConfig
 		}
+		v.OffPageReferenceNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4251,6 +4335,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PolygonNodeConfig
 		}
+		v.PolygonNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4260,6 +4345,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SelectNodeConfig
 		}
+		v.SelectNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4269,6 +4355,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ScaleNodeConfig
 		}
+		v.ScaleNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4278,6 +4365,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SetpointNodeConfig
 		}
+		v.SetpointNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4287,6 +4375,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StateIndicatorNodeConfig
 		}
+		v.StateIndicatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4296,6 +4385,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StringDisplayNodeConfig
 		}
+		v.StringDisplayNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4305,6 +4395,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SwitchNodeConfig
 		}
+		v.SwitchNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4314,6 +4405,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TextBoxNodeConfig
 		}
+		v.TextBoxNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4323,6 +4415,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ValueNodeConfig
 		}
+		v.ValueNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4332,6 +4425,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AgitatorNodeConfig
 		}
+		v.AgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4341,6 +4435,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CrossBeamAgitatorNodeConfig
 		}
+		v.CrossBeamAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4350,6 +4445,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlatBladeAgitatorNodeConfig
 		}
+		v.FlatBladeAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4359,6 +4455,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeatExchangerGeneralNodeConfig
 		}
+		v.HeatExchangerGeneralNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4368,6 +4465,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeatExchangerMNodeConfig
 		}
+		v.HeatExchangerMNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4377,6 +4475,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeatExchangerStraightTubeNodeConfig
 		}
+		v.HeatExchangerStraightTubeNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4386,6 +4485,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			HelicalAgitatorNodeConfig
 		}
+		v.HelicalAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4395,6 +4495,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PaddleAgitatorNodeConfig
 		}
+		v.PaddleAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4404,6 +4505,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PropellerAgitatorNodeConfig
 		}
+		v.PropellerAgitatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4413,6 +4515,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RotaryMixerNodeConfig
 		}
+		v.RotaryMixerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4422,6 +4525,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			StaticMixerNodeConfig
 		}
+		v.StaticMixerNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4431,6 +4535,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CavityPumpNodeConfig
 		}
+		v.CavityPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4440,6 +4545,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CentrifugalCompressorNodeConfig
 		}
+		v.CentrifugalCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4449,6 +4555,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CompressorNodeConfig
 		}
+		v.CompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4458,6 +4565,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			DiaphragmPumpNodeConfig
 		}
+		v.DiaphragmPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4467,6 +4575,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			EjectionPumpNodeConfig
 		}
+		v.EjectionPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4476,6 +4585,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			EjectorCompressorNodeConfig
 		}
+		v.EjectorCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4485,6 +4595,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			LiquidRingCompressorNodeConfig
 		}
+		v.LiquidRingCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4494,6 +4605,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PistonPumpNodeConfig
 		}
+		v.PistonPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4503,6 +4615,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			PumpNodeConfig
 		}
+		v.PumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4512,6 +4625,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RollerVaneCompressorNodeConfig
 		}
+		v.RollerVaneCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4521,6 +4635,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ScrewPumpNodeConfig
 		}
+		v.ScrewPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4530,6 +4645,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TurboCompressorNodeConfig
 		}
+		v.TurboCompressorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4539,6 +4655,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			VacuumPumpNodeConfig
 		}
+		v.VacuumPumpNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4548,6 +4665,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BurstDiscNodeConfig
 		}
+		v.BurstDiscNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4557,6 +4675,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorNodeConfig
 		}
+		v.FlameArrestorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4566,6 +4685,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorDetonationNodeConfig
 		}
+		v.FlameArrestorDetonationNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4575,6 +4695,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorExplosionNodeConfig
 		}
+		v.FlameArrestorExplosionNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4584,6 +4705,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorFireResNodeConfig
 		}
+		v.FlameArrestorFireResNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4593,6 +4715,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorFireResDetonationNodeConfig
 		}
+		v.FlameArrestorFireResDetonationNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4602,6 +4725,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoBurstDiscNodeConfig
 		}
+		v.IsoBurstDiscNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4611,6 +4735,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AngledValveNodeConfig
 		}
+		v.AngledValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4620,6 +4745,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AngledReliefValveNodeConfig
 		}
+		v.AngledReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4629,6 +4755,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			AngledSpringLoadedReliefValveNodeConfig
 		}
+		v.AngledSpringLoadedReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4638,6 +4765,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BallValveNodeConfig
 		}
+		v.BallValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4647,6 +4775,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			BreatherValveNodeConfig
 		}
+		v.BreatherValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4656,6 +4785,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ButterflyValveOneNodeConfig
 		}
+		v.ButterflyValveOneNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4665,6 +4795,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ButterflyValveTwoNodeConfig
 		}
+		v.ButterflyValveTwoNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4674,6 +4805,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CheckValveNodeConfig
 		}
+		v.CheckValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4683,6 +4815,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CheckValveWithArrowNodeConfig
 		}
+		v.CheckValveWithArrowNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4692,6 +4825,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ElectricRegulatorNodeConfig
 		}
+		v.ElectricRegulatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4701,6 +4835,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ElectricRegulatorMotorizedNodeConfig
 		}
+		v.ElectricRegulatorMotorizedNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4710,6 +4845,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			FourWayValveNodeConfig
 		}
+		v.FourWayValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4719,6 +4855,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			GateValveNodeConfig
 		}
+		v.GateValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4728,6 +4865,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			IsoCheckValveNodeConfig
 		}
+		v.IsoCheckValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4737,6 +4875,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ManualValveNodeConfig
 		}
+		v.ManualValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4746,6 +4885,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			NeedleValveNodeConfig
 		}
+		v.NeedleValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4755,6 +4895,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RegulatorNodeConfig
 		}
+		v.RegulatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4764,6 +4905,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			RegulatorManualNodeConfig
 		}
+		v.RegulatorManualNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4773,6 +4915,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ReliefValveNodeConfig
 		}
+		v.ReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4782,6 +4925,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SolenoidValveNodeConfig
 		}
+		v.SolenoidValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4791,6 +4935,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			SpringLoadedReliefValveNodeConfig
 		}
+		v.SpringLoadedReliefValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4800,6 +4945,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ThreeWayValveNodeConfig
 		}
+		v.ThreeWayValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4809,6 +4955,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ThreeWayBallValveNodeConfig
 		}
+		v.ThreeWayBallValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4818,6 +4965,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			ValveNodeConfig
 		}
+		v.ValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4827,6 +4975,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CrossJunctionNodeConfig
 		}
+		v.CrossJunctionNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4836,6 +4985,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CylinderNodeConfig
 		}
+		v.CylinderNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4845,6 +4995,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TankNodeConfig
 		}
+		v.TankNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4854,6 +5005,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			TJunctionNodeConfig
 		}
+		v.TJunctionNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4863,6 +5015,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CustomActuatorNodeConfig
 		}
+		v.CustomActuatorNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4872,6 +5025,7 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type NodeConfigType `json:"variant"`
 			CustomStaticNodeConfig
 		}
+		v.CustomStaticNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4886,655 +5040,501 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.GroupBoxNodeConfig
 	default:
-		return errors.Newf("NodeConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"NodeConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *NodeConfig) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case CapNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FilterNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowStraightenerNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeaterElementNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoCapNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoFilterNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case NozzleNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case OrificeNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case OrificePlateNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StrainerNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StrainerConeNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ThrusterNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case VentNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterGeneralNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterElectromagneticNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterVariableAreaNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterCoriolisNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterNozzleNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterVenturiNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterRingPistonNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterPositiveDisplacementNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterTurbineNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterPulseNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterFloatSensorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterOrificeNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BoxNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ButtonNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CircleNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GaugeNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case InputNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case LightNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case LineNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case OffPageReferenceNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PolygonNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SelectNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ScaleNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SetpointNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StateIndicatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StringDisplayNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SwitchNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TextBoxNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValueNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AgitatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CrossBeamAgitatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlatBladeAgitatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeatExchangerGeneralNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeatExchangerMNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeatExchangerStraightTubeNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HelicalAgitatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PaddleAgitatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PropellerAgitatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RotaryMixerNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StaticMixerNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CavityPumpNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CentrifugalCompressorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CompressorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case DiaphragmPumpNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case EjectionPumpNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case EjectorCompressorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case LiquidRingCompressorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PistonPumpNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PumpNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RollerVaneCompressorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ScrewPumpNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TurboCompressorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case VacuumPumpNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BurstDiscNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorDetonationNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorExplosionNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorFireResNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorFireResDetonationNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoBurstDiscNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AngledValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AngledReliefValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AngledSpringLoadedReliefValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BallValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BreatherValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ButterflyValveOneNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ButterflyValveTwoNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CheckValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CheckValveWithArrowNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ElectricRegulatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ElectricRegulatorMotorizedNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FourWayValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GateValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoCheckValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ManualValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case NeedleValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RegulatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RegulatorManualNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ReliefValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SolenoidValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SpringLoadedReliefValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ThreeWayValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ThreeWayBallValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValveNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CrossJunctionNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CylinderNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TankNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TJunctionNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CustomActuatorNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CustomStaticNodeConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u NodeConfig) Validate() error {
+	v := validate.New("NodeConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case CapNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FilterNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowStraightenerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeaterElementNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCapNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoFilterNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NozzleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificePlateNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerConeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThrusterNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VentNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterGeneralNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterElectromagneticNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVariableAreaNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterCoriolisNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterNozzleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVenturiNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterRingPistonNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPositiveDisplacementNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterTurbineNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPulseNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterFloatSensorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterOrificeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BoxNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButtonNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CircleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GaugeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case InputNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LightNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OffPageReferenceNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PolygonNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SelectNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScaleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SetpointNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StateIndicatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StringDisplayNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SwitchNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TextBoxNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValueNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossBeamAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlatBladeAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerGeneralNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerMNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerStraightTubeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HelicalAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PaddleAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PropellerAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RotaryMixerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StaticMixerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CavityPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CentrifugalCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case DiaphragmPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectionPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectorCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LiquidRingCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PistonPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RollerVaneCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScrewPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TurboCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VacuumPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BurstDiscNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorDetonationNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorExplosionNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResDetonationNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoBurstDiscNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledSpringLoadedReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BallValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BreatherValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveOneNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveTwoNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveWithArrowNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorMotorizedNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FourWayValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GateValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCheckValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ManualValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NeedleValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorManualNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SolenoidValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SpringLoadedReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayBallValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossJunctionNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CylinderNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TankNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TJunctionNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomActuatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomStaticNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
+// ElementConfigType is the "variant" value that selects a variant of ElementConfig.
 type ElementConfigType string
 
 const (
-	CapElementConfigType                            ElementConfigType = "cap"
-	FilterElementConfigType                         ElementConfigType = "filter"
-	FlowStraightenerElementConfigType               ElementConfigType = "flow_straightener"
-	HeaterElementElementConfigType                  ElementConfigType = "heater_element"
-	IsoCapElementConfigType                         ElementConfigType = "iso_cap"
-	IsoFilterElementConfigType                      ElementConfigType = "iso_filter"
-	NozzleElementConfigType                         ElementConfigType = "nozzle"
-	OrificeElementConfigType                        ElementConfigType = "orifice"
-	OrificePlateElementConfigType                   ElementConfigType = "orifice_plate"
-	StrainerElementConfigType                       ElementConfigType = "strainer"
-	StrainerConeElementConfigType                   ElementConfigType = "strainer_cone"
-	ThrusterElementConfigType                       ElementConfigType = "thruster"
-	VentElementConfigType                           ElementConfigType = "vent"
-	FlowmeterGeneralElementConfigType               ElementConfigType = "flowmeter_general"
-	FlowmeterElectromagneticElementConfigType       ElementConfigType = "flowmeter_electromagnetic"
-	FlowmeterVariableAreaElementConfigType          ElementConfigType = "flowmeter_variable_area"
-	FlowmeterCoriolisElementConfigType              ElementConfigType = "flowmeter_coriolis"
-	FlowmeterNozzleElementConfigType                ElementConfigType = "flowmeter_nozzle"
-	FlowmeterVenturiElementConfigType               ElementConfigType = "flowmeter_venturi"
-	FlowmeterRingPistonElementConfigType            ElementConfigType = "flowmeter_ring_piston"
-	FlowmeterPositiveDisplacementElementConfigType  ElementConfigType = "flowmeter_positive_displacement"
-	FlowmeterTurbineElementConfigType               ElementConfigType = "flowmeter_turbine"
-	FlowmeterPulseElementConfigType                 ElementConfigType = "flowmeter_pulse"
-	FlowmeterFloatSensorElementConfigType           ElementConfigType = "flowmeter_float_sensor"
-	FlowmeterOrificeElementConfigType               ElementConfigType = "flowmeter_orifice"
-	BoxElementConfigType                            ElementConfigType = "box"
-	ButtonElementConfigType                         ElementConfigType = "button"
-	CircleElementConfigType                         ElementConfigType = "circle"
-	GaugeElementConfigType                          ElementConfigType = "gauge"
-	InputElementConfigType                          ElementConfigType = "input"
-	LightElementConfigType                          ElementConfigType = "light"
-	LineElementConfigType                           ElementConfigType = "line"
-	OffPageReferenceElementConfigType               ElementConfigType = "off_page_reference"
-	PolygonElementConfigType                        ElementConfigType = "polygon"
-	SelectElementConfigType                         ElementConfigType = "select"
-	ScaleElementConfigType                          ElementConfigType = "scale"
-	SetpointElementConfigType                       ElementConfigType = "setpoint"
-	StateIndicatorElementConfigType                 ElementConfigType = "state_indicator"
-	StringDisplayElementConfigType                  ElementConfigType = "string_display"
-	SwitchElementConfigType                         ElementConfigType = "switch"
-	TextBoxElementConfigType                        ElementConfigType = "text_box"
-	ValueElementConfigType                          ElementConfigType = "value"
-	AgitatorElementConfigType                       ElementConfigType = "agitator"
-	CrossBeamAgitatorElementConfigType              ElementConfigType = "cross_beam_agitator"
-	FlatBladeAgitatorElementConfigType              ElementConfigType = "flat_blade_agitator"
-	HeatExchangerGeneralElementConfigType           ElementConfigType = "heat_exchanger_general"
-	HeatExchangerMElementConfigType                 ElementConfigType = "heat_exchanger_m"
-	HeatExchangerStraightTubeElementConfigType      ElementConfigType = "heat_exchanger_straight_tube"
-	HelicalAgitatorElementConfigType                ElementConfigType = "helical_agitator"
-	PaddleAgitatorElementConfigType                 ElementConfigType = "paddle_agitator"
-	PropellerAgitatorElementConfigType              ElementConfigType = "propeller_agitator"
-	RotaryMixerElementConfigType                    ElementConfigType = "rotary_mixer"
-	StaticMixerElementConfigType                    ElementConfigType = "static_mixer"
-	CavityPumpElementConfigType                     ElementConfigType = "cavity_pump"
-	CentrifugalCompressorElementConfigType          ElementConfigType = "centrifugal_compressor"
-	CompressorElementConfigType                     ElementConfigType = "compressor"
-	DiaphragmPumpElementConfigType                  ElementConfigType = "diaphragm_pump"
-	EjectionPumpElementConfigType                   ElementConfigType = "ejection_pump"
-	EjectorCompressorElementConfigType              ElementConfigType = "ejector_compressor"
-	LiquidRingCompressorElementConfigType           ElementConfigType = "liquid_ring_compressor"
-	PistonPumpElementConfigType                     ElementConfigType = "piston_pump"
-	PumpElementConfigType                           ElementConfigType = "pump"
-	RollerVaneCompressorElementConfigType           ElementConfigType = "roller_vane_compressor"
-	ScrewPumpElementConfigType                      ElementConfigType = "screw_pump"
-	TurboCompressorElementConfigType                ElementConfigType = "turbo_compressor"
-	VacuumPumpElementConfigType                     ElementConfigType = "vacuum_pump"
-	BurstDiscElementConfigType                      ElementConfigType = "burst_disc"
-	FlameArrestorElementConfigType                  ElementConfigType = "flame_arrestor"
-	FlameArrestorDetonationElementConfigType        ElementConfigType = "flame_arrestor_detonation"
-	FlameArrestorExplosionElementConfigType         ElementConfigType = "flame_arrestor_explosion"
-	FlameArrestorFireResElementConfigType           ElementConfigType = "flame_arrestor_fire_res"
+	// CapElementConfigType selects the CapElementConfig variant.
+	CapElementConfigType ElementConfigType = "cap"
+	// FilterElementConfigType selects the FilterElementConfig variant.
+	FilterElementConfigType ElementConfigType = "filter"
+	// FlowStraightenerElementConfigType selects the FlowStraightenerElementConfig
+	// variant.
+	FlowStraightenerElementConfigType ElementConfigType = "flow_straightener"
+	// HeaterElementElementConfigType selects the HeaterElementElementConfig variant.
+	HeaterElementElementConfigType ElementConfigType = "heater_element"
+	// IsoCapElementConfigType selects the IsoCapElementConfig variant.
+	IsoCapElementConfigType ElementConfigType = "iso_cap"
+	// IsoFilterElementConfigType selects the IsoFilterElementConfig variant.
+	IsoFilterElementConfigType ElementConfigType = "iso_filter"
+	// NozzleElementConfigType selects the NozzleElementConfig variant.
+	NozzleElementConfigType ElementConfigType = "nozzle"
+	// OrificeElementConfigType selects the OrificeElementConfig variant.
+	OrificeElementConfigType ElementConfigType = "orifice"
+	// OrificePlateElementConfigType selects the OrificePlateElementConfig variant.
+	OrificePlateElementConfigType ElementConfigType = "orifice_plate"
+	// StrainerElementConfigType selects the StrainerElementConfig variant.
+	StrainerElementConfigType ElementConfigType = "strainer"
+	// StrainerConeElementConfigType selects the StrainerConeElementConfig variant.
+	StrainerConeElementConfigType ElementConfigType = "strainer_cone"
+	// ThrusterElementConfigType selects the ThrusterElementConfig variant.
+	ThrusterElementConfigType ElementConfigType = "thruster"
+	// VentElementConfigType selects the VentElementConfig variant.
+	VentElementConfigType ElementConfigType = "vent"
+	// FlowmeterGeneralElementConfigType selects the FlowmeterGeneralElementConfig
+	// variant.
+	FlowmeterGeneralElementConfigType ElementConfigType = "flowmeter_general"
+	// FlowmeterElectromagneticElementConfigType selects the
+	// FlowmeterElectromagneticElementConfig variant.
+	FlowmeterElectromagneticElementConfigType ElementConfigType = "flowmeter_electromagnetic"
+	// FlowmeterVariableAreaElementConfigType selects the
+	// FlowmeterVariableAreaElementConfig variant.
+	FlowmeterVariableAreaElementConfigType ElementConfigType = "flowmeter_variable_area"
+	// FlowmeterCoriolisElementConfigType selects the FlowmeterCoriolisElementConfig
+	// variant.
+	FlowmeterCoriolisElementConfigType ElementConfigType = "flowmeter_coriolis"
+	// FlowmeterNozzleElementConfigType selects the FlowmeterNozzleElementConfig
+	// variant.
+	FlowmeterNozzleElementConfigType ElementConfigType = "flowmeter_nozzle"
+	// FlowmeterVenturiElementConfigType selects the FlowmeterVenturiElementConfig
+	// variant.
+	FlowmeterVenturiElementConfigType ElementConfigType = "flowmeter_venturi"
+	// FlowmeterRingPistonElementConfigType selects the FlowmeterRingPistonElementConfig
+	// variant.
+	FlowmeterRingPistonElementConfigType ElementConfigType = "flowmeter_ring_piston"
+	// FlowmeterPositiveDisplacementElementConfigType selects the
+	// FlowmeterPositiveDisplacementElementConfig variant.
+	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = "flowmeter_positive_displacement"
+	// FlowmeterTurbineElementConfigType selects the FlowmeterTurbineElementConfig
+	// variant.
+	FlowmeterTurbineElementConfigType ElementConfigType = "flowmeter_turbine"
+	// FlowmeterPulseElementConfigType selects the FlowmeterPulseElementConfig variant.
+	FlowmeterPulseElementConfigType ElementConfigType = "flowmeter_pulse"
+	// FlowmeterFloatSensorElementConfigType selects the
+	// FlowmeterFloatSensorElementConfig variant.
+	FlowmeterFloatSensorElementConfigType ElementConfigType = "flowmeter_float_sensor"
+	// FlowmeterOrificeElementConfigType selects the FlowmeterOrificeElementConfig
+	// variant.
+	FlowmeterOrificeElementConfigType ElementConfigType = "flowmeter_orifice"
+	// BoxElementConfigType is the configuration for box annotation symbols.
+	BoxElementConfigType ElementConfigType = "box"
+	// ButtonElementConfigType is the configuration for button symbols.
+	ButtonElementConfigType ElementConfigType = "button"
+	// CircleElementConfigType is the configuration for circle annotation symbols.
+	CircleElementConfigType ElementConfigType = "circle"
+	// GaugeElementConfigType is the configuration for gauge symbols.
+	GaugeElementConfigType ElementConfigType = "gauge"
+	// InputElementConfigType is the configuration for free-form input symbols.
+	InputElementConfigType ElementConfigType = "input"
+	// LightElementConfigType is the configuration for indicator light symbols.
+	LightElementConfigType ElementConfigType = "light"
+	// LineElementConfigType is the configuration for straight line symbols.
+	LineElementConfigType ElementConfigType = "line"
+	// OffPageReferenceElementConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceElementConfigType ElementConfigType = "off_page_reference"
+	// PolygonElementConfigType is the configuration for polygon annotation symbols.
+	PolygonElementConfigType ElementConfigType = "polygon"
+	// SelectElementConfigType is the configuration for select symbols.
+	SelectElementConfigType ElementConfigType = "select"
+	// ScaleElementConfigType is the configuration for standalone scale symbols.
+	ScaleElementConfigType ElementConfigType = "scale"
+	// SetpointElementConfigType is the configuration for numeric setpoint symbols.
+	SetpointElementConfigType ElementConfigType = "setpoint"
+	// StateIndicatorElementConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorElementConfigType ElementConfigType = "state_indicator"
+	// StringDisplayElementConfigType is the configuration for live string display
+	// symbols.
+	StringDisplayElementConfigType ElementConfigType = "string_display"
+	// SwitchElementConfigType selects the SwitchElementConfig variant.
+	SwitchElementConfigType ElementConfigType = "switch"
+	// TextBoxElementConfigType is the configuration for text box annotation symbols.
+	TextBoxElementConfigType ElementConfigType = "text_box"
+	// ValueElementConfigType is the configuration for live telemetry value symbols.
+	ValueElementConfigType ElementConfigType = "value"
+	// AgitatorElementConfigType selects the AgitatorElementConfig variant.
+	AgitatorElementConfigType ElementConfigType = "agitator"
+	// CrossBeamAgitatorElementConfigType selects the CrossBeamAgitatorElementConfig
+	// variant.
+	CrossBeamAgitatorElementConfigType ElementConfigType = "cross_beam_agitator"
+	// FlatBladeAgitatorElementConfigType selects the FlatBladeAgitatorElementConfig
+	// variant.
+	FlatBladeAgitatorElementConfigType ElementConfigType = "flat_blade_agitator"
+	// HeatExchangerGeneralElementConfigType selects the
+	// HeatExchangerGeneralElementConfig variant.
+	HeatExchangerGeneralElementConfigType ElementConfigType = "heat_exchanger_general"
+	// HeatExchangerMElementConfigType selects the HeatExchangerMElementConfig variant.
+	HeatExchangerMElementConfigType ElementConfigType = "heat_exchanger_m"
+	// HeatExchangerStraightTubeElementConfigType selects the
+	// HeatExchangerStraightTubeElementConfig variant.
+	HeatExchangerStraightTubeElementConfigType ElementConfigType = "heat_exchanger_straight_tube"
+	// HelicalAgitatorElementConfigType selects the HelicalAgitatorElementConfig
+	// variant.
+	HelicalAgitatorElementConfigType ElementConfigType = "helical_agitator"
+	// PaddleAgitatorElementConfigType selects the PaddleAgitatorElementConfig variant.
+	PaddleAgitatorElementConfigType ElementConfigType = "paddle_agitator"
+	// PropellerAgitatorElementConfigType selects the PropellerAgitatorElementConfig
+	// variant.
+	PropellerAgitatorElementConfigType ElementConfigType = "propeller_agitator"
+	// RotaryMixerElementConfigType selects the RotaryMixerElementConfig variant.
+	RotaryMixerElementConfigType ElementConfigType = "rotary_mixer"
+	// StaticMixerElementConfigType selects the StaticMixerElementConfig variant.
+	StaticMixerElementConfigType ElementConfigType = "static_mixer"
+	// CavityPumpElementConfigType selects the CavityPumpElementConfig variant.
+	CavityPumpElementConfigType ElementConfigType = "cavity_pump"
+	// CentrifugalCompressorElementConfigType selects the
+	// CentrifugalCompressorElementConfig variant.
+	CentrifugalCompressorElementConfigType ElementConfigType = "centrifugal_compressor"
+	// CompressorElementConfigType selects the CompressorElementConfig variant.
+	CompressorElementConfigType ElementConfigType = "compressor"
+	// DiaphragmPumpElementConfigType selects the DiaphragmPumpElementConfig variant.
+	DiaphragmPumpElementConfigType ElementConfigType = "diaphragm_pump"
+	// EjectionPumpElementConfigType selects the EjectionPumpElementConfig variant.
+	EjectionPumpElementConfigType ElementConfigType = "ejection_pump"
+	// EjectorCompressorElementConfigType selects the EjectorCompressorElementConfig
+	// variant.
+	EjectorCompressorElementConfigType ElementConfigType = "ejector_compressor"
+	// LiquidRingCompressorElementConfigType selects the
+	// LiquidRingCompressorElementConfig variant.
+	LiquidRingCompressorElementConfigType ElementConfigType = "liquid_ring_compressor"
+	// PistonPumpElementConfigType selects the PistonPumpElementConfig variant.
+	PistonPumpElementConfigType ElementConfigType = "piston_pump"
+	// PumpElementConfigType selects the PumpElementConfig variant.
+	PumpElementConfigType ElementConfigType = "pump"
+	// RollerVaneCompressorElementConfigType selects the
+	// RollerVaneCompressorElementConfig variant.
+	RollerVaneCompressorElementConfigType ElementConfigType = "roller_vane_compressor"
+	// ScrewPumpElementConfigType selects the ScrewPumpElementConfig variant.
+	ScrewPumpElementConfigType ElementConfigType = "screw_pump"
+	// TurboCompressorElementConfigType selects the TurboCompressorElementConfig
+	// variant.
+	TurboCompressorElementConfigType ElementConfigType = "turbo_compressor"
+	// VacuumPumpElementConfigType selects the VacuumPumpElementConfig variant.
+	VacuumPumpElementConfigType ElementConfigType = "vacuum_pump"
+	// BurstDiscElementConfigType selects the BurstDiscElementConfig variant.
+	BurstDiscElementConfigType ElementConfigType = "burst_disc"
+	// FlameArrestorElementConfigType selects the FlameArrestorElementConfig variant.
+	FlameArrestorElementConfigType ElementConfigType = "flame_arrestor"
+	// FlameArrestorDetonationElementConfigType selects the
+	// FlameArrestorDetonationElementConfig variant.
+	FlameArrestorDetonationElementConfigType ElementConfigType = "flame_arrestor_detonation"
+	// FlameArrestorExplosionElementConfigType selects the
+	// FlameArrestorExplosionElementConfig variant.
+	FlameArrestorExplosionElementConfigType ElementConfigType = "flame_arrestor_explosion"
+	// FlameArrestorFireResElementConfigType selects the
+	// FlameArrestorFireResElementConfig variant.
+	FlameArrestorFireResElementConfigType ElementConfigType = "flame_arrestor_fire_res"
+	// FlameArrestorFireResDetonationElementConfigType selects the
+	// FlameArrestorFireResDetonationElementConfig variant.
 	FlameArrestorFireResDetonationElementConfigType ElementConfigType = "flame_arrestor_fire_res_detonation"
-	IsoBurstDiscElementConfigType                   ElementConfigType = "iso_burst_disc"
-	AngledValveElementConfigType                    ElementConfigType = "angled_valve"
-	AngledReliefValveElementConfigType              ElementConfigType = "angled_relief_valve"
-	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = "angled_spring_loaded_relief_valve"
-	BallValveElementConfigType                      ElementConfigType = "ball_valve"
-	BreatherValveElementConfigType                  ElementConfigType = "breather_valve"
-	ButterflyValveOneElementConfigType              ElementConfigType = "butterfly_valve_one"
-	ButterflyValveTwoElementConfigType              ElementConfigType = "butterfly_valve_two"
-	CheckValveElementConfigType                     ElementConfigType = "check_valve"
-	CheckValveWithArrowElementConfigType            ElementConfigType = "check_valve_with_arrow"
-	ElectricRegulatorElementConfigType              ElementConfigType = "electric_regulator"
-	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = "electric_regulator_motorized"
-	FourWayValveElementConfigType                   ElementConfigType = "four_way_valve"
-	GateValveElementConfigType                      ElementConfigType = "gate_valve"
-	IsoCheckValveElementConfigType                  ElementConfigType = "iso_check_valve"
-	ManualValveElementConfigType                    ElementConfigType = "manual_valve"
-	NeedleValveElementConfigType                    ElementConfigType = "needle_valve"
-	RegulatorElementConfigType                      ElementConfigType = "regulator"
-	RegulatorManualElementConfigType                ElementConfigType = "regulator_manual"
-	ReliefValveElementConfigType                    ElementConfigType = "relief_valve"
-	SolenoidValveElementConfigType                  ElementConfigType = "solenoid_valve"
-	SpringLoadedReliefValveElementConfigType        ElementConfigType = "spring_loaded_relief_valve"
-	ThreeWayValveElementConfigType                  ElementConfigType = "three_way_valve"
-	ThreeWayBallValveElementConfigType              ElementConfigType = "three_way_ball_valve"
-	ValveElementConfigType                          ElementConfigType = "valve"
-	CrossJunctionElementConfigType                  ElementConfigType = "cross_junction"
-	CylinderElementConfigType                       ElementConfigType = "cylinder"
-	TankElementConfigType                           ElementConfigType = "tank"
-	TJunctionElementConfigType                      ElementConfigType = "t_junction"
-	CustomActuatorElementConfigType                 ElementConfigType = "custom_actuator"
-	CustomStaticElementConfigType                   ElementConfigType = "custom_static"
-	GroupBoxElementConfigType                       ElementConfigType = "group_box"
-	PipeElementConfigType                           ElementConfigType = "pipe"
-	ElectricElementConfigType                       ElementConfigType = "electric"
-	SecondaryElementConfigType                      ElementConfigType = "secondary"
-	JacketedElementConfigType                       ElementConfigType = "jacketed"
-	HydraulicElementConfigType                      ElementConfigType = "hydraulic"
-	PneumaticElementConfigType                      ElementConfigType = "pneumatic"
-	DataElementConfigType                           ElementConfigType = "data"
+	// IsoBurstDiscElementConfigType selects the IsoBurstDiscElementConfig variant.
+	IsoBurstDiscElementConfigType ElementConfigType = "iso_burst_disc"
+	// AngledValveElementConfigType selects the AngledValveElementConfig variant.
+	AngledValveElementConfigType ElementConfigType = "angled_valve"
+	// AngledReliefValveElementConfigType selects the AngledReliefValveElementConfig
+	// variant.
+	AngledReliefValveElementConfigType ElementConfigType = "angled_relief_valve"
+	// AngledSpringLoadedReliefValveElementConfigType selects the
+	// AngledSpringLoadedReliefValveElementConfig variant.
+	AngledSpringLoadedReliefValveElementConfigType ElementConfigType = "angled_spring_loaded_relief_valve"
+	// BallValveElementConfigType selects the BallValveElementConfig variant.
+	BallValveElementConfigType ElementConfigType = "ball_valve"
+	// BreatherValveElementConfigType selects the BreatherValveElementConfig variant.
+	BreatherValveElementConfigType ElementConfigType = "breather_valve"
+	// ButterflyValveOneElementConfigType selects the ButterflyValveOneElementConfig
+	// variant.
+	ButterflyValveOneElementConfigType ElementConfigType = "butterfly_valve_one"
+	// ButterflyValveTwoElementConfigType selects the ButterflyValveTwoElementConfig
+	// variant.
+	ButterflyValveTwoElementConfigType ElementConfigType = "butterfly_valve_two"
+	// CheckValveElementConfigType selects the CheckValveElementConfig variant.
+	CheckValveElementConfigType ElementConfigType = "check_valve"
+	// CheckValveWithArrowElementConfigType selects the CheckValveWithArrowElementConfig
+	// variant.
+	CheckValveWithArrowElementConfigType ElementConfigType = "check_valve_with_arrow"
+	// ElectricRegulatorElementConfigType selects the ElectricRegulatorElementConfig
+	// variant.
+	ElectricRegulatorElementConfigType ElementConfigType = "electric_regulator"
+	// ElectricRegulatorMotorizedElementConfigType selects the
+	// ElectricRegulatorMotorizedElementConfig variant.
+	ElectricRegulatorMotorizedElementConfigType ElementConfigType = "electric_regulator_motorized"
+	// FourWayValveElementConfigType selects the FourWayValveElementConfig variant.
+	FourWayValveElementConfigType ElementConfigType = "four_way_valve"
+	// GateValveElementConfigType selects the GateValveElementConfig variant.
+	GateValveElementConfigType ElementConfigType = "gate_valve"
+	// IsoCheckValveElementConfigType selects the IsoCheckValveElementConfig variant.
+	IsoCheckValveElementConfigType ElementConfigType = "iso_check_valve"
+	// ManualValveElementConfigType selects the ManualValveElementConfig variant.
+	ManualValveElementConfigType ElementConfigType = "manual_valve"
+	// NeedleValveElementConfigType selects the NeedleValveElementConfig variant.
+	NeedleValveElementConfigType ElementConfigType = "needle_valve"
+	// RegulatorElementConfigType selects the RegulatorElementConfig variant.
+	RegulatorElementConfigType ElementConfigType = "regulator"
+	// RegulatorManualElementConfigType selects the RegulatorManualElementConfig
+	// variant.
+	RegulatorManualElementConfigType ElementConfigType = "regulator_manual"
+	// ReliefValveElementConfigType selects the ReliefValveElementConfig variant.
+	ReliefValveElementConfigType ElementConfigType = "relief_valve"
+	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveElementConfigType ElementConfigType = "solenoid_valve"
+	// SpringLoadedReliefValveElementConfigType selects the
+	// SpringLoadedReliefValveElementConfig variant.
+	SpringLoadedReliefValveElementConfigType ElementConfigType = "spring_loaded_relief_valve"
+	// ThreeWayValveElementConfigType selects the ThreeWayValveElementConfig variant.
+	ThreeWayValveElementConfigType ElementConfigType = "three_way_valve"
+	// ThreeWayBallValveElementConfigType selects the ThreeWayBallValveElementConfig
+	// variant.
+	ThreeWayBallValveElementConfigType ElementConfigType = "three_way_ball_valve"
+	// ValveElementConfigType selects the ValveElementConfig variant.
+	ValveElementConfigType ElementConfigType = "valve"
+	// CrossJunctionElementConfigType selects the CrossJunctionElementConfig variant.
+	CrossJunctionElementConfigType ElementConfigType = "cross_junction"
+	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
+	CylinderElementConfigType ElementConfigType = "cylinder"
+	// TankElementConfigType is the configuration for tank vessel symbols.
+	TankElementConfigType ElementConfigType = "tank"
+	// TJunctionElementConfigType selects the TJunctionElementConfig variant.
+	TJunctionElementConfigType ElementConfigType = "t_junction"
+	// CustomActuatorElementConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorElementConfigType ElementConfigType = "custom_actuator"
+	// CustomStaticElementConfigType is the configuration for user-defined static
+	// symbols.
+	CustomStaticElementConfigType ElementConfigType = "custom_static"
+	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxElementConfigType ElementConfigType = "group_box"
+	// PipeElementConfigType selects the PipeElementConfig variant.
+	PipeElementConfigType ElementConfigType = "pipe"
+	// ElectricElementConfigType selects the ElectricElementConfig variant.
+	ElectricElementConfigType ElementConfigType = "electric"
+	// SecondaryElementConfigType selects the SecondaryElementConfig variant.
+	SecondaryElementConfigType ElementConfigType = "secondary"
+	// JacketedElementConfigType selects the JacketedElementConfig variant.
+	JacketedElementConfigType ElementConfigType = "jacketed"
+	// HydraulicElementConfigType selects the HydraulicElementConfig variant.
+	HydraulicElementConfigType ElementConfigType = "hydraulic"
+	// PneumaticElementConfigType selects the PneumaticElementConfig variant.
+	PneumaticElementConfigType ElementConfigType = "pneumatic"
+	// DataElementConfigType selects the DataElementConfig variant.
+	DataElementConfigType ElementConfigType = "data"
 )
 
+// ElementConfigVariant is implemented by every ElementConfig variant.
 type ElementConfigVariant interface {
 	isElementConfigVariant()
 }
@@ -5545,9 +5545,9 @@ type CapElementConfig struct {
 
 func (CapElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CapElementConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CapElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5564,9 +5564,9 @@ type FilterElementConfig struct {
 
 func (FilterElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FilterElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FilterElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5583,9 +5583,9 @@ type FlowStraightenerElementConfig struct {
 
 func (FlowStraightenerElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowStraightenerElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowStraightenerElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5602,9 +5602,9 @@ type HeaterElementElementConfig struct {
 
 func (HeaterElementElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeaterElementElementConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeaterElementElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5621,9 +5621,9 @@ type IsoCapElementConfig struct {
 
 func (IsoCapElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCapElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCapElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5640,9 +5640,9 @@ type IsoFilterElementConfig struct {
 
 func (IsoFilterElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoFilterElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoFilterElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5659,9 +5659,9 @@ type NozzleElementConfig struct {
 
 func (NozzleElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (n *NozzleElementConfig) ApplyDefaults() {
-	n.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NozzleElementConfig) SetDefaults() {
+	n.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5678,9 +5678,9 @@ type OrificeElementConfig struct {
 
 func (OrificeElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OrificeElementConfig) ApplyDefaults() {
-	o.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificeElementConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5697,9 +5697,9 @@ type OrificePlateElementConfig struct {
 
 func (OrificePlateElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OrificePlateElementConfig) ApplyDefaults() {
-	o.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OrificePlateElementConfig) SetDefaults() {
+	o.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5716,9 +5716,9 @@ type StrainerElementConfig struct {
 
 func (StrainerElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StrainerElementConfig) ApplyDefaults() {
-	s.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerElementConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5735,9 +5735,9 @@ type StrainerConeElementConfig struct {
 
 func (StrainerConeElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StrainerConeElementConfig) ApplyDefaults() {
-	s.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StrainerConeElementConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5754,9 +5754,9 @@ type ThrusterElementConfig struct {
 
 func (ThrusterElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThrusterElementConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThrusterElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5773,9 +5773,9 @@ type VentElementConfig struct {
 
 func (VentElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (ve *VentElementConfig) ApplyDefaults() {
-	ve.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (ve *VentElementConfig) SetDefaults() {
+	ve.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5792,9 +5792,9 @@ type FlowmeterGeneralElementConfig struct {
 
 func (FlowmeterGeneralElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterGeneralElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterGeneralElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5811,9 +5811,9 @@ type FlowmeterElectromagneticElementConfig struct {
 
 func (FlowmeterElectromagneticElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterElectromagneticElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterElectromagneticElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5830,9 +5830,9 @@ type FlowmeterVariableAreaElementConfig struct {
 
 func (FlowmeterVariableAreaElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterVariableAreaElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVariableAreaElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5849,9 +5849,9 @@ type FlowmeterCoriolisElementConfig struct {
 
 func (FlowmeterCoriolisElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterCoriolisElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterCoriolisElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5868,9 +5868,9 @@ type FlowmeterNozzleElementConfig struct {
 
 func (FlowmeterNozzleElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterNozzleElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterNozzleElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5887,9 +5887,9 @@ type FlowmeterVenturiElementConfig struct {
 
 func (FlowmeterVenturiElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterVenturiElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterVenturiElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5906,9 +5906,9 @@ type FlowmeterRingPistonElementConfig struct {
 
 func (FlowmeterRingPistonElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterRingPistonElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterRingPistonElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5925,9 +5925,9 @@ type FlowmeterPositiveDisplacementElementConfig struct {
 
 func (FlowmeterPositiveDisplacementElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterPositiveDisplacementElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPositiveDisplacementElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5944,9 +5944,9 @@ type FlowmeterTurbineElementConfig struct {
 
 func (FlowmeterTurbineElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterTurbineElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterTurbineElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5963,9 +5963,9 @@ type FlowmeterPulseElementConfig struct {
 
 func (FlowmeterPulseElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterPulseElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterPulseElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5982,9 +5982,9 @@ type FlowmeterFloatSensorElementConfig struct {
 
 func (FlowmeterFloatSensorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterFloatSensorElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterFloatSensorElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6001,9 +6001,9 @@ type FlowmeterOrificeElementConfig struct {
 
 func (FlowmeterOrificeElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlowmeterOrificeElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlowmeterOrificeElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6031,21 +6031,13 @@ type BoxElementConfig struct {
 
 func (BoxElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BoxElementConfig) ApplyDefaults() {
-	if b.Dimensions.Width == 0 {
-		b.Dimensions.Width = 125
-	}
-	if b.Dimensions.Height == 0 {
-		b.Dimensions.Height = 200
-	}
-	if b.BorderRadius == 0 {
-		b.BorderRadius = 3
-	}
-	if b.StrokeWidth == 0 {
-		b.StrokeWidth = 2
-	}
-	b.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BoxElementConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Dimensions.Width = 125
+	b.Dimensions.Height = 200
+	b.BorderRadius = 3
+	b.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6077,18 +6069,11 @@ type ButtonElementConfig struct {
 
 func (ButtonElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *ButtonElementConfig) ApplyDefaults() {
-	if b.Size == "" {
-		b.Size = ComponentSizeMedium
-	}
-	if b.Mode == "" {
-		b.Mode = ButtonModeFire
-	}
-	b.LabeledConfig.ApplyDefaults()
-	if b.Control != nil {
-		b.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButtonElementConfig) SetDefaults() {
+	b.LabeledConfig.SetDefaults()
+	b.Size = ComponentSizeMedium
+	b.Mode = ButtonModeFire
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6096,6 +6081,9 @@ func (b *ButtonElementConfig) ApplyDefaults() {
 func (b ButtonElementConfig) Validate() error {
 	v := validate.New("ButtonElementConfig")
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
+	if b.Level != nil {
+		v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", *b.Level)
+	}
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
@@ -6119,15 +6107,11 @@ type CircleElementConfig struct {
 
 func (CircleElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CircleElementConfig) ApplyDefaults() {
-	if c.Radius == 0 {
-		c.Radius = 20
-	}
-	if c.StrokeWidth == 0 {
-		c.StrokeWidth = 2
-	}
-	c.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CircleElementConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.Radius = 20
+	c.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6161,29 +6145,17 @@ type GaugeElementConfig struct {
 
 func (GaugeElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GaugeElementConfig) ApplyDefaults() {
-	if g.Bounds.Upper == 0 {
-		g.Bounds.Upper = 100
-	}
-	if g.BarWidth == 0 {
-		g.BarWidth = 10
-	}
-	if g.Location.X == "" {
-		g.Location.X = spatial.XCenterLocationLeft
-	}
-	if g.Location.Y == "" {
-		g.Location.Y = spatial.YCenterLocationCenter
-	}
-	if g.Units == "" {
-		g.Units = "RPM"
-	}
-	if g.Level == "" {
-		g.Level = text.LevelH5
-	}
-	g.LabeledConfig.ApplyDefaults()
-	g.NumericTelemConfig.ApplyDefaults()
-	g.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GaugeElementConfig) SetDefaults() {
+	g.LabeledConfig.SetDefaults()
+	g.NumericTelemConfig.SetDefaults()
+	g.StalenessConfig.SetDefaults()
+	g.Bounds.Upper = 100
+	g.BarWidth = 10
+	g.Location.X = spatial.XCenterLocationLeft
+	g.Location.Y = spatial.YCenterLocationCenter
+	g.Units = "RPM"
+	g.Level = text.LevelH5
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6218,15 +6190,10 @@ type InputElementConfig struct {
 
 func (InputElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputElementConfig) ApplyDefaults() {
-	if i.Size == "" {
-		i.Size = ComponentSizeMedium
-	}
-	i.LabeledConfig.ApplyDefaults()
-	if i.Control != nil {
-		i.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (i *InputElementConfig) SetDefaults() {
+	i.LabeledConfig.SetDefaults()
+	i.Size = ComponentSizeMedium
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6258,11 +6225,11 @@ type LightElementConfig struct {
 
 func (LightElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LightElementConfig) ApplyDefaults() {
-	l.LabeledConfig.ApplyDefaults()
-	l.ScaledConfig.ApplyDefaults()
-	l.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LightElementConfig) SetDefaults() {
+	l.LabeledConfig.SetDefaults()
+	l.ScaledConfig.SetDefaults()
+	l.StalenessConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6270,6 +6237,7 @@ func (l *LightElementConfig) ApplyDefaults() {
 func (l LightElementConfig) Validate() error {
 	v := validate.New("LightElementConfig")
 	v.Exec(l.LabeledConfig.Validate)
+	v.Exec(l.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -6287,14 +6255,10 @@ type LineElementConfig struct {
 
 func (LineElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LineElementConfig) ApplyDefaults() {
-	if l.End.X == 0 {
-		l.End.X = 100
-	}
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LineElementConfig) SetDefaults() {
+	l.End.X = 100
+	l.StrokeWidth = 2
 }
 
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
@@ -6311,12 +6275,10 @@ type OffPageReferenceElementConfig struct {
 
 func (OffPageReferenceElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OffPageReferenceElementConfig) ApplyDefaults() {
-	if o.Orientation == "" {
-		o.Orientation = spatial.OuterLocationRight
-	}
-	o.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (o *OffPageReferenceElementConfig) SetDefaults() {
+	o.LabeledConfig.SetDefaults()
+	o.Orientation = spatial.OuterLocationRight
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6352,18 +6314,12 @@ type PolygonElementConfig struct {
 
 func (PolygonElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PolygonElementConfig) ApplyDefaults() {
-	if p.NumSides == 0 {
-		p.NumSides = 6
-	}
-	if p.SideLength == 0 {
-		p.SideLength = 20
-	}
-	if p.StrokeWidth == 0 {
-		p.StrokeWidth = 2
-	}
-	p.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PolygonElementConfig) SetDefaults() {
+	p.LabeledConfig.SetDefaults()
+	p.NumSides = 6
+	p.SideLength = 20
+	p.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6397,18 +6353,11 @@ type SelectElementConfig struct {
 
 func (SelectElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SelectElementConfig) ApplyDefaults() {
-	if s.Size == "" {
-		s.Size = ComponentSizeMedium
-	}
-	if s.InlineSize == 0 {
-		s.InlineSize = 100
-	}
-	s.LabeledConfig.ApplyDefaults()
-	if s.Control != nil {
-		s.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SelectElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.InlineSize = 100
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6436,19 +6385,13 @@ type ScaleElementConfig struct {
 
 func (ScaleElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleElementConfig) ApplyDefaults() {
-	if s.Orientation == "" {
-		s.Orientation = spatial.OuterLocationTop
-	}
-	if s.Dimensions.Width == 0 {
-		s.Dimensions.Width = 34
-	}
-	if s.Dimensions.Height == 0 {
-		s.Dimensions.Height = 160
-	}
-	s.LabeledConfig.ApplyDefaults()
-	s.ScaleIndicatorConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaleElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaleIndicatorConfig.SetDefaults()
+	s.Orientation = spatial.OuterLocationTop
+	s.Dimensions.Width = 34
+	s.Dimensions.Height = 160
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6484,18 +6427,11 @@ type SetpointElementConfig struct {
 
 func (SetpointElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SetpointElementConfig) ApplyDefaults() {
-	if s.Size == "" {
-		s.Size = ComponentSizeMedium
-	}
-	if s.Units == "" {
-		s.Units = "mV"
-	}
-	s.LabeledConfig.ApplyDefaults()
-	if s.Control != nil {
-		s.Control.ApplyDefaults()
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SetpointElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.Size = ComponentSizeMedium
+	s.Units = "mV"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6528,16 +6464,12 @@ type StateIndicatorElementConfig struct {
 
 func (StateIndicatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StateIndicatorElementConfig) ApplyDefaults() {
-	if s.InlineSize == 0 {
-		s.InlineSize = 100
-	}
-	if s.Size == "" {
-		s.Size = ComponentSizeMedium
-	}
-	s.LabeledConfig.ApplyDefaults()
-	s.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StateIndicatorElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Size = ComponentSizeMedium
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6569,16 +6501,12 @@ type StringDisplayElementConfig struct {
 
 func (StringDisplayElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StringDisplayElementConfig) ApplyDefaults() {
-	if s.InlineSize == 0 {
-		s.InlineSize = 100
-	}
-	if s.Level == "" {
-		s.Level = text.LevelH4
-	}
-	s.LabeledConfig.ApplyDefaults()
-	s.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StringDisplayElementConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.InlineSize = 100
+	s.Level = text.LevelH4
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6596,9 +6524,9 @@ type SwitchElementConfig struct {
 
 func (SwitchElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SwitchElementConfig) ApplyDefaults() {
-	s.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SwitchElementConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6628,21 +6556,13 @@ type TextBoxElementConfig struct {
 
 func (TextBoxElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TextBoxElementConfig) ApplyDefaults() {
-	if t.Width == 0 {
-		t.Width = 75
-	}
-	if t.Align == "" {
-		t.Align = FlexAlignmentCenter
-	}
-	if t.Level == "" {
-		t.Level = text.LevelP
-	}
-	if t.Value == "" {
-		t.Value = "Text box"
-	}
-	t.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextBoxElementConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Width = 75
+	t.Align = FlexAlignmentCenter
+	t.Level = text.LevelP
+	t.Value = "Text box"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6685,26 +6605,16 @@ type ValueElementConfig struct {
 
 func (ValueElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValueElementConfig) ApplyDefaults() {
-	if va.Units == "" {
-		va.Units = "psi"
-	}
-	if va.InlineSize == 0 {
-		va.InlineSize = 70
-	}
-	if va.Level == "" {
-		va.Level = text.LevelH4
-	}
-	if va.Location.X == "" {
-		va.Location.X = spatial.XCenterLocationLeft
-	}
-	if va.Location.Y == "" {
-		va.Location.Y = spatial.YCenterLocationCenter
-	}
-	va.LabeledConfig.ApplyDefaults()
-	va.NumericTelemConfig.ApplyDefaults()
-	va.StalenessConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValueElementConfig) SetDefaults() {
+	va.LabeledConfig.SetDefaults()
+	va.NumericTelemConfig.SetDefaults()
+	va.StalenessConfig.SetDefaults()
+	va.Units = "psi"
+	va.InlineSize = 70
+	va.Level = text.LevelH4
+	va.Location.X = spatial.XCenterLocationLeft
+	va.Location.Y = spatial.YCenterLocationCenter
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6724,9 +6634,9 @@ type AgitatorElementConfig struct {
 
 func (AgitatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AgitatorElementConfig) ApplyDefaults() {
-	a.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AgitatorElementConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6743,9 +6653,9 @@ type CrossBeamAgitatorElementConfig struct {
 
 func (CrossBeamAgitatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CrossBeamAgitatorElementConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossBeamAgitatorElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6762,9 +6672,9 @@ type FlatBladeAgitatorElementConfig struct {
 
 func (FlatBladeAgitatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlatBladeAgitatorElementConfig) ApplyDefaults() {
-	f.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlatBladeAgitatorElementConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6781,9 +6691,9 @@ type HeatExchangerGeneralElementConfig struct {
 
 func (HeatExchangerGeneralElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeatExchangerGeneralElementConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerGeneralElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6800,9 +6710,9 @@ type HeatExchangerMElementConfig struct {
 
 func (HeatExchangerMElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeatExchangerMElementConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerMElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6819,9 +6729,9 @@ type HeatExchangerStraightTubeElementConfig struct {
 
 func (HeatExchangerStraightTubeElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HeatExchangerStraightTubeElementConfig) ApplyDefaults() {
-	h.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HeatExchangerStraightTubeElementConfig) SetDefaults() {
+	h.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6838,9 +6748,9 @@ type HelicalAgitatorElementConfig struct {
 
 func (HelicalAgitatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HelicalAgitatorElementConfig) ApplyDefaults() {
-	h.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HelicalAgitatorElementConfig) SetDefaults() {
+	h.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6857,9 +6767,9 @@ type PaddleAgitatorElementConfig struct {
 
 func (PaddleAgitatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PaddleAgitatorElementConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PaddleAgitatorElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6876,9 +6786,9 @@ type PropellerAgitatorElementConfig struct {
 
 func (PropellerAgitatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PropellerAgitatorElementConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PropellerAgitatorElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6895,9 +6805,9 @@ type RotaryMixerElementConfig struct {
 
 func (RotaryMixerElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RotaryMixerElementConfig) ApplyDefaults() {
-	r.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RotaryMixerElementConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6914,9 +6824,9 @@ type StaticMixerElementConfig struct {
 
 func (StaticMixerElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticMixerElementConfig) ApplyDefaults() {
-	s.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticMixerElementConfig) SetDefaults() {
+	s.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6933,9 +6843,9 @@ type CavityPumpElementConfig struct {
 
 func (CavityPumpElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CavityPumpElementConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CavityPumpElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6952,9 +6862,9 @@ type CentrifugalCompressorElementConfig struct {
 
 func (CentrifugalCompressorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CentrifugalCompressorElementConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CentrifugalCompressorElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6971,9 +6881,9 @@ type CompressorElementConfig struct {
 
 func (CompressorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CompressorElementConfig) ApplyDefaults() {
-	c.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CompressorElementConfig) SetDefaults() {
+	c.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -6990,9 +6900,9 @@ type DiaphragmPumpElementConfig struct {
 
 func (DiaphragmPumpElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DiaphragmPumpElementConfig) ApplyDefaults() {
-	d.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DiaphragmPumpElementConfig) SetDefaults() {
+	d.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7009,9 +6919,9 @@ type EjectionPumpElementConfig struct {
 
 func (EjectionPumpElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EjectionPumpElementConfig) ApplyDefaults() {
-	e.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectionPumpElementConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7028,9 +6938,9 @@ type EjectorCompressorElementConfig struct {
 
 func (EjectorCompressorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EjectorCompressorElementConfig) ApplyDefaults() {
-	e.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EjectorCompressorElementConfig) SetDefaults() {
+	e.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7047,9 +6957,9 @@ type LiquidRingCompressorElementConfig struct {
 
 func (LiquidRingCompressorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LiquidRingCompressorElementConfig) ApplyDefaults() {
-	l.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LiquidRingCompressorElementConfig) SetDefaults() {
+	l.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7066,9 +6976,9 @@ type PistonPumpElementConfig struct {
 
 func (PistonPumpElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PistonPumpElementConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PistonPumpElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7085,9 +6995,9 @@ type PumpElementConfig struct {
 
 func (PumpElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PumpElementConfig) ApplyDefaults() {
-	p.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PumpElementConfig) SetDefaults() {
+	p.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7104,9 +7014,9 @@ type RollerVaneCompressorElementConfig struct {
 
 func (RollerVaneCompressorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RollerVaneCompressorElementConfig) ApplyDefaults() {
-	r.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RollerVaneCompressorElementConfig) SetDefaults() {
+	r.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7123,9 +7033,9 @@ type ScrewPumpElementConfig struct {
 
 func (ScrewPumpElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScrewPumpElementConfig) ApplyDefaults() {
-	s.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScrewPumpElementConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7142,9 +7052,9 @@ type TurboCompressorElementConfig struct {
 
 func (TurboCompressorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TurboCompressorElementConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TurboCompressorElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7161,9 +7071,9 @@ type VacuumPumpElementConfig struct {
 
 func (VacuumPumpElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *VacuumPumpElementConfig) ApplyDefaults() {
-	va.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (va *VacuumPumpElementConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7180,9 +7090,9 @@ type BurstDiscElementConfig struct {
 
 func (BurstDiscElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BurstDiscElementConfig) ApplyDefaults() {
-	b.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BurstDiscElementConfig) SetDefaults() {
+	b.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7199,9 +7109,9 @@ type FlameArrestorElementConfig struct {
 
 func (FlameArrestorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7218,9 +7128,9 @@ type FlameArrestorDetonationElementConfig struct {
 
 func (FlameArrestorDetonationElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorDetonationElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorDetonationElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7237,9 +7147,9 @@ type FlameArrestorExplosionElementConfig struct {
 
 func (FlameArrestorExplosionElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorExplosionElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorExplosionElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7256,9 +7166,9 @@ type FlameArrestorFireResElementConfig struct {
 
 func (FlameArrestorFireResElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorFireResElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7275,9 +7185,9 @@ type FlameArrestorFireResDetonationElementConfig struct {
 
 func (FlameArrestorFireResDetonationElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FlameArrestorFireResDetonationElementConfig) ApplyDefaults() {
-	f.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FlameArrestorFireResDetonationElementConfig) SetDefaults() {
+	f.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7294,9 +7204,9 @@ type IsoBurstDiscElementConfig struct {
 
 func (IsoBurstDiscElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoBurstDiscElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoBurstDiscElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7313,9 +7223,9 @@ type AngledValveElementConfig struct {
 
 func (AngledValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AngledValveElementConfig) ApplyDefaults() {
-	a.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledValveElementConfig) SetDefaults() {
+	a.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7332,9 +7242,9 @@ type AngledReliefValveElementConfig struct {
 
 func (AngledReliefValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AngledReliefValveElementConfig) ApplyDefaults() {
-	a.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledReliefValveElementConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7351,9 +7261,9 @@ type AngledSpringLoadedReliefValveElementConfig struct {
 
 func (AngledSpringLoadedReliefValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AngledSpringLoadedReliefValveElementConfig) ApplyDefaults() {
-	a.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AngledSpringLoadedReliefValveElementConfig) SetDefaults() {
+	a.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7370,9 +7280,9 @@ type BallValveElementConfig struct {
 
 func (BallValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BallValveElementConfig) ApplyDefaults() {
-	b.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BallValveElementConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7389,9 +7299,9 @@ type BreatherValveElementConfig struct {
 
 func (BreatherValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BreatherValveElementConfig) ApplyDefaults() {
-	b.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BreatherValveElementConfig) SetDefaults() {
+	b.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7408,9 +7318,9 @@ type ButterflyValveOneElementConfig struct {
 
 func (ButterflyValveOneElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *ButterflyValveOneElementConfig) ApplyDefaults() {
-	b.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveOneElementConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7427,9 +7337,9 @@ type ButterflyValveTwoElementConfig struct {
 
 func (ButterflyValveTwoElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *ButterflyValveTwoElementConfig) ApplyDefaults() {
-	b.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (b *ButterflyValveTwoElementConfig) SetDefaults() {
+	b.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7446,9 +7356,9 @@ type CheckValveElementConfig struct {
 
 func (CheckValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CheckValveElementConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7465,9 +7375,9 @@ type CheckValveWithArrowElementConfig struct {
 
 func (CheckValveWithArrowElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CheckValveWithArrowElementConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CheckValveWithArrowElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7484,9 +7394,9 @@ type ElectricRegulatorElementConfig struct {
 
 func (ElectricRegulatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *ElectricRegulatorElementConfig) ApplyDefaults() {
-	e.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorElementConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7503,9 +7413,9 @@ type ElectricRegulatorMotorizedElementConfig struct {
 
 func (ElectricRegulatorMotorizedElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *ElectricRegulatorMotorizedElementConfig) ApplyDefaults() {
-	e.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricRegulatorMotorizedElementConfig) SetDefaults() {
+	e.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7522,9 +7432,9 @@ type FourWayValveElementConfig struct {
 
 func (FourWayValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FourWayValveElementConfig) ApplyDefaults() {
-	f.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FourWayValveElementConfig) SetDefaults() {
+	f.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7541,9 +7451,9 @@ type GateValveElementConfig struct {
 
 func (GateValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GateValveElementConfig) ApplyDefaults() {
-	g.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GateValveElementConfig) SetDefaults() {
+	g.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7560,9 +7470,9 @@ type IsoCheckValveElementConfig struct {
 
 func (IsoCheckValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCheckValveElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IsoCheckValveElementConfig) SetDefaults() {
+	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7579,9 +7489,9 @@ type ManualValveElementConfig struct {
 
 func (ManualValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *ManualValveElementConfig) ApplyDefaults() {
-	m.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualValveElementConfig) SetDefaults() {
+	m.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7598,9 +7508,9 @@ type NeedleValveElementConfig struct {
 
 func (NeedleValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (n *NeedleValveElementConfig) ApplyDefaults() {
-	n.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NeedleValveElementConfig) SetDefaults() {
+	n.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7617,9 +7527,9 @@ type RegulatorElementConfig struct {
 
 func (RegulatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RegulatorElementConfig) ApplyDefaults() {
-	r.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorElementConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7636,9 +7546,9 @@ type RegulatorManualElementConfig struct {
 
 func (RegulatorManualElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RegulatorManualElementConfig) ApplyDefaults() {
-	r.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegulatorManualElementConfig) SetDefaults() {
+	r.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7655,9 +7565,9 @@ type ReliefValveElementConfig struct {
 
 func (ReliefValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReliefValveElementConfig) ApplyDefaults() {
-	r.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReliefValveElementConfig) SetDefaults() {
+	r.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7677,9 +7587,9 @@ type SolenoidValveElementConfig struct {
 
 func (SolenoidValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SolenoidValveElementConfig) ApplyDefaults() {
-	s.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SolenoidValveElementConfig) SetDefaults() {
+	s.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7696,9 +7606,9 @@ type SpringLoadedReliefValveElementConfig struct {
 
 func (SpringLoadedReliefValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SpringLoadedReliefValveElementConfig) ApplyDefaults() {
-	s.DummyToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SpringLoadedReliefValveElementConfig) SetDefaults() {
+	s.DummyToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7715,9 +7625,9 @@ type ThreeWayValveElementConfig struct {
 
 func (ThreeWayValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThreeWayValveElementConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayValveElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7734,9 +7644,9 @@ type ThreeWayBallValveElementConfig struct {
 
 func (ThreeWayBallValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThreeWayBallValveElementConfig) ApplyDefaults() {
-	t.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThreeWayBallValveElementConfig) SetDefaults() {
+	t.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7753,9 +7663,9 @@ type ValveElementConfig struct {
 
 func (ValveElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValveElementConfig) ApplyDefaults() {
-	va.ToggleSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValveElementConfig) SetDefaults() {
+	va.ToggleSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7772,9 +7682,9 @@ type CrossJunctionElementConfig struct {
 
 func (CrossJunctionElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CrossJunctionElementConfig) ApplyDefaults() {
-	c.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CrossJunctionElementConfig) SetDefaults() {
+	c.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7801,16 +7711,12 @@ type CylinderElementConfig struct {
 
 func (CylinderElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CylinderElementConfig) ApplyDefaults() {
-	if c.Dimensions.Width == 0 {
-		c.Dimensions.Width = 66
-	}
-	if c.Dimensions.Height == 0 {
-		c.Dimensions.Height = 181
-	}
-	c.LabeledConfig.ApplyDefaults()
-	c.ScaledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CylinderElementConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
+	c.Dimensions.Width = 66
+	c.Dimensions.Height = 181
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7818,6 +7724,7 @@ func (c *CylinderElementConfig) ApplyDefaults() {
 func (c CylinderElementConfig) Validate() error {
 	v := validate.New("CylinderElementConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -7874,60 +7781,26 @@ type TankElementConfig struct {
 
 func (TankElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TankElementConfig) ApplyDefaults() {
-	if t.Precision == 0 {
-		t.Precision = 2
-	}
-	if t.Notation == "" {
-		t.Notation = "standard"
-	}
-	if t.StalenessTimeout == 0 {
-		t.StalenessTimeout = 5
-	}
-	if t.Bounds.Upper == 0 {
-		t.Bounds.Upper = 100
-	}
-	if t.CaretSide == "" {
-		t.CaretSide = spatial.OuterLocationRight
-	}
-	if t.Level == "" {
-		t.Level = text.LevelSmall
-	}
-	if t.Dimensions.Width == 0 {
-		t.Dimensions.Width = 125
-	}
-	if t.Dimensions.Height == 0 {
-		t.Dimensions.Height = 200
-	}
-	if t.BorderRadius.TopLeft.X == 0 {
-		t.BorderRadius.TopLeft.X = 50
-	}
-	if t.BorderRadius.TopLeft.Y == 0 {
-		t.BorderRadius.TopLeft.Y = 10
-	}
-	if t.BorderRadius.TopRight.X == 0 {
-		t.BorderRadius.TopRight.X = 50
-	}
-	if t.BorderRadius.TopRight.Y == 0 {
-		t.BorderRadius.TopRight.Y = 10
-	}
-	if t.BorderRadius.BottomLeft.X == 0 {
-		t.BorderRadius.BottomLeft.X = 50
-	}
-	if t.BorderRadius.BottomLeft.Y == 0 {
-		t.BorderRadius.BottomLeft.Y = 10
-	}
-	if t.BorderRadius.BottomRight.X == 0 {
-		t.BorderRadius.BottomRight.X = 50
-	}
-	if t.BorderRadius.BottomRight.Y == 0 {
-		t.BorderRadius.BottomRight.Y = 10
-	}
-	if t.Side == "" {
-		t.Side = spatial.OuterLocationLeft
-	}
-	t.LabeledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TankElementConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.Precision = 2
+	t.Notation = "standard"
+	t.StalenessTimeout = 5
+	t.Bounds.Upper = 100
+	t.CaretSide = spatial.OuterLocationRight
+	t.Level = text.LevelSmall
+	t.Dimensions.Width = 125
+	t.Dimensions.Height = 200
+	t.BorderRadius.TopLeft.X = 50
+	t.BorderRadius.TopLeft.Y = 10
+	t.BorderRadius.TopRight.X = 50
+	t.BorderRadius.TopRight.Y = 10
+	t.BorderRadius.BottomLeft.X = 50
+	t.BorderRadius.BottomLeft.Y = 10
+	t.BorderRadius.BottomRight.X = 50
+	t.BorderRadius.BottomRight.Y = 10
+	t.Side = spatial.OuterLocationLeft
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7948,9 +7821,9 @@ type TJunctionElementConfig struct {
 
 func (TJunctionElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TJunctionElementConfig) ApplyDefaults() {
-	t.StaticSymbolConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TJunctionElementConfig) SetDefaults() {
+	t.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7973,9 +7846,9 @@ type CustomActuatorElementConfig struct {
 
 func (CustomActuatorElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CustomActuatorElementConfig) ApplyDefaults() {
-	c.ToggleConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomActuatorElementConfig) SetDefaults() {
+	c.ToggleConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7999,10 +7872,10 @@ type CustomStaticElementConfig struct {
 
 func (CustomStaticElementConfig) isElementConfigVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CustomStaticElementConfig) ApplyDefaults() {
-	c.LabeledConfig.ApplyDefaults()
-	c.ScaledConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomStaticElementConfig) SetDefaults() {
+	c.LabeledConfig.SetDefaults()
+	c.ScaledConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -8010,6 +7883,7 @@ func (c *CustomStaticElementConfig) ApplyDefaults() {
 func (c CustomStaticElementConfig) Validate() error {
 	v := validate.New("CustomStaticElementConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -8718,6 +8592,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CapElementConfig
 		}
+		v.CapElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8727,6 +8602,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FilterElementConfig
 		}
+		v.FilterElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8736,6 +8612,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowStraightenerElementConfig
 		}
+		v.FlowStraightenerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8745,6 +8622,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeaterElementElementConfig
 		}
+		v.HeaterElementElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8754,6 +8632,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoCapElementConfig
 		}
+		v.IsoCapElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8763,6 +8642,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoFilterElementConfig
 		}
+		v.IsoFilterElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8772,6 +8652,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			NozzleElementConfig
 		}
+		v.NozzleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8781,6 +8662,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			OrificeElementConfig
 		}
+		v.OrificeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8790,6 +8672,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			OrificePlateElementConfig
 		}
+		v.OrificePlateElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8799,6 +8682,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StrainerElementConfig
 		}
+		v.StrainerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8808,6 +8692,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StrainerConeElementConfig
 		}
+		v.StrainerConeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8817,6 +8702,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ThrusterElementConfig
 		}
+		v.ThrusterElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8826,6 +8712,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			VentElementConfig
 		}
+		v.VentElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8835,6 +8722,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterGeneralElementConfig
 		}
+		v.FlowmeterGeneralElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8844,6 +8732,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterElectromagneticElementConfig
 		}
+		v.FlowmeterElectromagneticElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8853,6 +8742,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterVariableAreaElementConfig
 		}
+		v.FlowmeterVariableAreaElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8862,6 +8752,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterCoriolisElementConfig
 		}
+		v.FlowmeterCoriolisElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8871,6 +8762,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterNozzleElementConfig
 		}
+		v.FlowmeterNozzleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8880,6 +8772,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterVenturiElementConfig
 		}
+		v.FlowmeterVenturiElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8889,6 +8782,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterRingPistonElementConfig
 		}
+		v.FlowmeterRingPistonElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8898,6 +8792,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterPositiveDisplacementElementConfig
 		}
+		v.FlowmeterPositiveDisplacementElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8907,6 +8802,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterTurbineElementConfig
 		}
+		v.FlowmeterTurbineElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8916,6 +8812,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterPulseElementConfig
 		}
+		v.FlowmeterPulseElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8925,6 +8822,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterFloatSensorElementConfig
 		}
+		v.FlowmeterFloatSensorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8934,6 +8832,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlowmeterOrificeElementConfig
 		}
+		v.FlowmeterOrificeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8943,6 +8842,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BoxElementConfig
 		}
+		v.BoxElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8952,6 +8852,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ButtonElementConfig
 		}
+		v.ButtonElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8961,6 +8862,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CircleElementConfig
 		}
+		v.CircleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8970,6 +8872,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			GaugeElementConfig
 		}
+		v.GaugeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8979,6 +8882,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			InputElementConfig
 		}
+		v.InputElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8988,6 +8892,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			LightElementConfig
 		}
+		v.LightElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -8997,6 +8902,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			LineElementConfig
 		}
+		v.LineElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9006,6 +8912,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			OffPageReferenceElementConfig
 		}
+		v.OffPageReferenceElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9015,6 +8922,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PolygonElementConfig
 		}
+		v.PolygonElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9024,6 +8932,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SelectElementConfig
 		}
+		v.SelectElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9033,6 +8942,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ScaleElementConfig
 		}
+		v.ScaleElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9042,6 +8952,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SetpointElementConfig
 		}
+		v.SetpointElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9051,6 +8962,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StateIndicatorElementConfig
 		}
+		v.StateIndicatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9060,6 +8972,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StringDisplayElementConfig
 		}
+		v.StringDisplayElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9069,6 +8982,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SwitchElementConfig
 		}
+		v.SwitchElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9078,6 +8992,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TextBoxElementConfig
 		}
+		v.TextBoxElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9087,6 +9002,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ValueElementConfig
 		}
+		v.ValueElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9096,6 +9012,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AgitatorElementConfig
 		}
+		v.AgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9105,6 +9022,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CrossBeamAgitatorElementConfig
 		}
+		v.CrossBeamAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9114,6 +9032,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlatBladeAgitatorElementConfig
 		}
+		v.FlatBladeAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9123,6 +9042,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeatExchangerGeneralElementConfig
 		}
+		v.HeatExchangerGeneralElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9132,6 +9052,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeatExchangerMElementConfig
 		}
+		v.HeatExchangerMElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9141,6 +9062,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HeatExchangerStraightTubeElementConfig
 		}
+		v.HeatExchangerStraightTubeElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9150,6 +9072,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			HelicalAgitatorElementConfig
 		}
+		v.HelicalAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9159,6 +9082,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PaddleAgitatorElementConfig
 		}
+		v.PaddleAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9168,6 +9092,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PropellerAgitatorElementConfig
 		}
+		v.PropellerAgitatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9177,6 +9102,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RotaryMixerElementConfig
 		}
+		v.RotaryMixerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9186,6 +9112,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			StaticMixerElementConfig
 		}
+		v.StaticMixerElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9195,6 +9122,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CavityPumpElementConfig
 		}
+		v.CavityPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9204,6 +9132,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CentrifugalCompressorElementConfig
 		}
+		v.CentrifugalCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9213,6 +9142,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CompressorElementConfig
 		}
+		v.CompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9222,6 +9152,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			DiaphragmPumpElementConfig
 		}
+		v.DiaphragmPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9231,6 +9162,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			EjectionPumpElementConfig
 		}
+		v.EjectionPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9240,6 +9172,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			EjectorCompressorElementConfig
 		}
+		v.EjectorCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9249,6 +9182,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			LiquidRingCompressorElementConfig
 		}
+		v.LiquidRingCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9258,6 +9192,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PistonPumpElementConfig
 		}
+		v.PistonPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9267,6 +9202,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			PumpElementConfig
 		}
+		v.PumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9276,6 +9212,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RollerVaneCompressorElementConfig
 		}
+		v.RollerVaneCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9285,6 +9222,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ScrewPumpElementConfig
 		}
+		v.ScrewPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9294,6 +9232,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TurboCompressorElementConfig
 		}
+		v.TurboCompressorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9303,6 +9242,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			VacuumPumpElementConfig
 		}
+		v.VacuumPumpElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9312,6 +9252,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BurstDiscElementConfig
 		}
+		v.BurstDiscElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9321,6 +9262,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorElementConfig
 		}
+		v.FlameArrestorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9330,6 +9272,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorDetonationElementConfig
 		}
+		v.FlameArrestorDetonationElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9339,6 +9282,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorExplosionElementConfig
 		}
+		v.FlameArrestorExplosionElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9348,6 +9292,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorFireResElementConfig
 		}
+		v.FlameArrestorFireResElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9357,6 +9302,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FlameArrestorFireResDetonationElementConfig
 		}
+		v.FlameArrestorFireResDetonationElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9366,6 +9312,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoBurstDiscElementConfig
 		}
+		v.IsoBurstDiscElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9375,6 +9322,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AngledValveElementConfig
 		}
+		v.AngledValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9384,6 +9332,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AngledReliefValveElementConfig
 		}
+		v.AngledReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9393,6 +9342,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			AngledSpringLoadedReliefValveElementConfig
 		}
+		v.AngledSpringLoadedReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9402,6 +9352,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BallValveElementConfig
 		}
+		v.BallValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9411,6 +9362,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			BreatherValveElementConfig
 		}
+		v.BreatherValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9420,6 +9372,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ButterflyValveOneElementConfig
 		}
+		v.ButterflyValveOneElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9429,6 +9382,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ButterflyValveTwoElementConfig
 		}
+		v.ButterflyValveTwoElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9438,6 +9392,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CheckValveElementConfig
 		}
+		v.CheckValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9447,6 +9402,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CheckValveWithArrowElementConfig
 		}
+		v.CheckValveWithArrowElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9456,6 +9412,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ElectricRegulatorElementConfig
 		}
+		v.ElectricRegulatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9465,6 +9422,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ElectricRegulatorMotorizedElementConfig
 		}
+		v.ElectricRegulatorMotorizedElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9474,6 +9432,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			FourWayValveElementConfig
 		}
+		v.FourWayValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9483,6 +9442,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			GateValveElementConfig
 		}
+		v.GateValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9492,6 +9452,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			IsoCheckValveElementConfig
 		}
+		v.IsoCheckValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9501,6 +9462,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ManualValveElementConfig
 		}
+		v.ManualValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9510,6 +9472,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			NeedleValveElementConfig
 		}
+		v.NeedleValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9519,6 +9482,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RegulatorElementConfig
 		}
+		v.RegulatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9528,6 +9492,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			RegulatorManualElementConfig
 		}
+		v.RegulatorManualElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9537,6 +9502,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ReliefValveElementConfig
 		}
+		v.ReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9546,6 +9512,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SolenoidValveElementConfig
 		}
+		v.SolenoidValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9555,6 +9522,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			SpringLoadedReliefValveElementConfig
 		}
+		v.SpringLoadedReliefValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9564,6 +9532,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ThreeWayValveElementConfig
 		}
+		v.ThreeWayValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9573,6 +9542,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ThreeWayBallValveElementConfig
 		}
+		v.ThreeWayBallValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9582,6 +9552,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			ValveElementConfig
 		}
+		v.ValveElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9591,6 +9562,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CrossJunctionElementConfig
 		}
+		v.CrossJunctionElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9600,6 +9572,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CylinderElementConfig
 		}
+		v.CylinderElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9609,6 +9582,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TankElementConfig
 		}
+		v.TankElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9618,6 +9592,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			TJunctionElementConfig
 		}
+		v.TJunctionElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9627,6 +9602,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CustomActuatorElementConfig
 		}
+		v.CustomActuatorElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9636,6 +9612,7 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ElementConfigType `json:"variant"`
 			CustomStaticElementConfig
 		}
+		v.CustomStaticElementConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -9713,551 +9690,241 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.DataElementConfig
 	default:
-		return errors.Newf("ElementConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ElementConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ElementConfig) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case CapElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FilterElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowStraightenerElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeaterElementElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoCapElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoFilterElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case NozzleElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case OrificeElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case OrificePlateElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StrainerElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StrainerConeElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ThrusterElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case VentElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterGeneralElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterElectromagneticElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterVariableAreaElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterCoriolisElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterNozzleElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterVenturiElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterRingPistonElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterPositiveDisplacementElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterTurbineElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterPulseElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterFloatSensorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlowmeterOrificeElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BoxElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ButtonElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CircleElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GaugeElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case InputElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case LightElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case LineElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case OffPageReferenceElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PolygonElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SelectElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ScaleElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SetpointElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StateIndicatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StringDisplayElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SwitchElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TextBoxElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValueElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AgitatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CrossBeamAgitatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlatBladeAgitatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeatExchangerGeneralElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeatExchangerMElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HeatExchangerStraightTubeElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case HelicalAgitatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PaddleAgitatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PropellerAgitatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RotaryMixerElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StaticMixerElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CavityPumpElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CentrifugalCompressorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CompressorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case DiaphragmPumpElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case EjectionPumpElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case EjectorCompressorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case LiquidRingCompressorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PistonPumpElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PumpElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RollerVaneCompressorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ScrewPumpElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TurboCompressorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case VacuumPumpElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BurstDiscElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorDetonationElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorExplosionElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorFireResElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FlameArrestorFireResDetonationElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoBurstDiscElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AngledValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AngledReliefValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AngledSpringLoadedReliefValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BallValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BreatherValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ButterflyValveOneElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ButterflyValveTwoElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CheckValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CheckValveWithArrowElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ElectricRegulatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ElectricRegulatorMotorizedElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case FourWayValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GateValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IsoCheckValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ManualValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case NeedleValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RegulatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case RegulatorManualElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ReliefValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SolenoidValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SpringLoadedReliefValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ThreeWayValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ThreeWayBallValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValveElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CrossJunctionElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CylinderElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TankElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TJunctionElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CustomActuatorElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CustomStaticElementConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ElementConfig) Validate() error {
+	v := validate.New("ElementConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case CapElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FilterElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowStraightenerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeaterElementElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCapElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoFilterElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NozzleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificePlateElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerConeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThrusterElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VentElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterGeneralElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterElectromagneticElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVariableAreaElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterCoriolisElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterNozzleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVenturiElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterRingPistonElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPositiveDisplacementElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterTurbineElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPulseElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterFloatSensorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterOrificeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BoxElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButtonElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CircleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GaugeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case InputElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LightElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OffPageReferenceElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PolygonElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SelectElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScaleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SetpointElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StateIndicatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StringDisplayElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SwitchElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TextBoxElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValueElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossBeamAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlatBladeAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerGeneralElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerMElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerStraightTubeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HelicalAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PaddleAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PropellerAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RotaryMixerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StaticMixerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CavityPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CentrifugalCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case DiaphragmPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectionPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectorCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LiquidRingCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PistonPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RollerVaneCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScrewPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TurboCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VacuumPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BurstDiscElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorDetonationElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorExplosionElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResDetonationElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoBurstDiscElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledSpringLoadedReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BallValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BreatherValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveOneElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveTwoElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveWithArrowElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorMotorizedElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FourWayValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GateValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCheckValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ManualValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NeedleValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorManualElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SolenoidValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SpringLoadedReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayBallValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossJunctionElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CylinderElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TankElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TJunctionElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomActuatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomStaticElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PipeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SecondaryElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case JacketedElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HydraulicElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PneumaticElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case DataElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
@@ -10277,14 +9944,6 @@ type Schematic struct {
 	// Configs contains per-element configuration keyed by node or edge key. The variant
 	// of each value selects the symbol or edge style it configures.
 	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *Schematic) ApplyDefaults() {
-	for key, value := range s.Configs {
-		value.ApplyDefaults()
-		s.Configs[key] = value
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

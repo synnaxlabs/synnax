@@ -10,6 +10,7 @@
 import { user } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -21,7 +22,7 @@ import { findModalButton } from "@/platform/tree/testutil";
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-import { assertDefined, renderHookWithConsole } from "@/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 describe("User Commands", () => {
   it("should open the register modal when the command is selected", async () => {
@@ -52,7 +53,7 @@ describe("User Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(user.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

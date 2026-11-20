@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -103,7 +104,7 @@ var _ = Describe("Codec", func() {
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
 				Range:           1.5,
 				NegChan:         3,
-				Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 4.5, Offset: 5.5}},
+				Scale:           task.Scale{Variant: task.LinearScale{Slope: 4.5, Offset: 5.5}},
 			}}),
 			Entry("digital variant", v2.ReadChannel{Variant: v2.DigitalReadChannel{BaseReadChannel: fullyPopulatedBaseReadChannel}}),
 			Entry("thermocouple variant", v2.ReadChannel{Variant: v2.ThermocoupleReadChannel{
@@ -114,7 +115,7 @@ var _ = Describe("Codec", func() {
 				CjcSlope:         4.5,
 				CjcOffset:        5.5,
 				Units:            v2.TemperatureUnits("C"),
-				Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 8.5, Offset: 9.5}},
+				Scale:            task.Scale{Variant: task.LinearScale{Slope: 8.5, Offset: 9.5}},
 			}}),
 		)
 	})
@@ -141,7 +142,7 @@ var _ = Describe("Codec", func() {
 						BaseReadChannel: fullyPopulatedBaseReadChannel,
 						Range:           8.5,
 						NegChan:         10,
-						Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 11.5, Offset: 12.5}},
+						Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
 					}},
 				},
 				DeviceScanBacklogWarnOnCount: 14,
@@ -169,27 +170,6 @@ var _ = Describe("Codec", func() {
 				DeviceScanBacklogWarnOnCount: 9,
 				LjmScanBacklogWarnOnCount:    10,
 			}),
-		)
-	})
-	Describe("Scale", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.Scale) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.Scale
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("linear variant", v2.Scale{Variant: v2.LinearScale{Slope: 1.5, Offset: 2.5}}),
-			Entry("map variant", v2.Scale{Variant: v2.MapScale{
-				PreScaledMin: 1.5,
-				PreScaledMax: 2.5,
-				ScaledMin:    3.5,
-				ScaledMax:    4.5,
-			}}),
-			Entry("none variant", v2.Scale{Variant: v2.NoneScale{}}),
 		)
 	})
 	Describe("ScanConfig", func() {
@@ -310,7 +290,7 @@ func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 		BaseReadChannel: fullyPopulatedBaseReadChannel,
 		Range:           1.5,
 		NegChan:         3,
-		Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 4.5, Offset: 5.5}},
+		Scale:           task.Scale{Variant: task.LinearScale{Slope: 4.5, Offset: 5.5}},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -340,7 +320,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
 				Range:           8.5,
 				NegChan:         10,
-				Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 11.5, Offset: 12.5}},
+				Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
 			}},
 		},
 		DeviceScanBacklogWarnOnCount: 14,
@@ -354,23 +334,6 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.ReadConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeScale(b *testing.B) {
-	seed := v2.Scale{Variant: v2.LinearScale{Slope: 1.5, Offset: 2.5}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.Scale
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -539,7 +502,7 @@ func FuzzDecodeReadChannel(f *testing.F) {
 			BaseReadChannel: fullyPopulatedBaseReadChannel,
 			Range:           1.5,
 			NegChan:         3,
-			Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 4.5, Offset: 5.5}},
+			Scale:           task.Scale{Variant: task.LinearScale{Slope: 4.5, Offset: 5.5}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -564,7 +527,7 @@ func FuzzDecodeReadChannel(f *testing.F) {
 			CjcSlope:         4.5,
 			CjcOffset:        5.5,
 			Units:            v2.TemperatureUnits("C"),
-			Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 8.5, Offset: 9.5}},
+			Scale:            task.Scale{Variant: task.LinearScale{Slope: 8.5, Offset: 9.5}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -608,7 +571,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					BaseReadChannel: fullyPopulatedBaseReadChannel,
 					Range:           8.5,
 					NegChan:         10,
-					Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 11.5, Offset: 12.5}},
+					Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
 				}},
 			},
 			DeviceScanBacklogWarnOnCount: 14,
@@ -668,58 +631,6 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.ReadConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeScale(f *testing.F) {
-	{
-		seed := v2.Scale{Variant: v2.LinearScale{Slope: 1.5, Offset: 2.5}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.Scale{Variant: v2.MapScale{
-			PreScaledMin: 1.5,
-			PreScaledMax: 2.5,
-			ScaledMin:    3.5,
-			ScaledMax:    4.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.Scale{Variant: v2.NoneScale{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.Scale
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.Scale
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

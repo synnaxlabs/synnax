@@ -12,13 +12,15 @@
 package v2
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"uuid"
 
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -28,8 +30,6 @@ type Key = uuid.UUID
 
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
-	// Task is the key of the task this status pertains to.
-	Task Key `json:"task" msgpack:"task"`
 	// Running is true if the task is currently executing.
 	Running bool `json:"running" msgpack:"running"`
 	// Cmd is the last command executed on this task.
@@ -55,7 +55,7 @@ type Task struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack this task deploys to. Zero for a draft that has not
 	// been assigned a rack; required to start.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
 	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
@@ -74,14 +74,6 @@ type Task struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t Task) Validate() error {
-	v := validate.New("Task")
-	v.NotEmptyString("name", t.Name)
-	return v.Error()
 }
 
 // KeyedConfig is the base for every stored task configuration record.
@@ -113,14 +105,19 @@ type ReadConfig struct {
 	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.SampleRate == 0 {
-		r.SampleRate = 10
-	}
-	if r.StreamRate == 0 {
-		r.StreamRate = 5
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.SampleRate = 10
+	r.StreamRate = 5
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	v.GreaterThanEq("stream_rate", r.StreamRate, 0)
+	return v.Error()
 }
 
 // WriteConfig carries the configuration fields shared by hardware control tasks.
@@ -139,9 +136,262 @@ type ScanConfig struct {
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	if s.Rate == 0 {
-		s.Rate = 0.2
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.Rate = 0.2
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.GreaterThan("rate", s.Rate, 0)
+	return v.Error()
+}
+
+// ScaleType is the "type" value that selects a variant of Scale.
+type ScaleType string
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = "linear"
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = "map"
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
+	PolynomialScaleType ScaleType = "polynomial"
+	// TableScaleType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleType ScaleType = "table"
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = "none"
+)
+
+// ScaleVariant is implemented by every Scale variant.
+type ScaleVariant interface {
+	isScaleVariant()
+}
+
+// LinearScale maps raw values to engineering units with a slope and offset.
+type LinearScale struct {
+	// Slope is the multiplier applied to the raw value.
+	Slope float64 `json:"slope" msgpack:"slope"`
+	// Offset is the offset added after scaling.
+	Offset float64 `json:"offset" msgpack:"offset"`
+}
+
+func (LinearScale) isScaleVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinearScale) SetDefaults() {
+	l.Slope = 1
+}
+
+// MapScale maps a raw range linearly onto a scaled range.
+type MapScale struct {
+	// PreScaledMin is the lower bound of the raw input range.
+	PreScaledMin float64 `json:"pre_scaled_min" msgpack:"pre_scaled_min"`
+	// PreScaledMax is the upper bound of the raw input range.
+	PreScaledMax float64 `json:"pre_scaled_max" msgpack:"pre_scaled_max"`
+	// ScaledMin is the lower bound of the scaled output range.
+	ScaledMin float64 `json:"scaled_min" msgpack:"scaled_min"`
+	// ScaledMax is the upper bound of the scaled output range.
+	ScaledMax float64 `json:"scaled_max" msgpack:"scaled_max"`
+}
+
+func (MapScale) isScaleVariant() {}
+
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (m *MapScale) SetDefaults() {
+	m.SetUngroupedDefaults()
+	m.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (m *MapScale) SetUngroupedDefaults() {
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (m *MapScale) DefaultGroups() {
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
+		m.PreScaledMax = 1
 	}
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
+		m.ScaledMax = 1
+	}
+}
+
+// PolynomialScale maps raw values to engineering units with a polynomial.
+type PolynomialScale struct {
+	// Coeffs are the coefficients from the constant term up, so that index i holds the
+	// coefficient of x^i.
+	Coeffs []float64 `json:"coeffs" msgpack:"coeffs"`
+}
+
+func (PolynomialScale) isScaleVariant() {}
+
+// TableScale maps raw values to engineering units by linear interpolation between the
+// breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScale struct {
+	// PreScaledVals are the raw breakpoints, in increasing order.
+	PreScaledVals []float64 `json:"pre_scaled_vals" msgpack:"pre_scaled_vals"`
+	// ScaledVals are the engineering-unit values at each breakpoint.
+	ScaledVals []float64 `json:"scaled_vals" msgpack:"scaled_vals"`
+}
+
+func (TableScale) isScaleVariant() {}
+
+// NoneScale applies no scaling; the raw value is used directly.
+type NoneScale struct {
+}
+
+func (NoneScale) isScaleVariant() {}
+
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
+type Scale struct {
+	Variant ScaleVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case LinearScale:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleType `json:"type"`
+			LinearScale
+		}{Type: LinearScaleType, LinearScale: v})
+	case MapScale:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleType `json:"type"`
+			MapScale
+		}{Type: MapScaleType, MapScale: v})
+	case PolynomialScale:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleType `json:"type"`
+			PolynomialScale
+		}{Type: PolynomialScaleType, PolynomialScale: v})
+	case TableScale:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleType `json:"type"`
+			TableScale
+		}{Type: TableScaleType, TableScale: v})
+	case NoneScale:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleType `json:"type"`
+			NoneScale
+		}{Type: NoneScaleType, NoneScale: v})
+	default:
+		return errors.Newf("Scale: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ScaleType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case LinearScaleType:
+		var v struct {
+			Type ScaleType `json:"type"`
+			LinearScale
+		}
+		v.LinearScale.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.LinearScale
+	case MapScaleType:
+		var v struct {
+			Type ScaleType `json:"type"`
+			MapScale
+		}
+		v.MapScale.SetUngroupedDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		v.MapScale.DefaultGroups()
+		u.Variant = v.MapScale
+	case PolynomialScaleType:
+		var v struct {
+			Type ScaleType `json:"type"`
+			PolynomialScale
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PolynomialScale
+	case TableScaleType:
+		var v struct {
+			Type ScaleType `json:"type"`
+			TableScale
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TableScale
+	case NoneScaleType:
+		var v struct {
+			Type ScaleType `json:"type"`
+			NoneScale
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NoneScale
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scale: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case PolynomialScale:
+		return PolynomialScaleType
+	case TableScale:
+		return TableScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Scale) Validate() error {
+	v := validate.New("Scale")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }

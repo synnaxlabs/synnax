@@ -9,6 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CDN } from "@/components/media/cdn";
 import { createFetcher } from "@/util/checks/fetch";
 
 const LINK = "https://example.com/page";
@@ -56,6 +57,31 @@ describe("createFetcher", () => {
     await vi.advanceTimersByTimeAsync(3_000);
     expect(await result).toBeNull();
     expect(warnings).toEqual([`${LINK}: HTTP 503`]);
+  });
+
+  it("should warn instead of failing on a link that stays 403", async () => {
+    stub(403);
+    const result = fetcher()(LINK);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await result).toBeNull();
+    expect(warnings).toEqual([`${LINK}: HTTP 403`]);
+  });
+
+  it("should warn instead of failing on a 403 for a link with an anchor", async () => {
+    stub(403);
+    const result = fetcher()(`${LINK}#anchor`);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await result).toBeNull();
+    expect(warnings).toEqual([`${LINK}: HTTP 403`]);
+  });
+
+  it("should fail a CDN object that answers 403", async () => {
+    stub(403);
+    const url = `${CDN.ROOT}/missing.png`;
+    const result = fetcher()(url);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await result).toBe(`${url}: HTTP 403`);
+    expect(warnings).toEqual([]);
   });
 
   it("should warn instead of failing on a dropped connection", async () => {

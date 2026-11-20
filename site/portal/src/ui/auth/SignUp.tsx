@@ -11,16 +11,22 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
-import { type Invited } from "@/server/invitation";
+import type { Invited } from "@/server/invitation";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
+import { ReleaseNotes } from "@/ui/auth/ReleaseNotes";
 import { start } from "@/ui/auth/session";
 import { useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
+
+const path = deep.path<z.infer<typeof schema>>();
+
+const codePath = deep.path<z.infer<typeof codeSchema>>();
 
 const schema = z.object({
   firstName: z.string().trim().min(1, "Enter your first name"),
@@ -92,7 +98,7 @@ export const SignUp = ({ target, invited }: SignUpProps): ReactElement => {
       >
         <Form.Form<typeof codeSchema> {...codeMethods}>
           <Form.TextField
-            path="code"
+            path={codePath.code}
             label="Code"
             required={false}
             padHelpText={false}
@@ -123,31 +129,35 @@ export const SignUp = ({ target, invited }: SignUpProps): ReactElement => {
       }
       error={create.error ?? oauthError}
       footer={
-        <Text.Text level="small" color={9}>
-          Already have an account?{" "}
-          <Text.Text
-            el="a"
-            level="small"
-            variant="link"
-            href={withTarget("/login", target)}
-          >
-            Log in
+        <>
+          <ReleaseNotes />
+          <Text.Text level="small" color={9}>
+            Already have an account?{" "}
+            <Text.Text
+              el="a"
+              level="small"
+              variant="link"
+              href={withTarget("/login", target)}
+            >
+              Log in
+            </Text.Text>
           </Text.Text>
-        </Text.Text>
+        </>
       }
     >
       <OAuth mode="sign-up" target={target} onError={setOAuthError} />
       <Form.Form<typeof schema> {...methods}>
         <Names />
         <Form.TextField
-          path="email"
+          path={path.email}
           label="Email"
           required={false}
           padHelpText={false}
           inputProps={{
             type: "email",
-            autoComplete: "email",
-            disabled: invited != null,
+            autoComplete: "username",
+            // Password managers skip a disabled field.
+            readOnly: invited != null,
           }}
         />
         <Password />
@@ -172,7 +182,7 @@ export const SignUp = ({ target, invited }: SignUpProps): ReactElement => {
 const Names = (): ReactElement => (
   <Flex.Box x gap="medium">
     <Form.TextField
-      path="firstName"
+      path={path.firstName}
       label="First name"
       required={false}
       padHelpText={false}
@@ -180,7 +190,7 @@ const Names = (): ReactElement => (
       inputProps={{ autoComplete: "given-name", autoFocus: true }}
     />
     <Form.TextField
-      path="lastName"
+      path={path.lastName}
       label="Last name"
       required={false}
       padHelpText={false}
@@ -192,7 +202,7 @@ const Names = (): ReactElement => (
 
 const Password = (): ReactElement => (
   <Form.TextField
-    path="password"
+    path={path.password}
     label="Password"
     required={false}
     padHelpText={false}

@@ -26,38 +26,37 @@ type Int32Counter struct {
 }
 
 // NewInt32Counter opens a new, atomic counter backed by the given file. The counter
-// must have exclusive write access to the file.
-// If the file already exists, then it reads and initializes the wrapped value to the
-// value stored in the file.
+// must have exclusive write access to the file. If the file is empty, the counter
+// starts at zero. Otherwise, it starts at the value stored in the file, and it returns
+// io.ErrUnexpectedEOF if the file holds fewer than 4 bytes.
 func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
-	c := &Int32Counter{
-		f:   f,
-		buf: make([]byte, 4),
+	c := &Int32Counter{f: f, buf: make([]byte, 4)}
+	n, err := f.ReadAt(c.buf, 0)
+	if n < len(c.buf) && errors.Is(err, io.EOF) {
+		if n == 0 {
+			return c, nil
+		}
+		return nil, io.ErrUnexpectedEOF
 	}
-
-	wrapped, err := c.load()
-	if errors.Is(err, io.EOF) {
-		return c, nil
-	}
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
-
-	return &Int32Counter{
-		wrapped: wrapped,
-		f:       f,
-		buf:     make([]byte, 4),
-	}, nil
+	c.wrapped = int32(binary.LittleEndian.Uint32(c.buf))
+	return c, nil
 }
 
-// Add increments the counter by the provided delta.
+// Add increments the counter by the provided delta. If the write to the file fails,
+// the counter keeps its previous value.
 func (c *Int32Counter) Add(delta int32) (int32, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.wrapped += delta
-	binary.LittleEndian.PutUint32(c.buf, uint32(c.wrapped))
-	_, err := c.f.WriteAt(c.buf, 0)
-	return c.wrapped, err
+	next := c.wrapped + delta
+	binary.LittleEndian.PutUint32(c.buf, uint32(next))
+	if _, err := c.f.WriteAt(c.buf, 0); err != nil {
+		return 0, err
+	}
+	c.wrapped = next
+	return next, nil
 }
 
 // Value returns the current counter value.
@@ -65,9 +64,4 @@ func (c *Int32Counter) Value() int32 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.wrapped
-}
-
-func (c *Int32Counter) load() (int32, error) {
-	_, err := c.f.ReadAt(c.buf, 0)
-	return int32(binary.LittleEndian.Uint32(c.buf)), err
 }

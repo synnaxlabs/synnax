@@ -7,64 +7,119 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import socket
+import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-from synnax.cli import connect, console
-from synnax.cli.console.mock import Output
-from synnax.cli.flow import Context
-from synnax.options import Options
+from synnax.cli import connect
+from synnax.config import Clusters, File
+from tests.cli.scripted import Scripted
+from tests.memory_keyring import MemoryKeyring
+
+
+@pytest.fixture
+def clusters(tmp_path: Path) -> Clusters:
+    return Clusters(File(config_dir=tmp_path), MemoryKeyring())
+
+
+@pytest.fixture
+def closed_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port: int = s.getsockname()[1]
+    return port
+
+
+@pytest.fixture
+def silent_port() -> Iterator[int]:
+    """A port that accepts a connection and never responds."""
+    listener = socket.create_server(("127.0.0.1", 0))
+
+    def hold() -> None:
+        conn, _ = listener.accept()
+        with conn:
+            while conn.recv(1 << 16):
+                pass
+
+    thread = threading.Thread(target=hold, daemon=True)
+    thread.start()
+    with listener:
+        yield int(listener.getsockname()[1])
+        thread.join(10)
 
 
 @pytest.mark.cli
-class TestPromptClientOptions:
-    def test_responses(self) -> None:
-        """Should build options from the prompt responses."""
-        c = console.Mock(responses=["127.0.0.1", 9091, "admin", "secret", True])
-        assert connect.prompt_client_options(Context(console=c)) == Options(
-            host="127.0.0.1",
-            port=9091,
-            username="admin",
-            password="secret",
-            secure=True,
+class TestPromptedConnection:
+    def test_connects_to_prompted_address(
+        self, clusters: Clusters, closed_port: int
+    ) -> None:
+        """Should connect to the host and port from the answers."""
+        user = Scripted("127.0.0.1", closed_port, "admin", "secret", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert not any("CA certificate" in q for q in user.questions)
+        assert user.err.getvalue().splitlines()[-1] == (
+            f"Cannot reach Synnax server at 127.0.0.1:{closed_port}"
         )
+        assert clusters.get() is None
 
-    def test_ca_cert(self) -> None:
-        """Should store the absolute CA certificate path for a secure connection."""
-        c = console.Mock(
-            responses=["127.0.0.1", 9091, "admin", "secret", True, "certs/ca.crt"]
+    def test_no_response(self, clusters: Clusters, silent_port: int) -> None:
+        """Should say that the server sent no response when it does not respond in
+        time."""
+        user = Scripted("127.0.0.1", silent_port, "admin", "secret", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert user.err.getvalue().splitlines()[-1] == (
+            f"No response from Synnax server at 127.0.0.1:{silent_port}"
         )
-        opts = connect.prompt_client_options(Context(console=c))
-        assert opts.ca_cert == str(Path("certs/ca.crt").resolve())
+        assert clusters.get() is None
 
-    def test_insecure_skips_ca_cert(self) -> None:
-        """Should not ask for a CA certificate for an insecure connection."""
-        c = console.Mock(responses=["127.0.0.1", 9091, "admin", "secret", False])
-        assert connect.prompt_client_options(Context(console=c)).ca_cert is None
+    def test_defaults(self, clusters: Clusters) -> None:
+        """Should use the default host, port, and username for empty answers."""
+        user = Scripted("", "", "", "secret", "")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions == [
+            "Host [localhost]: ",
+            "Port [9090]: ",
+            "Username [synnax]: ",
+            "Password: ",
+            "Secure connection? [y/N]: ",
+        ]
 
+    def test_asks_again_for_a_port_that_is_not_an_integer(
+        self, clusters: Clusters, closed_port: int
+    ) -> None:
+        """Should ask for the port again until the answer is an integer."""
+        user = Scripted("127.0.0.1", "abc", closed_port, "admin", "secret", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions.count("Port [9090]: ") == 2
+        assert "'abc' is not an integer." in user.err.getvalue()
 
-@pytest.mark.cli
-class TestFromContext:
+    def test_asks_again_for_an_unknown_yes_or_no(
+        self, clusters: Clusters, closed_port: int
+    ) -> None:
+        """Should ask the secure question again until the answer is yes or no."""
+        user = Scripted("127.0.0.1", closed_port, "admin", "secret", "maybe", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions.count("Secure connection? [y/N]: ") == 2
+
     @pytest.mark.parametrize("contents", [None, "not a certificate"])
-    def test_bad_ca_cert(self, tmp_path: Path, contents: str | None) -> None:
-        """Should report a missing or invalid CA certificate instead of raising."""
+    def test_bad_ca_cert(
+        self,
+        clusters: Clusters,
+        tmp_path: Path,
+        closed_port: int,
+        monkeypatch: pytest.MonkeyPatch,
+        contents: str | None,
+    ) -> None:
+        """Should report a missing or invalid CA certificate by its absolute path
+        instead of raising."""
         ca_cert = tmp_path / "ca.crt"
         if contents is not None:
             ca_cert.write_text(contents)
-        output = Output()
-        opts = Options(
-            host="localhost",
-            port=9090,
-            username="synnax",
-            password="seldon",
-            secure=True,
-            ca_cert=str(ca_cert),
-        )
-        assert (
-            connect.from_context(
-                Context(console=console.Mock(output=output)), opts=opts
-            )
-            is None
-        )
-        assert str(ca_cert) in (output.entries[-1].message or "")
+        monkeypatch.chdir(tmp_path)
+        user = Scripted("127.0.0.1", closed_port, "admin", "secret", "y", "ca.crt")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions[-1] == "CA certificate path (empty for system roots): "
+        assert str(ca_cert.resolve()) in user.err.getvalue().splitlines()[-1]

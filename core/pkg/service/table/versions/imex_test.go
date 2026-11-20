@@ -14,8 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -31,51 +34,106 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return MustBeOk(cfg, ok)
 	}
 
+	type rowLayout struct {
+		key   string
+		size  float64
+		cells []string
+	}
+	layout := func(t versions.Table) []rowLayout {
+		rows := make([]rowLayout, len(t.Rows))
+		for i, r := range t.Rows {
+			rows[i] = rowLayout{key: r.Key, size: r.Size, cells: lo.Map(
+				r.Cells,
+				func(c versions.Cell, _ int) string { return c.Key },
+			)}
+		}
+		return rows
+	}
+
+	cell := func(t versions.Table, key string) versions.CellConfig {
+		GinkgoHelper()
+		for _, r := range t.Rows {
+			for _, c := range r.Cells {
+				if c.Key == key {
+					return c.Config
+				}
+			}
+		}
+		Fail("no row holds cell " + key)
+		return versions.CellConfig{}
+	}
+
 	It("Should decode a server-exported envelope", func(ctx SpecContext) {
 		t := decode(ctx, "testdata/import_v1.json")
-		Expect(t.Rows).To(Equal([]versions.Row{
-			{Key: "row-0", Size: 30, Cells: []string{"c1"}},
+		Expect(layout(t)).To(Equal([]rowLayout{
+			{key: "row-0", size: 30, cells: []string{"c1"}},
 		}))
 		Expect(t.Columns).To(Equal([]versions.Column{{Key: "col-0", Size: 100}}))
-		Expect(text(t.Cells["c1"]).Value).To(Equal("hi"))
+		Expect(text(cell(t, "c1")).Value).To(Equal("hi"))
+	})
+
+	It("Should decode a v0.62 export with its colors as fixed colors", func(
+		ctx SpecContext,
+	) {
+		t := decode(ctx, "testdata/import_v6.json")
+		fixed := func(r uint8) *servicecolor.Ref {
+			return &servicecolor.Ref{Variant: servicecolor.FixedRef{
+				Value: color.Color{R: r, G: 29, B: 29, A: 255},
+			}}
+		}
+		Expect(t.Name).To(Equal("Test Table V6"))
+		Expect(layout(t)).To(Equal([]rowLayout{
+			{key: "r0", size: 32, cells: []string{"text", "value"}},
+		}))
+		txt := text(cell(t, "text"))
+		Expect(txt.Value).To(Equal("Pressure"))
+		Expect(txt.FillColor).To(Equal(fixed(1)))
+		Expect(txt.TextColor).To(BeNil())
+		value, ok := cell(t, "value").Variant.(versions.ValueCellConfig)
+		Expect(ok).To(BeTrue())
+		Expect(value.FillColor).To(Equal(fixed(3)))
+		Expect(value.TextColor).To(Equal(fixed(4)))
+		Expect(value.StalenessColor).To(Equal(fixed(5)))
+		Expect(value.Redline.Bands).To(HaveLen(1))
+		Expect(value.Redline.Bands[0].Color).
+			To(Equal(color.Color{R: 6, G: 29, B: 29, A: 255}))
 	})
 
 	It("Should key the rows and columns of a v2 envelope", func(ctx SpecContext) {
 		t := decode(ctx, "testdata/import_v2.json")
-		Expect(t.Rows).To(Equal([]versions.Row{
-			{Key: "row-0", Size: 30, Cells: []string{"c1"}},
-			{Key: "row-1", Size: 40, Cells: []string{"c2"}},
+		Expect(layout(t)).To(Equal([]rowLayout{
+			{key: "row-0", size: 30, cells: []string{"c1"}},
+			{key: "row-1", size: 40, cells: []string{"c2"}},
 		}))
 		Expect(t.Columns).To(Equal([]versions.Column{{Key: "col-0", Size: 100}}))
-		Expect(text(t.Cells["c2"]).Value).To(Equal("there"))
+		Expect(text(cell(t, "c2")).Value).To(Equal("there"))
 	})
 
 	It(
 		"Should decode the Console typed export stamped at the same version",
 		func(ctx SpecContext) {
 			t := decode(ctx, "testdata/import_typed_console.json")
-			Expect(t.Rows).To(Equal([]versions.Row{
-				{Key: "row-0", Size: 25, Cells: []string{"c1"}},
+			Expect(layout(t)).To(Equal([]rowLayout{
+				{key: "row-0", size: 25, cells: []string{"c1"}},
 			}))
 			Expect(t.Columns).To(Equal([]versions.Column{{Key: "col-0", Size: 90}}))
-			Expect(text(t.Cells["c1"]).Weight).To(Equal(700.0))
+			Expect(text(cell(t, "c1")).Weight).To(Equal(700.0))
 		},
 	)
 
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
 		t := decode(ctx, "testdata/import_v0_state.json")
-		Expect(t.Rows).To(Equal([]versions.Row{
-			{Key: "row-0", Size: 30, Cells: []string{"c1", "c2"}},
+		Expect(layout(t)).To(Equal([]rowLayout{
+			{key: "row-0", size: 30, cells: []string{"c1", "c2"}},
 		}))
 		Expect(t.Columns).To(Equal([]versions.Column{
 			{Key: "col-0", Size: 100},
 			{Key: "col-1", Size: 120},
 		}))
-		Expect(t.Cells).To(HaveLen(2))
 		Expect(
-			t.Cells["c2"].Variant,
+			cell(t, "c2").Variant,
 		).To(BeAssignableToTypeOf(versions.ValueCellConfig{}))
-		Expect(text(t.Cells["c1"]).Weight).To(Equal(700.0))
+		Expect(text(cell(t, "c1")).Weight).To(Equal(700.0))
 	})
 
 	// The fixtures below are tables a shipped Console exported.
@@ -95,13 +153,12 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		t := decode(ctx, "testdata/import_console_v0_data.json")
 		Expect(t.Rows).To(HaveLen(1))
 		Expect(t.Rows[0].Size).To(Equal(36.0))
-		Expect(t.Rows[0].Cells).To(Equal([]string{
+		Expect(layout(t)[0].cells).To(Equal([]string{
 			"C0sVTFh81T3", "QghGMReXEch", "qp8JeDfJs10",
 		}))
 		Expect(t.Columns).To(HaveLen(3))
-		Expect(t.Cells).To(HaveLen(3))
 		Expect(
-			text(t.Cells["C0sVTFh81T3"]).Align,
+			text(cell(t, "C0sVTFh81T3")).Align,
 		).To(Equal(versions.FlexAlignmentCenter))
 	})
 

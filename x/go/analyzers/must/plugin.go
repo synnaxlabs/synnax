@@ -24,4 +24,4 @@ func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 	return []*analysis.Analyzer{Analyzer}, nil
 }
 
-func (p *plugin) GetLoadMode() string { return register.LoadModeSyntax }
+func (p *plugin) GetLoadMode() string { return register.LoadModeTypesInfo }

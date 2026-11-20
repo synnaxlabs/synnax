@@ -13,6 +13,7 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import Button, Valve
 from console.schematic.schematic import Schematic
+from framework.utils import hold
 from x import random_name
 
 # Configured activation delay and the hold that must satisfy it. The hold is
@@ -60,26 +61,26 @@ class HoldToActuate(ConsoleCase):
         self._cleanup_pages.append(schematic.page_name)
 
         self.fire_btn = schematic.create_symbol(
-            Button(label=self.fire_ch, channel_name=self.fire_ch, mode="Fire")
+            Button(label=self.fire_ch, channel_name=self.fire_ch, mode="fire")
         )
         self.fire_btn.move(delta_x=-320, delta_y=-140)
         self.momentary_btn = schematic.create_symbol(
             Button(
                 label=self.momentary_ch,
                 channel_name=self.momentary_ch,
-                mode="Momentary",
+                mode="momentary",
             )
         )
         self.momentary_btn.move(delta_x=320, delta_y=-140)
         self.pulse_btn = schematic.create_symbol(
-            Button(label=self.pulse_ch, channel_name=self.pulse_ch, mode="Pulse")
+            Button(label=self.pulse_ch, channel_name=self.pulse_ch, mode="pulse")
         )
         self.pulse_btn.move(delta_x=-320, delta_y=140)
         self.delay_btn = schematic.create_symbol(
             Button(
                 label=self.delay_ch,
                 channel_name=self.delay_ch,
-                mode="Fire",
+                mode="fire",
                 activation_delay=DELAY_MS,
             )
         )
@@ -128,7 +129,7 @@ class HoldToActuate(ConsoleCase):
         """An activation delay swallows a short click and fires after a hold."""
         self.log("Short-clicking the delayed button")
         self.delay_btn.press()
-        sy.sleep(1.0)
+        hold(1.0, reason="nothing may change")
         value = self.get_value(self.delay_ch)
         assert value is None, (
             f"a click shorter than the activation delay must not write, got {value}"
@@ -141,7 +142,7 @@ class HoldToActuate(ConsoleCase):
         """A valve with an activation delay only actuates after a hold."""
         self.log("Short-clicking the delayed valve")
         self.valve.press()
-        sy.sleep(1.0)
+        hold(1.0, reason="nothing may change")
         value = self.get_value(self.valve_cmd_ch)
         assert value is None, (
             f"a click shorter than the activation delay must not actuate, got {value}"

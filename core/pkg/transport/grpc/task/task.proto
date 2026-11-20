@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.task;
 
+import "core/pkg/api/task/pb/task.proto";
 import "core/pkg/service/task/pb/task.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service TaskCreateService {
 }
 
 service TaskRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+  rpc Exec(RetrieveRequest) returns (api.task.pb.RetrieveResponse);
 }
 
 service TaskDeleteService {
@@ -30,6 +31,10 @@ service TaskDeleteService {
 
 service TaskCopyService {
   rpc Exec(CopyRequest) returns (CopyResponse);
+}
+
+service TaskDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty);
 }
 
 message CreateRequest {
@@ -41,15 +46,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  uint32 rack = 1;
-  repeated string keys = 2;
-  repeated string names = 3;
-  repeated string types = 4;
-  bool include_status = 5;
-}
-
-message RetrieveResponse {
-  repeated service.task.pb.Task tasks = 1;
+  reserved 1 to 5;
+  reserved "rack", "keys", "names", "types", "include_status";
+  api.task.pb.RetrieveRequest request = 6;
 }
 
 message DeleteRequest {
@@ -57,11 +56,21 @@ message DeleteRequest {
 }
 
 message CopyRequest {
+  reserved 3;
+  reserved "snapshot";
   string key = 1;
   string name = 2;
-  bool snapshot = 3;
 }
 
 message CopyResponse {
   service.task.pb.Task task = 1;
+}
+
+// DispatchRequest applies actions to one task.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
 }

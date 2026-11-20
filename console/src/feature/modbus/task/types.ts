@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { modbus, type task } from "@synnaxlabs/client";
-import { DataType, record } from "@synnaxlabs/x";
+import { DataType, map, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -20,7 +20,25 @@ export type ReadChannelType = modbus.ReadChannelType;
 export type TypedReadChannel =
   modbus.HoldingRegisterReadChannel | modbus.InputRegisterReadChannel;
 
-export const READ_CHANNEL_SCHEMAS = modbus.READ_CHANNEL_SCHEMAS;
+export type StringReadChannel =
+  modbus.HoldingRegisterStringReadChannel | modbus.InputRegisterStringReadChannel;
+
+export const STRING_LENGTH_BOUNDS = { lower: 1, upper: 250 };
+
+// No string length is a safe guess, so a new string channel starts at the shortest.
+export const READ_CHANNEL_SCHEMAS = {
+  ...modbus.READ_CHANNEL_SCHEMAS,
+  holding_register_string: modbus.holdingRegisterStringReadChannelZ.extend({
+    length: modbus.holdingRegisterStringReadChannelZ.shape.length.default(
+      STRING_LENGTH_BOUNDS.lower,
+    ),
+  }),
+  input_register_string: modbus.inputRegisterStringReadChannelZ.extend({
+    length: modbus.inputRegisterStringReadChannelZ.shape.length.default(
+      STRING_LENGTH_BOUNDS.lower,
+    ),
+  }),
+};
 
 const VARIABLE_DENSITY_READ_CHANNEL_TYPES = new Set<ReadChannelType>([
   "holding_register",
@@ -31,9 +49,23 @@ export const isVariableDensityReadChannel = (
   channel: ReadChannel,
 ): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
-const isStringChannel = (channel: ReadChannel): channel is TypedReadChannel =>
-  isVariableDensityReadChannel(channel) &&
-  new DataType(channel.dataType).equals(DataType.STRING);
+export const isStringReadChannel = (channel: Channel): channel is StringReadChannel =>
+  "length" in channel;
+
+/** @returns the data type of the samples a channel reads, or undefined for a bit. */
+export const readDataType = (channel: ReadChannel): string | undefined => {
+  if (isStringReadChannel(channel)) return DataType.STRING.toString();
+  if (isVariableDensityReadChannel(channel)) return channel.dataType;
+  return undefined;
+};
+
+const SPACES: Partial<Record<ReadChannelType, ReadChannelType>> = {
+  holding_register_string: "holding_register",
+  input_register_string: "input_register",
+};
+
+/** @returns the register type whose addresses a channel of the type uses. */
+export const spaceOf = (type: ReadChannelType): ReadChannelType => SPACES[type] ?? type;
 
 // Auto-generated channel names and device map keys keep the released type
 // spellings, so channels created before the labels were renamed keep matching.
@@ -42,21 +74,24 @@ const NAME_TYPES: Record<ReadChannelType, string> = {
   discrete_input: "discrete_input",
   holding_register: "holding_register_input",
   input_register: "register_input",
+  holding_register_string: "holding_register_input",
+  input_register_string: "register_input",
   holding_register_bit: "holding_register_bit_input",
   input_register_bit: "register_bit_input",
 };
 
 export const readMapKey = (channel: ReadChannel) => {
   let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
-  if (isVariableDensityReadChannel(channel)) s += `-${channel.dataType}`;
+  const dataType = readDataType(channel);
+  if (dataType != null) s += `-${dataType}`;
   if ("bit" in channel) s += `-${channel.bit}`;
   return s.replaceAll("_", "-");
 };
 
 export const readChannelName = (deviceName: string, channel: ReadChannel) => {
   let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
-  if (isVariableDensityReadChannel(channel))
-    s += `_${new DataType(channel.dataType).toString(true)}`;
+  const dataType = readDataType(channel);
+  if (dataType != null) s += `_${new DataType(dataType).toString(true)}`;
   if ("bit" in channel) s += `_${channel.bit}`;
   return s;
 };
@@ -68,7 +103,6 @@ export type WriteChannelType = modbus.WriteChannelType;
 export type Channel = ReadChannel | WriteChannel;
 
 export const BIT_BOUNDS = { lower: 0, upper: 15 };
-export const STRING_LENGTH_BOUNDS = { lower: 1, upper: 250 };
 
 /**
  * Returns the first address after a channel. A register value spans one address per 16
@@ -76,9 +110,9 @@ export const STRING_LENGTH_BOUNDS = { lower: 1, upper: 250 };
  * other channel spans one.
  */
 const nextAddress = (channel: Channel): number => {
+  if (isStringReadChannel(channel))
+    return channel.address + Math.ceil(channel.length / 2);
   if (!("dataType" in channel)) return channel.address + 1;
-  if ("stringLength" in channel && isStringChannel(channel))
-    return channel.address + Math.ceil(channel.stringLength / 2);
   const bytes = new DataType(channel.dataType).density.valueOf();
   return channel.address + Math.ceil(bytes / 2);
 };
@@ -89,7 +123,7 @@ export const addressSpan = (channel: Channel): [number, number] => [
   nextAddress(channel) - 1,
 ];
 
-/** Where channels of the same type use the same addresses. */
+/** Where channels of the same register type use the same addresses. */
 export interface Overlaps {
   /** The keys of the channels that use an address another channel uses. */
   keys: Set<string>;
@@ -107,17 +141,26 @@ const mergeRanges = (spans: [number, number][]): [number, number][] =>
       return merged;
     }, []);
 
+// Bits of one register are apart, so only channels on the same bit can overlap.
+const readGroupOf = (c: Channel): string =>
+  "bit" in c ? `${c.type}.${c.bit}` : spaceOf(c.type);
+
+/** @returns whether two channels of a read task use the same address. */
+export const readsOverlap = (a: ReadChannel, b: ReadChannel): boolean => {
+  if (readGroupOf(a) !== readGroupOf(b)) return false;
+  const [aStart, aEnd] = addressSpan(a);
+  const [bStart, bEnd] = addressSpan(b);
+  return aStart <= bEnd && bStart <= aEnd;
+};
+
 /** @returns where channels of the same type use the same addresses. */
 export const findOverlaps = (channels: Channel[]): Overlaps => {
   const keys = new Set<string>();
   const ranges: Overlaps["ranges"] = {};
   const sharedByType = new Map<ReadChannelType, [number, number][]>();
-  // Bits of one register are apart, so only channels on the same bit can overlap.
-  const groups = Map.groupBy(channels, (c) =>
-    "bit" in c ? `${c.type}.${c.bit}` : c.type,
-  );
+  const groups = Map.groupBy(channels, readGroupOf);
   for (const typed of groups.values()) {
-    const { type } = typed[0];
+    const type = spaceOf(typed[0].type);
     // A channel stops one address past its last, and a stop comes before a start at
     // the same address, so channels that only touch do not overlap.
     const events = typed
@@ -150,7 +193,7 @@ export const findOverlaps = (channels: Channel[]): Overlaps => {
       } else start = address;
     }
     if (shared.length > 0)
-      sharedByType.set(type, [...(sharedByType.get(type) ?? []), ...shared]);
+      map.getOrInsert(sharedByType, type, () => []).push(...shared);
   }
   for (const [type, spans] of sharedByType) ranges[type] = mergeRanges(spans);
   return { keys, ranges };
@@ -160,10 +203,27 @@ export const findOverlaps = (channels: Channel[]): Overlaps => {
  * Returns the channel to add after the given one: the next bit of a bit channel, then
  * bit 0 of the next register, or the first address after any other channel.
  */
-export const nextChannel = <C extends Channel>(channel: C): C => {
+const nextChannel = <C extends Channel>(channel: C): C => {
   if (!("bit" in channel)) return { ...channel, address: nextAddress(channel) };
   if (channel.bit < BIT_BOUNDS.upper) return { ...channel, bit: channel.bit + 1 };
   return { ...channel, address: channel.address + 1, bit: 0 };
+};
+
+/**
+ * @returns the channel to add after the channel with the given key, or after the last
+ * channel: the first slot after it that overlaps no channel. Returns null when there
+ * are no channels.
+ */
+export const nextOpenChannel = <C extends Channel>(
+  channels: C[],
+  overlap: (a: C, b: C) => boolean,
+  copy?: string,
+): C | null => {
+  const base = Task.channelToCopy(channels, copy);
+  if (base == null) return null;
+  let next = nextChannel(base);
+  while (channels.some((ch) => overlap(ch, next))) next = nextChannel(next);
+  return next;
 };
 
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
@@ -181,14 +241,9 @@ const REGISTER_DATA_TYPES = [
   DataType.FLOAT64,
 ];
 
-/** Data types the Driver cannot write to registers. */
-export const UNSUPPORTED_WRITE_DATA_TYPES = DataType.ALL.filter(
+/** Data types the Driver cannot read from or write to a register value. */
+export const UNSUPPORTED_DATA_TYPES = DataType.ALL.filter(
   (d) => !d.matches(...REGISTER_DATA_TYPES),
-);
-
-/** Data types the Driver cannot read from registers. */
-export const UNSUPPORTED_READ_DATA_TYPES = DataType.ALL.filter(
-  (d) => !d.matches(...REGISTER_DATA_TYPES, DataType.STRING),
 );
 
 const ADDRESS_LIMIT = 65536;
@@ -201,6 +256,7 @@ const addressRangeIssue = (
   if (nextAddress(ch) <= ADDRESS_LIMIT) return null;
   return {
     code: "custom",
+    continue: true,
     message: `Channel ends past address ${ADDRESS_LIMIT - 1}`,
     path: [i, "address"],
     input: channels,
@@ -216,23 +272,13 @@ const validateReadChannels = ({
     if (ch.disabled) return;
     const rangeIssue = addressRangeIssue(channels, ch, i);
     if (rangeIssue != null) issues.push(rangeIssue);
-    if (
-      isStringChannel(ch) &&
-      (ch.stringLength < STRING_LENGTH_BOUNDS.lower ||
-        ch.stringLength > STRING_LENGTH_BOUNDS.upper)
-    )
-      issues.push({
-        code: "custom",
-        message: `String length must be from ${STRING_LENGTH_BOUNDS.lower} to ${STRING_LENGTH_BOUNDS.upper}`,
-        path: [i, "stringLength"],
-        input: channels,
-      });
     const binding = readMapKey(ch);
     if (!bindings.has(binding)) {
       bindings.add(binding);
       return;
     }
     issues.push({
+      continue: true,
       code: "custom",
       message: "Another channel reads the same address and data type",
       path: [i, "address"],
@@ -243,8 +289,8 @@ const validateReadChannels = ({
 
 const isCoil = (ch: WriteChannel) => ch.type === "coil";
 
-// Bits of one register are written together, so only the same bit overlaps.
-const writesOverlap = (a: WriteChannel, b: WriteChannel): boolean => {
+/** @returns whether two channels of a write task write the same address. */
+export const writesOverlap = (a: WriteChannel, b: WriteChannel): boolean => {
   if (isCoil(a) !== isCoil(b)) return false;
   if (a.type === "holding_register_bit" && b.type === "holding_register_bit")
     return a.address === b.address && a.bit === b.bit;
@@ -264,6 +310,7 @@ const validateWriteChannels = ({
     enabled.push(ch);
     if (overlap == null) return;
     issues.push({
+      continue: true,
       code: "custom",
       message: `Overlaps the ${overlap.type.replaceAll("_", " ")} at address ${overlap.address}`,
       path: [i, "address"],

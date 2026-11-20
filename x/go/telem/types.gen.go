@@ -34,9 +34,13 @@ type TimeSpan = versions.TimeSpan
 // predictable boundary handling.
 type TimeRange = versions.TimeRange
 
-// Window is a window of time: a rolling span that ends now, or a fixed range.
+// Window is a window of time: a rolling span or a fixed range.
 type Window = versions.Window
+
+// WindowVariant is implemented by every Window variant.
 type WindowVariant = versions.WindowVariant
+
+// WindowType is the "variant" value that selects a variant of Window.
 type WindowType = versions.WindowType
 
 const (
@@ -53,7 +57,8 @@ type DynamicWindow = versions.DynamicWindow
 type StaticWindow = versions.StaticWindow
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
-// frequencies and calculate sample counts over time intervals.
+// frequencies and calculate sample counts over time intervals. A rate is never
+// negative.
 type Rate = versions.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.
@@ -69,21 +74,32 @@ type DataType = versions.DataType
 type TimestampFormat = versions.TimestampFormat
 
 const (
-	TimestampFormatISO         TimestampFormat = versions.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = versions.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = versions.TimestampFormatTime
+	// TimestampFormatISO renders the full ISO 8601 timestamp.
+	TimestampFormatISO TimestampFormat = versions.TimestampFormatISO
+	// TimestampFormatISODate renders only the date of the ISO 8601 form.
+	TimestampFormatISODate TimestampFormat = versions.TimestampFormatISODate
+	// TimestampFormatTime renders the time of day to the second.
+	TimestampFormatTime TimestampFormat = versions.TimestampFormatTime
+	// TimestampFormatPreciseTime renders the time of day to the millisecond.
 	TimestampFormatPreciseTime TimestampFormat = versions.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = versions.TimestampFormatDate
+	// TimestampFormatDate renders the short month and the day.
+	TimestampFormatDate TimestampFormat = versions.TimestampFormatDate
+	// TimestampFormatPreciseDate renders the short month, the day, and the time to the
+	// millisecond.
 	TimestampFormatPreciseDate TimestampFormat = versions.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = versions.TimestampFormatDateTime
+	// TimestampFormatDateTime renders the short month, the day, and the time to the
+	// second.
+	TimestampFormatDateTime TimestampFormat = versions.TimestampFormatDateTime
 )
 
 // TimeZone is the time zone used when rendering timestamps.
 type TimeZone = versions.TimeZone
 
 const (
+	// TimeZoneLocal renders the time in the local time zone.
 	TimeZoneLocal TimeZone = versions.TimeZoneLocal
-	TimeZoneUTC   TimeZone = versions.TimeZoneUTC
+	// TimeZoneUTC renders the time in UTC.
+	TimeZoneUTC TimeZone = versions.TimeZoneUTC
 )
 
 // Alignment is a 64-bit index for positioning samples within multi-array structures.
@@ -98,8 +114,12 @@ type Alignment uint64
 type Aggregation string
 
 const (
-	AggregationMinMax   Aggregation = "min_max"
-	AggregationAverage  Aggregation = "average"
+	// AggregationMinMax keeps the lowest and highest sample of each group in the order
+	// they occurred.
+	AggregationMinMax Aggregation = "min_max"
+	// AggregationAverage keeps the mean of each group.
+	AggregationAverage Aggregation = "average"
+	// AggregationDecimate keeps the first sample of each group.
 	AggregationDecimate Aggregation = "decimate"
 )
 
@@ -114,13 +134,18 @@ func (a Aggregation) IsValid() bool {
 	}
 }
 
+// ReductionType is the "variant" value that selects a variant of Reduction.
 type ReductionType string
 
 const (
+	// StrideReductionType keeps every factor-th sample of each series read.
 	StrideReductionType ReductionType = "stride"
-	LimitReductionType  ReductionType = "limit"
+	// LimitReductionType reduces each group of samples so that each channel comes back
+	// as about point_limit points. Channels on one index reduce over the same groups.
+	LimitReductionType ReductionType = "limit"
 )
 
+// ReductionVariant is implemented by every Reduction variant.
 type ReductionVariant interface {
 	isReductionVariant()
 }
@@ -144,11 +169,9 @@ type LimitReduction struct {
 
 func (LimitReduction) isReductionVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LimitReduction) ApplyDefaults() {
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LimitReduction) SetDefaults() {
+	l.Aggregation = AggregationMinMax
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -219,32 +242,29 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReductionType `json:"variant"`
 			LimitReduction
 		}
+		v.LimitReduction.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v.LimitReduction
 	default:
-		return errors.Newf("Reduction: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Reduction: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Reduction) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case LimitReduction:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Reduction) Validate() error {
+	v := validate.New("Reduction")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LimitReduction:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }

@@ -12,8 +12,12 @@ package constraints_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Type Unification", func() {
@@ -46,6 +50,145 @@ var _ = Describe("Type Unification", func() {
 			Expect(
 				system.AddEquality(tv, types.String(), nil, "T = string"),
 			).To(MatchError(ContainSubstring("is not compatible with")))
+		})
+	})
+
+	Describe("Defaults", func() {
+		It("Should give an unbound variable its default", func() {
+			system := constraints.New()
+			tv := types.Variable("elem", nil)
+			system.AddDefault(tv, types.F64())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv)).To(Equal(types.F64()))
+		})
+
+		It("Should let a constraint override the default", func() {
+			system := constraints.New()
+			tv := types.Variable("elem", nil)
+			system.AddDefault(tv, types.F64())
+			Expect(system.AddEquality(tv, types.Bool(), nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv)).To(Equal(types.Bool()))
+		})
+
+		It("Should fail on an unbound variable without a default", func() {
+			system := constraints.New()
+			Expect(system.AddEquality(
+				types.Variable("a", nil), types.Variable("b", nil), nil, "test",
+			)).To(Succeed())
+			err := system.Unify()
+			Expect(err).To(MatchError(constraints.ErrUnresolvedVariable))
+			Expect(diagnostics.Error(err, nil).Code).
+				To(Equal(codes.UnresolvedType.Code))
+		})
+	})
+
+	Describe("Untyped float and integer literals", func() {
+		var (
+			floatConstraint = types.FloatConstraint()
+			intConstraint   = types.IntegerConstraint()
+			float           = types.Variable("float", &floatConstraint)
+			integer         = types.Variable("integer", &intConstraint)
+		)
+
+		DescribeTable("Should take the float's type in either order",
+			func(left, right types.Type) {
+				system := constraints.New()
+				Expect(system.AddCompatible(left, right, nil, "test")).To(Succeed())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(float)).To(Equal(types.F64()))
+				Expect(system.ApplySubstitutions(integer)).To(Equal(types.F64()))
+			},
+			Entry("float first", float, integer),
+			Entry("integer first", integer, float),
+		)
+
+		DescribeTable(
+			"Should keep the float's constraint with an exact float in either order",
+			func(firstIsFloat bool) {
+				exactConstraint := types.ExactIntegerFloatConstraint()
+				exact := types.Variable("exact", &exactConstraint)
+				left, right := float, exact
+				if !firstIsFloat {
+					left, right = exact, float
+				}
+				system := constraints.New()
+				Expect(system.AddCompatible(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddEquality(exact, types.I32(), nil, "test")).
+					To(MatchError(ContainSubstring("i32")))
+			},
+			Entry("float first", true),
+			Entry("exact float first", false),
+		)
+
+		DescribeTable(
+			"Should keep the float's constraint with a numeric variable in either order",
+			func(firstIsFloat bool) {
+				numericConstraint := types.NumericConstraint()
+				numeric := types.Variable("numeric", &numericConstraint)
+				left, right := float, numeric
+				if !firstIsFloat {
+					left, right = numeric, float
+				}
+				system := constraints.New()
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddEquality(numeric, types.I32(), nil, "test")).
+					To(MatchError(ContainSubstring("i32")))
+			},
+			Entry("float first", true),
+			Entry("numeric first", false),
+		)
+
+		DescribeTable(
+			"Should keep an open series element open for an integer in either order",
+			func(firstIsInteger bool) {
+				system := constraints.New()
+				numeric := system.OpenNumeric(types.Variable("elem", nil))
+				left, right := integer, numeric
+				if !firstIsInteger {
+					left, right = numeric, integer
+				}
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.ApplySubstitutions(integer)).To(Equal(numeric))
+			},
+			Entry("integer first", true),
+			Entry("numeric first", false),
+		)
+
+		It("Should let an integer fix a generic numeric variable", func() {
+			numericConstraint := types.NumericConstraint()
+			numeric := types.Variable("T", &numericConstraint)
+			system := constraints.New()
+			Expect(system.AddEquality(numeric, integer, nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(numeric)).To(Equal(types.I64()))
+		})
+
+		DescribeTable(
+			"Should make an empty series element numeric for an integer in either order",
+			func(firstIsInteger bool) {
+				open := types.Variable("open", nil)
+				left, right := integer, open
+				if !firstIsInteger {
+					left, right = open, integer
+				}
+				system := constraints.New()
+				system.AddDefault(open, types.F64())
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddCompatible(open, float, nil, "test")).To(Succeed())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(integer)).To(Equal(types.F64()))
+			},
+			Entry("integer first", true),
+			Entry("open element first", false),
+		)
+
+		It("Should take a concrete f32 through the float", func() {
+			system := constraints.New()
+			Expect(system.AddCompatible(float, integer, nil, "test")).To(Succeed())
+			Expect(system.AddEquality(float, types.F32(), nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(integer)).To(Equal(types.F32()))
 		})
 	})
 
@@ -223,14 +366,11 @@ var _ = Describe("Type Unification", func() {
 					system.AddEquality(tv, cyclicType, nil, "T = cyclic T"),
 				).To(MatchError(ContainSubstring("is not compatible with")))
 			},
-			Entry("chan T", func(tv types.Type) types.Type { return types.Chan(tv) }),
-			Entry(
-				"series T",
-				func(tv types.Type) types.Type { return types.Series(tv) },
-			),
+			Entry("chan T", types.Chan),
+			Entry("series T", types.Series),
 		)
 
-		It("should report unresolved type variables with no constraints", func() {
+		It("should report unresolved type: type variables with no constraints", func() {
 			var (
 				system = constraints.New()
 				tv     = types.Variable("T", nil)
@@ -238,7 +378,7 @@ var _ = Describe("Type Unification", func() {
 			Expect(system.AddEquality(tv, tv, nil, "T = T")).To(Succeed())
 			Expect(
 				system.Unify(),
-			).To(MatchError(ContainSubstring("unresolved type variable")))
+			).To(MatchError(ContainSubstring("unresolved type: type variable")))
 		})
 
 		It("should use default for constrained but unresolved variables", func() {
@@ -642,7 +782,7 @@ var _ = Describe("Type Unification", func() {
 				Constraint: &constraint,
 				Left:       types.I32(),
 				Right:      types.F64(),
-				Message:    "type mismatch in assignment: i32 is not compatible with f64",
+				Message:    "type mismatch: i32 is not compatible with f64 in assignment",
 			}
 			Expect(err.Constraint).ToNot(BeNil())
 			Expect(err.Constraint.Reason).To(Equal("assignment"))
@@ -662,8 +802,7 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("str is not compatible with i32")))
 
-			ue, ok := err.(*constraints.UnificationError)
-			Expect(ok).To(BeTrue(), "expected UnificationError")
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
 			Expect(ue.Message).To(ContainSubstring("is not compatible with"))
 		})
 
@@ -679,10 +818,36 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("f64 is not compatible with i64")))
 
-			ue, ok := err.(*constraints.UnificationError)
-			Expect(ok).To(BeTrue())
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
 			Expect(ue.Hint).To(ContainSubstring("use"))
 			Expect(ue.Hint).To(ContainSubstring("to convert"))
+		})
+
+		It("Should hint a comparison for a numeric value into a bool", func() {
+			err := constraints.New().UnifyConstraint(constraints.Constraint{
+				Left:   types.Bool(),
+				Right:  types.U8(),
+				Reason: "edge",
+			})
+			Expect(err).To(
+				MatchError(ContainSubstring("u8 is not compatible with bool")),
+			)
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
+			Expect(ue.Hint).To(Equal(constraints.BoolHint))
+		})
+
+		It("Should not hint a comparison for comparison operands", func() {
+			err := constraints.New().AddCompatible(
+				types.Bool(),
+				types.U8(),
+				nil,
+				"== operands must be compatible",
+			)
+			Expect(err).To(
+				MatchError(ContainSubstring("u8 is not compatible with bool")),
+			)
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
+			Expect(ue.Hint).To(BeEmpty())
 		})
 	})
 

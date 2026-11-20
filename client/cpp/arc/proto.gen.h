@@ -12,12 +12,18 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 
 #include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/json.gen.h"
+#include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/pb/pb.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -26,9 +32,83 @@
 #include "arc/cpp/program/proto.gen.h"
 #include "arc/cpp/text/json.gen.h"
 #include "arc/cpp/text/proto.gen.h"
+#include "core/pkg/api/arc/pb/arc.pb.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
+
+inline std::pair<::service::arc::pb::Type, x::errors::Error>
+type_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::arc::pb::Type> kMap = {
+        {TYPE_AUTOMATION, ::service::arc::pb::TYPE_AUTOMATION},
+        {TYPE_MODULE, ::service::arc::pb::TYPE_MODULE},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Type value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+type_from_pb(::service::arc::pb::Type pb) {
+    switch (pb) {
+        case ::service::arc::pb::TYPE_AUTOMATION:
+            return {TYPE_AUTOMATION, x::errors::NIL};
+        case ::service::arc::pb::TYPE_MODULE:
+            return {TYPE_MODULE, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized Type protobuf value")};
+    }
+}
+
+inline std::pair<::service::arc::pb::ChangeKind, x::errors::Error>
+change_kind_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::arc::pb::ChangeKind> kMap =
+        {
+            {CHANGE_KIND_CHANGED, ::service::arc::pb::CHANGE_KIND_CHANGED},
+            {CHANGE_KIND_ADDED, ::service::arc::pb::CHANGE_KIND_ADDED},
+            {CHANGE_KIND_REMOVED, ::service::arc::pb::CHANGE_KIND_REMOVED},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized ChangeKind value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+change_kind_from_pb(::service::arc::pb::ChangeKind pb) {
+    switch (pb) {
+        case ::service::arc::pb::CHANGE_KIND_CHANGED:
+            return {CHANGE_KIND_CHANGED, x::errors::NIL};
+        case ::service::arc::pb::CHANGE_KIND_ADDED:
+            return {CHANGE_KIND_ADDED, x::errors::NIL};
+        case ::service::arc::pb::CHANGE_KIND_REMOVED:
+            return {CHANGE_KIND_REMOVED, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized ChangeKind protobuf value")};
+    }
+}
+
+inline std::pair<::api::arc::pb::OrderField, x::errors::Error>
+order_field_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::api::arc::pb::OrderField> kMap = {
+        {ORDER_FIELD_NAME, ::api::arc::pb::ORDER_FIELD_NAME},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized OrderField value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+order_field_from_pb(::api::arc::pb::OrderField pb) {
+    switch (pb) {
+        case ::api::arc::pb::ORDER_FIELD_NAME:
+            return {ORDER_FIELD_NAME, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized OrderField protobuf value")};
+    }
+}
 
 inline std::pair<::service::arc::pb::Mode, x::errors::Error>
 mode_to_pb(const std::string &cpp) {
@@ -54,36 +134,59 @@ mode_from_pb(::service::arc::pb::Mode pb) {
     }
 }
 
-inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() const {
-    ::service::arc::pb::Arc pb;
-    pb.set_key(this->key.to_string());
-    pb.set_name(this->name);
-    {
-        auto [v, err] = mode_to_pb(this->mode);
-        if (err) return {{}, err};
-        pb.set_mode(v);
-    }
-    {
-        auto [v, err] = this->graph.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_graph() = v;
-    }
-    {
-        auto [v, err] = this->text.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_text() = v;
-    }
-    if (this->program.has_value()) {
-        auto [v, err] = this->program->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_program() = v;
+inline std::pair<::service::arc::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::arc::pb::UuidSet &pb);
+
+inline std::pair<::service::arc::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
+    ::service::arc::pb::UuidSet pb;
+    if (self.eq.has_value()) pb.set_eq(self.eq->to_string());
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in) {
+            wrapper->add_values(item.to_string());
+        }
     }
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<Arc, x::errors::Error>
-Arc::from_proto(const ::service::arc::pb::Arc &pb) {
-    Arc cpp;
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::arc::pb::UuidSet &pb) {
+    ::x::filter::Set<x::uuid::UUID> cpp;
+    if (pb.has_eq()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.eq());
+        if (err) return {{}, err};
+        cpp.eq = v;
+    }
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.in->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Base, x::errors::Error> Base::to_proto() const {
+    ::service::arc::pb::Base pb;
+    pb.set_key(this->key.to_string());
+    pb.set_name(this->name);
+    {
+        auto [v, err] = ::synnax::arc::to_proto(this->source);
+        if (err) return {{}, err};
+        *pb.mutable_source() = v;
+    }
+    if (this->directory.has_value()) pb.set_directory(this->directory->to_string());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Base, x::errors::Error>
+Base::from_proto(const ::service::arc::pb::Base &pb) {
+    Base cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
@@ -91,26 +194,467 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
     }
     cpp.name = pb.name();
     {
-        auto [v, err] = mode_from_pb(pb.mode());
+        auto [v, err] = ::synnax::arc::source_from_proto(pb.source());
         if (err) return {{}, err};
-        cpp.mode = v;
+        cpp.source = v;
     }
+    if (pb.has_directory()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.directory());
+        if (err) return {{}, err};
+        cpp.directory = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Change, x::errors::Error>
+Change::to_proto() const {
+    ::service::arc::pb::Change pb;
     {
-        auto [v, err] = ::arc::graph::Graph::from_proto(pb.graph());
+        auto [v, err] = type_to_pb(this->type);
         if (err) return {{}, err};
-        cpp.graph = v;
+        pb.set_type(v);
     }
+    pb.set_path(this->path);
     {
-        auto [v, err] = ::arc::text::Text::from_proto(pb.text());
+        auto [v, err] = change_kind_to_pb(this->kind);
         if (err) return {{}, err};
-        cpp.text = v;
+        pb.set_kind(v);
     }
-    if (pb.has_program()) {
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Change, x::errors::Error>
+Change::from_proto(const ::service::arc::pb::Change &pb) {
+    Change cpp;
+    {
+        auto [v, err] = type_from_pb(pb.type());
+        if (err) return {{}, err};
+        cpp.type = v;
+    }
+    cpp.path = pb.path();
+    {
+        auto [v, err] = change_kind_from_pb(pb.kind());
+        if (err) return {{}, err};
+        cpp.kind = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Where, x::errors::Error> Where::to_proto() const {
+    ::service::arc::pb::Where pb;
+    if (this->and_.has_value()) {
+        auto *wrapper = pb.mutable_and_();
+        for (const auto &item: *this->and_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->or_.has_value()) {
+        auto *wrapper = pb.mutable_or_();
+        for (const auto &item: *this->or_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->not_.has_value()) {
+        auto [v, err] = this->not_->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_not_() = v;
+    }
+    if (this->key.has_value()) {
+        auto [v, err] = uuid_set_to_proto(*this->key);
+        if (err) return {{}, err};
+        *pb.mutable_key() = v;
+    }
+    if (this->name.has_value()) {
+        auto [v, err] = this->name->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_name() = v;
+    }
+    if (this->directories.has_value()) {
+        auto *wrapper = pb.mutable_directories();
+        for (const auto &item: *this->directories) {
+            wrapper->add_values(item.to_string());
+        }
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Where, x::errors::Error>
+Where::from_proto(const ::service::arc::pb::Where &pb) {
+    Where cpp;
+    if (pb.has_and_()) {
+        cpp.and_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values()))
+            return {{}, err};
+    }
+    if (pb.has_or_()) {
+        cpp.or_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.or_, pb.or_().values()))
+            return {{}, err};
+    }
+    if (pb.has_not_()) {
+        auto [v, err] = Where::from_proto(pb.not_());
+        if (err) return {{}, err};
+        cpp.not_ = v;
+    }
+    if (pb.has_key()) {
+        auto [v, err] = uuid_set_from_proto(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_name()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.name());
+        if (err) return {{}, err};
+        cpp.name = v;
+    }
+    if (pb.has_directories()) {
+        cpp.directories.emplace();
+        for (const auto &item: pb.directories().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.directories->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Calculation, x::errors::Error>
+Calculation::to_proto() const {
+    ::service::arc::pb::Calculation pb;
+    pb.set_channel(this->channel);
+    {
+        auto [v, err] = this->program.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_program() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Calculation, x::errors::Error>
+Calculation::from_proto(const ::service::arc::pb::Calculation &pb) {
+    Calculation cpp;
+    cpp.channel = pb.channel();
+    {
         auto [v, err] = ::arc::program::Program::from_proto(pb.program());
         if (err) return {{}, err};
         cpp.program = v;
     }
     return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::arc::pb::Cursor, x::errors::Error> Cursor::to_proto() const {
+    ::api::arc::pb::Cursor pb;
+    pb.set_key(this->key.to_string());
+    if (this->name.has_value()) pb.set_name(*this->name);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Cursor, x::errors::Error>
+Cursor::from_proto(const ::api::arc::pb::Cursor &pb) {
+    Cursor cpp;
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_name()) cpp.name = pb.name();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::arc::pb::Order, x::errors::Error> Order::to_proto() const {
+    ::api::arc::pb::Order pb;
+    {
+        auto [v, err] = order_field_to_pb(this->field);
+        if (err) return {{}, err};
+        pb.set_field(v);
+    }
+    pb.set_descending(this->descending);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Order, x::errors::Error>
+Order::from_proto(const ::api::arc::pb::Order &pb) {
+    Order cpp;
+    {
+        auto [v, err] = order_field_from_pb(pb.field());
+        if (err) return {{}, err};
+        cpp.field = v;
+    }
+    cpp.descending = pb.descending();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
+RetrieveRequest::to_proto() const {
+    ::api::arc::pb::RetrieveRequest pb;
+    if (this->where.has_value()) {
+        auto [v, err] = this->where->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_where() = v;
+    }
+    pb.set_search_term(this->search_term);
+    if (this->order.has_value()) {
+        auto [v, err] = this->order->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_order() = v;
+    }
+    if (this->after.has_value()) {
+        auto [v, err] = this->after->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_after() = v;
+    }
+    if (this->limit.has_value()) pb.set_limit(*this->limit);
+    pb.set_include_program(this->include_program);
+    pb.set_include_changes(this->include_changes);
+    pb.set_include_status(this->include_status);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveRequest, x::errors::Error>
+RetrieveRequest::from_proto(const ::api::arc::pb::RetrieveRequest &pb) {
+    RetrieveRequest cpp;
+    if (pb.has_where()) {
+        auto [v, err] = Where::from_proto(pb.where());
+        if (err) return {{}, err};
+        cpp.where = v;
+    }
+    cpp.search_term = pb.search_term();
+    if (pb.has_order()) {
+        auto [v, err] = Order::from_proto(pb.order());
+        if (err) return {{}, err};
+        cpp.order = v;
+    }
+    if (pb.has_after()) {
+        auto [v, err] = Cursor::from_proto(pb.after());
+        if (err) return {{}, err};
+        cpp.after = v;
+    }
+    if (pb.has_limit()) cpp.limit = pb.limit();
+    cpp.include_program = pb.include_program();
+    cpp.include_changes = pb.include_changes();
+    cpp.include_status = pb.include_status();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::arc::pb::RetrieveResponse, x::errors::Error>
+RetrieveResponse::to_proto() const {
+    ::api::arc::pb::RetrieveResponse pb;
+    for (const auto &item: this->arcs) {
+        auto [v, err] = ::synnax::arc::to_proto(item);
+        if (err) return {{}, err};
+        *pb.add_arcs() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveResponse, x::errors::Error>
+RetrieveResponse::from_proto(const ::api::arc::pb::RetrieveResponse &pb) {
+    RetrieveResponse cpp;
+    for (const auto &item: pb.arcs()) {
+        auto [v, err] = ::synnax::arc::arc_from_proto(item);
+        if (err) return {{}, err};
+        cpp.arcs.push_back(v);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::SourceTextPayload, x::errors::Error>
+TextSource::to_proto() const {
+    ::service::arc::pb::SourceTextPayload pb;
+    {
+        auto [v, err] = this->text.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_text() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<TextSource, x::errors::Error>
+TextSource::from_proto(const ::service::arc::pb::SourceTextPayload &pb) {
+    TextSource cpp;
+    {
+        auto [v, err] = ::arc::text::Text::from_proto(pb.text());
+        if (err) return {{}, err};
+        cpp.text = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::SourceGraphPayload, x::errors::Error>
+GraphSource::to_proto() const {
+    ::service::arc::pb::SourceGraphPayload pb;
+    {
+        auto [v, err] = this->graph.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_graph() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<GraphSource, x::errors::Error>
+GraphSource::from_proto(const ::service::arc::pb::SourceGraphPayload &pb) {
+    GraphSource cpp;
+    {
+        auto [v, err] = ::arc::graph::Graph::from_proto(pb.graph());
+        if (err) return {{}, err};
+        cpp.graph = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::ArcAutomationPayload, x::errors::Error>
+AutomationArc::to_proto() const {
+    ::service::arc::pb::ArcAutomationPayload pb;
+    if (this->program.has_value()) {
+        auto [v, err] = this->program->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_program() = v;
+    }
+    for (const auto &item: this->changes) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_changes() = v;
+    }
+    for (const auto &item: this->calculations) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_calculations() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<AutomationArc, x::errors::Error>
+AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
+    AutomationArc cpp;
+    if (pb.has_program()) {
+        auto [v, err] = ::arc::program::Program::from_proto(pb.program());
+        if (err) return {{}, err};
+        cpp.program = v;
+    }
+    if (auto err = x::pb::from_proto_repeated<Change>(cpp.changes, pb.changes()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Calculation>(
+            cpp.calculations,
+            pb.calculations()
+        ))
+        return {{}, err};
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::ArcModulePayload, x::errors::Error>
+ModuleArc::to_proto() const {
+    ::service::arc::pb::ArcModulePayload pb;
+    if (this->status.has_value()) {
+        auto [v, err] = this->status->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_status() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ModuleArc, x::errors::Error>
+ModuleArc::from_proto(const ::service::arc::pb::ArcModulePayload &pb) {
+    ModuleArc cpp;
+    if (pb.has_status()) {
+        auto [v, err] = Status::from_proto(pb.status());
+        if (err) return {{}, err};
+        cpp.status = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Source, x::errors::Error>
+to_proto(const Source &value) {
+    ::service::arc::pb::Source pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, TextSource>)
+                *pb.mutable_text() = inner;
+            else if constexpr (std::is_same_v<V, GraphSource>)
+                *pb.mutable_graph() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Source, x::errors::Error>
+source_from_proto(const ::service::arc::pb::Source &pb) {
+    switch (pb.variant_case()) {
+        case ::service::arc::pb::Source::kText: {
+            auto [v, err] = TextSource::from_proto(pb.text());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::arc::pb::Source::kGraph: {
+            auto [v, err] = GraphSource::from_proto(pb.graph());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "Source: no variant set")
+            };
+    }
+}
+
+inline std::pair<::service::arc::pb::Arc, x::errors::Error> to_proto(const Arc &value) {
+    ::service::arc::pb::Arc pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            {
+                auto [base, base_err] = static_cast<const Base &>(v).to_proto();
+                if (base_err) return base_err;
+                *pb.mutable_base() = base;
+            }
+            if constexpr (std::is_same_v<V, AutomationArc>)
+                *pb.mutable_automation() = inner;
+            else if constexpr (std::is_same_v<V, ModuleArc>)
+                *pb.mutable_module() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Arc, x::errors::Error>
+arc_from_proto(const ::service::arc::pb::Arc &pb) {
+    switch (pb.variant_case()) {
+        case ::service::arc::pb::Arc::kAutomation: {
+            auto [v, err] = AutomationArc::from_proto(pb.automation());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = Base::from_proto(pb.base());
+                if (base_err) return {{}, base_err};
+                static_cast<Base &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::arc::pb::Arc::kModule: {
+            auto [v, err] = ModuleArc::from_proto(pb.module());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = Base::from_proto(pb.base());
+                if (base_err) return {{}, base_err};
+                static_cast<Base &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {{}, x::errors::Error(x::errors::VALIDATION, "Arc: no variant set")};
+    }
 }
 
 }

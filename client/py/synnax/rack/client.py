@@ -7,15 +7,28 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Key, Rack
-from x.lists import all_none, override
+from synnax.rack import actions_gen
+from synnax.rack.types_gen import (
+    Cursor,
+    Key,
+    Order,
+    Rack,
+    RetrieveRequest,
+    Where,
+    WhereInput,
+)
+from synnax.transport import send_batch
+from synnax.util import request_where, returns_one, sole
+from x import filter
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
@@ -26,25 +39,14 @@ class _CreateResponse(BaseModel):
     racks: list[Rack]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[int]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[int] | None = None
-    names: list[str] | None = None
-    integration: str | None = None
-    search_term: str | None = None
-    embedded: bool | None = None
-    host_is_node: bool | None = None
-    offset: int | None = None
-    limit: int | None = None
-    include_status: bool = False
+    keys: list[Key]
 
 
 class _RetrieveResponse(BaseModel):
@@ -53,7 +55,7 @@ class _RetrieveResponse(BaseModel):
 
 class Client:
     _client: UnaryClient
-    _embedded_rack: Rack | None = None
+    _embedded_racks: dict[str | None, Rack]
     instrumentation: Instrumentation
 
     def __init__(
@@ -63,10 +65,13 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._embedded_racks = {}
         self.instrumentation = instrumentation
 
     @overload
-    def create(self, *, key: int = 0, name: str = "") -> Rack: ...
+    def create(
+        self, *, key: Key = 0, name: str = "", group: group_.Key | None = None
+    ) -> Rack: ...
 
     @overload
     def create(self, racks: Rack) -> Rack: ...
@@ -78,12 +83,13 @@ class Client:
         self,
         racks: Rack | list[Rack] | None = None,
         *,
-        key: int = 0,
+        key: Key = 0,
         name: str = "",
+        group: group_.Key | None = None,
     ) -> Rack | list[Rack]:
         is_single = True
         if racks is None:
-            racks = [Rack(key=key, name=name)]
+            racks = [Rack(key=key, name=name, group=group)]
         elif isinstance(racks, Rack):
             racks = [racks]
         else:
@@ -94,7 +100,7 @@ class Client:
             return res.racks[0]
         return res.racks
 
-    def delete(self, keys: list[int]) -> None:
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
@@ -105,99 +111,201 @@ class Client:
         :param name: The new name for the rack.
         :raises NotFoundError: If no rack has the given key.
         """
-        self._client.send("/rack/rename", _RenameRequest(key=key, name=name), Empty)
-        if self._embedded_rack is not None and self._embedded_rack.key == key:
-            self._embedded_rack = None
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/rack/dispatch", req, Empty)
+        self._embedded_racks = {
+            k: r for k, r in self._embedded_racks.items() if r.key != key
+        }
+
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
+        """Moves racks into a group, or out of their group when group is None.
+
+        :param keys: The key of the rack to move, or a list of keys.
+        :param group: The key of the group to move the racks into.
+        """
+        value = None if group is None else str(group)
+        action = actions_gen.set(actions_gen.SetPayload(path=["group"], value=value))
+        send_batch(
+            self._client,
+            "/rack/dispatch",
+            [_DispatchRequest(key=k, actions=[action]) for k in normalize(keys)],
+        )
 
     @overload
-    def retrieve(self, key: int, *, include_status: bool = False) -> Rack: ...
-
-    @overload
-    def retrieve(self, *, name: str, include_status: bool = False) -> Rack: ...
+    def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[int] | None = None,
-        names: list[str] | None = None,
-        search_term: str | None = None,
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        include_status: bool = False,
+        key: Key,
+        name: filter.StringInput = ...,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        integration: str | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: Literal[True],
+    ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        integration: str | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
+        include_status: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Rack]: ...
 
     def retrieve(
         self,
-        key: int | None = None,
+        key: filter.SetInput[Key] | None = None,
         *,
-        name: str | None = None,
-        keys: list[int] | None = None,
+        where: Where | None = None,
+        keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
         integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
+        one: bool = False,
+        **fields: Any,
     ) -> Rack | list[Rack]:
-        """Retrieves racks matching the given filters. Returns one rack when a key or
-        name is given, and a list otherwise.
+        """Retrieves racks from the Core. With no arguments, retrieves every rack.
 
+        Each filter field takes a value, a list of values, or an operator, and a rack
+        must match every field. A plain ``key``, by position or by keyword, or a plain
+        ``name`` returns one rack.
+
+        :param key: Keeps racks with this key.
+        :param name: Keeps racks with this name.
+        :param embedded: Keeps racks that are, or are not, embedded in a Core.
+        :param integrations: Keeps racks that support this integration, or any
+            integration in the list.
+        :param groups: Keeps racks in any of these groups.
+        :param grouped: Keeps only racks in a group when True, and only racks in no
+            group when False.
+        :param and_: Keeps racks that match every filter in the list.
+        :param or_: Keeps racks that match any filter in the list.
+        :param not_: Keeps racks that do not match the filter.
+        :param where: A filter tree that the racks must also match.
+        :param keys: Keeps racks with one of these keys.
+        :param names: Keeps racks with one of these names.
+        :param integration: Keeps racks that support this integration.
         :param search_term: A fuzzy search term matched against rack names.
-        :param limit: The maximum number of racks to return.
-        :param offset: The number of racks to skip.
+        :param limit: The maximum number of racks to retrieve.
+        :param order: The order of the racks. Defaults to key order.
+        :param after: Retrieves the racks past this position in the order: the key of
+            the last rack of the page before, and its value of the order field.
         :param include_status: Whether to populate each rack's status.
-        :raises ValueError: If two singular selectors are given, or one is
-            combined with a list filter.
-        :raises NotFoundError: If a single rack is requested and none matches.
+        :param one: Returns one rack for any filter.
+        :returns: One rack for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of racks. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one rack is wanted and none matches.
+        :raises MultipleFoundError: If one rack is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one rack is wanted
+            beside a limit or a cursor.
         """
-        is_single = not all_none(key, name)
-        if sum(v is not None for v in (key, name)) > 1:
-            raise ValueError("only one of key and name can be given")
-        if is_single and not all_none(
-            keys,
-            names,
-            search_term,
-            integration,
-            embedded,
-            host_is_node,
-            limit,
-            offset,
-        ):
-            raise ValueError(
-                "key and name cannot be combined with list filters; use keys or "
-                "names instead"
-            )
-        res = self._client.send(
-            "/rack/retrieve",
-            _RetrieveRequest(
-                keys=override(key, keys),
-                names=override(name, names),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                integration=integration,
-                host_is_node=host_is_node,
-                embedded=embedded,
-                include_status=include_status,
+        if key is not None:
+            fields["key"] = key
+        single = returns_one(fields, one, limit=limit, after=after)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
+            integrations=(
+                None if integration is None else filter.Contains[str](any=[integration])
             ),
-            _RetrieveResponse,
         )
-        if is_single:
-            if len(res.racks) > 0:
-                return res.racks[0]
-            raise NotFoundError("Rack not found")
-        return res.racks
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            order=order,
+            after=after,
+            include_status=include_status,
+        )
+        res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
+        return sole("rack", req, res.racks) if single else res.racks
 
-    def retrieve_embedded_rack(self) -> Rack:
-        if self._embedded_rack is None:
-            racks = self.retrieve(embedded=True, host_is_node=True, limit=1)
+    def retrieve_embedded_rack(self, integration: str | None = None) -> Rack:
+        """Retrieves a rack embedded in the Core.
+
+        :param integration: Keeps only an embedded rack that runs this integration.
+        :returns: The embedded rack with the lowest key that matches.
+        :raises NotFoundError: If no embedded rack matches.
+        """
+        if integration not in self._embedded_racks:
+            racks = self.retrieve(embedded=True, integration=integration, limit=1)
             if len(racks) == 0:
-                raise NotFoundError("Embedded rack not found")
-            self._embedded_rack = racks[0]
-        return self._embedded_rack
+                if integration is None:
+                    raise NotFoundError("Embedded rack not found")
+                raise NotFoundError(
+                    f"No embedded rack runs the {integration} integration"
+                )
+            self._embedded_racks[integration] = racks[0]
+        return self._embedded_racks[integration]

@@ -10,7 +10,7 @@
 package errors
 
 import (
-	"context"
+	"reflect"
 	"strings"
 )
 
@@ -23,110 +23,105 @@ type Payload struct {
 	Data string `json:"data" msgpack:"data"`
 }
 
-// Error implements the error interface.
-func (p Payload) Error() string { return string(p.Type) + "---" + p.Data }
+var payloadType = reflect.TypeFor[Payload]()
 
-func (p *Payload) Unmarshal(d string) {
+// Error implements the error interface.
+func (p Payload) Error() string { return p.Type + "---" + p.Data }
+
+// ParsePayload parses the text of Payload.Error. Text in any other form becomes the
+// data of a payload of type TypeUnknown.
+func ParsePayload(d string) Payload {
 	a := strings.Split(d, "---")
 	if len(a) != 2 {
-		p.Type = TypeUnknown
-		p.Data = d
-	} else {
-		p.Type = a[0]
-		p.Data = a[1]
+		return Payload{Type: TypeUnknown, Data: d}
 	}
+	return Payload{Type: a[0], Data: a[1]}
 }
 
-var _registry = newRegistry()
+// EncodeFunc encodes err into a payload, or returns false if it does not handle err.
+// The codec lets a provider encode the errors that err wraps.
+type EncodeFunc func(c *Codec, err error) (Payload, bool)
 
-// Register registers an error type with the given type.
-func Register(encode EncodeFunc, decode DecodeFunc) {
-	_registry.register(provider{encode: encode, decode: decode})
+// DecodeFunc decodes p into an error, or returns false if it does not handle p. The
+// codec lets a provider decode the errors that p wraps.
+type DecodeFunc func(c *Codec, p Payload) (error, bool)
+
+// Provider encodes and decodes the errors of one package.
+type Provider struct {
+	Encode EncodeFunc
+	Decode DecodeFunc
 }
 
-// Encode encodes an error into a payload. If the type of the error cannot be
-// determined, returns a payload with type TypeUnknown and the error message. If the
-// error is nil, returns a payload with type TypeNil.
-func Encode(ctx context.Context, e error, internal bool) Payload {
-	pld, ok := e.(Payload)
-	if ok {
-		return pld
+// Codec encodes errors into payloads for transport over a network and decodes them
+// back. It tries its providers in order. A Codec is safe for concurrent use.
+type Codec struct{ providers []Provider }
+
+// NewCodec returns a Codec that tries the given providers in order.
+func NewCodec(providers ...Provider) *Codec { return &Codec{providers: providers} }
+
+// Encode encodes an error into a payload. If no provider handles the error, Encode
+// returns a payload with type TypeRoach when internal is true, and a payload with type
+// TypeUnknown and the error message when it is false. If the error is nil, returns a
+// payload with type TypeNil. A bare Payload passes through unchanged.
+func (c *Codec) Encode(err error, internal bool) Payload {
+	// Only a bare payload passes through, so a wrapped one keeps its wrap message.
+	var bare Payload
+	if reflect.TypeOf(err) == payloadType && As(err, &bare) {
+		return bare
 	}
-	return _registry.encode(ctx, e, internal)
+	if err == nil {
+		return Payload{Type: TypeNil}
+	}
+	if pld := c.encode(err); pld != nil {
+		return *pld
+	}
+	if internal {
+		return roachEncode(err)
+	}
+	return Payload{Type: TypeUnknown, Data: err.Error()}
 }
 
-// Expected returns true if a registered provider encodes err. Such errors, for example
+// Expected returns true if a provider encodes err. Such errors, for example
 // validation, not found, and unauthorized errors, report a fault in a request, not in
 // the code, so their stack traces have no use. A joined error is expected only if
 // every member is. Expected returns false for nil.
-func Expected(ctx context.Context, err error) bool {
+func (c *Codec) Expected(err error) bool {
 	if err == nil {
 		return false
 	}
 	if members := UnwrapMulti(err); members != nil {
 		for _, m := range members {
-			if !Expected(ctx, m) {
+			if !c.Expected(m) {
 				return false
 			}
 		}
 		return true
 	}
-	for _, p := range _registry.providers {
-		if _, ok := p.encode(ctx, err); ok {
-			return true
+	return c.encode(err) != nil
+}
+
+func (c *Codec) encode(err error) *Payload {
+	for _, p := range c.providers {
+		if pld, ok := p.Encode(c, err); ok {
+			return &pld
 		}
 	}
-	return false
+	return nil
 }
 
-// Decode decodes a payload into an error. If the payload's type is TypeUnknown, returns
-// an error with the payload's data as the message. If the payload's type is TypeNil,
-// returns nil.
-func Decode(ctx context.Context, p Payload) error { return _registry.decode(ctx, p) }
-
-type EncodeFunc func(context.Context, error) (Payload, bool)
-
-type DecodeFunc func(context.Context, Payload) (error, bool)
-
-type provider struct {
-	encode EncodeFunc
-	decode DecodeFunc
-}
-
-// registry is a registry of error providers. It is used to encode and decode errors
-// into payloads for transport over the network.
-type registry struct{ providers []provider }
-
-func newRegistry() *registry { return &registry{providers: make([]provider, 0)} }
-
-func (r *registry) register(e provider) { r.providers = append(r.providers, e) }
-
-func (r *registry) encode(ctx context.Context, e error, internal bool) Payload {
-	// If the error is nil, return a standardized payload.
-	if e == nil {
-		return Payload{Type: TypeNil}
-	}
-	for _, p := range r.providers {
-		if payload, ok := p.encode(ctx, e); ok {
-			return payload
-		}
-	}
-	if internal {
-		return roachEncode(ctx, e)
-	}
-	return Payload{Type: TypeUnknown, Data: e.Error()}
-}
-
-func (r *registry) decode(ctx context.Context, p Payload) error {
+// Decode decodes a payload into an error. If the payload's type is TypeNil, or the
+// payload is empty, returns nil. If no provider handles the payload, returns an error
+// with the payload's data as the message.
+func (c *Codec) Decode(p Payload) error {
 	if p.Type == TypeNil || (p.Type == "" && p.Data == "") {
 		return nil
 	}
-	for _, prov := range r.providers {
-		if err, ok := prov.decode(ctx, p); ok {
+	for _, prov := range c.providers {
+		if err, ok := prov.Decode(c, p); ok {
 			return err
 		}
 	}
-	if err, ok := roachDecode(ctx, p); ok {
+	if err, ok := roachDecode(p); ok {
 		return err
 	}
 	return New(p.Data)

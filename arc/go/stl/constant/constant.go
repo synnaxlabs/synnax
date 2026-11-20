@@ -53,7 +53,11 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	return &constant{State: cfg.State, value: cfg.Node.Inputs[0].Value}, nil
+	input := cfg.Node.Inputs[0]
+	return &constant{
+		State: cfg.State,
+		value: types.DecodeValue(input.Value, input.Type),
+	}, nil
 }
 
 type constant struct {

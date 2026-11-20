@@ -7,19 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, lineplot, type ranger } from "@synnaxlabs/client";
+import {
+  type channel,
+  color,
+  DataType,
+  lineplot,
+  type ranger,
+} from "@synnaxlabs/client";
 import { dynamicWindow, staticWindow, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
   client,
   createPreloadedState,
+  pickNamedColor,
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { findButton } from "@/platform/modals/testutil";
-import { getIconButton, isPlutoDisabled, uniqueName } from "@/testutil";
+import {
+  findDialogTriggerByText,
+  findIconButton,
+  getIconButton,
+  isPlutoDisabled,
+  queryIcon,
+  queryIconButton,
+} from "@/testutil";
 
 const RECENT: ranger.Ref = {
   variant: "window",
@@ -81,7 +96,7 @@ describe("lineplot download CSV with plotted lines", () => {
 describe("lineplot/toolbar/Lines", () => {
   it("persists a line label override to the server", async () => {
     const { key, lineKey, ch } = await renderLinesTab();
-    await screen.findByText("Average");
+    await screen.findByText("Min/max");
     const input = await screen.findByDisplayValue(ch.name);
     fireEvent.change(input, { target: { value: "My Line" } });
     await waitFor(async () => {
@@ -90,8 +105,23 @@ describe("lineplot/toolbar/Lines", () => {
     });
   });
 
+  it("resets a line label override to the channel name", async () => {
+    const { key, lineKey, ch, result } = await renderLinesTab();
+    const input = await screen.findByDisplayValue(ch.name);
+    expect(queryIconButton(result.container, "sync")).toBeNull();
+    fireEvent.change(input, { target: { value: "My Line" } });
+    fireEvent.click(await findIconButton(result.container, "sync"));
+    expect(await screen.findByDisplayValue(ch.name)).toBeDefined();
+    expect(queryIconButton(result.container, "sync")).toBeNull();
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.lines.find((l) => l.key === lineKey)?.label).toBeUndefined();
+    });
+  });
+
   it("persists an aggregation change to the server", async () => {
     const { key, lineKey } = await renderLinesTab();
+    fireEvent.click(await findDialogTriggerByText("Min/max"));
     fireEvent.click(await screen.findByText("Average"));
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
@@ -99,9 +129,25 @@ describe("lineplot/toolbar/Lines", () => {
     });
   });
 
+  it("shows each sampling setting with its icon and a name that says what it sets", async () => {
+    await renderLinesTab();
+    const aggregation = await findDialogTriggerByText("Min/max");
+    expect(queryIcon(aggregation, "waveform")).toBe(aggregation.firstElementChild);
+    const detail = await findDialogTriggerByText("Medium detail");
+    expect(queryIcon(detail, "meter-medium")).toBe(detail.firstElementChild);
+  });
+
+  it("describes each aggregation where it is chosen, with no search", async () => {
+    await renderLinesTab();
+    fireEvent.click(await findDialogTriggerByText("Min/max"));
+    expect(await screen.findByText("Keeps spikes visible.")).toBeDefined();
+    expect(screen.getByText("Smooths out noise.")).toBeDefined();
+    expect(screen.queryByPlaceholderText(/Search/)).toBeNull();
+  });
+
   it("persists a stroke width change to the server", async () => {
     const { key, lineKey } = await renderLinesTab();
-    await screen.findByText("Average");
+    await screen.findByText("Min/max");
     const input = screen.getByDisplayValue("2");
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.blur(input);
@@ -119,12 +165,29 @@ describe("lineplot/toolbar/Lines", () => {
       index: index.key,
     });
     await renderLinesTab(x.key);
-    await screen.findByText("High");
-    await waitFor(() => expect(screen.queryByText("Average")).toBeNull());
+    await screen.findByText("Medium detail");
+    await waitFor(() => expect(screen.queryByText("Min/max")).toBeNull());
+  });
+
+  it("persists a series color picked from a palette as a named color", async () => {
+    const series = (
+      await client.colors.retrieve({ groups: [color.SERIES_PALETTE] })
+    ).sort(color.compare);
+    const { key, lineKey, result } = await renderLinesTab();
+    await screen.findByText("Min/max");
+    await pickNamedColor(result.container, series[2].name);
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.lines.find((l) => l.key === lineKey)?.color).toEqual({
+        type: "named",
+        key: series[2].key,
+      });
+    });
   });
 
   it("persists a detail change to the server", async () => {
     const { key, lineKey } = await renderLinesTab();
+    fireEvent.click(await findDialogTriggerByText("Medium detail"));
     fireEvent.click(await screen.findByText("High"));
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);

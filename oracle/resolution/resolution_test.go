@@ -77,8 +77,7 @@ var _ = Describe("Table", func() {
 				Namespace:     "auth",
 				Form:          resolution.StructForm{Fields: []resolution.Field{}},
 			}
-			err := table.Add(typ)
-			Expect(err).To(Succeed())
+			Expect(table.Add(typ)).To(Succeed())
 
 			retrieved, ok := table.Get("auth.User")
 			Expect(ok).To(BeTrue())
@@ -149,6 +148,18 @@ var _ = Describe("Table", func() {
 		It("returns false for non-existent types", func() {
 			_, ok := table.Lookup("auth", "NonExistent")
 			Expect(ok).To(BeFalse())
+		})
+
+		It("does not bind a type that another namespace declares", func() {
+			_, ok := table.Lookup("billing", "User")
+			Expect(ok).To(BeFalse())
+		})
+
+		It("follows a redirect to its target", func() {
+			table.Redirect("v1.User", "auth.User")
+			typ, ok := table.Lookup("v1", "User")
+			Expect(ok).To(BeTrue())
+			Expect(typ.QualifiedName).To(Equal("auth.User"))
 		})
 	})
 

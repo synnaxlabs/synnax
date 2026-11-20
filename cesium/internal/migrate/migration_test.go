@@ -10,6 +10,9 @@
 package migrate_test
 
 import (
+	"maps"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
@@ -21,6 +24,22 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// telemetry returns the contents of every file under dir in fs other than channel
+// metadata.
+func telemetry(fs xfs.FS, dir string) map[string][]byte {
+	GinkgoHelper()
+	files := make(map[string][]byte)
+	for _, info := range MustSucceed(fs.List(dir)) {
+		name := path.Join(dir, info.Name())
+		if info.IsDir() {
+			maps.Copy(files, telemetry(fs, name))
+		} else if info.Name() != "meta.json" {
+			files[name] = MustSucceed(xfs.ReadFile(fs, name))
+		}
+	}
+	return files
+}
 
 var _ = Describe("Migration Test", func() {
 	for fsName, openFS := range FileSystems {
@@ -34,7 +53,8 @@ var _ = Describe("Migration Test", func() {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
-				Expect(CopyFS(sourceFS, destFS)).To(Succeed())
+				Expect(xfs.CopyDir(sourceFS, destFS, "")).To(Succeed())
+				before := telemetry(fs, "")
 
 				By("Opening the V1 database in V2")
 				db = MustSucceed(
@@ -60,6 +80,12 @@ var _ = Describe("Migration Test", func() {
 				}
 
 				Expect(db.Close()).To(Succeed())
+
+				By("Asserting that the migration left the telemetry untouched")
+				after := telemetry(fs, "")
+				for name, data := range before {
+					Expect(after).To(HaveKeyWithValue(name, data), name)
+				}
 			})
 		})
 	}

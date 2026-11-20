@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax, User as PUser } from "@synnaxlabs/pluto";
 import { location, primitive, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
 import { Connection } from "@/platform/connection";
@@ -33,23 +33,24 @@ interface SummaryProps {
   status: connection.Status;
 }
 
-const Summary = ({
-  status: { variant, name, description },
-}: SummaryProps): ReactElement => (
-  <Flex.Box y gap="tiny">
-    <Text.Text status={variant} weight={650}>
-      {Connection.STATUS_LABELS[variant]}
-    </Text.Text>
-    <Text.Text color={9} weight={450}>
-      {name}
-    </Text.Text>
-    {primitive.isNonZero(description) && (
-      <Text.Text level="small" color={9}>
-        {description}
+const Summary = ({ status }: SummaryProps): ReactElement => {
+  const { variant, name, description } = status;
+  return (
+    <Flex.Box y gap="tiny">
+      <Text.Text status={variant} weight={650}>
+        {Connection.label(status)}
       </Text.Text>
-    )}
-  </Flex.Box>
-);
+      <Text.Text color={9} weight={450}>
+        {name}
+      </Text.Text>
+      {primitive.isNonZero(description) && (
+        <Text.Text level="small" color={9}>
+          {description}
+        </Text.Text>
+      )}
+    </Flex.Box>
+  );
+};
 
 const Content = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
@@ -68,6 +69,8 @@ const Content = (): ReactElement => {
   const copyAddress = (): void => {
     if (core != null) copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
+  // A browser Console only talks to the Core that served it.
+  const editable = activeKey != null && Session.Runtime.ENGINE === "tauri";
   const editConnection = (): void => {
     if (activeKey == null) return;
     close();
@@ -85,7 +88,7 @@ const Content = (): ReactElement => {
           <Text.Text weight={500} color={10} overflow="fade">
             {core?.name ?? "Core"}
           </Text.Text>
-          {activeKey != null && (
+          {editable && (
             <Button.Button
               aria-label="Edit connection"
               variant="text"
@@ -100,7 +103,7 @@ const Content = (): ReactElement => {
             level="small"
             className={CSS.BE("core-badge", "state")}
           >
-            {Connection.STATUS_LABELS[variant]}
+            {Connection.label(status)}
           </Text.Text>
         </Flex.Box>
         {core != null && (
@@ -127,11 +130,6 @@ const Content = (): ReactElement => {
         {details.nodeVersion != null && (
           <Text.Text level="small" color={9}>
             {`Core v${details.nodeVersion}`}
-          </Text.Text>
-        )}
-        {details.nodeVersion != null && !details.clientServerCompatible && (
-          <Text.Text level="small" status="warning">
-            {`Incompatible with client v${details.clientVersion}`}
           </Text.Text>
         )}
         {details.nodeVersion != null && <License.Summary />}

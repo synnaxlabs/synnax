@@ -11,15 +11,15 @@ package pagerduty
 
 import (
 	"context"
-	"fmt"
+	"sync"
 	"time"
 
 	"github.com/PagerDuty/go-pagerduty"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -27,11 +27,11 @@ import (
 // AlertTaskType is the type identifier for PagerDuty alert tasks.
 const AlertTaskType = "pagerduty_alert"
 
-// validateConfig checks the deploy-time constraints on a task config: a real
-// routing key and at least one enabled alert.
+// validateConfig checks the deploy-time constraints on a task config: a routing key
+// and at least one enabled alert.
 func validateConfig(c TaskConfig) error {
 	v := validate.New("pagerduty.task_config")
-	v.Ternary("routing_key", len(c.RoutingKey) != 32, "must be exactly 32 characters")
+	v.Ternary("routing_key", c.RoutingKey == nil, "required")
 	var hasEnabled bool
 	for _, a := range c.Alerts {
 		if !a.Disabled {
@@ -85,38 +85,99 @@ func newAlertTask(
 	return at, nil
 }
 
-func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
-	disconnect := t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
+// resolveRoutingKey returns the value of the secret with the given key. It returns a
+// validation error when the value is not 32 characters.
+func resolveRoutingKey(
+	ctx context.Context,
+	db *gorp.DB,
+	secrets *secret.Service,
+	key secret.Key,
+) (string, error) {
+	values, err := secrets.Reveal(ctx, db, key)
+	if err != nil {
+		return "", err
+	}
+	value := string(values[key])
+	v := validate.New("pagerduty.task_config")
+	v.Ternary("routing_key", len(value) != 32, "must be exactly 32 characters")
+	if err = v.Error(); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// open reads the routing key once, so a run keeps the key it started with when the
+// saved config or the secret's value changes.
+func (t *alertTask) open(ctx context.Context) (func(context.Context) error, error) {
+	routingKey, err := resolveRoutingKey(
+		ctx,
+		t.factoryCfg.DB,
+		t.factoryCfg.Secret,
+		*t.cfg.RoutingKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// A reader of a commit must not wait for PagerDuty, so the run sends the events. It
+	// sends one event per change, in commit order, so a quick error still pages.
+	var (
+		mu      sync.Mutex
+		pending []status.Status[any]
+		wake    = make(chan struct{}, 1)
+	)
+	disconnect := t.factoryCfg.Status.Observe().OnChange(func(
+		_ context.Context,
+		r gorp.TxReader[status.Key, status.Status[any]],
+	) {
+		var changed []status.Status[any]
+		for ch := range r {
+			if _, ok := t.alertsByStatus[ch.Key]; ok &&
+				ch.Kind != gorp.ChangeDelete {
+				changed = append(changed, ch.Value)
+			}
+		}
+		if len(changed) == 0 {
+			return
+		}
+		mu.Lock()
+		pending = append(pending, changed...)
+		mu.Unlock()
+		select {
+		case wake <- struct{}{}:
+		default:
+		}
+	})
 	return func(ctx context.Context) error {
-		<-ctx.Done()
-		disconnect()
-		return nil
+		defer disconnect()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-wake:
+			}
+			mu.Lock()
+			stats := pending
+			pending = nil
+			mu.Unlock()
+			for _, s := range stats {
+				t.sendStatusEvent(ctx, s, routingKey)
+			}
+		}
 	}, nil
 }
 
-func (t *alertTask) handleStatusChange(
+// sendStatusEvent sends the event for s, if its variant has one.
+func (t *alertTask) sendStatusEvent(
 	ctx context.Context,
-	reader gorp.TxReader[status.Key, status.Status[any]],
+	s status.Status[any],
+	routingKey string,
 ) {
-	for ch := range reader {
-		if ch.Variant == change.VariantDelete {
-			continue
-		}
-		alertCfg, ok := t.alertsByStatus[ch.Key]
-		if !ok {
-			continue
-		}
-		s := ch.Value
-		switch s.Variant {
-		case status.VariantError, status.VariantWarning, status.VariantInfo:
-			event := t.buildTriggerEvent(s, alertCfg)
-			t.sendEvent(ctx, event)
-		case status.VariantSuccess:
-			event := t.buildResolveEvent(s.Key)
-			t.sendEvent(ctx, event)
-		default:
-			// loading, disabled — skip
-		}
+	switch s.Variant {
+	case status.VariantError, status.VariantWarning, status.VariantInfo:
+		t.sendEvent(ctx, t.buildTriggerEvent(s, t.alertsByStatus[s.Key]), routingKey)
+	case status.VariantSuccess:
+		t.sendEvent(ctx, t.buildResolveEvent(s.Key), routingKey)
+	case status.VariantLoading, status.VariantDisabled:
 	}
 }
 
@@ -126,7 +187,7 @@ func (t *alertTask) buildTriggerEvent(
 ) pagerduty.V2Event {
 	summary := s.Message
 	if s.Description != "" {
-		summary += fmt.Sprintf(": %s", s.Description)
+		summary += ": " + s.Description
 	}
 	// PagerDuty requires a source, which an unnamed status lacks.
 	source := s.Name
@@ -134,10 +195,9 @@ func (t *alertTask) buildTriggerEvent(
 		source = s.Key
 	}
 	return pagerduty.V2Event{
-		RoutingKey: t.cfg.RoutingKey,
-		Action:     "trigger",
-		DedupKey:   s.Key,
-		Client:     "Synnax",
+		Action:   "trigger",
+		DedupKey: s.Key,
+		Client:   "Synnax",
 		Payload: &pagerduty.V2Payload{
 			Summary:   summary,
 			Source:    source,
@@ -152,11 +212,7 @@ func (t *alertTask) buildTriggerEvent(
 }
 
 func (t *alertTask) buildResolveEvent(statusKey status.Key) pagerduty.V2Event {
-	return pagerduty.V2Event{
-		RoutingKey: t.cfg.RoutingKey,
-		Action:     "resolve",
-		DedupKey:   statusKey,
-	}
+	return pagerduty.V2Event{Action: "resolve", DedupKey: statusKey}
 }
 
 func mapSeverity(variant status.Variant, errorsCritical bool) string {
@@ -170,15 +226,26 @@ func mapSeverity(variant status.Variant, errorsCritical bool) string {
 		return "warning"
 	case status.VariantInfo:
 		return "info"
-	default:
-		return "info"
+	case status.VariantSuccess, status.VariantLoading, status.VariantDisabled:
 	}
+	panic("no PagerDuty severity for variant " + string(variant))
 }
 
-// sendEvent sends event. A failed send sets an error status on the task that stays
-// until the next start or stop.
-func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
-	resp, err := t.factoryCfg.Sender.SendEvent(ctx, event)
+// sendEvent sends event with routingKey. A failed send sets an error status on the
+// task that stays until the next start or stop.
+func (t *alertTask) sendEvent(
+	ctx context.Context,
+	event pagerduty.V2Event,
+	routingKey string,
+) {
+	// The logs below carry event, which holds no routing key.
+	sent := event
+	sent.RoutingKey = routingKey
+	resp, err := t.factoryCfg.Sender.SendEvent(ctx, sent)
+	// A send that a stop cancels did not fail.
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
 		t.factoryCfg.L.Error(
 			"failed to send PagerDuty event",

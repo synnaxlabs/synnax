@@ -12,7 +12,7 @@ import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { type Entry } from "@/manifest";
+import type { Entry } from "@/manifest";
 
 /**
  * Specifiers of the static import and export statements in a module. Prettier starts
@@ -53,6 +53,13 @@ const modules = async (file: string, root: string): Promise<string[]> => {
   };
   await visit(file);
   return [file, ...[...found].sort()];
+};
+
+/** versionOf hashes named files, so their CDN keys change with their content. */
+export const versionOf = (files: Record<string, Buffer>): string => {
+  const hash = createHash("sha256");
+  for (const name of Object.keys(files).sort()) hash.update(name).update(files[name]);
+  return hash.digest("hex").slice(0, 12);
 };
 
 /**

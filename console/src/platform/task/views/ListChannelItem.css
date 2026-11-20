@@ -10,6 +10,7 @@
  */
 
 .console-list-channel-item__flow {
+    flex-shrink: 0;
     color: var(--pluto-gray-l6);
 }
 
@@ -22,6 +23,8 @@
 .console-list-channel-item--disabled
     .console-list-channel-item__cells
     > :not(:last-child),
-.console-list-channel-item--disabled .console-task-channel-name {
+.console-list-channel-item--disabled
+    .console-list-channel-item__channel
+    > :not(:last-child) {
     opacity: 0.5;
 }

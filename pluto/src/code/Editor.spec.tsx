@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
@@ -88,8 +87,8 @@ interface Edit {
 }
 
 // A model backed by a real string so Editor's offset/position math and minimal-edit
-// reconciliation actually round-trip. notify forwards an applyEdits mutation to the owning
-// editor's content emitter, as monaco's model→editor wiring does.
+// reconciliation actually round-trip. notify forwards an applyEdits mutation to the
+// owning editor's content emitter, as monaco's model→editor wiring does.
 const createFakeModel = (initial: string, language: string, uri?: unknown) => {
   let value = initial;
   let notify: ((changes: unknown[]) => void) | null = null;
@@ -128,6 +127,14 @@ const createFakeModel = (initial: string, language: string, uri?: unknown) => {
 
 type FakeModel = ReturnType<typeof createFakeModel>;
 
+const SEVERITY = { Hint: 1, Info: 2, Warning: 4, Error: 8 } as const;
+
+interface Marker {
+  severity: number;
+  source?: string;
+  code?: string;
+}
+
 const createFakeEditor = (model: FakeModel) => {
   const content = makeEmitter<{ changes: unknown[] }>();
   const keyDown = makeEmitter<{ browserEvent: KeyboardEvent }>();
@@ -145,8 +152,26 @@ const createFakeEditor = (model: FakeModel) => {
   let position = { lineNumber: 1, column: 1 };
   let selection: Range | null = null;
   const decorationSets: unknown[][] = [];
+  // Monaco renders its hover in this element of the editor's DOM node.
+  const domNode = document.createElement("div");
+  const widgets = domNode.appendChild(document.createElement("div"));
+  widgets.className = "overflowingContentWidgets";
   const editor = {
     getModel: () => model,
+    getDomNode: () => domNode,
+    // Renders a marker row for each detail, as monaco's hover does. A marker with no
+    // source and no code has no detail.
+    showHover: (...details: (string | null)[]): HTMLElement[] =>
+      details.map((detail) => {
+        const row = widgets.appendChild(document.createElement("div"));
+        row.className = "hover-row";
+        const marker = row.appendChild(document.createElement("div"));
+        marker.className = "marker hover-contents";
+        marker.appendChild(document.createElement("span")).textContent = "message";
+        if (detail != null)
+          marker.appendChild(document.createElement("span")).textContent = detail;
+        return marker;
+      }),
     createDecorationsCollection: vi.fn(() => ({
       set: (next: unknown[]) => decorationSets.push(next),
       clear: vi.fn(),
@@ -175,7 +200,6 @@ const createFakeEditor = (model: FakeModel) => {
     },
     emitKeyDown: keyDown.emit,
     emitKeyUp: keyUp.emit,
-    emitContextMenu: contextMenu.emit,
     emitCursor: cursor.emit,
     listeners: { content: content.listeners, keyDown: keyDown.listeners },
   };
@@ -188,7 +212,9 @@ const createFakeMonaco = () => {
   let lastEditor: FakeEditor | null = null;
   let lastCreatedModel: FakeModel | null = null;
   let lastInputArea: HTMLTextAreaElement | null = null;
+  let markers: Marker[] = [];
   const editor = {
+    getModelMarkers: vi.fn(() => markers),
     create: vi.fn(
       (
         container: HTMLElement,
@@ -225,6 +251,10 @@ const createFakeMonaco = () => {
     Uri: { parse: vi.fn((raw: string) => ({ raw, toString: () => raw })) },
     KeyMod: { CtrlCmd: 2048, Shift: 1024 },
     KeyCode: { KeyP: 46 },
+    MarkerSeverity: { ...SEVERITY, 1: "Hint", 2: "Info", 4: "Warning", 8: "Error" },
+    setMarkers: (next: Marker[]) => {
+      markers = next;
+    },
     CancellationTokenSource: class {
       token = { isCancellationRequested: false };
       cancel = vi.fn();
@@ -245,18 +275,6 @@ const createFakeMonaco = () => {
 };
 
 type FakeMonaco = ReturnType<typeof createFakeMonaco>;
-
-// A rename provider that opts the cursor into being renameable.
-const renameableProvider = {
-  resolveRenameLocation: vi.fn().mockResolvedValue({ range: {}, text: "name" }),
-};
-
-const SELECTION: Range = {
-  startLineNumber: 1,
-  startColumn: 1,
-  endLineNumber: 1,
-  endColumn: 5,
-};
 
 const setRenameProviders = (providers: unknown[]): void => {
   getServiceMock.mockReturnValue({
@@ -355,6 +373,18 @@ describe("Editor", () => {
       expect(options.value).toBeUndefined();
       expect(options.language).toBeUndefined();
     });
+
+    it("should create a module model with a custom arc:// uri when isModule is set", () => {
+      renderEditor({ initialValue: "z", isModule: true });
+      expect(monaco.Uri.parse).toHaveBeenCalledTimes(1);
+      const uri = monaco.Uri.parse.mock.calls[0][0];
+      expect(uri).toMatch(/^arc:\/\/module\//);
+      expect(monaco.editor.createModel).toHaveBeenCalledWith(
+        "z",
+        "arc",
+        expect.anything(),
+      );
+    });
   });
 
   describe("change propagation", () => {
@@ -423,99 +453,6 @@ describe("Editor", () => {
       renderEditor();
       expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(BASE_THEMES.light);
       expect(monaco.editor.setTheme).toHaveBeenCalledWith(BASE_THEMES.light);
-    });
-  });
-
-  describe("context menu", () => {
-    const openMenu = (editor: FakeEditor) =>
-      act(() =>
-        editor.emitContextMenu({
-          event: {
-            posx: 10,
-            posy: 20,
-            preventDefault: vi.fn(),
-            stopPropagation: vi.fn(),
-          },
-        }),
-      );
-
-    it("should open a menu with the default actions on editor context menu", () => {
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Cut")).toBeTruthy();
-      expect(screen.getByText("Copy")).toBeTruthy();
-      expect(screen.getByText("Paste")).toBeTruthy();
-      expect(screen.getByText("Format")).toBeTruthy();
-    });
-
-    it("should append the consumer's extra items to the menu", () => {
-      renderEditor({ extraMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item> });
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Extra")).toBeTruthy();
-    });
-
-    it.each([
-      { label: "Cut", action: "editor.action.clipboardCutAction" },
-      { label: "Copy", action: "editor.action.clipboardCopyAction" },
-      { label: "Paste", action: "editor.action.clipboardPasteAction" },
-      { label: "Format", action: "editor.action.formatDocument" },
-    ])("should focus the editor and trigger $label", ({ label, action }) => {
-      renderEditor();
-      const editor = monaco.editorInstance;
-      editor.setSelection(SELECTION);
-      openMenu(editor);
-      fireEvent.click(screen.getByText(label));
-      expect(editor.focus).toHaveBeenCalled();
-      expect(editor.trigger).toHaveBeenCalledWith("contextMenu", action, null);
-    });
-
-    it("should disable cut and copy when there is no selection", () => {
-      renderEditor();
-      const editor = monaco.editorInstance;
-      editor.setSelection(null);
-      openMenu(editor);
-      fireEvent.click(screen.getByText("Cut"));
-      expect(editor.trigger).not.toHaveBeenCalled();
-    });
-
-    it("should hide the rename action when the cursor is not renameable", () => {
-      setRenameProviders([]);
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Paste")).toBeTruthy();
-      expect(screen.queryByText("Rename")).toBeNull();
-    });
-
-    it("should hide the rename action and report when a provider fails", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      setRenameProviders([
-        { resolveRenameLocation: vi.fn().mockRejectedValue(new Error("boom")) },
-      ]);
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      await vi.waitFor(() =>
-        expect(errorSpy).toHaveBeenCalledWith(
-          "failed to check rename availability",
-          expect.anything(),
-        ),
-      );
-      expect(screen.queryByText("Rename")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    it("should show and trigger rename when the cursor is renameable", async () => {
-      setRenameProviders([renameableProvider]);
-      renderEditor();
-      const editor = monaco.editorInstance;
-      openMenu(editor);
-      const rename = await screen.findByText("Rename");
-      expect(rename).toBeTruthy();
-      fireEvent.click(rename);
-      expect(editor.trigger).toHaveBeenCalledWith(
-        "contextMenu",
-        "editor.action.rename",
-        null,
-      );
     });
   });
 
@@ -684,7 +621,8 @@ describe("Editor", () => {
       });
       renderEditor({ autoFocus: true });
       const editor = monaco.editorInstance;
-      // A frame late, so the teardown of whatever opened the editor cannot reclaim focus.
+      // A frame late, so the teardown of whatever opened the editor cannot reclaim
+      // focus.
       expect(editor.focus).not.toHaveBeenCalled();
       act(() => frames.forEach((f) => f(0)));
       expect(editor.focus).toHaveBeenCalledTimes(1);
@@ -755,6 +693,73 @@ describe("Editor", () => {
       renderWithSubscriber(callback);
       pressEscape(document.body);
       expect(presses(callback)).toBe(1);
+    });
+  });
+
+  describe("hover severity", () => {
+    const SOURCE = "arc-analyzer";
+    const WARNING: Marker = { severity: SEVERITY.Warning, source: SOURCE, code: "W1" };
+    const ERROR: Marker = { severity: SEVERITY.Error, source: SOURCE, code: "E1" };
+
+    const hoverSeverities = async (
+      markers: Marker[],
+      ...details: (string | null)[]
+    ): Promise<(string | undefined)[]> => {
+      renderEditor();
+      monaco.setMarkers(markers);
+      const rows = monaco.editorInstance.showHover(...details);
+      await waitFor(() => expect(rows[0].dataset.severity).toBeDefined());
+      return rows.map((row) => row.dataset.severity);
+    };
+
+    it("should color a warning that has a code as a warning", async () => {
+      expect(await hoverSeverities([WARNING], `${SOURCE}(W1)`)).toEqual(["warning"]);
+    });
+
+    it("should color a warning that has no code as an error", async () => {
+      const markers = [{ severity: SEVERITY.Warning, source: SOURCE }];
+      expect(await hoverSeverities(markers, SOURCE)).toEqual(["error"]);
+    });
+
+    it("should color a marker that has no source and no code as an error", async () => {
+      const markers = [{ severity: SEVERITY.Warning }];
+      expect(await hoverSeverities(markers, null)).toEqual(["error"]);
+    });
+
+    it("should color two warnings as warnings", async () => {
+      const second = { ...WARNING, code: "W2" };
+      expect(
+        await hoverSeverities([WARNING, second], `${SOURCE}(W1)`, `${SOURCE}(W2)`),
+      ).toEqual(["warning", "warning"]);
+    });
+
+    it("should color a warning next to an error as an error", async () => {
+      expect(
+        await hoverSeverities([WARNING, ERROR], `${SOURCE}(W1)`, `${SOURCE}(E1)`),
+      ).toEqual(["error", "error"]);
+    });
+
+    it("should color a warning next to a row that has no code as an error", async () => {
+      const markers = [WARNING, { severity: SEVERITY.Warning, source: SOURCE }];
+      expect(await hoverSeverities(markers, `${SOURCE}(W1)`, SOURCE)).toEqual([
+        "error",
+        "error",
+      ]);
+    });
+
+    it("should color an info marker as info", async () => {
+      const markers = [{ severity: SEVERITY.Info, source: SOURCE, code: "I1" }];
+      expect(await hoverSeverities(markers, `${SOURCE}(I1)`)).toEqual(["info"]);
+    });
+
+    it("should stop watching the hover on unmount", async () => {
+      const { unmount } = renderEditor();
+      const editor = monaco.editorInstance;
+      unmount();
+      monaco.setMarkers([WARNING]);
+      const [row] = editor.showHover(`${SOURCE}(W1)`);
+      await act(async () => {});
+      expect(row.dataset.severity).toBeUndefined();
     });
   });
 

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
-import { type Haul } from "@synnaxlabs/lyra/haul";
-import { TimeRange, TimeStamp } from "@synnaxlabs/x";
+import type { ranger } from "@synnaxlabs/client";
+import type { Haul } from "@synnaxlabs/lyra/haul";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -23,8 +23,9 @@ import {
 const PAYLOAD: ranger.Payload = {
   key: "550e8400-e29b-41d4-a716-446655440000",
   name: "Test Range",
-  timeRange: new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeStamp.SECOND)),
+  timeRange: new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeSpan.SECOND)),
   labels: [],
+  hasChildren: false,
 };
 
 const OTHER: Haul.Item = { type: "other_type", key: "other" };

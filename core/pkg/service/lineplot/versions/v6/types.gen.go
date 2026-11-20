@@ -14,12 +14,14 @@ package v6
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -29,8 +31,10 @@ type Key = v5.Key
 type TickType = v5.TickType
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = v5.TickTypeLinear
-	TickTypeTime   TickType = v5.TickTypeTime
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = v5.TickTypeTime
 )
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
@@ -45,7 +49,9 @@ const (
 type XAxisKey = v5.XAxisKey
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = v5.XAxisKeyX1
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = v5.XAxisKeyX2
 )
 
@@ -53,9 +59,13 @@ const (
 type YAxisKey = v5.YAxisKey
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = v5.YAxisKeyY1
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = v5.YAxisKeyY2
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = v5.YAxisKeyY3
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = v5.YAxisKeyY4
 )
 
@@ -63,11 +73,17 @@ const (
 type AxisKey = v5.AxisKey
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = v5.AxisKeyX1
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = v5.AxisKeyX2
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = v5.AxisKeyY1
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = v5.AxisKeyY2
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = v5.AxisKeyY3
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = v5.AxisKeyY4
 )
 
@@ -81,13 +97,17 @@ type Legend = v5.Legend
 // carry zero or more channels each.
 type Channels = v5.Channels
 
+// CustomRangeType is the "variant" value that selects a variant of CustomRange.
 type CustomRangeType string
 
 const (
+	// DynamicCustomRangeType is a rolling window.
 	DynamicCustomRangeType CustomRangeType = "dynamic"
-	StaticCustomRangeType  CustomRangeType = "static"
+	// StaticCustomRangeType is a fixed window.
+	StaticCustomRangeType CustomRangeType = "static"
 )
 
+// CustomRangeVariant is implemented by every CustomRange variant.
 type CustomRangeVariant interface {
 	isCustomRangeVariant()
 }
@@ -174,9 +194,21 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.StaticCustomRange
 	default:
-		return errors.Newf("CustomRange: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CustomRange: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u CustomRange) Validate() error {
+	v := validate.New("CustomRange")
+	v.Ternary("variant", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Ranges binds range keys to each x-axis.
@@ -190,6 +222,16 @@ type Ranges struct {
 	X2 []string `json:"x2" msgpack:"x2"`
 	// Custom is the window the "custom" range key resolves to.
 	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Ranges) Validate() error {
+	v := validate.New("Ranges")
+	if r.Custom != nil {
+		v.Exec(func() error { return validate.PathedError(r.Custom.Validate(), "custom") })
+	}
+	return v.Error()
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -236,17 +278,30 @@ type LinePlot struct {
 	Rules []Rule `json:"rules" msgpack:"rules"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinePlot) SetDefaults() {
+	l.Title.SetDefaults()
+	l.Legend.SetDefaults()
+	l.Axes.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -255,6 +310,7 @@ func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	v.Exec(func() error { return validate.PathedError(l.Ranges.Validate(), "ranges") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
 	for i := range l.Lines {
 		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })

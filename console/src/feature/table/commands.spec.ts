@@ -10,6 +10,7 @@
 import { table } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +20,7 @@ import { client, project } from "@/feature/table/testutil";
 import { findCommand } from "@/platform/command/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { assertDefined, renderHookWithConsole, resolveFocusedTab } from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
 
 const roles = new RoleClients(client);
 
@@ -35,7 +36,7 @@ describe("Table Commands", () => {
     await selectCommand("Create table");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(table.TYPE_RESOURCE_ID.type);
     const created = await client.tables.retrieve(tab.resource.key);
     expect(created.name).toBe("Table");
   });
@@ -57,7 +58,7 @@ describe("Table Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(table.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(table.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

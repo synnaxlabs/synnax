@@ -18,39 +18,69 @@ import v0 "github.com/synnaxlabs/arc/types/versions/v0"
 type Kind = v0.Kind
 
 const (
-	KindInvalid                   Kind = v0.KindInvalid
-	KindU8                        Kind = v0.KindU8
-	KindU16                       Kind = v0.KindU16
-	KindU32                       Kind = v0.KindU32
-	KindU64                       Kind = v0.KindU64
-	KindI8                        Kind = v0.KindI8
-	KindI16                       Kind = v0.KindI16
-	KindI32                       Kind = v0.KindI32
-	KindI64                       Kind = v0.KindI64
-	KindF32                       Kind = v0.KindF32
-	KindF64                       Kind = v0.KindF64
-	KindString                    Kind = v0.KindString
-	KindChan                      Kind = v0.KindChan
-	KindSeries                    Kind = v0.KindSeries
-	KindVariable                  Kind = v0.KindVariable
-	KindNumericConstant           Kind = v0.KindNumericConstant
-	KindIntegerConstant           Kind = v0.KindIntegerConstant
-	KindFloatConstant             Kind = v0.KindFloatConstant
+	// KindInvalid marks a type that Arc cannot represent.
+	KindInvalid Kind = v0.KindInvalid
+	// KindU8 is an unsigned 8-bit integer.
+	KindU8 Kind = v0.KindU8
+	// KindU16 is an unsigned 16-bit integer.
+	KindU16 Kind = v0.KindU16
+	// KindU32 is an unsigned 32-bit integer.
+	KindU32 Kind = v0.KindU32
+	// KindU64 is an unsigned 64-bit integer.
+	KindU64 Kind = v0.KindU64
+	// KindI8 is a signed 8-bit integer.
+	KindI8 Kind = v0.KindI8
+	// KindI16 is a signed 16-bit integer.
+	KindI16 Kind = v0.KindI16
+	// KindI32 is a signed 32-bit integer.
+	KindI32 Kind = v0.KindI32
+	// KindI64 is a signed 64-bit integer.
+	KindI64 Kind = v0.KindI64
+	// KindF32 is a 32-bit float.
+	KindF32 Kind = v0.KindF32
+	// KindF64 is a 64-bit float.
+	KindF64 Kind = v0.KindF64
+	// KindString is a text string.
+	KindString Kind = v0.KindString
+	// KindChan is a channel of the element type.
+	KindChan Kind = v0.KindChan
+	// KindSeries is an array of the element type.
+	KindSeries Kind = v0.KindSeries
+	// KindVariable is a generic type parameter.
+	KindVariable Kind = v0.KindVariable
+	// KindNumericConstant constrains a type parameter to any numeric type.
+	KindNumericConstant Kind = v0.KindNumericConstant
+	// KindIntegerConstant constrains a type parameter to an integer literal, which can
+	// resolve to any numeric type.
+	KindIntegerConstant Kind = v0.KindIntegerConstant
+	// KindFloatConstant constrains a type parameter to any floating-point type.
+	KindFloatConstant Kind = v0.KindFloatConstant
+	// KindExactIntegerFloatConstant constrains a type parameter to a float literal that
+	// holds an exact integer, which can resolve to any numeric type.
 	KindExactIntegerFloatConstant Kind = v0.KindExactIntegerFloatConstant
-	KindFunction                  Kind = v0.KindFunction
-	KindSequence                  Kind = v0.KindSequence
-	KindStage                     Kind = v0.KindStage
-	KindVarRef                    Kind = v0.KindVarRef
-	KindBool                      Kind = v0.KindBool
+	// KindFunction is a function type.
+	KindFunction Kind = v0.KindFunction
+	// KindSequence is a state machine.
+	KindSequence Kind = v0.KindSequence
+	// KindStage is a stage within a sequence.
+	KindStage Kind = v0.KindStage
+	// KindVarRef is a reference to the variable of a node.
+	KindVarRef Kind = v0.KindVarRef
+	// KindBool is a boolean.
+	KindBool Kind = v0.KindBool
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection = v0.ChanDirection
 
 const (
-	ChanDirectionNone      ChanDirection = v0.ChanDirectionNone
-	ChanDirectionRead      ChanDirection = v0.ChanDirectionRead
-	ChanDirectionWrite     ChanDirection = v0.ChanDirectionWrite
+	// ChanDirectionNone has no direction set.
+	ChanDirectionNone ChanDirection = v0.ChanDirectionNone
+	// ChanDirectionRead reads from the channel.
+	ChanDirectionRead ChanDirection = v0.ChanDirectionRead
+	// ChanDirectionWrite writes to the channel.
+	ChanDirectionWrite ChanDirection = v0.ChanDirectionWrite
+	// ChanDirectionReadWrite reads from and writes to the channel.
 	ChanDirectionReadWrite ChanDirection = v0.ChanDirectionReadWrite
 )
 

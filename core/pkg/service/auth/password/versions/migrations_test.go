@@ -48,6 +48,7 @@ var _ = Describe("MoveLegacy", func() {
 	BeforeEach(func(ctx SpecContext) {
 		kvDB := DeferClose(memkv.New())
 		db = gorp.Wrap(kvDB)
+		StartRun(db.Run)
 		users = []userv0.User{
 			{Key: uuid.New(), Username: "alice"},
 			{Key: uuid.New(), Username: "bob"},
@@ -68,7 +69,7 @@ var _ = Describe("MoveLegacy", func() {
 		svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		for _, u := range users {
 			Expect(MustSucceed(login(ctx, svc, u.Username)).Subject).
-				To(Equal(u.OntologyID()))
+				To(Equal(u.ResourceID()))
 		}
 		Expect(login(ctx, svc, "ghost")).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
@@ -89,7 +90,7 @@ var _ = Describe("MoveLegacy", func() {
 		svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		for _, u := range users {
 			Expect(MustSucceed(login(ctx, svc, u.Username)).Subject).
-				To(Equal(u.OntologyID()))
+				To(Equal(u.ResourceID()))
 			var migrated userversions.User
 			Expect(gorp.NewRetrieve[userversions.Key, userversions.User]().
 				Where(gorp.MatchKeys[userversions.Key, userversions.User](u.Key)).

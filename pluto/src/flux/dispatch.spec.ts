@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { actions, query, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { array, destructor, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -48,6 +51,7 @@ const createHarness = (send: SendFn): Harness => {
     store: docs,
     onError,
     onEpoch: () => destructor.NOOP,
+    onStreamDown: () => destructor.NOOP,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
     send: async (_, actions) => {
@@ -73,11 +77,10 @@ const createDoc = (key: schematic.Key): schematic.Schematic =>
     key,
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
-      { key: "n1", position: { x: 0, y: 0 } },
-      { key: "n2", position: { x: 10, y: 10 } },
+      { key: "n1", position: { x: 0, y: 0 }, config: { variant: "vent" } },
+      { key: "n2", position: { x: 10, y: 10 }, config: { variant: "vent" } },
     ],
     edges: [],
-    configs: {},
   });
 
 const makeDispatch = (domain: Domain): Handle =>
@@ -487,7 +490,7 @@ describe("Flux.createDispatch", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.rename({ name: "renamed" }),
+          actions: schematic.set({ path: ["name"], value: "renamed" }),
         });
       });
       // Two distinct entries: one undo leaves canUndo true, a second clears it.
@@ -498,49 +501,50 @@ describe("Flux.createDispatch", () => {
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
     });
 
-    it("restores state when undoing two coalesced setConfig dispatches", async () => {
+    it("restores state when undoing two coalesced config edits", async () => {
       const { result, key, docs } = setupHook((td, k) => ({
         dispatch: td.useDispatch(),
         undo: td.useUndo({ key: k }),
       }));
-      // Establish an existing config so the next two setConfigs hit the "existing !=
-      // null" branch and capture non-empty inverses. setNode's kind differs from
-      // "set_config", so this entry won't coalesce with the burst that follows.
+      const tank = (label: string): schematic.NodeConfig =>
+        schematic.nodeConfigZ.parse({ variant: "tank", label: { label } });
+      // setNode is not a config edit, so it does not coalesce with the edits below.
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
           actions: schematic.setNode({
-            node: { key: "n1", position: { x: 0, y: 0 } },
-            config: { variant: "tank", label: { label: "original" } },
+            node: { key: "n1", position: { x: 0, y: 0 }, config: tank("original") },
           }),
         });
       });
-      const baseline = getDoc(docs, key)?.configs;
-      // Two rapid same-kind dispatches → coalesce inside the 500ms window
-      // into a single entry whose merged inverse is [inv2, inv1]. Before the
-      // snapshot() fix in client/ts/src/schematic/actions.ts the second
-      // inverse action threw inside reduceAll ("current expects a draft")
-      // and undo silently did nothing.
+      const baseline = getDoc(docs, key)?.nodes;
+      // The two edits coalesce into one entry whose inverse is [inv2, inv1].
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.setConfig({
+          actions: schematic.setChanged({
             key: "n1",
-            config: { variant: "tank", label: { label: "first" } },
+            base: tank("original"),
+            next: tank("first"),
           }),
         });
       });
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.setConfig({
+          actions: schematic.setChanged({
             key: "n1",
-            config: { variant: "tank", label: { label: "second" } },
+            base: tank("first"),
+            next: tank("second"),
           }),
         });
       });
+      expect(getDoc(docs, key)?.nodes[0].config).toEqual(tank("second"));
       act(() => result.current.undo.undo());
-      await waitFor(() => expect(getDoc(docs, key)?.configs).toEqual(baseline));
+      await waitFor(() => expect(getDoc(docs, key)?.nodes).toEqual(baseline));
+      expect(result.current.undo.canUndo).toBe(true);
+      act(() => result.current.undo.undo());
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
     });
   });
 
@@ -705,11 +709,11 @@ describe("Flux.createDispatch", () => {
       const proj = await client.projects.create({
         name: `dispatch_${uuid.create()}`,
       });
-      return await client.schematics.create(proj.key, {
+      return await client.schematics.create({
+        project: proj.key,
         name: `dispatch_live_${uuid.create()}`,
-        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+        nodes: [{ key: "n1", position: { x: 0, y: 0 }, config: { variant: "vent" } }],
         edges: [],
-        configs: {},
       });
     };
 
@@ -763,26 +767,22 @@ describe("Flux.createDispatch", () => {
     }, 15000);
 
     it("returns false and rolls back when the cluster rejects a dispatch", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createLiveSchem();
-      // Snapshots reject dispatches server-side, giving a deterministic
-      // send failure through the production domain.
-      const snap = await client.schematics.copy({
-        key: schem.key,
-        name: `snap_${uuid.create()}`,
-        snapshot: true,
-      });
+      // A Viewer holds no update grant, so the Core rejects its dispatch.
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      await viewer.schematics.retrieve(schem.key);
+      const Wrapper = await createAsyncSynnaxWrapper({ client: viewer });
       const { result } = renderHook(() => live.useDispatch(), { wrapper: Wrapper });
       let ok = true;
       await act(async () => {
         ok = await result.current.dispatchAsync({
-          key: snap.key,
+          key: schem.key,
           actions: schematic.setNodePosition({ key: "n1", position: { x: 3, y: 3 } }),
         });
       });
       expect(ok).toBe(false);
-      expect(client.schematics.hasUndo(snap.key)).toBe(false);
-      expect(await serverPosition(snap.key)).toEqual({ x: 0, y: 0 });
+      expect(viewer.schematics.hasUndo(schem.key)).toBe(false);
+      expect(await serverPosition(schem.key)).toEqual({ x: 0, y: 0 });
     }, 15000);
 
     it("drops undo state when the schematic is deleted", async () => {

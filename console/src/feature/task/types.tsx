@@ -7,66 +7,80 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { channel, device, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Sift } from "@/feature/sift";
+import type { Task } from "@/platform/task";
 
-const PREFIXES = [
-  EtherCAT.Task.PREFIX,
-  HTTP.Task.PREFIX,
-  LabJack.Task.PREFIX,
-  Modbus.Task.PREFIX,
-  MQTT.Task.PREFIX,
-  NI.Task.PREFIX,
-  OPCUA.Task.PREFIX,
-  PagerDuty.Task.PREFIX,
-] as const;
-type Prefix = (typeof PREFIXES)[number];
+export const INTEGRATIONS: Task.Integration[] = [
+  EtherCAT.Task.INTEGRATION,
+  HTTP.Task.INTEGRATION,
+  Kafka.Task.INTEGRATION,
+  LabJack.Task.INTEGRATION,
+  Modbus.Task.INTEGRATION,
+  MQTT.Task.INTEGRATION,
+  NI.Task.INTEGRATION,
+  OPCUA.Task.INTEGRATION,
+  PagerDuty.Task.INTEGRATION,
+  Sift.Task.INTEGRATION,
+];
 
-const ICONS: Record<Prefix, Icon.ReactElement> = {
-  [EtherCAT.Task.PREFIX]: <Icon.Logo.EtherCAT />,
-  [HTTP.Task.PREFIX]: <Icon.Logo.HTTP />,
-  [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
-  [Modbus.Task.PREFIX]: <Icon.Logo.Modbus />,
-  [MQTT.Task.PREFIX]: <Icon.Logo.MQTT />,
-  [NI.Task.PREFIX]: <Icon.Logo.NI />,
-  [OPCUA.Task.PREFIX]: <Icon.Logo.OPCUA />,
-  [PagerDuty.Task.PREFIX]: <Icon.Logo.PagerDuty />,
-};
+const PLOT_CHANNELS: Record<string, Task.PlotChannels> = Object.fromEntries(
+  INTEGRATIONS.flatMap(({ plotChannels }) => Object.entries(plotChannels ?? {})),
+);
 
-export const getIcon = (type: string): Icon.ReactElement => {
-  for (const prefix of PREFIXES) if (type.startsWith(prefix)) return ICONS[prefix];
-  return <Icon.Task />;
-};
+export const getPlotChannels = (type: string): Task.PlotChannels | undefined =>
+  PLOT_CHANNELS[type];
 
-const PREFIX_NAMES: Record<Prefix, string> = {
-  [EtherCAT.Task.PREFIX]: "EtherCAT",
-  [HTTP.Task.PREFIX]: "HTTP",
-  [LabJack.Task.PREFIX]: "LabJack",
-  [Modbus.Task.PREFIX]: "Modbus",
-  [MQTT.Task.PREFIX]: "MQTT",
-  [NI.Task.PREFIX]: "NI",
-  [OPCUA.Task.PREFIX]: "OPC UA",
-  [PagerDuty.Task.PREFIX]: "PagerDuty",
-};
+const TASK_ICON = <Icon.Task />;
+
+export const getIcon = (type: string): Icon.ReactElement =>
+  INTEGRATIONS.find(({ prefix }) => type.startsWith(prefix))?.icon ?? TASK_ICON;
 
 export const parseType = (type: string): string => {
-  const words = type.split("_");
-  let isFirstWordModified = false;
-  for (const prefix of PREFIXES)
-    if (words[0] === prefix) {
-      isFirstWordModified = true;
-      words[0] = PREFIX_NAMES[prefix];
-      break;
-    }
-  if (!isFirstWordModified) words[0] = caseconv.capitalize(words[0]);
-  return `${words.join(" ")} task`;
+  const [first, ...rest] = type.split("_");
+  const name =
+    INTEGRATIONS.find(({ prefix }) => prefix === first)?.name ??
+    strings.capitalize(first);
+  return `${[name, ...rest].join(" ")} task`;
 };
+
+// The task types whose Start creates the channels that their configs name.
+const OWNED_CHANNELS: Record<string, (config: unknown) => channel.Key[]> = {
+  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.readChannelsOf,
+  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.writeChannelsOf,
+};
+
+/**
+ * @returns the keys of the channels that the Start of the task creates. A task of a
+ * type that names channels it does not own, such as a Sift upload, returns none.
+ */
+export const ownedChannelsOf = ({
+  type,
+  config,
+}: Pick<task.Payload, "type" | "config">): channel.Key[] =>
+  OWNED_CHANNELS[type]?.(config) ?? [];
+
+// The task types whose restore checks that the devices their configs name exist.
+const DEVICES: Record<string, (config: unknown) => device.Key[]> = {
+  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.devicesOf,
+  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.devicesOf,
+};
+
+/** @returns the keys of the devices that the config of the task names. */
+export const devicesOf = ({
+  type,
+  config,
+}: Pick<task.Payload, "type" | "config">): device.Key[] =>
+  DEVICES[type]?.(config) ?? [];

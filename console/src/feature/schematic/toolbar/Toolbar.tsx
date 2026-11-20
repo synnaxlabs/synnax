@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
@@ -218,10 +218,10 @@ const Internal = (): ReactElement => {
               gap="small"
               className={CSS.BE("schematic", "toolbar", "actions")}
             >
-              <Export.ToolbarButton id={schematic.ontologyID(key)} />
+              <Export.ToolbarButton id={schematic.resourceID(key)} />
               <Core.CopyLinkToolbarButton
                 name={name}
-                ontologyID={schematic.ontologyID(key)}
+                resourceID={schematic.resourceID(key)}
               />
             </Flex.Box>
             {canEdit && (

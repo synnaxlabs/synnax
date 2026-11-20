@@ -69,16 +69,6 @@ void initialize_frame(
         fr.emplace(idx, x::telem::Series(x::telem::TIMESTAMP_T, samples_per_chan));
 }
 
-/// @brief a problem that does not stop a read, sent as a task warning.
-struct Warning {
-    /// @brief what happened, in one short line.
-    std::string message;
-    /// @brief why it happened and what to do now.
-    std::string description;
-
-    [[nodiscard]] bool empty() const { return this->message.empty(); }
-};
-
 /// @brief the warning a source reports when it falls behind the hardware. It holds no
 /// sample count, so its text stays the same from read to read.
 const Warning SKEW_WARNING{
@@ -100,14 +90,27 @@ struct Source {
     [[nodiscard]] virtual std::vector<synnax::channel::Channel> channels() const = 0;
 
     /// @brief an optional function called to start the source.
+    /// @param cmd_key the key of the start command, or driver::task::NO_COMMAND for an
+    /// auto-start.
+    /// @param cancel stops running when the Driver cancels the start.
     /// @returns an error if the source fails to start, at which point the task
     /// will not proceed with the rest of startup.
-    virtual x::errors::Error start() { return x::errors::NIL; }
+    virtual x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) {
+        return x::errors::NIL;
+    }
 
     /// @brief an optional function called to stop the source.
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
     virtual ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &data) = 0;
+
+    /// @brief unblocks a read when the task stops. Called on the stopping thread after
+    /// the breaker stops, and before stop(). It can come before the read blocks, so a
+    /// blocking call made after it must also return. A read that an interrupt ends
+    /// should return driver::errors::NOMINAL_SHUTDOWN_ERROR. Not called when the
+    /// pipeline already stopped itself.
+    virtual void interrupt() {}
 
     virtual ~Source() = default;
 };
@@ -125,6 +128,10 @@ class ReadTask final : public driver::task::Task {
     class InternalSource final : public driver::pipeline::Source {
         /// @brief the parent read task.
         ReadTask &p;
+        /// @brief the warning last written to the log. Empty if there is none.
+        Warning logged_warning;
+        /// @brief whether the writer opened since the task last started.
+        bool writer_open = false;
 
     public:
         /// @brief the wrapped, hardware-specific source.
@@ -133,8 +140,24 @@ class ReadTask final : public driver::task::Task {
         InternalSource(ReadTask &p, std::unique_ptr<common::Source> internal):
             p(p), internal(std::move(internal)) {}
 
+        /// @brief forgets the logged warning, so the next run logs it again.
+        void forget_warning() { this->logged_warning = {}; }
+
+        /// @brief prepares the source for a new run of the task.
+        void begin_run() {
+            this->forget_warning();
+            this->writer_open = false;
+        }
+
+        void writer_opened() override { this->writer_open = true; }
+
+        void interrupt() override { this->internal->interrupt(); }
+
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(err, "Failed to read data");
+            this->p.state.error(
+                err,
+                this->writer_open ? "Failed to read data" : "Failed to start task"
+            );
             this->p.stop("", true);
         }
 
@@ -151,6 +174,7 @@ class ReadTask final : public driver::task::Task {
             // 2. We have a critical error, in which case we return it directly.
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
+                this->forget_warning();
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
                     auto description = err.data;
                     if (const auto retry = breaker.next_retry(); !retry.empty()) {
@@ -160,16 +184,20 @@ class ReadTask final : public driver::task::Task {
                     LOG(WARNING)
                         << this->p.name() << ": [" << err.type << "] " << description;
                     this->p.state.send_warning("Failed to read data", description);
-                } else
+                } else if (!err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                     LOG(ERROR) << this->p.name() << ": " << err.message();
                 return err;
             }
             if (!warning.empty()) {
-                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
-                             << warning.description;
+                if (warning != this->logged_warning)
+                    LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
+                                 << warning.description;
+                this->logged_warning = warning;
                 this->p.state.send_warning(warning.message, warning.description);
-            } else
+            } else {
+                this->forget_warning();
                 this->p.state.clear_warning();
+            }
             return this->p.tare.transform(fr);
         }
 
@@ -226,10 +254,10 @@ public:
         ) {}
 
     /// @brief executes the given command on the task.
-    void exec(synnax::task::Command &cmd) override {
-        if (cmd.type == "start")
-            this->start(cmd.key);
-        else if (cmd.type == "stop")
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) override {
+        if (cmd.type == synnax::task::START_CMD_TYPE)
+            this->start(cmd.key, cancel);
+        else if (cmd.type == synnax::task::STOP_CMD_TYPE)
             this->stop(cmd.key, true);
         else if (cmd.type == "tare")
             this->tare.tare(cmd.args);
@@ -254,14 +282,15 @@ public:
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state. A task that is already running is not restarted:
     /// the command is answered with the current status.
-    bool start(const std::string &cmd_key) {
+    bool start(const std::string &cmd_key, x::breaker::Breaker &cancel) {
         if (this->pipe.running()) {
             this->state.ack(cmd_key, true);
             return false;
         }
         this->state.reset();
+        this->source->begin_run();
         const auto start_ok = !this->state.error(
-            this->source->internal->start(),
+            this->source->internal->start(cmd_key, cancel),
             "Failed to start task"
         );
         if (start_ok) this->pipe.start();

@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/components/tabs/Picker";
+export { CHANGE_EVENT, type Query, QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 export * from "@/components/tabs/Tabs";

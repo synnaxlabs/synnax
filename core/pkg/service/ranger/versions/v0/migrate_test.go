@@ -19,8 +19,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -28,28 +29,51 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+var rootID = resource.ID{Type: resource.TypeBuiltin, Key: "root"}
+
+func parentOf(from, to resource.ID) ontology.Relationship {
+	return ontology.Relationship{
+		From: from,
+		Type: ontology.RelationshipTypeParentOf,
+		To:   to,
+	}
+}
+
 var _ = Describe("Migration", func() {
 	var (
 		db   *gorp.DB
-		otg  *ontology.Ontology
 		gSvc *group.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		StartRun(db.Run)
 		gSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
+	// createLegacyGroup creates a group and the parent edge a pre-v0.54 Core wrote for
+	// it.
+	createLegacyGroup := func(
+		ctx context.Context,
+		tx gorp.Tx,
+		name string,
+		parent resource.ID,
+	) group.Group {
+		GinkgoHelper()
+		g := group.Group{Name: name, Scope: resource.TypeBuiltin}
+		Expect(gSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Relationship](tx).Set(
+			ctx, parentOf(parent, g.ResourceID()),
+		)).To(Succeed())
+		return g
+	}
 	runMigration := func(ctx context.Context) {
 		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Range",
 			Migrations: v0.NewMigrations(v0.MigrationConfig{
-				Ontology: otg,
-				Group:    gSvc,
+				Group: gSvc,
 			}),
 		})).To(Succeed())
 	}
@@ -66,14 +90,10 @@ var _ = Describe("Migration", func() {
 			tx := db.OpenTx()
 
 			// Create the "Ranges" group and a subgroup.
-			tlg := MustSucceed(
-				gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID),
-			)
-			subGroup := MustSucceed(
-				gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.OntologyID()),
-			)
+			tlg := createLegacyGroup(ctx, tx, "Ranges", rootID)
+			subGroup := createLegacyGroup(ctx, tx, "Subgroup", tlg.ResourceID())
 
-			// Create two ranges and their ontology resources under the subgroup.
+			// Create two ranges and their resources under the subgroup.
 			r1 := v0.Range{
 				Key:  uuid.New(),
 				Name: "Range1",
@@ -93,20 +113,13 @@ var _ = Describe("Migration", func() {
 			Expect(bareTable.NewCreate().Entry(&r1).Exec(ctx, tx)).To(Succeed())
 			Expect(bareTable.NewCreate().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 
-			otgWriter := otg.NewWriter(tx)
-			Expect(otgWriter.DefineResources(ctx, r1.OntologyID())).To(Succeed())
-			Expect(otgWriter.DefineResources(ctx, r2.OntologyID())).To(Succeed())
-			Expect(otgWriter.DefineRelationships(
-				ctx,
-				subGroup.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				r1.OntologyID(),
+			Expect(ontology.DefineResources(
+				ctx, tx, r1.ResourceID(), r2.ResourceID(),
 			)).To(Succeed())
-			Expect(otgWriter.DefineRelationships(
+			Expect(gorp.WrapWriter[string, ontology.Relationship](tx).Set(
 				ctx,
-				subGroup.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				r2.OntologyID(),
+				parentOf(subGroup.ResourceID(), r1.ResourceID()),
+				parentOf(subGroup.ResourceID(), r2.ResourceID()),
 			)).To(Succeed())
 
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -121,14 +134,14 @@ var _ = Describe("Migration", func() {
 				gSvc.NewRetrieve().
 					Where(group.MatchNames("Ranges")).
 					Entry(&g).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).
 				To(MatchError(query.ErrNotFound))
 			Expect(
 				gSvc.NewRetrieve().
 					Where(group.MatchNames("Subgroup")).
 					Entry(&g).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).
 				To(MatchError(query.ErrNotFound))
 
@@ -147,23 +160,38 @@ var _ = Describe("Migration", func() {
 				End:   telem.TimeStamp(25 * telem.Second),
 			}))
 
-			// The parent range should have r1 and r2 as children in the ontology.
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(parentRange.OntologyID()).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypeRange).
-				ExcludeFieldData(true).
-				Entries(&children).
-				Exec(ctx, nil)).To(Succeed())
-			var childIDs []ontology.ID
-			for _, c := range children {
-				childIDs = append(childIDs, c.ID)
-			}
-			Expect(childIDs).To(ConsistOf(
-				r1.OntologyID(),
-				r2.OntologyID(),
+			// The parent range should have r1 and r2 as children.
+			Expect(ontology.RetrieveRelationships(
+				ctx,
+				db,
+				func(r ontology.Relationship) bool {
+					return r.From == parentRange.ResourceID()
+				},
+			)).To(ConsistOf(
+				parentOf(parentRange.ResourceID(), r1.ResourceID()),
+				parentOf(parentRange.ResourceID(), r2.ResourceID()),
 			))
+		},
+	)
+	It(
+		"Should swap the ends of a range that starts after it ends",
+		func(ctx SpecContext) {
+			bareTable := MustSucceed(gorp.OpenTable(
+				ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db},
+			))
+			r := v0.Range{
+				Key:       uuid.New(),
+				Name:      "Inverted",
+				TimeRange: telem.TimeRange{Start: 20, End: 10},
+			}
+			Expect(bareTable.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+			Expect(bareTable.Close()).To(Succeed())
+			runMigration(ctx)
+			var res v0.Range
+			Expect(gorp.NewRetrieve[v0.Key, v0.Range]().
+				Where(gorp.MatchKeys[v0.Key, v0.Range](r.Key)).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res.TimeRange).To(Equal(telem.TimeRange{Start: 10, End: 20}))
 		},
 	)
 	It(
@@ -173,10 +201,8 @@ var _ = Describe("Migration", func() {
 				ctx, []byte("sy_ranger_migration_performed"), []byte{1},
 			)).To(Succeed())
 			tx := db.OpenTx()
-			tlg := MustSucceed(
-				gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID),
-			)
-			MustSucceed(gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.OntologyID()))
+			tlg := createLegacyGroup(ctx, tx, "Ranges", rootID)
+			createLegacyGroup(ctx, tx, "Subgroup", tlg.ResourceID())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 			runMigration(ctx)
@@ -184,7 +210,7 @@ var _ = Describe("Migration", func() {
 			Expect(gSvc.NewRetrieve().
 				Where(group.MatchNames("Ranges", "Subgroup")).
 				Entries(&groups).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(groups).To(HaveLen(2))
 		},
 	)
@@ -196,6 +222,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Range{Key: uuid.New(), Name: "burst"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -213,7 +240,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[v0.Key, v0.Range](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 
@@ -221,6 +248,7 @@ var _ = Describe("NormalizeKeys", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		// Ranges a v0.51.3 Python client created with the colors "red" and "#f00".
 		rows := map[string]string{
 			"a552616e6765c4107906433e134f4567b139a9fcfc171f3e": "84a46e616d65a772616e" +

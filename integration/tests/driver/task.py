@@ -19,12 +19,14 @@ import sys
 from abc import abstractmethod
 from collections.abc import Callable
 from contextlib import AbstractContextManager, ExitStack
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol, TypeAlias
 
 from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
+from framework.utils import hold
+from freighter.websocket import ConnectionClosedError
 from x.telem import to_float
 
 _STATUS_CHANNEL = "sy_status_set"
@@ -34,10 +36,8 @@ _STATUS_CHANNEL = "sy_status_set"
 # time to reach steady state.
 RATE_TOLERANCE = 0.20
 
-ConfigT = TypeVar("ConfigT", bound=sy.task.StartConfig, covariant=True)
 
-
-class DriverTask(Protocol[ConfigT]):
+class DriverTask[ConfigT: sy.task.StartConfig](Protocol):
     """A typed hardware task, such as ``sy.modbus.ReadTask``."""
 
     _internal: sy.Task
@@ -68,8 +68,10 @@ class DriverTask(Protocol[ConfigT]):
     ) -> sy.Device | None: ...
 
 
-TaskT = TypeVar("TaskT", bound=DriverTask[sy.task.StartConfig])
-ReadTaskT = TypeVar("ReadTaskT", bound=DriverTask[sy.task.PersistConfig])
+Task: TypeAlias = DriverTask[sy.task.StartConfig]
+"""The bound of the task that a TaskCase tests."""
+ReadTask: TypeAlias = DriverTask[sy.task.PersistConfig]
+"""The bound of the task that a ReadTaskCase tests."""
 
 # ── Channel creation helpers ─────────────────────────────────────
 
@@ -115,6 +117,7 @@ def send_and_verify_commands(
     max_attempts: int = 3,
     timeout_per_round: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
     command_values: list[list[float]] | None = None,
+    state_keys: list[int] | None = None,
 ) -> None:
     """Open a streamer/writer pair, send two rounds of commands, and verify.
 
@@ -124,11 +127,13 @@ def send_and_verify_commands(
     Automatically detects whether command channels are indexed (non-virtual)
     and includes timestamp writes for their index channels.
 
-    Args:
-        command_values: Two lists of values to send in each round, one value per
-            command key. If None, defaults to [42+i, ...] and [100+i, ...].
-        task_key: If set, also streams ``sy_status_set`` and fails if the
-            driver emits any warning or error status for this task.
+    :param command_values: Two lists of values to send in each round, one value per
+        command key. If None, defaults to [42+i, ...] and [100+i, ...].
+    :param task_key: If set, also streams ``sy_status_set`` and fails if the driver
+        emits any warning or error status for this task.
+    :param state_keys: The state channels of the commands, in the same order. If set,
+        each round also waits until every state reports its command. Each round must
+        change every value, because a Driver sends its last state again and again.
     """
     if command_values is None:
         command_values = [
@@ -160,47 +165,40 @@ def send_and_verify_commands(
                     enable_auto_commit=True,
                 )
                 try:
-                    expected = {
-                        key: float(v)
-                        for key, v in zip(cmd_keys, command_values[0], strict=True)
-                    }
-                    frame: dict[int, float | sy.TimeStamp] = {
-                        **expected,
-                        **{k: sy.TimeStamp.now() for k in index_keys},
-                    }
-                    writer.write(frame)
-                    assert_streamed_values(
-                        client,
-                        streamer,
-                        expected=expected,
-                        timeout=timeout_per_round,
-                        task_name=task_name,
-                    )
-
-                    expected = {
-                        key: float(v)
-                        for key, v in zip(cmd_keys, command_values[1], strict=True)
-                    }
-                    frame = {
-                        **expected,
-                        **{k: sy.TimeStamp.now() for k in index_keys},
-                    }
-                    writer.write(frame)
-                    assert_streamed_values(
-                        client,
-                        streamer,
-                        expected=expected,
-                        timeout=timeout_per_round,
-                        task_name=task_name,
-                    )
-
+                    for values in command_values:
+                        expected = {
+                            key: float(v)
+                            for key, v in zip(cmd_keys, values, strict=True)
+                        }
+                        sent = sy.TimeStamp.now()
+                        frame: dict[int, float | sy.TimeStamp] = {
+                            **expected,
+                            **dict.fromkeys(index_keys, sent),
+                        }
+                        writer.write(frame)
+                        assert_streamed_values(
+                            client,
+                            streamer,
+                            expected=expected,
+                            timeout=timeout_per_round,
+                            task_name=task_name,
+                        )
+                        if state_keys:
+                            _assert_states(
+                                client,
+                                states=state_keys,
+                                expected=values,
+                                since=sent,
+                                timeout=timeout_per_round,
+                                task_name=task_name,
+                            )
                     verified = True
                 except Exception as e:
                     last_err = e
                 finally:
                     try:
                         writer.close()
-                    except Exception:
+                    except (sy.Error, ConnectionClosedError):
                         pass
                 if verified and statuses is not None and task_key is not None:
                     task_errors = _buffered_task_errors(statuses, task_key)
@@ -216,11 +214,40 @@ def send_and_verify_commands(
                 ">>> Retrying command send and verify... "
                 f"({attempt + 1}/{max_attempts})"
             )
-            sy.sleep(2)
+            hold(2, reason="retry backoff")
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
     )
+
+
+def _assert_states(
+    client: sy.Synnax,
+    *,
+    states: list[int],
+    expected: list[float],
+    since: sy.TimeStamp,
+    timeout: sy.TimeSpan,
+    task_name: str,
+) -> None:
+    """Wait until each state channel reports its expected value in a sample stamped
+    after since. A Driver sets a state only after the device takes the command.
+
+    :raises AssertionError: If a state channel does not report its value within
+        timeout.
+    """
+    last: dict[int, float] = {}
+
+    def written() -> bool | None:
+        frame = client.read(sy.TimeRange(since, sy.TimeStamp.MAX), states)
+        last.update({k: to_float(frame[k][-1]) for k in states if len(frame[k]) > 0})
+        done = all(last.get(k) == v for k, v in zip(states, expected, strict=True))
+        return True if done else None
+
+    if sy.poll(written, timeout=timeout, interval=0.1) is None:
+        prefix = f"{task_name}: " if task_name else ""
+        read = [last.get(k) for k in states]
+        raise AssertionError(f"{prefix}Expected the states {expected}, but read {read}")
 
 
 def cleanup_task(client: sy.Synnax, task: sy.task.Protocol) -> None:
@@ -262,10 +289,10 @@ def run_and_expect_rejection(
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.details is None or status.details.task != task.key:
+                    if status.owner != sy.task.resource_id(task.key):
                         continue
                     if status.variant in ("warning", "error"):
-                        return _status_text(status)
+                        return status_text(status)
         finally:
             internal.execute_command("stop")
     return None
@@ -283,6 +310,17 @@ def assert_configure_rejected(
         return str(e)
     cleanup_task(client, task)
     raise AssertionError(f"Configure did not reject {label}")
+
+
+def assert_create_refused(client: sy.Synnax, task: sy.task.Protocol, label: str) -> str:
+    """Save a task and assert the Core refuses it with a validation error. Returns the
+    refusal message."""
+    try:
+        client.tasks.configure(task)
+    except sy.ValidationError as e:
+        return str(e)
+    cleanup_task(client, task)
+    raise AssertionError(f"Core did not refuse {label}")
 
 
 def assert_start_rejected(
@@ -318,16 +356,119 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
                 status = sy.task.Status.model_validate(raw)
             except ValidationError:
                 continue
-            if status.details is None or status.details.task != task_key:
+            if status.owner != sy.task.resource_id(task_key):
                 continue
             if status.variant in ("warning", "error"):
-                errors.append(f"{status.variant}: {_status_text(status)}")
+                errors.append(f"{status.variant}: {status_text(status)}")
     return errors
 
 
-def _status_text(status: sy.task.Status) -> str:
+def status_text(status: sy.task.Status) -> str:
     """Join the message and description of a status."""
     return ": ".join(part for part in (status.message, status.description) if part)
+
+
+class StatusWatch:
+    """Records the statuses that a set of tasks writes, from when the watch opens. Use
+    it as a context manager, which closes its streamer."""
+
+    def __init__(self, client: sy.Synnax, keys: list[sy.task.Key]) -> None:
+        self._owners = [sy.task.resource_id(k) for k in keys]
+        self._streamer = client.open_streamer([_STATUS_CHANNEL])
+        self._returned: set[int] = set()
+        self.seen: list[sy.task.Status] = []
+        """Every status of the tasks that the watch read, in order."""
+
+    def __enter__(self) -> "StatusWatch":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self._streamer.close()
+
+    def _read(self, timeout: sy.TimeSpan) -> None:
+        frame = self._streamer.read(timeout=timeout)
+        if frame is None or _STATUS_CHANNEL not in frame:
+            return
+        for raw in frame[_STATUS_CHANNEL]:
+            try:
+                status = sy.task.Status.model_validate(raw)
+            except ValidationError:
+                continue
+            if status.owner in self._owners:
+                self.seen.append(status)
+
+    def wait(
+        self,
+        matches: Callable[[sy.task.Status], bool],
+        *,
+        timeout: sy.TimeSpan,
+        expected: str,
+    ) -> sy.task.Status:
+        """Returns the first status that matches and that no earlier wait returned.
+
+        :param expected: Names the status in the error.
+        :raises TimeoutError: If no status matches within timeout.
+        """
+        timer = sy.Timer()
+        while True:
+            for i, status in enumerate(self.seen):
+                if i not in self._returned and matches(status):
+                    self._returned.add(i)
+                    return status
+            remaining = timeout - timer.elapsed()
+            if remaining <= sy.TimeSpan.ZERO:
+                raise TimeoutError(
+                    f"Expected {expected} within {timeout}, but saw {self.texts()}"
+                )
+            self._read(remaining)
+
+    def answer(self, key: str, *, timeout: sy.TimeSpan) -> sy.task.Status:
+        """Returns the final status that answers the command key."""
+        return self.wait(
+            lambda s: command_of(s) == key and s.variant != "loading",
+            timeout=timeout,
+            expected=f"an answer to command {key}",
+        )
+
+    def collect(self, duration: sy.TimeSpan) -> list[sy.task.Status]:
+        """Returns the statuses that arrive in the next duration."""
+        start = len(self.seen)
+        timer = sy.Timer()
+        while (remaining := duration - timer.elapsed()) > sy.TimeSpan.ZERO:
+            self._read(remaining)
+        return self.seen[start:]
+
+    def texts(self) -> list[str]:
+        """Returns the variant and text of each status the watch read."""
+        return [f"{s.variant}: {status_text(s)}" for s in self.seen]
+
+
+def command_of(status: sy.task.Status) -> str:
+    """Returns the key of the command that a status answers, or an empty string."""
+    return status.details.cmd if status.details is not None else ""
+
+
+def is_running(status: sy.task.Status) -> bool:
+    """Returns true if a status reports its task as running."""
+    return status.details is not None and status.details.running
+
+
+def expect_status(
+    status: sy.task.Status,
+    *,
+    variant: str,
+    message: str,
+    description: str,
+    running: bool,
+) -> None:
+    """Checks the variant, text, and running state of a status.
+
+    :raises AssertionError: If one of them differs.
+    """
+    want = (variant, message, description, running)
+    got = (status.variant, status.message, status.description, is_running(status))
+    if got != want:
+        raise AssertionError(f"Expected the status {want}, but got {got}")
 
 
 def assert_streamed_values(
@@ -434,7 +575,7 @@ def collect_samples(
                     f"samples, last frame had {batch}"
                 )
     start = sy.TimeStamp.now()
-    sy.sleep(duration.seconds)
+    hold(duration.seconds, reason="fixed sample window")
     return start
 
 
@@ -504,11 +645,12 @@ def delete_channels(client: sy.Synnax, keys: list[int]) -> None:
         client.channels.delete(list(index_keys))
 
 
-class TaskCase(TestCase, Generic[TaskT]):
+class TaskCase[TaskT: Task](TestCase):
     """Base class for driver task lifecycle tests.
 
     Provides setup/cleanup, channel key extraction, and generic assertions.
-    Subclasses must set task_name and device_name as class attributes.
+    Subclasses must set task_name, and device_name unless they override
+    retrieve_device.
     """
 
     task_name: str
@@ -517,6 +659,8 @@ class TaskCase(TestCase, Generic[TaskT]):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
+    COMMAND_TIMEOUT: sy.TimeSpan = 5 * sy.TimeSpan.SECOND
+    """How long a start or stop waits for the Driver to acknowledge it."""
 
     @abstractmethod
     def create(
@@ -529,14 +673,15 @@ class TaskCase(TestCase, Generic[TaskT]):
     ) -> TaskT:
         """Factory method to create protocol-specific task."""
 
+    def retrieve_device(self) -> sy.Device:
+        """Return the device that the task reads from or writes to."""
+        return self.client.devices.retrieve(name=self.device_name)
+
     def setup(self) -> None:
         """Create and configure task."""
-        # Get device
-        device = self.client.devices.retrieve(name=self.device_name)
-
         # Create task using child implementation
         self.tsk = self.create(
-            device=device,
+            device=self.retrieve_device(),
             task_name=self.task_name,
             sample_rate=self.SAMPLE_RATE,
             stream_rate=self.STREAM_RATE,
@@ -626,7 +771,7 @@ class TaskCase(TestCase, Generic[TaskT]):
         raise AssertionError(f"Device '{device.name}' still exists after deletion")
 
 
-class ReadTaskCase(TaskCase[ReadTaskT]):
+class ReadTaskCase[ReadTaskT: ReadTask](TaskCase[ReadTaskT]):
     """Base for read task lifecycle tests.
 
     Adds sample counting, data saving toggle, rate reconfiguration,
@@ -691,7 +836,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         channel_keys = self._channel_keys(self.tsk)
         ch = self.client.channels.retrieve(channel_keys[0])
 
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             with self.client.open_streamer(channel_keys) as streamer:
                 frame = streamer.read(timeout=30)
                 if frame is None:
@@ -700,14 +845,13 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                     )
             try:
                 self.client.channels.delete(ch.key)
+            except sy.Error:
+                pass
+            else:
                 raise AssertionError(
                     f"Channel '{ch.name}' deletion should have been rejected while "
                     "task is running"
                 )
-            except AssertionError:
-                raise
-            except Exception:
-                pass  # Win condition
 
     def assert_sample_count(
         self,
@@ -729,7 +873,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             sample_rate = config.sample_rate
             frame_size = int(config.sample_rate / config.stream_rate)
             checks = [channel_keys]
-        with task.run():
+        with task.run(timeout=self.COMMAND_TIMEOUT):
             start = collect_samples(
                 self.client, channel_keys, duration=duration, frame_size=frame_size
             )
@@ -752,7 +896,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         """Assert that no samples are persisted while the task is running."""
         channel_keys = self._channel_keys(task)
 
-        with task.run():
+        with task.run(timeout=self.COMMAND_TIMEOUT):
             with self.client.open_streamer(channel_keys) as streamer:
                 frame = streamer.read(timeout=30)
                 if frame is None:
@@ -760,7 +904,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                         "Task is not streaming data with data_saving disabled"
                     )
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)
+            hold(duration.seconds * 1.25, reason="fixed sample window")
 
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)
@@ -775,7 +919,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                 )
 
 
-class WriteTaskCase(TaskCase[TaskT]):
+class WriteTaskCase[TaskT: Task](TaskCase[TaskT]):
     """Base for write task lifecycle tests.
 
     Adds command sending and task reconfiguration testing.
@@ -799,11 +943,16 @@ class WriteTaskCase(TaskCase[TaskT]):
         """Check that the device holds the last round of commands. Runs before the task
         stops, because a stopping task drops the commands it has not written."""
 
+    def _state_keys(self, task: TaskT) -> list[int]:
+        """Return the state channels of the commands, in the order of the command
+        channels. Empty when the task reports no states."""
+        return []
+
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
         self.log("Testing: Send commands")
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),
@@ -811,6 +960,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_name=self.tsk.name,
                 task_key=self.tsk.key,
                 command_values=self.command_values,
+                state_keys=self._state_keys(self.tsk),
             )
             self.assert_written()
 
@@ -831,7 +981,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 f"Expected: {new_name}, Actual: {retrieved.name}"
             )
 
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),
@@ -839,5 +989,6 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_name=self.tsk.name,
                 task_key=self.tsk.key,
                 command_values=self.command_values,
+                state_keys=self._state_keys(self.tsk),
             )
             self.assert_written()

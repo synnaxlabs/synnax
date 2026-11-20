@@ -11,7 +11,6 @@ package gorp_test
 
 import (
 	"bytes"
-	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
@@ -33,13 +33,9 @@ type decodeCountingCodec struct {
 	decodeCount int
 }
 
-func (c *decodeCountingCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
+func (c *decodeCountingCodec) Decode(data []byte, value any) error {
 	c.decodeCount++
-	return c.Codec.Decode(ctx, data, value)
+	return c.Codec.Decode(data, value)
 }
 
 func idLT(v int32) gorp.Filter[int32, entry] {
@@ -101,7 +97,7 @@ var _ = Describe("Filter Combinators", func() {
 		tx      gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		entries = make([]entry, 10)
 		for i := range 10 {
 			entries[i] = entry{ID: int32(i), Data: "data"}
@@ -110,7 +106,6 @@ var _ = Describe("Filter Combinators", func() {
 			gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
 		).To(Succeed())
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("MatchBound", func() {
 		It("Should thread the bind value into the closure", func(ctx SpecContext) {
@@ -155,6 +150,138 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
 				Where(f(bindCtx{})).Exec(ctx, tx)).To(MatchError(errFilter))
 		})
+	})
+
+	Describe("MatchKeysFunc", func() {
+		It(
+			"Should keep the entries whose keys the function returns",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeysFunc[int32, entry](
+						func(gorp.Context) ([]int32, error) {
+							return []int32{2, 5, 42}, nil
+						},
+					)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[2], entries[5]}))
+			},
+		)
+
+		It("Should call the function with the open transaction", func(ctx SpecContext) {
+			var got gorp.Snapshot
+			f := gorp.MatchKeysFunc[int32, entry](
+				func(ctx gorp.Context) ([]int32, error) {
+					got = ctx.Snapshot
+					return nil, nil
+				},
+			)
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).Where(f).Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(BeIdenticalTo(tx))
+			Expect(res).To(BeEmpty())
+		})
+
+		It("Should compose under Not", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.And(
+					idLT(4),
+					gorp.Not(gorp.MatchKeysFunc[int32, entry](
+						func(gorp.Context) ([]int32, error) {
+							return []int32{1, 2}, nil
+						},
+					)),
+				)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[0], entries[3]}))
+		})
+
+		It("Should match a repeated key once", func(ctx SpecContext) {
+			f := gorp.MatchKeysFunc[int32, entry](func(gorp.Context) ([]int32, error) {
+				return []int32{1, 1}, nil
+			})
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(f).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[1]}))
+			Expect(gorp.NewRetrieve[int32, entry]().Where(f).Count(ctx, tx)).
+				To(Equal(1))
+		})
+
+		It("Should propagate errors from the function", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.MatchKeysFunc[int32, entry](
+					func(gorp.Context) ([]int32, error) {
+						return nil, errFilter
+					},
+				)).
+				Exec(ctx, tx)).To(MatchError(errFilter))
+		})
+
+		DescribeTable(
+			"Should fail the retrieve when the function returns ErrIndexInvalid",
+			func(
+				ctx SpecContext,
+				wrap func(gorp.Filter[int32, entry]) gorp.Filter[int32, entry],
+			) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(wrap(gorp.MatchKeysFunc[int32, entry](
+						func(gorp.Context) ([]int32, error) {
+							return nil, gorp.ErrIndexInvalid
+						},
+					))).
+					Exec(ctx, tx)).To(MatchError(gorp.ErrIndexInvalid))
+				Expect(res).To(BeEmpty())
+			},
+			Entry("alone", func(f gorp.Filter[int32, entry]) gorp.Filter[int32, entry] {
+				return f
+			}),
+			Entry("under Not", gorp.Not[int32, entry]),
+			Entry(
+				"under And",
+				func(f gorp.Filter[int32, entry]) gorp.Filter[int32, entry] {
+					return gorp.And(idLT(4), f)
+				},
+			),
+			Entry(
+				"under Or",
+				func(f gorp.Filter[int32, entry]) gorp.Filter[int32, entry] {
+					return gorp.Or(idLT(4), f)
+				},
+			),
+		)
+
+		It("Should count the entries whose keys the function returns",
+			func(ctx SpecContext) {
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeysFunc[int32, entry](
+						func(gorp.Context) ([]int32, error) {
+							return []int32{2, 5, 42}, nil
+						},
+					)).
+					Count(ctx, tx)).To(Equal(2))
+			})
+
+		DescribeTable("Exists", func(ctx SpecContext, keys []int32, expected bool) {
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.MatchKeysFunc[int32, entry](
+					func(gorp.Context) ([]int32, error) { return keys, nil },
+				)).
+				Exists(ctx, tx)).To(Equal(expected))
+		},
+			Entry("one key has an entry", []int32{5, 42}, true),
+			Entry("no key has an entry", []int32{42}, false),
+		)
 	})
 
 	Describe("And", func() {
@@ -447,8 +574,8 @@ var _ = Describe("Filter Combinators", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				codec = &decodeCountingCodec{Codec: msgpack.Codec}
-				countingDB = gorp.Wrap(memkv.New(), gorp.WithCodec(codec))
-				countingTx = countingDB.OpenTx()
+				countingDB = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(codec)))
+				countingTx = DeferClose(countingDB.OpenTx())
 				es := make([]entry, 10)
 				for i := range 10 {
 					es[i] = entry{ID: int32(i), Data: "data"}
@@ -456,10 +583,6 @@ var _ = Describe("Filter Combinators", func() {
 				Expect(gorp.NewCreate[int32, entry]().
 					Entries(&es).Exec(ctx, countingTx)).To(Succeed())
 				codec.decodeCount = 0
-			})
-			AfterEach(func() {
-				Expect(countingTx.Close()).To(Succeed())
-				Expect(countingDB.Close()).To(Succeed())
 			})
 
 			DescribeTable(
@@ -503,8 +626,35 @@ var _ = Describe("Filter Combinators", func() {
 					10,
 					10,
 				),
+				Entry(
+					"Raw rejection on a key-bounded read yields no decodes",
+					gorp.And(
+						gorp.MatchKeys[int32, entry](1, 2, 3),
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+					),
+					0,
+					0,
+				),
 			)
 		})
+
+		It(
+			"Should pass the pebble key to a raw child on a key-bounded read",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
+					Where(gorp.Or(
+						gorp.MatchRaw[int32, entry](func(key, _ []byte) (bool, error) {
+							return bytes.HasSuffix(key, []byte{0, 0, 0, 2}), nil
+						}),
+						idEQ(3),
+					)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[2], entries[3]}))
+			},
+		)
 	})
 
 	Describe("Nested Composition", func() {
@@ -832,6 +982,35 @@ var _ = Describe("Filter Combinators", func() {
 				// inverted raw rejects all of them.
 				Expect(res).To(BeEmpty())
 			})
+
+			It(
+				"Should accept entries that the raw stage of a child rejects",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.Not(matchEvalAndRaw(5, []byte("nonexistent")))).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(10))
+				},
+			)
+		})
+
+		Describe("Or with a child carrying eval and raw", func() {
+			It(
+				"Should reject entries that the raw stage of the child rejects",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.Or(
+							matchEvalAndRaw(5, []byte("nonexistent")),
+							idEQ(100),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 		})
 	})
 

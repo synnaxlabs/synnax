@@ -22,6 +22,25 @@ func (n Node) IsEntryNode(edges Edges) bool {
 	return len(edges.GetInputs(n.Key)) == 0 && len(n.Channels.Read) == 0
 }
 
+// IsOnceNode reports whether n is an entry node that initializes a stateful
+// variable. A once node fires on the first activation of its scope only.
+func (n Node) IsOnceNode(nodes Nodes, edges Edges) bool {
+	if !n.IsEntryNode(edges) {
+		return false
+	}
+	for _, e := range edges {
+		if e.Source.Node != n.Key {
+			continue
+		}
+		target, ok := nodes.Find(e.Target.Node)
+		if ok && target.Type == "stateful_variable" && len(target.Inputs) > 0 &&
+			e.Target.Param == target.Inputs[0].Name {
+			return true
+		}
+	}
+	return false
+}
+
 // String returns the string representation of the node.
 func (n Node) String() string { return n.stringWithPrefix("") }
 

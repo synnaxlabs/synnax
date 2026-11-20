@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -53,6 +54,37 @@ var _ = Describe("Reduction", func() {
 			Entry("none", telem.Reduction{}),
 		)
 
+		It("Should decode a variant when unknown members are rejected", func() {
+			var decoded telem.Reduction
+			Expect(json.Unmarshal(
+				MustSucceed(json.Marshal(limit)),
+				&decoded,
+				json.RejectUnknownMembers(true),
+			)).To(Succeed())
+			Expect(decoded).To(Equal(limit))
+		})
+
+		It("Should reject an unknown member of a variant when asked", func() {
+			var decoded telem.Reduction
+			Expect(json.Unmarshal(
+				[]byte(`{"variant":"stride","factor":4,"extra":1}`),
+				&decoded,
+				json.RejectUnknownMembers(true),
+			)).To(MatchError(ContainSubstring(`unknown object member name "extra"`)))
+		})
+
+		It("Should give a member the input omits its default", func() {
+			var decoded telem.Reduction
+			Expect(json.Unmarshal(
+				[]byte(`{"variant":"limit","point_limit":8}`),
+				&decoded,
+			)).To(Succeed())
+			Expect(decoded.Variant).To(Equal(telem.LimitReduction{
+				Aggregation: telem.AggregationMinMax,
+				PointLimit:  8,
+			}))
+		})
+
 		It("Should reject an unknown variant", func() {
 			var decoded telem.Reduction
 			Expect(json.Unmarshal([]byte(`{"variant":"median"}`), &decoded)).
@@ -68,10 +100,10 @@ var _ = Describe("Reduction", func() {
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should default the aggregation of a limit to min_max", func() {
 			r := telem.Reduction{Variant: telem.LimitReduction{PointLimit: 512}}
-			r.ApplyDefaults()
+			r = defaults.Fill(r)
 			Expect(r.Variant).To(Equal(telem.LimitReduction{
 				Aggregation: telem.AggregationMinMax,
 				PointLimit:  512,
@@ -80,7 +112,7 @@ var _ = Describe("Reduction", func() {
 
 		It("Should leave a stride unchanged", func() {
 			r := stride
-			r.ApplyDefaults()
+			r = defaults.Fill(r)
 			Expect(r).To(Equal(stride))
 		})
 	})
@@ -90,8 +122,11 @@ var _ = Describe("Reduction", func() {
 			func(r telem.Reduction) { Expect(r.Validate()).To(Succeed()) },
 			Entry("stride", stride),
 			Entry("limit", limit),
-			Entry("none", telem.Reduction{}),
 		)
+
+		It("Should reject a reduction without a variant", func() {
+			Expect(telem.Reduction{}.Validate()).To(MatchError("variant: required"))
+		})
 
 		DescribeTable("Should reject an invalid limit",
 			func(l telem.LimitReduction, message string) {

@@ -12,29 +12,34 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "testutil",
-    hdrs = [
-        "master.h",
-        "pool.h",
-    ],
+    hdrs = ["master.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/ethercat/engine",
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
+        "//x/cpp/errors",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "stg",
+    hdrs = ["stg.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//driver/ethercat/coe",
         "//x/cpp/errors",
     ],
 )
 
 cc_test(
-    name = "testutil_test",
-    srcs = [
-        "master_test.cpp",
-        "pool_test.cpp",
-    ],
+    name = "master_test",
+    srcs = ["master_test.cpp"],
     deps = [
         ":testutil",
-        "//driver/ethercat/errors",
-        "//x/cpp/testutil",
+        "//driver/ethercat/master:contract",
         "@googletest//:gtest_main",
     ],
 )

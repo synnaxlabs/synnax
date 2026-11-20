@@ -39,20 +39,20 @@ bool readable(const int fd, const int timeout_us) {
 }
 
 x::errors::Error PseudoTerminal::open() {
-    if (openpty(&this->controller_, &this->terminal_, nullptr, nullptr, nullptr) == -1)
+    if (openpty(&this->controller, &this->terminal, nullptr, nullptr, nullptr) == -1)
         return x::errors::Error(
             "Failed to open a pseudo-terminal: " + std::string(strerror(errno))
         );
     termios tios{};
-    tcgetattr(this->terminal_, &tios);
+    tcgetattr(this->terminal, &tios);
     cfmakeraw(&tios);
-    tcsetattr(this->terminal_, TCSANOW, &tios);
-    this->path_ = ttyname(this->terminal_);
+    tcsetattr(this->terminal, TCSANOW, &tios);
+    this->device_path = ttyname(this->terminal);
     return x::errors::NIL;
 }
 
 void PseudoTerminal::close() {
-    for (int *fd: {&this->controller_, &this->terminal_}) {
+    for (int *fd: {&this->controller, &this->terminal}) {
         if (*fd == -1) continue;
         ::close(*fd);
         *fd = -1;
@@ -61,13 +61,13 @@ void PseudoTerminal::close() {
 
 std::size_t
 PseudoTerminal::read_frame(std::uint8_t *frame, const std::size_t size) const {
-    if (!readable(this->controller_, 100000)) return 0;
+    if (!readable(this->controller, 100000)) return 0;
     std::size_t length = 0;
     do {
-        const auto n = read(this->controller_, frame + length, size - length);
+        const auto n = read(this->controller, frame + length, size - length);
         if (n <= 0) break;
         length += static_cast<std::size_t>(n);
-    } while (length < size && readable(this->controller_, 5000));
+    } while (length < size && readable(this->controller, 5000));
     return length;
 }
 
@@ -81,6 +81,6 @@ void PseudoTerminal::write_damaged(const std::function<void(int)> &write) const 
     ::close(fds[0]);
     if (n <= 0) return;
     frame[n - 1] ^= 0xFF;
-    ::write(this->controller_, frame, static_cast<std::size_t>(n));
+    ::write(this->controller, frame, static_cast<std::size_t>(n));
 }
 }

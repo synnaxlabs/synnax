@@ -10,6 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +19,7 @@ import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
 import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
-import { assertDefined, renderHookWithConsole, resolveFocusedTab } from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
 
 const roles = new RoleClients(client);
 
@@ -69,7 +70,7 @@ describe("Schematic Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(schematic.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(schematic.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

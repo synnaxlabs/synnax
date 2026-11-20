@@ -9,13 +9,14 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { NI } from "@/feature/ni";
 import { Session } from "@/session";
-import { resolveFocusedTab, uniqueName } from "@/testutil";
+import { resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
@@ -49,7 +50,7 @@ describe("NI.Task Commands", () => {
     await selectCommand("Create NI analog read task");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
   });

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, render, renderHook } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { closeOf } from "@/platform/modals/testutil";
@@ -29,6 +29,16 @@ describe("Store", () => {
       const store = new Modals.Store();
       const resolve = vi.fn();
       store.push(Noop, undefined, resolve);
+      closeOf(store)(42);
+      expect(store.isAnyOpen()).toBe(false);
+      expect(resolve).toHaveBeenCalledWith(42);
+    });
+
+    it("should resolve a busy modal with the result passed to close", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      store.getState()[0].setBusy(true);
       closeOf(store)(42);
       expect(store.isAnyOpen()).toBe(false);
       expect(resolve).toHaveBeenCalledWith(42);
@@ -85,6 +95,20 @@ describe("Store", () => {
       expect(store.isAnyOpen()).toBe(false);
       expect(resolve).toHaveBeenCalledWith(null);
     });
+
+    it("should do nothing while the modal is busy", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      const [entry] = store.getState();
+      entry.setBusy(true);
+      entry.dismiss();
+      expect(store.isAnyOpen()).toBe(true);
+      expect(resolve).not.toHaveBeenCalled();
+      entry.setBusy(false);
+      entry.dismiss();
+      expect(resolve).toHaveBeenCalledWith(null);
+    });
   });
 
   describe("closeTop", () => {
@@ -118,6 +142,16 @@ describe("Store", () => {
       expect(store.isAnyOpen()).toBe(false);
       expect(resolveA).toHaveBeenCalledWith(null);
       expect(resolveB).toHaveBeenCalledWith(null);
+    });
+
+    it("should dismiss a busy modal", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      store.getState()[0].setBusy(true);
+      store.clear();
+      expect(store.isAnyOpen()).toBe(false);
+      expect(resolve).toHaveBeenCalledWith(null);
     });
   });
 
@@ -165,26 +199,6 @@ describe("Provider", () => {
     const first = result.current;
     rerender();
     expect(result.current).toBe(first);
-  });
-});
-
-describe("useGetIsAnyOpen", () => {
-  it("should reflect the live stack through a stable getter", () => {
-    const { result, rerender } = renderHook(
-      () => ({
-        getIsAnyOpen: Modals.useGetIsAnyOpen(),
-        store: Modals.useStore("test"),
-      }),
-      { wrapper },
-    );
-    const first = result.current.getIsAnyOpen;
-    expect(first()).toBe(false);
-    act(() => result.current.store.push(Noop, undefined, () => {}));
-    expect(first()).toBe(true);
-    act(() => result.current.store.closeTop());
-    expect(first()).toBe(false);
-    rerender();
-    expect(result.current.getIsAnyOpen).toBe(first);
   });
 });
 

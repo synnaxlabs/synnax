@@ -11,13 +11,18 @@ package device
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/synnax/pkg/api/device/pb"
+	svcdevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	devicepb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
+	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -32,11 +37,17 @@ type (
 		device.RetrieveRequest,
 		*RetrieveRequest,
 		device.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		device.DeleteRequest,
 		*DeleteRequest,
+		struct{},
+		*emptypb.Empty,
+	]
+	dispatchServer = grpc.UnaryServer[
+		device.DispatchRequest,
+		*DispatchRequest,
 		struct{},
 		*emptypb.Empty,
 	]
@@ -48,21 +59,23 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
+	dispatchRequestTranslator  struct{}
 )
 
 var (
-	_ grpc.Translator[device.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[device.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[device.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[device.CreateRequest, *CreateRequest]          = createRequestTranslator{}
+	_ grpc.Translator[device.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
+	_ grpc.Translator[device.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
+	_ grpc.Translator[device.DispatchRequest, *DispatchRequest]      = dispatchRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
 	_ context.Context,
 	req device.CreateRequest,
 ) (*CreateRequest, error) {
-	devices, err := pb.DevicesToPB(req.Devices)
+	devices, err := devicepb.DevicesToPB(req.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +86,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
 ) (device.CreateRequest, error) {
-	devices, err := pb.DevicesFromPB(req.Devices)
+	devices, err := devicepb.DevicesFromPB(req.Devices)
 	if err != nil {
 		return device.CreateRequest{}, err
 	}
@@ -84,7 +97,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	res device.CreateResponse,
 ) (*CreateResponse, error) {
-	devices, err := pb.DevicesToPB(res.Devices)
+	devices, err := devicepb.DevicesToPB(res.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +108,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
 ) (device.CreateResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
+	devices, err := devicepb.DevicesFromPB(res.Devices)
 	if err != nil {
 		return device.CreateResponse{}, err
 	}
@@ -104,64 +117,39 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req device.RetrieveRequest,
+	r device.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		Search:         req.SearchTerm,
-		Racks:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Racks),
-		Limit:          uint32(req.Limit),
-		Offset:         uint32(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (device.RetrieveRequest, error) {
-	return device.RetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		SearchTerm:     req.Search,
-		Limit:          int(req.Limit),
-		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
-		Offset:         int(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
-	}, nil
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every device.
+	if err := xpb.RejectUnknown(r); err != nil {
+		return device.RetrieveRequest{}, err
+	}
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res device.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	devices, err := pb.DevicesToPB(res.Devices)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Devices: devices}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (device.RetrieveResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
-	if err != nil {
-		return device.RetrieveResponse{}, err
-	}
-	return device.RetrieveResponse{Devices: devices}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(
@@ -178,25 +166,74 @@ func (deleteRequestTranslator) Backward(
 	return device.DeleteRequest{Keys: req.Keys}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &DeviceCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.DeviceCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &DeviceRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.DeviceRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &DeviceDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.DeviceDelete = del
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &DeviceDispatchService_ServiceDesc,
+		Errors:             errs,
+	}
+	t.DeviceDispatch = dispatch
 
-	return grpc.CompoundBindableTransport{create, retrieve, del}
+	return grpc.CompoundBindableTransport{create, retrieve, del, dispatch}
+}
+
+func (dispatchRequestTranslator) Forward(
+	ctx context.Context,
+	req device.DispatchRequest,
+) (*DispatchRequest, error) {
+	acts := make([][]byte, len(req.Actions))
+	for i, a := range req.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(a); err != nil {
+			return nil, err
+		}
+	}
+	return &DispatchRequest{
+		Key:         req.Key,
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
+func (dispatchRequestTranslator) Backward(
+	ctx context.Context,
+	req *DispatchRequest,
+) (device.DispatchRequest, error) {
+	acts := make([]svcdevice.Action, len(req.Actions))
+	for i, b := range req.Actions {
+		if err := json.Codec.Decode(b, &acts[i]); err != nil {
+			return device.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
+	}
+	return device.DispatchRequest{
+		Key:         req.Key,
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
 }

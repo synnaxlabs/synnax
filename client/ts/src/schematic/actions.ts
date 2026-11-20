@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { patch } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
@@ -19,21 +19,53 @@ import {
   type Handlers,
   removeEdge,
   removeNode,
-  rename,
-  setConfig,
+  set,
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
+import { type ElementConfig, type ElementField, fieldOf } from "@/schematic/element";
 import {
-  type ElementConfig,
-  elementConfigZ,
+  edgeConfigZ,
+  nodeConfigZ,
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
 
-// Path actions edit only the element configs.
-const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult =>
-  actions.applyEntryPath(state, action, ["configs"], schematicZ);
+const ELEMENT_FIELDS: readonly string[] = ["nodes", "edges"] satisfies ElementField[];
+
+const CONFIG_FIELD = "config";
+
+const PARENT_FIELD = "parent";
+
+const hasNode = (state: Draft<Schematic>, key: string): boolean =>
+  state.nodes.some((n) => n.key === key);
+
+const hasEdge = (state: Draft<Schematic>, key: string): boolean =>
+  state.edges.some((e) => e.key === key);
+
+// A path into a node or edge goes into its config, or names the parent of a node. An
+// action on a node or edge that does not exist does nothing.
+const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult => {
+  const path = patch.pathOf(action);
+  if (!ELEMENT_FIELDS.includes(path[0]))
+    return actions.applyPath(state, action, schematicZ);
+  if (path[2] !== CONFIG_FIELD && (path[0] !== "nodes" || path[2] !== PARENT_FIELD))
+    throw new Error(
+      `[Schematic] - a path into ${path[0]} must go into the config of one entry or ` +
+        "name the parent of a node",
+    );
+  return actions.applyEntryPath(state, action, [path[0]], schematicZ);
+};
+
+const isConfigEdit = (action: Action): boolean => {
+  switch (action.type) {
+    case "set":
+    case "remove":
+      return ELEMENT_FIELDS.includes(patch.pathOf(action)[0]);
+    default:
+      return false;
+  }
+};
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -41,14 +73,6 @@ const handlers: Handlers = {
     return { inverse: [], targets: [payload.schematic.key] };
   },
 
-  rename: (state, payload) => {
-    const oldName = state.name;
-    state.name = payload.name;
-    return {
-      inverse: [rename({ name: oldName })],
-      targets: [state.key],
-    };
-  },
   setNodePosition: (state, payload) => {
     const node = state.nodes.find((n) => n.key === payload.key);
     if (node == null) return actions.NO_OP_RESULT;
@@ -63,59 +87,49 @@ const handlers: Handlers = {
     const idx = state.nodes.findIndex((n) => n.key === payload.node.key);
     if (idx === -1) {
       state.nodes.push(payload.node);
-      if (payload.config != null) state.configs[payload.node.key] = payload.config;
       return {
         inverse: [removeNode({ key: payload.node.key })],
         targets: [payload.node.key],
       };
     }
     const oldNode = actions.snapshotDraft(state.nodes[idx]);
-    const oldConfigRaw = state.configs[payload.node.key];
-    const oldConfig =
-      oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes[idx] = payload.node;
-    if (payload.config != null) state.configs[payload.node.key] = payload.config;
-    return {
-      inverse: [
-        setNode(
-          oldConfig != null
-            ? { node: oldNode, config: oldConfig }
-            : { node: oldNode, config: undefined },
-        ),
-      ],
-      targets: [payload.node.key],
-    };
+    return { inverse: [setNode({ node: oldNode })], targets: [payload.node.key] };
   },
   removeNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldNode = actions.snapshotDraft(state.nodes[idx]);
-    const oldConfigRaw = state.configs[payload.key];
-    const oldConfig =
-      oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes.splice(idx, 1);
-    delete state.configs[payload.key];
-    const inverse: Action[] = [
-      setNode(
-        oldConfig != null
-          ? { node: oldNode, config: oldConfig }
-          : { node: oldNode, config: undefined },
-      ),
-    ];
+    const inverse: Action[] = [setNode({ node: oldNode })];
     const targets = [payload.key];
-    for (const [key, config] of Object.entries(state.configs)) {
-      if (config?.variant !== "group_box") continue;
-      const { members } = config;
-      if (!members.includes(payload.key)) continue;
-      const oldConfig = actions.snapshotDraft(config);
-      config.members = members.filter((m) => m !== payload.key);
-      inverse.push(setConfig({ key, config: oldConfig }));
-      targets.push(key);
+    const connected = state.edges.filter(
+      (e) => e.source.node === payload.key || e.target.node === payload.key,
+    );
+    for (const e of connected) {
+      inverse.push(addEdge({ edge: actions.snapshotDraft(e) }));
+      targets.push(e.key);
+    }
+    state.edges = state.edges.filter(
+      (e) => e.source.node !== payload.key && e.target.node !== payload.key,
+    );
+    const { parent } = oldNode;
+    for (const n of state.nodes) {
+      if (n.parent !== payload.key) continue;
+      inverse.push(set({ path: ["nodes", n.key, PARENT_FIELD], value: payload.key }));
+      if (parent == null) delete n.parent;
+      else n.parent = parent;
+      targets.push(n.key);
     }
     return { inverse, targets };
   },
   addEdge: (state, payload) => {
-    if (state.edges.some((e) => e.key === payload.edge.key))
+    const { key, source, target } = payload.edge;
+    if (
+      hasEdge(state, key) ||
+      !hasNode(state, source.node) ||
+      !hasNode(state, target.node)
+    )
       return actions.NO_OP_RESULT;
     state.edges.push(payload.edge);
     return {
@@ -129,39 +143,37 @@ const handlers: Handlers = {
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldEdge = actions.snapshotDraft(state.edges[idx]);
     state.edges.splice(idx, 1);
-    return {
-      inverse: [addEdge({ edge: oldEdge })],
-      targets: [payload.key],
-    };
-  },
-  setConfig: (state, payload) => {
-    const existing = state.configs[payload.key];
-    const prev = existing != null ? actions.snapshotDraft(existing) : undefined;
-    state.configs[payload.key] = payload.config;
-    return {
-      inverse: prev != null ? [setConfig({ key: payload.key, config: prev })] : [],
-      targets: [payload.key],
-    };
+    return { inverse: [addEdge({ edge: oldEdge })], targets: [payload.key] };
   },
   ...actions.createPathHandlers(applyPath),
 };
 
-export const reduceAll = createReduceAll(handlers);
+const reduce = createReduceAll(handlers);
+
+// The handlers put the objects of an action into the state, where a later action in
+// the batch edits them in place. A copy keeps the caller's actions unchanged.
+export const reduceAll = (state: Schematic, actions: Action[]) =>
+  reduce(state, structuredClone(actions));
 
 export interface SetChangedArgs {
-  /** The key of the element. */
+  /** The key of the node or edge. */
   key: string;
   base: ElementConfig;
   next: ElementConfig;
 }
 
 /**
- * Writes only the fields of an element's config that differ between base and next, so
- * a concurrent edit to another field of the element survives.
+ * Writes only the fields of the config of a node or edge that differ between base and
+ * next, so a concurrent edit to another field of the element survives.
  * @returns the actions to dispatch, with none when nothing differs.
  */
-export const setChanged = ({ key, base, next }: SetChangedArgs): Action[] =>
-  patch.diff(elementConfigZ, base, next).map((a) => patch.prefix(a, ["configs", key]));
+export const setChanged = ({ key, base, next }: SetChangedArgs): Action[] => {
+  const field = fieldOf(base);
+  const schema = field === "edges" ? edgeConfigZ : nodeConfigZ;
+  return patch
+    .diff(schema, base, next)
+    .map((a) => patch.prefix(a, [field, key, CONFIG_FIELD]));
+};
 
 /**
  * Converts a path action from the camelCase form of the cached schematic into the
@@ -183,9 +195,6 @@ export const encode = (state: Schematic, action: Action): Action => {
 // action so frames for never-cached documents ingest instead of drop.
 export const createOf = (action: Action) =>
   action.type === "create" ? action.create.schematic : undefined;
-
-const isConfigEdit = ({ type }: Action): boolean =>
-  type === "set_config" || type === "set" || type === "remove";
 
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";

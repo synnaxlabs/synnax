@@ -8,24 +8,21 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Mapping, Sequence
-from typing import TypeAlias, cast, overload
-
-import pandas as pd
+from typing import TypeAlias, overload
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
 from freighter import (
     AsyncStreamClient,
     FileTransport,
+    StreamClient,
     UnaryClient,
-    WebsocketClient,
 )
-from synnax import ontology
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import ValidationError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
-from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K, is_dataframe
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.reader import Reader
 from synnax.framer.streamer import DEFAULT_KEEP_ALIVE, AsyncStreamer, Streamer
@@ -43,6 +40,7 @@ from synnax.telem import (
 from x.control import Authority, CrudeAuthority
 from x.exceptions import Registry
 from x.fs import FilePath
+from x.params import deprecate_positional
 
 # A str is a Sequence[str], so a list or tuple of names keeps the overloads disjoint.
 _FrameParams: TypeAlias = (
@@ -53,8 +51,6 @@ _FrameParams: TypeAlias = (
     | tuple[str, ...]
 )
 
-_ontology_type = ontology.ID(type="framer")
-
 
 class Client:
     """FramerClient provides interfaces for reading and writing segmented
@@ -62,7 +58,7 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    _stream_client: WebsocketClient
+    _stream_client: StreamClient
     _async_client: AsyncStreamClient
     _unary_client: UnaryClient
     _channels: Retriever
@@ -74,7 +70,7 @@ class Client:
     def __init__(
         self,
         *,
-        stream_client: WebsocketClient,
+        stream_client: StreamClient,
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
         file_transport: FileTransport,
@@ -94,6 +90,7 @@ class Client:
         )
         self.instrumentation = instrumentation
 
+    @deprecate_positional("authorities")
     def open_writer(
         self,
         start: CrudeTimeStamp | None = None,
@@ -171,6 +168,7 @@ class Client:
             auto_index=auto_index,
         )
 
+    @deprecate_positional("chunk_size", "reduction")
     def open_iterator(
         self,
         tr: TimeRange,
@@ -231,13 +229,12 @@ class Client:
     ) -> None:
         parsed_channels: channel.Params
         if isinstance(channels, Mapping):
-            # normalize_params rejects a mix of keys and names
-            parsed_channels = cast(channel.Params, list(channels.keys()))
+            parsed_channels = _params(list(channels.keys()))
         elif isinstance(channels, Frame):
-            parsed_channels = cast(channel.Params, channels.channels)
+            parsed_channels = _params(channels.channels)
         elif isinstance(channels, FramePayload):
             parsed_channels = channels.keys
-        elif isinstance(channels, pd.DataFrame):
+        elif is_dataframe(channels):
             parsed_channels = list(channels.columns)
         else:
             parsed_channels = channels
@@ -249,7 +246,9 @@ class Client:
             err_on_unauthorized=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
-            if isinstance(channels, (Mapping, Frame, FramePayload, pd.DataFrame)):
+            if isinstance(channels, (Mapping, Frame, FramePayload)) or is_dataframe(
+                channels
+            ):
                 w.write(channels)
             elif series is None:
                 raise ValidationError(f"No series provided for channels {channels}")
@@ -274,6 +273,7 @@ class Client:
         reduction: Reduction | None = None,
     ) -> Frame: ...
 
+    @deprecate_positional("reduction")
     def read(
         self,
         tr: TimeRange,
@@ -290,15 +290,19 @@ class Client:
         StrideReduction keeps every factor-th sample. A LimitReduction reduces each
         channel to about point_limit points. Defaults to keeping every sample.
         :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
-        a sequence with one item. A channel with no data in the time range gives an
-        empty series.
+        a sequence with one item. A Frame also holds the index channels that channels
+        leaves out, after the requested channels. A channel with no data in the time
+        range gives an empty series.
         """
         normal = channel.normalize_params(channels)
-        frame = self._reader.read(tr, channels, reduction=reduction)
+        frame = self._reader.read(
+            tr, channels, reduction=reduction, timestamps_included=not normal.single
+        )
         if not normal.single:
             return frame
         return frame[normal.channels[0]]
 
+    @deprecate_positional("dest", "reduction")
     def read_csv(
         self,
         tr: TimeRange,
@@ -319,6 +323,7 @@ class Client:
         """
         self._reader.read_csv(tr, channels, dest=dest, reduction=reduction)
 
+    @deprecate_positional("dest", "reduction")
     def read_tdms(
         self,
         tr: TimeRange,
@@ -356,6 +361,7 @@ class Client:
         n: int = 1,
     ) -> Frame: ...
 
+    @deprecate_positional("n")
     def read_latest(
         self,
         channels: channel.Params,
@@ -386,6 +392,9 @@ class Client:
             return aggregate
         return aggregate[normal.channels[0]]
 
+    @deprecate_positional(
+        "downsample_factor", "throttle_rate", "exclude_groups", "keep_alive"
+    )
     def open_streamer(
         self,
         channels: channel.Params,
@@ -420,6 +429,9 @@ class Client:
             keep_alive=keep_alive,
         )
 
+    @deprecate_positional(
+        "downsample_factor", "throttle_rate", "exclude_groups", "keep_alive"
+    )
     async def open_async_streamer(
         self,
         channels: channel.Params,
@@ -452,3 +464,18 @@ class Client:
         :param tr: time range to delete data from.
         """
         self._deleter.delete(channels, tr)
+
+
+def _params(
+    channels: Sequence[channel.Key | str | channel.Payload],
+) -> channel.Params:
+    keys = [c for c in channels if isinstance(c, channel.Key)]
+    if len(keys) == len(channels):
+        return keys
+    names = [c for c in channels if isinstance(c, str)]
+    if len(names) == len(channels):
+        return names
+    payloads = [c for c in channels if isinstance(c, channel.Payload)]
+    if len(payloads) == len(channels):
+        return payloads
+    raise TypeError("channel params must be all keys or all names, got a mix of both")

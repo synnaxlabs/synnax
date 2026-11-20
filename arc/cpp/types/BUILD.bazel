@@ -35,6 +35,7 @@ cc_test(
         ":types",
         "//arc/go/types:types_grpc",
         "//x/cpp/pb",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -7,18 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
 from typing import Any, overload
 
 from pydantic import BaseModel, Field
 
+import synnax.ranger.types_gen as ranger
 from freighter import UnaryClient
 from synnax.ranger.kv.payload import Pair
 from x.lists import normalize
 
 
 class _GetRequest(BaseModel):
-    range: uuid.UUID
+    range: ranger.Key
     keys: list[str]
 
 
@@ -27,12 +27,11 @@ class _GetResponse(BaseModel):
 
 
 class _SetRequest(BaseModel):
-    range: uuid.UUID
     pairs: list[Pair]
 
 
 class _DeleteRequest(BaseModel):
-    range: uuid.UUID
+    range: ranger.Key
     keys: list[str]
 
 
@@ -41,9 +40,9 @@ class _EmptyResponse(BaseModel): ...
 
 class Client:
     _client: UnaryClient
-    _rng_key: uuid.UUID
+    _rng_key: ranger.Key
 
-    def __init__(self, *, rng: uuid.UUID, client: UnaryClient) -> None:
+    def __init__(self, *, rng: ranger.Key, client: UnaryClient) -> None:
         self._client = client
         self._rng_key = rng
 
@@ -73,7 +72,7 @@ class Client:
         else:
             for k, v in key.items():
                 pairs.append(Pair(range=self._rng_key, key=k, value=v))
-        req = _SetRequest(range=self._rng_key, pairs=pairs)
+        req = _SetRequest(pairs=pairs)
         self._client.send("/range/kv/set", req, _EmptyResponse)
 
     def delete(self, keys: str | list[str]) -> None:

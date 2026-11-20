@@ -12,8 +12,12 @@
 @ts output "client/ts/src/license"
 
 Edition enum {
-    desktop    = "d"
-    enterprise = "e"
+    desktop    = "d" {
+        @doc value "applies only to a Core that listens on loopback addresses."
+    }
+    enterprise = "e" {
+        @doc value "applies to a Core on any address."
+    }
 
     @doc value "is the product edition a license applies to."
 }
@@ -74,9 +78,15 @@ License struct {
 }
 
 State enum {
-    ok      = "ok"
-    missing = "missing"
-    expired = "expired"
+    ok      = "ok" {
+        @doc value "means a license covers the Core."
+    }
+    missing = "missing" {
+        @doc value "means no license applies to the Core."
+    }
+    expired = "expired" {
+        @doc value "means the license no longer covers the Core."
+    }
 
     @doc value "is whether a license covers the Core."
 }

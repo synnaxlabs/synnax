@@ -20,11 +20,17 @@ import (
 type Variant string
 
 const (
-	VariantSuccess  Variant = "success"
-	VariantInfo     Variant = "info"
-	VariantWarning  Variant = "warning"
-	VariantError    Variant = "error"
-	VariantLoading  Variant = "loading"
+	// VariantSuccess reports that an operation succeeded.
+	VariantSuccess Variant = "success"
+	// VariantInfo reports general information.
+	VariantInfo Variant = "info"
+	// VariantWarning reports a condition that needs attention.
+	VariantWarning Variant = "warning"
+	// VariantError reports a failure.
+	VariantError Variant = "error"
+	// VariantLoading reports an operation in progress.
+	VariantLoading Variant = "loading"
+	// VariantDisabled reports that the subject is not active.
 	VariantDisabled Variant = "disabled"
 )
 

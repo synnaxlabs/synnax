@@ -13,7 +13,7 @@ import { Log as Base } from "@synnaxlabs/pluto";
 
 import { Selectable } from "@/feature/log/Selectable";
 import { Panel } from "@/platform/panel";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export * from "@/feature/log/commands";
 export * from "@/feature/log/link";
@@ -22,7 +22,7 @@ export * from "@/feature/log/Selectable";
 export * from "@/feature/log/tree";
 export * from "@/platform/log/external";
 
-const TAB_TYPE = log.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = log.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
@@ -30,14 +30,20 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/log/Log"), "Log"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/log/toolbar"), "Toolbar"),
   Icon: Icon.Log,
+  iconKey: "log",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.Log />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.logs.getCached(resource.key));
-    await client.logs.create(project, corpse);
+    const corpse = query.requireCorpse(client.logs.watch(resource.key).getCached());
+    // A restored record comes back in the project, as its group may be gone.
+    await client.logs.create({
+      ...corpse,
+      project,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),

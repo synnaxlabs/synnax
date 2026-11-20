@@ -12,28 +12,35 @@ package panel
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
-	"github.com/synnaxlabs/x/color"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v6"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// bundleBody is the envelope body for a panel bundle member.
-type bundleBody struct {
+// bundleBody is the envelope body for a panel bundle member. C is the color type of
+// the member's version.
+type bundleBody[C any] struct {
 	// Root is the panel tree with each resource reference rewritten to a bundle path.
-	Root  any          `json:"root"`
-	Icon  *string      `json:"icon,omitzero"`
-	Color *color.Color `json:"color,omitzero"`
+	Root  any     `json:"root"`
+	Icon  *string `json:"icon,omitzero"`
+	Color *C      `json:"color,omitzero"`
 }
 
 // bundleResourceTab is the bundle wire form of a resource tab: resource holds the
-// target member's path from the bundle root instead of an ontology ID.
+// target member's path from the bundle root instead of a resource ID.
 type bundleResourceTab struct {
 	TabBase
 	Variant  TabType `json:"variant"`
@@ -57,12 +64,15 @@ type bundleSplit struct {
 }
 
 // EncodeBundle serializes p as a project-bundle member. Where the in-cluster tree holds
-// an ontology.ID, the bundle tree holds the target member's path from the bundle root,
+// a resource.ID, the bundle tree holds the target member's path from the bundle root,
 // taken from refs. A resource tab whose target refs does not name is removed, and
 // leaves emptied by removals are collapsed. View tabs pass through unchanged. It
 // returns a validation error when p has no name.
-func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
-	root := stripNonMemberTabs(p.Root, refs)
+func EncodeBundle(p Panel, refs map[resource.ID]string) (imex.Envelope, error) {
+	root := stripTabs(p.Root, func(id resource.ID) bool {
+		_, member := refs[id]
+		return !member
+	})
 	collapseEmptyLeaves(&root)
 	node, err := bundleNode(root, refs)
 	if err != nil {
@@ -70,10 +80,10 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 	}
 	env := imex.Envelope{
 		Version: versions.Latest,
-		Type:    string(ontology.ResourceTypePanel),
+		Type:    string(resource.TypePanel),
 		Name:    p.Name,
 	}
-	body := bundleBody{Root: node, Icon: p.Icon, Color: p.Color}
+	body := bundleBody[color.Ref]{Root: node, Icon: p.Icon, Color: p.Color}
 	if err := env.Encode(body); err != nil {
 		return imex.Envelope{}, err
 	}
@@ -81,21 +91,21 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 }
 
 // DecodeBundle deserializes a project-bundle member produced by EncodeBundle. Where the
-// bundle tree holds a member path, the returned tree holds the ontology.ID refs maps
+// bundle tree holds a member path, the returned tree holds the resource.ID refs maps
 // that path to; a path refs does not hold is a validation error naming it. A version
-// above versions.Latest is a path-scoped validation error. The returned panel carries
-// no key or parent; the caller assigns both.
+// above versions.Latest is a path-scoped validation error. Arc explorer tabs are
+// removed. The returned panel carries no key or project; the caller assigns both.
 func DecodeBundle(
 	ctx context.Context,
 	env imex.Envelope,
-	refs map[string]ontology.ID,
+	refs map[string]resource.ID,
 ) (Panel, error) {
 	if env.Version > versions.Latest {
 		return Panel{}, imex.NewErrUnsupportedVersion(
-			string(ontology.ResourceTypePanel), env.Version, versions.Latest,
+			string(resource.TypePanel), env.Version, versions.Latest,
 		)
 	}
-	body, err := env.Decode[bundleBody](ctx)
+	body, err := decodeBundleBody(ctx, env)
 	if err != nil {
 		return Panel{}, err
 	}
@@ -111,13 +121,59 @@ func DecodeBundle(
 	if err := json.Unmarshal(data, &root); err != nil {
 		return Panel{}, errors.Wrap(validate.ErrValidation, err.Error())
 	}
+	v3.StripArcExplorerTabs(&root)
 	return Panel{Name: env.Name, Root: root, Icon: body.Icon, Color: body.Color}, nil
 }
 
-// resolveBundleNode rewrites each resource tab's bundle path to the ontology.ID refs
+// decodeBundleBody decodes the body of env. A member from before panel v6 holds a plain
+// color, which it migrates to a fixed color.
+func decodeBundleBody(
+	ctx context.Context,
+	env imex.Envelope,
+) (bundleBody[color.Ref], error) {
+	if env.Version >= v6.Version {
+		return env.Decode[bundleBody[color.Ref]]()
+	}
+	old, err := decodeV5BundleBody(ctx, env)
+	if err != nil {
+		return bundleBody[color.Ref]{}, err
+	}
+	body := bundleBody[color.Ref]{Root: old.Root, Icon: old.Icon}
+	if old.Color != nil {
+		body.Color = &color.Ref{Variant: color.FixedRef{Value: *old.Color}}
+	}
+	return body, nil
+}
+
+// decodeV5BundleBody decodes the body of a member from before panel v6. A member from
+// before panel v5 holds a color with a 0-1 alpha, which it migrates to a byte alpha.
+func decodeV5BundleBody(
+	ctx context.Context,
+	env imex.Envelope,
+) (bundleBody[colorv2.Color], error) {
+	if env.Version >= v5.Version {
+		return env.Decode[bundleBody[colorv2.Color]]()
+	}
+	old, err := env.Decode[bundleBody[colorv1.Color]]()
+	if err != nil {
+		return bundleBody[colorv2.Color]{}, err
+	}
+	body := bundleBody[colorv2.Color]{Root: old.Root, Icon: old.Icon}
+	if old.Color == nil {
+		return body, nil
+	}
+	c, err := colorv2.MigrateColor(ctx, *old.Color)
+	if err != nil {
+		return bundleBody[colorv2.Color]{}, err
+	}
+	body.Color = &c
+	return body, nil
+}
+
+// resolveBundleNode rewrites each resource tab's bundle path to the resource.ID refs
 // maps it to, returning the tree in the in-cluster wire form. A node the tree grammar
 // cannot hold is left for Node's decoder to reject.
-func resolveBundleNode(node any, refs map[string]ontology.ID) (any, error) {
+func resolveBundleNode(node any, refs map[string]resource.ID) (any, error) {
 	m, ok := node.(map[string]any)
 	if !ok {
 		return node, nil
@@ -160,15 +216,15 @@ func resolveBundleNode(node any, refs map[string]ontology.ID) (any, error) {
 
 // ResourceRefs returns the ID of every resource the tree's resource tabs reference,
 // each once. Order is unspecified.
-func ResourceRefs(root Node) []ontology.ID {
-	ids := set.New[ontology.ID]()
+func ResourceRefs(root Node) []resource.ID {
+	ids := set.New[resource.ID]()
 	collectResourceRefs(root, ids)
 	return lo.Keys(ids)
 }
 
 // collectResourceRefs adds the ID of every resource the tree's resource tabs reference
 // to ids.
-func collectResourceRefs(n Node, ids set.Set[ontology.ID]) {
+func collectResourceRefs(n Node, ids set.Set[resource.ID]) {
 	switch v := n.Variant.(type) {
 	case LeafNode:
 		for _, t := range v.Tabs {
@@ -182,25 +238,19 @@ func collectResourceRefs(n Node, ids set.Set[ontology.ID]) {
 	}
 }
 
-// stripNonMemberTabs removes every resource tab whose target refs does not name,
-// leaving emptied leaves in place for collapseEmptyLeaves.
-func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
+// stripTabs removes every resource tab whose resource dropped reports, leaving emptied
+// leaves in place for collapseEmptyLeaves.
+func stripTabs(n Node, dropped func(resource.ID) bool) Node {
 	switch v := n.Variant.(type) {
 	case LeafNode:
-		tabs := make([]Tab, 0, len(v.Tabs))
-		for _, t := range v.Tabs {
-			if r, ok := t.Variant.(ResourceTab); ok {
-				if _, member := refs[r.Resource]; !member {
-					continue
-				}
-			}
-			tabs = append(tabs, t)
-		}
-		v.Tabs = tabs
+		v.Tabs = slices.DeleteFunc(slices.Clone(v.Tabs), func(t Tab) bool {
+			r, ok := t.Variant.(ResourceTab)
+			return ok && dropped(r.Resource)
+		})
 		return Node{Variant: v}
 	case SplitNode:
-		v.First = stripNonMemberTabs(v.First, refs)
-		v.Last = stripNonMemberTabs(v.Last, refs)
+		v.First = stripTabs(v.First, dropped)
+		v.Last = stripTabs(v.Last, dropped)
 		return Node{Variant: v}
 	default:
 		return n
@@ -208,9 +258,9 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 }
 
 // bundleNode converts a node to its bundle wire form, rewriting each resource tab's
-// target to its path from refs. stripNonMemberTabs runs first, so a tab whose target
-// refs does not name is an invariant violation and errors.
-func bundleNode(n Node, refs map[ontology.ID]string) (any, error) {
+// target to its path from refs. stripTabs runs first, so a tab whose target refs does
+// not name is an invariant violation and errors.
+func bundleNode(n Node, refs map[resource.ID]string) (any, error) {
 	switch v := n.Variant.(type) {
 	case LeafNode:
 		tabs := make([]any, 0, len(v.Tabs))

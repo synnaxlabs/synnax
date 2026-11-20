@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot } from "@synnaxlabs/client";
-import { Color } from "@synnaxlabs/lyra/color";
+import "@/feature/lineplot/toolbar/Lines.css";
+
+import { type color, lineplot } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Channel, LinePlot } from "@synnaxlabs/pluto";
-import { type bounds, type color, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { Channel, Color, LinePlot } from "@synnaxlabs/pluto";
+import type { bounds, xy } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -40,39 +42,98 @@ interface LineProps extends Omit<List.ItemProps<string>, "onChange"> {}
 const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 10 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
-const SelectAggregation = (
-  props: Select.ButtonsProps<lineplot.Aggregation>,
-): ReactElement => (
-  <Select.Buttons {...props} shrink={0}>
-    <Select.Item
-      itemKey="min_max"
-      size="small"
-      tooltip="Draw the lowest and highest sample of each group"
-    >
-      Min/max
-    </Select.Item>
-    <Select.Item itemKey="average" size="small" tooltip="Draw the mean of each group">
-      Average
-    </Select.Item>
-  </Select.Buttons>
-);
+interface SamplingOption<K extends string> {
+  key: K;
+  name: string;
+  /** What the trigger shows, where the name alone does not say what it sets. */
+  label: string;
+  description: string;
+  icon: Icon.ReactElement;
+}
 
-const SelectDetail = (props: Select.ButtonsProps<lineplot.Detail>): ReactElement => (
-  <Select.Buttons {...props} shrink={0}>
-    <Select.Item itemKey="low" size="small" tooltip="One group per four pixel columns">
-      Low
-    </Select.Item>
-    <Select.Item
-      itemKey="medium"
-      size="small"
-      tooltip="One group per two pixel columns"
-    >
-      Medium
-    </Select.Item>
-    <Select.Item itemKey="high" size="small" tooltip="One group per pixel column">
-      High
-    </Select.Item>
-  </Select.Buttons>
+const AGGREGATIONS: SamplingOption<lineplot.Aggregation>[] = [
+  {
+    key: "min_max",
+    name: "Min/max",
+    label: "Min/max",
+    description: "Keeps spikes visible.",
+    icon: <Icon.Waveform />,
+  },
+  {
+    key: "average",
+    name: "Average",
+    label: "Average",
+    description: "Smooths out noise.",
+    icon: <Icon.Wave.Sine />,
+  },
+];
+
+const DETAILS: SamplingOption<lineplot.Detail>[] = [
+  {
+    key: "low",
+    name: "Low",
+    label: "Low detail",
+    description: "Least detail. Loads fastest.",
+    icon: <Icon.Meter.Low />,
+  },
+  {
+    key: "medium",
+    name: "Medium",
+    label: "Medium detail",
+    description: "Balances detail and speed.",
+    icon: <Icon.Meter.Medium />,
+  },
+  {
+    key: "high",
+    name: "High",
+    label: "High detail",
+    description: "Most detail. Loads the most data.",
+    icon: <Icon.Meter.High />,
+  },
+];
+
+const SAMPLING_CLASS = CSS.BE("line-plot", "toolbar-sampling");
+const SAMPLING_TRIGGER_PROPS = {
+  variant: "shadow",
+  className: CSS.BE("line-plot", "toolbar-sampling-trigger"),
+} as const;
+
+interface SelectSamplingProps<K extends string> extends Pick<
+  Select.SingleSimpleProps<K>,
+  "onChange" | "resourceName"
+> {
+  value: K;
+  options: SamplingOption<K>[];
+}
+
+const SelectSampling = <K extends string>({
+  value,
+  options,
+  resourceName,
+  ...rest
+}: SelectSamplingProps<K>): ReactElement => (
+  <Select.Simple<K>
+    {...rest}
+    value={value}
+    resourceName={resourceName}
+    className={CSS.cls(
+      SAMPLING_CLASS,
+      CSS.BEM("line-plot", "toolbar-sampling", resourceName),
+    )}
+    allowNone={false}
+    variant="floating"
+    searchHidden
+    icon={options.find((o) => o.key === value)?.icon}
+    triggerProps={SAMPLING_TRIGGER_PROPS}
+  >
+    {options.map(({ key, name, label, description, icon }) => (
+      <Select.Item<K> key={key} itemKey={key} label={label} textValue={name}>
+        {icon}
+        {name}
+        <Select.ItemDescription>{description}</Select.ItemDescription>
+      </Select.Item>
+    ))}
+  </Select.Simple>
 );
 
 const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
@@ -103,20 +164,29 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
   const handleDetailChange = (detail: lineplot.Detail) =>
     dispatch(lineplot.setLineDetail({ key: itemKey, detail }));
 
-  const handleColorChange = (color?: color.Color) =>
+  const handleColorChange = (color?: color.Ref) =>
     dispatch(lineplot.setLineColor({ key: itemKey, color }));
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large" preventClick>
-      <Channel.AliasInput
-        channel={line.yChannel}
+      <Input.Text
+        selectOnFocus
         variant="shadow"
-        value={line.label ?? ""}
+        value={line.label}
         onChange={handleLabelChange}
-        isDefault={line.isDefaultLabel}
-        onReset={handleLabelReset}
         full="x"
-      />
+      >
+        {!line.isDefaultLabel && (
+          <Button.Button
+            onClick={handleLabelReset}
+            tooltip="Reset to channel name"
+            tooltipLocation={{ y: "top" }}
+            variant="outlined"
+          >
+            <Icon.Sync />
+          </Button.Button>
+        )}
+      </Input.Text>
       <Input.Numeric
         value={line.strokeWidth}
         variant="shadow"
@@ -128,12 +198,19 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         tooltip="Stroke width"
       />
       {xIsIndex && (
-        <SelectAggregation
+        <SelectSampling<lineplot.Aggregation>
           value={line.aggregation}
+          options={AGGREGATIONS}
           onChange={handleAggregationChange}
+          resourceName="aggregation"
         />
       )}
-      <SelectDetail value={line.detail} onChange={handleDetailChange} />
+      <SelectSampling<lineplot.Detail>
+        value={line.detail}
+        options={DETAILS}
+        onChange={handleDetailChange}
+        resourceName="detail"
+      />
       <Color.Swatch
         value={line.pickedColor}
         fallback={line.autoColor}

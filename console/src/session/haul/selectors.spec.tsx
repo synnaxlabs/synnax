@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
-import { type Haul as PHaul } from "@synnaxlabs/lyra/haul";
+import type { Haul as PHaul } from "@synnaxlabs/lyra/haul";
 import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Haul } from "@/session/haul";
+import { createMinimalStore } from "@/testutil";
 
 const createStore = () =>
-  configureStore({ reducer: { [Haul.SLICE_NAME]: Haul.reducer } });
+  createMinimalStore({ reducer: { [Haul.SLICE_NAME]: Haul.reducer } });
 
 const createWrapper = (
   store: ReturnType<typeof createStore>,
@@ -29,7 +29,8 @@ const createWrapper = (
   return Wrapper;
 };
 
-const dragging: PHaul.DraggingState = {
+const dragging: PHaul.State = {
+  key: "drag",
   source: { key: "src", type: "channel" },
   items: [{ key: "a", type: "channel" }],
 };

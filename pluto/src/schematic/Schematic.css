@@ -51,10 +51,8 @@
 
     .react-flow__handle {
         background: none !important;
-        border: var(--pluto-border) !important;
-        border-color: transparent !important;
+        border: none !important;
         pointer-events: none !important;
-        border-radius: 50%;
 
         /* React Flow pins the opposite edge (bottom/right) for handles facing those
            directions. Pluto positions every handle via top/left, so the extra pin
@@ -70,16 +68,6 @@
     .react-flow__node {
         pointer-events: all !important;
         border: var(--pluto-border-width) solid transparent !important;
-    }
-
-    .react-flow__edge {
-        & .react-flow__edge-path {
-            stroke-width: 2px !important;
-
-            &.lyra--thin {
-                stroke-width: 1px !important;
-            }
-        }
     }
 
     .react-flow__edges {
@@ -98,14 +86,31 @@
 
         & .react-flow__handle {
             display: block !important;
-            border-width: 2px !important;
-            min-width: 1.5rem !important;
-            min-height: 1.5rem !important;
-            width: 1.5rem !important;
-            height: 1.5rem !important;
-            pointer-events: all !important;
-            border-radius: 50%;
             z-index: 1;
+
+            &::before,
+            &::after {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                translate: -50% -50%;
+                border-radius: 50%;
+            }
+
+            /* The hit target. The dot inside it stays small. */
+            &::before {
+                width: 1.5rem;
+                height: 1.5rem;
+                border: 2px solid transparent;
+                pointer-events: all;
+            }
+
+            &::after {
+                width: 1rem;
+                height: 1rem;
+                border: var(--pluto-border-thick-width) solid transparent;
+            }
         }
 
         /* Lyra controls set their own z-index, which paints them over the handles.
@@ -126,24 +131,24 @@
         }
 
         & .react-flow__node.draggable:hover {
-            .react-flow__handle {
-                border-color: var(--pluto-primary-z) !important;
-                background: var(--pluto-text-color) !important;
+            .react-flow__handle::after {
+                border-color: var(--pluto-primary-z);
+                background: var(--pluto-text-color);
+            }
 
-                &:hover {
-                    background: var(--pluto-primary-z) !important;
-                }
+            .react-flow__handle:hover::after {
+                background: var(--pluto-primary-z);
             }
         }
 
         & .react-flow__container:has(.react-flow__connectionline) {
-            & .react-flow__handle {
-                border-color: var(--pluto-primary-z) !important;
-                background: var(--pluto-text-color) !important;
+            & .react-flow__handle::after {
+                border-color: var(--pluto-primary-z);
+                background: var(--pluto-text-color);
+            }
 
-                &:hover {
-                    background: var(--pluto-primary-z) !important;
-                }
+            & .react-flow__handle:hover::after {
+                background: var(--pluto-primary-z);
             }
         }
     }

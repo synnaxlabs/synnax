@@ -9,15 +9,10 @@
 
 import "@/schematic/node/general/stringDisplay/stringDisplay.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { color } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type PropsWithChildren,
-  type ReactElement,
-  type Ref,
-} from "react";
+import type { CSSProperties, PropsWithChildren, ReactElement, Ref } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -26,12 +21,10 @@ import { LEVEL_SIZES } from "@/schematic/node/common/size";
 
 interface RenderProps extends PropsWithChildren<
   Partial<
-    Pick<
-      schematic.StringDisplayNodeConfig,
-      "strokeColor" | "orientation" | "level" | "inlineSize"
-    >
+    Pick<schematic.StringDisplayNodeConfig, "orientation" | "level" | "inlineSize">
   >
 > {
+  strokeColor?: color.Crude;
   className?: string;
   /** contentRef receives the element the canvas draws the text into. */
   contentRef?: Ref<HTMLDivElement>;

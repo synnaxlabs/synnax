@@ -15,13 +15,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apilabel "github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,46 +39,76 @@ func TestAPILabel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apilabel.Service
+	db  *gorp.DB
+	svc *service.Layer
+	// create, del, dispatch, add, remove, and retrieve run their routes as the API
+	// layer binds them.
+	create   freighter.UnaryHandler[apilabel.CreateRequest, apilabel.CreateResponse]
+	del      freighter.UnaryHandler[apilabel.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apilabel.DispatchRequest, struct{}]
+	add      freighter.UnaryHandler[apilabel.AddRequest, struct{}]
+	remove   freighter.UnaryHandler[apilabel.RemoveRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apilabel.RetrieveRequest,
+		apilabel.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apilabel.NewService(apilabel.ServiceConfig{
-		RBAC:  svc.RBAC,
-		Label: svc.Label,
+	apiSvc := MustSucceed(apilabel.NewService(apilabel.ServiceConfig{
+		Label:  svc.Label,
+		Ranger: svc.Ranger,
+		Status: svc.Status,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	add = bind.Write(binder, apiSvc.Add)
+	remove = bind.Write(binder, apiSvc.Remove)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
 
-// grant grants the action on the given objects to the subject through a fresh role.
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
+
+// grant grants the action on the objects to the subject.
 func grant(
 	ctx SpecContext,
 	action access.Action,
-	subject ontology.ID,
-	objects ...ontology.ID,
+	subject resource.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

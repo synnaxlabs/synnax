@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import { uuid } from "@synnaxlabs/x";
+import type { APIRoute } from "astro";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as acceptRoute } from "@/pages/api/invitations/[key]/accept";
@@ -137,7 +138,7 @@ describe("invitation routes", () => {
 
     it("should answer 404 for an unknown or malformed key", async () => {
       h.signIn(CY);
-      for (const key of [crypto.randomUUID(), "inv_1"])
+      for (const key of [uuid.create(), "inv_1"])
         await expectError(await accept(key), 404, "Invitation not found");
     });
 

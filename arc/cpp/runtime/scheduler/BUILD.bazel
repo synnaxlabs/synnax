@@ -65,6 +65,7 @@ cc_test(
         "//x/cpp/errors",
         "//x/cpp/telem",
         "//x/cpp/testutil",
+        "@abseil-cpp//absl/log:scoped_mock_log",
         "@googletest//:gtest_main",
     ],
 )

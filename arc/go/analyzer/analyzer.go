@@ -15,6 +15,8 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -24,18 +26,25 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	checkImportOrder(ctx)
+	checkModuleRules(ctx)
 	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
-	liftReassignedVarReads(ctx)
+	markExports(ctx)
 	propagateCallChannels(ctx.CallEdges)
+	statement.PromoteChannelReadLocals(ctx)
+	statement.CheckStatefulInitializers(ctx)
+	liftReassignedVarReads(ctx)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	reportUnusedImports(ctx)
 	if ctx.Constraints.HasTypeVariables() {
@@ -46,10 +55,41 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
 		substituteTypeMap(ctx)
 	}
+	constant.Check(ctx)
+	checkComputedReads(ctx)
+}
+
+// checkComputedReads rejects a func that reads a computed top-level variable. It runs
+// last, so it can skip a variable whose declaration already has an error.
+func checkComputedReads(ctx acontext.Context[parser.IProgramContext]) {
+	for _, read := range *ctx.VarReads {
+		// Lowering rejects a variable with no zero value at its declaration.
+		if !read.Var.IsComputed() || types.Zero(read.Var.Type) == nil ||
+			hasError(*ctx.Diagnostics, read.Var.AST) {
+			continue
+		}
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(
+			read.Site,
+			"cannot read '%s': its initializer is not a compile-time constant",
+			parser.PrimaryName(read.Site),
+		))
+	}
+}
+
+// hasError reports whether an error diagnostic lies inside node.
+func hasError(diags diagnostics.Diagnostics, node antlr.ParserRuleContext) bool {
+	span := diagnostics.Errorf(node, "").Range
+	return slices.ContainsFunc(diags.Errors(), func(d diagnostics.Diagnostic) bool {
+		return !before(d.Range.Start, span.Start) && !before(span.End, d.Range.End)
+	})
+}
+
+func before(a, b protocol.Position) bool {
+	return a.Line < b.Line || (a.Line == b.Line && a.Character < b.Character)
 }
 
 // liftReassignedVarReads lifts reassigned-variable reads in synth expressions
-// into input params. Format-string placeholders lift from their parsed bodies.
+// into input params.
 func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
 	for _, c := range ctx.Scope.Root().Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
@@ -57,10 +97,6 @@ func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
 		}
 		switch ast := c.AST.(type) {
 		case parser.IExpressionContext:
-			if parser.IsLiteral(ast) {
-				flow.LiftFmtStrVarReads(ctx, c, ast)
-				continue
-			}
 			flow.LiftVarReads(ctx, c, ast)
 		case parser.IFunctionContext:
 			for _, arg := range symbol.FunctionArguments(ast) {
@@ -208,7 +244,11 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 			cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
 			chain := strings.Join(cycle, " -> ")
 			diag.Add(
-				diagnostics.Errorf(closingSite, "circular function call: %s", chain),
+				codes.CircularCall.Atf(
+					closingSite,
+					"circular function call: %s",
+					chain,
+				),
 			)
 		}
 	}
@@ -371,6 +411,18 @@ func findFuncBody(callSite antlr.ParserRuleContext) parser.IBlockContext {
 	return nil
 }
 
+func analyzeTopLevelAssignment(ctx acontext.Context[parser.IAssignmentContext]) {
+	name := ctx.AST.IDENTIFIER().GetText()
+	sym, err := ctx.Resolve(name)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if !ctx.RejectTopLevel(sym, name) {
+		sequence.RejectReactiveAssignment(ctx.Diagnostics, ctx.AST)
+	}
+}
+
 func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
@@ -384,9 +436,7 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 		} else if varDecl := item.VariableDeclaration(); varDecl != nil {
 			statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
 		} else if assign := item.Assignment(); assign != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-				"cannot reassign a top-level variable; assignment is only valid "+
-					"inside a sequence, stage, or function"))
+			analyzeTopLevelAssignment(ctx.Child(assign))
 		}
 	}
 	sequence.AnalyzeSynthInlines(ctx)
@@ -420,8 +470,8 @@ func addUnificationError(
 	err error,
 	fallbackCtx antlr.ParserRuleContext,
 ) {
-	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil &&
-		ue.Constraint.Source != nil {
+	ue, ok := errors.AsType[*constraints.UnificationError](err)
+	if ok && ue.Constraint != nil && ue.Constraint.Source != nil {
 		diag.Add(diagnostics.Error(err, ue.Constraint.Source))
 	} else {
 		diag.Add(diagnostics.Error(err, fallbackCtx))

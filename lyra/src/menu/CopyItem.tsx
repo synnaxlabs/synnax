@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
+import { nodeText, useMatches, usePathChildren } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 
 /** Props for {@link CopyItem}. */
@@ -26,10 +28,15 @@ export interface CopyItemProps extends Button.CopyProps {
 export const CopyItem = ({
   className,
   itemKey,
+  children,
   ...rest
-}: CopyItemProps): ReactElement => {
+}: CopyItemProps): ReactElement | null => {
   const { onClick: ctxOnClick, level = "p", gap, background } = useContext();
+  const matches = useMatches(nodeText(children));
+  // The copy icon leads, so the button takes no names of submenus for its icon.
+  const content = usePathChildren(children, <Icon.Copy key="icon" />);
   const handleClick: Button.ButtonProps["onClick"] = () => ctxOnClick(itemKey);
+  if (!matches) return null;
   return (
     <Button.Copy
       level={level}
@@ -43,6 +50,8 @@ export const CopyItem = ({
       role="menuitem"
       {...rest}
       onClick={handleClick}
-    />
+    >
+      {content}
+    </Button.Copy>
   );
 };

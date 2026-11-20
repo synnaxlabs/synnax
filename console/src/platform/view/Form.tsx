@@ -7,44 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type view } from "@synnaxlabs/client";
+import type { view } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import type { record } from "@synnaxlabs/x";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { FormContext, useContext } from "@/platform/view/context";
+import { FormContext, useContext, useSearchContext } from "@/platform/view/context";
 
-export type Query = List.PagerParams;
+const path = PView.formPath;
 
-export interface FormProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-  Q extends Query,
->
-  extends PropsWithChildren, Flux.UseListReturn<Q, K, E> {}
+export interface FormProps<K extends record.Key, E extends record.Keyed<K>>
+  extends
+    PropsWithChildren,
+    Pick<
+      Flux.UseListReturn<K, E>,
+      "data" | "getItem" | "subscribe" | "answered" | "more" | "search"
+    > {
+  /** Called with the filter of the view each time the selected view changes it. */
+  onWhereChange: (where: view.View["where"]) => void;
+  /** The height of each item in pixels. The list renders only the items in view. */
+  itemHeight: number;
+}
 
-export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends Query>({
+export const Form = <K extends record.Key, E extends record.Keyed<K>>({
   children,
   data,
   getItem,
-  retrieve,
   subscribe,
   answered,
-}: FormProps<K, E, Q>): ReactElement | null => {
+  more,
+  search,
+  onWhereChange,
+  itemHeight,
+}: FormProps<K, E>): ReactElement | null => {
   const { staticViews, getInitialView } = useContext("View.Form");
-  // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
-  // typing issues.
-  const pagerRetrieve = retrieve as List.UsePagerParams["retrieve"];
-  const { fetchMore, search } = List.usePager({
-    retrieve: pagerRetrieve,
-    pageSize: 50,
-  });
-  const updateQuery = (query: view.View["query"]) => {
-    pagerRetrieve((p) => ({ ...p, ...query, offset: 0, limit: 50, searchTerm: "" }));
-  };
+  const { term } = useSearchContext("View.Form");
+  // The list of a new view starts with no term.
+  const searchedRef = useRef("");
+  useEffect(() => {
+    if (term === searchedRef.current) return;
+    searchedRef.current = term;
+    search(term);
+  }, [term]);
   const { form } = PView.useForm({
     query: null,
     initialValues: getInitialView(),
@@ -52,22 +64,22 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     beforeSave: async ({
       value,
     }: Flux.FormBeforeSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
-      const { key, query } = value();
+      const { key, where } = value();
       // if this is a static view we need to handle it here. Otherwise, the
       // useSetSynchronizer will handle it as it also needs to handle remote updates.
       if (key == null || !staticViews.includes(key)) return true;
-      updateQuery(query);
+      onWhereChange(where);
       return false;
     },
   });
   const { get: getField } = form;
   const handleSet = (view: view.View) => {
-    if (view.key !== getField<string>("key").value) return;
-    updateQuery(view.query);
+    if (view.key !== getField(path.key).value) return;
+    onWhereChange(view.where);
   };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
-  const contextValue = { search, answered };
+  const contextValue = { answered };
   return (
     <PForm.Form<typeof PView.formSchema> {...form}>
       <Select.Frame
@@ -77,7 +89,9 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
         subscribe={subscribe}
         onChange={setSelected}
         value={selected}
-        onFetchMore={fetchMore}
+        onFetchMore={more}
+        virtual
+        itemHeight={itemHeight}
       >
         <FormContext value={contextValue}>{children}</FormContext>
       </Select.Frame>

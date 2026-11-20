@@ -12,19 +12,28 @@ package pagerduty_test
 import (
 	"context"
 	"encoding/json/v2"
+	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
+	"uuid"
 
 	"github.com/PagerDuty/go-pagerduty"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -36,25 +45,130 @@ func TestPagerDuty(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
+// otherRack is a rack other than the Core's, and fileRoutingKey is the routing key in
+// the file "routing.key" of the Core's secrets folder.
+const otherRack rack.Key = 2
+
+var fileRoutingKey = strings.Repeat("d", 32)
+
 var (
 	db        *gorp.DB
 	statusSvc *status.Service
+	tasks     *gorp.Table[task.Key, task.Task]
+	secretSvc *secret.Service
+	alertSvc  *pd.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db, Ontology: otg, Group: g,
+	StartRun(db.Run)
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db, Ontology: otg, Label: labelSvc, Group: g,
+		DB: db,
+	}))
+	// Task statuses and configs reference their task, so the task table must be open.
+	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{
+		DB:   db,
+		Name: string(resource.TypeTask),
+	}))
+	// File secrets reference their rack, so the rack table must be open.
+	racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+		DB:   db,
+		Name: "rack",
+	}))
+	for _, k := range []rack.Key{secrettestutil.CoreRack, otherRack} {
+		Expect(racks.NewCreate().Entry(&rack.Rack{Key: k, Name: "Rack"}).Exec(ctx, db)).
+			To(Succeed())
+	}
+	secretSvc = secrettestutil.OpenService(ctx, db, secret.ServiceConfig{
+		Folder: fstest.MapFS{"routing.key": {Data: []byte(fileRoutingKey)}},
+	})
+	alertSvc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
+		DB:     db,
+		Secret: secretSvc,
+		Rack:   secrettestutil.CoreRack,
 	}))
 })
+
+func createTask(ctx context.Context, t task.Task) task.Task {
+	GinkgoHelper()
+	Expect(tasks.NewCreate().Entry(&t).Exec(ctx, db)).To(Succeed())
+	return t
+}
+
+// createRoutingKey creates a stored secret that holds value and returns its key.
+func createRoutingKey(ctx context.Context, value string) secret.Key {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.StoredSecret{
+		Base: secret.Base{Name: "Routing key"},
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
+	})).To(Succeed())
+	return s.Base().Key
+}
+
+// createFileRoutingKey creates a secret that names the file "routing.key" on the rack
+// with key r, and returns its key.
+func createFileRoutingKey(ctx context.Context, r rack.Key) secret.Key {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.FileSecret{
+		Base:     secret.Base{Name: "Routing key file"},
+		FileName: "routing.key",
+		Rack:     r,
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return secretSvc.NewWriter(tx).Set(ctx, &s, nil)
+	})).To(Succeed())
+	return s.Base().Key
+}
+
+// replaceRoutingKey replaces the value of the secret with the given key.
+func replaceRoutingKey(ctx context.Context, key secret.Key, value string) {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.StoredSecret{
+		Base: secret.Base{Key: key, Name: "Routing key"},
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
+	})).To(Succeed())
+}
+
+// storeTask stores the row and the config of an alert task named name, as the task
+// service does, and returns the task as the Driver receives it. It creates each status
+// that an alert watches and that does not exist yet.
+func storeTask(ctx context.Context, name string, cfg pd.TaskConfig) task.Task {
+	GinkgoHelper()
+	for _, a := range cfg.Alerts {
+		err := statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](a.Status)).
+			Exec(ctx, db)
+		if errors.Is(err, query.ErrNotFound) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     a.Status,
+					Name:    a.Status,
+					Variant: status.VariantLoading,
+					Time:    telem.Now(),
+				})
+			})).To(Succeed())
+		} else {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+	t := createTask(ctx, task.Task{Key: uuid.New(), Name: name, Type: pd.AlertTaskType})
+	rec := MustSucceed(
+		alertSvc.Alert.Prepare(ctx, db, t.Key, t.Name, encodeConfig(cfg)),
+	)
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rec.Write(ctx, tx)
+	})).To(Succeed())
+	t.Config = MustSucceed(rec.Data())
+	return t
+}
 
 // encodeConfig converts a config into the msgpack.EncodedJSON shape the driver
 // receives as task.Task.Config.
@@ -71,6 +185,10 @@ type mockEventSender struct {
 	mu     sync.Mutex
 	events []pagerduty.V2Event
 	err    error
+	// held makes each send wait until it closes.
+	held chan struct{}
+	// waiting counts the sends that wait on held.
+	waiting int
 }
 
 var _ pd.EventSender = (*mockEventSender)(nil)
@@ -78,9 +196,22 @@ var _ pd.EventSender = (*mockEventSender)(nil)
 func newMockSender() *mockEventSender { return &mockEventSender{} }
 
 func (m *mockEventSender) SendEvent(
-	_ context.Context,
+	ctx context.Context,
 	event pagerduty.V2Event,
 ) (*pagerduty.V2EventResponse, error) {
+	m.mu.Lock()
+	held := m.held
+	m.mu.Unlock()
+	if held != nil {
+		m.mu.Lock()
+		m.waiting++
+		m.mu.Unlock()
+		select {
+		case <-held:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
@@ -100,6 +231,21 @@ func (m *mockEventSender) getEvents() []pagerduty.V2Event {
 	cp := make([]pagerduty.V2Event, len(m.events))
 	copy(cp, m.events)
 	return cp
+}
+
+// hold makes sends wait until release runs.
+func (m *mockEventSender) hold() (release func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.held = make(chan struct{})
+	return func() { close(m.held) }
+}
+
+// getWaiting returns the number of sends that waited on a hold.
+func (m *mockEventSender) getWaiting() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.waiting
 }
 
 func (m *mockEventSender) setError(err error) {

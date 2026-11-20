@@ -11,7 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { lineplot } from "@/lineplot";
-import { type ranger } from "@/ranger";
+import type { ranger } from "@/ranger";
 
 const PLOT = "11111111-2222-4333-8444-555555555555";
 
@@ -35,8 +35,16 @@ const roundTrip = (
   return lineplot.reduceAll(next, inverse).next;
 };
 
-const createLine = (key: string, color: string): lineplot.Line =>
-  lineplot.lineZ.parse({ key, color, yAxis: "y1", yChannel: 1 });
+const fixed = (hex: string): lineplot.Line["color"] => ({
+  type: "fixed",
+  value: color.construct(hex),
+});
+
+const createLine = (key: string, hex: string): lineplot.Line =>
+  lineplot.lineZ.parse({ key, color: fixed(hex), yAxis: "y1", yChannel: 1 });
+
+const setName = (name: string): lineplot.Action =>
+  lineplot.set({ path: ["name"], value: name });
 
 const keyRef = (k: string): ranger.Ref => ({ variant: "key", key: k });
 
@@ -49,27 +57,24 @@ const createRule = (key: string, label: string): lineplot.Rule =>
   lineplot.ruleZ.parse({
     key,
     label,
-    color: color.construct("#888888"),
+    color: fixed("#888888"),
     axis: "y1",
     position: 0,
   });
 
 describe("lineplot reducer", () => {
-  describe("rename", () => {
+  describe("set of the name", () => {
     it("should set the line plot name", () => {
-      const out = apply(createEmpty({ name: "old" }), lineplot.rename({ name: "new" }));
+      const out = apply(createEmpty({ name: "old" }), setName("new"));
       expect(out.name).toEqual("new");
     });
     it("should round-trip the previous name through its inverse", () => {
       const state = createEmpty({ name: "before" });
-      expect(roundTrip(state, lineplot.rename({ name: "after" })).name).toEqual(
-        "before",
-      );
+      expect(roundTrip(state, setName("after")).name).toEqual("before");
     });
-    it("should target the plot key so plot-level edits invalidate each other", () => {
-      const state = createEmpty({ key: "11111111-1111-4111-8111-111111111111" });
-      const { targets } = lineplot.reduceAll(state, [lineplot.rename({ name: "x" })]);
-      expect(targets).toEqual([state.key]);
+    it("should target the name so concurrent sets of it invalidate each other", () => {
+      const { targets } = lineplot.reduceAll(createEmpty(), [setName("x")]);
+      expect(targets).toEqual(["name"]);
     });
   });
 
@@ -328,23 +333,17 @@ describe("lineplot reducer", () => {
       let s = apply(state, lineplot.setChannels({ axisKey: "y1", channels: [5, 6] }));
       const keep = lk(5, 10);
       const drop = lk(6, 10);
-      s = apply(
-        s,
-        lineplot.setLineColor({ key: keep, color: color.construct("#ff0000") }),
-      );
-      s = apply(
-        s,
-        lineplot.setLineColor({ key: drop, color: color.construct("#00ff00") }),
-      );
+      s = apply(s, lineplot.setLineColor({ key: keep, color: fixed("#ff0000") }));
+      s = apply(s, lineplot.setLineColor({ key: drop, color: fixed("#00ff00") }));
       const out = apply(s, lineplot.setChannels({ axisKey: "y1", channels: [5] }));
       const survivor = out.lines.find((l) => l.key === keep);
-      expect(survivor?.color).toEqual(color.construct("#ff0000"));
+      expect(survivor?.color).toEqual(fixed("#ff0000"));
       const restored = roundTrip(
         s,
         lineplot.setChannels({ axisKey: "y1", channels: [5] }),
       );
       const dropped = restored.lines.find((l) => l.key === drop);
-      expect(dropped?.color).toEqual(color.construct("#00ff00"));
+      expect(dropped?.color).toEqual(fixed("#00ff00"));
     });
   });
 
@@ -478,7 +477,7 @@ describe("lineplot reducer", () => {
         s,
         lineplot.setLineColor({
           key: s.lines[0].key,
-          color: color.construct("#ff0000"),
+          color: fixed("#ff0000"),
         }),
       );
       const restored = roundTrip(
@@ -487,7 +486,7 @@ describe("lineplot reducer", () => {
       );
       expect(restored.lines).toHaveLength(1);
       expect(restored.lines[0].key).toEqual(lk(5, 0));
-      expect(restored.lines[0].color).toEqual(color.construct("#ff0000"));
+      expect(restored.lines[0].color).toEqual(fixed("#ff0000"));
     });
 
     it("should rekey a line when the x-channel changes", () => {
@@ -585,8 +584,8 @@ describe("lineplot reducer", () => {
       },
       {
         label: "setLineColor",
-        action: lineplot.setLineColor({ key: "l1", color: color.construct("#0000ff") }),
-        expected: { color: color.construct("#0000ff") },
+        action: lineplot.setLineColor({ key: "l1", color: fixed("#0000ff") }),
+        expected: { color: fixed("#0000ff") },
       },
       {
         label: "setLineLabel",
@@ -622,22 +621,22 @@ describe("lineplot reducer", () => {
       const state = createEmpty({ lines: [start] });
       const action = lineplot.setLineColor({
         key: "l1",
-        color: color.construct("#ff0000"),
+        color: fixed("#ff0000"),
       });
-      expect(apply(state, action).lines[0].color).toEqual(color.construct("#ff0000"));
+      expect(apply(state, action).lines[0].color).toEqual(fixed("#ff0000"));
       expect(roundTrip(state, action).lines[0]).toEqual(state.lines[0]);
     });
 
     it("is a no-op when the line does not exist", () => {
       const { targets } = lineplot.reduceAll(createEmpty(), [
-        lineplot.setLineColor({ key: "missing", color: color.construct("#ff0000") }),
+        lineplot.setLineColor({ key: "missing", color: fixed("#ff0000") }),
       ]);
       expect(targets).toEqual([]);
     });
 
     it("targets the line so distinct lines are independent", () => {
       const { targets } = lineplot.reduceAll(base(), [
-        lineplot.setLineColor({ key: "l1", color: color.construct("#0000ff") }),
+        lineplot.setLineColor({ key: "l1", color: fixed("#0000ff") }),
       ]);
       expect(targets).toEqual(["line:l1"]);
     });
@@ -651,7 +650,7 @@ describe("lineplot reducer", () => {
         yAxis: "y1",
         yChannel: 1,
         xChannel: 0,
-        color: color.construct("#0000ff"),
+        color: fixed("#0000ff"),
         strokeWidth: 4,
         aggregation: "average",
         detail: "high",
@@ -737,8 +736,8 @@ describe("lineplot reducer", () => {
       },
       {
         label: "setRuleColor",
-        action: lineplot.setRuleColor({ key: "r1", color: color.construct("#00ff00") }),
-        expected: { color: color.construct("#00ff00") },
+        action: lineplot.setRuleColor({ key: "r1", color: fixed("#00ff00") }),
+        expected: { color: fixed("#00ff00") },
       },
       {
         label: "setRuleAxis",
@@ -790,7 +789,7 @@ describe("lineplot reducer", () => {
     it("should apply actions sequentially", () => {
       const out = apply(
         createEmpty({ name: "old" }),
-        lineplot.rename({ name: "renamed" }),
+        setName("renamed"),
         lineplot.addChannel({ axisKey: "y1", channel: 1 }),
         lineplot.addChannel({ axisKey: "y1", channel: 2 }),
       );
@@ -799,20 +798,19 @@ describe("lineplot reducer", () => {
     });
     it("should collect inverses in reverse application order so undo replays them correctly", () => {
       const { inverse } = lineplot.reduceAll(createEmpty(), [
-        lineplot.rename({ name: "a" }),
-        lineplot.rename({ name: "b" }),
+        setName("a"),
+        setName("b"),
       ]);
       // first inverse popped is for the LAST action applied
-      expect(inverse[0]).toEqual(lineplot.rename({ name: "a" }));
-      expect(inverse[1]).toEqual(lineplot.rename({ name: "Test Line Plot" }));
+      expect(inverse[0]).toEqual(setName("a"));
+      expect(inverse[1]).toEqual(setName("Test Line Plot"));
     });
     it("should deduplicate targets", () => {
-      const created = createEmpty();
-      const { targets } = lineplot.reduceAll(created, [
-        lineplot.rename({ name: "a" }),
-        lineplot.rename({ name: "b" }),
+      const { targets } = lineplot.reduceAll(createEmpty(), [
+        setName("a"),
+        setName("b"),
       ]);
-      expect(targets).toEqual([created.key]);
+      expect(targets).toEqual(["name"]);
     });
     it("should union the distinct per-resource targets it touched", () => {
       const { targets } = lineplot.reduceAll(createEmpty(), [
@@ -830,8 +828,11 @@ describe("actionZ wire format", () => {
     expect(() => lineplot.actionZ.parse({ type: "bogus", bogus: {} })).toThrow();
   });
   it("should accept a known action with its payload field", () => {
-    const parsed = lineplot.actionZ.parse({ type: "rename", rename: { name: "x" } });
-    expect(parsed.type).toEqual("rename");
+    const parsed = lineplot.actionZ.parse({
+      type: "set_title_visible",
+      setTitleVisible: { visible: true },
+    });
+    expect(parsed.type).toEqual("set_title_visible");
   });
 });
 
@@ -841,7 +842,7 @@ describe("scopedActionZ", () => {
       key: "00000000-0000-4000-8000-000000000001",
       dispatchKey: "client-xyz",
       seq: 7,
-      actions: [{ type: "rename", rename: { name: "new" } }],
+      actions: [{ type: "set", set: { path: ["group"], value: "g" } }],
     });
     expect(parsed.dispatchKey).toEqual("client-xyz");
     expect(parsed.seq).toEqual(7);
@@ -854,5 +855,37 @@ describe("scopedActionZ", () => {
       actions: [],
     });
     expect(parsed.seq).toEqual(0);
+  });
+});
+
+describe("group and project patches", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  const G2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the group", () => {
+    const doc = createEmpty();
+    expect(
+      lineplot.reduceAll(doc, [lineplot.set({ path: ["group"], value: G1 })]).next
+        .group,
+    ).toEqual(G1);
+  });
+  it("should move the document out of its group", () => {
+    const doc = createEmpty({ group: G1 });
+    expect(
+      lineplot.reduceAll(doc, [lineplot.remove({ key: "group" })]).next.group,
+    ).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = createEmpty({ group: G1 });
+    const { next, inverse } = lineplot.reduceAll(doc, [
+      lineplot.set({ path: ["group"], value: G2 }),
+    ]);
+    expect(lineplot.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should move the document into the project", () => {
+    const doc = createEmpty({ project: G1 });
+    expect(
+      lineplot.reduceAll(doc, [lineplot.set({ path: ["project"], value: G2 })]).next
+        .project,
+    ).toEqual(G2);
   });
 });

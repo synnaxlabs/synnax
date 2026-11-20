@@ -15,6 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -36,6 +37,12 @@ namespace arc::runtime::scheduler {
 /// indices into Scheduler::nodes / Scheduler::scopes; the type system
 /// does not distinguish them — tests cover the mixups.
 static constexpr size_t NO_INDEX = ~size_t{0};
+
+/// @brief the least time between two log lines for one error of one node.
+inline const x::telem::TimeSpan ERROR_LOG_INTERVAL = 5 * x::telem::SECOND;
+
+/// @brief the most different errors that one node logs in each ERROR_LOG_INTERVAL.
+static constexpr size_t MAX_LOGGED_ERRORS = 10;
 
 /// @brief receives an error raised by a node, along with that node.
 using ErrorHandler = std::function<void(const ir::Node &, const x::errors::Error &)>;
@@ -86,6 +93,12 @@ class Scheduler {
         std::vector<Activation> activates;
     };
 
+    /// @brief an error that a node logged, and the elapsed time of its line.
+    struct LoggedError {
+        x::errors::Error error;
+        x::telem::TimeSpan at;
+    };
+
     /// @brief pairs a runtime node with its pre-resolved per-output
     /// propagation table.
     struct Node {
@@ -98,11 +111,18 @@ class Scheduler {
         /// @brief marks a node with no incoming edges and no channel reads.
         /// Entry nodes fire once per activation.
         bool entry = false;
+        /// @brief marks an entry node whose fired flag survives scope reset, so it
+        /// fires on the first activation only.
+        bool once = false;
         /// @brief marked_flags index of the node's ir::done_param pseudo-output,
         /// NO_INDEX when no transition waits on it.
         size_t done = NO_INDEX;
         /// @brief propagation table indexed by output ordinal.
         std::vector<OutputResolved> outputs;
+        /// @brief the errors the node logged in the last ERROR_LOG_INTERVAL.
+        std::vector<LoggedError> logged;
+        /// @brief the count of errors not logged since the last line of the node.
+        size_t not_logged = 0;
     };
 
     /// @brief mirrors an ir::Member: exactly one of node or scope is set.
@@ -187,8 +207,8 @@ class Scheduler {
     /// or when the owning member is deactivated.
     std::vector<uint8_t> self_changed_flags;
     /// @brief fired_flags[i] is set when node i runs and cleared on
-    /// (re)activation. An entry node with the flag set skips the unconditional
-    /// stratum-0 dispatch.
+    /// (re)activation, except for a once node. An entry node with the flag set
+    /// skips the unconditional stratum-0 dispatch.
     std::vector<uint8_t> fired_flags;
     /// @brief marked_flags[i] is set when the (node, output) pair behind transition
     /// handle i fired this cycle. Cleared at end of cycle so transitions fire on fresh
@@ -236,6 +256,7 @@ public:
     /// re-activates the root scope (scopes[0]). Used by the runtime when
     /// stopping a program so subsequent runs start from a clean state.
     void reset() {
+        this->ctx.cycle = node::Cycle{};
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->self_changed_flags, 0);
         std::ranges::fill(this->fired_flags, 0);
@@ -245,8 +266,11 @@ public:
             sc.active = false;
             sc.active_step = NO_INDEX;
         }
-        for (auto &n: this->nodes)
+        for (auto &n: this->nodes) {
             n.node->reset(this->ctx);
+            n.logged.clear();
+            n.not_logged = 0;
+        }
         this->activate_scope(this->scopes[0]);
     }
 
@@ -345,12 +369,13 @@ private:
         }
     }
 
-    /// @brief clears self-changed and fired and calls reset on m's node. No-op
-    /// if m is a scope member or an unresolved node-key.
+    /// @brief clears self-changed and fired and calls reset on m's node. A once
+    /// node keeps its fired flag. No-op if m is a scope member or an unresolved
+    /// node-key.
     void reset_leaf_node(MemberState &m) {
         if (m.is_node() && m.node != NO_INDEX) {
             this->self_changed_flags[m.node] = 0;
-            this->fired_flags[m.node] = 0;
+            if (!this->nodes[m.node].once) this->fired_flags[m.node] = 0;
             this->nodes[m.node].node->reset(this->ctx);
         }
     }
@@ -496,17 +521,41 @@ private:
         return first;
     }
 
+    /// @brief reports whether node can log e now. A node logs each different error one
+    /// time in each ERROR_LOG_INTERVAL, and at most MAX_LOGGED_ERRORS different errors.
+    bool take_log_line(Node &node, const x::errors::Error &e) const {
+        const auto now = this->ctx.cycle.elapsed;
+        std::erase_if(node.logged, [&](const LoggedError &l) {
+            return now - l.at >= ERROR_LOG_INTERVAL;
+        });
+        const bool logged = std::ranges::any_of(node.logged, [&](const LoggedError &l) {
+            return l.error.type == e.type && l.error.data == e.data;
+        });
+        if (logged || node.logged.size() >= MAX_LOGGED_ERRORS) {
+            node.not_logged++;
+            return false;
+        }
+        node.logged.push_back({e, now});
+        return true;
+    }
+
     /// @brief sends e to the error handler along with the node that raised it. Only
     /// callable from inside a node's next().
-    void report_error(const x::errors::Error &e) const {
+    void report_error(const x::errors::Error &e) {
         DCHECK(this->curr_node != NO_INDEX);
         const auto &node = this->prog.nodes[this->curr_node];
-        if (e.matches(errors::WARNING))
-            LOG(WARNING) << "[arc.scheduler] node " << node.key
-                         << " reported a warning: " << e;
-        else
-            LOG(ERROR) << "[arc.scheduler] node " << node.key
-                       << " encountered error: " << e;
+        if (auto &state = this->nodes[this->curr_node]; this->take_log_line(state, e)) {
+            const auto skipped = std::exchange(state.not_logged, 0);
+            const auto suffix = skipped == 0
+                                  ? std::string()
+                                  : " (" + std::to_string(skipped) + " not logged)";
+            if (e.matches(errors::WARNING))
+                LOG(WARNING) << "[arc.scheduler] node " << node.key
+                             << " reported a warning: " << e << suffix;
+            else
+                LOG(ERROR) << "[arc.scheduler] node " << node.key
+                           << " encountered error: " << e << suffix;
+        }
         this->error_handler(node, e);
     }
 
@@ -667,6 +716,7 @@ private:
             wrapper.key = ir_node.key;
             wrapper.idx = idx;
             wrapper.entry = ir::is_entry_node(this->s->prog, ir_node);
+            wrapper.once = ir::is_once_node(this->s->prog, ir_node);
             const auto impl_it = node_impls.find(ir_node.key);
             if (impl_it != node_impls.end()) wrapper.node = std::move(impl_it->second);
             // Pre-seed outputs in the IR's declared order. Node impls

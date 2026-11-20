@@ -54,24 +54,26 @@ class _TraceAction:
     error: str | None
 
 
-@dataclass
-class _ConsoleError:
-    text: str
+class _Request(BaseModel):
+    method: str = ""
+    url: str = ""
 
 
-@dataclass
-class _NetworkFailure:
-    method: str
-    url: str
-    status: int
-    status_text: str
+class _Response(BaseModel):
+    status: int = 0
+    status_text: str = Field(default="", alias="statusText")
+
+
+class _Snapshot(BaseModel):
+    request: _Request = Field(default_factory=_Request)
+    response: _Response = Field(default_factory=_Response)
 
 
 @dataclass
 class _TraceSummary:
     actions: list[_TraceAction] = field(default_factory=list)
-    console_errors: list[_ConsoleError] = field(default_factory=list)
-    network_failures: list[_NetworkFailure] = field(default_factory=list)
+    console_errors: list[str] = field(default_factory=list)
+    network_failures: list[_Snapshot] = field(default_factory=list)
 
 
 class _TraceEvent(BaseModel):
@@ -94,21 +96,6 @@ class _TraceEvent(BaseModel):
 class _Call:
     before: _TraceEvent | None = None
     after: _TraceEvent | None = None
-
-
-class _Request(BaseModel):
-    method: str = ""
-    url: str = ""
-
-
-class _Response(BaseModel):
-    status: int = 0
-    status_text: str = Field(default="", alias="statusText")
-
-
-class _Snapshot(BaseModel):
-    request: _Request = Field(default_factory=_Request)
-    response: _Response = Field(default_factory=_Response)
 
 
 class _NetworkEvent(BaseModel):
@@ -188,7 +175,7 @@ def _parse_trace_events(
             elif evt.type == "after":
                 paired.setdefault(evt.call_id, _Call()).after = evt
             elif evt.type == "console" and evt.message_type == "error":
-                summary.console_errors.append(_ConsoleError(text=evt.text))
+                summary.console_errors.append(evt.text)
 
 
 def _parse_teardown_calls(z: zipfile.ZipFile) -> set[str]:
@@ -225,14 +212,7 @@ def _parse_network_events(z: zipfile.ZipFile, summary: _TraceSummary) -> None:
             except ValidationError:
                 continue
             if snap.response.status >= 400:
-                summary.network_failures.append(
-                    _NetworkFailure(
-                        method=snap.request.method,
-                        url=snap.request.url,
-                        status=snap.response.status,
-                        status_text=snap.response.status_text,
-                    )
-                )
+                summary.network_failures.append(snap)
 
 
 def _action_error(err: JsonValue) -> str | None:
@@ -359,9 +339,7 @@ def _render_console(summary: _TraceSummary) -> list[str]:
         return []
     out: list[str] = ["### Browser console errors", ""]
     out.append("```")
-    out.extend(
-        _truncate(e.text, 200) for e in summary.console_errors[:_MAX_CONSOLE_ERRORS]
-    )
+    out.extend(_truncate(e, 200) for e in summary.console_errors[:_MAX_CONSOLE_ERRORS])
     if len(summary.console_errors) > _MAX_CONSOLE_ERRORS:
         out.append(f"... +{len(summary.console_errors) - _MAX_CONSOLE_ERRORS} more")
     out.append("```")
@@ -375,7 +353,8 @@ def _render_network(summary: _TraceSummary) -> list[str]:
     out: list[str] = ["### Network failures", ""]
     out.append("```")
     out.extend(
-        f"{f.status} {f.status_text:<15} {f.method} {_truncate(f.url, 100)}".rstrip()
+        f"{f.response.status} {f.response.status_text:<15} {f.request.method} "
+        f"{_truncate(f.request.url, 100)}".rstrip()
         for f in summary.network_failures[:_MAX_NETWORK_FAILURES]
     )
     if len(summary.network_failures) > _MAX_NETWORK_FAILURES:

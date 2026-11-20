@@ -1,0 +1,169 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs an agent or Sedosaur job again when its seat stopped at the usage limit of its
+# login, or when Claude rejected the token of its login: the job found the limit or the
+# rejection, or the drain of such a seat stopped its runner. The fleet controller then
+# starts a seat for it, on a shared login with usage left for Claude. When no Claude
+# login or Codex seat has usage left, or the run was already tried three times, this
+# workflow fails instead. Release runs are left to a person.
+
+name: Agent - Requeue
+run-name: Requeue run ${{ inputs.run }}
+
+# A failed run of a watched workflow starts this from its last job, through
+# relay.failure.yaml.
+on:
+  workflow_dispatch:
+    inputs:
+      run:
+        description: "Run to requeue"
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  requeue:
+    name: Requeue
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: write
+      checks: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN: ${{ inputs.run }}
+    steps:
+      # GitHub runs a job again only after its run completes.
+      - name: Wait for the run to complete
+        id: run
+        run: |
+          for _ in $(seq 120); do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" > "$RUNNER_TEMP/run"
+            if [ "$(jq -r .status "$RUNNER_TEMP/run")" = completed ]; then
+              jq -r '"conclusion=\(.conclusion)", "attempt=\(.run_attempt)",
+                "title=\(.display_title)"' "$RUNNER_TEMP/run" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Run $RUN did not complete in 30 minutes."
+          exit 1
+
+      - name: Assume the runner start role
+        if: steps.run.outputs.conclusion == 'failure'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # agent.yaml runs a drain step only when the agent stopped at a usage limit or a
+      # rejected token. A runner that the drain stopped just after it took a job leaves
+      # no such step, only a lost runner on a seat that shut down. An idle seat never
+      # shuts down under a job, so such a job runs again too. Only one job of a run can
+      # run again at a time, so the first one goes.
+      - name: Run a job that a usage limit stopped again where usage is left
+        if: steps.run.outputs.conclusion == 'failure'
+        env:
+          ATTEMPT: ${{ steps.run.outputs.attempt }}
+          TITLE: ${{ steps.run.outputs.title }}
+        run: |
+          jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
+          gh api --paginate "$jobs" --jq '.jobs[] | select(.conclusion == "failure")
+            | select(.name
+                | test("(^|/ )(Run \\([a-z]+\\)|Review|Judge the rebuttals)$"))
+            | [.id, (.runner_name // "" | if . == "" then "-" else . end),
+                any(.steps[]; (.name | startswith("Leave the pool until"))
+                and .conclusion == "success"), .name] | @tsv' > "$RUNNER_TEMP/jobs"
+          found=""
+          while IFS=$'\t' read -r id runner drained name; do
+            if [ "$drained" = false ]; then
+              [[ $runner == agent-*-* ]] || continue
+              annotations="repos/$GITHUB_REPOSITORY/check-runs/$id/annotations"
+              messages=$(gh api "$annotations" --jq '.[].message')
+              grep -qE 'shutdown signal|lost communication' <<< "$messages" ||
+                continue
+            fi
+            found=$id
+            break
+          done < "$RUNNER_TEMP/jobs"
+          if [ -z "$found" ]; then exit 0; fi
+          # Sedosaur runs only on Claude seats.
+          agent=$(grep -oP 'Run \(\K[a-z]+(?=\)$)' <<< "$name" || echo claude)
+          if [ "$ATTEMPT" -ge 3 ]; then
+            echo "::error::$name stopped at a usage limit in attempt $ATTEMPT." \
+              "It does not run again."
+            exit 1
+          fi
+          now=$(date +%s)
+          resets=""
+          usable=false
+          if [ "$agent" = claude ]; then
+            # Claude seats run on the shared logins, which hold the limits. The list
+            # can lag by minutes, so each login's tags come from describe.
+            prefix=synnax-agents/logins/
+            tag() { echo "Tags[?Key=='$1']|[0].Value"; }
+            query="[DeletedDate,$(tag limited-until),$(tag broken),$(tag expires)]"
+            names=$(aws secretsmanager list-secrets --output text \
+              --filters "Key=name,Values=$prefix" Key=tag-key,Values=agent \
+              "Key=tag-value,Values=$agent" --query 'SecretList[].Name')
+            for secret in $names; do
+              tags=$(aws secretsmanager describe-secret --secret-id "$secret" \
+                --output text --query "$query") || continue
+              IFS=$'\t' read -r deleted until broken expires <<< "$tags"
+              [ "$deleted" = None ] && [ "$broken" = None ] &&
+                [ "$expires" -gt "$now" ] || continue
+              if [ "$until" = None ] || [ "$until" -le "$now" ]; then usable=true; fi
+              resets+="$until"$'\n'
+            done
+          else
+            # A Codex seat holds its own login, and the limit is on the seat.
+            limit="Tags[?Key=='limited-until']|[0].Value"
+            resets=$(aws ec2 describe-instances --output text \
+              --filters Name=tag:project,Values=synnax-agents \
+              Name=tag:pool,Values=agent "Name=tag:agent,Values=$agent" \
+              Name=instance-state-name,Values=pending,running,stopping,stopped \
+              --query "Reservations[].Instances[].[$limit]")
+            if awk -v now="$now" '$1 == "None" || $1 <= now { found = 1 }
+              END { exit !found }' <<< "$resets"; then usable=true; fi
+          fi
+          if [ "$usable" = false ]; then
+            holder=$([ "$agent" = claude ] && echo login || echo seat)
+            first=$(grep -E '^[0-9]+$' <<< "$resets" | sort -n | head -1)
+            if [ -z "$first" ]; then
+              echo "::error::No $agent $holder is usable."
+            else
+              at=$(date -u -d "@$first" '+%F %R UTC')
+              echo "::error::Every $agent $holder is at its usage limit. The first" \
+                "resets at $at. Run the job again then."
+            fi
+            exit 1
+          fi
+          # A rerun cannot reopen the check run that the review ended, so the review of
+          # a pull request starts again in a new run. A replay has no check run. Each
+          # new run starts at attempt 1, so the cap counts the failed reviews of the
+          # pull request in the last day instead.
+          read -r pr kind _ <<< "$TITLE"
+          if [ "$name" = Review ] && [ "$kind" != replay ]; then
+            review="repos/$GITHUB_REPOSITORY/actions/workflows/review.sedosaur.yaml"
+            since=$(date -u -d '-1 day' +%FT%TZ)
+            failed=$(gh api "$review/runs?created=>$since&status=failure&per_page=100" \
+              --jq "[.workflow_runs[] | select(.display_title == \"$pr\")] | length")
+            if [ "$failed" -ge 3 ]; then
+              echo "::error::The review of #$pr failed $failed times in a day." \
+                "It does not run again."
+              exit 1
+            fi
+            gh api -X POST --silent "$review/dispatches" \
+              -f ref=main -f "inputs[pr]=$pr" -f "inputs[repeat]=false"
+            exit 0
+          fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent

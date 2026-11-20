@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, rack, type Synnax, task } from "@synnaxlabs/client";
+import { type query, rack, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "task";
 const PLURAL_RESOURCE_NAME = "tasks";
@@ -21,59 +22,27 @@ export type RetrieveQuery = task.RetrieveSingleParams;
 const BASE_QUERY = { includeStatus: true };
 
 /**
- * Parses cached and streamed tasks through the schemas, so a typed hook never hands on
- * the untyped tasks other consumers write into the client cache. A task that fails to
- * parse reads as not cached. Results are memoized per task, as the cache interns its
- * tasks and Flux compares snapshots by identity.
+ * A typed retrieve parses cached and streamed tasks through the schemas. A task that
+ * fails to parse reads as not cached.
  */
-const createCachedParser = <S extends task.Schemas>(schemas: S) => {
-  const schema = task.payloadZ(schemas);
-  const tasks = new WeakMap<task.Task, task.Task<S> | undefined>();
-  const deleted = new WeakMap<query.Deleted<task.Task>, query.Deleted<task.Task<S>>>();
-  const parse = (client: Synnax, cached: task.Task): task.Task<S> | undefined => {
-    if (tasks.has(cached)) return tasks.get(cached);
-    const result = schema.safeParse(cached.payload);
-    // payloadZ types each optional schema as a union with its default, so the parsed
-    // payload narrows to the typed one here.
-    const typed = result.success
-      ? client.tasks.sugar(result.data as task.Payload<S>, schemas)
-      : undefined;
-    tasks.set(cached, typed);
-    return typed;
-  };
-  return (
-    client: Synnax,
-    cached: query.Cached<task.Task> | undefined,
-  ): query.Cached<task.Task<S>> | undefined => {
-    if (cached === undefined) return undefined;
-    if (!query.Deleted.matches(cached)) return parse(client, cached);
-    const held = deleted.get(cached);
-    if (held != null) return held;
-    const corpse = parse(client, cached.corpse);
-    if (corpse === undefined) return undefined;
-    const next = new query.Deleted(corpse, cached.deletedAt);
-    deleted.set(cached, next);
-    return next;
-  };
-};
-
-export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) => {
-  const parse = schemas == null ? null : createCachedParser(schemas);
-  return Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
+export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
+  Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
     name: RESOURCE_NAME,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
       await client.tasks.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
-      parse == null
-        ? client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>)
-        : client.tasks.onChange(query, (cached) => handler(parse(client, cached))),
+      schemas == null
+        ? client.tasks.watch(query).onChange(handler as query.ChangeHandler<task.Task>)
+        : client.tasks
+            .watch(query)
+            .onChange((cached) => handler(client.tasks.parse(cached, schemas))),
     getCached: ({ client, query }) =>
-      parse == null
-        ? (client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined)
-        : parse(client, client.tasks.getCached(query)),
+      schemas == null
+        ? (client.tasks.watch(query).getCached() as
+            query.Cached<task.Task<S>> | undefined)
+        : client.tasks.parse(client.tasks.watch(query).getCached(), schemas),
   });
-};
 
 export const { use, useEnsure, useResult, useTombstone, createSelector } =
   createRetrieve();
@@ -86,16 +55,30 @@ export const useName = createSelector(({ name }) => name);
 
 export type ListQuery = task.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, internal: false, ...query }),
-  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.tasks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(query),
-});
+/**
+ * Lists tasks with their statuses, also for a task outside the list. The list leaves
+ * out internal tasks unless the query sets `where.internal`.
+ */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, task.Task>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<task.Key, task.Task> =>
+  Flux.useList((client) => client.tasks, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query:
+      query === null
+        ? null
+        : {
+            ...BASE_QUERY,
+            ...query,
+            where: { internal: { eq: false }, ...query?.where },
+          },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   ListQuery,
@@ -103,9 +86,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(query),
+  ...flux.listReads(({ client, query }) => client.tasks.watch(query)),
 });
 
 const createFormSchema = <S extends task.Schemas = task.Schemas>(
@@ -116,10 +97,10 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
     name: z.string(),
     rack: rack.keyZ,
     type: schemas.type,
-    snapshot: z.boolean(),
     config: schemas.config,
     configHash: z.string(),
-    status: task.statusZ(schemas.statusData).optional().nullable(),
+    // The Core writes the status, so the user cannot fix a status that fails a check.
+    status: z.unknown(),
   }) as unknown as FormSchema<S>;
 
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
@@ -127,7 +108,6 @@ export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.Zod
   name: string;
   rack: rack.Key;
   type: z.infer<S["type"]>;
-  snapshot: boolean;
   config: z.infer<S["config"]>;
   configHash: string;
   status?: task.Status<S["statusData"]>;
@@ -141,7 +121,7 @@ export interface InitialValues<
   S extends task.Schemas = task.Schemas,
 > extends optional.Optional<
   task.Payload<S>,
-  "key" | "rack" | "internal" | "snapshot" | "configHash"
+  "key" | "rack" | "internal" | "configHash"
 > {}
 
 /** Builds the hook for a task's form. */
@@ -163,7 +143,6 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       config: payload.config as z.infer<S["config"]>,
       configHash: payload.configHash ?? "",
       status: payload.status,
-      snapshot: payload.snapshot ?? false,
     }),
   });
 
@@ -180,39 +159,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
-
-export interface SnapshotParams {
-  tasks: SnapshotPair | SnapshotPair[];
-  parentID: ontology.ID;
-}
-
-export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SNAPSHOT,
-  update: async ({ client, data }) => {
-    const { tasks: taskPairs, parentID } = data;
-    const tasks = await Promise.all(
-      array
-        .toArray(taskPairs)
-        .map(({ key, name }) => client.tasks.copy(key, `${name} (Snapshot)`, true)),
-    );
-    const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
-    await client.ontology.addChildren(parentID, ...otgIDs);
-    return data;
-  },
-});
-
 export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.tasks.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.tasks.rename(key, name);
     return data;
   },
 });
@@ -245,7 +199,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);
     // Warm the cache so command listeners can update the tasks' statuses.
-    await client.tasks.retrieve({ keys, includeStatus: true });
+    await client.tasks.retrieve({ key: keys, includeStatus: true });
     await client.tasks.executeCommand({ commands });
     return data;
   },

@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
@@ -38,20 +39,24 @@ type TimeRange struct {
 	End TimeStamp `json:"end" msgpack:"end"`
 }
 
+// WindowType is the "variant" value that selects a variant of Window.
 type WindowType string
 
 const (
+	// DynamicWindowType is a rolling window.
 	DynamicWindowType WindowType = "dynamic"
-	StaticWindowType  WindowType = "static"
+	// StaticWindowType is a fixed window.
+	StaticWindowType WindowType = "static"
 )
 
+// WindowVariant is implemented by every Window variant.
 type WindowVariant interface {
 	isWindowVariant()
 }
 
 // DynamicWindow is a rolling window.
 type DynamicWindow struct {
-	// TimeSpan is the span of the window, which ends now.
+	// TimeSpan is the span of the window, which ends at the newest sample.
 	TimeSpan TimeSpan `json:"time_span" msgpack:"time_span"`
 }
 
@@ -65,7 +70,7 @@ type StaticWindow struct {
 
 func (StaticWindow) isWindowVariant() {}
 
-// Window is a window of time: a rolling span that ends now, or a fixed range.
+// Window is a window of time: a rolling span or a fixed range.
 type Window struct {
 	Variant WindowVariant
 }
@@ -129,13 +134,26 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.StaticWindow
 	default:
-		return errors.Newf("Window: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Window: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Window) Validate() error {
+	v := validate.New("Window")
+	v.Ternary("variant", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
-// frequencies and calculate sample counts over time intervals.
+// frequencies and calculate sample counts over time intervals. A rate is never
+// negative.
 type Rate float64
 
 // Size is a byte measurement used for storage capacity and data volume representation.
@@ -151,13 +169,22 @@ type DataType string
 type TimestampFormat string
 
 const (
-	TimestampFormatISO         TimestampFormat = "ISO"
-	TimestampFormatISODate     TimestampFormat = "ISODate"
-	TimestampFormatTime        TimestampFormat = "time"
+	// TimestampFormatISO renders the full ISO 8601 timestamp.
+	TimestampFormatISO TimestampFormat = "ISO"
+	// TimestampFormatISODate renders only the date of the ISO 8601 form.
+	TimestampFormatISODate TimestampFormat = "ISODate"
+	// TimestampFormatTime renders the time of day to the second.
+	TimestampFormatTime TimestampFormat = "time"
+	// TimestampFormatPreciseTime renders the time of day to the millisecond.
 	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
-	TimestampFormatDate        TimestampFormat = "date"
+	// TimestampFormatDate renders the short month and the day.
+	TimestampFormatDate TimestampFormat = "date"
+	// TimestampFormatPreciseDate renders the short month, the day, and the time to the
+	// millisecond.
 	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
-	TimestampFormatDateTime    TimestampFormat = "dateTime"
+	// TimestampFormatDateTime renders the short month, the day, and the time to the
+	// second.
+	TimestampFormatDateTime TimestampFormat = "dateTime"
 )
 
 // IsValid reports whether t is one of the defined TimestampFormat
@@ -175,8 +202,10 @@ func (t TimestampFormat) IsValid() bool {
 type TimeZone string
 
 const (
+	// TimeZoneLocal renders the time in the local time zone.
 	TimeZoneLocal TimeZone = "local"
-	TimeZoneUTC   TimeZone = "UTC"
+	// TimeZoneUTC renders the time in UTC.
+	TimeZoneUTC TimeZone = "UTC"
 )
 
 // IsValid reports whether t is one of the defined TimeZone

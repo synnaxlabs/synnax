@@ -11,23 +11,52 @@
 
 package view
 
-import "github.com/synnaxlabs/synnax/pkg/service/view/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for a saved view configuration.
 type Key = versions.Key
 
-// View is a saved, named filter over a list of resources. The type selects the resource
-// the view lists and the shape of its query.
-type View = versions.View
-type ViewVariant = versions.ViewVariant
-type ViewType = versions.ViewType
+// Type names the resource that a view lists.
+type Type = versions.Type
 
 const (
-	// RangeViewType is a saved view of ranges.
-	RangeViewType ViewType = versions.RangeViewType
-	// StatusViewType is a saved view of statuses.
-	StatusViewType ViewType = versions.StatusViewType
+	TypeRange  Type = versions.TypeRange
+	TypeStatus Type = versions.TypeStatus
 )
+
+// RangeSort is the order of the ranges in a range view.
+type RangeSort = versions.RangeSort
+
+const (
+	// RangeSortNewest puts the range that starts latest first.
+	RangeSortNewest RangeSort = versions.RangeSortNewest
+	// RangeSortOldest puts the range that starts earliest first.
+	RangeSortOldest RangeSort = versions.RangeSortOldest
+	// RangeSortName puts the ranges in order of name.
+	RangeSortName RangeSort = versions.RangeSortName
+)
+
+// RangeLayout is how a range view shows its ranges.
+type RangeLayout = versions.RangeLayout
+
+const (
+	// RangeLayoutTree shows each range under the range it is nested in.
+	RangeLayoutTree RangeLayout = versions.RangeLayoutTree
+	// RangeLayoutList shows the ranges in one flat list.
+	RangeLayoutList RangeLayout = versions.RangeLayoutList
+	// RangeLayoutTimeline shows the ranges as lanes over a time axis.
+	RangeLayoutTimeline RangeLayout = versions.RangeLayoutTimeline
+)
+
+// View is a saved, named filter over a list of resources. The type selects the resource
+// the view lists and the shape of its where.
+type View = versions.View
+
+// ViewVariant is implemented by every View variant.
+type ViewVariant = versions.ViewVariant
 
 // RangeView is a saved view of ranges.
 type RangeView = versions.RangeView
@@ -38,8 +67,18 @@ type StatusView = versions.StatusView
 // Base carries the fields shared by every view variant.
 type Base = versions.Base
 
-// RangeQuery filters the ranges shown by a range view.
-type RangeQuery = versions.RangeQuery
-
-// StatusQuery filters the statuses shown by a status view.
-type StatusQuery = versions.StatusQuery
+// Where is a filter that selects views.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Type selects by type.
+	Type *filter.Set[Type] `json:"type,omitzero" msgpack:"type,omitempty"`
+}

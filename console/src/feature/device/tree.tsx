@@ -9,15 +9,16 @@
 
 import "@/feature/device/tree.css";
 
-import { device, type ontology, status } from "@synnaxlabs/client";
+import { device, query, type rack, status, type Synnax } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
 
-import { ContextMenuItems, getIcon, getMake } from "@/feature/device/make";
+import { ContextMenuItems, getIcon, getIntegration } from "@/feature/device/make";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -33,28 +34,45 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Device.useRename,
-  ontologyID: device.ontologyID,
+  resourceID: device.resourceID,
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.devices.retrieve({ key });
+
+/** @returns the make that every selected device shares, once all of them load. */
+const sharedMake = (
+  devices: device.Device[] | undefined,
+  count: number,
+): string | null => {
+  if (devices == null || devices.length !== count) return null;
+  const makes = new Set(devices.map(({ make }) => make));
+  return makes.size === 1 ? devices[0].make : null;
+};
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state,
   } = props;
-  const ontologyIDs = ids.map((id) => device.ontologyID(id.key));
-  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
-  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const resourceIDs = ids.map((id) => device.resourceID(id.key));
+  const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
+  const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
+  const { data: selected } = Device.useResultMultiple(
+    ids.length === 0 ? null : { where: { key: { in: ids.map((id) => id.key) } } },
+  );
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const make = singleResource ? getMake(first?.data?.make) : null;
+  const integration = getIntegration(sharedMake(selected, ids.length));
   const customMenuItems =
-    make == null ? null : <ContextMenuItems {...props} make={make} />;
+    integration == null ? null : (
+      <ContextMenuItems {...props} integration={integration} />
+    );
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && singleResource && (
@@ -65,6 +83,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           ids={ids}
           shape={state.shape}
           rootID={rootID}
+          parentID={parentID}
           onClick={() => group(props)}
         />
       )}
@@ -75,6 +94,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           {first != null && (
@@ -82,12 +102,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               onClick={() =>
                 handleLink({
                   name: first.name,
-                  ontologyID: device.ontologyID(first.id.key),
+                  resourceID: device.resourceID(first.id.key),
                 })
               }
             />
           )}
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -98,17 +118,18 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
-
 const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.useResultStatus({ key: resource.id.key }).data;
-  const location =
-    typeof resource.data?.location === "string" ? resource.data.location : "";
+  const params = { key: resource.id.key };
+  const { data: devStatus } = Device.useResultStatus(params);
+  const { data: make } = Device.useResultMake(params);
+  const { data: location = "" } = Device.useResultLocation(params);
+  const integration = getIntegration(make);
+  const highlight = Tree.useHighlight();
   return (
-    <PTree.Item className={CSS.cls(className, CSS.B("device-ontology-item"))} {...rest}>
+    <PTree.Item className={CSS.cls(className, CSS.B("device-tree-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
-        {icon(resource)}
+        <span className={CSS.B("device-icon")}>{getIcon(integration)}</span>
         <Text.MaybeEditable
           id={List.itemNameID(itemKey)}
           className={CSS.B("name")}
@@ -117,16 +138,15 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
           onChange
           overflow="fade"
           status={status.keepVariants(devStatus?.variant, "disabled")}
+          highlight={highlight}
         />
+        <Tree.MatchGroup id={resource.id} />
         {location !== "" && (
-          <Text.Text
-            level="small"
-            color={9}
-            className={CSS.B("location")}
-            overflow="fade"
-          >
-            {location}
-          </Text.Text>
+          <Device.Location
+            value={location}
+            format={integration?.location}
+            className={CSS.B("device-location")}
+          />
         )}
       </Flex.Box>
       <Device.StatusIndicator status={devStatus} />
@@ -134,9 +154,54 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   );
 };
 
-const TreeItem = Tree.createItem({
+/** Lists the devices that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
   type: "device",
-  icon,
+  children: (client, key) =>
+    Tree.createSource(
+      client.devices,
+      { where: { groups: [key] } },
+      Tree.toResource("device"),
+    ),
+};
+
+/** Lists the top level of the device tree: its groups and the racks in no group. */
+export const listTreeRoot = (client: Synnax): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scope: "device", nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(client.racks, { where: { grouped: false } }, (r: rack.Rack) =>
+    Tree.toResource("rack")(r.payload),
+  ),
+];
+
+const children: Tree.Children = ({ client, id }) => [
+  Tree.createSource(
+    client.devices,
+    { where: { parents: [id.key] } },
+    Tree.toResource("device"),
+  ),
+];
+
+const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+  const cached = client.devices.watch({ key: resource.id.key }).getCached();
+  const integration = getIntegration(query.isLive(cached) ? cached.make : undefined);
+  return (
+    <Haul.Preview
+      icon={getIcon(integration)}
+      name={resource.name}
+      facts={[integration?.title ?? "Device"]}
+      count={count}
+    />
+  );
+};
+
+const TreeItem = Tree.createItem({
+  linkable: true,
+  children,
+  haulPreview,
   ContextMenu: TreeContextMenu,
   Content,
 });

@@ -23,18 +23,19 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   params?: Partial<lineplot.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
-  const getSelectedRef = Session.Range.useGetSelectedRef();
   const openTab = Panel.useOpenTab();
   const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
-    afterOptimistic: ({ data: { key } }) =>
-      openTab({ variant: "resource", resource: lineplot.ontologyID(key), key: tabKey }),
-    afterSuccess: () => capture("plot_created", {}),
+    // A refused create must not leave a tab for a line plot that does not exist.
+    afterSuccess: ({ data: { key } }) => {
+      openTab({ variant: "resource", resource: lineplot.resourceID(key), key: tabKey });
+      capture("plot_created", {});
+    },
   });
   return (params = {}) =>
     update({
       name: "Line plot",
-      ranges: [getSelectedRef()],
+      ranges: [Session.Range.RECENT_REF],
       ...params,
       project: project ?? getActiveProject(),
     });

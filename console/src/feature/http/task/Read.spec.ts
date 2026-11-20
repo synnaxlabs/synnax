@@ -7,28 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { http, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { DataType } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
+import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   commitFieldInput,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
-import { getLabeledInput, uniqueName } from "@/testutil";
+import { findIconButton, getLabeledInput } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(HTTP.Task.Read, {
+  const rendered = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.READ_TYPE], {
     task: ZERO_DRAFT,
     ...options,
   });
@@ -136,6 +141,115 @@ describe("Read", () => {
     await waitFor(() =>
       expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
     );
+  });
+
+  it("should preview a numbered name for the new channel of a field whose name is taken", async () => {
+    const dev = await createHTTPDevice(client);
+    const name = channel.escapeInvalidName(`${dev.name}/data/value`);
+    await client.channels.create({ name, dataType: DataType.FLOAT64, virtual: true });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          fields: [createReadField("f1", "/value")],
+        },
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
+    await screen.findByPlaceholderText(`${name}_2`);
+  });
+
+  it("should preview the channel that an earlier endpoint with the same path creates", async () => {
+    const dev = await createHTTPDevice(client);
+    const name = channel.escapeInvalidName(`${dev.name}/data/value`);
+    await client.channels.create({ name, dataType: DataType.FLOAT64, virtual: true });
+    const endpoint = (key: string) => ({
+      ...http.readEndpointZ.parse({}),
+      key,
+      path: "/data",
+      fields: [createReadField(`${key}_f`, "/value")],
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [endpoint("ep1"), endpoint("ep2")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    const items = await screen.findAllByRole("treeitem", { name: /\/value/ });
+    fireEvent.click(items[1]);
+    await screen.findByPlaceholderText(`${name}_2`);
+  });
+
+  describe("a typed channel name", () => {
+    const renderTyped = async (typed: string) => {
+      const dev = await createHTTPDevice(client);
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          {
+            ...http.readEndpointZ.parse({}),
+            key: "ep1",
+            path: "/data",
+            fields: [createReadField("f1", "/value")],
+          },
+        ]),
+      );
+      await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
+      const input = await screen.findByPlaceholderText(
+        channel.escapeInvalidName(`${dev.name}/data/value`),
+      );
+      fireEvent.change(input, { target: { value: typed } });
+      return input;
+    };
+
+    it("should say the numbered name that a taken name saves as", async () => {
+      const typed = uniqueName("pressure");
+      await client.channels.create({
+        name: typed,
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      await renderTyped(typed);
+      await screen.findByText(`Saves as ${typed}_2`);
+    });
+
+    it("should say the numbered name that a name typed in an earlier endpoint saves as", async () => {
+      const typed = uniqueName("pressure");
+      const dev = await createHTTPDevice(client);
+      const endpoint = (key: string, path: string, name = "") => ({
+        ...http.readEndpointZ.parse({}),
+        key,
+        path,
+        fields: [createReadField(`${key}_f`, "/value", { name })],
+      });
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          endpoint("ep1", "/a", typed),
+          endpoint("ep2", "/b"),
+        ]),
+      );
+      await renderRead({ client, taskKey: draft.key });
+      const items = await screen.findAllByRole("treeitem", { name: /\/value/ });
+      fireEvent.click(items[1]);
+      const input = await screen.findByPlaceholderText(
+        channel.escapeInvalidName(`${dev.name}/b/value`),
+      );
+      fireEvent.change(input, { target: { value: typed } });
+      await screen.findByText(`Saves as ${typed}_2`);
+    });
+
+    it("should show no help text for a free name", async () => {
+      const typed = uniqueName("pressure");
+      const input = await renderTyped(typed);
+      // The plan names the new channel in the placeholder once it is done.
+      await waitFor(() => expect(input.getAttribute("placeholder")).toBe(typed));
+      expect(screen.queryByText(/^Saves as/)).toBeNull();
+    });
   });
 
   describe("folding an endpoint from its caret", () => {
@@ -250,9 +364,37 @@ describe("Read", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
+  it("should tare a float field from its button while the task runs", async () => {
+    const client = createTestClient();
+    const dev = await createHTTPDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          fields: [createReadField("f1", "/value", { channel: float.key })],
+        },
+      ]),
+    );
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
-    const config = createReadConfig("dev_1", [
+    const dev = await createHTTPDevice(client);
+    const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),
         key: "ep1",
@@ -263,6 +405,195 @@ describe("Read", () => {
     const draft = await createDraft(client, config);
     await renderRead({ client, taskKey: draft.key });
     await screen.findByRole("treeitem", { name: /\/seeded/ });
+  });
+
+  describe("fill value", () => {
+    const renderField = async (overrides: Partial<HTTP.Task.ReadField>) => {
+      const dev = await createHTTPDevice(client);
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          {
+            ...http.readEndpointZ.parse({}),
+            key: "ep1",
+            path: "/data",
+            fields: [createReadField("f1", "/value", overrides)],
+          },
+        ]),
+      );
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
+      const deploy = async (): Promise<HTTP.Task.ReadField> => {
+        const created = await deployAndAwaitTask(
+          client,
+          container,
+          draft.key,
+          HTTP.Task.READ_SCHEMAS,
+        );
+        return created.config.endpoints[0].fields[0];
+      };
+      return { deploy };
+    };
+
+    const findFillValue = async (): Promise<HTMLInputElement> =>
+      await screen.findByRole<HTMLInputElement>("textbox", { name: "Fill value" });
+
+    it("should show the input only when the field is optional", async () => {
+      await renderField({});
+      const optional = await waitFor(() => getLabeledInput("Optional"));
+      expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull();
+      fireEvent.click(optional);
+      await findFillValue();
+      fireEvent.click(optional);
+      await waitFor(() =>
+        expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull(),
+      );
+    });
+
+    it("should store a numeric fill value of 0", async () => {
+      const { deploy } = await renderField({ optional: true });
+      commitFieldInput(await findFillValue(), "0");
+      const field = await deploy();
+      expect(field.optional).toBe(true);
+      expect(field.fillValue).toBe(0);
+    });
+
+    it("should store text on a string channel", async () => {
+      const { deploy } = await renderField({ optional: true, dataType: "string" });
+      commitFieldInput(await findFillValue(), "off");
+      expect((await deploy()).fillValue).toBe("off");
+    });
+
+    it("should store digits as text on a string channel", async () => {
+      const { deploy } = await renderField({ optional: true, dataType: "string" });
+      commitFieldInput(await findFillValue(), "5");
+      expect((await deploy()).fillValue).toBe("5");
+    });
+
+    it("should store an enum label as text on a numeric channel", async () => {
+      const { deploy } = await renderField({ optional: true });
+      commitFieldInput(await findFillValue(), "off");
+      expect((await deploy()).fillValue).toBe("off");
+    });
+
+    it("should hold a partial number until the input commits", async () => {
+      const { deploy } = await renderField({ optional: true });
+      const input = await findFillValue();
+      fireEvent.change(input, { target: { value: "1." } });
+      expect(input.value).toBe("1.");
+      commitFieldInput(input, "1.5");
+      expect((await deploy()).fillValue).toBe(1.5);
+    });
+
+    it.each([
+      { stored: "off", dataType: "float64", text: "off" },
+      { stored: false, dataType: "string", text: "false" },
+      { stored: true, dataType: "float64", text: "true" },
+    ])(
+      "should show and clear a stored $stored on a $dataType channel",
+      async ({ stored, dataType, text }) => {
+        const { deploy } = await renderField({
+          optional: true,
+          dataType,
+          fillValue: stored,
+        });
+        const input = await findFillValue();
+        await waitFor(() => expect(input.value).toBe(text));
+        commitFieldInput(input, "");
+        await waitFor(() => expect(input.value).toBe(""));
+        expect((await deploy()).fillValue).toBeUndefined();
+      },
+    );
+
+    it("should keep the stored type when the input blurs with no edit", async () => {
+      const { deploy } = await renderField({
+        optional: true,
+        dataType: "string",
+        fillValue: false,
+      });
+      const input = await findFillValue();
+      await waitFor(() => expect(input.value).toBe("false"));
+      fireEvent.focus(input);
+      fireEvent.blur(input);
+      expect((await deploy()).fillValue).toBe(false);
+    });
+
+    describe("bound to a channel", () => {
+      const createChannel = async (dataType: DataType) =>
+        await client.channels.create({
+          name: uniqueName("fill_value"),
+          dataType,
+          virtual: true,
+        });
+
+      it("should take text when the channel is a string channel", async () => {
+        const ch = await createChannel(DataType.STRING);
+        await renderField({ optional: true, channel: ch.key, dataType: "float64" });
+        const input = await screen.findByPlaceholderText<HTMLInputElement>("Required");
+        commitFieldInput(input, "off");
+        await waitFor(() => expect(input).toHaveProperty("value", "off"));
+      });
+
+      it("should show NaN when the channel is a float channel", async () => {
+        const ch = await createChannel(DataType.FLOAT32);
+        await renderField({ optional: true, channel: ch.key, dataType: "string" });
+        await screen.findByPlaceholderText("NaN");
+        expect(screen.queryByPlaceholderText("Required")).toBeNull();
+      });
+
+      it("should require a fill value when the channel is not a float", async () => {
+        const ch = await createChannel(DataType.INT32);
+        await renderField({ optional: true, channel: ch.key, dataType: "float64" });
+        await screen.findByPlaceholderText("Required");
+        expect(screen.queryByPlaceholderText("NaN")).toBeNull();
+      });
+
+      it("should show a string fill value on a numeric channel", async () => {
+        const ch = await createChannel(DataType.INT32);
+        await renderField({
+          optional: true,
+          channel: ch.key,
+          dataType: "string",
+          fillValue: "off",
+        });
+        const input = await findFillValue();
+        await waitFor(() => expect(input.value).toBe("off"));
+      });
+    });
+
+    it("should unset the fill value when the numeric input is emptied", async () => {
+      const { deploy } = await renderField({ optional: true, fillValue: 5 });
+      const input = await findFillValue();
+      await waitFor(() => expect(input.value).toBe("5"));
+      commitFieldInput(input, "");
+      await waitFor(() => expect(input.value).toBe(""));
+      expect((await deploy()).fillValue).toBeUndefined();
+    });
+
+    it("should unset the fill value when the string input is emptied", async () => {
+      const { deploy } = await renderField({
+        optional: true,
+        dataType: "string",
+        fillValue: "off",
+      });
+      const input = await findFillValue();
+      await waitFor(() => expect(input.value).toBe("off"));
+      commitFieldInput(input, "");
+      await waitFor(() => expect(input.value).toBe(""));
+      expect((await deploy()).fillValue).toBeUndefined();
+    });
+
+    it("should unset the fill value when Optional turns off", async () => {
+      const { deploy } = await renderField({ optional: true, fillValue: 5 });
+      await findFillValue();
+      fireEvent.click(getLabeledInput("Optional"));
+      await waitFor(() =>
+        expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull(),
+      );
+      const field = await deploy();
+      expect(field.optional).toBe(false);
+      expect(field.fillValue).toBeUndefined();
+    });
   });
 
   it("should toggle the NaN fill switch", async () => {
@@ -323,6 +654,34 @@ describe("Read", () => {
     expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
     expect(fields.find((f) => f.key === "f2")?.channel).toBe(virtualKey);
     expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
+  });
+
+  it("should number a typed name that an earlier endpoint takes", async () => {
+    const dev = await createHTTPDevice(client);
+    const name = uniqueName("temperature");
+    const endpoint = (key: string, path: string): HTTP.Task.ReadEndpoint => ({
+      ...http.readEndpointZ.parse({}),
+      key,
+      path,
+      fields: [createReadField(`${key}_f`, "/temperature", { name })],
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [endpoint("ep1", "/a"), endpoint("ep2", "/b")]),
+    );
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
+    const names = await Promise.all(
+      created.config.endpoints.map(
+        async ({ fields }) => (await client.channels.retrieve(fields[0].channel)).name,
+      ),
+    );
+    expect(names).toEqual([name, `${name}_2`]);
   });
 
   it("should save the channels it created when a later channel fails", async () => {
@@ -419,6 +778,47 @@ describe("Read", () => {
     expect(timing?.channel).toBe(updated.properties.read["/data"].index);
   });
 
+  it("should give a later endpoint with the same path the channels of the first", async () => {
+    const dev = await createHTTPDevice(client);
+    const endpoint = (key: string) => ({
+      ...http.readEndpointZ.parse({}),
+      key,
+      path: "/data",
+      index: `${key}_time`,
+      fields: [
+        createReadField(`${key}_temperature`, "/temperature"),
+        createReadField(`${key}_time`, "/ts", { timeFormat: "unix_sec" }),
+      ],
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [endpoint("ep1"), endpoint("ep2")]),
+    );
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
+    const [first, second] = created.config.endpoints.map(({ fields }) =>
+      fields.map(({ channel }) => channel),
+    );
+    expect(second).toEqual(first);
+    const names = (await client.channels.retrieve({ searchTerm: dev.name })).map(
+      ({ name }) => name,
+    );
+    expect(names.filter((name) => name.endsWith("_2"))).toEqual([]);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(updated.properties.read["/data"]).toEqual({
+      index: first[1],
+      channels: { "/temperature": first[0] },
+    });
+  });
+
   it("should bind a new field to the channel the device already stores", async () => {
     const dev = await createHTTPDevice(client);
     const idxCh = await client.channels.create({
@@ -431,13 +831,18 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -471,13 +876,18 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -511,14 +921,19 @@ describe("Read", () => {
           }),
       ),
     );
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/first": { index: idxCh.key, channels: { "/temperature": firstCh.key } },
         "/second": { index: idxCh.key, channels: { "/temperature": secondCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const endpoint = (key: string, path: string) => ({
       ...http.readEndpointZ.parse({}),
       key,
@@ -567,14 +982,19 @@ describe("Read", () => {
           }),
       ),
     );
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
         "/other": { index: idxCh.key, channels: { "/temperature": otherCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -625,13 +1045,18 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),
@@ -702,11 +1127,16 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: { "/data": { index: 0, channels: { "/existing": dataCh.key } } },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),
@@ -723,5 +1153,24 @@ describe("Read", () => {
       schemas: HTTP.Device.SCHEMAS,
     });
     expect(updated.properties.read["/data"].index).toBe(idxCh.key);
+  });
+});
+
+describe("plotChannels", () => {
+  it("should find the enabled fields of every endpoint", () => {
+    const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
+    const config = {
+      endpoints: [
+        {
+          fields: [
+            { channel: 1, disabled: false },
+            { channel: 2, disabled: true },
+          ],
+        },
+        { fields: [{ channel: 3, disabled: false }] },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 3]);
   });
 });

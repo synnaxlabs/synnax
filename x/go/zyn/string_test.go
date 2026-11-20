@@ -14,10 +14,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
+
+type textMarshaler struct {
+	text string
+	err  error
+}
+
+func (t textMarshaler) MarshalText() ([]byte, error) { return []byte(t.text), t.err }
 
 var _ = Describe("String", func() {
 	Describe("Basic Parsing", func() {
@@ -223,18 +231,38 @@ var _ = Describe("String", func() {
 				result := MustSucceed(zyn.String().Dump(MyBool(true)))
 				Expect(result).To(Equal("true"))
 			})
+
+			Specify("text marshaler", func() {
+				result := MustSucceed(zyn.String().Dump(textMarshaler{text: "hi"}))
+				Expect(result).To(Equal("hi"))
+			})
+
+			Specify("text marshaler pointer", func() {
+				result := MustSucceed(zyn.String().Dump(&textMarshaler{text: "hi"}))
+				Expect(result).To(Equal("hi"))
+			})
+
+			Specify("text marshaler error", func() {
+				err := errors.New("cannot marshal")
+				Expect(zyn.String().Dump(textMarshaler{err: err})).Error().
+					To(MatchError(err))
+			})
 		})
 
 		Describe("Invalid Inputs", func() {
 			Specify("nil value", func() {
-				_, err := zyn.String().Dump(nil)
-				Expect(err).To(MatchError(validate.ErrRequired))
+				Expect(
+					zyn.String().Dump(nil),
+				).Error().
+					To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("nil pointer", func() {
 				var s *string
-				_, err := zyn.String().Dump(s)
-				Expect(err).To(MatchError(validate.ErrRequired))
+				Expect(
+					zyn.String().Dump(s),
+				).Error().
+					To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("optional nil value", func() {
@@ -250,10 +278,10 @@ var _ = Describe("String", func() {
 
 			Specify("complex type", func() {
 				type Complex struct{ x int }
-				_, err := zyn.String().Dump(Complex{42})
 				Expect(
-					err,
-				).To(MatchError(ContainSubstring("expected string or convertible to string")))
+					zyn.String().Dump(Complex{42}),
+				).Error().
+					To(MatchError(ContainSubstring("expected string or convertible to string")))
 			})
 		})
 	})
@@ -365,20 +393,24 @@ var _ = Describe("String", func() {
 			})
 
 			Specify("invalid string UUID", func() {
-				_, err := zyn.String().UUID().Dump("not-a-uuid")
 				Expect(
-					err,
-				).To(MatchError(ContainSubstring("must be a valid UUID string")))
+					zyn.String().UUID().Dump("not-a-uuid"),
+				).Error().
+					To(MatchError(ContainSubstring("must be a valid UUID string")))
 			})
 
 			Specify("invalid type", func() {
-				_, err := zyn.String().UUID().Dump(42)
-				Expect(err).To(MatchError(ContainSubstring("expected UUID or string")))
+				Expect(
+					zyn.String().UUID().Dump(42),
+				).Error().
+					To(MatchError(ContainSubstring("expected UUID or string")))
 			})
 
 			Specify("nil value", func() {
-				_, err := zyn.String().UUID().Dump(nil)
-				Expect(err).To(MatchError(validate.ErrRequired))
+				Expect(
+					zyn.String().UUID().Dump(nil),
+				).Error().
+					To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("optional nil value", func() {
@@ -389,8 +421,10 @@ var _ = Describe("String", func() {
 			Specify("custom UUID type", func() {
 				type MyUUID uuid.UUID
 				u := uuid.New()
-				_, err := zyn.String().UUID().Dump(MyUUID(u))
-				Expect(err).To(MatchError(ContainSubstring("expected UUID or string")))
+				Expect(
+					zyn.String().UUID().Dump(MyUUID(u)),
+				).Error().
+					To(MatchError(ContainSubstring("expected UUID or string")))
 			})
 		})
 	})

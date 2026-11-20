@@ -9,7 +9,7 @@
 
 import "@/feature/device/Connect.css";
 
-import { type device, type rack } from "@synnaxlabs/client";
+import type { device, rack } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -24,7 +24,7 @@ import { HARDWARE, type Hardware, NETWORK } from "@/feature/device/integrations"
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 export interface ConnectModalParams {
   /** The integration to open at, instead of the picker. */
@@ -112,7 +112,7 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
           rack: rackKey,
         });
   return (
-    <Modal.Frame className={CSS.B("device-connect")}>
+    <PlatformDevice.ConnectFrame className={CSS.B("device-connect")}>
       <Modal.Header icon={<Icon.Device />}>Device.Connect</Modal.Header>
       <Modal.Body gap="huge" justify="start">
         <Group
@@ -128,7 +128,7 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
           onSelect={onSelect}
         />
       </Modal.Body>
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
@@ -173,14 +173,16 @@ const Connect = ({
   if (selected == null || (network != null && variant === "loading"))
     return <Picker racks={racks} rack={rackKey} onSelect={setSelected} />;
   const back = () => setSelected(null);
-  if (network != null)
+  if (network != null) {
+    const { Connect: NetworkConnect } = network;
     return (
-      <network.Connect
+      <NetworkConnect
         rack={rackKey ?? PlatformDevice.getDefaultRack(racks ?? [], network.key)}
         close={() => close()}
         onBack={back}
       />
     );
+  }
   const hardware = HARDWARE.find(({ key }) => key === selected);
   if (hardware == null) throw new Error(`No integration named ${selected}`);
   return <FindStep hardware={hardware} rack={rackKey} close={close} onBack={back} />;
@@ -188,3 +190,37 @@ const Connect = ({
 
 /** Opens a picker of every integration, each leading to its connect or find view. */
 export const useConnectModal = Modals.create<ConnectModalParams>(Connect);
+
+interface EditConnectionParams extends PlatformDevice.ConnectParams {
+  /** The key of an entry in {@link NETWORK}. */
+  integration: string;
+}
+
+const EditConnection = ({
+  integration,
+  ...rest
+}: Session.Modals.ContentProps<EditConnectionParams, device.Key>): ReactElement => {
+  const network = NETWORK.find(({ key }) => key === integration);
+  if (network == null) throw new Error(`No network integration named ${integration}`);
+  const { Connect: NetworkConnect } = network;
+  return <NetworkConnect {...rest} />;
+};
+
+const useEditConnectionPrompt = Modals.createPrompt<device.Key, EditConnectionParams>(
+  EditConnection,
+);
+
+/** Returns an opener for the connect form of a network integration's device. */
+export const useEditConnectionModal = (): ((
+  integration: string,
+  deviceKey: device.Key,
+) => void) => {
+  const prompt = useEditConnectionPrompt();
+  const { data: racks } = Rack.useResultMultiple({});
+  return (integration, deviceKey) =>
+    void prompt({
+      integration,
+      deviceKey,
+      rack: PlatformDevice.getDefaultRack(racks ?? [], integration),
+    });
+};

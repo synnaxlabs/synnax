@@ -138,6 +138,34 @@ describe("state", () => {
       expect(localStorage.getItem("write-key")).toBe(JSON.stringify(7));
     });
 
+    it("should persist the value an updater returns", () => {
+      const { result } = renderHook(() => state.usePersisted<number>(1, "updater-key"));
+      act(() => result.current[1]((prev) => prev + 1));
+      expect(result.current[0]).toBe(2);
+      expect(localStorage.getItem("updater-key")).toBe(JSON.stringify(2));
+    });
+
+    it("should apply each updater in a batch to the latest value", () => {
+      const { result } = renderHook(() => state.usePersisted<number>(1, "batch-key"));
+      act(() => {
+        result.current[1]((prev) => prev + 1);
+        result.current[1]((prev) => prev + 1);
+      });
+      expect(result.current[0]).toBe(3);
+      expect(localStorage.getItem("batch-key")).toBe(JSON.stringify(3));
+    });
+
+    it("should persist a value set right before unmount", () => {
+      const { result, unmount } = renderHook(() =>
+        state.usePersisted<number>(1, "unmount-key"),
+      );
+      act(() => {
+        result.current[1]((prev) => prev + 1);
+        unmount();
+      });
+      expect(localStorage.getItem("unmount-key")).toBe(JSON.stringify(2));
+    });
+
     it("should surface a persisted value to a freshly mounted hook", () => {
       const first = renderHook(() => state.usePersisted<number>(1, "shared-key"));
       act(() => first.result.current[1](99));

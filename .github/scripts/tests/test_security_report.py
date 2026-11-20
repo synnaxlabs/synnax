@@ -8,12 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import shutil
+import subprocess
+import sys
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from security_report import Finding, Send, main, read_findings
+from security_report import LINEAR_URL, Finding, Send, main, read_findings
 
 
 def result(rule: str, level: str, uri: str, line: int) -> dict[str, Any]:
@@ -83,7 +89,7 @@ class TestMain:
         assert "- And 5 more." in report
 
     def test_should_cut_a_report_at_the_size_limit(self, tmp_path: Path) -> None:
-        """Should keep the report within the limit and count what it omits."""
+        """Should keep the report within the limit and name the sections it cuts."""
         for n in range(200):
             results = [result(f"r{n}", "error", f"{n}.go", m) for m in range(1, 26)]
             write_scan(tmp_path, f"scan{n:03}", 0, *results)
@@ -91,7 +97,8 @@ class TestMain:
         report = (tmp_path / "report.md").read_text()
         assert report.startswith("Findings: 5000.")
         assert "## scan199" not in report
-        assert report.endswith("listed findings.")
+        assert len(report) <= 60_000
+        assert report.endswith(" section on.")
 
     def test_should_reject_a_directory_with_no_scan(self, tmp_path: Path) -> None:
         """Should not report a clean audit when no scan ran."""
@@ -113,7 +120,6 @@ class TestPublish:
 
     @pytest.fixture
     def posts(self, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
-        monkeypatch.setenv("LINEAR_API_KEY", "key")
         monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack")
         return []
 
@@ -121,8 +127,10 @@ class TestPublish:
     def sender(sent: list[tuple[str, Any]]) -> Send:
         """Records each post and answers as Linear does."""
 
-        def send(url: str, payload: dict[str, Any], _: dict[str, str]) -> bytes:
+        def send(url: str, payload: dict[str, Any], headers: dict[str, str]) -> bytes:
             sent.append((url, payload))
+            if url == LINEAR_URL:
+                assert headers == {"Authorization": "Bearer tok"}
             if "teams" in payload.get("query", ""):
                 return b'{"data": {"teams": {"nodes": [{"id": "team"}]}}}'
             url_json = '{"url": "https://linear.app/synnax/issue/SY-1"}'
@@ -130,12 +138,19 @@ class TestPublish:
 
         return send
 
+    @staticmethod
+    @contextmanager
+    def open_token() -> Iterator[str]:
+        yield "tok"
+
     def test_should_file_an_issue_and_post_only_the_count(
         self, tmp_path: Path, posts: list[tuple[str, Any]]
     ) -> None:
         """Should send the report to Linear and only the count and link to Slack."""
         write_scan(tmp_path, "zizmor", 0, result("unpinned-uses", "error", "a.yaml", 1))
-        assert main([str(tmp_path), "--publish"], self.sender(posts)) == 0
+        assert (
+            main([str(tmp_path), "--publish"], self.sender(posts), self.open_token) == 0
+        )
         create = posts[1][1]["variables"]["input"]
         assert create["teamId"] == "team"
         assert "unpinned-uses" in create["description"]
@@ -147,15 +162,180 @@ class TestPublish:
             },
         )
 
+    def test_should_print_the_count_and_tell_slack_when_linear_fails(
+        self,
+        tmp_path: Path,
+        posts: list[tuple[str, Any]],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Should keep the count, leave findings out of the log, and still fail."""
+        monkeypatch.setenv("RUN_URL", "https://run")
+
+        def send(url: str, payload: dict[str, Any], _: dict[str, str]) -> bytes:
+            if url != "https://slack":
+                raise OSError("HTTP Error 401: Unauthorized")
+            posts.append((url, payload))
+            return b""
+
+        write_scan(tmp_path, "zizmor", 0, result("unpinned-uses", "error", "a.yaml", 1))
+        with pytest.raises(OSError, match="401"):
+            main([str(tmp_path), "--publish"], send, self.open_token)
+        assert posts == [
+            (
+                "https://slack",
+                {
+                    "text": "Weekly security audit: 1 findings, 0 failed scans. "
+                    "Failed to file the report in Linear: https://run"
+                },
+            )
+        ]
+        captured = capsys.readouterr()
+        assert captured.out == "zizmor: 1 findings, exit 0\n"
+        assert "unpinned-uses" not in captured.err
+
     def test_should_file_nothing_without_findings(
         self, tmp_path: Path, posts: list[tuple[str, Any]]
     ) -> None:
         """Should post the zero count to Slack and file no issue."""
         write_scan(tmp_path, "zizmor", 0)
-        assert main([str(tmp_path), "--publish"], self.sender(posts)) == 0
+        assert (
+            main([str(tmp_path), "--publish"], self.sender(posts), self.open_token) == 0
+        )
         assert posts == [
             (
                 "https://slack",
                 {"text": "Weekly security audit: 0 findings, 0 failed scans."},
             )
         ]
+
+
+@pytest.fixture
+def key() -> Iterator[tuple[list[str], str]]:
+    """A gpg command with a fresh key pair, and the armored private key."""
+    # A short home, since the gpg-agent socket path has a length limit.
+    with tempfile.TemporaryDirectory(dir="/tmp") as home:
+        gpg = ["gpg", "--homedir", home, "--batch", "--quiet", "--passphrase", ""]
+        uid = "Report <report@example.com>"
+        generate = [*gpg, "--quick-gen-key", uid, "default", "default", "never"]
+        subprocess.run(generate, check=True, capture_output=True)
+        export = [*gpg, "--pinentry-mode", "loopback", "--armor"]
+        yield gpg, subprocess.check_output([*export, "--export-secret-keys"], text=True)
+        subprocess.run(["gpgconf", "--homedir", home, "--kill", "all"], check=True)
+
+
+@pytest.mark.skipif(shutil.which("gpg") is None, reason="needs gpg")
+@pytest.mark.skipif(sys.platform == "win32", reason="needs a POSIX /tmp")
+class TestAgents:
+    """Tests for adding the encrypted agent reports."""
+
+    def test_should_decrypt_and_count_each_report(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+    ) -> None:
+        """Should add and count each report, and fail on a failed job."""
+        gpg, private = key
+        report = "### High: Token never expires\n\n- Location: `a.go:1`\n"
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"], input=report, text=True
+        )
+        jobs = {
+            "authn": {"result": "success", "outputs": {"report": armor}},
+            "tls": {"result": "failure", "outputs": {}},
+            # A report gpg cannot decrypt, as after a key rotation.
+            "ci": {"result": "success", "outputs": {"report": "not a message"}},
+        }
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0)
+        assert main([str(tmp_path), "--agents"]) == 1
+        text = (tmp_path / "report.md").read_text()
+        assert text.startswith("Findings: 1.")
+        assert "## agent-authn: 1 findings\n\n### High: Token never expires" in text
+        assert "## agent-tls: failed" in text
+        assert "## agent-ci: failed" in text
+        assert "## zizmor: 0 findings" in text
+
+    @pytest.mark.parametrize("report", ["", "### **High**: Token never expires\n"])
+    def test_should_fail_a_report_it_cannot_read(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+        report: str,
+    ) -> None:
+        """Should not count an empty or malformed report as a clean review."""
+        gpg, private = key
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"], input=report, text=True
+        )
+        jobs = {"authn": {"result": "success", "outputs": {"report": armor}}}
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0)
+        assert main([str(tmp_path), "--agents"]) == 1
+        assert "## agent-authn: failed" in (tmp_path / "report.md").read_text()
+
+    def test_should_keep_a_report_with_no_findings(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+    ) -> None:
+        """Should accept the documented response and the line that follows it."""
+        gpg, private = key
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"],
+            input="No findings.\n\nI read every file.\n",
+            text=True,
+        )
+        jobs = {"authn": {"result": "success", "outputs": {"report": armor}}}
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0)
+        assert main([str(tmp_path), "--agents"]) == 0
+        assert "## agent-authn: 0 findings" in (tmp_path / "report.md").read_text()
+
+    def test_should_report_every_agent_failed_when_the_key_is_bad(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should keep the scanner results when the private key does not import."""
+        jobs = {"authn": {"result": "success", "outputs": {"report": "x"}}}
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", "not a key")
+        write_scan(tmp_path, "gitleaks", 0, result("private-key", "error", "k.pem", 1))
+        assert main([str(tmp_path), "--agents"]) == 1
+        text = (tmp_path / "report.md").read_text()
+        assert "## agent-authn: failed" in text
+        assert "## gitleaks: 1 findings" in text
+
+    def test_should_cut_the_agent_reports_before_the_scans(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+    ) -> None:
+        """Should keep every scanner section when the agent reports pass the limit."""
+        gpg, private = key
+        report = "No findings.\n\n" + "I read a file.\n" * 5000
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"], input=report, text=True
+        )
+        job = {"result": "success", "outputs": {"report": armor}}
+        monkeypatch.setenv("AGENT_JOB_AUTHN", json.dumps(job))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0, result("unpinned-uses", "error", "a.yaml", 1))
+        assert main([str(tmp_path), "--agents"]) == 0
+        text = (tmp_path / "report.md").read_text()
+        assert "## zizmor: 1 findings" in text
+        assert text.endswith("from the agent-authn section on.")

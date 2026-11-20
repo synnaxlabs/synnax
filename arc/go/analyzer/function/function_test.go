@@ -334,6 +334,14 @@ var _ = Describe("Function Analyzer", func() {
 				).To(Equal(types.Param{Name: "b", Type: types.F64()}))
 			})
 		})
+		DescribeTable("should report a parameter type that does not infer",
+			func(bCtx SpecContext, src string) {
+				analyzeExpectError(bCtx, src, nil, Equal("unknown unit: bogus"))
+			},
+			Entry("an input", `func foo(x f32 bogus) {}`),
+			Entry("a trigger", `func foo() {x f32 bogus} {}`),
+			Entry("an output", `func foo() (a f32 bogus) { a = 1.0 }`),
+		)
 		Describe("error conditions", func() {
 			It("should fail on duplicate function names", func(bCtx SpecContext) {
 				ctx := analyzeProgram(bCtx, `func foo() {} func foo() {}`, nil)
@@ -539,13 +547,22 @@ var _ = Describe("Function Analyzer", func() {
 					"cannot return a value from a function with no return type",
 				),
 			),
-			Entry("missing return in function with return type",
+			Entry(
+				"missing return in function with return type",
 				`func dog() f64 {}`,
-				Equal("function 'dog' must return a value of type f64 on all paths")),
-			Entry("missing return on else path",
+				Equal(
+					"invalid return: function 'dog' must return a value of type f64 on all paths",
+				),
+			),
+			Entry(
+				"missing return on else path",
 				`func dog() f64 { if (5 > 3) { return 2.3 } }`,
-				Equal("function 'dog' must return a value of type f64 on all paths")),
-			Entry("missing return in deeply nested branch",
+				Equal(
+					"invalid return: function 'dog' must return a value of type f64 on all paths",
+				),
+			),
+			Entry(
+				"missing return in deeply nested branch",
 				`func dog() f64 {
 					if (5 > 3) { return 2.3 }
 					else {
@@ -554,7 +571,10 @@ var _ = Describe("Function Analyzer", func() {
 						} else { return 5 }
 					}
 				}`,
-				Equal("function 'dog' must return a value of type f64 on all paths")),
+				Equal(
+					"invalid return: function 'dog' must return a value of type f64 on all paths",
+				),
+			),
 			Entry("concrete f64 expression returned from f32 function",
 				`func dog() {x f64} f32 { return x * 2.0 }`,
 				ContainSubstring("cannot return f64 from 'dog': expected f32")),
@@ -1213,9 +1233,18 @@ var _ = Describe("Function Analyzer", func() {
 				Entry("overflow in default value",
 					`func foo() {x i8 = 128} i8 { return x }`,
 					ContainSubstring("out of range for i8")),
-				Entry("non-integer float to int",
+				Entry(
+					"non-integer float to int",
 					`func foo() {x i32 = 3.14} i32 { return x }`,
-					ContainSubstring("cannot convert non-integer float")),
+					ContainSubstring(
+						"default value of parameter x would be truncated",
+					),
+				),
+				Entry(
+					"format string with a placeholder",
+					`func foo(s str = f"{x}") str { return s }`,
+					ContainSubstring("is not a compile-time constant"),
+				),
 			)
 		})
 	})

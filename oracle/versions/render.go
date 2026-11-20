@@ -48,6 +48,9 @@ type RenderOptions struct {
 	// ExtraValueLines returns extra domain-expression lines appended to the
 	// named enum value's domain body. Nil appends nothing.
 	ExtraValueLines func(typeName, valueName string) []string
+	// ExtraVariantLines returns extra domain-expression lines appended to the
+	// named union variant's domain body. Nil appends nothing.
+	ExtraVariantLines func(typeName, variantName string) []string
 	// ExtraBodyBlocks returns verbatim multi-line blocks (live-owned action
 	// definitions) rendered inside the named struct's body, between its fields
 	// and its domains. Nil renders nothing.
@@ -99,6 +102,10 @@ func (r *renderer) linef(format string, args ...any) {
 }
 
 func (r *renderer) renderType(t resolution.Type) {
+	if t.Filter != nil {
+		r.renderFilter(t, *t.Filter)
+		return
+	}
 	switch f := t.Form.(type) {
 	case resolution.StructForm:
 		r.renderStruct(t, f)
@@ -137,6 +144,14 @@ func (r *renderer) extraValueLines(typeName, valueName string) []string {
 	return r.opts.ExtraValueLines(typeName, valueName)
 }
 
+// extraVariantLines returns the caller-injected extra lines for a union variant.
+func (r *renderer) extraVariantLines(typeName, variantName string) []string {
+	if r.opts.ExtraVariantLines == nil {
+		return nil
+	}
+	return r.opts.ExtraVariantLines(typeName, variantName)
+}
+
 func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	head := t.Name + " struct" + r.params(f.TypeParams)
 	if len(f.Extends) > 0 {
@@ -148,16 +163,61 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	for _, field := range f.Fields {
 		r.renderField(t.Name, "", field)
 	}
-	if r.opts.ExtraBodyBlocks != nil {
-		for _, block := range r.opts.ExtraBodyBlocks(t.Name) {
-			r.line("")
-			// Blocks splice verbatim; the caller's formatter pass re-indents.
-			for line := range strings.SplitSeq(block, "\n") {
-				r.line(strings.TrimRight(line, " \t"))
-			}
+	r.renderExtraBodyBlocks(t.Name)
+	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
+	r.indent--
+	r.line("}")
+}
+
+// renderExtraBodyBlocks splices the live-owned blocks of typeName into its body.
+func (r *renderer) renderExtraBodyBlocks(typeName string) {
+	if r.opts.ExtraBodyBlocks == nil {
+		return
+	}
+	for _, block := range r.opts.ExtraBodyBlocks(typeName) {
+		r.line("")
+		// Blocks splice verbatim; the caller's formatter pass re-indents.
+		for line := range strings.SplitSeq(block, "\n") {
+			r.line(strings.TrimRight(line, " \t"))
 		}
 	}
+}
+
+// renderFilter renders a filter definition from its lines, not from the struct it
+// expands into.
+func (r *renderer) renderFilter(t resolution.Type, f resolution.Filter) {
+	// Analysis fills in the defaulted type arguments of a generic target, but the
+	// grammar takes only a plain reference.
+	target := resolution.TypeRef{Name: f.Target.Name}
+	r.line(t.Name + " filter " + r.ref(target) + " {")
+	r.indent++
+	for _, l := range f.Lines {
+		head := l.Name
+		if l.HasType() {
+			head += " " + r.ref(l.Type)
+		}
+		r.renderMember(head, append(
+			r.keptExpressions(l.Domains),
+			r.extraFieldLines(t.Name, l.Name)...,
+		))
+	}
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
+	r.indent--
+	r.line("}")
+}
+
+// renderMember renders a member's head line, with a domain body when exprs is not
+// empty.
+func (r *renderer) renderMember(head string, exprs []string) {
+	if len(exprs) == 0 {
+		r.line(head)
+		return
+	}
+	r.line(head + " {")
+	r.indent++
+	for _, e := range exprs {
+		r.line(e)
+	}
 	r.indent--
 	r.line("}")
 }
@@ -180,21 +240,10 @@ func (r *renderer) renderField(typeName, keyPrefix string, f resolution.Field) {
 	if f.Default != nil {
 		head += " = " + r.value(*f.Default)
 	}
-	exprs := append(
+	r.renderMember(head, append(
 		r.keptExpressions(f.Domains),
 		r.extraFieldLines(typeName, keyPrefix+f.Name)...,
-	)
-	if len(exprs) == 0 {
-		r.line(head)
-		return
-	}
-	r.line(head + " {")
-	r.indent++
-	for _, e := range exprs {
-		r.line(e)
-	}
-	r.indent--
-	r.line("}")
+	))
 }
 
 func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
@@ -250,6 +299,7 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 	for _, v := range variants {
 		r.renderVariant(t.Name, v)
 	}
+	r.renderExtraBodyBlocks(t.Name)
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")
@@ -259,7 +309,10 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 // synthetic struct's fields; named payloads reference their type. Either form
 // carries a domain body when variant domains survive filtering.
 func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
-	exprs := r.keptExpressions(v.Domains)
+	exprs := append(
+		r.keptExpressions(v.Domains),
+		r.extraVariantLines(typeName, v.Name)...,
+	)
 	if v.Inline && r.opts.Resolve != nil {
 		if t, ok := r.opts.Resolve(v.Type.Name); ok {
 			if sf, isStruct := t.Form.(resolution.StructForm); isStruct {
@@ -388,16 +441,24 @@ func keptDomainExpressions(
 func (r *renderer) value(v resolution.ExpressionValue) string {
 	switch v.Kind {
 	case resolution.ValueKindString:
-		if strings.Contains(v.StringValue, "\n") {
-			return `"""` + v.StringValue + `"""`
+		// A triple-quoted string is trimmed and dedented on parse, so only text that
+		// survives that keeps the triple form.
+		s := v.StringValue
+		if strings.Contains(s, "\n") && strings.TrimSpace(s) == s &&
+			!strings.Contains(s, `"""`) {
+			return `"""` + s + `"""`
 		}
-		return strconv.Quote(v.StringValue)
+		return strconv.Quote(s)
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
 		// The schema grammar has no exponent form, so 'f' keeps tiny magnitudes
 		// like 0.000006 parseable where 'g' would emit 6e-06.
-		return strconv.FormatFloat(v.FloatValue, 'f', -1, 64)
+		s := strconv.FormatFloat(v.FloatValue, 'f', -1, 64)
+		if !strings.Contains(s, ".") {
+			s += ".0"
+		}
+		return s
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindIdent:

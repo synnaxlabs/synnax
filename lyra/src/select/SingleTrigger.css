@@ -41,80 +41,44 @@
 @container (width < 16rem) {
     .lyra-select-single-trigger--collapsible {
         > .lyra-icon:first-child,
-        > .lyra-select-single-trigger__icon,
+        > .lyra-select-clear,
         > .lyra-caret-animated {
             margin-inline: auto;
         }
 
         > .lyra-select__label,
-        &:has(> .lyra-icon:first-child, > .lyra-select-single-trigger__icon:first-child)
+        > .lyra-select-single-trigger__end,
+        &:has(> .lyra-icon:first-child, > .lyra-select-clear:first-child)
             > .lyra-caret-animated {
             display: none;
         }
     }
 }
 
-/* The icon or caret alone sizes this box. The clear button covers it at the same size
-   and takes its place while the trigger is hovered, so the trigger keeps its layout. */
-.lyra-select-single-trigger__icon {
-    position: relative;
+/* The name fills the trigger, so end content sits before the caret at the trailing
+   edge. */
+.lyra-dialog__trigger > .lyra-select__label:has(+ .lyra-select-single-trigger__end) {
+    flex-grow: 1;
+}
+
+.lyra-select-single-trigger__end {
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
-    justify-content: center;
+}
 
-    > .lyra-btn.lyra-btn--close {
-        position: absolute;
-        inset: 0;
-        transform: none;
-        width: 100%;
-        height: 100%;
-        min-width: 0;
-        min-height: 0;
-        padding: 0;
+/* A fixed item's label fills the trigger, so its content can push a part, such as an
+   auto chip, to the trailing edge. */
+.lyra-dialog__trigger > .lyra-select__label:has(> .lyra-select__fixed-label) {
+    flex-grow: 1;
 
-        & svg {
-            width: 100%;
-            height: 100%;
-        }
+    > .lyra-select__fixed-label {
+        min-width: 100%;
     }
 }
 
 /* The caret's box sits where the caret would. :where keeps it below a collapsed
    trigger's centering. */
-.lyra-select-single-trigger__icon:where(:has(> .lyra-caret-animated)) {
+.lyra-select-clear:where(:has(> .lyra-caret-animated)) {
     margin-left: auto;
-}
-
-.lyra-select-single-trigger--clearable:hover
-    > .lyra-select-single-trigger__icon
-    > .lyra-icon {
-    visibility: hidden;
-}
-
-/* A shadow trigger reads as its value, with its text inset like a shadow input's. An
-   open menu keeps its box, so the menu points at the field. The caret keeps its space
-   while hidden, so the label never moves. */
-.lyra-btn.lyra-dialog__trigger.lyra--shadow {
-    padding-inline: 1.5rem;
-
-    --pluto-bg: transparent;
-    --pluto-border-color: transparent;
-    --pluto-hover-bg: var(--pluto-fill-hover);
-    --pluto-active-bg: var(--pluto-fill-press);
-    --pluto-hover-border-color: var(--pluto-gray-l7);
-    --pluto-active-border-color: var(--pluto-gray-l8);
-
-    &[aria-expanded="true"] {
-        --pluto-bg: var(--pluto-fill-hover);
-        --pluto-border-color: var(--pluto-gray-l7);
-    }
-
-    & .lyra-caret-animated {
-        color: var(--pluto-gray-l7);
-        opacity: 0;
-    }
-
-    &:is(:hover, :focus-visible, [aria-expanded="true"]) .lyra-caret-animated {
-        opacity: 1;
-    }
 }

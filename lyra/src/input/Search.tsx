@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type KeyboardEvent, type ReactElement } from "react";
+import type { KeyboardEvent, ReactElement } from "react";
 
 import { Text, type TextProps } from "@/input/Text";
 
@@ -16,13 +16,15 @@ export interface SearchProps extends TextProps {}
 
 /**
  * A field that filters the content of a dialog. It takes focus when it mounts. Escape
- * goes on to the dialog, which closes, or first closes a dialog open inside it. A
- * {@link Text} field keeps Escape and only gives up focus.
+ * goes on to the dialog, which closes, or first closes a dialog open inside it. On
+ * Escape, a {@link Text} field gives up focus instead, and Escape goes on only to close
+ * a modal around it. Enter acts only on the dialog's hovered item.
  */
 export const Search = ({ onKeyDown, ...rest }: SearchProps): ReactElement => {
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     onKeyDown?.(e);
-    if (e.key === "Escape") e.preventDefault();
+    // An Enter that closes the dialog must not also press the trigger it focuses.
+    if (e.key === "Escape" || e.key === "Enter") e.preventDefault();
   };
   return <Text autoFocus {...rest} onKeyDown={handleKeyDown} />;
 };

@@ -74,15 +74,10 @@ type WriterConfig struct {
 }
 
 var (
-	_                   config.Config[WriterConfig] = WriterConfig{}
-	defaultWriterConfig                             = WriterConfig{
-		Persist:                  new(true),
-		Bounded:                  new(false),
-		EnableAutoCommit:         new(true),
-		AutoIndexPersistInterval: 1 * telem.Second,
-		ErrOnUnauthorizedOpen:    new(false),
-	}
-	ErrWriterClosed = resource.NewClosedError("unary.writer")
+	_               config.Config[WriterConfig] = WriterConfig{}
+	ErrWriterClosed                             = resource.NewClosedError(
+		"unary.writer",
+	)
 )
 
 // Validate implements config.Config.
@@ -160,6 +155,9 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
+	// highWaterMark is the last index timestamp that any owner persisted. Only valid
+	// for index channels.
+	highWaterMark telem.TimeStamp
 	// sessionStart is the start of the resource's first domain since it last ended one.
 	// Commits that resolve their end from the session sample count anchor on it.
 	sessionStart telem.TimeStamp
@@ -220,10 +218,6 @@ type Writer struct {
 	// domainStart is where the domain starts if this writer persists its first
 	// sample. Defaults to cfg.Start, or to the open time when cfg.Start is zero.
 	domainStart telem.TimeStamp
-	// highWaterMark is a hot-path optimization when writing to an index channel. We can
-	// avoid unnecessary index lookups by keeping track of the highest timestamp
-	// written. Only valid when Channel.IsIndex is true.
-	highWaterMark telem.TimeStamp
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
 	closed bool
@@ -237,7 +231,13 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(ErrDBClosed)
 	}
-	cfg, err := config.New(defaultWriterConfig, cfgs...)
+	cfg, err := config.New(WriterConfig{
+		Persist:                  new(true),
+		Bounded:                  new(false),
+		EnableAutoCommit:         new(true),
+		AutoIndexPersistInterval: 1 * telem.Second,
+		ErrOnUnauthorizedOpen:    new(false),
+	}, cfgs...)
 	if err != nil {
 		return nil, transfer, err
 	}
@@ -340,44 +340,53 @@ func (w *Writer) write(
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	dw, err := w.control.Authorize()
+	err := w.control.Authorize(func(dw *controlledWriter) error {
+		mark := dw.highWaterMark
+		if w.Channel.IsIndex && *w.cfg.Persist {
+			var err error
+			if mark, err = checkOrder(mark, series); err != nil {
+				return err
+			}
+		}
+		if *w.cfg.Persist && dw.Len() == 0 {
+			// Move first, so that no delete can reach the domain setStart checks.
+			if err := w.control.MoveStart(w.domainStart); err != nil {
+				return err
+			}
+			if err := dw.setStart(w.domainStart); err != nil {
+				return err
+			}
+		}
+		if derive {
+			// The tracker is only fed when persisting, so in stream-only mode the
+			// published cursor is the sole record of where the next write lands.
+			if *w.cfg.Persist {
+				a = telem.NewAlignment(
+					dw.loadAlignment().DomainIndex(),
+					uint32(dw.tracker.count(dw.Writer)),
+				)
+			} else {
+				a = dw.loadAlignment()
+			}
+		}
+		// Publish where the next write lands before this one is on disk, so a channel
+		// resolving its alignment against this one reserves the slot after this write
+		// instead of colliding with it.
+		dw.storeAlignment(a.AddSamples(uint32(series.Len())))
+		if *w.cfg.Persist {
+			baseOffset := uint32(dw.tracker.domainBytes)
+			dw.tracker.record(series.Data, baseOffset)
+			if _, err := dw.Write(series.Data); err != nil {
+				return err
+			}
+			dw.highWaterMark = mark
+		}
+		return nil
+	})
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
-	if *w.cfg.Persist && dw.Len() == 0 {
-		// Move first, so that no delete can reach the domain setStart checks.
-		if err = w.control.MoveStart(w.domainStart); err != nil {
-			return 0, w.wrapError(err)
-		}
-		if err = dw.setStart(w.domainStart); err != nil {
-			return 0, w.wrapError(err)
-		}
-	}
-	if w.Channel.IsIndex {
-		w.updateHwm(series)
-	}
-	if derive {
-		// The tracker is only fed when persisting, so in stream-only mode the published
-		// cursor is the sole record of where the next write lands.
-		if *w.cfg.Persist {
-			a = telem.NewAlignment(
-				dw.loadAlignment().DomainIndex(),
-				uint32(dw.tracker.count(dw.Writer)),
-			)
-		} else {
-			a = dw.loadAlignment()
-		}
-	}
-	// Publish where the next write lands before this one is on disk, so a channel
-	// resolving its alignment against this one reserves the slot after this write
-	// instead of colliding with it.
-	dw.storeAlignment(a.AddSamples(uint32(series.Len())))
-	if *w.cfg.Persist {
-		baseOffset := uint32(dw.tracker.domainBytes)
-		dw.tracker.record(series.Data, baseOffset)
-		_, err = dw.Write(series.Data)
-	}
-	return a, w.wrapError(err)
+	return a, nil
 }
 
 // SetDomainStart sets where the writer's domain starts, in place of Start. It applies
@@ -393,11 +402,9 @@ func (w *Writer) EndDomain(ctx context.Context) error {
 	if w.closed {
 		return w.wrapError(ErrWriterClosed)
 	}
-	dw, err := w.control.Authorize()
-	if err != nil {
-		return w.wrapError(err)
-	}
-	return w.wrapError(dw.endDomain(ctx))
+	return w.wrapError(w.control.Authorize(func(dw *controlledWriter) error {
+		return dw.endDomain(ctx)
+	}))
 }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
@@ -413,10 +420,23 @@ func (w *Writer) visible(t control.Transfer) control.Transfer {
 	return t
 }
 
-func (w *Writer) updateHwm(series telem.Series) {
-	if series.Len() != 0 {
-		w.highWaterMark = series.ValueAt[telem.TimeStamp](-1)
+// checkOrder returns the last timestamp in series, or mark if series is empty. It
+// returns a validation error if a timestamp is before mark or before the one that
+// precedes it.
+func checkOrder(mark telem.TimeStamp, series telem.Series) (telem.TimeStamp, error) {
+	for i, ts := range series.Unmarshal[telem.TimeStamp]() {
+		if ts < mark {
+			return 0, errors.Wrapf(
+				validate.ErrValidation,
+				"index out of order: timestamp %s at sample %d must not be before %s",
+				ts,
+				i,
+				mark,
+			)
+		}
+		mark = ts
 	}
+	return mark, nil
 }
 
 // Commit commits the written series to the database.
@@ -424,68 +444,69 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
 	}
-
-	if w.Channel.IsIndex {
-		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1)
-		if err != nil {
-			return 0, w.wrapError(err)
-		}
-		return ts, nil
-	}
-	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))
+	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0), nil)
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
 	return ts, nil
 }
 
-func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
+// CommitWithEnd commits the written series with end as the end of the domain. When g is
+// not nil, readers see the commit only once g publishes.
+func (w *Writer) CommitWithEnd(
+	ctx context.Context,
+	end telem.TimeStamp,
+	g *domain.Group,
+) (err error) {
 	if w.closed {
 		return w.wrapError(ErrWriterClosed)
 	}
-	_, err = w.commitWithEnd(ctx, end)
+	_, err = w.commitWithEnd(ctx, end, g)
 	return w.wrapError(err)
 }
 
 func (w *Writer) commitWithEnd(
 	ctx context.Context,
 	end telem.TimeStamp,
+	g *domain.Group,
 ) (telem.TimeStamp, error) {
-	dw, err := w.control.Authorize()
+	err := w.control.Authorize(func(dw *controlledWriter) error {
+		if end.IsZero() && w.Channel.IsIndex {
+			end = dw.highWaterMark + 1
+		} else if end.IsZero() {
+			// Subtract 1 because we want the timestamp of the last written sample.
+			// Anchor on the session start with the cumulative session sample count,
+			// since after a rollover the per-domain start is "previous commit end +
+			// 1ns" which is not a sample boundary in the index.
+			approx, err := w.idx.Stamp(
+				ctx,
+				dw.sessionStart,
+				dw.tracker.count(dw.Writer)-1,
+				index.MustBeContinuous,
+			)
+			if err != nil {
+				return err
+			}
+			if !approx.Exact() {
+				return index.NewDiscontinuousStampError(dw.sessionStart)
+			}
+			// Add 1 to the end timestamp because the end timestamp is exclusive.
+			end = approx.Lower + 1
+		}
+		if *w.cfg.Bounded {
+			if err := w.control.Reach(end); err != nil {
+				return err
+			}
+		}
+		if err := dw.Commit(ctx, end, g); err != nil {
+			return err
+		}
+		dw.tracker.publish(end)
+		return nil
+	})
 	if err != nil {
 		return 0, err
 	}
-
-	if end.IsZero() {
-		// Subtract 1 because we want the timestamp of the last written sample.
-		// Anchor on the session start with the cumulative session sample count, since
-		// after a rollover the per-domain start is "previous commit end + 1ns" which
-		// is not a sample boundary in the index.
-		approx, err := w.idx.Stamp(
-			ctx,
-			dw.sessionStart,
-			dw.tracker.count(dw.Writer)-1,
-			index.MustBeContinuous,
-		)
-		if err != nil {
-			return 0, err
-		}
-		if !approx.Exact() {
-			return 0, index.NewDiscontinuousStampError(dw.sessionStart)
-		}
-		// Add 1 to the end timestamp because the end timestamp is exclusive.
-		end = approx.Lower + 1
-	}
-
-	if *w.cfg.Bounded {
-		if err = w.control.Reach(end); err != nil {
-			return 0, err
-		}
-	}
-	if err := dw.Commit(ctx, end); err != nil {
-		return 0, err
-	}
-	dw.tracker.publish(end)
 	return end, nil
 }
 

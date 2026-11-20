@@ -451,7 +451,7 @@ var _ = Describe("Aggregated Iteration", func() {
 				cfg.AutoChunkSize = 4
 				series, chunks := readAuto(ctx, dataDB, cfg)
 				Expect(chunks).To(Equal([]int64{4, 4, 2}))
-				var values []int64
+				values := make([]int64, 0, telem.MultiSeries{Series: series}.Len())
 				for _, s := range series {
 					values = append(values, s.Unmarshal[int64]()...)
 				}
@@ -524,7 +524,7 @@ var _ = Describe("Aggregated Iteration", func() {
 				) {
 					series, chunks := readAuto(ctx, dataDB, config())
 					Expect(chunks).To(Equal([]int64{2, 2, 2, 2}))
-					var values []int64
+					values := make([]int64, 0, telem.MultiSeries{Series: series}.Len())
 					for _, s := range series {
 						values = append(values, s.Unmarshal[int64]()...)
 						Expect(s.Alignment.SampleIndex() % 6).To(BeZero())
@@ -543,8 +543,9 @@ var _ = Describe("Aggregated Iteration", func() {
 					Expect(iter.SeekLast(ctx)).To(BeTrue())
 					var chunks [][]int64
 					for iter.Prev(ctx, unary.AutoSpan) {
-						var values []int64
-						for _, s := range iter.Value().SeriesSlice() {
+						frame := iter.Value()
+						values := make([]int64, 0, frame.Len())
+						for _, s := range frame.SeriesSlice() {
 							values = append(values, s.Unmarshal[int64]()...)
 						}
 						chunks = append(chunks, values)

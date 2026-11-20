@@ -14,8 +14,9 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
@@ -51,17 +52,26 @@ type Range struct {
 // schema constraints.
 func (r Range) Validate() error {
 	v := validate.New("Range")
-	v.NotEmptyString("name", r.Name)
+	for i := range r.Labels {
+		v.Exec(func() error { return validate.PathedError(r.Labels[i].Validate(), "labels", strconv.Itoa(i)) })
+	}
+	if r.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(r.Parent.Validate(), "parent") })
+	}
 	return v.Error()
 }
 
+// RefType is the "variant" value that selects a variant of Ref.
 type RefType string
 
 const (
-	KeyRefType    RefType = "key"
+	// KeyRefType is a range saved in the Core.
+	KeyRefType RefType = "key"
+	// WindowRefType is a window carried inline: rolling or fixed.
 	WindowRefType RefType = "window"
 )
 
+// RefVariant is implemented by every Ref variant.
 type RefVariant interface {
 	isRefVariant()
 }
@@ -81,6 +91,14 @@ type WindowRef struct {
 }
 
 func (WindowRef) isRefVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WindowRef) Validate() error {
+	v := validate.New("WindowRef")
+	v.Exec(func() error { return validate.PathedError(w.Window.Validate(), "window") })
+	return v.Error()
+}
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
@@ -147,7 +165,23 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.WindowRef
 	default:
-		return errors.Newf("Ref: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ref: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Ref) Validate() error {
+	v := validate.New("Ref")
+	v.Ternary("variant", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case WindowRef:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
 }

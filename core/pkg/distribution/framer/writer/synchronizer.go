@@ -17,9 +17,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// Synchronizer is used to synchronize sequenced responses across multiple nodes.
-// Synchronizer assumes that a request sent to multiple nodes contains a sequence number
-// incremented with every request.
+// synchronizer merges the responses of the writer's storage and free branches into one
+// response per request. It assumes that each request carries a sequence number
+// incremented with every request. When the writer is not sync, a write response comes
+// from one branch only, so it passes through alone.
 type synchronizer struct {
 	confluence.LinearTransform[Response, Response]
 	alamos.Instrumentation
@@ -27,27 +28,31 @@ type synchronizer struct {
 		res     Response
 		counter int
 	}
-	nodeCount int
+	branchCount int
+	sync        bool
 }
 
 func newSynchronizer(
-	nodeCount int,
+	branchCount int,
+	sync bool,
 	ins alamos.Instrumentation,
 ) confluence.Segment[Response, Response] {
-	s := &synchronizer{}
-	s.nodeCount = nodeCount
+	s := &synchronizer{branchCount: branchCount, sync: sync}
 	s.Instrumentation = ins
-	s.Transform = s.sync
+	s.Transform = s.merge
 	return s
 }
 
-func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
+func (s *synchronizer) merge(_ context.Context, res Response) (Response, bool, error) {
 	if res.SeqNum == 0 {
 		s.L.DPanic(
 			"received response with zero sequence number",
 			zap.Int("expected", s.cycle.res.SeqNum),
 		)
 		return res, false, nil
+	}
+	if !s.sync && res.Command == CommandWrite {
+		return res, true, nil
 	}
 
 	if s.cycle.counter == 0 {
@@ -70,7 +75,11 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	if s.cycle.res.Err == nil {
 		s.cycle.res.Err = res.Err
 	}
-	fulfilled := s.cycle.counter == s.nodeCount
+	// A commit that fails on one branch has no end, even if the other applied it.
+	if s.cycle.res.Err != nil {
+		s.cycle.res.End = 0
+	}
+	fulfilled := s.cycle.counter == s.branchCount
 	if fulfilled {
 		s.cycle.counter = 0
 	}

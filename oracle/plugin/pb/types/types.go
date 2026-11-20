@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/pb/instance"
 	pbprimitives "github.com/synnaxlabs/oracle/plugin/pb/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -84,9 +85,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
-		return enum.FindPBOutputPath(typ, table)
-	}
 	err := structCollector.ForEach(
 		func(outputPath string, structs []resolution.Type) error {
 			namespace := ""
@@ -101,7 +99,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 					outputPath,
 					req.Resolutions,
 					"pb",
-					pbPathFunc,
+					enum.FindPBOutputPath,
 				),
 			)
 			var unions []resolution.Type
@@ -193,7 +191,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 					outputPath,
 					req.Resolutions,
 					"pb",
-					pbPathFunc,
+					enum.FindPBOutputPath,
 				),
 			)
 			content, err := p.generateFile(
@@ -243,13 +241,14 @@ func (p *Plugin) generateFile(
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	var namespace string
-	if len(structs) > 0 {
-		namespace = structs[0].Namespace
-	} else if len(unions) > 0 {
-		namespace = unions[0].Namespace
-	} else if len(enums) > 0 {
-		namespace = enums[0].Namespace
+	var namespace, filePath string
+	switch {
+	case len(structs) > 0:
+		namespace, filePath = structs[0].Namespace, structs[0].FilePath
+	case len(unions) > 0:
+		namespace, filePath = unions[0].Namespace, unions[0].FilePath
+	case len(enums) > 0:
+		namespace, filePath = enums[0].Namespace, enums[0].FilePath
 	}
 
 	data := &templateData{
@@ -257,14 +256,16 @@ func (p *Plugin) generateFile(
 		GoPackage:  deriveGoPackage(outputPath, repoRoot),
 		OutputPath: outputPath,
 		Namespace:  namespace,
+		filePath:   filePath,
 		Messages:   make([]messageData, 0, len(structs)),
 		Enums:      make([]enumData, 0, len(enums)),
 		imports:    newImportManager(),
+		instances:  make(map[string]string),
 		table:      table,
 	}
 
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsSkipped(e, "pb") {
+		if e.FilePath == filePath && !omit.IsSkipped(e, "pb") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
@@ -371,31 +372,145 @@ func (p *Plugin) processStruct(
 		name = entry.Name
 	}
 
-	md := messageData{
-		Name:   name,
-		Doc:    doc.Get(entry.Domains),
-		Fields: make([]fieldData, 0),
+	md := messageData{Name: name, Doc: doc.Get(entry.Domains)}
+	if err := p.processFields(
+		&md,
+		resolution.UnifiedFields(entry, data.table),
+		entry.Domains,
+		data,
+	); err != nil {
+		return messageData{}, errors.Wrapf(err, "struct %q", entry.Name)
 	}
+	return md, nil
+}
 
-	fieldNumber := 1
-	var reserved []string
-	for _, field := range resolution.UnifiedFields(entry, data.table) {
+func (p *Plugin) processFields(
+	md *messageData,
+	fields []resolution.Field,
+	domains map[string]resolution.Domain,
+	data *templateData,
+) error {
+	md.Fields = make([]fieldData, 0, len(fields))
+	reserved, err := pbInts(domains, "reserved")
+	if err != nil {
+		return err
+	}
+	owners := make(map[int]string, len(fields))
+	for _, n := range reserved {
+		owners[n] = ""
+	}
+	for i, field := range fields {
+		number := i + 1
+		pinned, err := pbInts(field.Domains, "number")
+		if err != nil {
+			return errors.Wrapf(err, "field %q", field.Name)
+		}
+		if len(pinned) > 1 {
+			return errors.Newf("field %q: @pb number takes one number", field.Name)
+		}
+		if len(pinned) == 1 {
+			number = pinned[0]
+		}
+		if owner, taken := owners[number]; taken {
+			if owner == "" {
+				return errors.Newf(
+					"field %q: protobuf number %d is reserved",
+					field.Name,
+					number,
+				)
+			}
+			return errors.Newf(
+				"fields %q and %q share protobuf number %d",
+				owner,
+				field.Name,
+				number,
+			)
+		}
+		owners[number] = field.Name
 		// An omitted field keeps its number, reserved, so later fields never shift.
 		if omit.IsField(field, "pb") {
-			reserved = append(reserved, strconv.Itoa(fieldNumber))
-			fieldNumber++
+			reserved = append(reserved, number)
 			continue
 		}
-		fd, err := p.processField(field, fieldNumber, data)
+		fd, err := p.processField(field, number, data)
 		if err != nil {
-			return messageData{}, errors.Wrapf(err, "struct %q", entry.Name)
+			return err
 		}
 		md.Fields = append(md.Fields, fd)
-		fieldNumber++
 	}
-	md.Reserved = strings.Join(reserved, ", ")
+	slices.Sort(reserved)
+	md.Reserved = strings.Join(lo.Map(reserved, func(n, _ int) string {
+		return strconv.Itoa(n)
+	}), ", ")
+	return nil
+}
 
-	return md, nil
+// pbInts returns the positive integer values of the @pb expression of the given name.
+func pbInts(domains map[string]resolution.Domain, name string) ([]int, error) {
+	d, ok := domains["pb"]
+	if !ok {
+		return nil, nil
+	}
+	var ints []int
+	for _, expr := range d.Expressions {
+		if expr.Name != name {
+			continue
+		}
+		if len(expr.Values) == 0 {
+			return nil, errors.Newf("@pb %s needs a number", name)
+		}
+		for _, v := range expr.Values {
+			if v.Kind != resolution.ValueKindInt || v.IntValue < 1 {
+				return nil, errors.Newf("@pb %s takes positive integers", name)
+			}
+			ints = append(ints, int(v.IntValue))
+		}
+	}
+	return ints, nil
+}
+
+// addInstance adds the message of inst to the file once and returns its name. It fails
+// when a different generic use already has the name.
+func (p *Plugin) addInstance(
+	inst instance.Instance,
+	data *templateData,
+) (string, error) {
+	use := typeString(inst.Ref)
+	if prev, ok := data.instances[inst.Name]; ok {
+		if prev != use {
+			return "", errors.Newf(
+				"generic uses %s and %s share the protobuf message name %s",
+				prev,
+				use,
+				inst.Name,
+			)
+		}
+		return inst.Name, nil
+	}
+	data.instances[inst.Name] = use
+	md := messageData{Name: inst.Name, Doc: doc.Get(inst.Generic.Domains)}
+	err := p.processFields(&md, inst.Fields, inst.Generic.Domains, data)
+	if err != nil {
+		return "", errors.Wrapf(err, "instance %q", inst.Name)
+	}
+	data.Messages = append(data.Messages, md)
+	return inst.Name, nil
+}
+
+// typeString writes ref with its namespaces and array sizes, such as
+// first.Box<string>.
+func typeString(ref resolution.TypeRef) string {
+	s := ref.Name
+	if len(ref.TypeArgs) > 0 {
+		args := lo.Map(ref.TypeArgs, func(arg resolution.TypeRef, _ int) string {
+			return typeString(arg)
+		})
+		s += "<" + strings.Join(args, ", ") + ">"
+	}
+	if ref.ArraySize != nil {
+		s += "[" + strconv.FormatInt(*ref.ArraySize, 10) + "]"
+	}
+	return s
 }
 
 func (p *Plugin) processField(
@@ -482,7 +597,7 @@ func (p *Plugin) generateOptionalArrayWrapper(
 			"could not convert optional array element type to proto",
 		)
 	}
-	wrapperName := arrays.OptionalWrapperName(typeRef, data.table)
+	wrapperName := arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
 	if data.wrapperMessages == nil {
 		data.wrapperMessages = make(set.Set[string])
 	}
@@ -579,16 +694,25 @@ func (p *Plugin) typeToProto(
 		return "", errors.Newf("unknown builtin generic type %q", form.Name)
 
 	case resolution.StructForm:
+		if inst, ok := instance.Of(typeRef, data.Namespace, data.table); ok {
+			return p.addInstance(inst, data)
+		}
 		return p.resolveStructType(resolved, data)
 
 	case resolution.EnumForm:
 		return p.resolveEnumType(resolved, data), nil
 
 	case resolution.AliasForm:
-		return p.typeToProto(form.Target, data)
+		return p.typeToProto(resolution.SubstituteTypeRef(
+			form.Target,
+			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
+		), data)
 
 	case resolution.DistinctForm:
-		return p.typeToProto(form.Base, data)
+		return p.typeToProto(resolution.SubstituteTypeRef(
+			form.Base,
+			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
+		), data)
 
 	case resolution.UnionForm:
 		return p.resolveUnionType(resolved, data)
@@ -636,7 +760,7 @@ func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
 ) (messageData, error) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	name := getPBName(entry)
 	if name == "" {
 		name = entry.Name
@@ -739,7 +863,7 @@ func (p *Plugin) resolveStructType(
 }
 
 func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
-	if resolved.Namespace == data.Namespace {
+	if resolved.FilePath == data.filePath {
 		return resolved.Name
 	}
 
@@ -803,12 +927,14 @@ func (m *importManager) add(path string) {
 
 type templateData struct {
 	wrapperMessages set.Set[string]
+	instances       map[string]string
 	imports         *importManager
 	table           *resolution.Table
 	Package         string
 	GoPackage       string
 	OutputPath      string
 	Namespace       string
+	filePath        string
 	Messages        []messageData
 	Enums           []enumData
 }
@@ -820,7 +946,7 @@ func (d *templateData) Imports() []string {
 type messageData struct {
 	Name string
 	Doc  string
-	// Reserved lists the numbers of omitted fields, comma-separated.
+	// Reserved lists the reserved field numbers, comma-separated.
 	Reserved string
 	Fields   []fieldData
 	Oneof    *oneofData

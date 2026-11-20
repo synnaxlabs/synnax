@@ -13,9 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/kv"
@@ -29,10 +27,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// HostResolver resolves node keys to network addresses for cluster routing.
+	// HostKey is the key of the host node. Channels leased to it get their keys from
+	// its counter.
 	//
 	// [REQUIRED]
-	HostResolver cluster.HostResolver
+	HostKey node.Key
 	// KV is the key-value store used to back the local-key counters.
 	//
 	// [REQUIRED]
@@ -41,72 +40,52 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *ts.DB
-	// Transport routes allocation, rename, and delete operations to leaseholders.
-	//
-	// [REQUIRED]
-	Transport Transport
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
-	v.NotNil("host_resolver", c.HostResolver)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("kv", c.KV)
 	v.NotNil("ts", c.TS)
-	v.NotNil("transport", c.Transport)
 	return v.Error()
 }
 
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.KV = override.Nil(c.KV, other.KV)
 	c.TS = override.Nil(c.TS, other.TS)
-	c.Transport = override.Nil(c.Transport, other.Transport)
 	return c
 }
 
-// Service is the distribution-layer channel allocator. It owns the cluster-wide
-// machinery for assigning local channel keys and creating, renaming, and deleting the
-// underlying storage channels, routing each operation to the channel's leaseholder.
+// Service is the distribution-layer channel allocator. It assigns local channel keys
+// and creates, renames, and deletes the storage channels.
 type Service struct {
 	cfg           ServiceConfig
 	leasedCounter *counter
 	freeCounter   *counter
-	renameRouter  proxy.BatchFactory[renameBatchEntry]
-	deleteRouter  proxy.BatchFactory[Key]
 }
 
-// NewService opens the distribution-layer channel service, which is responsible for
-// assigning local keys and routing create, rename, and delete operations to the
-// appropriate nodes.
+// NewService opens the distribution-layer channel service.
 func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{
-		cfg:          cfg,
-		deleteRouter: proxy.BatchFactory[Key](cfg.HostResolver.HostKey()),
-		renameRouter: proxy.BatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
-	}
+	s := &Service{cfg: cfg}
 	leasedCounterKey := []byte(
-		cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter",
+		cfg.HostKey.String() + ".distribution.channel.leasedCounter",
 	)
 	if s.leasedCounter, err = newCounter(ctx, cfg.KV, leasedCounterKey); err != nil {
 		return nil, err
 	}
-	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
-		freeCounterKey := []byte(
-			cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free",
-		)
-		if s.freeCounter, err = newCounter(ctx, cfg.KV, freeCounterKey); err != nil {
-			return nil, err
-		}
+	freeCounterKey := []byte(
+		cfg.HostKey.String() + ".distribution.channel.counter.free",
+	)
+	if s.freeCounter, err = newCounter(ctx, cfg.KV, freeCounterKey); err != nil {
+		return nil, err
 	}
-	cfg.Transport.CreateServer().BindHandler(s.createHandler)
-	cfg.Transport.DeleteServer().BindHandler(s.deleteHandler)
-	cfg.Transport.RenameServer().BindHandler(s.renameHandler)
 	return s, nil
 }

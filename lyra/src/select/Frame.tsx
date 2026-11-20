@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type optional, type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { destructor, optional, record } from "@synnaxlabs/x";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
+import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Context } from "@/select/Context";
-import { RegistryContext, useRegistry } from "@/select/registry";
+import { type Registry, RegistryContext, useRegistry } from "@/select/registry";
+import { KeyboardContext } from "@/select/scope";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -29,13 +36,13 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   ...rest
 }: MultipleProviderProps<K>): ReactElement => {
   const { value, allowNone } = rest;
-  const res = useMultiple(rest);
+  const { keyboard, ...res } = useMultiple(rest);
   // Mirrors useMultiple: a click that would empty the selection returns before
   // onChange and before the dialog closes.
   const reselectNoop = allowNone === false;
   return (
     <Context value={value} reselectNoop={reselectNoop} {...res}>
-      {children}
+      <KeyboardContext value={keyboard}>{children}</KeyboardContext>
     </Context>
   );
 };
@@ -49,13 +56,13 @@ const SingleProvider = <K extends record.Key = record.Key>({
   ...rest
 }: SingleProviderProps<K>): ReactElement => {
   const { value, allowNone, closeDialogOnSelect } = rest;
-  const res = useSingle(rest);
+  const { keyboard, ...res } = useSingle(rest);
   // Mirrors useSingle: a re-select closes the dialog when it closes on select, and
   // clears the selection otherwise when allowNone is set.
   const reselectNoop = allowNone !== true && closeDialogOnSelect !== true;
   return (
     <Context<K> value={value} reselectNoop={reselectNoop} {...res}>
-      {children}
+      <KeyboardContext value={keyboard}>{children}</KeyboardContext>
     </Context>
   );
 };
@@ -83,6 +90,12 @@ export interface MultipleFrameProps<
 >
   extends BaseFrameProps<K, E>, UseMultipleProps<K> {
   multiple: true;
+  /**
+   * Whether to list the selected entries first each time the enclosing dialog opens.
+   * The order holds while the dialog stays open, and a search lists its matches in
+   * their own order.
+   */
+  selectedFirst?: boolean;
 }
 
 export interface SingleFrameProps<
@@ -101,6 +114,38 @@ export type FrameProps<
 
 const EMPTY: never[] = [];
 
+const NOOP_SUBSCRIBE = (): destructor.Destructor => () => {};
+
+// Lists first the entries that were selected when the dialog opened. A null value
+// turns the order off.
+const useSelectedFirst = <K extends record.Key, E extends record.Keyed<K> | undefined>(
+  registry: Registry,
+  data: K[],
+  getItem: List.GetItem<K, E> | undefined,
+  value: K[] | null,
+): K[] => {
+  const { visible } = Dialog.useContext();
+  const [opened, setOpened] = useState(false);
+  const [front, setFront] = useState<K[]>(EMPTY);
+  if (opened !== visible) {
+    setOpened(visible);
+    // Only a readable entry goes first. A fixed item keeps its own place, and a deleted
+    // entry stays out of the list.
+    const readable = (key: K): boolean =>
+      getItem == null ? data.includes(key) : getItem(key) != null;
+    setFront(visible && value != null ? value.filter(readable) : EMPTY);
+  }
+  const isSearching = (): boolean => registry.getTerm() !== "";
+  const searching = useSyncExternalStore(
+    value == null ? NOOP_SUBSCRIBE : registry.subscribe,
+    isSearching,
+    isSearching,
+  );
+  if (searching || front.length === 0) return data;
+  const selected = new Set(front);
+  return [...front, ...data.filter((k) => !selected.has(k))];
+};
+
 /**
  * Provides the options and the selection state to its children, with no UI of its own.
  * The options are its `data`, if any, and the {@link Item}s rendered outside an
@@ -109,24 +154,33 @@ const EMPTY: never[] = [];
 export const Frame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
->({
-  data = EMPTY,
-  getItem,
-  subscribe,
-  itemHeight,
-  multiple,
-  onFetchMore,
-  overscan,
-  virtual = false,
-  pinned,
-  value,
-  onChange,
-  ...rest
-}: FrameProps<K, E>): ReactElement => {
+>(
+  props: FrameProps<K, E>,
+): ReactElement => {
+  const {
+    data = EMPTY,
+    getItem,
+    subscribe,
+    itemHeight,
+    multiple,
+    onFetchMore,
+    overscan,
+    virtual = false,
+    pinned,
+    value,
+    onChange,
+    ...rest
+  } = props;
   const registry = useRegistry();
+  const ordered = useSelectedFirst(
+    registry,
+    data,
+    getItem,
+    props.multiple === true && props.selectedFirst === true ? props.value : null,
+  );
   return (
     <List.Frame<K, E>
-      data={data}
+      data={ordered}
       getItem={getItem}
       subscribe={subscribe}
       onFetchMore={onFetchMore}

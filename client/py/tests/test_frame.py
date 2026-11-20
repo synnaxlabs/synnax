@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import subprocess
+import sys
 from datetime import UTC
 from types import MappingProxyType
-from typing import cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,7 +19,7 @@ import pytest
 
 import synnax as sy
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
-from synnax.framer.frame import FramePayload
+from synnax.framer.frame import FramePayload, is_dataframe
 from synnax.telem import CrudeSeries
 from x.strings import random_name
 
@@ -161,6 +163,75 @@ class TestFrameToDF:
         df = f.to_df()
         assert list(df.columns) == ["big", "dog"]
         assert list(df["big"]) == [1, 2]
+
+    def test_join_on_alignment(self) -> None:
+        """Should place a channel with fewer samples than its index by alignment."""
+        stamps = sy.Series(
+            [1, 2, 3, 4, 5],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(2, 10),
+        )
+        data = sy.Series(
+            [7.5, 8.5], data_type=sy.DataType.FLOAT64, alignment=sy.Alignment(2, 12)
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        df = f.to_df()
+        assert list(df.index.astype("int64")) == [1, 2, 3, 4, 5]
+        assert df["dog"].isna().tolist() == [True, True, False, False, True]
+        assert df["dog"].dropna().tolist() == [7.5, 8.5]
+
+    def test_join_on_alignment_multiple(self) -> None:
+        """Should step through alignments by the multiple of a strided series."""
+        stamps = sy.Series(
+            [1, 2, 3],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(0, 0),
+            alignment_multiple=2,
+        )
+        data = sy.Series(
+            [9.5],
+            data_type=sy.DataType.FLOAT64,
+            alignment=sy.Alignment(0, 4),
+            alignment_multiple=2,
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        assert f.to_df()["dog"].dropna().index.astype("int64").tolist() == [3]
+
+    def test_equal_lengths_at_other_alignments(self) -> None:
+        """Should fail when equal length series are at different alignments."""
+        stamps = sy.Series(
+            [18, 19, 20],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(0, 17),
+        )
+        data = sy.Series(
+            [1.5, 2.5, 3.5],
+            data_type=sy.DataType.FLOAT64,
+            alignment=sy.Alignment(0, 0),
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        with pytest.raises(ValueError, match="alignments"):
+            f.to_df()
+
+    def test_alignment_outside_index(self) -> None:
+        """Should fail when a channel has a sample its index does not hold."""
+        stamps = sy.Series(
+            [1, 2, 3], data_type=sy.DataType.TIMESTAMP, alignment=sy.Alignment(0, 0)
+        )
+        data = sy.Series(
+            [9.5], data_type=sy.DataType.FLOAT64, alignment=sy.Alignment(1, 0)
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        with pytest.raises(ValueError, match="alignments"):
+            f.to_df()
 
     def test_key_fallback(self) -> None:
         """Should use the channel key when the frame does not know the name."""
@@ -565,6 +636,16 @@ class TestWriteFrameAdapter:
             series: list[CrudeSeries] = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
             write_adapter.adapt(ch, series)
 
+    def test_adaptation_of_one_series_in_a_list_and_single_payload(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
+        """Should raise a validation error when one channel gets a list holding a
+        series"""
+        write_adapter, ch = adapter
+        series: list[CrudeSeries] = [sy.Series([1.0, 2.0])]
+        with pytest.raises(sy.ValidationError):
+            write_adapter.adapt(ch, series)
+
     def test_adaptation_of_single_channel_and_no_data(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
     ) -> None:
@@ -608,8 +689,9 @@ class TestWriteFrameAdapter:
     ) -> None:
         """Should raise a type error when an invalid value is adapted"""
         write_adapter, _ = adapter
+        invalid: Any = Exception("Invalid value")
         with pytest.raises(TypeError):
-            write_adapter.adapt(cast(sy.Frame, Exception("Invalid value")))
+            write_adapter.adapt(invalid)
 
     def test_adapt_dict_keys(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
@@ -641,6 +723,19 @@ class TestWriteFrameAdapter:
         adapter.update(ch.name)
         adapted = adapter.adapt(ch.name, "hello")
         assert adapted[ch.key][0] == "hello"
+
+    def test_adapt_list_of_strings_to_single_channel(self, client: sy.Synnax) -> None:
+        """Should adapt a list of strings for one channel into one string series"""
+        ch = client.channels.create(
+            name=f"test_{random_name()}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+        )
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
+        adapter.update(ch.name)
+        adapted = adapter.adapt(ch.name, ["hello", "world"])
+        assert adapted.channels == [ch.key]
+        assert list(adapted[ch.key]) == ["hello", "world"]
 
 
 @pytest.mark.framer
@@ -675,6 +770,24 @@ class TestReadFrameAdapter:
         assert adapter.keys == []
         assert adapter.codec is not None
 
+    def test_update_virtual_without_index(
+        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+    ) -> None:
+        """Should not read an index for a virtual channel."""
+        ch1, _, _ = channels
+        adapter = ReadFrameAdapter(client.channels._retriever, timestamps_included=True)
+        adapter.update([ch1.key])
+        assert adapter.keys == [ch1.key]
+
+    def test_update_includes_index(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should add the index of a channel after the requested channels."""
+        idx_ch, data_ch = indexed_pair
+        adapter = ReadFrameAdapter(client.channels._retriever, timestamps_included=True)
+        adapter.update([data_ch.name])
+        assert adapter.keys == [data_ch.key, idx_ch.key]
+
     def test_update_with_keys(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
     ) -> None:
@@ -698,9 +811,12 @@ class TestReadFrameAdapter:
         assert adapter.keys == [ch1.key, ch2.key]
 
     def test_update_with_nonexistent_channel(self, client: sy.Synnax) -> None:
-        """Should raise KeyError when updating with a nonexistent channel name."""
+        """Should raise NotFoundError when updating with a nonexistent channel name."""
         adapter = ReadFrameAdapter(client.channels._retriever)
-        with pytest.raises(KeyError):
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r'channels not found matching \["nonexistent_channel_name_12345"\]',
+        ):
             adapter.update(["nonexistent_channel_name_12345"])
 
     def test_adapt_with_keys_no_conversion(
@@ -1071,3 +1187,37 @@ class TestReadFrameAdapter:
         )
         adapted = adapter.adapt(frame)
         assert list(adapted.to_df().columns) == [ch1.name, ch2.name]
+
+
+@pytest.mark.framer
+class TestIsDataframe:
+    def test_data_frame(self) -> None:
+        """Should be true for a pandas DataFrame."""
+        assert is_dataframe(pd.DataFrame({"a": [1]}))
+
+    @pytest.mark.parametrize(
+        "value", [{"a": [1]}, [1, 2], sy.Frame({1: sy.Series([1])}), None]
+    )
+    def test_other_values(self, value: object) -> None:
+        """Should be false for any value that is not a DataFrame."""
+        assert not is_dataframe(value)
+
+
+@pytest.mark.framer
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy imports need Python 3.15")
+class TestFramePandasLoading:
+    def test_frame_without_pandas(self) -> None:
+        """Should build frames from mappings and lists without loading pandas."""
+        script = (
+            "import sys\n"
+            "import synnax as sy\n"
+            "f = sy.Frame({1: sy.Series([1.0, 2.0])})\n"
+            "sy.Frame([1, 2], [sy.Series([1]), sy.Series([2])])\n"
+            "sy.Frame(f)\n"
+            "print('pandas' in sys.modules)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"

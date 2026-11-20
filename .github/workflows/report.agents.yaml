@@ -23,11 +23,13 @@ jobs:
   report:
     name: Report
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
+          persist-credentials: false
 
       - name: Build the report
         env:
@@ -40,9 +42,20 @@ jobs:
 
       - name: Post the report to Slack
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AGENT_REPORT_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
         run: |
           jq --null-input --rawfile text "$RUNNER_TEMP/report.txt" '{text: $text}' |
             curl --fail --silent --show-error \
               --header "Content-Type: application/json" \
               --data @- "$SLACK_WEBHOOK_URL"
+
+  relay-failure:
+    name: Relay the failure
+    needs: [report]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

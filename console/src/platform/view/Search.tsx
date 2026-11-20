@@ -7,33 +7,64 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useRef } from "react";
 
-import { useContext, useFormContext } from "@/platform/view/context";
+import { CSS } from "@/platform/css";
+import { useContext, useSearchContext } from "@/platform/view/context";
 
-export const Search = (): ReactElement | null => {
-  const { search } = useFormContext("View.Search");
-  const { editable, resourceType } = useContext("View.Search");
-  const [value, setValue] = useState("");
-  const handleChange = (v: string) => {
-    setValue(v);
-    search(v);
-  };
-  if (!editable) return null;
+/**
+ * The search field of a frame, which holds the term. It saves nothing, so every reader
+ * gets it. Esc or the clear button ends the search.
+ */
+export const Search = (): ReactElement => {
+  const { resourceType } = useContext("View.Search");
+  const { term, setTerm } = useSearchContext("View.Search");
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
-    <Input.Text
-      size="small"
-      level="h5"
-      color={9}
-      startContent={startContent}
-      variant="text"
-      value={value}
-      onChange={handleChange}
-      placeholder={`Search ${plural(resourceType)}...`}
-    />
+    <div
+      className={CSS.cls(
+        CSS.BE("view", "search"),
+        term !== "" && CSS.BEM("view", "search", "filled"),
+      )}
+    >
+      <Input.Text
+        size="small"
+        level="h5"
+        color={9}
+        startContent={startContent}
+        endContent={
+          term === "" ? undefined : (
+            <Button.Button
+              variant="text"
+              size="small"
+              square
+              textColor={9}
+              tooltip="Clear search"
+              tooltipLocation="bottom"
+              onClick={() => {
+                setTerm("");
+                inputRef.current?.focus();
+              }}
+            >
+              <Icon.Close />
+            </Button.Button>
+          )
+        }
+        ref={inputRef}
+        variant="text"
+        grow
+        value={term}
+        onChange={setTerm}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setTerm("");
+        }}
+        placeholder={`Search ${plural(resourceType)}...`}
+      />
+    </div>
   );
 };
 

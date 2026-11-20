@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { Box, DARK, Face, project, Wire } from "./IndustrialGeometry";
+import { Box, DARK, Face, project, Wire } from "@/components/IndustrialGeometry";
 
 const APPLICATIONS = [
   {

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -22,7 +23,7 @@ import {
   revoke,
   validate,
 } from "@/server/license/issue";
-import { type Signer } from "@/server/license/sign";
+import type { Signer } from "@/server/license/sign";
 import { HASH_A, HASH_B, LICENSE, NOW } from "@/server/license/testutil";
 import {
   createActivation,
@@ -96,6 +97,13 @@ describe("issue.validate", () => {
     );
     expect(() => validate({ ...base, nodes: 0 })).toThrow("Nodes must be");
     expect(() => validate({ ...base, channels: -1 })).toThrow("Channels must be");
+  });
+
+  it("should reject a channel cap that a Postgres integer cannot hold", () => {
+    expect(() => validate({ ...base, channels: 2 ** 31 - 1 })).not.toThrow();
+    expect(() => validate({ ...base, channels: 2 ** 31 })).toThrow(
+      "Channels must be a whole number, 0 for unlimited",
+    );
   });
 
   it("should require a label", () => {
@@ -397,7 +405,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         amend(store, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           term: "subscription",
           nodes: 2,
           channels: 0,
@@ -449,7 +457,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         revoke(store, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           actor: "user_staff",
           now: NOW,
         }),
@@ -531,7 +539,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         restore(store, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           actor: "user_staff",
           now: NOW,
         }),
@@ -653,7 +661,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         floating(store, signer, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           actor: "user_staff",
           now: NOW,
         }),

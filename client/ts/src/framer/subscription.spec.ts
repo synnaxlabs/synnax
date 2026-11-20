@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { index as tileIndex, tileRange, tileSpan } from "@/framer/cache/grid";
@@ -44,6 +44,9 @@ const OPTIONS: framer.FeedOptions = {
     maxInterval: TimeSpan.milliseconds(50),
   },
 };
+
+// Stream reopens fail while a spec holds the Core down.
+const quiet = (): void => {};
 
 const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
   new SyntheticCore({
@@ -265,8 +268,7 @@ describe("Feed.subscribe", () => {
 
     it("should draw streamed samples while the first history read runs", async () => {
       const core = createCore();
-      let release = (): void => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const feed = core.openFeed({
         ...OPTIONS,
         readRemote: async (tr, keys, reduction) => {
@@ -809,6 +811,8 @@ describe("Feed.subscribe", () => {
         await expect.poll(newest, POLL).toBe(end.valueOf() - PERIOD);
         core.advance(TimeSpan.seconds(2));
         await expect.poll(() => (sub.value(key), core.streams(key)), POLL).toBe(false);
+        // Raw samples streamed past the end stand in until the tiles of the end land.
+        await expect.poll(newest, POLL).toBe(end.valueOf() - PERIOD);
         const times = timesOf(sub.value(key));
         expect(times[0] <= start.valueOf()).toBe(true);
         expectComplete(times);
@@ -816,6 +820,115 @@ describe("Feed.subscribe", () => {
         await sleep.sleep(TimeSpan.milliseconds(50));
         expect(timesOf(sub.value(key))).toEqual(times);
       } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should hold no sample past its end until the end's tiles land", async () => {
+      const core = createCore();
+      let held = false;
+      const waiting: Array<() => void> = [];
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          if (held) await new Promise<void>((resolve) => waiting.push(resolve));
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const index = core.index.key;
+      const data = core.data[0].key;
+      const end = core.now().add(TimeSpan.seconds(5));
+      const sub = feed.subscribe({
+        keys: [index, data],
+        window: staticWindow(new TimeRange(core.now().sub(TimeSpan.seconds(10)), end)),
+        limit: { variant: "points", count: EXACT, aggregation: "min_max" },
+      });
+      const last = end.valueOf() - PERIOD;
+      const lastValue = Math.sin(
+        Number((last - START.valueOf()) / PERIOD) / 1000 + data,
+      );
+      const drawnTo = (key: channel.Key): bigint =>
+        sub.value(key).time?.valueOf() ?? 0n;
+      const expectCut = (): void => {
+        expect(timesOf(sub.value(index)).at(-1)).toBe(last);
+        const values = Array.from(sub.value(data).series, Number);
+        expect(values.length).toBe(timesOf(sub.value(index)).length);
+        expect(values.at(-1)).toBeCloseTo(lastValue, 5);
+      };
+      try {
+        await expect.poll(() => sub.value(index).status.variant, POLL).toBe("success");
+        await expect.poll(() => sub.value(data).status.variant, POLL).toBe("success");
+        held = true;
+        // The stream grows the buffer in place from a value that holds no sample past
+        // the end.
+        core.advance(TimeSpan.milliseconds(4900));
+        await expect.poll(() => drawnTo(index), POLL).toBe(newestOf(core) + 1n);
+        await expect.poll(() => drawnTo(data), POLL).toBe(newestOf(core) + 1n);
+        core.advance(TimeSpan.milliseconds(600));
+        await expect.poll(() => drawnTo(index) >= end.valueOf(), POLL).toBe(true);
+        await expect.poll(() => drawnTo(data) >= end.valueOf(), POLL).toBe(true);
+        expectCut();
+        core.advance(TimeSpan.seconds(2));
+        await expect
+          .poll(() => (sub.value(index), sub.value(data), core.streams(index)), POLL)
+          .toBe(false);
+        expectCut();
+      } finally {
+        held = false;
+        waiting.forEach((resolve) => resolve());
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should hold no sample past its end in a join's held samples", async () => {
+      const core = createCore();
+      let held = false;
+      const waiting: Array<() => void> = [];
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          if (held) await new Promise<void>((resolve) => waiting.push(resolve));
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const index = core.index.key;
+      const data = core.data[0].key;
+      const end = core.now().add(TimeSpan.seconds(5));
+      const sub = feed.subscribe({
+        keys: [index, data],
+        window: staticWindow(new TimeRange(core.now().sub(TimeSpan.seconds(10)), end)),
+        limit: { variant: "points", count: EXACT, aggregation: "min_max" },
+      });
+      const last = end.valueOf() - PERIOD;
+      const lastValue = Math.sin(
+        Number((last - START.valueOf()) / PERIOD) / 1000 + data,
+      );
+      const drawnTo = (key: channel.Key): bigint =>
+        sub.value(key).time?.valueOf() ?? 0n;
+      try {
+        await expect.poll(() => sub.value(index).status.variant, POLL).toBe("success");
+        await expect.poll(() => sub.value(data).status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => drawnTo(index), POLL).toBe(newestOf(core) + 1n);
+        await expect.poll(() => drawnTo(data), POLL).toBe(newestOf(core) + 1n);
+        held = true;
+        // A gap in the stream sends the join back to wait for a catch-up read, which
+        // hangs, so the join holds the samples streamed after it.
+        core.advance(TimeSpan.seconds(1), false);
+        core.advance(TimeSpan.milliseconds(4400));
+        await expect.poll(() => drawnTo(index) >= last, POLL).toBe(true);
+        await expect.poll(() => drawnTo(data) >= last, POLL).toBe(true);
+        expect(drawnTo(index)).toBe(end.valueOf());
+        expect(drawnTo(data)).toBe(end.valueOf());
+        expect(timesOf(sub.value(index)).at(-1)).toBe(last);
+        const values = Array.from(sub.value(data).series, Number);
+        expect(values.length).toBe(timesOf(sub.value(index)).length);
+        expect(values.at(-1)).toBeCloseTo(lastValue, 5);
+      } finally {
+        held = false;
+        waiting.forEach((resolve) => resolve());
         sub.close();
         await feed.close();
       }
@@ -968,7 +1081,7 @@ describe("Feed.subscribe", () => {
 
     it("should report reconnecting during an outage and fill it after", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const span = TimeSpan.seconds(30);
       const sub = feed.subscribe(raw([core.index.key], span));
       const stop = tick(core);
@@ -992,6 +1105,7 @@ describe("Feed.subscribe", () => {
       const raw: TimeRange[] = [];
       const feed = core.openFeed({
         ...OPTIONS,
+        onRetry: quiet,
         readRemote: async (tr, keys, reduction) => {
           if (reduction == null) raw.push(tr);
           return core.read(tr, keys, reduction);
@@ -1034,12 +1148,10 @@ describe("Feed.subscribe", () => {
       const key = core.index.key;
       let held = true;
       let entered = false;
-      let release = (): void => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       let read = false;
       let opens = 0;
-      let reopen = (): void => {};
-      const reopened = new Promise<void>((resolve) => (reopen = resolve));
+      const { promise: reopened, resolve: reopen } = Promise.withResolvers<void>();
       const feed = core.openFeed({
         ...OPTIONS,
         readRemote: async (tr, keys, reduction) => {
@@ -1184,7 +1296,7 @@ describe("Feed.subscribe", () => {
 
     it("should count no streamed sample again after the stream reconnects", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const key = core.index.key;
       const sub = feed.subscribe({
         keys: [key],
@@ -1215,7 +1327,7 @@ describe("Feed.subscribe", () => {
 
     it("should read the newest samples again after the stream reconnects", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const key = core.index.key;
       const sub = feed.subscribe({
         keys: [key],
@@ -1323,6 +1435,7 @@ describe("Feed.subscribe", () => {
       const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const feed = core.openFeed({
         ...OPTIONS,
+        onRetry: quiet,
         readLatest: async (keys, count, tr) => {
           if (held) {
             waiting = true;
@@ -1707,6 +1820,111 @@ describe("Feed.subscribe", () => {
     });
   });
 
+  describe("timeAt", () => {
+    it("should time a latest request's samples by the Core's stamps", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.data[0].key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10 },
+      });
+      // Returns the time of each of the newest 10 samples, oldest first.
+      const timed = (): (bigint | undefined)[] =>
+        sub
+          .value(key)
+          .series.series.flatMap((s) =>
+            Array.from({ length: s.length }, (_, i) =>
+              sub.timeAt(key, s.alignment + BigInt(i))?.valueOf(),
+            ),
+          )
+          .slice(-10);
+      const expected = (): bigint[] =>
+        Array.from({ length: 10 }, (_, i) => newestOf(core) - BigInt(9 - i) * PERIOD);
+      try {
+        await expect.poll(timed, POLL).toEqual(expected());
+        core.advance(TimeSpan.seconds(1));
+        await expect.poll(timed, POLL).toEqual(expected());
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should read the index again after the stream reconnects", async () => {
+      const core = createCore();
+      const { key: index } = core.index;
+      let short = true;
+      const feed = core.openFeed({
+        ...OPTIONS,
+        // The stream fails to open again while the Core is down.
+        onRetry: () => {},
+        readLatest: async (keys, count, tr) => {
+          const frame = core.readLatest(keys, count, tr);
+          return short && keys.length === 1 && keys[0] === index
+            ? new framer.Frame()
+            : frame;
+        },
+      });
+      const key = core.data[0].key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10_000 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const [{ alignment }] = sub.value(key).series.series;
+        for (let i = 0; i < 3; i++) {
+          expect(sub.timeAt(key, alignment)).toBeNull();
+          await sleep.sleep(TimeSpan.milliseconds(20));
+          core.advance(TimeSpan.seconds(5), false);
+        }
+        short = false;
+        expect(sub.timeAt(key, alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(sub.timeAt(key, alignment)).toBeNull();
+        core.disconnect();
+        await expect
+          .poll(() => sub.value(key).status, POLL)
+          .toMatchObject({ variant: "warning", message: "reconnecting" });
+        core.reconnect();
+        await expect.poll(() => sub.timeAt(key, alignment), POLL).not.toBeNull();
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should return null for a points request", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.data[0].key;
+      const sub = feed.subscribe(raw([key], TimeSpan.seconds(1)));
+      try {
+        const [series] = await loaded(sub, key);
+        expect(sub.timeAt(key, series.alignment)).toBeNull();
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should throw for a channel not in the request", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const sub = feed.subscribe({
+        keys: [core.data[0].key],
+        limit: { variant: "latest", count: 1 },
+      });
+      try {
+        expect(() => sub.timeAt(core.index.key, 0n)).toThrow(UnexpectedError);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+  });
+
   describe("update and status", () => {
     const createStatic = (key: channel.Key): framer.PointsRequest => ({
       keys: [key],
@@ -2026,8 +2244,7 @@ describe("Feed.subscribe", () => {
       core: SyntheticCore,
       held: (tr: TimeRange, keys: channel.Key[]) => boolean,
     ) => {
-      let release: () => void = () => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       let reads = 0;
       const feed = core.openFeed({
         ...OPTIONS,

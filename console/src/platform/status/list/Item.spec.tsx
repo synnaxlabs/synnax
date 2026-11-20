@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/platform/status";
@@ -24,7 +25,6 @@ import {
   commitTextEdit,
   countEditableText,
   createConsoleWrapper,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -76,7 +76,7 @@ describe("Status.List.Item", () => {
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: {
-        [Session.Status.SLICE_NAME]: { version: 0, favorites: [stat.key] },
+        [Session.Status.SLICE_NAME]: { version: 1, favorites: [stat.key] },
       },
     });
     render(<Fixture status={stat} />, { wrapper });

@@ -7,12 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from playwright.sync_api import Locator, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from typing import Required, TypedDict
+
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+from console.notifications import click_past
+
+
+class Spec(TypedDict, total=False):
+    """A channel to create through the Console form. The index is a channel name, as
+    the form selects it by name."""
+
+    name: Required[str]
+    data_type: sy.telem.CrudeDataType
+    is_index: bool
+    index: str
+    virtual: bool
 
 
 class ChannelClient(ResourceClient):
@@ -23,6 +36,8 @@ class ChannelClient(ResourceClient):
     """
 
     ITEM_PREFIX = "channel:"
+    _HEADER = ".console-toolbar__header"
+    _SEARCH_FIELD = "input[placeholder='Search channels']"
 
     def __init__(
         self,
@@ -35,29 +50,24 @@ class ChannelClient(ResourceClient):
 
     # ── Private Helpers ──────────────────────────────────────────────────
 
-    def _ctx_menu_action(
-        self, name: str, action: str, *, exact: bool = True
-    ) -> Locator:
+    def _ctx_menu_action(self, name: str, action: str) -> Locator:
         """Show channels, find item, perform context menu action, return item."""
         self.show_channels()
         item = self._find_channel_item(name)
         if item is None:
             raise ValueError(f"Channel {name} not found")
-        self.ctx_menu.action(item, action, exact=exact)
+        self.ctx_menu.action(item, action)
         return item
 
-    def _find_channel_item(
-        self, name: str, retry_with_refresh: bool = True
-    ) -> Locator | None:
-        """Find a channel item in the list by name.
+    def _find_channel_item(self, name: str) -> Locator | None:
+        """Find a channel item in the list by name. When it is missing, refresh the
+        channels pane and try again, since the list can be stale.
 
         :param name: The channel name to find.
-        :param retry_with_refresh: If True and channel not found, refresh the
-            channels pane and try again (handles cases where list is stale).
         :returns: The channel item Locator, or None if not found.
         """
         item = self.tree.find_by_name(self.ITEM_PREFIX, str(name))
-        if item is None and retry_with_refresh:
+        if item is None:
             self.hide_channels()
             self.layout.sleep(100)
             self.show_channels()
@@ -98,9 +108,6 @@ class ChannelClient(ResourceClient):
         :param virtual: Boolean indicating whether the channel is virtual.
         :returns: True if the channel was created successfully.
         """
-        if is_index and data_type == sy.DataType.UNKNOWN:
-            data_type = sy.DataType.TIMESTAMP
-
         self.open_create_modal()
         self.layout.locator("input[placeholder='Channel name']").fill(name)
         if is_index:
@@ -128,18 +135,11 @@ class ChannelClient(ResourceClient):
 
     def create_with_create_more(
         self,
-        channels: list[dict[str, str | int | bool]],
+        channels: list[Spec],
     ) -> list[str]:
         """Creates multiple channels using the 'Create more' checkbox.
 
-        Each channel dict should contain:
-            - name: The name for the channel (required)
-            - data_type: The data type (optional, default uses index type)
-            - is_index: Boolean for index channel (optional, default False)
-            - index: The key of the index channel (required if not is_index)
-            - virtual: Boolean for virtual channel (optional, default False)
-
-        :param channels: List of channel configuration dicts
+        :param channels: The channels to create.
         :returns: List of created channel names
         """
         if not channels:
@@ -148,15 +148,11 @@ class ChannelClient(ResourceClient):
         created_channels: list[str] = []
 
         for i, ch_config in enumerate(channels):
-            name = str(ch_config["name"])
+            name = ch_config["name"]
             data_type = ch_config.get("data_type", sy.DataType.UNKNOWN)
             is_index = ch_config.get("is_index", False)
-            index = ch_config.get("index", 0)
+            index = ch_config.get("index", "")
             virtual = ch_config.get("virtual", False)
-            index_str = str(index) if index != 0 else ""
-
-            if is_index and data_type == sy.DataType.UNKNOWN:
-                data_type = sy.DataType.TIMESTAMP
 
             if i == 0:
                 self.layout.command_palette("Create channel")
@@ -175,7 +171,7 @@ class ChannelClient(ResourceClient):
             else:
                 if virtual:
                     self._select_kind("Virtual")
-                elif index == 0:
+                elif not index:
                     raise ValueError(
                         f"Index must be provided for non-index channel: {name}"
                     )
@@ -187,7 +183,7 @@ class ChannelClient(ResourceClient):
                 if not virtual:
                     self.layout.get_by_text("Select channel", exact=True).click()
                     self.layout.select_from_dropdown(
-                        index_str, placeholder="Search Channels"
+                        index, placeholder="Search Channels"
                     )
 
             is_last = i == len(channels) - 1
@@ -233,11 +229,10 @@ class ChannelClient(ResourceClient):
         sy.sleep(0.2)
         self.layout.type_text(expression)
 
-        self.notifications.close_all()
         save_btn = self.layout.locator("button").filter(has_text="Save").first
         if save_btn.count() == 0:
             save_btn = self.layout.locator("button").filter(has_text="Create").first
-        save_btn.click()
+        click_past(save_btn)
 
         try:
             name_input.wait_for(state="hidden", timeout=3000)
@@ -279,30 +274,6 @@ class ChannelClient(ResourceClient):
         self.layout.locator("button").filter(has_text="Save").first.click()
         self.layout.wait_for_hidden(editor)
 
-        self.hide_channels()
-
-    def set_alias(self, *, name: str, alias: str) -> None:
-        """Set an alias for a channel under the active range via context menu.
-
-        Note: Requires an active range to be set before calling this method.
-
-        :param name: The name of the channel to set an alias for.
-        :param alias: The alias to set for the channel.
-        """
-        self._ctx_menu_action(name, "Set alias under", exact=False)
-        self.layout.type_text(alias)
-        self.layout.press_enter()
-        self.layout.wait_for_selector_hidden("input.lyra-text--editable")
-        self.hide_channels()
-
-    def clear_alias(self, name: str) -> None:
-        """Clear an alias for a channel under the active range via context menu.
-
-        Note: Requires an active range to be set before calling this method.
-
-        :param name: The name of the channel to clear the alias for.
-        """
-        self._ctx_menu_action(name, "Remove alias under", exact=False)
         self.hide_channels()
 
     def hard_reload(self) -> None:
@@ -535,21 +506,48 @@ class ChannelClient(ResourceClient):
             raise ValueError(f"Channel {name} not found")
 
         self.layout.delete_with_confirmation(item)
-
-        for i, notification in enumerate(self.notifications.check()):
-            message = notification.get("message", "")
-            description = notification.get("description", "")
-            if message == "Failed to delete Channel" and name in description:
-                self.notifications.close(notification_index=i)
-                raise RuntimeError(f"{message} {name}, {description}")
-
-        self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        try:
+            self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        except PlaywrightTimeoutError as e:
+            failure = (
+                self.layout.page.get_by_role("status")
+                .filter(has_text="Failed to delete Channel")
+                .filter(has_text=name)
+            )
+            if failure.count() > 0:
+                raise RuntimeError(failure.first.inner_text()) from e
+            raise
         self.hide_channels()
 
     def list_all(self) -> list[str]:
         """List all visible channels in the sidebar."""
         self.show_channels()
         return self.tree.list_names(self.ITEM_PREFIX)
+
+    def search(self, term: str) -> None:
+        """Open the search in the channels pane and type a term.
+
+        :param term: The search term.
+        """
+        self.show_channels()
+        field = self.layout.page.locator(self._SEARCH_FIELD)
+        if field.count() == 0:
+            self.layout.page.locator(
+                f"{self._HEADER} button:has(.lyra-icon--search)"
+            ).click()
+        field.fill(term)
+
+    def toggle_search_groups(self) -> None:
+        """Switch the search results between the flat and the groups layout."""
+        self.layout.page.locator(
+            f"{self._HEADER} button:has(.lyra-icon--tree-view)"
+        ).click()
+
+    def close_search(self) -> None:
+        """Close the search with Escape, which brings the tree back."""
+        field = self.layout.page.locator(self._SEARCH_FIELD)
+        field.press("Escape")
+        field.wait_for(state="detached", timeout=5000)
 
     def close_modal(self) -> None:
         """Close any open modal by clicking the close button."""

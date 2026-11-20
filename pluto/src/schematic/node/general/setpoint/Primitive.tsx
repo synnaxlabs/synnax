@@ -9,11 +9,11 @@
 
 import "@/schematic/node/general/setpoint/setpoint.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
@@ -25,10 +25,12 @@ import {
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface RenderProps extends Partial<
-  Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">
+  Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale" | "fillColor">
 > {
+  fillColor?: color.Crude;
   className?: string;
   style?: CSSProperties;
   /** value is the last commanded value, or null when none is known. */
@@ -112,6 +114,7 @@ export const Setpoint = ({
         <BaseInput.Numeric
           ref={inputRef}
           size={size}
+          level={SIZE_LEVELS[size]}
           className={CSS.BE("symbol-field", "control")}
           value={shown ?? NaN}
           emptyValue={NaN}
@@ -129,13 +132,14 @@ export const Setpoint = ({
         >
           <BaseButton.Button
             size={size}
+            level={SIZE_LEVELS[size]}
             variant="filled"
             onClick={() => {
               if (shown == null) return;
               onSend(shown);
               draft.send();
             }}
-            onClickDelay={onClickDelay}
+            onClickDelay={new TimeSpan(onClickDelay ?? 0)}
             // WebKit leaves the input focused on a button press, so the typed value
             // would never commit. Blurring commits it before the click or hold sends.
             onMouseDown={() => inputRef.current?.blur()}

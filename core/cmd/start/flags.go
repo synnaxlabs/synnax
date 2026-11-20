@@ -20,7 +20,6 @@ import (
 
 // Flag names used for starting a Synnax Core.
 const (
-	FlagPeers                        = "peers"
 	FlagData                         = "data"
 	FlagMem                          = "mem"
 	FlagInsecure                     = "insecure"
@@ -30,6 +29,7 @@ const (
 	FlagNoDriver                     = "no-driver"
 	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
 	FlagSessionIdleTimeout           = "session-idle-timeout"
+	FlagAuthMethods                  = "auth-methods"
 	FlagEnableIntegrations           = "enable-integrations"
 	FlagDisableIntegrations          = "disable-integrations"
 	FlagTaskOpTimeout                = "task-op-timeout"
@@ -38,34 +38,29 @@ const (
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 	FlagStopOnStdinClose             = "stop-on-stdin-close"
+	FlagSecretsKey                   = "secrets-key"
+	FlagSecretsKeyFile               = "secrets-key-file"
+	FlagSecretsDir                   = "secrets-dir"
+	FlagNoUpdateBackup               = "no-update-backup"
 )
 
 // AddFlags adds the start flags to the given command.
 func AddFlags(cmd *cobra.Command) {
 	cert.AddFlags(cmd)
 	listener.AddFlags(cmd)
-	cmd.Flags().StringSliceP(
-		FlagPeers,
-		"p",
-		nil,
-		"Addresses of additional peers in the cluster",
-	)
 	cmd.Flags().StringSlice(
 		FlagEnableIntegrations,
 		nil,
-		"Device integrations to enable (arc, ethercat, labjack, modbus, ni, opc)",
+		"Integrations to enable on the embedded Driver (arc, ethercat, file, "+
+			"http, labjack, modbus, ni, opc)",
 	)
 	cmd.Flags().StringSlice(
 		FlagDisableIntegrations,
 		nil,
-		"Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc)",
+		"Integrations to disable on the embedded Driver (arc, ethercat, file, "+
+			"http, labjack, modbus, ni, opc)",
 	)
-	cmd.Flags().StringP(
-		FlagData,
-		"d",
-		"synnax-data",
-		"Directory where the Core will store its data",
-	)
+	AddDataFlag(cmd)
 	cmd.Flags().BoolP(FlagMem, "m", false, "Use in-memory storage")
 	cmd.Flags().BoolP(
 		FlagInsecure,
@@ -87,6 +82,12 @@ func AddFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().Bool(FlagNoDriver, false, "Disable the embedded Driver")
 	cmd.Flags().Bool(
+		FlagNoUpdateBackup,
+		false,
+		"Skip the backup before a new version first opens the data, so a failed "+
+			"update cannot be undone",
+	)
+	cmd.Flags().Bool(
 		FlagStopOnStdinClose,
 		false,
 		"Stop the Core when its standard input closes. For a parent process that manages the Core through a pipe",
@@ -95,6 +96,11 @@ func AddFlags(cmd *cobra.Command) {
 		FlagSessionIdleTimeout,
 		auth.DefaultIdleTimeout,
 		"End a session after this long without a request from its client",
+	)
+	cmd.Flags().StringSlice(
+		FlagAuthMethods,
+		[]string{string(auth.MethodPassword), string(auth.MethodAPIKey)},
+		"Login methods the Core accepts (password, api_key)",
 	)
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
@@ -126,11 +132,36 @@ func AddFlags(cmd *cobra.Command) {
 		false,
 		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
+	cmd.Flags().String(
+		FlagSecretsKey,
+		"",
+		"Base64 key that encrypts stored secrets. Prefer the SYNNAX_SECRETS_KEY environment variable",
+	)
+	cmd.Flags().String(
+		FlagSecretsKeyFile,
+		"",
+		"File that holds the base64 key that encrypts stored secrets. Defaults to secrets.key in the data directory",
+	)
+	cmd.Flags().String(
+		FlagSecretsDir,
+		"",
+		"Folder that holds the file secrets of the Core and its embedded Driver",
+	)
 	cmd.Flags().String(FlagLicenseKey, "", "License key")
 	cmd.Flags().String(
 		FlagLicenseFile,
 		"",
 		"Path to a file containing the license key",
+	)
+}
+
+// AddDataFlag adds the flag that names the Core data directory to the given command.
+func AddDataFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP(
+		FlagData,
+		"d",
+		"synnax-data",
+		"Directory where the Core will store its data",
 	)
 }
 

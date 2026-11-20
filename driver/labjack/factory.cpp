@@ -27,14 +27,14 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     auto [manager, manager_err] = devs.get();
     if (manager_err) return {std::move(result), manager_err};
     std::unique_ptr<common::Source> source;
-    if (cfg.has_thermocouples())
+    if (cfg.polled())
         source = std::make_unique<UnarySource>(manager, std::move(cfg));
     else
         source = std::make_unique<StreamSource>(manager, std::move(cfg));
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::move(source)
     );
     return {std::move(result), x::errors::NIL};
@@ -54,7 +54,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<WriteSink>(manager, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
@@ -83,7 +83,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -92,7 +93,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_read(*this->dev_manager, ctx, task, this->timing_cfg);
     if (task.type == WRITE_TASK_TYPE)
         res = configure_write(*this->dev_manager, ctx, task);
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::unique_ptr<Factory> Factory::create(const common::TimingConfig timing_cfg) {
@@ -109,7 +110,8 @@ std::unique_ptr<Factory> Factory::create(const common::TimingConfig timing_cfg) 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     return common::configure_initial_factory_tasks(
         this,
@@ -117,7 +119,8 @@ Factory::configure_initial_tasks(
         rack,
         "LabJack Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 }

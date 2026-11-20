@@ -16,18 +16,18 @@ import (
 
 // NewInclusiveBoundsChecker returns a function that returns an error if a value
 // is not within a set of inclusive, numeric bounds.
-func NewInclusiveBoundsChecker[T types.Numeric](min, max T) func(v T) error {
+func NewInclusiveBoundsChecker[T types.Numeric](lower, upper T) func(v T) error {
 	name := types.Name[T]()
 	return func(v T) error {
-		if v >= min && v <= max {
+		if v >= lower && v <= upper {
 			return nil
 		}
 		return errors.Wrapf(
 			ErrValidation,
 			"%s must be between %v and %v",
 			name,
-			min,
-			max,
+			lower,
+			upper,
 		)
 	}
 }

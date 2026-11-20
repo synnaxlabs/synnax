@@ -14,19 +14,19 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 // AuthedCtx returns a freighter.Context derived from ctx with the given user installed
 // as the request subject, so auth.GetSubject succeeds inside an api service.
 func AuthedCtx(ctx context.Context, u user.User) freighter.Context {
-	return SubjectCtx(ctx, u.OntologyID())
+	return SubjectCtx(ctx, u.ResourceID())
 }
 
 // SubjectCtx returns a freighter.Context derived from ctx with subject installed as the
 // request subject, so auth.GetSubject succeeds inside an api service.
-func SubjectCtx(ctx context.Context, subject ontology.ID) freighter.Context {
+func SubjectCtx(ctx context.Context, subject resource.ID) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", subject)
 	return fctx

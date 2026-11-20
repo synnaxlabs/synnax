@@ -13,9 +13,11 @@ import { color, state as xstate } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
-import { Picker } from "@/color/Picker";
+import { findNamed } from "@/color/named";
+import { Picker, type PickerProps } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { state } from "@/state";
@@ -24,7 +26,8 @@ import { Text } from "@/text";
 interface BaseProps
   extends
     Omit<BaseSwatchProps, "value" | "onChange">,
-    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible"> {
+    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
+    Pick<PickerProps, "library"> {
   /**
    * If true, the swatch holds picker changes and calls `onChange` once, when the picker
    * closes. A change pending when the swatch unmounts is dropped.
@@ -68,6 +71,19 @@ interface Pending {
   value?: color.Color;
 }
 
+/** A swatch that opens the picker of its frame, which gives it the focus back. */
+const Trigger = ({ ref, ...rest }: BaseSwatchProps): ReactElement => {
+  const { triggerRef, visible } = Dialog.useContext();
+  return (
+    <BaseSwatch
+      ref={useCombinedRefs(ref, triggerRef)}
+      aria-haspopup="dialog"
+      aria-expanded={visible}
+      {...rest}
+    />
+  );
+};
+
 /** A color swatch that opens a picker when clicked. Takes a dropped color too. */
 export const Swatch = ({
   onChange: propsOnChange,
@@ -85,6 +101,7 @@ export const Swatch = ({
   status,
   tooltip,
   hideTooltip,
+  library,
   ...rest
 }: SwatchProps): ReactElement => {
   // Only an OptionalValueProps caller sets a fallback, and only then does the picker
@@ -97,17 +114,22 @@ export const Swatch = ({
   });
   const [pending, setPending] = useState<Pending | null>(null);
   const handleVisibleChange: xstate.Setter<boolean> = (arg) => {
-    if (pending != null && !xstate.executeSetter(arg, visible)) {
+    if (pending != null && !xstate.resolve(arg, visible)) {
       onChange?.(pending.value);
       setPending(null);
     }
     setVisible(arg);
   };
   const shownValue = pending != null ? pending.value : value;
+  // A pending change unlinks the value when the picker closes.
+  const named = pending == null ? library?.named : undefined;
+  const linked =
+    library == null || named == null ? undefined : findNamed(library.palettes, named);
   const shownMixed = mixed && pending == null;
   const auto = !custom && !shownMixed && shownValue == null;
   let tooltipText = "Click to change color";
-  if (custom) tooltipText = "Custom: pick any color";
+  if (linked != null) tooltipText = `${linked.name}. Click to change.`;
+  else if (custom) tooltipText = "Custom: pick any color";
   else if (shownMixed)
     tooltipText = "Mixed: the selection has several colors. Click to set one.";
   else if (auto) tooltipText = "Auto: the theme picks the color. Click to change.";
@@ -122,10 +144,11 @@ export const Swatch = ({
     "aria-invalid": rest["aria-invalid"],
     "aria-describedby": rest["aria-describedby"],
   });
+  const Chip = onChange == null ? BaseSwatch : Trigger;
   const swatch = (
-    <BaseSwatch
+    <Chip
       disabled={onChange == null && onClick == null}
-      onClick={(e) => (onChange != null ? handleVisibleChange(true) : onClick?.(e))}
+      onClick={(e) => (onChange != null ? handleVisibleChange(!visible) : onClick?.(e))}
       onChange={
         onChange == null
           ? undefined
@@ -134,7 +157,7 @@ export const Swatch = ({
               onChange(c);
             }
       }
-      value={shownValue ?? fallback ?? color.ZERO}
+      value={shownValue ?? fallback ?? color.TRANSPARENT}
       className={CSS.cls(
         CSS.BM("color-swatch", "chip"),
         auto && CSS.M("auto"),
@@ -152,7 +175,7 @@ export const Swatch = ({
       hideTooltip={itemStatus.hideTooltip}
     >
       {auto && size !== "tiny" && <Icon.Auto />}
-    </BaseSwatch>
+    </Chip>
   );
   if (onChange == null) return swatch;
   return (
@@ -163,11 +186,23 @@ export const Swatch = ({
       variant="floating"
     >
       {swatch}
-      <Dialog.Dialog>
+      <Dialog.Dialog className={CSS.BE("color-swatch", "dialog")}>
         <Input.ItemBoundary>
           <Picker
             value={shownValue}
             fallback={fallback}
+            library={
+              library == null
+                ? undefined
+                : {
+                    ...library,
+                    named,
+                    onNamedChange: (key) => {
+                      setPending(null);
+                      library.onNamedChange(key);
+                    },
+                  }
+            }
             onChange={(c) =>
               onlyChangeOnBlur ? setPending({ value: c }) : onChange(c)
             }

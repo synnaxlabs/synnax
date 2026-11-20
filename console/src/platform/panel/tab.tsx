@@ -9,16 +9,17 @@
 
 import {
   NotFoundError,
-  type ontology,
+  type panel,
   type project,
+  type resource,
   type Synnax,
 } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { type FC, lazy, type LazyExoticComponent, type ReactElement } from "react";
 
 export interface TabNameProps extends Pick<
@@ -36,7 +37,7 @@ export interface Content extends FC<record.Empty> {}
 export interface RestoreParams {
   client: Synnax;
   project: project.Key;
-  resource: ontology.ID;
+  resource: resource.ID;
 }
 
 export interface ResourceGuardProps {
@@ -53,6 +54,8 @@ export interface Tab {
   /** Represents the tab as a glyph alone, e.g. on the bottom toolbar button.
    * Rendered inside the tab's panel and tab scope. */
   Icon: TabIcon;
+  /** Key of the pickable icon that a panel created to hold the tab takes. */
+  iconKey?: string;
   Toolbar?: Toolbar | LazyExoticComponent<Toolbar>;
   /**
    * Re-creates the tab's deleted resource from the corpse held by the client's
@@ -75,10 +78,10 @@ export interface Tabs extends Record<string, Tab> {}
  * keeping that module out of the startup bundle. Tabs render it inside a Suspense
  * boundary.
  */
-export const lazyComponent = <K extends string, C extends FC<record.Empty>>(
-  load: () => Promise<Record<K, C>>,
+export const lazyComponent = <K extends string, P extends object = record.Empty>(
+  load: () => Promise<Record<K, FC<P>>>,
   name: K,
-): LazyExoticComponent<C> => lazy(async () => ({ default: (await load())[name] }));
+): LazyExoticComponent<FC<P>> => lazy(async () => ({ default: (await load())[name] }));
 
 const [RendererContext, useRendererContext] = context.create<Tabs>({
   defaultValue: {},
@@ -94,6 +97,13 @@ export const useTab = (): Tab => {
   const renderer = useRendererContext()[type];
   if (renderer == null) throw new NotFoundError(`no renderer for tab type ${type}`);
   return renderer;
+};
+
+/** Returns a function giving the {@link Tab.iconKey} registered for a tab's type. */
+export const useGetIconKey = (): ((tab: panel.Tab) => string | undefined) => {
+  const tabs = useRendererContext();
+  return (tab) =>
+    tabs[tab.variant === "resource" ? tab.resource.type : tab.type]?.iconKey;
 };
 
 export interface TombstoneService {
@@ -149,8 +159,8 @@ export const createStaticTabName = ({
 export const tabNameID = (tabKey: string): string => `tab-name-${tabKey}`;
 
 /**
- * editTabName starts an in-place edit of the tab's name. Tabs with static names carry no
- * id, so editing one is a no-op.
+ * editTabName starts an in-place edit of the tab's name. Tabs with static names carry
+ * no id, so editing one is a no-op.
  */
 export const editTabName = (tabKey: string): void => {
   const id = tabNameID(tabKey);

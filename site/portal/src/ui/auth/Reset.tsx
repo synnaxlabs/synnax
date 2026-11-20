@@ -11,6 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -19,6 +20,10 @@ import { withTarget } from "@/ui/auth/redirect";
 import { start } from "@/ui/auth/session";
 import { useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
+
+const path = deep.path<z.infer<typeof resetSchema>>();
+
+const emailPath = deep.path<z.infer<typeof emailSchema>>();
 
 const emailSchema = z.object({ email: z.email("Enter your email address") });
 
@@ -89,14 +94,14 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
       >
         <Form.Form<typeof resetSchema> {...resetMethods}>
           <Form.TextField
-            path="code"
+            path={path.code}
             label="Code"
             required={false}
             padHelpText={false}
             inputProps={{ autoFocus: true, autoComplete: "one-time-code" }}
           />
           <Form.TextField
-            path="password"
+            path={path.password}
             label="New password"
             required={false}
             padHelpText={false}
@@ -126,7 +131,7 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
     >
       <Form.Form<typeof emailSchema> {...emailMethods}>
         <Form.TextField
-          path="email"
+          path={emailPath.email}
           label="Email"
           required={false}
           padHelpText={false}

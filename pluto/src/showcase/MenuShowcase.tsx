@@ -11,9 +11,10 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
+import { strings } from "@synnaxlabs/x";
 import { useState } from "react";
 
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 export const MenuShowcase = () => {
   const [basicSelected, setBasicSelected] = useState("option1");
@@ -240,7 +241,7 @@ export const MenuShowcase = () => {
                   <Menu.Menu onChange={handleContextSelect} level="small">
                     <Menu.Item itemKey="copy">
                       <Icon.Copy />
-                      Copy ({keys.length} item{keys.length !== 1 ? "s" : ""})
+                      Copy ({strings.count(keys.length, "item")})
                     </Menu.Item>
                     <Menu.Item itemKey="edit">
                       <Icon.Edit />

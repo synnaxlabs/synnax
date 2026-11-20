@@ -8,23 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { narrow } from "@/narrow";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 /** Whether the value is a list of plain objects that each have a string key. */
 export const isKeyed = (value: unknown): value is record.Keyed<string>[] =>
   Array.isArray(value) &&
   value.every((v) => narrow.isPlainObject(v) && typeof v.key === "string");
-
-export const upsert = <V>(prev: V[] | null | undefined, changes: V | V[]): V[] => {
-  if (Array.isArray(changes))
-    return changes.reduce((acc, v) => upsert(acc, v), prev ?? []);
-  if (prev == null) return [changes];
-  const idx = prev.findIndex((i) => i == changes);
-  const next = [...prev];
-  if (idx === -1) next.push(changes);
-  else next[idx] = changes;
-  return next;
-};
 
 export interface Remove {
   <V>(prev: V[], deletes: V | V[]): V[];
@@ -37,22 +26,8 @@ export const remove = (<V>(
 ): V[] | undefined => {
   if (prev == null) return undefined;
   if (Array.isArray(deletes)) return prev.filter((v) => !deletes.includes(v));
-  return prev.filter((v) => v != deletes);
+  return prev.filter((v) => v !== deletes);
 }) as Remove;
-
-export const upsertKeyed = <K extends record.Key, E extends record.Keyed<K>>(
-  prev: E[] | null | undefined,
-  changes: E | E[],
-): E[] => {
-  if (Array.isArray(changes))
-    return changes.reduce((acc, t) => upsertKeyed(acc, t), prev ?? []);
-  if (prev == null) return [changes];
-  const idx = prev.findIndex((i) => i.key === changes.key);
-  const next = [...prev];
-  if (idx === -1) next.push(changes);
-  else next[idx] = changes;
-  return next;
-};
 
 export interface RemoveKeyed {
   <K extends record.Key, E extends record.Keyed<K>>(prev: E[], keys: K | K[]): E[];

@@ -11,6 +11,7 @@ import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   control,
   type CrudeSeries,
+  disposable,
   errors,
   TimeSpan,
   TimeStamp,
@@ -136,7 +137,23 @@ const resZ = z.object({
   command: z.enum(WriterCommand),
   end: TimeStamp.z,
   err: errors.payloadZ.optional(),
+  authorized: z.boolean(),
 });
+
+/** The result of a commit. */
+export interface CommitResult {
+  /**
+   * The end of the committed time range. Zero if the commit lacked control or if the
+   * writer writes only virtual channels.
+   */
+  end: TimeStamp;
+  /**
+   * False if the writer lacked control of a channel with samples to commit, or if the
+   * Core refused a write since the last commit. Each refused write is reported at one
+   * commit only. The writer stays open so that it can regain control.
+   */
+  authorized: boolean;
+}
 
 const authorityParamsZ = z
   .tuple([
@@ -181,9 +198,15 @@ interface Response extends z.infer<typeof resZ> {}
  * failure surfaces on a later call: once the writer accumulates an error, every write
  * and commit returns false until `error` reads and clears it. `commit` blocks until the
  * cluster has the frames written since the last commit, and may be called repeatedly.
- * Close in a `finally` block to release resources; close throws any accumulated error.
+ * Declare it with `await using`, or close it in a `finally` block, to release
+ * resources; close throws any accumulated error.
  */
 export class Writer {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
   private closeErr: Error | null = null;
@@ -248,7 +271,10 @@ export class Writer {
     if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
     try {
-      this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
+      await this.stream.send({
+        command: WriterCommand.Write,
+        frame: frame.toPayload(),
+      });
     } catch (err) {
       if (!EOF.matches(err)) throw errors.fromUnknown(err);
     }
@@ -277,21 +303,34 @@ export class Writer {
    * throws, the writer must be closed and re-opened to continue use.
    */
   async commit(): Promise<TimeStamp> {
+    return (await this.commitResult()).end;
+  }
+
+  /**
+   * Commits like `commit`, and also reports whether the Core refused data.
+   * @returns the result of the commit.
+   * @throws {WriterClosedError} if the writer was closed, by the caller or the Core,
+   * before the commit.
+   * @throws {EOF} if the Core ends the stream during the commit.
+   * @throws {ValidationError} if the Core rejects the commit.
+   */
+  async commitResult(): Promise<CommitResult> {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) {
       await this.closeInternal(null);
-      return TimeStamp.ZERO;
+      throw new WriterClosedError();
     }
-    const res = await this.execute({ command: WriterCommand.Commit });
-    return res.end;
+    const { end, authorized } = await this.execute({ command: WriterCommand.Commit });
+    return { end, authorized };
   }
 
   /**
    * Closes the writer, raising any accumulated error encountered during operation.
-   * A writer MUST be closed after use, and this method should probably be placed
-   * in a 'finally' block.
+   * A writer MUST be closed after use: declare it with `await using`, or close it in a
+   * `finally` block. Closing a closed writer raises the same error again, or nothing.
    */
   async close(): Promise<void> {
+    if (WriterClosedError.matches(this.closeErr)) return;
     await this.closeInternal(null);
   }
 
@@ -316,7 +355,7 @@ export class Writer {
 
   private async execute(req: WriteRequest): Promise<Response> {
     try {
-      this.stream.send(req);
+      await this.stream.send(req);
     } catch (err) {
       // A send failure is always EOF or StreamClosed, never WriterClosedError, so
       // closeInternal re-throws here and the receive loop below is reached only when

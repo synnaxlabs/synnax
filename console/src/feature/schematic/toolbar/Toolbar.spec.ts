@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -21,19 +22,17 @@ import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import {
-  assertDefined,
-  captureBrowserDownloads,
-  getIconButton,
-  uniqueName,
-} from "@/testutil";
+import { captureBrowserDownloads, getIconButton } from "@/testutil";
 
 const renderSelected = async (configs: Record<string, schematic.NodeConfig>) => {
   const keys = Object.keys(configs);
   return await renderSchematic(Toolbar, {
     schematic: {
-      nodes: keys.map((key) => ({ key, position: { x: 0, y: 0 } })),
-      configs,
+      nodes: keys.map((key) => ({
+        key,
+        position: { x: 0, y: 0 },
+        config: configs[key],
+      })),
     },
     sessionState: {
       editable: true,
@@ -62,7 +61,7 @@ const pickSymbol = async (name: string): Promise<void> => {
 };
 
 const retrieveConfigs = async (key: string) =>
-  (await client.schematics.retrieve(key)).configs;
+  client.schematics.configsOf(await client.schematics.retrieve(key));
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -160,7 +159,7 @@ describe("Toolbar", () => {
       );
       // The Core serializes the schematic into the flat imex envelope: numeric version,
       // and the resource key is dropped.
-      expect(contents).toMatchObject({ name, type: "schematic", version: 10 });
+      expect(contents).toMatchObject({ name, type: "schematic", version: 14 });
     });
   });
 
@@ -270,11 +269,9 @@ describe("Toolbar", () => {
     });
 
     it("changes a symbol to a custom symbol", async () => {
-      const root = await client.schematics.symbols.retrieveGroup();
-      const symbol = await client.schematics.symbols.create({
-        ...createSymbolPayload(uniqueName("custom")),
-        parent: group.ontologyID(root.key),
-      });
+      const symbol = await client.schematics.symbols.create(
+        createSymbolPayload(uniqueName("custom")),
+      );
       const { key } = await renderSelected({
         n1: Schematic.Node.createConfig({ variant: "valve" }),
       });

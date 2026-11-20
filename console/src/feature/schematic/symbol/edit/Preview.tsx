@@ -9,7 +9,6 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,8 +16,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
-import { id, type xy } from "@synnaxlabs/x";
+import { Schematic, Theming } from "@synnaxlabs/pluto";
+import { bounds, deep, dimensions, id, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -28,6 +27,8 @@ import {
   ZOOM_TRIGGERS,
 } from "@/feature/schematic/symbol/edit/triggers";
 import { CSS } from "@/platform/css";
+
+const path = Schematic.Symbol.formPath;
 
 const ZOOM_OUT_TOOLTIP = (
   <Triggers.Text trigger={ZOOM_TRIGGERS.modes.out[0]} level="small">
@@ -52,7 +53,8 @@ const MAX_ZOOM = 5;
 const ZOOM_STEP = 1.2;
 const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 
-const ZOOM_PATH = "data.previewViewport.zoom";
+const VIEWPORT_PATH = deep.present(path.data.previewViewport);
+const ZOOM_PATH = VIEWPORT_PATH.zoom;
 
 interface PreviewProps {
   selectedState: string;
@@ -76,12 +78,12 @@ export const Preview = ({
   // State, not a ref: the theme provider takes the element as a prop, and a ref filled
   // after the first render would never re-render it into place.
   const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
-  const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
-  const pan = Form.useField<xy.XY>("data.previewViewport.position");
-  const zoom = Form.useField<number>(ZOOM_PATH);
+  const spec = Form.useFieldValue(path.data);
+  const pan = Form.useField(VIEWPORT_PATH.position);
+  const zoom = Form.useField(ZOOM_PATH);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const isDark = Base.use().key === "synnaxDark";
+  const isDark = Base.use().dark;
   // The toggle holds until the app theme changes.
   const [darkMode, setDarkMode] = useState({ app: isDark, dark: isDark });
   if (darkMode.app !== isDark) setDarkMode({ app: isDark, dark: isDark });
@@ -99,7 +101,10 @@ export const Preview = ({
   // rather than the one captured when the hold started.
   const stepZoom = (factor: number) => {
     const current = form.get<number>(ZOOM_PATH).value;
-    form.set(ZOOM_PATH, Math.min(Math.max(current * factor, MIN_ZOOM), MAX_ZOOM));
+    form.set(
+      ZOOM_PATH,
+      bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, current * factor),
+    );
   };
 
   const handleZoomIn = () => stepZoom(ZOOM_STEP);
@@ -154,8 +159,7 @@ export const Preview = ({
     },
   });
 
-  const onMount = (svgElement: SVGSVGElement) => {
-    setSVG(svgElement);
+  const onMount = (drawing: SVGGElement) => {
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
@@ -197,51 +201,38 @@ export const Preview = ({
       });
 
       el.addEventListener("click", () => {
-        let selector: string;
-        if (el.id) selector = `#${el.id}`;
-        else {
-          const existingDataId = el.getAttribute("data-region-id");
-          if (existingDataId) selector = `[data-region-id="${existingDataId}"]`;
-          else {
-            const newDataId = `region-${id.create()}`;
-            el.setAttribute("data-region-id", newDataId);
-            selector = `[data-region-id="${newDataId}"]`;
-          }
-        }
-        onElementClick(selector);
+        if (!el.id && !el.hasAttribute("data-region-id"))
+          el.setAttribute("data-region-id", `region-${id.create()}`);
+        onElementClick(Schematic.Node.Region.selector(el));
       });
 
       Array.from(el.children).forEach(addInteractivity);
     };
-    Array.from(svgElement.children[0].children).forEach(addInteractivity);
+    Array.from(drawing.children).forEach(addInteractivity);
   };
 
-  const setRenderContainer = Schematic.Node.Custom.useRender({
-    orientation: "left",
+  const setDrawing = Schematic.Node.Custom.useRender({
     activeState: selectedState,
-    externalScale: 1,
     spec,
     onMount,
   });
-  const setContainer = (el: HTMLDivElement | null) => {
-    containerRef.current = el;
-    setRenderContainer(el);
-  };
+  const dims = Schematic.Node.Region.measure(spec.svg);
 
   const handleContentsChange = (contents: string, filename?: string) => {
     const processedSVG = Schematic.Node.Region.normalizeSVG(contents);
     if (containerRef.current == null) return;
     onContentsChange(processedSVG);
 
-    if (filename != null && form.get("name").value === "") form.set("name", filename);
+    if (filename != null && form.get(path.name).value === "")
+      form.set(path.name, filename);
 
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");
     const svgElement = svgDoc.documentElement as unknown as SVGElement;
     const extractedRegions = Schematic.Node.Region.extract(svgElement);
-    const states = form.get<schematic.symbol.State[]>("data.states").value;
+    const states = form.get(path.data.states).value;
     states.forEach((state) =>
-      form.set(`data.states.${state.key}.regions`, extractedRegions),
+      form.set(path.data.states[state.key].regions, extractedRegions),
     );
   };
 
@@ -328,7 +319,21 @@ export const Preview = ({
                 onSelect={onHandleSelect}
                 onDrag={onHandlePlace}
               />
-              <div ref={setContainer} className={CSS.B("preview")}></div>
+              <div ref={containerRef} className={CSS.B("preview")}>
+                {dims != null && (
+                  <svg
+                    ref={setSVG}
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox={dimensions.svgViewBox(dims)}
+                    {...dimensions.scale(
+                      dims,
+                      Schematic.Node.Primitive.resolveScale(spec.scale),
+                    )}
+                  >
+                    <g ref={setDrawing} />
+                  </svg>
+                )}
+              </div>
             </div>
           </Flex.Box>
         </Flex.Box>

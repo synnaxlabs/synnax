@@ -14,14 +14,14 @@ import { addChannel, taskScript } from "./common/task";
 
 /**
  * Docs `reference/hardware/modbus/write-task` (Create a Modbus write task): right-click
- * a Modbus server in the devices toolbar and create a write task, add coils at
- * addresses 3 and 4, then start the task. The server is simulated.
+ * a Modbus server in the devices toolbar and create a write task, move the first coil
+ * to address 3, add a coil at address 4, then start the task. The server is simulated.
  */
 export default taskScript({
   device: fixtures.MODBUS_PLC,
   item: "Create write task",
   channels: async (session, form) => {
-    await addChannel(session, form);
+    // A new task starts with one coil at address 0.
     await setAddress(session, form.locator(CHANNEL).first(), "3");
     // The new channel takes the next address.
     await addChannel(session, form);

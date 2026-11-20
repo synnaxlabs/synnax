@@ -10,7 +10,7 @@
 import { DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type control } from "@/control";
+import type { control } from "@/control";
 import { query } from "@/query";
 import { createTestClient } from "@/testutil";
 
@@ -27,7 +27,7 @@ describe("state", () => {
   it("should mirror an acquire and a release from the cluster", async () => {
     const ch = await createVirtual();
     let latest: query.Cached<control.KeyedState[]> | undefined;
-    const stop = client.control.onChange([ch.key], (cached) => {
+    const stop = client.control.watch([ch.key]).onChange((cached) => {
       latest = cached;
     });
     try {

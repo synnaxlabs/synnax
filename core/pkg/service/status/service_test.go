@@ -10,15 +10,19 @@
 package status_test
 
 import (
+	"fmt"
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,8 +32,9 @@ import (
 
 var _ = Describe("Dispatch", Ordered, func() {
 	var (
-		db  *gorp.DB
-		svc *status.Service
+		db    *gorp.DB
+		svc   *status.Service
+		racks *gorp.Table[rack.Key, rack.Rack]
 	)
 	// setStatus writes st in its own transaction, the way a caller outside an existing
 	// operation does.
@@ -42,19 +47,41 @@ var _ = Describe("Dispatch", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db, Ontology: otg,
+		StartRun(db.Run)
+		// Status labels reference the label table, so it must be open.
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: db,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB: db, Ontology: otg, Group: g,
+		racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+			DB: db, Name: string(resource.TypeRack),
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB: db, Ontology: otg, Group: g, Label: labelSvc,
+			DB: db,
 		}))
 	})
 
 	Describe("SetByKeyOrName", func() {
+		It("Should replace a status with a time later than now", func(ctx SpecContext) {
+			st := status.Status[any]{
+				Key:     uuid.New().String(),
+				Name:    "future",
+				Message: "orig",
+				Variant: status.VariantInfo,
+				Time:    telem.Now().Add(telem.Hour),
+			}
+			Expect(setStatus(ctx, &st)).To(Succeed())
+			MustSucceed2(
+				svc.SetByKeyOrName(ctx, st.Key, "on", string(status.VariantSuccess)),
+			)
+			var stored status.Status[any]
+			Expect(svc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](st.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Message).To(Equal("on"))
+			Expect(stored.Time).To(BeNumerically("<", st.Time))
+		})
+
 		Describe("Input validation", func() {
 			It(
 				"Should return a validation error for an unknown variant",
@@ -100,7 +127,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 					Expect(svc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 						Entry(&status.Status[any]{}).
-						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 				},
 			)
 		})
@@ -131,7 +158,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](key)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Variant).To(Equal(status.VariantWarning))
 					Expect(s.Message).To(Equal("new"))
@@ -159,7 +186,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](key)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Message).To(Equal("new"))
 					Expect(s.Description).To(BeEmpty())
@@ -237,7 +264,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](existingKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Variant).To(Equal(status.VariantError))
 					Expect(s.Message).To(Equal("now bad"))
@@ -275,20 +302,37 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](firstKey, secondKey)).
 							Entries(&rows).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
-					Expect(rows).To(HaveLen(2))
-					warning, info := 0, 0
-					for _, r := range rows {
-						switch r.Variant {
-						case status.VariantWarning:
-							warning++
-						case status.VariantInfo:
-							info++
-						}
+					Expect(rows).To(ConsistOf(
+						HaveField("Variant", status.VariantWarning),
+						HaveField("Variant", status.VariantInfo),
+					))
+				},
+			)
+
+			It(
+				"Should set the status with the lowest key each time a name repeats",
+				func(ctx SpecContext) {
+					name := "by_name_order"
+					for i := range 16 {
+						Expect(setStatus(ctx, &status.Status[any]{
+							Key:     fmt.Sprintf("%s_%02d", name, i),
+							Name:    name,
+							Variant: status.VariantInfo,
+							Time:    telem.Now(),
+						})).To(Succeed())
 					}
-					Expect(warning).To(Equal(1))
-					Expect(info).To(Equal(1))
+					for range 5 {
+						gotKey, multi := MustSucceed2(svc.SetByKeyOrName(
+							ctx,
+							name,
+							"updated",
+							string(status.VariantWarning),
+						))
+						Expect(gotKey).To(Equal(name + "_00"))
+						Expect(multi).To(BeTrue())
+					}
 				},
 			)
 
@@ -310,7 +354,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Message).To(BeEmpty())
 				},
@@ -339,7 +383,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Key).To(Equal(gotKey))
 					Expect(s.Name).To(Equal(input))
@@ -376,12 +420,187 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Message).To(Equal("second"))
 					Expect(s.Variant).To(Equal(status.VariantWarning))
 				},
 			)
 		})
+	})
+
+	Describe("Join", func() {
+		It("Should resolve and join statuses through a snapshot", func(
+			ctx SpecContext,
+		) {
+			r := rack.Rack{Key: 65539, Name: "snapshot"}
+			Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+			owner := r.ResourceID()
+			Expect(setStatus(ctx, &status.Status[any]{
+				Owner:   &owner,
+				Name:    "snapshot-join",
+				Variant: status.VariantSuccess,
+				Message: "running",
+				Time:    telem.Now(),
+			})).To(Succeed())
+			var (
+				resolved []status.Status[any]
+				joined   []*status.Status[any]
+			)
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				if resolved, err = svc.ResolveKeyOrName(
+					ctx,
+					snap,
+					"snapshot-join",
+				); err != nil {
+					return err
+				}
+				joined, err = svc.Join[any](ctx, snap, []resource.ID{owner})
+				return err
+			})).To(Succeed())
+			Expect(resolved).To(HaveExactElements(HaveField("Name", "snapshot-join")))
+			Expect(joined).To(HaveExactElements(HaveField("Message", "running")))
+		})
+
+		It(
+			"Should return the status of each resource in order, nil for a missing one",
+			func(ctx SpecContext) {
+				r := rack.Rack{Key: 65537, Name: "stored"}
+				Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+				stored := r.ResourceID()
+				missing := rack.Key(65538).ResourceID()
+				Expect(setStatus(ctx, &status.Status[any]{
+					Owner:   &stored,
+					Name:    "stored",
+					Variant: status.VariantSuccess,
+					Message: "running",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				joined := MustSucceed(
+					svc.Join[any](ctx, db, []resource.ID{missing, stored}),
+				)
+				Expect(joined).To(HaveLen(2))
+				Expect(joined[0]).To(BeNil())
+				Expect(joined[1].Owner).To(HaveValue(Equal(stored)))
+				Expect(joined[1].Message).To(Equal("running"))
+			},
+		)
+	})
+})
+
+// failOnceDB fails the first iterator that the DB opens, which is the scan that
+// populates the indexes of a table.
+type failOnceDB struct {
+	kv.DB
+	failed atomic.Bool
+}
+
+func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	if f.failed.CompareAndSwap(false, true) {
+		return nil, errors.New("populate failed")
+	}
+	return f.DB.OpenIterator(opts)
+}
+
+var _ = Describe("Failed index population", func() {
+	It("Should find a status by name with a scan", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(&failOnceDB{DB: memkv.New()}))
+		StartRun(db.Run)
+		svc := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		st := status.Status[any]{
+			Key:     "stored",
+			Name:    "pump",
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, &st)
+		})).To(Succeed())
+		key, multiple := MustSucceed2(
+			svc.SetByKeyOrName(ctx, "pump", "on", string(status.VariantSuccess)),
+		)
+		Expect(key).To(Equal("stored"))
+		Expect(multiple).To(BeFalse())
+		var matched []status.Status[any]
+		Expect(svc.NewRetrieve[any]().
+			Where(status.MatchNames[any]("pump")).
+			Entries(&matched).
+			Exec(ctx, db)).To(Succeed())
+		Expect(matched).To(HaveExactElements(HaveField("Message", "on")))
+	})
+})
+
+var _ = Describe("SetTarget", func() {
+	var match status.Status[any]
+	BeforeEach(func() {
+		match = status.Status[any]{
+			Key:         uuid.New().String(),
+			Name:        "pump",
+			Message:     "old",
+			Description: "why",
+			Variant:     status.VariantInfo,
+			Time:        telem.Now().Add(-10 * telem.Second),
+		}
+	})
+
+	It("Should stamp now when the time is zero", func() {
+		before := telem.Now()
+		st, newer := status.SetTarget(nil, "pump", "on", "success", 0)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(BeNumerically(">=", before))
+		Expect(st.Name).To(Equal("pump"))
+	})
+
+	It("Should keep a past time", func() {
+		t := match.Time.Add(telem.Second)
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", t,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Key).To(Equal(match.Key))
+		Expect(st.Time).To(Equal(t))
+		Expect(st.Message).To(Equal("on"))
+		Expect(st.Description).To(BeEmpty())
+	})
+
+	It("Should stamp now when the time is later than now", func() {
+		before := telem.Now()
+		st, newer := status.SetTarget(
+			nil, "pump", "on", "success", before.Add(telem.Hour),
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(BeNumerically(">=", before))
+		Expect(st.Time).To(BeNumerically("<=", telem.Now()))
+	})
+
+	It("Should write over a match with a time later than now", func() {
+		match.Time = telem.Now().Add(telem.Hour)
+		t := telem.Now().Add(-telem.Second)
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", t,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(Equal(t))
+		Expect(st.Message).To(Equal("on"))
+	})
+
+	It("Should write when the time equals the time of the match", func() {
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", match.Time,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Message).To(Equal("on"))
+	})
+
+	It("Should return false and the match unchanged for an older time", func() {
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match},
+			"pump",
+			"on",
+			"success",
+			match.Time.Add(-telem.Second),
+		)
+		Expect(newer).To(BeFalse())
+		Expect(st).To(Equal(match))
 	})
 })

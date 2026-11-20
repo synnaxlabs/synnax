@@ -12,6 +12,9 @@
 package v2
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -20,6 +23,7 @@ import (
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
@@ -59,20 +63,31 @@ type ChannelEntry struct {
 	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelEntry) ApplyDefaults() {
-	if c.Notation == "" {
-		c.Notation = "standard"
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ChannelEntry) SetDefaults() {
+	c.Notation = "standard"
+	c.Precision = -1
+	c.Timestamp.Format = "preciseDate"
+	c.Timestamp.Tz = "local"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *ChannelEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ChannelEntry
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
 	}
-	if c.Precision == 0 {
-		c.Precision = -1
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *ChannelEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ChannelEntry
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
 	}
-	if c.Timestamp.Format == "" {
-		c.Timestamp.Format = "preciseDate"
-	}
-	if c.Timestamp.Tz == "" {
-		c.Timestamp.Tz = "local"
-	}
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -100,13 +115,6 @@ type Log struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
 	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Log) ApplyDefaults() {
-	for i := range l.Channels {
-		l.Channels[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

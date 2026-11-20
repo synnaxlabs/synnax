@@ -14,21 +14,42 @@ export {
   type TableConfig,
 } from "@/query/cache";
 export { Deleted } from "@/query/deleted";
-export { type DeriveWatch, deriveWatch } from "@/query/derived";
+export { type DeriveTrigger, deriveTrigger } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
+export {
+  type List,
+  type ListQuery,
+  type Lists,
+  type ListsConfig,
+  MAX_SEARCH_LIMIT,
+  type Window,
+  type WindowHandler,
+} from "@/query/list";
 export {
   type Cached,
   type ChangeHandler,
   hash,
   isLive,
+  type Live,
   requireCorpse,
   type Retrieves,
+  type Space,
   type SpaceConfig,
-  type Watch,
-  watch,
+  type Trigger,
+  trigger,
 } from "@/query/query";
-export { keyListZ, Retriever, type RetrieverParams } from "@/query/retriever";
-export { type Listener } from "@/query/streamer";
+export {
+  addressesOne,
+  dropOne,
+  keyListZ,
+  keysRequest,
+  keysRequestZ,
+  type OneInput,
+  type RequestInput,
+  Retriever,
+  type RetrieverParams,
+} from "@/query/retriever";
+export type { Listener } from "@/query/streamer";
 export {
   createDeleteListener,
   createFetchListener,
@@ -37,6 +58,7 @@ export {
   type HydrateMode,
   type IngestOptions,
   type Interceptor,
+  isChange,
   type Keyed,
   type ListenerSpec,
   partialUpdate,
@@ -46,10 +68,6 @@ export {
   type TableParams,
   type TableSubscriber,
 } from "@/query/table";
-export {
-  type Data,
-  type FetchOptions,
-  type Params,
-  type WriteOptions,
-} from "@/query/types";
+export type { Data, FetchOptions, Params, WriteOptions } from "@/query/types";
+export { Uses, type UsesConfig } from "@/query/uses";
 export { optimistic, type OptimisticParams } from "@/query/write";

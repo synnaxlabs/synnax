@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 
@@ -21,21 +23,32 @@ namespace driver::opcua {
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<connection::Pool> &pool
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<secret::Reader> &reader
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> s;
-    if (cfg.array_mode)
-        s = std::make_unique<ArrayReadTaskSource>(ctx->client, pool, std::move(cfg));
+    if (cfg.array())
+        s = std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            pool,
+            reader,
+            std::move(cfg)
+        );
     else
-        s = std::make_unique<UnaryReadTaskSource>(ctx->client, pool, std::move(cfg));
+        s = std::make_unique<UnaryReadTaskSource>(
+            ctx->client,
+            pool,
+            reader,
+            std::move(cfg)
+        );
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::move(s)
     );
     return {std::move(result), x::errors::NIL};
@@ -44,7 +57,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<connection::Pool> &pool
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<secret::Reader> &reader
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
@@ -53,8 +67,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(ctx->client, pool, std::move(cfg))
+        common::unlimited_retry_config(task.name),
+        std::make_unique<WriteTaskSink>(ctx->client, pool, reader, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -63,14 +77,15 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const std::shared_ptr<connection::Pool> &pool,
-    const std::shared_ptr<certificate::Store> &store
+    const std::shared_ptr<certificate::Store> &store,
+    const std::shared_ptr<secret::Reader> &reader
 ) {
     common::ConfigureResult result;
     auto parser = x::json::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
-        std::make_unique<Scanner>(ctx, task, pool, store),
+        std::make_unique<Scanner>(ctx, task, pool, store, reader),
         ctx,
         task,
         x::breaker::default_config(task.name),
@@ -83,23 +98,25 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(ctx, task, conn_pool_, store_);
+        res = configure_scan(ctx, task, this->pool, this->store, this->reader);
     else if (task.type == READ_TASK_TYPE)
-        res = configure_read(ctx, task, conn_pool_);
+        res = configure_read(ctx, task, this->pool, this->reader);
     else if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(ctx, task, conn_pool_);
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+        res = configure_write(ctx, task, this->pool, this->reader);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     common::delete_legacy_task_by_type(rack, "opcScanner", INTEGRATION_NAME);
     return common::configure_initial_factory_tasks(
@@ -108,7 +125,8 @@ Factory::configure_initial_tasks(
         rack,
         "OPC UA Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 }

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat, type Synnax } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { device, type ethercat, type Synnax } from "@synnaxlabs/client";
+import { id, TimeStamp } from "@synnaxlabs/x";
 
+import type { Description } from "@/feature/ethercat/device/settings";
 import {
   MAKE,
   type PDOs,
@@ -20,8 +21,6 @@ import {
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
 import {
-  type EntryReadChannel,
-  type EntryWriteChannel,
   READ_CHANNEL_SCHEMAS,
   WRITE_CHANNEL_SCHEMAS,
 } from "@/feature/ethercat/task/types";
@@ -73,20 +72,218 @@ export const createRepeatedNamePDOs = (): PDOs => {
   };
 };
 
-/** Builds an input channel bound to an entry on a slave device. */
-export const createEntryReadChannel = (
-  device: string,
-  { index, subIndex, dataType }: ethercat.PDOEntry,
-  overrides: Partial<EntryReadChannel> = {},
-): EntryReadChannel =>
-  READ_CHANNEL_SCHEMAS.entry.parse({
-    type: "entry",
-    device,
-    index,
-    subIndex,
-    dataType,
-    ...overrides,
-  });
+/** The input entry that {@link createSettingsDescription} describes. */
+export const STRAIN_ENTRY: ethercat.PDOEntry = {
+  name: "Value",
+  pdoName: "Channel 1",
+  index: 0x6030,
+  subIndex: 1,
+  bitLength: 32,
+  dataType: "int32",
+};
+
+/** A buffered layout entry that reads the input of {@link STRAIN_ENTRY}. */
+export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
+  name: "CH 1",
+  pdoName: "Buffered channel 1",
+  index: 0x6040,
+  subIndex: 1,
+  bitLength: 32,
+  dataType: "uint32",
+};
+
+/**
+ * Builds the catalog of a strain input that {@link STRAIN_ENTRY} reads, whose
+ * excitation polarity picks one of two excitation voltage fields at 0x8040:1C: up to 24
+ * V when unipolar (0) and up to 12 V when bipolar (1). held holds the values that the
+ * card holds at the scan.
+ */
+export const createExcitationDescription = (
+  held: { polarity?: number; voltage?: number } = {},
+): Description => {
+  const polarity = { index: 0x8040, subIndex: 0x21 };
+  const voltage = {
+    index: 0x8040,
+    subIndex: 0x1c,
+    name: "Excitation voltage",
+    dataType: "float32",
+    default: 0,
+    value: held.voltage,
+    unit: "V",
+    min: 0,
+  };
+  return {
+    device: [],
+    channels: [
+      {
+        entries: [{ index: STRAIN_ENTRY.index, subIndex: STRAIN_ENTRY.subIndex }],
+        settings: [
+          {
+            ...polarity,
+            name: "Excitation polarity",
+            dataType: "uint16",
+            default: 0,
+            value: held.polarity,
+            unit: "",
+            options: [
+              { value: 0, name: "Unipolar" },
+              { value: 1, name: "Bipolar" },
+            ],
+            visibleWhen: [],
+          },
+          { ...voltage, max: 24, visibleWhen: [{ ...polarity, values: [0] }] },
+          { ...voltage, max: 12, visibleWhen: [{ ...polarity, values: [1] }] },
+        ],
+        requires: [],
+      },
+    ],
+  };
+};
+
+/**
+ * Builds the catalog fields of a strain input that {@link STRAIN_ENTRY} and
+ * {@link STRAIN_SAMPLE_ENTRY} read. A voltage input picks one of five ranges, a current
+ * input one of two. A bridge shows an excitation voltage from 0 to 24 V and needs one
+ * above 0.
+ */
+export const createSettingsDescription = (): Description => {
+  const measurement = { index: 0x8040, subIndex: 1 };
+  const ranges = ["50 V", "10 V", "3 V", "1 V", "0.1 V"];
+  return {
+    device: [
+      {
+        index: 0x8020,
+        subIndex: 1,
+        name: "Sample rate",
+        dataType: "uint16",
+        default: 4,
+        unit: "",
+        options: [
+          { value: 4, name: "20 kS/s" },
+          { value: 12, name: "1 kS/s" },
+        ],
+        visibleWhen: [],
+      },
+    ],
+    channels: [
+      {
+        entries: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY].map(({ index, subIndex }) => ({
+          index,
+          subIndex,
+        })),
+        settings: [
+          {
+            ...measurement,
+            name: "Measurement",
+            dataType: "uint16",
+            default: 0,
+            unit: "",
+            options: [
+              { value: 0, name: "Voltage" },
+              { value: 1, name: "Current" },
+              { value: 6, name: "Bridge" },
+            ],
+            visibleWhen: [],
+          },
+          {
+            index: 0x8040,
+            subIndex: 3,
+            name: "Range",
+            dataType: "uint16",
+            default: 0,
+            unit: "",
+            options: ranges.map((name, value) => ({ value, name })),
+            visibleWhen: [{ ...measurement, values: [0, 6] }],
+          },
+          {
+            index: 0x8040,
+            subIndex: 3,
+            name: "Range",
+            dataType: "uint16",
+            default: 0,
+            unit: "",
+            options: [
+              { value: 0, name: "20 mA" },
+              { value: 1, name: "2 mA" },
+            ],
+            visibleWhen: [{ ...measurement, values: [1] }],
+          },
+          {
+            index: 0x8040,
+            subIndex: 0x1c,
+            name: "Excitation voltage",
+            dataType: "float32",
+            default: 0,
+            unit: "V",
+            min: 0,
+            max: 24,
+            visibleWhen: [{ ...measurement, values: [6] }],
+          },
+        ],
+        requires: [
+          {
+            when: [{ ...measurement, values: [6] }],
+            then: { index: 0x8040, subIndex: 0x1c, above: 0 },
+            message: "A bridge needs an excitation voltage above 0 V.",
+          },
+        ],
+      },
+    ],
+  };
+};
+
+/**
+ * Builds the catalog fields of {@link createSettingsDescription}, with the gain at
+ * 0x8040:15 and the offset at 0x8040:14 calibrating the samples of
+ * {@link STRAIN_ENTRY}.
+ */
+export const createCalibratedDescription = (): Description => {
+  const description = createSettingsDescription();
+  description.channels[0].entries[0].calibration = {
+    dataType: "int32",
+    index: 0x8040,
+    gainSubIndex: 0x15,
+    offsetSubIndex: 0x14,
+    divisor: 1,
+    rawOffset: false,
+  };
+  return description;
+};
+
+/**
+ * Builds the catalog of {@link createSettingsDescription} for a card in which only
+ * DewesoftX reads {@link STRAIN_SAMPLE_ENTRY}. A shared card is one that DewesoftX also
+ * sets up, and a scan gives it the write that switches it to Synnax only.
+ */
+export const createDewesoftXSettings = (
+  shared: boolean,
+  bus: 1 | 2 = 1,
+): NonNullable<SlaveProperties["settings"]> => {
+  const description = createSettingsDescription();
+  return {
+    ...description,
+    channels: description.channels.map((channel) => ({
+      ...channel,
+      entries: channel.entries.map((entry) =>
+        entry.index === STRAIN_SAMPLE_ENTRY.index &&
+        entry.subIndex === STRAIN_SAMPLE_ENTRY.subIndex
+          ? { ...entry, onlyReadBy: "DewesoftX" }
+          : entry,
+      ),
+    })),
+    mode: {
+      index: 0x8020,
+      subIndex: 9,
+      value: shared ? 1 : 0,
+      shared,
+      ...(shared ? { sharedWith: "DewesoftX" } : {}),
+      bus,
+      switch: shared
+        ? [{ index: 0x8020, subIndex: 9, dataType: "uint16", value: 0, name: "" }]
+        : [],
+    },
+  };
+};
 
 /** Builds an input channel whose entry name matched no single entry. */
 export const createUnresolvedReadChannel = (
@@ -98,21 +295,6 @@ export const createUnresolvedReadChannel = (
     type: "unresolved",
     device,
     pdo,
-    ...overrides,
-  });
-
-/** Builds an output channel bound to an entry on a slave device. */
-export const createEntryWriteChannel = (
-  device: string,
-  { index, subIndex, dataType }: ethercat.PDOEntry,
-  overrides: Partial<EntryWriteChannel> = {},
-): EntryWriteChannel =>
-  WRITE_CHANNEL_SCHEMAS.entry.parse({
-    type: "entry",
-    device,
-    index,
-    subIndex,
-    dataType,
     ...overrides,
   });
 
@@ -131,7 +313,10 @@ export const createUnresolvedWriteChannel = (
 
 /**
  * Creates an EtherCAT slave device on the live Core. `properties` are merged over
- * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set.
+ * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set. Each
+ * slave gets a random position unless `properties.position` sets one, since two slaves
+ * at one position on a network cannot run in a task. Its location names the slot, as a
+ * scan does.
  */
 export const createSlaveDevice = async (
   client: Synnax,
@@ -140,19 +325,58 @@ export const createSlaveDevice = async (
   configured = true,
 ): Promise<SlaveDevice> => {
   const key = id.create();
+  const position = properties.position ?? Math.floor(Math.random() * 2 ** 31);
   return await client.devices.create(
     {
       key,
       name: properties.name ?? `EtherCAT Slave ${key}`,
       rack: rackKey,
-      location: "test-location",
+      location: `soem:eth0.Slot ${position}`,
       make: MAKE,
       model: SLAVE_MODEL,
       configured,
-      properties: { ...ZERO_SLAVE_PROPERTIES, ...properties },
+      properties: {
+        ...ZERO_SLAVE_PROPERTIES,
+        ...properties,
+        position,
+      },
     },
     SLAVE_SCHEMAS,
   );
+};
+
+/** Gives the slave the status that a scan gives a slave that the Driver reaches. */
+export const createReachedStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "success",
+    message: "Discovered",
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected: true },
+  });
+};
+
+/** Gives the slave a warning status, as a scan of the Driver does. */
+export const createWarningStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+  message: string,
+  description: string,
+  connected = true,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "warning",
+    message,
+    description,
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected },
+  });
 };
 
 /** Creates a slave on eth0 whose eight channels repeat the same entry names. */

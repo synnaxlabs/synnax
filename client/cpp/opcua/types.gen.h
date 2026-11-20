@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -56,12 +57,39 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief UnarySampling reads one sample per node at the sample rate.
+struct UnarySampling {
+    std::string type = "unary";
+
+    static UnarySampling parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ArraySampling reads an array of samples from each node on each read.
+struct ArraySampling {
+    std::string type = "array";
+    /// @brief size is the number of samples in each array the node returns.
+    std::uint32_t size = 1;
+
+    static ArraySampling parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Sampling selects how a read task samples its nodes.
+using Sampling = std::variant<UnarySampling, ArraySampling>;
+
+Sampling parse_sampling(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Sampling &value);
+
 /// @brief ReadChannel is a single OPC UA node the task reads from.
 struct ReadChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief is_index is true when the channel's Synnax channel is the task's index.
     bool is_index = false;
+    /// @brief field is the path to a member of the node's structure value. Names join
+    /// with '.', and '&' escapes the next character. Empty reads the whole value.
+    std::string field = "";
 
     static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -80,13 +108,14 @@ struct WriteChannel : public BaseChannel {
 struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief device is the key of the device representing the OPC UA server.
     ::synnax::device::Key device = "";
-    /// @brief array_mode is true when each read returns an array of samples per node.
-    bool array_mode = false;
-    /// @brief array_size is the number of samples in each array when array_mode is
-    /// true.
-    std::int32_t array_size = 1;
+    /// @brief sampling is how the task samples each node.
+    Sampling sampling = UnarySampling{};
     /// @brief channels are the OPC UA nodes the task acquires.
     std::vector<ReadChannel> channels;
+    /// @brief nan_fill_enabled is true when a bad value of a float channel is written
+    /// as NaN. When false, a bad value skips the read for every channel that shares its
+    /// index.
+    bool nan_fill_enabled = false;
 
     ReadConfig() {
         this->sample_rate = ::x::telem::Rate(50);

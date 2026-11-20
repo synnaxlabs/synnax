@@ -17,10 +17,9 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// validateImportPlacement enforces the version-file import rules: a version file
-// imports other version files (pinned, for stored references) or live schemas
-// (floating, for resolved references and unversioned resources); a live schema never
-// imports another resource's version files.
+// validateImportPlacement enforces that a live schema never imports another
+// resource's version files. A version file pins every versioned dependency it
+// references; the versions gate checks that rule.
 func validateImportPlacement(c *analysisCtx) {
 	_, _, inVersionFile := paths.VersionFile(c.filePath)
 	if inVersionFile {
@@ -46,15 +45,7 @@ func validateNoVersionFileActions(c *analysisCtx) {
 		return
 	}
 	for _, def := range c.ast.AllDefinition() {
-		sd := def.StructDef()
-		if sd == nil {
-			continue
-		}
-		full, ok := sd.(*parser.StructFullContext)
-		if !ok || full.StructBody() == nil {
-			continue
-		}
-		for _, ad := range full.StructBody().AllActionDef() {
+		for _, ad := range actionDefs(def) {
 			c.report(diagnostics.Errorf(ad,
 				"actions are live-owned; declare %q in the live schema, not a "+
 					"version file",
@@ -62,4 +53,15 @@ func validateNoVersionFileActions(c *analysisCtx) {
 			))
 		}
 	}
+}
+
+func actionDefs(def parser.IDefinitionContext) []parser.IActionDefContext {
+	if ud := def.UnionDef(); ud != nil && ud.UnionBody() != nil {
+		return ud.UnionBody().AllActionDef()
+	}
+	if full, ok := def.StructDef().(*parser.StructFullContext); ok &&
+		full.StructBody() != nil {
+		return full.StructBody().AllActionDef()
+	}
+	return nil
 }

@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
-from console.schematic.symbol import Option, Symbol
+import synnax as sy
+from console.schematic.symbol import Symbol, option_text
 
 
 class Select(Symbol):
@@ -21,27 +22,34 @@ class Select(Symbol):
         *,
         label: str,
         channel_name: str,
-        options: list[Option] | None = None,
+        state_channel_name: str | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ):
         """Initialize a select symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the select output
-            options: List of option dicts with "name" and "value" keys
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the select output
+        :param state_channel_name: Channel name for the read-back (optional)
+        :param options: States to add as options
         """
         super().__init__(label=label, symbol_type="Select", rotatable=False)
         self.channel_name = channel_name
+        self.state_channel_name = state_channel_name
         self.options = options or []
 
     def _apply_properties(self) -> None:
-        self.set_properties(channel_name=self.channel_name, options=self.options)
+        self.set_properties(
+            channel_name=self.channel_name,
+            state_channel_name=self.state_channel_name,
+            options=self.options,
+        )
 
     def set_properties(
         self,
         *,
         channel_name: str | None = None,
-        options: list[Option] | None = None,
+        state_channel_name: str | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ) -> None:
         self.click()
         self.notifications.close_all()
@@ -51,6 +59,11 @@ class Select(Symbol):
             self.page.get_by_text("Properties").dispatch_event("click")
             self.page.get_by_text("Control").last.dispatch_event("click")
             self.set_channel(section="Command", channel_name=channel_name)
+
+        if state_channel_name is not None:
+            self.page.get_by_text("Properties").dispatch_event("click")
+            self.page.get_by_text("Control").last.dispatch_event("click")
+            self.set_channel(section="State", channel_name=state_channel_name)
 
         if options is not None and len(options) > 0:
             self.click()
@@ -66,15 +79,14 @@ class Select(Symbol):
                 items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
-                name_input.fill(option["name"])
+                name_input.fill(option.name)
                 value_input = last_item.locator("input").nth(1)
-                value_input.fill(str(option["value"]))
+                value_input.fill(option_text(option.value))
 
     def send(self, option_name: str) -> None:
         """Select an option from the dropdown and click Set.
 
-        Args:
-            option_name: The display name of the option to select
+        :param option_name: The display name of the option to select
         """
         self._disable_edit_mode()
         self.notifications.close_all()

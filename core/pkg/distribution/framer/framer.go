@@ -22,6 +22,7 @@ type (
 	Iterator                = iterator.Iterator
 	StreamIterator          = iterator.StreamIterator
 	IteratorConfig          = iterator.Config
+	IteratorPipeline        = iterator.Pipeline
 	IteratorRequest         = iterator.Request
 	IteratorResponse        = iterator.Response
 	IteratorCommand         = iterator.Command

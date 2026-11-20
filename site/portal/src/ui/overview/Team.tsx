@@ -11,14 +11,15 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Organization } from "@/server/db/schema";
-import { type Invited } from "@/server/invitation";
-import { type Held } from "@/server/license/list";
+import type { Organization } from "@/server/db/schema";
+import type { Invited } from "@/server/invitation";
+import type { Held } from "@/server/license/list";
+import { statusOf } from "@/server/license/status";
 import { activatePath, scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
-import { date, standing, statusOf } from "@/ui/format";
+import { expiry, standing } from "@/ui/format";
 import { Invitations } from "@/ui/invitations";
 import { Licenses } from "@/ui/licenses";
 import { Empty, Page, Section } from "@/ui/Page";
@@ -68,7 +69,7 @@ export const Team = ({
         <Fact label="Machines" value={`${seats} of ${capacity} seats in use`} />
         <Fact
           label="Next expiry"
-          value={nextExpiry == null ? "None" : date(nextExpiry)}
+          value={nextExpiry == null ? "None" : expiry(nextExpiry)}
         />
       </Facts>
       <Section

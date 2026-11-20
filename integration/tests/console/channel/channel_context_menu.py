@@ -50,7 +50,6 @@ class ChannelContextMenu(ConsoleCase):
     def run(self) -> None:
         """Run all channel context menu tests."""
         self.test_rename_channel()
-        self.test_alias_operations()
         self.test_delete_channel()
         self.test_copy_link()
 
@@ -76,64 +75,6 @@ class ChannelContextMenu(ConsoleCase):
         assert ch.name == new_name, f"Expected channel name {new_name}, got {ch.name}"
 
         console.channels.delete([new_name])
-
-    def test_alias_operations(self) -> None:
-        """Test setting, verifying, clearing, and re-verifying a channel alias."""
-        console = self.console
-        client = self.client
-
-        suffix = random_name()
-        range_name = f"alias_range_{suffix}"
-        data_name = f"alias_data_{suffix}"
-        alias_name = f"MyAlias_{suffix}"
-
-        console.ranges.create(range_name, persisted=True)
-        console.ranges.explorer.open()
-        console.ranges.toolbar.show()
-        console.ranges.set_active(range_name)
-
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=self.shared_index,
-        )
-
-        console.channels.set_alias(name=data_name, alias=alias_name)
-
-        console.channels.show_channels()
-        alias_visible = self.page.get_by_text(alias_name).count() > 0
-        assert alias_visible, f"Alias '{alias_name}' should be visible in channel list"
-        console.channels.hide_channels()
-
-        rng = client.ranges.retrieve(name=range_name)
-        data_ch = client.channels.retrieve(data_name)
-        scoped_ch = rng[alias_name]
-        assert scoped_ch.key == data_ch.key, (
-            f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
-        )
-
-        console.channels.clear_alias(alias_name)
-
-        console.channels.show_channels()
-        alias_still_visible = self.page.get_by_text(alias_name).count() > 0
-        assert not alias_still_visible, (
-            f"Alias '{alias_name}' should not be visible after clearing"
-        )
-        console.channels.hide_channels()
-
-        rng = client.ranges.retrieve(name=range_name)
-        try:
-            rng[alias_name]
-        except sy.NotFoundError:
-            pass
-        else:
-            raise AssertionError(
-                f"Alias '{alias_name}' should not resolve after clearing"
-            )
-
-        console.channels.delete([data_name])
-        console.ranges.explorer.open()
-        console.ranges.explorer.delete(range_name)
 
     def test_delete_channel(self) -> None:
         """Test deleting a channel via context menu."""

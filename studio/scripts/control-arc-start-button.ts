@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -92,13 +92,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       properties
         .locator(".lyra-input__item")
         .filter({ hasText: new RegExp(`^${label}`) })
-        .locator("input")
+        .locator("input, textarea")
         .first();
     const fill = async (label: string, value: string): Promise<void> => {
       const target = input(label);
       await session.waitFor(target);
       await target.fill(value);
-      await target.press("Enter");
+      await target.blur();
       await session.settle(300);
     };
     const valve = async (

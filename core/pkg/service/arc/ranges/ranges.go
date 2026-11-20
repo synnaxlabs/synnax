@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -181,7 +182,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 				)
 				return 0
 			}
-			return heap.Create(dispatchEnd(ctx, m.rng, m.report, key))
+			return heap.Create(dispatchEnd(ctx, m.db, m.rng, m.report, key))
 		}).Export(endMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -206,7 +207,7 @@ func (m *module) Create(cfg node.Config) (node.Node, error) {
 		if err := endSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
 			return nil, errors.Wrap(err, "ranges.end inputs")
 		}
-		return &endNode{State: cfg.State, rng: m.rng, report: m.report}, nil
+		return &endNode{State: cfg.State, db: m.db, rng: m.rng, report: m.report}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
@@ -250,7 +251,7 @@ func dispatchCreate(
 ) string {
 	var c *color.Color
 	if colorHex != "" {
-		parsed, err := color.FromCSS(colorHex)
+		parsed, err := color.Parse(colorHex)
 		if err != nil {
 			report(
 				ctx,
@@ -278,7 +279,7 @@ func dispatchCreate(
 			)
 			return ""
 		}
-		r.Parent = &ranger.Range{Key: uid}
+		r.Parent = &uid
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rng.NewWriter(tx).Create(ctx, &r)
@@ -295,12 +296,13 @@ var endSchema = zyn.Object(map[string]zyn.Schema{
 
 type endNode struct {
 	*node.State
+	db     *gorp.DB
 	rng    *ranger.Service
 	report taskreporter.Reporter
 }
 
 func (n *endNode) Next(ctx node.Context) {
-	key := dispatchEnd(ctx, n.rng, n.report, n.StringInput("key"))
+	key := dispatchEnd(ctx, n.db, n.rng, n.report, n.StringInput("key"))
 	*n.Output(0) = telem.NewSeriesV(key)
 	*n.OutputTime(0) = telem.NewSeriesV(ctx.Now)
 	n.Emit(ctx, 0)
@@ -310,6 +312,7 @@ func (n *endNode) Next(ctx node.Context) {
 // failures as warnings so the task keeps running.
 func dispatchEnd(
 	ctx context.Context,
+	db *gorp.DB,
 	rng *ranger.Service,
 	report taskreporter.Reporter,
 	key string,
@@ -324,11 +327,11 @@ func dispatchEnd(
 		)
 		return ""
 	}
-	if err := rng.Dispatch(ctx, uid, "", []ranger.Action{
-		ranger.NewSetAction(ranger.SetPayload{
+	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rng.NewWriter(tx).Apply(ctx, uid, ranger.NewSetAction(ranger.SetPayload{
 			Path:  []string{"time_range", "end"},
 			Value: telem.Now(),
-		}),
+		}))
 	}); err != nil {
 		report(ctx, status.VariantWarning, endFailed, err.Error())
 		return ""
@@ -371,7 +374,7 @@ func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionCo
 	if value == "" {
 		return
 	}
-	if _, err := color.FromCSS(value); err != nil {
-		diags.Add(diagnostics.Errorf(expr, "%v", err))
+	if _, err := color.Parse(value); err != nil {
+		diags.Add(codes.FuncArgValue.Atf(expr, "%v", err))
 	}
 }

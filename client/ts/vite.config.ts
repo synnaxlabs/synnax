@@ -9,15 +9,37 @@
 
 /// <reference types="vitest/config" />
 
-import { lib } from "@synnaxlabs/vite-plugin";
+import { isProd, lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 
 import packageJSON from "./package.json" with { type: "json" };
 
+// Specs that read the test Core as a browser project provides it.
+const PROVIDED_CORE_SPECS = "src/**/*.provided.spec.ts";
+
+// Browsers with no bundler have no `process`, so the browser entry must not read it.
+const noProcess = (): Plugin => ({
+  name: "no-process",
+  generateBundle(_, bundle) {
+    for (const chunk of Object.values(bundle))
+      if (
+        chunk.type === "chunk" &&
+        chunk.name !== "testutil" &&
+        /(?<![.\w$])process(\??\.[\w$]|\[)/.test(chunk.code)
+      )
+        this.error(`${chunk.fileName} reads process`);
+  },
+});
+
 export default defineConfig({
-  define: { __VERSION__: JSON.stringify(packageJSON.version) },
-  plugins: [lib({ name: "client" })],
+  define: {
+    __VERSION__: JSON.stringify(packageJSON.version),
+    // The bundled Immer reads this at load, and browsers with no bundler have no
+    // `process`.
+    "process.env.NODE_ENV": JSON.stringify(isProd() ? "production" : "development"),
+  },
+  plugins: [lib({ name: "client" }), noProcess()],
   build: {
     lib: {
       entry: {
@@ -27,13 +49,14 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: [
-        "zod",
+        /^zod(\/|$)/,
         "vitest",
         /^@vitest\//,
         /^node:/,
         "@synnaxlabs/alamos",
         "@synnaxlabs/freighter",
         "@synnaxlabs/x",
+        "undici",
       ],
     },
   },
@@ -42,7 +65,24 @@ export default defineConfig({
     testTimeout: 15_000,
     expect: { poll: { timeout: 5000 } },
     setupFiles: ["src/testutil/setup.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "client",
+          exclude: ["**/node_modules/**", "**/dist/**", PROVIDED_CORE_SPECS],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "provided-core",
+          include: [PROVIDED_CORE_SPECS],
+          benchmark: { include: [] },
+          provide: { synnaxTestCore: { host: "provided", port: 1 } },
+        },
+      },
+    ],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: [

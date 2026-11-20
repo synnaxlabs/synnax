@@ -16,6 +16,7 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/go/control:control_proto",
+        "//x/go/filter:filter_proto",
     ],
 )
 
@@ -26,5 +27,6 @@ cpp_grpc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/go/control:control_grpc",
+        "//x/go/filter:filter_grpc",
     ],
 )

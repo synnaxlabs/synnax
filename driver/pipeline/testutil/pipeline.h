@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <future>
+#include <mutex>
 #include <vector>
 
 #include "client/cpp/synnax.h"
@@ -51,6 +52,7 @@ public:
         if (current_read >= config.reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            std::lock_guard lock(this->read_errors_mu);
             if (this->config.read_errors != nullptr &&
                 !this->config.read_errors->empty())
                 return {x::telem::Frame{}, this->config.read_errors->at(0)};
@@ -58,8 +60,12 @@ public:
         }
         auto fr = std::move(config.reads->at(current_read));
         auto err = x::errors::NIL;
-        if (config.read_errors != nullptr && config.read_errors->size() > current_read)
-            err = config.read_errors->at(current_read);
+        {
+            std::lock_guard lock(this->read_errors_mu);
+            if (config.read_errors != nullptr &&
+                config.read_errors->size() > current_read)
+                err = config.read_errors->at(current_read);
+        }
         current_read++;
         return {std::move(fr), err};
     }
@@ -67,11 +73,16 @@ public:
     x::errors::Error close() override { return config.close_err; }
 
     void close_send() override {
+        std::lock_guard lock(this->read_errors_mu);
         if (this->config.read_errors == nullptr)
             this->config
                 .read_errors = std::make_shared<std::vector<x::errors::Error>>();
         this->config.read_errors->push_back(freighter::STREAM_CLOSED);
     }
+
+private:
+    // Guards config.read_errors, which close_send() changes while read() runs.
+    std::mutex read_errors_mu;
 };
 
 // Factory for creating mock Streamers with configurable behavior.
@@ -220,6 +231,9 @@ public:
     /// Stores the most recent writer configuration passed to open_writer.
     synnax::framer::WriterConfig config;
 
+    /// When valid, open_writer blocks until it is ready.
+    std::shared_future<void> open_gate;
+
     /// Counts how many times open_writer has been called.
     /// Atomic with release semantics so that readers who observe the incremented
     /// value are guaranteed to see the config assignment that precedes it.
@@ -245,6 +259,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
+        if (this->open_gate.valid()) this->open_gate.wait();
         this->config = config;
         this->writer_opens.fetch_add(1, std::memory_order_release);
         auto err = this->open_errors.empty() ? x::errors::NIL
@@ -274,6 +289,25 @@ public:
             set_auth_err
         );
         return {std::move(writer), err};
+    }
+};
+
+/// @brief opens writers on a live Core and counts the ones that open.
+class CoreWriterFactory final : public pipeline::WriterFactory {
+    pipeline::SynnaxWriterFactory internal;
+
+public:
+    /// @brief the number of writers that opened without an error.
+    std::atomic<size_t> writers_open = 0;
+
+    explicit CoreWriterFactory(std::shared_ptr<synnax::Synnax> client):
+        internal(std::move(client)) {}
+
+    std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &config) override {
+        auto res = this->internal.open_writer(config);
+        if (!res.second) this->writers_open.fetch_add(1, std::memory_order_release);
+        return res;
     }
 };
 

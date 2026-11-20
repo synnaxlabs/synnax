@@ -25,17 +25,23 @@ export interface Params {
   container: box.Crude;
   target: box.Crude;
   dialog: box.Crude;
+  /** The gap between the target and the dialog, on each axis where they meet. */
   offset?: xy.Crude;
+  /**
+   * Moves the dialog out past each edge it aligns with on the target, on each axis:
+   * up past a shared top edge, left past a shared left edge.
+   */
+  alignOffset?: xy.Crude;
   initial?: LocationPreference;
   prefer?: LocationPreference | LocationPreference[];
   disable?: LocationPreference | LocationPreference[];
 }
 
 export const parseLocationOptions = (initial?: Location): Partial<location.XY> => {
-  if (initial == null) return { x: undefined, y: undefined };
+  if (initial == null) return {};
   if (typeof initial !== "string") return initial;
-  if (direction.isX(initial)) return { x: initial, y: undefined };
-  return { x: undefined, y: initial };
+  if (direction.isX(initial)) return { x: initial };
+  return { y: initial };
 };
 
 export interface Return {
@@ -47,8 +53,8 @@ export interface Return {
 const normalizePreference = (pref: LocationPreference): Preference => {
   if (typeof pref === "string" || "x" in pref || "y" in pref)
     return { targetCorner: pref, dialogCorner: undefined };
-  // The only remaining case here is an empty object, which is valid as both a preference
-  // and a location.
+  // The only remaining case here is an empty object, which is valid as both a
+  // preference and a location.
   return pref as Preference;
 };
 
@@ -116,8 +122,8 @@ const isDisabled = (opt: Option, disabled: Preference[]): boolean =>
   disabled.some((d) => {
     const targetLoc = parseLocationOptions(d.targetCorner);
     const dialogLoc = parseLocationOptions(d.dialogCorner);
-    // If dialogCorner is CENTER (from normalization), only match on target corner
-    if (location.xyEquals(d.dialogCorner as location.XY, location.CENTER))
+    // A CENTER dialog corner matches on the target corner alone.
+    if (location.xyEquals(dialogLoc as location.XY, location.CENTER))
       return location.xyMatches(opt.targetCorner, targetLoc);
 
     return (
@@ -134,6 +140,7 @@ export const position = ({
   prefer,
   disable,
   offset,
+  alignOffset,
 }: Params): Return => {
   const options = buildOptions({ initial, prefer, disable });
   const containerBox = box.construct(containerCrude);
@@ -148,6 +155,7 @@ export const position = ({
         target: targetBox,
         dialog: dialogBox,
         offset,
+        alignOffset,
       });
       return res.area > best.area ? res : best;
     },
@@ -171,6 +179,7 @@ interface EvaluateOptionProps extends Option {
   target: box.Box;
   dialog: box.Box;
   offset?: xy.Crude;
+  alignOffset?: xy.Crude;
 }
 
 interface EvaluateOptionReturn extends Return {
@@ -183,15 +192,18 @@ const evaluateOption = ({
   container,
   target,
   dialog,
-  offset,
+  offset = 0,
+  alignOffset = 0,
 }: EvaluateOptionProps): EvaluateOptionReturn => {
-  let targetPoint = box.xyLoc(target, targetCorner);
-  if (offset != null) {
-    const parsedOffset = xy.construct(offset);
-    if (targetCorner.x === dialogCorner.x) parsedOffset.x = 0;
-    if (targetCorner.y === dialogCorner.y) parsedOffset.y = 0;
-    targetPoint = xy.translate(targetPoint, targetCorner, parsedOffset);
-  }
+  const shift = xy.construct(offset);
+  const align = xy.construct(alignOffset);
+  if (targetCorner.x === dialogCorner.x) shift.x = align.x;
+  if (targetCorner.y === dialogCorner.y) shift.y = align.y;
+  const targetPoint = xy.translate(
+    box.xyLoc(target, targetCorner),
+    targetCorner,
+    shift,
+  );
   const dialogBox = box.constructWithAlternateRoot(
     targetPoint.x,
     targetPoint.y,

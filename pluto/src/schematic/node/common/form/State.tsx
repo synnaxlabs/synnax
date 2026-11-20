@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement } from "react";
+import { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
+
+const path = deep.path<{ stateChannel?: channel.Key }>();
 
 export interface StateSectionProps {
   /** filter limits the channels the select offers. */
@@ -21,15 +24,15 @@ export interface StateSectionProps {
 
 /** StateSection edits the channel a control reads the device's value back from. */
 export const StateSection = ({ filter }: StateSectionProps): ReactElement => {
-  const { value, onChange } = Form.useField<{ stateChannel?: channel.Key }>("");
+  const { value, onChange } = Form.useField(path);
   return (
     <Form.Section title="State">
       <Input.Item label="Channel" padHelpText={false}>
         <Channel.SelectSingle
           allowNone
-          value={value.stateChannel ?? 0}
+          value={value.stateChannel}
           onChange={(v: channel.Key | null) =>
-            onChange({ ...value, stateChannel: v ?? undefined })
+            onChange({ ...value, stateChannel: v ?? 0 })
           }
           filter={filter}
         />

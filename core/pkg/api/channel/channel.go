@@ -11,25 +11,21 @@ package channel
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -38,7 +34,12 @@ type Key = channel.Key
 
 // ServiceConfig is the configuration for the channel API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// DB opens the snapshots that codec lookups read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// RBAC checks that the subject can read the inputs of each calculated channel that
+	// a create writes.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -46,14 +47,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Ranger stores and retrieves ranges.
-	//
-	// [REQUIRED]
-	Ranger *ranger.Service
-	// Alias stores and retrieves channel aliases on ranges.
-	//
-	// [REQUIRED]
-	Alias *alias.Service
 	// Status stores and retrieves statuses.
 	//
 	// [REQUIRED]
@@ -68,10 +61,9 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Ranger = override.Nil(c.Ranger, other.Ranger)
-	c.Alias = override.Nil(c.Alias, other.Alias)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
@@ -79,20 +71,18 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.channel")
+	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
-	v.NotNil("ranger", c.Ranger)
-	v.NotNil("alias", c.Alias)
 	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
 // Service is the central service for all things Channel related.
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *channel.Service
-	ranger   *ranger.Service
-	alias    *alias.Service
 	status   *status.Service
 }
 
@@ -102,10 +92,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.Channel,
-		ranger:   cfg.Ranger,
-		alias:    cfg.Alias,
 		status:   cfg.Status,
 	}, nil
 }
@@ -121,14 +110,20 @@ func (s *Service) RetrieveDataTypes(
 	keys channel.Keys,
 ) ([]telem.DataType, error) {
 	var channels []channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.internal.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
-	return lo.Map(channels, func(ch channel.Channel, _ int) telem.DataType {
-		return ch.DataType
+	dataTypes := make(map[channel.Key]telem.DataType, len(channels))
+	for _, ch := range channels {
+		dataTypes[ch.Key()] = ch.DataType
+	}
+	return lo.Map(keys, func(k channel.Key, _ int) telem.DataType {
+		return dataTypes[k]
 	}), nil
 }
 
@@ -136,10 +131,12 @@ func (s *Service) RetrieveDataTypes(
 // the given key, returning an empty string if no channel with the key exists.
 func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
 	var ch channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(key)).
-		Entry(&ch).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.internal.NewRetrieve().
+			Where(channel.MatchKeys(key)).
+			Entry(&ch).
+			Exec(ctx, snap)
+	}); err != nil {
 		return ""
 	}
 	return ch.Name
@@ -158,23 +155,34 @@ type CreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
+var _ bind.Returns = CreateResponse{}
+
+// Returned implements bind.Returns, so a create that returns an existing channel needs
+// retrieve on it.
+func (r CreateResponse) Returned() []resource.ID {
+	return lo.Map(r.Channels, func(ch Channel, _ int) resource.ID {
+		return channel.ResourceID(ch.Key)
+	})
+}
+
 // Create creates a Channel based on the parameters given in the request.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	translated, err := translateChannelsBackward(req.Channels)
-	if err != nil {
-		return CreateResponse{}, err
-	}
+	translated := translateChannelsBackward(req.Channels)
 	for i := range translated {
 		translated[i].Internal = false
 	}
+	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
+	if err != nil {
+		return CreateResponse{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+		Action:  access.ActionRetrieve,
+		Objects: framer.ResourceIDs(inputs),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -189,177 +197,76 @@ func (s *Service) Create(
 	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
 }
 
-// RetrieveRequest is a request for retrieving information about a Channel from the
-// cluster.
-type RetrieveRequest struct {
-	// Virtual filters for channels that are virtual if true, or are not virtual if
-	// false.
-	Virtual *bool `json:"virtual" msgpack:"virtual"`
-	// IsIndex filters for channels that are indexes if true, or are not indexes if
-	// false.
-	IsIndex *bool `json:"is_index" msgpack:"is_index"`
-	// Internal filters for channels that are internal if true, or are not internal if
-	// false.
-	Internal *bool `json:"internal" msgpack:"internal"`
-	// SearchTerm is an optional search parameter that fuzzy matches a Channel's
-	// properties.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Keys is an optional parameter that queries a Channel by its key.
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
-	// Names is an optional parameter that queries a Channel by its name.
-	Names []string `json:"names" msgpack:"names"`
-	// DataTypes filters for channels whose DataType attribute matches the provided data
-	// types.
-	DataTypes []telem.DataType `json:"data_types" msgpack:"data_types"`
-	// NotDataTypes filters for channels whose DataType attribute does not match the
-	// provided data types.
-	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
-	// Limit limits the number of results returned.
-	Limit int `json:"limit" msgpack:"limit"`
-	// Offset offsets the results returned.
-	Offset int `json:"offset" msgpack:"offset"`
-	// NodeKey is an optional parameter that queries a Channel by its node key.
-	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
-	// RangeKey is used for fetching aliases.
-	RangeKey ranger.Key `json:"range_key" msgpack:"range_key"`
-	// IncludeStatus attaches each channel's status row (e.g. calculation status) to the
-	// returned channels when true. Channels with no status row are returned with a nil
-	// status.
-	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the channels that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, channel.ResourceID)
 }
 
-// RetrieveResponse is the response for a RetrieveRequest.
-type RetrieveResponse struct {
-	// Channels is a slice of Channels matching the request.
-	Channels []Channel `json:"channels" msgpack:"channels"`
-}
-
-// Retrieve retrieves a Channel based on the parameters given in the request. If no
-// parameters are specified, retrieves all channels.
+// Retrieve retrieves the channels that the request selects and that the subject can
+// retrieve. A channel that the top level of Where names by exact name needs retrieve,
+// as a named key does.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		resChannels     []channel.Channel
-		aliasChannels   []channel.Channel
-		q               = s.internal.NewRetrieve().Entries(&resChannels)
-		hasNames        = len(req.Names) > 0
-		hasKeys         = len(req.Keys) > 0
-		hasSearch       = len(req.SearchTerm) > 0
-		hasDataTypes    = len(req.DataTypes) > 0
-		hasNotDataTypes = len(req.NotDataTypes) > 0
-	)
-
-	var resRng ranger.Range
-	if req.RangeKey != uuid.Nil() {
-		err := s.ranger.NewRetrieve().
-			Where(ranger.MatchKeys(req.RangeKey)).
-			Entry(&resRng).
-			Exec(ctx, nil)
-		isNotFound := errors.Is(err, query.ErrNotFound)
-		if err != nil && !isNotFound {
-			return RetrieveResponse{}, err
-		}
-		// We can still do a best effort search without the range even if we don't
-		// find it.
-		if !isNotFound && hasSearch {
-			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			aliasChannels = make([]channel.Channel, 0, len(keys))
-			if err := s.internal.NewRetrieve().
-				Where(channel.MatchKeys(keys...)).
-				Entries(&aliasChannels).
-				Exec(ctx, nil); err != nil {
-				return RetrieveResponse{}, err
-			}
-		}
-	}
-	if hasKeys {
-		q = q.Where(channel.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(channel.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.NodeKey != 0 {
-		q = q.Where(channel.MatchLeaseholders(req.NodeKey))
-	}
-	if hasDataTypes {
-		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
-	}
-	if hasNotDataTypes {
-		q = q.Where(channel.Not(channel.MatchDataTypes(req.NotDataTypes...)))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if req.Virtual != nil {
-		q = q.Where(channel.MatchVirtual(*req.Virtual))
-	}
-	if req.IsIndex != nil {
-		q = q.Where(channel.MatchIsIndex(*req.IsIndex))
-	}
-	if req.Internal != nil {
-		q = q.Where(channel.MatchInternal(*req.Internal))
-	}
-	if err := q.Exec(ctx, nil); err != nil {
+	resChannels, err := s.retrieve(ctx, snap, req)
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if len(aliasChannels) > 0 {
-		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(
-			aliasChannels,
-			lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
-				return !aliasKeys.Contains(ch.Key())
-			})...,
-		)
-	}
-	oChannels := translateChannelsForward(resChannels)
-	if resRng.Key != uuid.Nil() {
-		aliasReader := s.alias.NewReader(nil)
-		for i, ch := range resChannels {
-			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
-			if err == nil {
-				oChannels[i].Alias = &al
-			}
-		}
-	}
+	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
 	if req.IncludeStatus {
-		ids := channel.OntologyIDsFromChannels(resChannels)
-		statuses := make([]Status, 0, len(resChannels))
-		// Most channels have no status row, so a missing key is not an error.
-		if err := s.status.NewRetrieve[struct{}]().
-			Where(status.MatchKeys[struct{}](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+		statuses, err := s.status.Join[struct{}](
+			ctx,
+			snap,
+			channel.ResourceIDsFromChannels(resChannels),
+		)
+		if err != nil {
 			return RetrieveResponse{}, err
 		}
-		statusByKey := make(map[string]Status, len(statuses))
-		for _, stat := range statuses {
-			statusByKey[stat.Key] = stat
-		}
-		for i := range oChannels {
-			if stat, ok := statusByKey[ids[i].String()]; ok {
-				oChannels[i].Status = &stat
-			}
+		for i, st := range statuses {
+			res.Channels[i].Status = st
 		}
 	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: channel.OntologyIDsFromChannels(resChannels),
-	}); err != nil {
-		return RetrieveResponse{}, err
+	return res, nil
+}
+
+func (s *Service) retrieve(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req RetrieveRequest,
+) ([]channel.Channel, error) {
+	var res []channel.Channel
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res))
+	if err != nil {
+		return nil, err
 	}
-	return RetrieveResponse{Channels: oChannels}, nil
+	named := namesByName(req.Where)
+	if !named {
+		q = q.Where(bind.Filter(snap, channel.Match))
+	}
+	if err = q.Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	if named {
+		if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+// namesByName reports whether the top level of where names channels by exact name.
+// Clients name channels by name as they do by key, so each match needs retrieve.
+func namesByName(where *channel.Where) bool {
+	return where != nil && where.Name != nil &&
+		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {
@@ -376,6 +283,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 	}
 	return translated
@@ -383,14 +291,12 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 
 // translateChannelsBackward translates a slice of api channel structs to a
 // slice of internal channel structs.
-func translateChannelsBackward(
-	channels []Channel,
-) ([]channel.Channel, error) {
+func translateChannelsBackward(channels []Channel) []channel.Channel {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
 		tCh := channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: node.Key(ch.Leaseholder),
+			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),
@@ -399,6 +305,7 @@ func translateChannelsBackward(
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 		if ch.IsIndex {
 			tCh.LocalIndex = tCh.LocalKey
@@ -406,7 +313,29 @@ func translateChannelsBackward(
 
 		translated[i] = tCh
 	}
-	return translated, nil
+	return translated
+}
+
+// CountLimitedRequest is a request for the count of the channels that count against the
+// license channel limit.
+type CountLimitedRequest struct{}
+
+var _ bind.Named = CountLimitedRequest{}
+
+// Named implements bind.Named. The count covers every channel, so it names the channel
+// type.
+func (CountLimitedRequest) Named() []resource.ID {
+	return []resource.ID{{Type: resource.TypeChannel}}
+}
+
+// CountLimited returns how many channels count against the license channel limit (not
+// internal, not virtual).
+func (s *Service) CountLimited(
+	context.Context,
+	bind.Snapshot,
+	CountLimitedRequest,
+) (CountLimitedResponse, error) {
+	return CountLimitedResponse{Count: s.internal.CountLimited()}, nil
 }
 
 type DeleteRequest struct {
@@ -414,6 +343,8 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
+// Delete deletes the channels that the request names by key or by name. Deleting an
+// internal channel is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -421,76 +352,37 @@ func (s *Service) Delete(
 ) (struct{}, error) {
 	w := s.internal.NewWriter(tx)
 	if len(req.Keys) > 0 {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: channel.OntologyIDsFromKeys(req.Keys),
-		}); err != nil {
-			return struct{}{}, err
-		}
 		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
 			return struct{}{}, err
 		}
 	}
 	if len(req.Names) > 0 {
-		res := make([]channel.Channel, 0, len(req.Names))
-		if err := s.internal.NewRetrieve().
-			Where(channel.MatchNames(req.Names...)).
-			Entries(&res).
-			Exec(ctx, tx); err != nil {
-			return struct{}{}, err
-		}
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: channel.OntologyIDsFromChannels(res),
-		}); err != nil {
-			return struct{}{}, err
-		}
 		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
 	}
 	return struct{}{}, nil
 }
 
-type RenameRequest struct {
-	Keys  channel.Keys `json:"keys"  msgpack:"keys"`
-	Names []string     `json:"names" msgpack:"names"`
-}
+// DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[channel.Key, channel.Action]
 
-func (s *Service) Rename(
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the data type that an expression edit infers.
+type DispatchResponse = actions.DispatchResponse[channel.Action]
+
+// Dispatch applies the action sequence to the target channel atomically. Subscribers to
+// the channel action channel receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: channel.OntologyIDsFromKeys(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
+	req DispatchRequest,
+) (DispatchResponse, error) {
+	computed, err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).RenameMany(
-		ctx, req.Keys, req.Names, false,
-	)
-}
-
-type RetrieveGroupRequest struct{}
-
-type RetrieveGroupResponse struct {
-	Group group.Group `json:"group" msgpack:"group"`
-}
-
-func (s *Service) RetrieveGroup(
-	ctx context.Context,
-	_ RetrieveGroupRequest,
-) (RetrieveGroupResponse, error) {
-	g := s.internal.Group()
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{g.OntologyID()},
-	}); err != nil {
-		return RetrieveGroupResponse{}, err
-	}
-	return RetrieveGroupResponse{Group: g}, nil
+	return DispatchResponse{Actions: computed}, nil
 }

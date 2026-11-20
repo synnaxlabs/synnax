@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 export const TagShowcase = () => (
   <Flex.Box y pack empty>

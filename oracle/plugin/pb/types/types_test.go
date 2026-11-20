@@ -77,10 +77,135 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ThingFilter, "thing", loader, p)
+			ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+				"message WhereList {\n  repeated Where values = 1;",
+				"WhereList and = 1;",
+				"WhereList or = 2;",
+				"optional Where not = 3;",
+			)
+		})
+
+		It("Should emit a message for each generic use over a plain value", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ThingFilter, "thing", loader, p)
+			ExpectContent(resp, "thing/pb/thing.proto").
+				ToContain(
+					"message UuidList {\n  repeated string values = 1;\n}",
+					"message UuidSet {\n  optional string eq = 1;\n  UuidList in = 2;\n}",
+					"optional UuidSet key = 4;",
+				).
+				ToNotContain(".x.filter.pb.Set")
+		})
+
+		It("Should name the list message of each generic use", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key   uuid
+					ids   filter.Set<uuid>[]?
+					names filter.Set<string>[]?
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "thing.proto").
+				ToContain(
+					"message UuidSetList {\n  repeated UuidSet values = 1;\n}",
+					"message StringSetList {\n  repeated StringSet values = 1;\n}",
+				).
+				ToNotContain("FilterSetList")
+		})
+
+		It("Should emit no shared message for a generic struct omitted in pb", func() {
+			resp := MustGenerate(
+				"@go output \"x/go/filter\"\n@pb\n"+FilterSchema,
+				"filter",
+				loader,
+				p,
+			)
+			ExpectContent(resp, "x/go/filter/pb/filter.proto").
+				ToContain("message String {", "message Bool {").
+				ToNotContain(
+					"message Set {",
+					"message Ordered {",
+					"message Contains {",
+					"message ListWrapper {",
+					"google/protobuf/any.proto",
+				)
+		})
+
+		It("Should name the list of a key from another namespace for it", func() {
+			AddFilterSchema(loader)
+			loader.Add("schemas/rk", `
+				@go output "core/pkg/service/rk"
+				@pb
+
+				Key uint32
+			`)
+			source := `
+				import "schemas/rk"
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/dev"
+				@pb
+
+				Key uint64
+
+				Device struct {
+					key Key    { @key }
+					rk  rk.Key
+				}
+
+				Where filter Device {
+					key
+					rk
+				}
+			`
+			resp := MustGenerate(source, "dev", loader, p)
+			ExpectContent(resp, "dev/pb/dev.proto").ToContain(
+				"message KeyList {\n  repeated uint64 values = 1;\n}",
+				"message RkKeyList {\n  repeated uint32 values = 1;\n}",
+				"RkKeyList in = 2;",
+			)
+		})
+
+		It("Should fail when two generic uses share a message name", func() {
+			for _, ns := range []string{"first", "second"} {
+				loader.Add("schemas/"+ns, `
+					@go output "core/pkg/service/`+ns+`"
+					@pb
+
+					Box struct<T> {
+						value T
+					}
+				`)
+			}
+			req := MustGenerateRequest(`
+				import "schemas/first"
+				import "schemas/second"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					a first.Box<string>
+					b second.Box<string>
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"generic uses first.Box<string> and second.Box<string> share the " +
+					"protobuf message name StringBox",
+			)))
+		})
+
 		Context("field-level omit", func() {
-			It("Should reserve the number of a field omitted in pb", func(
-				ctx SpecContext,
-			) {
+			It("Should reserve the number of a field omitted in pb", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@pb
@@ -91,7 +216,7 @@ var _ = Describe("Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				ExpectContent(resp, "test.proto").
 					ToContain(
 						"string key = 1;",
@@ -102,9 +227,149 @@ var _ = Describe("Plugin", func() {
 			})
 		})
 
+		Context("pinned numbers", func() {
+			It("Should give a field its @pb number", func() {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						subject string { @pb number 3 }
+						@pb reserved 2
+					}
+				`
+				resp := MustGenerate(source, "test", loader, p)
+				ExpectContent(resp, "test.proto").ToContain(
+					"reserved 2;",
+					"string key = 1;",
+					"string subject = 3;",
+				)
+			})
+
+			It("Should sort reserved numbers with those of omitted fields", func() {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes  { @pb omit }
+						subject string { @pb number 5 }
+						@pb reserved 4 3
+					}
+				`
+				resp := MustGenerate(source, "test", loader, p)
+				ExpectContent(resp, "test.proto").ToContain(
+					"reserved 2, 3, 4;",
+					"string subject = 5;",
+				)
+			})
+
+			It("Should pin a number in an inline union variant", func() {
+				source := `
+					@go output "core/pkg/service/arc"
+					@pb
+
+					Change struct { path string }
+
+					Arc union on type {
+						automation {
+							program string?
+							changes Change[] { @pb number 3 }
+							@pb reserved 2
+						}
+					}
+				`
+				resp := MustGenerate(source, "arc", loader, p)
+				ExpectContent(resp, "arc.proto").ToContain(
+					"message ArcAutomationPayload {",
+					"reserved 2;",
+					"optional string program = 1;",
+					"repeated Change changes = 3;",
+				)
+			})
+
+			It("Should fail when a pinned number matches a counted one", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						subject string { @pb number 1 }
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					`fields "key" and "subject" share protobuf number 1`,
+				)))
+			})
+
+			It("Should fail when a field takes a reserved number", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						subject string
+						@pb reserved 2
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					`field "subject": protobuf number 2 is reserved`,
+				)))
+			})
+
+			DescribeTable("Should fail on a repeated @pb reserved",
+				func(source string) {
+					_, diag := Analyze(source, "test", loader)
+					Expect(diag.String()).To(ContainSubstring(
+						"repeated @pb reserved: list every number on one line",
+					))
+				},
+				Entry("on a struct", `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key string
+						@pb reserved 2
+						@pb reserved 3
+					}
+				`),
+				Entry("on an inline union variant", `
+					@go output "core/pkg/service/arc"
+					@pb
+
+					Arc union on type {
+						automation {
+							program string
+							@pb reserved 2
+							@pb reserved 3
+						}
+					}
+				`),
+			)
+
+			It("Should fail on a number that is not a positive integer", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key string { @pb number 0 }
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@pb number takes positive integers",
+				)))
+			})
+		})
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct proto type",
-				func(ctx SpecContext, oracleType, expectedProtoType string) {
+				func(oracleType, expectedProtoType string) {
 					source := `
 						@go output "core/pkg/api/grpc/v1"
 						@pb
@@ -113,7 +378,7 @@ var _ = Describe("Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := MustGenerate(ctx, source, "test", loader, p)
+					resp := MustGenerate(source, "test", loader, p)
 					ExpectContent(
 						resp,
 						"test.proto",
@@ -130,7 +395,7 @@ var _ = Describe("Plugin", func() {
 				Entry("bytes", "bytes", "bytes"),
 			)
 
-			It("Should map uuid to string", func(ctx SpecContext) {
+			It("Should map uuid to string", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -139,13 +404,13 @@ var _ = Describe("Plugin", func() {
 						key uuid
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				ExpectContent(resp, "test.proto").ToContain("string key = 1;")
 			})
 
 			It(
 				"Should emit an extending enum as a standalone, proto3-valid enum",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -166,7 +431,7 @@ var _ = Describe("Plugin", func() {
 						axis_key AxisKey
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, p)
+					resp := MustGenerate(source, "test", loader, p)
 					content := ExpectContent(resp, "test.proto")
 					content.ToContain("enum AxisKey")
 					// The union enum gets its own positional numbering starting at 0,
@@ -176,7 +441,7 @@ var _ = Describe("Plugin", func() {
 				},
 			)
 
-			It("Should map record to google.protobuf.Struct", func(ctx SpecContext) {
+			It("Should map record to google.protobuf.Struct", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -185,7 +450,7 @@ var _ = Describe("Plugin", func() {
 						data record
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				ExpectContent(resp, "test.proto").
 					ToContain(
 						`import "google/protobuf/struct.proto";`,
@@ -518,7 +783,7 @@ var _ = Describe("Plugin", func() {
 		})
 
 		Context("@omit directive", func() {
-			It("Should skip types with @pb omit directive", func(ctx SpecContext) {
+			It("Should skip types with @pb omit directive", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -533,13 +798,13 @@ var _ = Describe("Plugin", func() {
 						@pb omit
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`message User`))
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
 			})
 
-			It("Should skip enums with @pb omit directive", func(ctx SpecContext) {
+			It("Should skip enums with @pb omit directive", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -559,7 +824,7 @@ var _ = Describe("Plugin", func() {
 						status Status
 					}
 				`
-				resp := MustGenerate(ctx, source, "status", loader, p)
+				resp := MustGenerate(source, "status", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -567,7 +832,7 @@ var _ = Describe("Plugin", func() {
 
 			It(
 				"Should not emit a proto file for an output path whose types are all omitted",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/task"
 					@pb
@@ -582,7 +847,7 @@ var _ = Describe("Plugin", func() {
 						@pb omit
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, p)
+					resp := MustGenerate(source, "task", loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 					Expect(
 						resp.Files[0].Path,
@@ -756,7 +1021,7 @@ var _ = Describe("Plugin", func() {
 		})
 
 		Context("@pb name override", func() {
-			It("Should use @pb name for struct if specified", func(ctx SpecContext) {
+			It("Should use @pb name for struct if specified", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb name "MyProtoMessage"
@@ -766,7 +1031,7 @@ var _ = Describe("Plugin", func() {
 						value string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("message MyProtoMessage"))
 				Expect(content).NotTo(ContainSubstring("OriginalName"))
@@ -831,6 +1096,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Helper",
 					Namespace:     "shared",
 					QualifiedName: "shared.Helper",
+					FilePath:      "shared.oracle",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{Name: "dummy", Type: resolution.TypeRef{Name: "string"}},
@@ -842,6 +1108,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Priority",
 					Namespace:     "shared",
 					QualifiedName: "shared.Priority",
+					FilePath:      "shared.oracle",
 					Form: resolution.EnumForm{
 						Values: []resolution.EnumValue{{Name: "low"}, {Name: "high"}},
 					},
@@ -853,6 +1120,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Task",
 					Namespace:     "task",
 					QualifiedName: "task.Task",
+					FilePath:      "task.oracle",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{
@@ -966,7 +1234,7 @@ var _ = Describe("Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate proto comments from doc domain", func(ctx SpecContext) {
+			It("Should generate proto comments from doc domain", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -985,7 +1253,7 @@ var _ = Describe("Plugin", func() {
 						age int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
@@ -1002,7 +1270,7 @@ var _ = Describe("Plugin", func() {
 		Context("enum-only @pb schema", func() {
 			It(
 				"Should emit a proto file with the enum and no messages",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/text", `
 					@go output "x/go/text"
 					@pb
@@ -1013,7 +1281,7 @@ var _ = Describe("Plugin", func() {
 						small = "small"
 					}
 				`)
-					resp := MustGenerateMulti(ctx, loader, p)
+					resp := MustGenerateMulti(loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 					Expect(resp.Files[0].Path).To(Equal("x/go/text/pb/text.proto"))
 					content := string(resp.Files[0].Content)
@@ -1023,6 +1291,37 @@ var _ = Describe("Plugin", func() {
 					Expect(content).ToNot(ContainSubstring("message "))
 				},
 			)
+		})
+
+		Context("schemas with the same file name", func() {
+			It("Should import the enum of a schema with the same file name", func() {
+				loader.Add("schemas/x/color", `
+					@go output "x/go/color"
+					@pb
+
+					Kind enum {
+						solid    = 0
+						gradient = 1
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@go output "core/pkg/service/color"
+					@pb
+
+					Named struct {
+						kind color.Kind
+					}
+				`)
+				resp := MustGenerateMulti(loader, p)
+				ExpectContent(resp, "core/pkg/service/color/pb/color.proto").
+					ToContain(
+						`import "x/go/color/pb/color.proto";`,
+						".x.color.pb.Kind kind = 1;",
+					).
+					ToNotContain("enum Kind")
+			})
 		})
 	})
 })
@@ -1040,7 +1339,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 
 	It(
 		"Should generate a wrapper message with a oneof of variant messages",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/hw/ni"
 			@pb
@@ -1053,7 +1352,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain(
 					"message Scale {",
@@ -1066,7 +1365,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 
 	It(
 		"Should nest shared bases as message fields outside the oneof",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/hw/ni"
 			@pb
@@ -1078,7 +1377,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain(
 					"message AIChannel {",
@@ -1091,7 +1390,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 
 	It(
 		"Should nest an aliased shared base as a message field",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/hw", `
 			@go output "core/pkg/hw"
 			@pb
@@ -1111,7 +1410,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain(
 					".hw.pb.BaseAIChan base_ai_chan = 1;",
@@ -1122,7 +1421,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 
 	It(
 		"Should error when a variant omits a field from a shared base",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/hw/ni"
 			@pb
@@ -1135,9 +1434,8 @@ var _ = Describe("Protobuf Union Generation", func() {
 				}
 			}
 		`
-			req := MustGenerateRequest(ctx, source, "ni", loader)
-			_, err := p.Generate(req)
-			Expect(err).To(MatchError(ContainSubstring(
+			req := MustGenerateRequest(source, "ni", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
 			)))
 		},
@@ -1145,7 +1443,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 
 	It(
 		"Should error when a variant names an alias of a struct that omits a field",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/hw/ni"
 			@pb
@@ -1160,7 +1458,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				temp Builtin
 			}
 		`
-			req := MustGenerateRequest(ctx, source, "ni", loader)
+			req := MustGenerateRequest(source, "ni", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(
 				`failed to generate core/pkg/hw/ni/pb: union "AIChannel" ` +
 					`variant "temp" omits inherited field(s) [port], which ` +
@@ -1169,7 +1467,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 		},
 	)
 
-	It("Should generate messages for inline variant payloads", func(ctx SpecContext) {
+	It("Should generate messages for inline variant payloads", func() {
 		source := `
 			@go output "core/pkg/hw/panel"
 			@pb
@@ -1183,7 +1481,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				empty {}
 			}
 		`
-		resp := MustGenerate(ctx, source, "panel", loader, p)
+		resp := MustGenerate(source, "panel", loader, p)
 		ExpectContent(resp, "panel.proto").
 			ToContain(
 				"message TabViewPayload {",
@@ -1198,7 +1496,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 
 	It(
 		"Should reference a union message from a union-typed field",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/hw/ni"
 			@pb
@@ -1215,12 +1513,12 @@ var _ = Describe("Protobuf Union Generation", func() {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain("Scale custom_scale = 1;")
 		},
 	)
-	It("Should import a union field from another proto package", func(ctx SpecContext) {
+	It("Should import a union field from another proto package", func() {
 		loader.Add("schemas/scale", `
 			@pb
 			@go output "core/pkg/service/scale"
@@ -1243,7 +1541,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				custom_scale scale.Scale
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, p)
+		resp := MustGenerate(source, "ni", loader, p)
 		ExpectContent(resp, "ni.proto").
 			ToContain(
 				`import "core/pkg/service/scale/pb/scale.proto";`,

@@ -10,13 +10,12 @@
 import "@/app/App.css";
 import "@synnaxlabs/lyra/dist/base.css";
 
-import { Fragment, type PropsWithChildren, type ReactElement } from "react";
+import { Fragment, type ReactElement } from "react";
 
 import { Analytics } from "@/app/analytics";
 import { Haul } from "@/app/haul";
 import { Panel } from "@/app/panel";
 import { Pluto } from "@/app/pluto";
-import { Range } from "@/app/range";
 import { Task } from "@/app/task";
 import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
@@ -24,8 +23,8 @@ import { Window } from "@/app/window";
 import { Embedded } from "@/feature/embedded";
 import { Core } from "@/platform/core";
 import { Errors } from "@/platform/errors";
+import { FileBrowser } from "@/platform/file-browser";
 import { Runtime } from "@/platform/runtime";
-import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
 export interface AppProps extends Pick<Pluto.ContextProps, "workerURL"> {}
@@ -36,40 +35,34 @@ const SideEffect = (): null => {
   return null;
 };
 
-const DesktopContext = ({ children }: PropsWithChildren): ReactElement => (
-  <Embedded.Provider>
-    <Version.InstallProvider middleware={Embedded.installMiddleware}>
-      {children}
-    </Version.InstallProvider>
-  </Embedded.Provider>
-);
-
-const BuildContext = DESKTOP ? DesktopContext : Fragment;
+const BuildContext = DESKTOP ? Embedded.Provider : Fragment;
 
 const AnalyticsProvider = DESKTOP ? Analytics.Provider : Fragment;
+
+const BEFORE_CLOSE = DESKTOP ? Embedded.beforeClose : undefined;
 
 export const App = ({ workerURL }: AppProps): ReactElement => (
   <>
     <SideEffect />
     <Errors.OverlayWithoutStore>
       <BuildContext>
-        <Session.Context>
+        <Session.Context beforeClose={BEFORE_CLOSE}>
           <AnalyticsProvider>
             <Pluto.Context workerURL={workerURL}>
               {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}
               <Session.SettledProvider>
                 <Errors.OverlayWithStore>
-                  <Panel.Context>
-                    <Tree.Context>
-                      <Range.Context>
+                  <FileBrowser.Provider>
+                    <Panel.Context>
+                      <Tree.Context>
                         <Task.Context>
                           <Vis.Canvas>
                             <Window.Window />
                           </Vis.Canvas>
                         </Task.Context>
-                      </Range.Context>
-                    </Tree.Context>
-                  </Panel.Context>
+                      </Tree.Context>
+                    </Panel.Context>
+                  </FileBrowser.Provider>
                 </Errors.OverlayWithStore>
               </Session.SettledProvider>
             </Pluto.Context>

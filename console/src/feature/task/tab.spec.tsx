@@ -7,22 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, type task } from "@synnaxlabs/client";
+import { query, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Errors, Flux } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen, waitFor } from "@testing-library/react";
-import { type ComponentType, type FC } from "react";
+import type { ComponentType, FC } from "react";
 import { assert, describe, expect, it } from "vitest";
 
+import { EtherCAT } from "@/feature/ethercat";
+import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { HTTP } from "@/feature/http";
 import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
-import { type Task as PTask } from "@/platform/task";
+import type { Task as PTask } from "@/platform/task";
 import { createTaskStatus, renderTaskFormTab } from "@/platform/task/testutil";
-import { countEditableText, uniqueName } from "@/testutil";
+import { countEditableText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -80,6 +83,18 @@ describe("task tab", () => {
     await screen.findByText(name);
   });
 
+  it("should fade a task name too long for the tab", async () => {
+    const name = uniqueName("named");
+    const created = await client.tasks.create({
+      name,
+      type: "rack_status",
+      config: {},
+    });
+    await renderTaskFormTab(TabName, { client, taskKey: created.key });
+    const text = await screen.findByText(name);
+    expect(text.className).toContain("lyra-text--overflow-fade");
+  });
+
   it("should render the task's name as static text for an operator", async () => {
     const name = uniqueName("named");
     const created = await client.tasks.create({
@@ -126,23 +141,27 @@ describe("task tab", () => {
       type: "rack_status",
       config: {},
     });
-    await client.tasks.create({
-      ...created.payload,
-      status: createTaskStatus({ details: { task: created.key, running: true } }),
-    });
+    await client.statuses.set(
+      createTaskStatus({
+        owner: task.resourceID(created.key),
+        details: { running: true },
+      }),
+    );
     // Restore rebuilds from the corpse the cache holds, which exists only once
     // the client has seen the task live. The tab reads statuses, so the corpse
     // carries the running one the driver last reported.
     await client.tasks.retrieve({ key: created.key, includeStatus: true });
     await client.tasks.delete(created.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.tasks.getCached(created.key))).toBe(true),
+      expect(query.Deleted.matches(client.tasks.watch(created.key).getCached())).toBe(
+        true,
+      ),
     );
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
     });
-    await restore({ client, project: project.key, resource: created.ontologyID });
+    await restore({ client, project: project.key, resource: created.resourceID });
 
     // Read back through a second client: the restoring client write-throughs its own
     // cache, so retrieving on it would pass even if the Core never got it.
@@ -155,5 +174,66 @@ describe("task tab", () => {
     // The running instance died with the row, so core seeds the restored task as
     // never deployed instead of carrying the corpse's status forward.
     expect(restored.status?.variant).toEqual("disabled");
+  });
+
+  describe("an EtherCAT task", () => {
+    // Creates and deletes a read task that names a channel and a slave, then restores
+    // it.
+    const restoreReadTask = async (
+      deleted: "none" | "channel" | "slave",
+    ): Promise<task.Key> => {
+      const { restore } = Task.TAB;
+      assert(restore != null);
+      const ch = await client.channels.create({
+        name: uniqueName("owned"),
+        dataType: "float32",
+        virtual: true,
+      });
+      const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+      const slave = await createSlaveDevice(client, rack.key);
+      const created = await client.tasks.create({
+        name: uniqueName("ethercat"),
+        type: EtherCAT.Task.READ_TYPE,
+        config: EtherCAT.Task.READ_SCHEMAS.config.parse({
+          channels: [
+            {
+              ...EtherCAT.Task.createReadChannel([]),
+              channel: ch.key,
+              device: slave.key,
+            },
+          ],
+        }),
+      });
+      await client.tasks.retrieve({ key: created.key });
+      await client.tasks.delete(created.key);
+      if (deleted === "channel") await client.channels.delete(ch.key);
+      if (deleted === "slave") await client.devices.delete(slave.key);
+      await waitFor(() =>
+        expect(query.Deleted.matches(client.tasks.watch(created.key).getCached())).toBe(
+          true,
+        ),
+      );
+      const project = await client.projects.create({ name: uniqueName("proj") });
+      await restore({ client, project: project.key, resource: created.resourceID });
+      return created.key;
+    };
+
+    it("should restore a task whose channels and slaves exist", async () => {
+      const key = await restoreReadTask("none");
+      const restored = await createTestClient().tasks.retrieve({ key });
+      expect(restored.type).toEqual(EtherCAT.Task.READ_TYPE);
+    });
+
+    it("should say why a task whose channels were deleted cannot restore", async () => {
+      await expect(restoreReadTask("channel")).rejects.toThrow(
+        "The task uses channels that were deleted. Create the task again.",
+      );
+    });
+
+    it("should say why a task whose slave was deleted cannot restore", async () => {
+      await expect(restoreReadTask("slave")).rejects.toThrow(
+        "The task uses devices that were deleted. Create the task again.",
+      );
+    });
   });
 });

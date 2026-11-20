@@ -9,7 +9,7 @@
 
 import "@/lineplot/range/Provider.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -21,10 +21,18 @@ import { CSS } from "@/css";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
 
+/** The props of the menu of a range in the strip. */
+export interface MenuProps extends range.SelectedState {
+  /** Whether the plot is zoomed to the range. */
+  zoomed: boolean;
+  /** Zooms the plot to the range, or back to the view before it when zoomed. */
+  onZoom: () => void;
+}
+
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
-  menu?: Component.RenderProp<range.SelectedState>;
+  menu?: Component.RenderProp<MenuProps>;
 }
 
 export const Provider = ({
@@ -35,12 +43,20 @@ export const Provider = ({
   ...rest
 }: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
-  const { setViewport, setHold } = useContext("Range.Provider");
-  const [, { hovered, count }, setState] = Aether.use({
+  const { toggleZoom, zoomedKey } = useContext("Range.Provider");
+  const [, { hovered, height }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
     schema: range.providerStateZ,
-    initialState: { ...rest, visible, cursor: null, hovered: null, count: 0 },
+    initialState: {
+      ...rest,
+      visible,
+      cursor: null,
+      menuOpen: false,
+      hovered: null,
+      count: 0,
+      height: 0,
+    },
     onAetherChange: ({ count }: range.ProviderState) =>
       onHasAnnotationsChange?.(count > 0),
   });
@@ -49,15 +65,22 @@ export const Provider = ({
   }, [visible, setState]);
 
   const gridStyle = useGridEntry(
-    { key: cKey, loc: "top", size: visible && count > 0 ? 32 : 0, order: 3 },
+    { key: cKey, loc: "top", size: visible ? height : 0, order: 3 },
     "Range.Provider",
   );
 
   const menuProps = Menu.useContextMenu();
   const visibleRef = useSyncedRef(menuProps.visible);
+  useEffect(() => {
+    setState((s) => ({ ...s, menuOpen: menuProps.visible }));
+  }, [menuProps.visible, setState]);
 
-  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) =>
-    setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } }));
+  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    const canvas = document.querySelector(".pluto-canvas-container");
+    if (canvas == null) return;
+    const cursor = xy.sub(xy.construct(e), box.topLeft(canvas));
+    setState((state) => ({ ...state, cursor }));
+  };
 
   const handleMouseLeave: React.MouseEventHandler<HTMLDivElement> = () => {
     if (!visibleRef.current) setState((state) => ({ ...state, cursor: null }));
@@ -68,7 +91,11 @@ export const Provider = ({
       {...menuProps}
       menu={() => {
         if (menu == null || hovered == null) return null;
-        return menu(hovered);
+        return menu({
+          ...hovered,
+          zoomed: zoomedKey === hovered.key,
+          onZoom: () => toggleZoom(hovered.key, hovered.viewport),
+        });
       }}
     >
       <Flex.Box
@@ -80,18 +107,7 @@ export const Provider = ({
           menuProps.className,
         )}
         onClick={() => {
-          if (hovered != null) {
-            setViewport({
-              box: box.construct(
-                { x: hovered.viewport.lower, y: 0 },
-                { x: hovered.viewport.upper, y: 1 },
-              ),
-              mode: "zoom",
-              cursor: xy.ZERO,
-              stage: "start",
-            });
-            setHold(true);
-          }
+          if (hovered != null) toggleZoom(hovered.key, hovered.viewport);
         }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

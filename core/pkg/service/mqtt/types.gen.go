@@ -17,65 +17,75 @@ import "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 type QoS = versions.QoS
 
 const (
-	QoSAtMostOnce  QoS = versions.QoSAtMostOnce
+	// QoSAtMostOnce is level 0, which delivers a message at most once.
+	QoSAtMostOnce QoS = versions.QoSAtMostOnce
+	// QoSAtLeastOnce is level 1, which delivers a message at least once.
 	QoSAtLeastOnce QoS = versions.QoSAtLeastOnce
+	// QoSExactlyOnce is level 2, which delivers a message exactly once.
 	QoSExactlyOnce QoS = versions.QoSExactlyOnce
 )
-
-// TimeFormat is the encoding of a timestamp value within a JSON payload.
-type TimeFormat = versions.TimeFormat
-
-const (
-	TimeFormatISO8601 TimeFormat = versions.TimeFormatISO8601
-	TimeFormatUnixSec TimeFormat = versions.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = versions.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = versions.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = versions.TimeFormatUnixNs
-)
-
-// EnumEntry maps a string label in a JSON payload to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = versions.EnumEntry
 
 // SparkplugDataType is the Sparkplug B data type of a tag.
 type SparkplugDataType = versions.SparkplugDataType
 
 const (
-	SparkplugDataTypeInt8     SparkplugDataType = versions.SparkplugDataTypeInt8
-	SparkplugDataTypeInt16    SparkplugDataType = versions.SparkplugDataTypeInt16
-	SparkplugDataTypeInt32    SparkplugDataType = versions.SparkplugDataTypeInt32
-	SparkplugDataTypeInt64    SparkplugDataType = versions.SparkplugDataTypeInt64
-	SparkplugDataTypeUint8    SparkplugDataType = versions.SparkplugDataTypeUint8
-	SparkplugDataTypeUint16   SparkplugDataType = versions.SparkplugDataTypeUint16
-	SparkplugDataTypeUint32   SparkplugDataType = versions.SparkplugDataTypeUint32
-	SparkplugDataTypeUint64   SparkplugDataType = versions.SparkplugDataTypeUint64
-	SparkplugDataTypeFloat    SparkplugDataType = versions.SparkplugDataTypeFloat
-	SparkplugDataTypeDouble   SparkplugDataType = versions.SparkplugDataTypeDouble
-	SparkplugDataTypeBoolean  SparkplugDataType = versions.SparkplugDataTypeBoolean
-	SparkplugDataTypeString   SparkplugDataType = versions.SparkplugDataTypeString
+	// SparkplugDataTypeInt8 is a signed 8-bit integer.
+	SparkplugDataTypeInt8 SparkplugDataType = versions.SparkplugDataTypeInt8
+	// SparkplugDataTypeInt16 is a signed 16-bit integer.
+	SparkplugDataTypeInt16 SparkplugDataType = versions.SparkplugDataTypeInt16
+	// SparkplugDataTypeInt32 is a signed 32-bit integer.
+	SparkplugDataTypeInt32 SparkplugDataType = versions.SparkplugDataTypeInt32
+	// SparkplugDataTypeInt64 is a signed 64-bit integer.
+	SparkplugDataTypeInt64 SparkplugDataType = versions.SparkplugDataTypeInt64
+	// SparkplugDataTypeUint8 is an unsigned 8-bit integer.
+	SparkplugDataTypeUint8 SparkplugDataType = versions.SparkplugDataTypeUint8
+	// SparkplugDataTypeUint16 is an unsigned 16-bit integer.
+	SparkplugDataTypeUint16 SparkplugDataType = versions.SparkplugDataTypeUint16
+	// SparkplugDataTypeUint32 is an unsigned 32-bit integer.
+	SparkplugDataTypeUint32 SparkplugDataType = versions.SparkplugDataTypeUint32
+	// SparkplugDataTypeUint64 is an unsigned 64-bit integer.
+	SparkplugDataTypeUint64 SparkplugDataType = versions.SparkplugDataTypeUint64
+	// SparkplugDataTypeFloat is a 32-bit floating point number.
+	SparkplugDataTypeFloat SparkplugDataType = versions.SparkplugDataTypeFloat
+	// SparkplugDataTypeDouble is a 64-bit floating point number.
+	SparkplugDataTypeDouble SparkplugDataType = versions.SparkplugDataTypeDouble
+	// SparkplugDataTypeBoolean is a true or false value.
+	SparkplugDataTypeBoolean SparkplugDataType = versions.SparkplugDataTypeBoolean
+	// SparkplugDataTypeString is a string.
+	SparkplugDataTypeString SparkplugDataType = versions.SparkplugDataTypeString
+	// SparkplugDataTypeDateTime is a point in time, as milliseconds since the Unix
+	// epoch.
 	SparkplugDataTypeDateTime SparkplugDataType = versions.SparkplugDataTypeDateTime
 )
-
-// ReadField is a single value extracted from the JSON payload of a topic.
-type ReadField = versions.ReadField
 
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry = versions.BaseReadEntry
 
+// InlineEntry is a plain entry from before ICDs, which held its fields inline.
+type InlineEntry = versions.InlineEntry
+
+// InlineRead holds the plain entries of a read config from before ICDs.
+type InlineRead = versions.InlineRead
+
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
 // topic with a JSON payload or a Sparkplug B tag.
 type ReadEntry = versions.ReadEntry
+
+// ReadEntryVariant is implemented by every ReadEntry variant.
 type ReadEntryVariant = versions.ReadEntryVariant
+
+// ReadEntryType is the "type" value that selects a variant of ReadEntry.
 type ReadEntryType = versions.ReadEntryType
 
 const (
-	// PlainReadEntryType reads JSON payloads from one topic.
+	// PlainReadEntryType reads the JSON payloads of one topic as the messages of an
+	// ICD.
 	PlainReadEntryType ReadEntryType = versions.PlainReadEntryType
 	// SparkplugReadEntryType reads one Sparkplug B tag.
 	SparkplugReadEntryType ReadEntryType = versions.SparkplugReadEntryType
 )
 
-// PlainReadEntry reads JSON payloads from one topic.
+// PlainReadEntry reads the JSON payloads of one topic as the messages of an ICD.
 type PlainReadEntry = versions.PlainReadEntry
 
 // SparkplugReadEntry reads one Sparkplug B tag.
@@ -84,23 +94,6 @@ type SparkplugReadEntry = versions.SparkplugReadEntry
 // ReadConfig configures an MQTT read task, which subscribes to topics and Sparkplug B
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = versions.ReadConfig
-
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType = versions.JSONType
-
-const (
-	JSONTypeNumber  JSONType = versions.JSONTypeNumber
-	JSONTypeString  JSONType = versions.JSONTypeString
-	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
-)
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = versions.GeneratorType
-
-const (
-	GeneratorTypeUUID      GeneratorType = versions.GeneratorTypeUUID
-	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
-)
 
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField = versions.ChannelField
@@ -111,7 +104,11 @@ type BaseWriteField = versions.BaseWriteField
 // WriteField is an additional payload field on a plain write target. The type field
 // selects whether the value is fixed or generated per publish.
 type WriteField = versions.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant = versions.WriteFieldVariant
+
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType = versions.WriteFieldType
 
 const (
@@ -134,7 +131,11 @@ type BaseWriteTarget = versions.BaseWriteTarget
 // WriteTarget is a single destination of an MQTT write task. The type field selects a
 // plain topic with a JSON payload or a Sparkplug B tag command.
 type WriteTarget = versions.WriteTarget
+
+// WriteTargetVariant is implemented by every WriteTarget variant.
 type WriteTargetVariant = versions.WriteTargetVariant
+
+// WriteTargetType is the "type" value that selects a variant of WriteTarget.
 type WriteTargetType = versions.WriteTargetType
 
 const (
@@ -163,3 +164,6 @@ type EdgeTag = versions.EdgeTag
 // EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
 // as the tags of one edge node and writes inbound tag commands to Synnax channels.
 type EdgeConfig = versions.EdgeConfig
+
+// ReadField is a single value extracted from the JSON payload of a topic.
+type ReadField = versions.ReadField

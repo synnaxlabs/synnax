@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
@@ -33,6 +32,7 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB))
+			StartRun(db.Run)
 			wsKey := uuid.New()
 			layout := msgpack.EncodedJSON{"mosaic": "tree"}
 			legacyRow := gorptestutil.SetPreV54Row(
@@ -47,14 +47,11 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 				},
 			)
 
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			table := MustOpen(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[versions.Key, versions.Project]{
-					DB: db,
-					Migrations: versions.NewMigrations(
-						versions.MigrationsConfig{Ontology: otg},
-					),
+					DB:         db,
+					Migrations: versions.Migrations,
 				},
 			))
 
@@ -68,7 +65,7 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 
 			By("Staging the layout blob for the panel composition migration")
 			blob, closer := MustSucceed2(
-				db.Get(ctx, []byte(v1.LegacyLayoutKVPrefix+wsKey.String())),
+				db.Get([]byte(v1.LegacyLayoutKVPrefix + wsKey.String())),
 			)
 			var got msgpack.EncodedJSON
 			Expect(json.Unmarshal(blob, &got)).To(Succeed())
@@ -76,7 +73,7 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 			Expect(got).To(Equal(layout))
 
 			By("Deleting the legacy-prefix row")
-			Expect(db.Get(ctx, legacyRow)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacyRow)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 
@@ -84,14 +81,12 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 		"Should be a no-op on a store with no legacy-prefix rows",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			StartRun(db.Run)
 			table := MustOpen(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[versions.Key, versions.Project]{
-					DB: db,
-					Migrations: versions.NewMigrations(
-						versions.MigrationsConfig{Ontology: otg},
-					),
+					DB:         db,
+					Migrations: versions.Migrations,
 				},
 			))
 			Expect(table.NewRetrieve().

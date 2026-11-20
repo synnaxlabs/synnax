@@ -14,12 +14,13 @@ import { getViteConfig } from "astro/config";
 import path from "path";
 import { configDefaults, type ViteUserConfigFn } from "vitest/config";
 
-import { schema } from "./src/util/env";
+import { IMAGES, VERCEL_IMAGE_SERVICE } from "./src/util/images.ts";
 
 const BROWSER_SPECS = "src/**/*.browser.spec.tsx";
 
 const config: ViteUserConfigFn = getViteConfig(
   {
+    define: { __DOCS_VERSION__: "null" },
     test: {
       projects: [
         {
@@ -60,8 +61,9 @@ const config: ViteUserConfigFn = getViteConfig(
   {
     root: import.meta.dirname,
     configFile: false,
+    // Specs see the image URLs of production.
+    image: { domains: IMAGES.domains, service: VERCEL_IMAGE_SERVICE },
     integrations: [react()],
-    env: { schema },
   },
 );
 

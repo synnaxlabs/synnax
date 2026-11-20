@@ -1,0 +1,3405 @@
+{
+  "flowmeter_coriolis": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.72 2.6 0 21.19 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.72 23.79 2.86 4.95 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13.03 28.83 5.57 8.88 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13.08 37.8 2.64 4.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.72 17.39 2.84 4.92 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.98 22.39 5.54 8.83 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13 31.26 2.72 4.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.72 35.79 0 20.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "6.6 47.38 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.72 2.6 0 21.19 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.72 23.79 2.86 4.95 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13.03 28.83 5.57 8.88 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13.08 37.8 2.64 4.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.72 17.39 2.84 4.92 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.98 22.39 5.54 8.83 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13 31.26 2.72 4.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.72 35.79 0 20.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "6.6 47.38 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "30.43 4.2 0 42.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.43 46.59 5.71 9.89 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25.05 56.67 11.14 17.77 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25.16 74.61 5.27 8.78 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.43 33.79 5.69 9.85 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "24.96 43.79 11.08 17.66 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25 61.54 5.44 9.05 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.43 70.59 0 40.79 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 93.78 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "30.43 4.2 0 42.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.43 46.59 5.71 9.89 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25.05 56.67 11.14 17.77 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25.16 74.61 5.27 8.78 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.43 33.79 5.69 9.85 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "24.96 43.79 11.08 17.66 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25 61.54 5.44 9.05 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.43 70.59 0 40.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 93.78 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 15.08 21.2 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.8 12.22 4.95 2.86 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "28.84 12.2 8.88 5.57 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "37.81 15.08 4.39 2.64 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "17.4 12.24 4.93 2.84 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.4 12.28 8.83 5.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "31.27 15.08 4.53 2.72 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "35.8 15.08 20.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "47.4 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 15.08 21.2 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.8 12.22 4.95 2.86 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "28.84 12.2 8.88 5.57 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "37.81 15.08 4.39 2.64 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "17.4 12.24 4.93 2.84 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.4 12.28 8.83 5.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "31.27 15.08 4.53 2.72 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "35.8 15.08 20.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "47.4 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 29.16 42.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 23.45 9.89 5.71 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "56.68 23.4 17.77 11.15 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "74.62 29.16 8.78 5.27 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "33.8 23.47 9.85 5.69 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "43.8 23.56 17.66 11.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "61.54 29.16 9.05 5.44 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "70.6 29.16 40.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "93.79 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 29.16 42.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 23.45 9.89 5.71 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "56.68 23.4 17.77 11.15 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "74.62 29.16 8.78 5.27 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "33.8 23.47 9.85 5.69 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "43.8 23.56 17.66 11.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "61.54 29.16 9.05 5.44 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "70.6 29.16 40.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "93.79 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "35 15.72 21.2 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.05 15.72 4.95 2.86 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "21.07 13.03 8.88 5.57 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "16.6 13.08 4.39 2.64 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "36.47 15.72 4.93 2.84 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "27.57 12.98 8.83 5.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23 13 4.53 2.72 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "2.6 15.72 20.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "11.4 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "35 15.72 21.2 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.05 15.72 4.95 2.86 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "21.07 13.03 8.88 5.57 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "16.6 13.08 4.39 2.64 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "36.47 15.72 4.93 2.84 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "27.57 12.98 8.83 5.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23 13 4.53 2.72 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "2.6 15.72 20.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "11.4 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "69 30.43 42.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "59.1 30.43 9.89 5.71 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "41.15 25.05 17.77 11.15 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "32.2 25.16 8.78 5.27 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "71.94 30.43 9.85 5.69 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "54.14 24.95 17.66 11.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "45 24.99 9.05 5.44 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "4.2 30.43 40.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "21.8 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "69 30.43 42.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "59.1 30.43 9.89 5.71 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "41.15 25.05 17.77 11.15 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "32.2 25.16 8.78 5.27 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "71.94 30.43 9.85 5.69 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "54.14 24.95 17.66 11.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "45 24.99 9.05 5.44 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "4.2 30.43 40.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "21.8 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.08 34.99 0 21.19 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.23 30.04 2.86 4.95 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 21.07 5.57 8.88 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.08 16.59 2.64 4.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.24 36.46 2.84 4.92 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.28 27.56 5.54 8.83 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.08 22.99 2.72 4.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.08 2.6 0 20.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 11.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.08 34.99 0 21.19 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.23 30.04 2.86 4.95 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 21.07 5.57 8.88 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.08 16.59 2.64 4.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.24 36.46 2.84 4.92 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.28 27.56 5.54 8.83 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.08 22.99 2.72 4.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.08 2.6 0 20.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 11.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "29.16 68.99 0 42.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.45 59.1 5.71 9.89 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 41.14 11.14 17.77 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.16 32.19 5.27 8.78 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.47 71.93 5.69 9.85 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.56 54.13 11.08 17.66 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.16 44.99 5.44 9.05 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.16 4.2 0 40.79 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "47.39 21.8 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "29.16 68.99 0 42.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.45 59.1 5.71 9.89 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 41.14 11.14 17.77 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.16 32.19 5.27 8.78 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.47 71.93 5.69 9.85 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.56 54.13 11.08 17.66 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.16 44.99 5.44 9.05 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.16 4.2 0 40.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "47.39 21.8 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M2 17.6024H28.5",
+      "path d=M28.5 17.6024L34.6834 14.0324",
+      "path d=M34.8 14L45.9058 20.9666",
+      "path d=M51.5 17.6024L46.0141 20.8987",
+      "path d=M20.5 17.6024L26.6574 14.0474",
+      "path d=M26.75 14.1024L37.788 21.0265",
+      "path d=M43.5 17.6024L37.8427 21.0017",
+      "path d=M43.5 17.6024H69",
+      "text x=58 y=29 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_electromagnetic": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 38.99 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.8 13.4 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.8 19.79 3.2 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 26.19 3.2 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 32.59 3.2 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 47.38 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 38.99 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.8 13.4 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.8 19.79 3.2 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 26.19 3.2 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 32.59 3.2 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 47.38 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 76.99 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 25.8 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 38.59 6.4 12.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 51.39 6.4 12.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 64.19 6.4 12.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 93.78 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 76.99 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 25.8 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 38.59 6.4 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 51.39 6.4 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 64.19 6.4 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 93.78 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "39 15 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13.4 15 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "19.8 11.8 6.4 3.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "26.2 11.8 6.4 3.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "32.6 11.8 6.4 3.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "47.4 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "39 15 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13.4 15 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "19.8 11.8 6.4 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.2 11.8 6.4 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "32.6 11.8 6.4 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.4 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "76.99 29 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 29 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "38.6 22.6 12.8 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "51.4 22.6 12.8 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "64.2 22.6 12.8 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "93.79 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "76.99 29 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 29 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "38.6 22.6 12.8 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "51.4 22.6 12.8 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "64.2 22.6 12.8 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "93.79 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13.4 15.8 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "39 15.8 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "32.6 15.8 6.4 3.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "26.2 15.8 6.4 3.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "19.8 15.8 6.4 3.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "11.4 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.4 15.8 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "39 15.8 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "32.6 15.8 6.4 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.2 15.8 6.4 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "19.8 15.8 6.4 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "11.4 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 30.6 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "76.99 30.6 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "64.2 30.6 12.8 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "51.4 30.6 12.8 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "38.6 30.6 12.8 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 30.6 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "76.99 30.6 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "64.2 30.6 12.8 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "51.4 30.6 12.8 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "38.6 30.6 12.8 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15 13.4 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15 38.99 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "11.8 32.59 3.2 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "11.8 26.19 3.2 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "11.8 19.79 3.2 6.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 11.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15 13.4 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15 38.99 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "11.8 32.59 3.2 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "11.8 26.19 3.2 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "11.8 19.79 3.2 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 11.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "29 25.8 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29 76.99 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 64.19 6.4 12.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 51.39 6.4 12.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 38.59 6.4 12.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "47.39 21.8 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "29 25.8 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29 76.99 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 64.19 6.4 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 51.39 6.4 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 38.59 6.4 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.39 21.8 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M47.5 17.5H55.5",
+      "path d=M15.5 17.5H23.5",
+      "path d=M23.5 17.5C23.5 16.9747 23.6035 16.4546 23.8045 15.9693C24.0055 15.484 24.3001 15.043 24.6716 14.6716C25.043 14.3001 25.484 14.0055 25.9693 13.8045C26.4546 13.6035 26.9747 13.5 27.5 13.5C28.0253 13.5 28.5454 13.6035 29.0307 13.8045C29.516 14.0055 29.957 14.3001 30.3284 14.6716C30.6999 15.043 30.9945 15.484 31.1955 15.9693C31.3965 16.4546 31.5 16.9747 31.5 17.5",
+      "path d=M31.5 17.5C31.5 16.9747 31.6035 16.4546 31.8045 15.9693C32.0055 15.484 32.3001 15.043 32.6716 14.6716C33.043 14.3001 33.484 14.0055 33.9693 13.8045C34.4546 13.6035 34.9747 13.5 35.5 13.5C36.0253 13.5 36.5454 13.6035 37.0307 13.8045C37.516 14.0055 37.957 14.3001 38.3284 14.6716C38.6999 15.043 38.9945 15.484 39.1955 15.9693C39.3965 16.4546 39.5 16.9747 39.5 17.5",
+      "path d=M39.5 17.5C39.5 16.9747 39.6035 16.4546 39.8045 15.9693C40.0055 15.484 40.3001 15.043 40.6716 14.6716C41.043 14.3001 41.484 14.0055 41.9693 13.8045C42.4546 13.6035 42.9747 13.5 43.5 13.5C44.0253 13.5 44.5454 13.6035 45.0307 13.8045C45.516 14.0055 45.957 14.3001 46.3284 14.6716C46.6999 15.043 46.9945 15.484 47.1955 15.9693C47.3965 16.4546 47.5 16.9747 47.5 17.5",
+      "text x=58 y=29 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_float_sensor": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 20.99 0 16.79 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 25.79 0 7.2 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 21.03 15.1 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 32.99 15.1 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 20.99 0 16.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 25.79 0 7.2 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 21.03 15.1 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 32.99 15.1 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "45.79 40.99 0 33.59 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 50.59 0 14.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 41.07 30.21 9.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 64.99 30.21 9.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "45.79 40.99 0 33.59 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 50.59 0 14.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 41.07 30.21 9.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 64.99 30.21 9.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21 7.4 16.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 22.6 7.2 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "21.04 7.49 4.76 15.11 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "33 7.49 4.76 15.11 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21 7.4 16.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 22.6 7.2 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "21.04 7.49 4.76 15.11 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "33 7.49 4.76 15.11 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "41 13.8 33.6 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "50.6 44.2 14.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "41.07 13.98 9.53 30.21 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "65 13.98 9.53 30.21 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "41 13.8 33.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "50.6 44.2 14.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "41.07 13.98 9.53 30.21 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "65 13.98 9.53 30.21 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21 23.4 16.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 8.2 7.2 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "33 8.2 4.76 15.11 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "21.04 8.2 4.76 15.11 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21 23.4 16.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 8.2 7.2 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "33 8.2 4.76 15.11 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "21.04 8.2 4.76 15.11 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "41 45.8 33.6 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "50.6 15.4 14.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "65 15.4 9.53 30.21 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "41.07 15.4 9.53 30.21 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "41 45.8 33.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "50.6 15.4 14.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "65 15.4 9.53 30.21 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "41.07 15.4 9.53 30.21 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 20.99 0 16.79 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 25.79 0 7.2 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "7.49 32.99 15.1 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "7.49 21.03 15.1 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 20.99 0 16.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 25.79 0 7.2 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "7.49 32.99 15.1 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "7.49 21.03 15.1 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 40.99 0 33.59 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 50.59 0 14.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13.99 64.99 30.21 9.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13.99 41.07 30.21 9.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 40.99 0 33.59 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 50.59 0 14.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13.99 64.99 30.21 9.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13.99 41.07 30.21 9.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M25 8H46",
+      "path d=M31 27H40",
+      "path d=M31 27L25.046 8.11641",
+      "path d=M40 27L45.954 8.11641",
+      "text x=57 y=27 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_general": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "9.8 45.79 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "9.8 45.79 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 90.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 90.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "45.8 21 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "45.8 21 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "90.59 41 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "90.59 41 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13 9.8 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13 9.8 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25 18.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 18.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "text x=56 y=25 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_nozzle": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "20.2 20.19 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 20.19 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "11.4 20.19 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "3.4 20.19 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "20.2 20.19 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 20.19 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "11.4 20.19 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "3.4 20.19 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 39.39 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 39.39 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "21.8 39.39 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 39.39 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 39.39 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 39.39 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "21.8 39.39 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 39.39 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "20.2 2.6 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 10.6 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 19.4 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 19.4 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "20.2 2.6 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 10.6 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 19.4 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 19.4 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 4.2 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 20.2 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 37.8 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 37.8 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 4.2 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 20.2 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 37.8 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 37.8 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "38.6 20.2 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 20.2 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 11.4 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "38.6 3.4 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "38.6 20.2 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 20.2 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "30.6 11.4 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "38.6 3.4 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "76.19 39.4 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "60.2 39.4 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "60.2 21.8 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "76.19 5.8 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "76.19 39.4 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "60.2 39.4 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "60.2 21.8 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "76.19 5.8 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 38.59 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "10.6 30.59 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "19.4 30.59 0 8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "19.4 38.59 8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 38.59 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "10.6 30.59 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "19.4 30.59 0 8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "19.4 38.59 8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 76.19 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 60.19 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "37.8 60.19 0 16 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "37.8 76.19 16 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 76.19 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 60.19 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "37.8 60.19 0 16 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "37.8 76.19 16 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M24 2V7V12",
+      "path d=M24 12H34",
+      "path d=M24 23H29H34",
+      "path d=M24 33V23",
+      "text x=57 y=27 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_orifice": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "top 15.39 3.3",
+          "2": "bottom 15.39 57.44",
+          "3": "right 28.06 29.8",
+          "4": "left 3.58 29.8"
+        },
+        "shapes": [
+          "3.4 3 24.8 53.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 20.6 8.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "3.4 20.6 8.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "top 15.39 3.3",
+          "2": "bottom 15.39 57.44",
+          "3": "right 28.06 29.8",
+          "4": "left 3.58 29.8"
+        },
+        "shapes": [
+          "3.4 3 24.8 53.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 20.6 8.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "3.4 20.6 8.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "top 29.8 5.59",
+          "2": "bottom 29.8 113.88",
+          "3": "right 55.13 58.59",
+          "4": "left 6.17 58.59"
+        },
+        "shapes": [
+          "5.8 5 49.59 107.19 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 40.2 17.6 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 40.2 17.6 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.19 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "top 29.8 5.59",
+          "2": "bottom 29.8 113.88",
+          "3": "right 55.13 58.59",
+          "4": "left 6.17 58.59"
+        },
+        "shapes": [
+          "5.8 5 49.59 107.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 40.2 17.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 40.2 17.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.19 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "left 3.3 15.39",
+          "2": "right 57.44 15.39",
+          "3": "top 29.8 2.72",
+          "4": "bottom 29.8 27.2"
+        },
+        "shapes": [
+          "3 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "20.6 2.6 0 8.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "20.6 18.6 0 8.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "left 3.3 15.39",
+          "2": "right 57.44 15.39",
+          "3": "top 29.8 2.72",
+          "4": "bottom 29.8 27.2"
+        },
+        "shapes": [
+          "3 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "20.6 2.6 0 8.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "20.6 18.6 0 8.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "left 5.59 29.8",
+          "2": "right 113.88 29.8",
+          "3": "top 58.59 4.45",
+          "4": "bottom 58.59 53.41"
+        },
+        "shapes": [
+          "5 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "40.2 4.2 0 17.6 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "40.2 36.2 0 17.6 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "left 5.59 29.8",
+          "2": "right 113.88 29.8",
+          "3": "top 58.59 4.45",
+          "4": "bottom 58.59 53.41"
+        },
+        "shapes": [
+          "5 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.2 4.2 0 17.6 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "40.2 36.2 0 17.6 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "right 56.28 15.39",
+          "2": "left 2.14 15.39",
+          "3": "bottom 29.8 28.06",
+          "4": "top 29.8 3.58"
+        },
+        "shapes": [
+          "3 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "39 19.4 0 8.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "39 3.4 0 8.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "right 56.28 15.39",
+          "2": "left 2.14 15.39",
+          "3": "bottom 29.8 28.06",
+          "4": "top 29.8 3.58"
+        },
+        "shapes": [
+          "3 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "39 19.4 0 8.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "39 3.4 0 8.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "right 111.58 29.8",
+          "2": "left 3.3 29.8",
+          "3": "bottom 58.59 55.13",
+          "4": "top 58.59 6.17"
+        },
+        "shapes": [
+          "5 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "76.99 37.8 0 17.6 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "76.99 5.8 0 17.6 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "right 111.58 29.8",
+          "2": "left 3.3 29.8",
+          "3": "bottom 58.59 55.13",
+          "4": "top 58.59 6.17"
+        },
+        "shapes": [
+          "5 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "76.99 37.8 0 17.6 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "76.99 5.8 0 17.6 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "bottom 15.39 56.28",
+          "2": "top 15.39 2.14",
+          "3": "left 2.72 29.8",
+          "4": "right 27.2 29.8"
+        },
+        "shapes": [
+          "2.6 3 24.8 53.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 39 8.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "18.6 39 8.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "bottom 15.39 56.28",
+          "2": "top 15.39 2.14",
+          "3": "left 2.72 29.8",
+          "4": "right 27.2 29.8"
+        },
+        "shapes": [
+          "2.6 3 24.8 53.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 39 8.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "18.6 39 8.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "bottom 29.8 111.58",
+          "2": "top 29.8 3.3",
+          "3": "left 4.45 58.59",
+          "4": "right 53.41 58.59"
+        },
+        "shapes": [
+          "4.2 5 49.59 107.19 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 76.99 17.6 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "36.2 76.99 17.6 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "44.2 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "bottom 29.8 111.58",
+          "2": "top 29.8 3.3",
+          "3": "left 4.45 58.59",
+          "4": "right 53.41 58.59"
+        },
+        "shapes": [
+          "4.2 5 49.59 107.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 76.99 17.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "36.2 76.99 17.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "44.2 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2.5 y=2 width=67 height=31 rx=2",
+      "path d=M24.5 2V7.5V13",
+      "path d=M24.5 33V22",
+      "text x=57 y=27 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_positive_displacement": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "top 15.39 3.3",
+          "2": "bottom 15.39 57.44",
+          "3": "right 28.06 29.8",
+          "4": "left 3.58 29.8"
+        },
+        "shapes": [
+          "3.4 2.6 24.8 53.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 26.6 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "8.6 26.6 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "8.2 46.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "top 15.39 3.3",
+          "2": "bottom 15.39 57.44",
+          "3": "right 28.06 29.8",
+          "4": "left 3.58 29.8"
+        },
+        "shapes": [
+          "3.4 2.6 24.8 53.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 26.6 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "8.6 26.6 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "8.2 46.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "top 29.8 5.59",
+          "2": "bottom 29.8 113.88",
+          "3": "right 55.13 58.59",
+          "4": "left 6.17 58.59"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.19 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 52.19 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 52.19 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.4 92.19 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "top 29.8 5.59",
+          "2": "bottom 29.8 113.88",
+          "3": "right 55.13 58.59",
+          "4": "left 6.17 58.59"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 52.19 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 52.19 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.4 92.19 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "left 3.3 15.39",
+          "2": "right 57.44 15.39",
+          "3": "top 29.8 2.72",
+          "4": "bottom 29.8 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 7.8 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 15 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "left 3.3 15.39",
+          "2": "right 57.44 15.39",
+          "3": "top 29.8 2.72",
+          "4": "bottom 29.8 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 7.8 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 15 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "left 5.59 29.8",
+          "2": "right 113.88 29.8",
+          "3": "top 58.59 4.45",
+          "4": "bottom 58.59 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "52.19 14.6 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "52.19 29 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "left 5.59 29.8",
+          "2": "right 113.88 29.8",
+          "3": "top 58.59 4.45",
+          "4": "bottom 58.59 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "52.19 14.6 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "52.19 29 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "right 56.28 15.39",
+          "2": "left 2.14 15.39",
+          "3": "bottom 29.8 28.06",
+          "4": "top 29.8 3.58"
+        },
+        "shapes": [
+          "3.4 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 15.8 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 8.6 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "right 56.28 15.39",
+          "2": "left 2.14 15.39",
+          "3": "bottom 29.8 28.06",
+          "4": "top 29.8 3.58"
+        },
+        "shapes": [
+          "3.4 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 15.8 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 8.6 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "right 111.58 29.8",
+          "2": "left 3.3 29.8",
+          "3": "bottom 58.59 55.13",
+          "4": "top 58.59 6.17"
+        },
+        "shapes": [
+          "5.8 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "50.59 30.6 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "50.59 16.2 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "right 111.58 29.8",
+          "2": "left 3.3 29.8",
+          "3": "bottom 58.59 55.13",
+          "4": "top 58.59 6.17"
+        },
+        "shapes": [
+          "5.8 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "50.59 30.6 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "50.59 16.2 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "bottom 15.39 56.28",
+          "2": "top 15.39 2.14",
+          "3": "left 2.72 29.8",
+          "4": "right 27.2 29.8"
+        },
+        "shapes": [
+          "2.6 3.4 24.8 53.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "7.8 25.8 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15 25.8 7.2 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "bottom 15.39 56.28",
+          "2": "top 15.39 2.14",
+          "3": "left 2.72 29.8",
+          "4": "right 27.2 29.8"
+        },
+        "shapes": [
+          "2.6 3.4 24.8 53.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "7.8 25.8 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15 25.8 7.2 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "bottom 29.8 111.58",
+          "2": "top 29.8 3.3",
+          "3": "left 4.45 58.59",
+          "4": "right 53.41 58.59"
+        },
+        "shapes": [
+          "4.2 5.8 49.59 107.19 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "14.6 50.59 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "29 50.59 14.4 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "bottom 29.8 111.58",
+          "2": "top 29.8 3.3",
+          "3": "left 4.45 58.59",
+          "4": "right 53.41 58.59"
+        },
+        "shapes": [
+          "4.2 5.8 49.59 107.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "14.6 50.59 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "29 50.59 14.4 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M41 13C41 15.4853 38.9853 17.5 36.5 17.5C34.0147 17.5 32 15.4853 32 13C32 10.5147 34.0147 8.5 36.5 8.5C38.9853 8.5 41 10.5147 41 13Z",
+      "path d=M41 22C41 24.4853 38.9853 26.5 36.5 26.5C34.0147 26.5 32 24.4853 32 22C32 19.5147 34.0147 17.5 36.5 17.5C38.9853 17.5 41 19.5147 41 22Z",
+      "text x=57 y=27 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_pulse": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "19 25.79 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 19.39 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 32.19 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 32.19 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 25.79 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "19 25.79 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 19.39 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 32.19 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 32.19 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.6 25.79 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "37 50.59 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 37.79 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 63.39 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 63.39 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 50.59 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "37 50.59 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 37.79 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 63.39 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 63.39 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 50.59 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 11.8 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "19.4 18.2 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "32.2 18.2 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "32.2 11.8 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 11.8 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25.8 11.8 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "19.4 18.2 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "32.2 18.2 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "32.2 11.8 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25.8 11.8 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "50.6 22.6 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "37.8 35.4 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "63.4 35.4 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "63.4 22.6 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "50.6 22.6 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "50.6 22.6 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "37.8 35.4 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "63.4 35.4 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "63.4 22.6 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "50.6 22.6 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 19 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "33 12.6 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 12.6 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "26.6 12.6 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "33 12.6 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 19 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "33 12.6 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "20.2 12.6 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "26.6 12.6 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "33 12.6 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "52.2 37 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "65 24.2 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 24.2 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "52.2 24.2 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "65 24.2 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "52.2 37 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "65 24.2 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "39.4 24.2 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "52.2 24.2 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "65 24.2 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "11.8 26.59 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "18.2 32.99 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "18.2 20.19 0 6.4 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "11.8 26.59 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "11.8 32.99 6.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "11.8 26.59 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "18.2 32.99 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "18.2 20.19 0 6.4 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "11.8 26.59 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "11.8 32.99 6.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 52.19 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "35.4 64.99 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "35.4 39.39 0 12.8 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 52.19 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 64.99 12.8 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 52.19 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "35.4 64.99 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "35.4 39.39 0 12.8 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 52.19 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 64.99 12.8 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M31 13.5H39",
+      "path d=M23 21.5H31",
+      "path d=M39 21.5H47",
+      "path d=M39 13.5V21.5",
+      "path d=M31 13.5V21.5",
+      "text x=57 y=27 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_ring_piston": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 1.94",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.14 29.39",
+          "4": "left 2.61 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 21.79 16.79 16.79 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 24.99 10.4 10.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 45.79 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 1.94",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.14 29.39",
+          "4": "left 2.61 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 21.79 16.79 16.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 24.99 10.4 10.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 45.79 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 2.89",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.3 57.78",
+          "4": "left 4.22 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 42.59 33.59 33.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 48.99 20.8 20.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 90.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 2.89",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.3 57.78",
+          "4": "left 4.22 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 42.59 33.59 33.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 48.99 20.8 20.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 90.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 1.94 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.64",
+          "4": "bottom 29.39 28.17"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 6.6 16.8 16.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25 13 10.4 10.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "45.8 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 1.94 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.64",
+          "4": "bottom 29.39 28.17"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 6.6 16.8 16.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 13 10.4 10.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "45.8 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 2.89 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.28",
+          "4": "bottom 57.8 55.36"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "42.6 12.2 33.6 33.6 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "49 25 20.8 20.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "90.59 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 2.89 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.28",
+          "4": "bottom 57.8 55.36"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "42.6 12.2 33.6 33.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "49 25 20.8 20.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "90.59 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 56.84 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.14",
+          "4": "top 29.39 2.61"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "20.2 7.4 16.8 16.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 7.4 10.4 10.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 56.84 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.14",
+          "4": "top 29.39 2.61"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "20.2 7.4 16.8 16.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 7.4 10.4 10.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 112.69 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.3",
+          "4": "top 57.8 4.22"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 13.8 33.6 33.6 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "45.8 13.8 20.8 20.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 112.69 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.3",
+          "4": "top 57.8 4.22"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 13.8 33.6 33.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "45.8 13.8 20.8 20.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 56.83",
+          "2": "top 15.39 2.13",
+          "3": "left 2.64 29.39",
+          "4": "right 28.17 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 20.19 16.79 16.79 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13 23.39 10.4 10.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 56.83",
+          "2": "top 15.39 2.13",
+          "3": "left 2.64 29.39",
+          "4": "right 28.17 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 20.19 16.79 16.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13 23.39 10.4 10.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 112.67",
+          "2": "top 29.8 3.27",
+          "3": "left 4.28 57.78",
+          "4": "right 55.36 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 39.39 33.59 33.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "25 45.79 20.8 20.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "47.39 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 112.67",
+          "2": "top 29.8 3.27",
+          "3": "left 4.28 57.78",
+          "4": "right 55.36 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 39.39 33.59 33.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 45.79 20.8 20.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.39 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "circle cx=36.5 cy=17.5 r=10.5",
+      "circle cx=36.5 cy=21.5 r=6.5",
+      "text x=56 y=29 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_turbine": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 14.2 0 30.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "16.06 26.99 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "9 29.41 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "9 26.99 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "16.06 29.41 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 26.99 2.4 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 26.99 2.4 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.8 14.2 0 30.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "16.06 26.99 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "9 29.41 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "9 26.99 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "16.06 29.41 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.6 26.99 2.4 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.6 26.99 2.4 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 27.39 0 60.79 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "31.12 52.99 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "17 57.83 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "17 52.99 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "31.12 57.83 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 52.99 4.8 9.6 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 52.99 4.8 9.6 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "30.6 27.39 0 60.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "31.12 52.99 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "17 57.83 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "17 52.99 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "31.12 57.83 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "44.19 52.99 4.8 9.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 52.99 4.8 9.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "14.2 15 30.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "27 8.2 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 15.26 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "27 15.26 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 8.2 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "27 5.8 4.8 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "27 21.8 4.8 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "14.2 15 30.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "27 8.2 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 15.26 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "27 15.26 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 8.2 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "27 5.8 4.8 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27 21.8 4.8 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 29 60.79 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "53 15.4 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 29.52 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "53 29.52 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 15.4 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "53 10.6 9.6 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "53 42.6 9.6 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 29 60.79 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "53 15.4 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 29.52 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "53 29.52 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 15.4 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "53 10.6 9.6 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53 42.6 9.6 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "14.2 15.8 30.4 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 16.06 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "27 9 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 9 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "27 16.06 2.38 6.54 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "27 22.6 4.8 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "27 6.6 4.8 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "14.2 15.8 30.4 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 16.06 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "27 9 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.42 9 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "27 16.06 2.38 6.54 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "27 22.6 4.8 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27 6.6 4.8 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 30.6 60.79 0 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 31.12 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "53 17 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 17 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "53 31.12 4.76 13.08 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "53 44.2 9.6 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "53 12.2 9.6 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 30.6 60.79 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 31.12 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "53 17 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "57.84 17 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "53 31.12 4.76 13.08 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "53 44.2 9.6 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53 12.2 9.6 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15 14.2 0 30.39 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 29.41 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.26 26.99 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.26 29.41 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 26.99 6.54 2.38 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 26.99 2.4 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 26.99 2.4 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15 14.2 0 30.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 29.41 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.26 26.99 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.26 29.41 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "8.2 26.99 6.54 2.38 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 26.99 2.4 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 26.99 2.4 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "29 27.39 0 60.79 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 57.83 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.52 52.99 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "29.52 57.83 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 52.99 13.08 4.76 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "10.6 52.99 4.8 9.6 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "42.59 52.99 4.8 9.6 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "29 27.39 0 60.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 57.83 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.52 52.99 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "29.52 57.83 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "15.4 52.99 13.08 4.76 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "10.6 52.99 4.8 9.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "42.59 52.99 4.8 9.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M16.5 17.5H54.5",
+      "path d=M32.5 9L35.4756 17.1753",
+      "path d=M38.5 26L35.5244 17.8247",
+      "path d=M32.5 26L35.4756 17.8247",
+      "path d=M38.5 9L35.5244 17.1753",
+      "path d=M32.5 9C32.5 8.20435 32.8161 7.44129 33.3787 6.87868C33.9413 6.31607 34.7044 6 35.5 6C36.2956 6 37.0587 6.31607 37.6213 6.87868C38.1839 7.44129 38.5 8.20435 38.5 9",
+      "path d=M38.5 26C38.5 26.7956 38.1839 27.5587 37.6213 28.1213C37.0587 28.6839 36.2956 29 35.5 29C34.7044 29 33.9413 28.6839 33.3787 28.1213C32.8161 27.5587 32.5 26.7956 32.5 26",
+      "text x=57 y=27 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_variable_area": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "9.8 37.79 12 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 19.39 7.2 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 19.39 2.4 18.39 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "9.8 19.39 2.4 18.39 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.64",
+          "3": "right 28.06 29.39",
+          "4": "left 3.58 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "9.8 37.79 12 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 19.39 7.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 19.39 2.4 18.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "9.8 19.39 2.4 18.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "8.2 46.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 74.59 24 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 37.79 14.4 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 37.79 4.8 36.79 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 37.79 4.8 36.79 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.3",
+          "3": "right 55.13 57.78",
+          "4": "left 6.17 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 74.59 24 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 37.79 14.4 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 37.79 4.8 36.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 37.79 4.8 36.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "15.4 92.18 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 9 0 12 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 11.4 0 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 9 18.4 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 18.6 18.4 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.66 15.39",
+          "3": "top 29.39 2.72",
+          "4": "bottom 29.39 27.2"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 9 0 12 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 11.4 0 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 9 18.4 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "19.4 18.6 18.4 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "46.6 22.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "74.6 17 0 24 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 21.8 0 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 17 36.8 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 36.2 36.8 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.31 29.8",
+          "3": "top 57.8 4.45",
+          "4": "bottom 57.8 53.41"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "74.6 17 0 24 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 21.8 0 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 17 36.8 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "37.8 36.2 36.8 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "92.19 44.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21 9.8 0 12 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 12.2 0 7.2 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21 19.4 18.4 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21 9.8 18.4 2.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 2.13 15.39",
+          "3": "bottom 29.39 28.06",
+          "4": "top 29.39 3.58"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21 9.8 0 12 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "39.4 12.2 0 7.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21 19.4 18.4 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21 9.8 18.4 2.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "12.2 8.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "41 18.6 0 24 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "77.79 23.4 0 14.4 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "41 37.8 36.8 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "41 18.6 36.8 4.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 3.27 29.8",
+          "3": "bottom 57.8 55.13",
+          "4": "top 57.8 6.17"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "41 18.6 0 24 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "77.79 23.4 0 14.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "41 37.8 36.8 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "41 18.6 36.8 4.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "23.4 15.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "9 20.99 12 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "11.4 39.39 7.2 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "9 20.99 2.4 18.39 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 20.99 2.4 18.39 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 2.13",
+          "3": "left 2.72 29.39",
+          "4": "right 27.2 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "9 20.99 12 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "11.4 39.39 7.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "9 20.99 2.4 18.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "18.6 20.99 2.4 18.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "17 40.99 24 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 77.79 14.4 0 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "17 40.99 4.8 36.79 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "36.2 40.99 4.8 36.79 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 3.27",
+          "3": "left 4.45 57.78",
+          "4": "right 53.41 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "17 40.99 24 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 77.79 14.4 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "17 40.99 4.8 36.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "36.2 40.99 4.8 36.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "44.19 23.4 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M46 10V25",
+      "path d=M23 13V22",
+      "path d=M23 13L46 10",
+      "path d=M23 22L46 25",
+      "text x=57 y=27 F"
+    ],
+    "root": "div"
+  },
+  "flowmeter_venturi": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.83",
+          "3": "right 28.14 29.39",
+          "4": "left 2.61 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "3.4 7.4 8.56 14.82 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "19.64 7.4 8.56 14.82 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "3.4 22.26 8.56 23.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "19.63 22.26 8.56 23.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "6.6 45.79 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "top 15.39 3.27",
+          "2": "bottom 15.39 56.83",
+          "3": "right 28.14 29.39",
+          "4": "left 2.61 29.39"
+        },
+        "shapes": [
+          "3.4 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.4 7.4 8.56 14.82 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "19.64 7.4 8.56 14.82 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "3.4 22.26 8.56 23.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "19.63 22.26 8.56 23.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "6.6 45.79 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.67",
+          "3": "right 55.3 57.78",
+          "4": "left 4.22 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "5.8 13.8 17.12 29.65 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "38.28 13.8 17.12 29.65 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 43.53 17.13 47.05 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "38.27 43.53 17.13 47.05 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 90.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "top 29.8 5.53",
+          "2": "bottom 29.8 112.67",
+          "3": "right 55.3 57.78",
+          "4": "left 4.22 57.78"
+        },
+        "shapes": [
+          "5.8 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5.8 13.8 17.12 29.65 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "38.28 13.8 17.12 29.65 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "5.8 43.53 17.13 47.05 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "38.27 43.53 17.13 47.05 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "12.2 90.58 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.84 15.39",
+          "3": "top 29.39 2.64",
+          "4": "bottom 29.39 28.17"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 18.84 14.82 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "7.4 2.6 14.82 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.27 18.83 23.53 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "22.27 2.6 23.53 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "45.8 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "left 3.27 15.39",
+          "2": "right 56.84 15.39",
+          "3": "top 29.39 2.64",
+          "4": "bottom 29.39 28.17"
+        },
+        "shapes": [
+          "2.6 2.6 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 18.84 14.82 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "7.4 2.6 14.82 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.27 18.83 23.53 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "22.27 2.6 23.53 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "45.8 24.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.69 29.8",
+          "3": "top 57.8 4.28",
+          "4": "bottom 57.8 55.36"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 36.68 29.65 17.12 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13.8 4.2 29.65 17.12 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "43.54 36.67 47.05 17.13 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "43.54 4.2 47.05 17.13 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "90.59 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "left 5.53 29.8",
+          "2": "right 112.69 29.8",
+          "3": "top 57.8 4.28",
+          "4": "bottom 57.8 55.36"
+        },
+        "shapes": [
+          "4.2 4.2 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 36.68 29.65 17.12 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13.8 4.2 29.65 17.12 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "43.54 36.67 47.05 17.13 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "43.54 4.2 47.05 17.13 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "90.59 47.39 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 1.94 15.39",
+          "3": "bottom 29.39 28.14",
+          "4": "top 29.39 2.61"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "36.57 3.4 14.82 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "36.57 19.64 14.82 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13 3.4 23.53 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13 19.63 23.53 8.56 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "13 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 56.8 28.8",
+        "handles": {
+          "1": "right 55.52 15.39",
+          "2": "left 1.94 15.39",
+          "3": "bottom 29.39 28.14",
+          "4": "top 29.39 2.61"
+        },
+        "shapes": [
+          "2.6 3.4 53.59 24.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "36.57 3.4 14.82 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "36.57 19.64 14.82 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13 3.4 23.53 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13 19.63 23.53 8.56 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "13 6.6 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 2.89 29.8",
+          "3": "bottom 57.8 55.3",
+          "4": "top 57.8 4.22"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "72.14 5.8 29.65 17.12 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "72.14 38.28 29.65 17.12 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25 5.8 47.05 17.13 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25 38.27 47.05 17.13 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "25 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 113.59 57.59",
+        "handles": {
+          "1": "right 110.05 29.8",
+          "2": "left 2.89 29.8",
+          "3": "bottom 57.8 55.3",
+          "4": "top 57.8 4.22"
+        },
+        "shapes": [
+          "4.2 5.8 107.19 49.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "72.14 5.8 29.65 17.12 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "72.14 38.28 29.65 17.12 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25 5.8 47.05 17.13 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25 38.27 47.05 17.13 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "25 12.2 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 1.94",
+          "3": "left 2.64 29.39",
+          "4": "right 28.17 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "18.84 36.56 8.56 14.82 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "2.6 36.56 8.56 14.82 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "18.83 13 8.56 23.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "2.6 13 8.56 23.52 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 28.8 56.78",
+        "handles": {
+          "1": "bottom 15.39 55.5",
+          "2": "top 15.39 1.94",
+          "3": "left 2.64 29.39",
+          "4": "right 28.17 29.39"
+        },
+        "shapes": [
+          "2.6 2.6 24.79 53.58 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "18.84 36.56 8.56 14.82 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "2.6 36.56 8.56 14.82 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "18.83 13 8.56 23.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "2.6 13 8.56 23.52 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "24.2 13 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 2.89",
+          "3": "left 4.28 57.78",
+          "4": "right 55.36 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.01 0.01 none) | none | 2px | butt | none | non-scaling-stroke",
+          "36.68 72.13 17.12 29.65 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "4.2 72.13 17.12 29.65 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "36.67 25 17.13 47.05 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "4.2 25 17.13 47.05 | oklch(0.01 0.01 none) | none | 2px | round | none | non-scaling-stroke",
+          "47.39 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(46, 48, 52) | 2px | butt | none | none"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 57.59 113.58",
+        "handles": {
+          "1": "bottom 29.8 110.03",
+          "2": "top 29.8 2.89",
+          "3": "left 4.28 57.78",
+          "4": "right 55.36 57.78"
+        },
+        "shapes": [
+          "4.2 4.2 49.59 107.18 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "36.68 72.13 17.12 29.65 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "4.2 72.13 17.12 29.65 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "36.67 25 17.13 47.05 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "4.2 25 17.13 47.05 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke",
+          "47.39 25 12px / 16px \"Inter Variable\", sans-serif start auto | none | rgb(62, 142, 247) | 2px | butt | none | none"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2 width=67 height=31 rx=2",
+      "path d=M8 33L26.5329 22.3",
+      "path d=M8 2L26.5329 12.7",
+      "path d=M56 33L26.5876 22.2948",
+      "path d=M56 2L26.5876 12.7052",
+      "text x=56 y=29 F"
+    ],
+    "root": "div"
+  }
+}

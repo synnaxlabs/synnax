@@ -39,7 +39,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   task:
@@ -56,4 +55,17 @@ jobs:
         ${{ github.event.client_payload.agent || inputs.agent != 'default' &&
         inputs.agent || '' }}
       output: ${{ github.event.client_payload.output || inputs.output || 'pr' }}
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  relay-failure:
+    name: Relay the failure
+    needs: [task]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

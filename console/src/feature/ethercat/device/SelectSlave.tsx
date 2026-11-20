@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type ReactElement } from "react";
+import { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { HARDWARE } from "@/feature/ethercat/device/hardware";
 import { useCommonNetwork } from "@/feature/ethercat/device/queries";
@@ -18,24 +19,21 @@ import {
   SLAVE_MODEL,
   type SlaveProperties,
 } from "@/feature/ethercat/device/types";
-import { type Channel } from "@/feature/ethercat/task/types";
+import type { Channel } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 
-export interface SelectSlaveProps {
+const root = deep.path<{ config: { channels: Channel[] } }>();
+
+export interface SelectSlaveProps extends Pick<Device.SelectProps, "onChange"> {
   /** Path to the slave device field in the form. */
-  path: string;
-  /** Path to the channels array to get already-selected slaves. */
-  channelsPath?: string;
+  path: deep.Target<device.Key>;
 }
 
 const filterByNetwork = (d: device.Device, network: string) =>
   network === "" || (d.properties as SlaveProperties | undefined)?.network === network;
 
-export const SelectSlave = ({
-  path,
-  channelsPath = "config.channels",
-}: SelectSlaveProps): ReactElement => {
-  const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
+export const SelectSlave = ({ path, onChange }: SelectSlaveProps): ReactElement => {
+  const channels = Form.useFieldValue(root.config.channels) ?? [];
   const network = useCommonNetwork(channels);
   const configure = Device.useConfigureModal();
   const find = Device.useFindModal();
@@ -43,12 +41,15 @@ export const SelectSlave = ({
   return (
     <Device.Select
       path={path}
-      label="Slave device"
+      label="Device"
       onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
-      emptyContent="No EtherCAT slaves discovered"
+      emptyContent="No EtherCAT devices discovered"
       make={MAKE}
       model={SLAVE_MODEL}
+      icon={HARDWARE.icon}
+      locationFormat={HARDWARE.location}
       filter={filter}
+      onChange={onChange}
       connect={{
         title: HARDWARE.title,
         open: () => find({ hardware: HARDWARE, filter }),

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import {
   type Aggregation,
   type color,
@@ -16,10 +16,12 @@ import {
   observe,
   type TimeStamp,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import {
   type BooleanSourceSpec,
   type ColorSourceSpec,
+  type Edge,
   type NumberSourceSpec,
   type Result,
   type Source,
@@ -30,35 +32,48 @@ import {
 } from "@/telem/aether/telem";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
 
-export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
+const propsZ = z.object({ testId: z.string() });
+
+export class TestSource<V> implements Source<V>, Telem {
+  private readonly observer = new observe.Observer<void>();
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
   status: status.Status = SUCCESS_STATUS;
   aggregation?: Aggregation;
+  sorted?: boolean;
+  edge?: Edge;
   time?: TimeStamp;
   appended?: number;
   private _value: V;
   private _destructor: destructor.Destructor;
 
   constructor(initialValue: V) {
-    super();
     this.id = id.create();
     this._value = initialValue;
     this._destructor = registerInstance(this.id, this);
   }
 
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
+  }
+
   value(_props?: ValueProps): Result<V> {
-    const { status, aggregation, time, appended } = this;
-    return { data: this._value, status, aggregation, time, appended };
+    const { status, aggregation, sorted, edge, time, appended } = this;
+    return { data: this._value, status, aggregation, sorted, edge, time, appended };
   }
 
   setValue(v: V): void {
     this._value = v;
-    this.notify();
+    this.observer.notify();
   }
 
   cleanup(): void {
     this._destructor();
+  }
+
+  // Takes the props of a spec for the same test source.
+  update(props: unknown): boolean {
+    return propsZ.parse(props).testId === this.id;
   }
 }
 

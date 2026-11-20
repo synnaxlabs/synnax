@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { trustCA } from "@synnaxlabs/freighter";
 import {
   array,
   breaker,
   type CrudeTimeSpan,
+  disposable,
   observe,
   sleep,
   TimeSpan,
@@ -24,25 +26,32 @@ import { z } from "zod";
 import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
+import { batch } from "@/batch";
+import { certificate } from "@/certificate";
 import { channel } from "@/channel";
+import { color } from "@/color";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
+import { enumeration } from "@/enumeration";
+import { nodeSystem, resolveParams } from "@/env";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
+import { icd } from "@/icd";
 import { imex } from "@/imex";
 import { label } from "@/label";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
-import { ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { schematic } from "@/schematic";
+import { secret } from "@/secret";
 import { status } from "@/status";
 import { table } from "@/table";
 import { task } from "@/task";
@@ -71,8 +80,20 @@ export const synnaxParamsZ = z.object({
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
+  /**
+   * The PEM text of a CA certificate that signs the Core's certificate, trusted along
+   * with the runtime's default certificates. Turns on secure unless secure is false,
+   * which is an error. Node.js and Bun only: in Deno, leave it out and start Deno with
+   * --cert.
+   */
+  caCert: z
+    .string()
+    .refine((s) => s.includes("-----BEGIN CERTIFICATE-----"), {
+      message: "The CA certificate must be PEM text, not a file path",
+    })
+    .optional(),
   name: z.string().optional(),
-  retry: breaker.breakerConfigZ.optional(),
+  retry: breaker.configZ.optional(),
   cache: z.boolean().default(true),
   /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer
@@ -93,16 +114,29 @@ export const synnaxParamsZ = z.object({
 });
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
-const constructorParamsZ = synnaxParamsZ.refine(
-  (p) => p.apiKey == null || (p.username == null && p.password == null),
-  {
+const constructorParamsZ = synnaxParamsZ
+  .refine((p) => p.apiKey == null || (p.username == null && p.password == null), {
     message: "Give either an API key or a username and password, not both",
     path: ["apiKey"],
-  },
-);
+  })
+  .refine((p) => p.caCert == null || p.secure, {
+    message: "caCert requires secure; leave secure out or set it to true",
+    path: ["secure"],
+  });
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
+
+/**
+ * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
+ * SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables fill the
+ * fields left out.
+ * With no host from either, Synnax Desktop on this computer fills them.
+ */
+export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
+  host?: string;
+  port?: number | string;
+}
 
 /**
  * The authority a client logs in with: its credentials when both are given or its API
@@ -125,14 +159,74 @@ const authorityOf = ({
   persistent: sessionPersistent,
 });
 
+const changes = (set: string, del: string): resource.Channels => ({ set, delete: del });
+
+// A null entry is a type with no change channels, whose searches do not stay current.
+const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
+  arc: changes(arc.SET_CHANNEL_NAME, arc.DELETE_CHANNEL_NAME),
+  arc_directory: changes(
+    arc.directory.ACTION_CHANNEL_NAME,
+    arc.directory.DELETE_CHANNEL_NAME,
+  ),
+  builtin: null,
+  certificate: changes(
+    certificate.ACTION_CHANNEL_NAME,
+    certificate.DELETE_CHANNEL_NAME,
+  ),
+  channel: changes(channel.ACTION_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
+  color: changes(color.ACTION_CHANNEL_NAME, color.DELETE_CHANNEL_NAME),
+  device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  enumeration: changes(
+    enumeration.ACTION_CHANNEL_NAME,
+    enumeration.DELETE_CHANNEL_NAME,
+  ),
+  ethercat_master: null,
+  ethercat_slave: null,
+  framer: null,
+  group: changes(group.ACTION_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
+  http_server: null,
+  icd: changes(icd.ACTION_CHANNEL_NAME, icd.DELETE_CHANNEL_NAME),
+  label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
+  labjack_device: null,
+  lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
+  log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
+  modbus_server: null,
+  ni_chassis: null,
+  ni_device: null,
+  node: null,
+  opcua_server: null,
+  panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
+  policy: changes(access.policy.ACTION_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
+  project: changes(project.ACTION_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
+  rack: changes(rack.ACTION_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
+  range: changes(ranger.ACTION_CHANNEL_NAME, ranger.DELETE_CHANNEL_NAME),
+  "range-alias": null,
+  role: changes(access.role.ACTION_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
+  schematic: changes(schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME),
+  schematic_symbol: changes(
+    schematic.symbol.ACTION_CHANNEL_NAME,
+    schematic.symbol.DELETE_CHANNEL_NAME,
+  ),
+  secret: changes(secret.ACTION_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
+  status: changes(status.SET_CHANNEL_NAME, status.DELETE_CHANNEL_NAME),
+  table: changes(table.SET_CHANNEL_NAME, table.DELETE_CHANNEL_NAME),
+  task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
+  user: changes(user.ACTION_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
+  view: changes(view.ACTION_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
+};
+
 /**
  * Client to perform operations against a Synnax cluster.
  * @property channel - Channel client for creating and retrieving channels.
  * @property data - Data client for reading and writing telemetry.
  * @property connection - The connection state machine.
- * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   readonly key: string;
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;
@@ -142,9 +236,11 @@ export default class Synnax extends framer.Client {
   readonly users: user.Client;
   readonly access: access.Client;
   readonly connection: connection.Handle;
-  readonly ontology: ontology.Client;
+  readonly resources: resource.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
+  readonly colors: color.Client;
+  readonly enumerations: enumeration.Client;
   readonly license: license.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
@@ -153,12 +249,16 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly secrets: secret.Client;
+  readonly certificates: certificate.Client;
+  readonly icds: icd.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
   readonly logs: log.Client;
   readonly tables: table.Client;
   readonly groups: group.Client;
+  readonly batch: batch.Client;
   readonly imex: imex.Client;
   private readonly cache: query.Cache;
   private readonly transport: Transport;
@@ -168,35 +268,67 @@ export default class Synnax extends framer.Client {
   readonly clientVersion: string = __VERSION__;
 
   /**
-   * @param props.host - Hostname of a node in the cluster.
-   * @param props.port - Port of the node in the cluster.
+   * @param props.host - Hostname of a node in the cluster. Defaults to SYNNAX_HOST,
+   * then the Core of Synnax Desktop on this computer.
+   * @param props.port - Port of the node in the cluster. Defaults to SYNNAX_PORT, then
+   * the port of Synnax Desktop when it gives the host, then 9090.
    * @param props.username - Username for authentication, with props.password.
    * @param props.password - Password for authentication, with props.username.
    * @param props.apiKey - API key for authentication, in place of a username and
-   * password.
+   * password. Defaults to SYNNAX_API_KEY, then the key of Synnax Desktop when it gives
+   * the host. Used only when no credentials or token are given.
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
-   * @param props.sessionPersistent - Whether closing the client leaves its session open,
-   * for a caller that saves the session token.
+   * @param props.sessionPersistent - Whether closing the client leaves its session
+   * open, for a caller that saves the session token.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
-   * be configured to support TLS. Defaults to false. A Synnax client must be closed
-   * when it is no longer needed. This stops the connection machine and closes the
-   * change stream.
+   * be configured to support TLS. Defaults to true with props.caCert, else to
+   * SYNNAX_SECURE (true with SYNNAX_CA_CERT), then the value of Synnax Desktop when it
+   * gives the host, then false.
+   * A Synnax client must be closed when it is no longer needed. This stops the
+   * connection machine and closes the change stream.
+   * @param props.caCert - The PEM text of a CA certificate that signs the Core's
+   * certificate. Turns on props.secure when it is not given. When props.secure and
+   * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
+   * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
+   * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
+   * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
+   * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
+   * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
+   * old, or if its key helper fails.
+   * @throws {Unreachable} If the key helper of Synnax Desktop is gone.
+   * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
+   * Deno.
    */
-  constructor(params: SynnaxParams) {
-    const parsedParams = zod.parse(constructorParamsZ, params);
+  constructor(params: ConstructorParams = {}) {
+    const system = nodeSystem();
+    const parsedParams = zod.parse(
+      constructorParamsZ,
+      resolveParams(params, globalThis.process?.env, system),
+    );
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
-    const transport = new Transport(
-      new url.URL({ host, port: Number(port) }),
+    const address = new url.URL({ host, port: Number(port) });
+    const { caCert } = parsedParams;
+    // Deno's WebSocket cannot use the CA, so the client's change stream never opens.
+    if (caCert != null && system?.caCertUnsupported === true)
+      throw new Error(
+        "Deno cannot use caCert. Leave it out and start Deno with --cert <file>.",
+      );
+    const connector = caCert == null ? undefined : trustCA(caCert);
+    const transport = new Transport({
+      url: address,
       retry,
       secure,
-      parsedParams.onRetry,
-    );
+      onRetry: parsedParams.onRetry,
+      connector,
+    });
     transport.use(errorsMiddleware);
+    const tokenless = new Transport({ url: address, secure, connector });
+    tokenless.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
     const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
       const result = await this.channels.retrieve(
@@ -227,6 +359,7 @@ export default class Synnax extends framer.Client {
     this.cache = cache;
     this.conn = new connection.Client({
       unary: transport.unaryNoRetry,
+      tokenless: tokenless.unaryNoRetry,
       address: `${host}:${Number(port)}`,
       name: parsedParams.name,
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
@@ -257,21 +390,26 @@ export default class Synnax extends framer.Client {
     this.params = parsedParams;
     this.transport = transport;
     const unary = this.transport.unary;
-    this.ontology = new ontology.Client({ unary, cache });
+    this.batch = new batch.Client(unary);
+    this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
     this.license = new license.Client({ unary, connection: this.conn, cache });
-    this.labels = new label.Client({ unary, cache, ontology: this.ontology });
-    this.statuses = new status.Client({
+    this.labels = new label.Client({
       unary,
       cache,
-      ontology: this.ontology,
-      labels: this.labels,
+      relabel: {
+        [ranger.TYPE_RESOURCE_ID.type]: (key, update) =>
+          this.ranges.relabel(key, update),
+        [status.TYPE_RESOURCE_ID.type]: (key, update) =>
+          this.statuses.relabel(key, update),
+      },
     });
+    this.colors = new color.Client({ unary, cache });
+    this.enumerations = new enumeration.Client({ unary, cache });
+    this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,
       unary,
-      channels: retrieveChannels,
       labels: this.labels,
-      ontology: this.ontology,
       cache,
     });
     this.channels = new channel.Client({
@@ -279,30 +417,30 @@ export default class Synnax extends framer.Client {
       unary,
       writer: chCreator,
       statuses: this.statuses,
-      ranges: this.ranges,
       cache,
-      ontology: this.ontology,
+      batch: this.batch,
     });
     this.control = new control.Client({ unary, cache });
-    this.access = new access.Client({ unary, cache, ontology: this.ontology });
     this.users = new user.Client({
       unary,
       cache,
-      ontology: this.ontology,
+      batch: this.batch,
       connection: this.conn,
       identity,
+    });
+    this.access = new access.Client({
+      unary,
+      cache,
+      users: this.users,
     });
     this.projects = new project.Client({
       unary,
       file: this.transport.file,
       cache,
-      ontology: this.ontology,
     });
     this.tasks = new task.Client({
       unary,
       framer: this,
-      ontology: this.ontology,
-      ranges: this.ranges,
       cache,
       statuses: this.statuses,
     });
@@ -310,44 +448,61 @@ export default class Synnax extends framer.Client {
       unary,
       tasks: this.tasks,
       cache,
-      statusStore: this.statuses.store,
-      ontology: this.ontology,
+      statuses: this.statuses,
     });
     this.devices = new device.Client({
       unary,
       cache,
-      statusStore: this.statuses.store,
-      ontology: this.ontology,
+      statuses: this.statuses,
     });
     this.arcs = new arc.Client({
       unary,
       stream: this.transport.stream,
-      ontology: this.ontology,
       tasks: this.tasks,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
+      batch: this.batch,
     });
-    this.views = new view.Client({ unary, cache, ontology: this.ontology });
+    this.views = new view.Client({ unary, cache });
+    this.secrets = new secret.Client({
+      unary,
+      cache,
+      usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
+    });
+    this.certificates = new certificate.Client({ unary, cache });
+    this.icds = new icd.Client({ unary, cache });
     this.groups = new group.Client({
       unary,
-      ontology: this.ontology,
       cache,
+      batch: this.batch,
+      setGroup: {
+        channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
+        color: (keys, to) => this.colors.setGroupRequest(keys, to),
+        device: (keys, to) => this.devices.setGroupRequest(keys, to),
+        lineplot: (keys, to) => this.lineplots.setGroupRequest(keys, to),
+        log: (keys, to) => this.logs.setGroupRequest(keys, to),
+        panel: (keys, to) => this.panels.setGroupRequest(keys, to),
+        project: (keys, to) => this.projects.setGroupRequest(keys, to),
+        rack: (keys, to) => this.racks.setGroupRequest(keys.map(Number), to),
+        schematic: (keys, to) => this.schematics.setGroupRequest(keys, to),
+        schematic_symbol: (keys, to) =>
+          this.schematics.symbols.setGroupRequest(keys, to),
+        table: (keys, to) => this.tables.setGroupRequest(keys, to),
+      },
     });
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,
-      ontology: this.ontology,
       cache,
       groupStore: this.groups.store,
     });
-    this.lineplots = new lineplot.Client({ unary, cache, ontology: this.ontology });
+    this.lineplots = new lineplot.Client({ unary, cache });
     this.panels = new panel.Client({
       unary,
-      ontology: this.ontology,
       cache,
     });
-    this.logs = new log.Client({ unary, cache, ontology: this.ontology });
-    this.tables = new table.Client({ unary, cache, ontology: this.ontology });
+    this.logs = new log.Client({ unary, cache });
+    this.tables = new table.Client({ unary, cache });
     this.imex = new imex.Client({ file: this.transport.file });
   }
 

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type table } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { channel, table } from "@synnaxlabs/client";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -65,21 +65,17 @@ const COLUMNS = [
 const HEADER_HEIGHT = 54;
 const ROW_HEIGHT = 74;
 /** A gray that reads as a faint tint on both themes. */
-const HEADER_FILL = "#80808033";
+const HEADER_FILL = { type: "fixed", value: "#80808033" } as const;
 /** A gray legible on both themes, a step quieter than the labels. */
-const UNITS_COLOR = "#8a8f98";
+const UNITS_COLOR = { type: "fixed", value: "#8a8f98" } as const;
 
-type Cells = NonNullable<table.New["cells"]>;
-type CellConfig = Cells[string];
+type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
+type CellConfig = Cell["config"];
 
 /** readings lays out a header and each reading's label, units, and live value. */
 const readings = (keys: Map<string, channel.Key>): table.New => {
-  const cells: Cells = {};
-  const add = (config: CellConfig): string => {
-    const key = `cell-${Object.keys(cells).length}`;
-    cells[key] = config;
-    return key;
-  };
+  let count = 0;
+  const add = (config: CellConfig): Cell => ({ key: `cell-${count++}`, config });
   const header = {
     key: "header",
     size: HEADER_HEIGHT,
@@ -114,7 +110,7 @@ const readings = (keys: Map<string, channel.Key>): table.New => {
       ],
     };
   });
-  return { name: NAME, columns: COLUMNS, rows: [header, ...rows], cells };
+  return { name: NAME, columns: COLUMNS, rows: [header, ...rows] };
 };
 
 /**
@@ -132,10 +128,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     if (tpc == null) throw new Error(`no project named "${world.project}"`);
     const channels = await client.channels.retrieve(READINGS.map(([, name]) => name));
-    await client.tables.create(
-      tpc.key,
-      readings(new Map(channels.map((ch) => [ch.name, ch.key]))),
-    );
+    await client.tables.create({
+      ...readings(new Map(channels.map((ch) => [ch.name, ch.key]))),
+      project: tpc.key,
+    });
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Operations", { exact: true }).first());

@@ -10,12 +10,15 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
-import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { shortenKeepAlive } from "@synnaxlabs/client/testutil";
+import { installDragEvent, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
+
+await shortenKeepAlive();
 
 // Live-Core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.
@@ -35,6 +38,8 @@ installTestWebSocket();
 
 preloadTimeLanguage();
 
+installDragEvent();
+
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
@@ -43,6 +48,22 @@ beforeAll(() => {
   HTMLElement.prototype.releasePointerCapture = () => {};
   HTMLElement.prototype.hasPointerCapture = () => false;
   Element.prototype.scrollIntoView = () => {};
+  // jsdom does not implement matchMedia. Every query reports no match and never
+  // changes.
+  vi.stubGlobal("matchMedia", (media: string): MediaQueryList =>
+    Object.assign(new EventTarget(), {
+      media,
+      matches: false,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+    }),
+  );
+  // jsdom has no font set. Fonts never load, so no load event fires.
+  Object.defineProperty(document, "fonts", {
+    value: new EventTarget(),
+    configurable: true,
+  });
 });
 
 afterAll(() => {

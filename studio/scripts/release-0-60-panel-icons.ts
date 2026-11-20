@@ -35,7 +35,10 @@ const style = async (client: Synnax): Promise<void> => {
       (p) => p.name === name,
     );
     if (found == null) throw new Error(`no panel named "${name}"`);
-    const actions = [panel.setIcon({ icon }), panel.setColor({ color })];
+    const actions = [
+      panel.setIcon({ icon }),
+      panel.setColor({ color: { type: "fixed", value: color } }),
+    ];
     if (!(await client.panels.dispatch(found.key, actions)))
       throw new Error(`the ${name} panel is not cached`);
   }
@@ -69,7 +72,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const menu = page.locator(".lyra-menu-context").first();
     await session.waitFor(menu);
     await session.click(menu.getByText("Change icon", { exact: true }).first());
-    await session.waitFor(page.locator(".console-panel-icon-picker").first());
+    await session.waitFor(page.locator(".console-appearance-dialog").first());
 
     // On the empty part of the main nav, so nothing on screen shows its hover state.
     await session.moveTo({ x: 26, y: 600 });

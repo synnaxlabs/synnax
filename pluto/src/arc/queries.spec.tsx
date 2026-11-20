@@ -13,9 +13,9 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { crdt, id, uuid } from "@synnaxlabs/x";
+import { crdt, deep, id } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import {
   afterEach,
   assert,
@@ -32,6 +32,13 @@ import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = Arc.formPath;
+
+const graphOf = (a: arc.Arc): arc.graph.Graph => {
+  if (a.source.mode !== "graph") throw new Error("expected a graph-mode Arc");
+  return a.source.graph;
+};
 
 describe("Arc queries", () => {
   let controller: AbortController;
@@ -53,23 +60,26 @@ describe("Arc queries", () => {
   const createTestArc = async (overrides: Partial<arc.New> = {}): Promise<arc.Arc> =>
     await client.arcs.create({
       name: `arc_${id.create()}`,
-      mode: "graph",
-      graph: {
-        nodes: [
-          { key: "n1", position: { x: 0, y: 0 } },
-          { key: "n2", position: { x: 10, y: 10 } },
-        ],
-        edges: [
-          {
-            key: "edge1",
-            source: { node: "n1", param: "out" },
-            target: { node: "n2", param: "in" },
-            kind: arc.ir.EdgeKind.continuous,
+      type: "automation",
+      source: {
+        mode: "graph",
+        graph: {
+          nodes: [
+            { key: "n1", position: { x: 0, y: 0 } },
+            { key: "n2", position: { x: 10, y: 10 } },
+          ],
+          edges: [
+            {
+              key: "edge1",
+              source: { node: "n1", param: "out" },
+              target: { node: "n2", param: "in" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          ],
+          inputs: {
+            n1: { type: "constant", value: 0 },
+            n2: { type: "constant", value: 1 },
           },
-        ],
-        inputs: {
-          n1: { type: "constant", value: 0 },
-          n2: { type: "constant", value: 1 },
         },
       },
       ...overrides,
@@ -107,178 +117,8 @@ describe("Arc queries", () => {
     return a;
   };
 
-  describe("useList", () => {
-    it("should update an item read by key when it changes", async () => {
-      const item = await client.arcs.create({ name: "original", mode: "text" });
-      const { result } = renderHook(
-        () => {
-          const list = Arc.useList({ useCachedList: false });
-          return Flux.useListItem({
-            subscribe: list.subscribe,
-            getItem: list.getItem,
-            key: item.key,
-          });
-        },
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current?.name).toEqual("original"));
-      await act(async () => {
-        await client.arcs.dispatch(item.key, [arc.rename({ name: "updated" })]);
-      });
-      await waitFor(() => expect(result.current?.name).toEqual("updated"));
-    });
-
-    it("should return a list of arcs", async () => {
-      const arc1 = await client.arcs.create({
-        name: "arc1",
-        mode: "text",
-      });
-      const arc2 = await client.arcs.create({
-        name: "arc2",
-        mode: "text",
-      });
-
-      const { result } = renderHook(() => Arc.useList({}), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(arc1.key);
-      expect(result.current.data).toContain(arc2.key);
-
-      const retrievedArc1 = result.current.getItem(arc1.key);
-      expect(retrievedArc1?.name).toBe("arc1");
-      const retrievedArc2 = result.current.getItem(arc2.key);
-      expect(retrievedArc2?.name).toBe("arc2");
-    });
-
-    it("should update when a new arc is added", async () => {
-      const { result } = renderHook(
-        () => ({ list: Arc.useList({}), create: Arc.useCreate() }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.list.retrieve({});
-      });
-
-      await waitFor(() => {
-        expect(result.current.list.variant).toEqual("success");
-      });
-
-      const name = `new-arc-${id.create()}`;
-      await act(async () => {
-        await result.current.create.updateAsync({ name, mode: "text" });
-      });
-
-      await waitFor(() => {
-        const names = result.current.list.data.map(
-          (key) => result.current.list.getItem(key)?.name,
-        );
-        expect(names).toContain(name);
-      });
-    });
-
-    it("should update when an arc is modified", async () => {
-      const key = uuid.create();
-      const { result } = renderHook(
-        () => ({ list: Arc.useList({}), create: Arc.useCreate() }),
-        { wrapper },
-      );
-
-      await act(async () => {
-        await result.current.create.updateAsync({
-          key,
-          name: "original-name",
-          mode: "text",
-        });
-      });
-
-      act(() => {
-        result.current.list.retrieve({});
-      });
-
-      await waitFor(() => {
-        expect(result.current.list.variant).toEqual("success");
-      });
-
-      expect(result.current.list.getItem(key)?.name).toEqual("original-name");
-
-      await act(async () => {
-        await client.arcs.dispatch(key, [arc.rename({ name: "updated-name" })]);
-      });
-
-      await waitFor(() => {
-        expect(result.current.list.getItem(key)?.name).toEqual("updated-name");
-      });
-    });
-
-    it("should remove arc from list when deleted", async () => {
-      const testArc = await client.arcs.create({
-        name: "to-delete",
-        mode: "text",
-      });
-
-      const { result } = renderHook(() => Arc.useList({}), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(result.current.data).toContain(testArc.key);
-
-      await act(async () => {
-        await client.arcs.delete(testArc.key);
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testArc.key);
-      });
-    });
-
-    it("should filter arcs by keys", async () => {
-      const arc1 = await client.arcs.create({
-        name: "filter-arc-1",
-        mode: "text",
-      });
-      const arc2 = await client.arcs.create({
-        name: "filter-arc-2",
-        mode: "text",
-      });
-      await client.arcs.create({
-        name: "filter-arc-3",
-        mode: "text",
-      });
-
-      const { result } = renderHook(() => Arc.useList({}), { wrapper });
-
-      act(() => {
-        result.current.retrieve({ keys: [arc1.key, arc2.key] });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data).toContain(arc1.key);
-      expect(result.current.data).toContain(arc2.key);
-
-      const retrievedArc1 = result.current.getItem(arc1.key);
-      expect(retrievedArc1?.name).toBe("filter-arc-1");
-      const retrievedArc2 = result.current.getItem(arc2.key);
-      expect(retrievedArc2?.name).toBe("filter-arc-2");
-    });
+  describe("list", () => {
+    const named = (name: string) => ({ where: { name: { in: [name] } } });
 
     it("hydrates the cache for a list-only arc so its doc selectors resolve", async () => {
       // Created on a second client so the local session never wrote it; the
@@ -286,16 +126,15 @@ describe("Arc queries", () => {
       const remote = createTestClient();
       const a = await remote.arcs.create({
         name: `hydrate-${id.create()}`,
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
-      const { result } = renderHook(() => Arc.useList({}), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
+      const { result } = renderHook(
+        () => Flux.useList((c) => c.arcs, { name: "Arcs", query: named(a.name) }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([a.key]));
 
       const { result: hasText } = renderHook(() => Arc.useHasText({ key: a.key }), {
         wrapper,
@@ -303,50 +142,33 @@ describe("Arc queries", () => {
       expect(hasText.current).toBe(true);
     });
 
-    it("reflects a live rename on an arc only loaded via the list", async () => {
-      const originalName = `list-only-${id.create()}`;
-      const a = await client.arcs.create({ name: originalName, mode: "text" });
-      const { result } = renderHook(
-        () => ({ list: Arc.useList({}), rename: Arc.useRename() }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.list.variant).toEqual("success");
-        expect(result.current.list.getItem(a.key)?.name).toEqual(originalName);
-      });
-
-      const newName = `list-only-renamed-${id.create()}`;
-      await act(async () => {
-        await result.current.rename.updateAsync({ key: a.key, name: newName });
-      });
-
-      await waitFor(() => {
-        expect(result.current.list.getItem(a.key)?.name).toEqual(newName);
-      });
-    });
-
-    it("does not replace a loaded arc's cached entry when the list refetches", async () => {
+    it("does not replace a loaded arc's cached entry when the list fetches", async () => {
       const a = await createAndLoadArc();
       const { result } = renderHook(
-        () => ({ list: Arc.useList({}), nodes: Arc.useAllNodes({ key: a.key }) }),
+        () => ({
+          list: Flux.useList((c) => c.arcs, { name: "Arcs", query: named(a.name) }),
+          nodes: Arc.useAllNodes({ key: a.key }),
+        }),
         { wrapper },
       );
       const initialNodes = result.current.nodes;
       expect(initialNodes.map((n) => n.key)).toEqual(["n1", "n2"]);
+      act(() => result.current.list.more());
+      await waitFor(() => expect(result.current.list.data).toEqual([a.key]));
+      expect(result.current.nodes).toBe(initialNodes);
+    });
+  });
 
-      act(() => {
-        result.current.list.retrieve({});
+  describe("useResultList", () => {
+    it("finds an arc by its name", async () => {
+      const a = await createTestArc();
+      const { result } = renderHook(() => Arc.useResultList({ searchTerm: a.name }), {
+        wrapper,
       });
       await waitFor(() => {
-        expect(result.current.list.variant).toEqual("success");
-        expect(result.current.list.getItem(a.key)).toBeDefined();
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.map(({ key }) => key)).toContain(a.key);
       });
-
-      expect(result.current.nodes).toBe(initialNodes);
     });
   });
 
@@ -354,7 +176,8 @@ describe("Arc queries", () => {
     it("should delete a single arc", async () => {
       const testArc = await client.arcs.create({
         name: "delete-single",
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
 
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
@@ -373,11 +196,13 @@ describe("Arc queries", () => {
     it("should delete multiple arcs", async () => {
       const arc1 = await client.arcs.create({
         name: "delete-multi-1",
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
       const arc2 = await client.arcs.create({
         name: "delete-multi-2",
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
 
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
@@ -399,12 +224,13 @@ describe("Arc queries", () => {
     it("should create a new arc", async () => {
       const { result } = renderHook(() => Arc.useCreate(), { wrapper });
 
-      const uniqueName = `created-arc-${Math.random().toString(36).substring(7)}`;
+      const uniqueName = `created-arc-${id.create()}`;
 
       await act(async () => {
         await result.current.updateAsync({
           name: uniqueName,
-          mode: "text",
+          type: "automation",
+          source: { mode: "text" },
         });
       });
 
@@ -417,17 +243,17 @@ describe("Arc queries", () => {
       const { result } = renderHook(() => Arc.useCreate(), { wrapper });
       const name = `arc_no_task_${id.create()}`;
       await act(async () => {
-        await result.current.updateAsync({ name, mode: "text" });
+        await result.current.updateAsync({
+          name,
+          type: "automation",
+          source: { mode: "text" },
+        });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
       const createdArc = await client.arcs.retrieve({ name });
-      const children = await client.ontology.children.retrieve({
-        ids: arc.ontologyID(createdArc.key),
-      });
-      const taskChildren = children.filter((c) => c.id.type === "task");
-      expect(taskChildren).toHaveLength(0);
+      expect(await client.arcs.task.retrieve(createdArc.key)).toBeNull();
     });
   });
 
@@ -436,7 +262,8 @@ describe("Arc queries", () => {
       const testRack = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_deploy_${id.create()}`,
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -460,7 +287,8 @@ describe("Arc queries", () => {
       const rack2 = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_move_${id.create()}`,
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -480,19 +308,16 @@ describe("Arc queries", () => {
 
       const moved = await client.tasks.retrieve(first.key);
       expect(moved.rack).toBe(rack2.key);
-      const children = await client.ontology.children.retrieve({
-        ids: arc.ontologyID(created.key),
-        types: ["task"],
-      });
-      expect(children).toHaveLength(1);
-      expect(children[0].id.key).toBe(first.key);
+      const arcTasks = await client.tasks.retrieve({ arcs: [created.key] });
+      expect(arcTasks.map((t) => t.key)).toEqual([first.key]);
     });
 
     it("clears the rack with a zero rack, deleting the task", async () => {
       const testRack = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_undeploy_${id.create()}`,
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -516,7 +341,8 @@ describe("Arc queries", () => {
       const testRack = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_performance_${id.create()}`,
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -546,6 +372,7 @@ describe("Arc queries", () => {
       const formData = result.current.form.value();
       expect(formData.name).toBe("");
       expect(formData.mode).toBe("text");
+      expect(formData.type).toBe("automation");
       expect(formData.key).toBeUndefined();
     });
 
@@ -554,11 +381,11 @@ describe("Arc queries", () => {
 
       await waitFor(() => expect(result.current.variant).toBe("success"));
 
-      const uniqueName = `form-arc-${Math.random().toString(36).substring(7)}`;
+      const uniqueName = `form-arc-${id.create()}`;
 
       act(() => {
-        result.current.form.set("name", uniqueName);
-        result.current.form.set("mode", "text");
+        result.current.form.set(path.name, uniqueName);
+        result.current.form.set(path.mode, "text");
       });
 
       await act(async () => {
@@ -574,7 +401,24 @@ describe("Arc queries", () => {
       assert(key != null);
       const created = await client.arcs.retrieve(key);
       expect(created.name).toEqual(uniqueName);
-      expect(created.mode).toEqual("text");
+      expect(created.source.mode).toEqual("text");
+    });
+
+    it("should create a graph-mode arc when the form picks graph", async () => {
+      const { result } = renderHook(() => Arc.useForm({ query: {} }), { wrapper });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      act(() => {
+        result.current.form.set(path.name, `form-graph-${id.create()}`);
+        result.current.form.set(path.mode, "graph");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.form.value().key).toBeDefined());
+      const { key } = result.current.form.value();
+      assert(key != null);
+      const created = await client.arcs.retrieve(key);
+      expect(created.source.mode).toEqual("graph");
     });
 
     it("should not create an arc when the name is empty", async () => {
@@ -587,7 +431,23 @@ describe("Arc queries", () => {
       });
 
       expect(result.current.form.value().key).toBeUndefined();
-      expect(result.current.form.get("name").status.variant).toBe("error");
+      expect(result.current.form.get(path.name).status.variant).toBe("error");
+    });
+
+    it("should not create a module whose name is not an identifier", async () => {
+      const { result } = renderHook(() => Arc.useForm({ query: {} }), { wrapper });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      act(() => {
+        result.current.form.set(path.name, "bad name");
+        result.current.form.set(path.type, "module");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      expect(result.current.form.value().key).toBeUndefined();
+      const { status } = result.current.form.get(path.name);
+      expect(status.variant).toBe("error");
+      expect(status.message).toContain("must start with a letter or underscore");
     });
   });
 
@@ -608,15 +468,23 @@ describe("Arc queries", () => {
 
     const createStatusArc = async (): Promise<arc.Arc> =>
       await createTestArc({
-        graph: {
-          nodes: [
-            { key: "n1", position: { x: 0, y: 0 } },
-            { key: "n2", position: { x: 10, y: 10 } },
-          ],
-          edges: [],
-          inputs: { n1: STATUS_INPUTS, n2: { ...STATUS_INPUTS, key_or_name: "fault" } },
+        source: {
+          mode: "graph",
+          graph: {
+            nodes: [
+              { key: "n1", position: { x: 0, y: 0 } },
+              { key: "n2", position: { x: 10, y: 10 } },
+            ],
+            edges: [],
+            inputs: {
+              n1: STATUS_INPUTS,
+              n2: { ...STATUS_INPUTS, key_or_name: "fault" },
+            },
+          },
         },
       });
+
+    const inputs = deep.path<typeof STATUS_INPUTS>();
 
     const renderForm = async (key: arc.Key) =>
       await renderHookSuspended(
@@ -626,7 +494,7 @@ describe("Arc queries", () => {
 
     // A fresh client reads the Core. A streaming client's cache can lag a dispatch.
     const fetchStoredInputs = async (key: arc.Key, nodeKey: string): Promise<unknown> =>
-      (await createTestClient().arcs.retrieve({ key })).graph.inputs[nodeKey];
+      graphOf(await createTestClient().arcs.retrieve({ key })).inputs[nodeKey];
 
     it("should show the node's inputs", async () => {
       const a = await createStatusArc();
@@ -638,7 +506,7 @@ describe("Arc queries", () => {
       const a = await createStatusArc();
       const { result } = await renderForm(a.key);
       const send = spyOnSend(client);
-      act(() => result.current.form.set("key_or_name", "pressure"));
+      act(() => result.current.form.set(inputs.key_or_name, "pressure"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       const [, req] =
         send.mock.calls.find(([target]) => target === "/arc/dispatch") ?? [];
@@ -667,7 +535,7 @@ describe("Arc queries", () => {
         );
       });
       await waitFor(() =>
-        expect(result.current.form.get("message").value).toBe("remote"),
+        expect(result.current.form.get(inputs.message).value).toBe("remote"),
       );
     });
 
@@ -675,8 +543,8 @@ describe("Arc queries", () => {
       const a = await createStatusArc();
       const { result, rerender } = await renderForm(a.key);
       rerender({ nodeKey: "n2" });
-      expect(result.current.form.get("key_or_name").value).toBe("fault");
-      act(() => result.current.form.set("message", "tripped"));
+      expect(result.current.form.get(inputs.key_or_name).value).toBe("fault");
+      act(() => result.current.form.set(inputs.message, "tripped"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredInputs(a.key, "n2")).toMatchObject({
         message: "tripped",
@@ -688,8 +556,9 @@ describe("Arc queries", () => {
   describe("use", () => {
     it("should retrieve a single arc", async () => {
       const testArc = await client.arcs.create({
-        name: `retrieve-arc-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
+        name: `retrieve-arc-${id.create()}`,
+        type: "automation",
+        source: { mode: "text" },
       });
 
       const { result } = await renderHookSuspended(
@@ -735,13 +604,14 @@ describe("Arc queries", () => {
   describe("useRename", () => {
     it("should rename an arc", async () => {
       const testArc = await client.arcs.create({
-        name: `original-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
+        name: `original-${id.create()}`,
+        type: "automation",
+        source: { mode: "text" },
       });
 
       const { result } = renderHook(() => Arc.useRename(), { wrapper });
 
-      const newName = `renamed-${Math.random().toString(36).substring(7)}`;
+      const newName = `renamed-${id.create()}`;
 
       await act(async () => {
         await result.current.updateAsync({ key: testArc.key, name: newName });
@@ -756,185 +626,12 @@ describe("Arc queries", () => {
     });
   });
 
-  describe("useTask", () => {
-    it("should return null when no task is associated with arc", async () => {
-      const testArc = await client.arcs.create({
-        name: `arc-no-task-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Arc.useTask({ arcKey: testArc.key }),
-        { wrapper },
-      );
-
-      expect(result.current).toBeNull();
-    });
-
-    it("should retrieve task associated with arc", async () => {
-      const testArc = await client.arcs.create({
-        name: `arc-with-task-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
-      });
-
-      const rack = await client.racks.create({ name: "test-rack" });
-      const testTask = await rack.createTask({
-        name: "arc-task",
-        type: "pagerduty_alert",
-        config: { routingKey: "rk" },
-      });
-
-      await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
-      );
-
-      const { result } = await renderHookSuspended(
-        () => Arc.useTask({ arcKey: testArc.key }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current?.key).toEqual(testTask.key), {
-        timeout: 5000,
-      });
-      expect(result.current?.name).toEqual("arc-task");
-      expect(result.current?.config).toMatchObject({ routingKey: "rk" });
-    });
-
-    it("should update when a task is associated with arc", async () => {
-      const testArc = await client.arcs.create({
-        name: `arc-task-add-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Arc.useTask({ arcKey: testArc.key }),
-        { wrapper },
-      );
-
-      expect(result.current).toBeNull();
-
-      const rack = await client.racks.create({ name: "test-rack-add" });
-      const testTask = await rack.createTask({
-        name: "new-arc-task",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      await act(async () => {
-        await client.ontology.addChildren(
-          arc.ontologyID(testArc.key),
-          task.ontologyID(testTask.key),
-        );
-      });
-
-      await waitFor(
-        () => {
-          const cached = client.arcs.task.getCached(testArc.key);
-          expect(query.isLive(cached) && cached?.key).toEqual(testTask.key);
-        },
-        { timeout: 15000 },
-      );
-      await act(async () => {});
-      expect(result.current?.key).toEqual(testTask.key);
-    }, 20000);
-
-    it("should update when task status changes", async () => {
-      const testArc = await client.arcs.create({
-        name: `arc-status-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
-      });
-
-      const rack = await client.racks.create({ name: "test-rack-status" });
-      const testTask = await rack.createTask({
-        name: "status-task",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
-      );
-
-      const { result } = await renderHookSuspended(
-        () => Arc.useTask({ arcKey: testArc.key }),
-        { wrapper },
-      );
-
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
-        key: task.statusKey(testTask.key),
-        variant: "error",
-        message: "Task failed",
-        details: {
-          task: testTask.key,
-          running: false,
-          cmd: "",
-          configHash: "",
-          rack: 0,
-          data: {},
-        },
-      });
-
-      await act(async () => {
-        await client.statuses.set(taskStatus);
-      });
-
-      await waitFor(() => {
-        expect(result.current?.status?.variant).toEqual("error");
-        expect(result.current?.status?.message).toEqual("Task failed");
-      });
-    });
-
-    it("should update when task is renamed", async () => {
-      const testArc = await client.arcs.create({
-        name: `arc-rename-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
-      });
-
-      const rack = await client.racks.create({ name: "test-rack-rename" });
-      const testTask = await rack.createTask({
-        name: "original-task-name",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
-      );
-
-      const { result } = await renderHookSuspended(
-        () => Arc.useTask({ arcKey: testArc.key }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current).not.toBeNull();
-        expect(result.current?.name).toEqual("original-task-name");
-      });
-
-      await act(async () => {
-        await client.tasks.create({
-          ...testTask.payload,
-          name: "renamed-task-name",
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current?.name).toEqual("renamed-task-name");
-      });
-    });
-  });
-
   describe("useTaskControls", () => {
     it("should report a not-deployed status for an arc with no task", async () => {
       const testArc = await client.arcs.create({
         name: `arc-untasked-${id.create()}`,
-        mode: "graph",
-        graph: { nodes: [], edges: [] },
+        type: "automation",
+        source: { mode: "graph", graph: { nodes: [], edges: [] } },
       });
       const { result } = renderHook(
         () => Arc.useTaskControls(testArc.key, testArc.name),
@@ -953,7 +650,8 @@ describe("Arc queries", () => {
       const rck = await client.racks.create({ name: `rack-${id.create()}` });
       const a = await client.arcs.create({
         name: `arc-drift-${id.create()}`,
-        mode: "text",
+        type: "automation",
+        source: { mode: "text" },
       });
       const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
       if (tsk == null) throw new Error("expected a deployment task");
@@ -966,11 +664,10 @@ describe("Arc queries", () => {
     ): Promise<void> => {
       await client.statuses.set(
         status.create<ReturnType<typeof task.statusDetailsZ>>({
-          key: task.statusKey(tsk.key),
+          owner: task.resourceID(tsk.key),
           variant: "success",
           message: "Running",
           details: {
-            task: tsk.key,
             running: true,
             cmd: "",
             configHash: overrides.configHash ?? tsk.configHash,
@@ -1045,7 +742,7 @@ describe("Arc queries", () => {
       // cache through the hook's subscription, but the arc is not running, so
       // the drift boolean holds false and the change must not re-render.
       await waitFor(() =>
-        expect(query.isLive(client.arcs.task.getCached(a.key))).toBe(true),
+        expect(query.isLive(client.arcs.task.watch(a.key).getCached())).toBe(true),
       );
       let settled = renders;
       await expect
@@ -1058,7 +755,7 @@ describe("Arc queries", () => {
       await editProgram(a.key);
       await expect
         .poll(() => {
-          const cached = client.arcs.task.getCached(a.key);
+          const cached = client.arcs.task.watch(a.key).getCached();
           return query.isLive(cached) && cached?.configHash !== tsk.configHash;
         })
         .toBe(true);
@@ -1121,7 +818,7 @@ describe("Arc queries", () => {
     });
 
     it("useMode reflects a text-mode arc", async () => {
-      const { key } = await createAndLoadArc({ mode: "text" });
+      const { key } = await createAndLoadArc({ source: { mode: "text" } });
       const { result } = renderHook(() => Arc.useMode({ key }), { wrapper });
       expect(result.current).toBe("text");
     });
@@ -1605,6 +1302,26 @@ describe("Arc queries", () => {
     });
   });
 
+  describe("useResultType", () => {
+    it("should read the type of an Arc", async () => {
+      const [automation, mod] = await Promise.all([
+        createTestArc(),
+        createTestArc({ type: "module" }),
+      ]);
+      const { result } = renderHook(
+        () => ({
+          automation: Arc.useResultType({ key: automation.key }),
+          mod: Arc.useResultType({ key: mod.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.automation.data).toEqual("automation");
+        expect(result.current.mod.data).toEqual("module");
+      });
+    });
+  });
+
   describe("use", () => {
     it("serves the arc initially and on each change", async () => {
       const isolated = await createTestArc();
@@ -1616,13 +1333,12 @@ describe("Arc queries", () => {
         { wrapper },
       );
       await waitFor(() => expect(result.current.arc.name).toEqual(isolated.name));
+      // Names are unique in a directory, and the Core outlives one run of the spec.
+      const name = `renamed_${id.create()}`;
       await act(async () => {
-        await result.current.rename.updateAsync({
-          key: isolated.key,
-          name: "renamed",
-        });
+        await result.current.rename.updateAsync({ key: isolated.key, name });
       });
-      await waitFor(() => expect(result.current.arc.name).toEqual("renamed"));
+      await waitFor(() => expect(result.current.arc.name).toEqual(name));
     });
   });
 });

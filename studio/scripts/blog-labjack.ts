@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -27,7 +27,7 @@ const IDENTIFIER = "t7";
 const CHANNEL = `${IDENTIFIER}_AIN0`;
 /** How far above its steady reading the thermocouple reads once a hand warms it. */
 const ONSET = 0.6;
-/** How long the plot climbs after the onset, so its 30 s window shows the whole climb. */
+/** How long the plot climbs after the onset, so its 30 s window shows the climb. */
 const CLIMB_MS = 24_000;
 /** How far apart, at most, the means of two windows of a steady thermocouple are. */
 const STEADY = 0.05;
@@ -149,7 +149,7 @@ const openProject = async (session: capture.CaptureSession): Promise<void> => {
 
 /**
  * warmUp waits for the thermocouple to read steady, asks the person at the T7 to warm
- * it, and returns CLIMB_MS after the reading starts to rise, so the plot shows the climb.
+ * it, and returns CLIMB_MS after the reading starts to rise.
  */
 const warmUp = async (
   client: ReturnType<typeof fixtures.connect>,
@@ -188,7 +188,7 @@ const warmUp = async (
     }
     return true;
   };
-  // The client logs out on close, which ends an open stream, so the stream closes first.
+  // The client logs out on close and ends any open stream, so close the stream first.
   try {
     // A thermocouple still warm from the last theme's capture would climb downhill.
     await wait(

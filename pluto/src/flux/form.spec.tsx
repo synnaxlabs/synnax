@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query } from "@synnaxlabs/client";
+import { label, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, TimeSpan } from "@synnaxlabs/x";
+import type { Form } from "@synnaxlabs/lyra/form";
+import { color, deep, TimeSpan } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -27,6 +28,9 @@ const formSchema = z.object({
   age: z.number().positive("Age must be positive"),
 });
 
+const path = deep.path<z.infer<typeof formSchema>>();
+const noted = deep.path<{ note?: string | null }>();
+
 type Params = {
   key?: string;
 };
@@ -36,7 +40,7 @@ const Wrapper = createSynnaxWrapper({ client });
 
 const DEBOUNCE = TimeSpan.milliseconds(100);
 // Long enough that a debounced save would have landed by now.
-const SETTLE = 500;
+const SETTLE = TimeSpan.milliseconds(500);
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -105,6 +109,57 @@ describe("useForm", () => {
         name: "Apple Cat",
         age: 30,
       });
+    });
+
+    it("should read the record again when a form with no cache mounts again", async () => {
+      let stored = { key: "123", name: "Before", age: 30 };
+      const retrieve = vi.fn(async () => stored);
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: vi.fn(),
+      });
+      const first = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        {
+          wrapper: Wrapper,
+        },
+      );
+      first.unmount();
+      stored = { ...stored, name: "After" };
+      const second = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      expect(second.result.current.form.value().name).toBe("After");
+      expect(retrieve).toHaveBeenCalledTimes(2);
+    });
+
+    it("should keep the record for a form still mounted when another unmounts", async () => {
+      let stored = { key: "123", name: "Before", age: 30 };
+      const retrieve = vi.fn(async () => stored);
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: vi.fn(),
+      });
+      const first = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      const second = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      second.unmount();
+      stored = { ...stored, name: "After" };
+      await act(async () => first.rerender());
+      expect(first.result.current.form.value().name).toBe("Before");
+      expect(retrieve).toHaveBeenCalledTimes(1);
     });
 
     it("should route a failed read to the error boundary", async () => {
@@ -298,10 +353,10 @@ describe("useForm", () => {
     );
 
     act(() => {
-      result.current.form.set("name", "");
+      result.current.form.set(path.name, "");
     });
 
-    const fieldStatus = result.current.form.get("name").status;
+    const fieldStatus = result.current.form.get(path.name).status;
     expect(fieldStatus.variant).toEqual("error");
     expect(fieldStatus.message).toEqual("Name is required");
   });
@@ -327,12 +382,12 @@ describe("useForm", () => {
     act(() => {
       result.current.save({ signal: controller.signal });
     });
-    const status = result.current.form.get("name").status;
+    const status = result.current.form.get(path.name).status;
     expect(status.variant).toEqual("success");
     await waitFor(() => {
       expect(retrieve).not.toHaveBeenCalled();
       expect(update).not.toHaveBeenCalled();
-      const fieldStatus = result.current.form.get("name").status;
+      const fieldStatus = result.current.form.get(path.name).status;
       expect(fieldStatus.variant).toEqual("error");
       expect(fieldStatus.message).toEqual("Name is required");
     });
@@ -437,7 +492,7 @@ describe("useForm", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "Jane Doe");
+        result.current.form.set(path.name, "Jane Doe");
       });
       expect(result.current.form.value()).toEqual({
         key: "",
@@ -470,7 +525,7 @@ describe("useForm", () => {
       { wrapper: Wrapper },
     );
     act(() => {
-      result.current.form.set("name", "Jane Doe");
+      result.current.form.set(path.name, "Jane Doe");
       result.current.save({ signal: controller.signal });
     });
     await waitFor(() => {
@@ -482,8 +537,7 @@ describe("useForm", () => {
   it("should run one save at a time", async () => {
     const events: string[] = [];
     const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
-    let enter = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
     let calls = 0;
     const { result } = renderHook(
       () =>
@@ -515,10 +569,8 @@ describe("useForm", () => {
   // Holds the first save open, so every save issued after it queues behind it.
   const renderHeldForm = () => {
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const { result } = renderHook(
       () =>
         Flux.createForm<Params, typeof formSchema>({
@@ -526,7 +578,7 @@ describe("useForm", () => {
           schema: formSchema,
           name: "test",
           update: async ({ get }) => {
-            saved.push(get<string>("name").value);
+            saved.push(get(path.name).value);
             if (saved.length > 1) return;
             enter();
             await held;
@@ -541,9 +593,9 @@ describe("useForm", () => {
     const { result, saved, entered, release } = renderHeldForm();
     const running = result.current.saveAsync({ signal: controller.signal });
     await entered;
-    act(() => result.current.form.set("name", "Jane"));
+    act(() => result.current.form.set(path.name, "Jane"));
     const queued = result.current.saveAsync({ signal: controller.signal });
-    act(() => result.current.form.set("name", "Janet"));
+    act(() => result.current.form.set(path.name, "Janet"));
     const joined = result.current.saveAsync({ signal: controller.signal });
     await act(async () => release());
     expect(await running).toBe(true);
@@ -572,10 +624,8 @@ describe("useForm", () => {
       "2": { key: "2", name: "Banana Cat", age: 12 },
     };
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const useForm = Flux.createForm<Params, typeof formSchema>({
       initialValues: { key: "", name: "", age: 0 },
       schema: formSchema,
@@ -620,12 +670,12 @@ describe("useForm", () => {
             schema: formSchema,
             name: "test",
             retrieve,
-            update: ({ get }) => update(get("name").value),
+            update: ({ get }) => update(get(path.name).value),
           })({ query: null, autoSave: true }),
         { wrapper: Wrapper },
       );
       act(() => {
-        result.current.form.set("name", "Jane Doe");
+        result.current.form.set(path.name, "Jane Doe");
       });
       await waitFor(() => {
         expect(retrieve).not.toHaveBeenCalled();
@@ -670,14 +720,14 @@ describe("useForm", () => {
             initialValues: { key: "", name: "John Doe", age: 25 },
             schema: formSchema,
             name: "test",
-            update: ({ get }) => update(get("name").value),
+            update: ({ get }) => update(get(path.name).value),
           })({ query: null, autoSave: true }),
         { wrapper: Wrapper },
       );
       act(() => {
-        result.current.form.set("name", "J");
-        result.current.form.set("name", "Ja");
-        result.current.form.set("name", "Jane");
+        result.current.form.set(path.name, "J");
+        result.current.form.set(path.name, "Ja");
+        result.current.form.set(path.name, "Jane");
       });
       await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
       await expectAlways(() => expect(update).toHaveBeenCalledTimes(1), SETTLE);
@@ -694,7 +744,7 @@ describe("useForm", () => {
             initialValues: { key: "", name: "John Doe", age: 25 },
             schema: formSchema,
             name: "test",
-            update: ({ get }) => update(get("name").value),
+            update: ({ get }) => update(get(path.name).value),
           })({ query: null, autoSave: true, autoSaveDebounce: DEBOUNCE }),
         { wrapper: Wrapper },
       );
@@ -704,9 +754,9 @@ describe("useForm", () => {
     it("should collapse a burst of changes into a single update", async () => {
       const { result, update } = renderDebouncedForm();
       act(() => {
-        result.current.form.set("name", "J");
-        result.current.form.set("name", "Ja");
-        result.current.form.set("name", "Jane");
+        result.current.form.set(path.name, "J");
+        result.current.form.set(path.name, "Ja");
+        result.current.form.set(path.name, "Jane");
       });
       await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
       expect(update).toHaveBeenCalledWith("Jane");
@@ -715,7 +765,7 @@ describe("useForm", () => {
 
     it("should not autosave an edit that an explicit save already sent", async () => {
       const { result, update } = renderDebouncedForm();
-      act(() => result.current.form.set("name", "Jane"));
+      act(() => result.current.form.set(path.name, "Jane"));
       await act(async () => {
         await result.current.saveAsync();
       });
@@ -726,7 +776,7 @@ describe("useForm", () => {
     it("should flush a pending update when the form unmounts", async () => {
       const { result, update, unmount } = renderDebouncedForm();
       act(() => {
-        result.current.form.set("name", "Jane Doe");
+        result.current.form.set(path.name, "Jane Doe");
       });
       unmount();
       await waitFor(() => expect(update).toHaveBeenCalledWith("Jane Doe"));
@@ -743,7 +793,7 @@ describe("useForm", () => {
         initialValues: { key: "", name: "John Doe", age: 25 },
         schema: formSchema,
         name: "test",
-        update: ({ get }) => update(get("name").value),
+        update: ({ get }) => update(get(path.name).value),
         mountListeners: (params) => {
           abandon = params.abandon;
           return () => {};
@@ -769,13 +819,13 @@ describe("useForm", () => {
 
     it("should autosave while the record still exists", async () => {
       const { result, update } = renderAbandonableForm();
-      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => result.current.form.set(path.name, "Jane Doe"));
       await waitFor(() => expect(update).toHaveBeenCalledWith("Jane Doe"));
     });
 
     it("should drop a pending autosave when the record is abandoned", async () => {
       const { result, update, abandon } = renderAbandonableForm();
-      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => result.current.form.set(path.name, "Jane Doe"));
       act(() => abandon());
       await expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
@@ -783,7 +833,7 @@ describe("useForm", () => {
     it("should ignore later changes once the record is abandoned", async () => {
       const { result, update, abandon } = renderAbandonableForm();
       act(() => abandon());
-      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => result.current.form.set(path.name, "Jane Doe"));
       await expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
 
@@ -796,13 +846,13 @@ describe("useForm", () => {
       );
       act(() => abandon());
       rerender({ key: "456" });
-      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => result.current.form.set(path.name, "Jane Doe"));
       await waitFor(() => expect(update).toHaveBeenCalledWith("Jane Doe"));
     });
 
     it("should not flush a pending autosave on unmount after abandoning", async () => {
       const { result, update, abandon, unmount } = renderAbandonableForm();
-      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => result.current.form.set(path.name, "Jane Doe"));
       act(() => abandon());
       unmount();
       await expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
@@ -810,10 +860,8 @@ describe("useForm", () => {
 
     it("should abort a save already running when the record is abandoned", async () => {
       const { update, useForm, abandon } = createAbandonableForm();
-      let enter = (): void => {};
-      let release = (): void => {};
-      const entered = new Promise<void>((resolve) => (enter = resolve));
-      const held = new Promise<void>((resolve) => (release = resolve));
+      const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
       const { result } = renderHook(
         () =>
           useForm({
@@ -829,7 +877,7 @@ describe("useForm", () => {
           }),
         { wrapper: Wrapper },
       );
-      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => result.current.form.set(path.name, "Jane Doe"));
       await entered;
       act(() => abandon());
       await act(async () => release());
@@ -839,13 +887,13 @@ describe("useForm", () => {
 
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
-      const label = await client.labels.create({
+      const lbl = await client.labels.create({
         name: "Initial Name",
         color: color.construct("#000000"),
       });
 
       const initialValues = {
-        key: label.key.toString(),
+        key: lbl.key.toString(),
         name: "Initial Name",
         age: 25,
       };
@@ -855,7 +903,7 @@ describe("useForm", () => {
 
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: {
-          key: label.key.toString(),
+          key: lbl.key.toString(),
           name: "",
           age: 0,
         },
@@ -864,13 +912,13 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.onChange(label.key, (result) => {
-            if (query.isLive(result)) set("name", result.name);
+          client.labels.watch(lbl.key).onChange((result) => {
+            if (query.isLive(result)) set(path.name, result.name);
           }),
       });
 
       const { result } = await renderHookSuspended(
-        () => useForm({ query: { key: label.key } }),
+        () => useForm({ query: { key: lbl.key } }),
         { wrapper: Wrapper },
       );
 
@@ -880,10 +928,10 @@ describe("useForm", () => {
       });
 
       await act(async () => {
-        await client.labels.create({
-          ...label,
-          name: "Updated Label Name",
-        });
+        await client.labels.dispatch(
+          lbl.key,
+          label.set({ path: ["name"], value: "Updated Label Name" }),
+        );
       });
 
       await waitFor(() => {
@@ -893,13 +941,13 @@ describe("useForm", () => {
     });
 
     it("should not mark form fields as touched when setting them view the listener", async () => {
-      const label = await client.labels.create({
+      const lbl = await client.labels.create({
         name: "Initial Name",
         color: color.construct("#000000"),
       });
 
       const initialValues = {
-        key: label.key.toString(),
+        key: lbl.key.toString(),
         name: "Initial Name",
         age: 25,
       };
@@ -909,7 +957,7 @@ describe("useForm", () => {
 
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: {
-          key: label.key.toString(),
+          key: lbl.key.toString(),
           name: "",
           age: 0,
         },
@@ -918,13 +966,13 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.onChange(label.key, (result) => {
-            if (query.isLive(result)) set("name", result.name);
+          client.labels.watch(lbl.key).onChange((result) => {
+            if (query.isLive(result)) set(path.name, result.name);
           }),
       });
 
       const { result } = await renderHookSuspended(
-        () => useForm({ query: { key: label.key } }),
+        () => useForm({ query: { key: lbl.key } }),
         { wrapper: Wrapper },
       );
 
@@ -934,16 +982,16 @@ describe("useForm", () => {
       });
 
       await act(async () => {
-        await client.labels.create({
-          ...label,
-          name: "Updated Label Name",
-        });
+        await client.labels.dispatch(
+          lbl.key,
+          label.set({ path: ["name"], value: "Updated Label Name" }),
+        );
       });
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("Updated Label Name");
         expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").touched).toBe(false);
+        expect(result.current.form.get(path.name).touched).toBe(false);
       });
     });
 
@@ -955,7 +1003,7 @@ describe("useForm", () => {
           saved = value().name;
         },
       );
-      let listenerSet!: (path: string, value: unknown) => void;
+      let listenerSet!: Form.SetFunc;
 
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: { key: "1", name: "", age: 0 },
@@ -980,8 +1028,8 @@ describe("useForm", () => {
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      act(() => result.current.form.set("name", "Edited Name"));
-      act(() => listenerSet("name", "Initial Name"));
+      act(() => result.current.form.set(path.name, "Edited Name"));
+      act(() => listenerSet(path.name, "Initial Name"));
 
       await waitFor(() => expect(update).toHaveBeenCalled());
       expect(saved).toEqual("Edited Name");
@@ -989,7 +1037,7 @@ describe("useForm", () => {
     });
 
     it("should apply a listener write to a field once its edit is saved", async () => {
-      let listenerSet!: (path: string, value: unknown) => void;
+      let listenerSet!: Form.SetFunc;
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: { key: "1", name: "", age: 0 },
         schema: formSchema,
@@ -1005,12 +1053,113 @@ describe("useForm", () => {
         () => useForm({ query: { key: "1" } }),
         { wrapper: Wrapper },
       );
-      act(() => result.current.form.set("name", "Edited Name"));
+      act(() => result.current.form.set(path.name, "Edited Name"));
       await act(async () => {
         await result.current.saveAsync();
       });
-      act(() => listenerSet("name", "Remote Name"));
+      act(() => listenerSet(path.name, "Remote Name"));
       expect(result.current.form.value().name).toEqual("Remote Name");
+    });
+  });
+
+  describe("a remote change during a pending edit", () => {
+    const listSchema = z.object({
+      key: z.string(),
+      channels: z.array(z.object({ key: z.string(), port: z.number() })),
+      extra: z.object({ x: z.number() }).optional(),
+    });
+    type List = z.infer<typeof listSchema>;
+    const { channels, extra } = deep.path<List>();
+    const INITIAL: List = {
+      key: "1",
+      channels: [
+        { key: "a", port: 1 },
+        { key: "ns=1;s=x.y", port: 2 },
+      ],
+    };
+
+    // The form never saves, so each edit stays pending.
+    const renderListForm = async () => {
+      let listenerSet!: Form.SetFunc;
+      let listenerReset!: (values: List) => void;
+      const useForm = Flux.createForm<Params, typeof listSchema>({
+        initialValues: { key: "1", channels: [] },
+        schema: listSchema,
+        name: "test",
+        retrieve: async () => INITIAL,
+        update: async () => {},
+        mountListeners: ({ set, reset }) => {
+          listenerSet = set;
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "1" } }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      return {
+        result,
+        listenerSet: (values: List["channels"]) => listenerSet(channels, values),
+        listenerReset: (values: List) => listenerReset(values),
+      };
+    };
+
+    it("should drop a pending edit to an entry a remote reset removed", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      const remote = { key: "1", channels: [{ key: "ns=1;s=x.y", port: 2 }] };
+      act(() => listenerReset(remote));
+      expect(result.current.form.value()).toEqual(remote);
+    });
+
+    it("should keep a pending edit to an entry a remote reset kept", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      act(() =>
+        listenerReset({
+          key: "1",
+          channels: [
+            { key: "a", port: 1 },
+            { key: "ns=1;s=x.y", port: 9 },
+          ],
+        }),
+      );
+      expect(result.current.form.value().channels).toEqual([
+        { key: "a", port: 5 },
+        { key: "ns=1;s=x.y", port: 9 },
+      ]);
+    });
+
+    it("should drop a pending edit to an entry with a dot in its key that a remote reset removed", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels["ns=1;s=x.y"].port, 7));
+      const remote = { key: "1", channels: [{ key: "a", port: 1 }] };
+      act(() => listenerReset(remote));
+      expect(result.current.form.value()).toEqual(remote);
+    });
+
+    it("should drop a pending edit when a remote write replaces the list without the entry", async () => {
+      const { result, listenerSet } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      const remote = [{ key: "ns=1;s=x.y", port: 2 }];
+      act(() => listenerSet(remote));
+      expect(result.current.form.value().channels).toEqual(remote);
+    });
+
+    it("should drop a pending edit when a remote reset empties the list", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      act(() => listenerReset({ key: "1", channels: [] }));
+      expect(result.current.form.value().channels).toEqual([]);
+    });
+
+    it("should keep a pending edit under an object the remote value lacks", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(deep.present(extra).x, 3));
+      act(() => listenerReset(INITIAL));
+      expect(result.current.form.value().extra).toEqual({ x: 3 });
     });
   });
 
@@ -1022,6 +1171,7 @@ describe("useForm", () => {
     // whose update resets the form from the Core's response does.
     const renderInFlightForm = async () => {
       const saved: Values[] = [];
+      const stored: Array<Values | undefined> = [];
       const entered = Promise.withResolvers<void>();
       const held = Promise.withResolvers<void>();
       let listenerReset!: (values: Values) => void;
@@ -1030,9 +1180,10 @@ describe("useForm", () => {
         schema: formSchema,
         name: "test",
         retrieve: async () => INITIAL,
-        update: async ({ value, reset }) => {
+        update: async ({ value, reset, stored: read }) => {
           const sent = value();
           saved.push(sent);
+          stored.push(read);
           if (saved.length === 1) {
             entered.resolve();
             await held.promise;
@@ -1053,11 +1204,12 @@ describe("useForm", () => {
           }),
         { wrapper: Wrapper },
       );
-      act(() => result.current.form.set("name", "First Edit"));
+      act(() => result.current.form.set(path.name, "First Edit"));
       await act(async () => await entered.promise);
       return {
         result,
         saved,
+        stored,
         release: held.resolve,
         listenerReset: (values: Values) => listenerReset(values),
       };
@@ -1065,7 +1217,7 @@ describe("useForm", () => {
 
     it("should keep the edit when the running save writes back what it sent", async () => {
       const { result, saved, release } = await renderInFlightForm();
-      act(() => result.current.form.set("age", 40));
+      act(() => result.current.form.set(path.age, 40));
       await act(async () => release());
       await waitFor(() => expect(saved).toHaveLength(2));
       expect(saved[1]).toEqual({ key: "1", name: "First Edit", age: 40 });
@@ -1074,7 +1226,7 @@ describe("useForm", () => {
 
     it("should keep the edit when a listener writes what the running save sent", async () => {
       const { result, saved, release, listenerReset } = await renderInFlightForm();
-      act(() => result.current.form.set("age", 40));
+      act(() => result.current.form.set(path.age, 40));
       act(() => listenerReset({ key: "1", name: "First Edit", age: 25 }));
       expect(result.current.form.value().age).toEqual(40);
       await act(async () => release());
@@ -1083,10 +1235,24 @@ describe("useForm", () => {
     });
 
     it("should keep the sent edit when a listener writes the pre-edit value", async () => {
-      const { result, release, listenerReset } = await renderInFlightForm();
-      act(() => listenerReset(INITIAL));
+      const { result, stored, release, listenerReset } = await renderInFlightForm();
+      // A listener gets a new object from the Core, never the one the form read.
+      act(() => listenerReset({ ...INITIAL }));
       expect(result.current.form.value().name).toEqual("First Edit");
       await act(async () => release());
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(stored[1]?.name).toEqual("First Edit");
+    });
+
+    it("should store a listener reset that lands while a save runs", async () => {
+      const { result, stored, release, listenerReset } = await renderInFlightForm();
+      const remote = { key: "1", name: "First Edit", age: 30 };
+      act(() => listenerReset(remote));
+      await act(async () => release());
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(stored).toEqual([INITIAL, remote]);
     });
 
     it("should apply a listener write once every edit is saved", async () => {
@@ -1134,9 +1300,9 @@ describe("useForm", () => {
             }),
           { wrapper: Wrapper },
         );
-        act(() => result.current.form.set("name", "First Edit"));
+        act(() => result.current.form.set(path.name, "First Edit"));
         await act(async () => await entered.promise);
-        act(() => result.current.form.set("note", cleared));
+        act(() => result.current.form.set(noted.note, cleared));
         await act(async () => held.resolve());
         await waitFor(() => expect(saved).toHaveLength(2));
         expect(saved[1].note).toBe(cleared);
@@ -1165,7 +1331,7 @@ describe("useForm", () => {
         () => useForm({ query: { key: "1" } }),
         { wrapper: Wrapper },
       );
-      act(() => result.current.form.set("name", "Edited Name"));
+      act(() => result.current.form.set(path.name, "Edited Name"));
       let saving!: Promise<boolean>;
       act(() => {
         saving = result.current.saveAsync();
@@ -1203,7 +1369,7 @@ describe("useForm", () => {
         ({ key }: { key: string }) => useForm({ query: { key } }),
         { wrapper: Wrapper, initialProps: { key: "1" } },
       );
-      act(() => result.current.form.set("name", "Edited Name"));
+      act(() => result.current.form.set(path.name, "Edited Name"));
       let saving!: Promise<boolean>;
       act(() => {
         saving = result.current.saveAsync();

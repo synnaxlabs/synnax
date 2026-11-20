@@ -10,6 +10,7 @@
 package expression
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -22,10 +23,10 @@ func compileLiteral(
 	ctx context.Context[parser.ILiteralContext],
 ) (types.Type, error) {
 	if num := ctx.AST.NumericLiteral(); num != nil {
-		return compileNumericLiteral(ctx.Child(num))
+		return compileNumericLiteral(ctx.Child(num), false)
 	}
 	if strTerm := parser.StringTerminal(ctx.AST); strTerm != nil {
-		return compileStringLiteral(ctx, strTerm.GetText())
+		return compileStringLiteral(ctx, strTerm)
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(ctx.Child(series))
@@ -43,11 +44,15 @@ func compileLiteral(
 
 func compileStringLiteral(
 	ctx context.Context[parser.ILiteralContext],
-	text string,
+	strTerm antlr.TerminalNode,
 ) (types.Type, error) {
+	text := strTerm.GetText()
 	body, flags, ok := literal.StripQuotes(text)
 	if !ok {
 		return types.Type{}, errors.Newf("invalid string literal: %s", text)
+	}
+	if flags.Format {
+		return emitFmtSegments(ctx, strTerm)
 	}
 	value := body
 	if !flags.Raw {
@@ -56,13 +61,6 @@ func compileStringLiteral(
 		if err != nil {
 			return types.Type{}, errors.Wrapf(err, "invalid string literal %s", text)
 		}
-	}
-	if flags.Format {
-		segments, err := literal.FmtStrParse(value)
-		if err != nil {
-			return types.Type{}, err
-		}
-		return EmitFmtSegments(ctx, segments)
 	}
 	emitLiteralSegment(ctx, value)
 	return types.String(), nil
@@ -73,12 +71,8 @@ func compileSeriesLiteral(
 ) (types.Type, error) {
 	seriesType := ctx.Hint
 	if !seriesType.IsValid() {
-		if parent := ctx.AST.GetParent(); parent != nil {
-			if litCtx, ok := parent.(parser.ILiteralContext); ok {
-				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
-					seriesType = inferredType
-				}
-			}
+		if t, ok := inferredLiteralType(ctx.AST.GetParent(), ctx.TypeMap); ok {
+			seriesType = t
 		}
 	}
 
@@ -102,8 +96,14 @@ func compileSeriesLiteral(
 
 	for i, expr := range expressions {
 		ctx.Writer.WriteI32Const(int32(i))
-		if _, err := Compile(ctx.Child(expr).WithHint(*elemType)); err != nil {
+		t, err := Compile(ctx.Child(expr).WithHint(*elemType))
+		if err != nil {
 			return types.Type{}, err
+		}
+		if t = t.UnwrapChan(); types.UnitsConvertible(t.Unit, elemType.Unit) {
+			if err = EmitCast(ctx, t, *elemType); err != nil {
+				return types.Type{}, err
+			}
 		}
 		ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, *elemType)
 	}
@@ -111,83 +111,147 @@ func compileSeriesLiteral(
 	return seriesType, nil
 }
 
+// compileNumericLiteral emits the literal, negated before the range check when negate
+// is true, so type minimums like -128 for i8 fit.
 func compileNumericLiteral(
 	ctx context.Context[parser.INumericLiteralContext],
+	negate bool,
 ) (types.Type, error) {
-	targetType := ctx.Hint
-
-	if !targetType.IsValid() || !targetType.IsNumeric() {
-		targetType = types.Type{}
-		if parent := ctx.AST.GetParent(); parent != nil {
-			if litCtx, ok := parent.(parser.ILiteralContext); ok {
-				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
-					targetType = inferredType
-				}
-			}
-		}
-	}
-
-	targetType = targetType.Unwrap()
-	targetType.Unit = nil
-
-	parsed, err := literal.ParseNumeric(ctx.AST, targetType)
+	targetType := numericLiteralType(ctx)
+	parsed, err := literal.ParseNumericSigned(
+		ctx.AST,
+		negate != (ctx.AST.MINUS() != nil),
+		targetType,
+	)
 	if err != nil {
 		return types.Type{}, err
 	}
 
+	if err = emitNumericValue(ctx, parsed); err != nil {
+		return types.Type{}, err
+	}
+	return parsed.Type, nil
+}
+
+func emitNumericValue(
+	ctx context.Context[parser.INumericLiteralContext],
+	parsed literal.ParsedValue,
+) error {
+	unexpected := func() error {
+		return errors.Newf(
+			"unexpected value type %T for %s literal",
+			parsed.Value,
+			parsed.Type.Kind,
+		)
+	}
 	switch parsed.Type.Kind {
 	case types.KindF32:
-		ctx.Writer.WriteF32Const(parsed.Value.(float32))
+		v, ok := parsed.Value.(float32)
+		if !ok {
+			return unexpected()
+		}
+		ctx.Writer.WriteF32Const(v)
 	case types.KindF64:
-		ctx.Writer.WriteF64Const(parsed.Value.(float64))
+		v, ok := parsed.Value.(float64)
+		if !ok {
+			return unexpected()
+		}
+		ctx.Writer.WriteF64Const(v)
 	case types.KindI8,
 		types.KindI16,
 		types.KindI32,
 		types.KindU8,
 		types.KindU16,
 		types.KindU32:
-		var i32Val int32
-		switch v := parsed.Value.(type) {
-		case int8:
-			i32Val = int32(v)
-		case int16:
-			i32Val = int32(v)
-		case int32:
-			i32Val = v
-		case uint8:
-			i32Val = int32(v)
-		case uint16:
-			i32Val = int32(v)
-		case uint32:
-			i32Val = int32(v)
-		default:
-			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal",
-				parsed.Value,
-				parsed.Type.Kind,
-			)
+		v, ok := int32Value(parsed.Value)
+		if !ok {
+			return unexpected()
 		}
-		ctx.Writer.WriteI32Const(i32Val)
+		ctx.Writer.WriteI32Const(v)
 	case types.KindI64:
-		var i64Val int64
-		switch v := parsed.Value.(type) {
-		case int64:
-			i64Val = v
-		case telem.TimeSpan:
-			i64Val = int64(v)
-		default:
-			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal",
-				parsed.Value,
-				parsed.Type.Kind,
-			)
+		v, ok := int64Value(parsed.Value)
+		if !ok {
+			return unexpected()
 		}
-		ctx.Writer.WriteI64Const(i64Val)
+		ctx.Writer.WriteI64Const(v)
 	case types.KindU64:
-		ctx.Writer.WriteI64Const(int64(parsed.Value.(uint64)))
+		v, ok := parsed.Value.(uint64)
+		if !ok {
+			return unexpected()
+		}
+		ctx.Writer.WriteI64Const(int64(v))
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
+		fallthrough
 	default:
-		return types.Type{}, errors.Newf("unsupported numeric type: %s", parsed.Type)
+		return errors.Newf("unsupported numeric type: %s", parsed.Type)
 	}
+	return nil
+}
 
-	return parsed.Type, nil
+// inferredLiteralType returns the type the analyzer gave the literal that wraps a
+// series or numeric literal.
+func inferredLiteralType(
+	parent antlr.Tree,
+	typeMap map[antlr.ParserRuleContext]types.Type,
+) (types.Type, bool) {
+	litCtx, ok := parent.(parser.ILiteralContext)
+	if !ok {
+		return types.Type{}, false
+	}
+	t, ok := typeMap[litCtx]
+	return t, ok
+}
+
+// int64Value returns the int64 that WASM stores an i64 literal or a time span in.
+func int64Value(v any) (int64, bool) {
+	switch v := v.(type) {
+	case int64:
+		return v, true
+	case telem.TimeSpan:
+		return int64(v), true
+	default:
+		return 0, false
+	}
+}
+
+// int32Value widens a value of a 32-bit or narrower integer type to the int32 that
+// WASM stores it in.
+func int32Value(v any) (int32, bool) {
+	switch v := v.(type) {
+	case int8:
+		return int32(v), true
+	case int16:
+		return int32(v), true
+	case int32:
+		return v, true
+	case uint8:
+		return int32(v), true
+	case uint16:
+		return int32(v), true
+	case uint32:
+		return int32(v), true
+	default:
+		return 0, false
+	}
+}
+
+// numericLiteralType returns the type a numeric literal parses into: the hint, or the
+// analyzer's inferred type when the hint is not a concrete number.
+func numericLiteralType(ctx context.Context[parser.INumericLiteralContext]) types.Type {
+	targetType := ctx.Hint
+	inferred, _ := inferredLiteralType(ctx.AST.GetParent(), ctx.TypeMap)
+	if !targetType.IsValid() || !targetType.IsNumeric() ||
+		targetType.Kind == types.KindVariable {
+		targetType = inferred
+	}
+	targetType = targetType.Unwrap()
+	// A literal beside a value of another dimension keeps its number.
+	if types.UnitsIncompatible(inferred.Unit, targetType.Unit) {
+		targetType.Unit = nil
+	}
+	return targetType
 }

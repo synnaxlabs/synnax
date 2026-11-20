@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import {
+  type bounds,
   box,
   DataType,
   dynamicWindow,
   id,
+  MultiSeries,
+  Series,
   sleep,
   staticWindow,
   TimeRange,
@@ -27,11 +30,13 @@ import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { tooltip } from "@/lineplot/tooltip/aether";
 import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const stubLineStateZ = z.object({
@@ -42,7 +47,7 @@ const stubLineStateZ = z.object({
 // Line needs a live GL context, so a stub with its TYPE stands in for the walk.
 class StubLine extends aether.Leaf<typeof stubLineStateZ> {
   static readonly TYPE = line.Line.TYPE;
-  schema = stubLineStateZ;
+  override schema = stubLineStateZ;
 
   get loading(): boolean {
     return this.state.loading;
@@ -57,6 +62,15 @@ interface LoopEntry {
   key?: string;
   render?: () => render.Cleanup | undefined;
 }
+
+// Runs the render that the plot requested last.
+const renderPlot = (recorder: canvasTest.Recorder): void => {
+  const entry = recorder.loopCalls
+    .map((call) => call.args[0] as LoopEntry)
+    .reverse()
+    .find((e) => e.key?.startsWith(LinePlot.TYPE) ?? false);
+  entry?.render?.();
+};
 
 interface Mount {
   plot: LinePlot;
@@ -99,13 +113,6 @@ describe("LinePlot", () => {
         loading: lineLoading,
       });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    const pump = (): void => {
-      const entry = recorder.loopCalls
-        .map((call) => call.args[0] as LoopEntry)
-        .reverse()
-        .find((e) => e.key?.startsWith(LinePlot.TYPE) ?? false);
-      entry?.render?.();
-    };
     return {
       plot: stack.driver.find<LinePlot>(base),
       recorder,
@@ -116,7 +123,7 @@ describe("LinePlot", () => {
           loading: false,
           fetching,
         }),
-      pump,
+      pump: () => renderPlot(recorder),
       hide: () =>
         stack.driver.update(base, LinePlot.TYPE, {
           container: box.DECIMAL,
@@ -199,6 +206,77 @@ describe("LinePlot", () => {
   });
 });
 
+describe("LinePlot with a tooltip", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  const seriesSpec = (data: number[]): telem.SeriesSourceSpec => {
+    const s = new Series({
+      data: new Float32Array(data),
+      timeRange: new TimeRange(0, 1),
+    });
+    const source = telemTest.source<[bounds.Bounds, MultiSeries]>([
+      s.bounds,
+      new MultiSeries([s]),
+    ]);
+    return {
+      type: telemTest.TestSource.TYPE,
+      props: { testId: source.id },
+      variant: "source",
+      valueType: "series",
+    };
+  };
+
+  it("should list the drawn point nearest the cursor", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+        [tooltip.Tooltip.TYPE]: tooltip.Tooltip,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    // 4000 samples at zero in [0, 4), then 10 in [100, 1000] that reduce to their
+    // extremes: 10 at 300 and -10 at 800. The line draws no sample of 7.
+    const dense = Array.from({ length: 4000 }, (_, i) => i / 1000);
+    const sparse = Array.from({ length: 10 }, (_, i) => (i + 1) * 100);
+    stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
+      x: seriesSpec([...dense, ...sparse]),
+      y: seriesSpec([...dense.map(() => 0), 7, 7, 10, 7, 7, 7, 7, -10, 7, 7]),
+      color: "#ff0000",
+    });
+    renderPlot(recorder);
+    stack.driver.update([...base, "tooltip"], tooltip.Tooltip.TYPE, {
+      position: { x: 500, y: 250 },
+    });
+    renderPlot(recorder);
+    const texts = recorder.upper2d.calls
+      .filter((c) => c.op === "fillText")
+      .map((c) => String(c.args[0]));
+    expect(texts).toContain("10");
+    expect(texts).not.toContain("7");
+  });
+});
+
 describe("LinePlot against a Core", () => {
   const synnax = createTestClient();
   const teardowns: (() => void)[] = [];
@@ -245,7 +323,7 @@ describe("LinePlot against a Core", () => {
         [YAxis.TYPE]: YAxis,
         [line.Line.TYPE]: line.Line,
       },
-      synnax: { props: TEST_CLIENT_PARAMS },
+      synnax: { props: testClientParams() },
       render: true,
     });
     const gl = [...stack.basePath, "gl"];
@@ -266,7 +344,15 @@ describe("LinePlot against a Core", () => {
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return { plot: stack.driver.find<LinePlot>(base), setViewport };
+    const { recorder } = stack;
+    if (recorder == null) throw new Error("the stack has no render recorder");
+    const l1 = stack.driver.find<line.Line>([...base, "x1", "y1", "l1"]);
+    return {
+      plot: stack.driver.find<LinePlot>(base),
+      xBounds: () => l1.xBounds().bounds,
+      setViewport,
+      render: () => renderPlot(recorder),
+    };
   };
 
   // The distance from each target to the first drawn sample at or after it.
@@ -313,10 +399,22 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const { plot } = mount({
+    const { plot, render, xBounds } = mount({
       channel: data.key,
       window: dynamicWindow(TimeSpan.seconds(10)),
     });
+    // The render loop draws a plot at mount, which subscribes its lines to their
+    // channels. A write before the subscription streams reaches the plot only through
+    // a history read, which reduces the samples to the point budget.
+    await expect
+      .poll(
+        () => {
+          render();
+          return plot.state.loading;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(false);
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
@@ -336,8 +434,15 @@ describe("LinePlot against a Core", () => {
         last = new TimeStamp(times[99]);
         await sleep.sleep(TimeSpan.milliseconds(100));
       }
-      const target = Number(last.valueOf());
-      await expect.poll(() => gaps(plot, [target])[0], { timeout: 10_000 }).toBe(0);
+      // The plot reduces samples to its point budget, so its line can end a sample or
+      // so before the newest one.
+      const tolerance = Number(TimeSpan.milliseconds(10).valueOf());
+      const edge = Number(last.valueOf()) - tolerance;
+      await expect
+        .poll(() => gaps(plot, [edge])[0], { timeout: 10_000 })
+        .toBeLessThan(tolerance);
+      // The live window ends at the exclusive end of the newest sample.
+      expect(xBounds().upper).toBe(Number(last.valueOf() + 1n));
     } finally {
       await writer.close();
     }

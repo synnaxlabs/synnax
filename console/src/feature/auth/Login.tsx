@@ -9,14 +9,27 @@
 
 import "@/feature/auth/Login.css";
 
+import {
+  auth,
+  type connection,
+  ExpiredTokenError,
+  InvalidCredentialsError,
+  InvalidTokenError,
+  MissingCredentialsError,
+  SessionEndedError,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { Note } from "@synnaxlabs/lyra/note";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import { Text } from "@synnaxlabs/lyra/text";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -25,6 +38,8 @@ import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
+
+const path = deep.path<z.infer<typeof credentialsZ>>();
 
 const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -47,13 +62,49 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
+/** Says why the Core refused a login, or undefined when no login failed. */
+const errorMessage = (status: connection.Status): string | undefined => {
+  if (status.variant !== "error" || status.details.reason !== "auth") return undefined;
+  const { error } = status.details;
+  if (error == null || MissingCredentialsError.matches(error)) return undefined;
+  if (InvalidCredentialsError.matches(error)) return "Incorrect username or password.";
+  if (
+    InvalidTokenError.matches(error) ||
+    ExpiredTokenError.matches(error) ||
+    SessionEndedError.matches(error)
+  )
+    return "Your session ended. Log in again.";
+  return error.message;
+};
+
+// An unreachable Core, or one older than the methods endpoint, keeps the password
+// form: the connection status reports the first, and the second accepts passwords.
+const usePasswordAccepted = (core?: auth.TokenlessParams): boolean => {
+  const host = core?.host;
+  const port = core?.port;
+  const secure = core?.secure;
+  const key = host == null || port == null ? null : `${host}:${port}:${secure}`;
+  const [refused, setRefused] = useState<string | null>(null);
+  useAsyncEffect(
+    async (signal) => {
+      if (host == null || port == null) return;
+      const tokenless = auth.createTokenlessClient({ host, port, secure });
+      const methods = await auth.retrieveMethods(tokenless).catch(() => null);
+      if (signal.aborted) return;
+      setRefused(methods != null && !methods.includes("password") ? key : null);
+    },
+    [host, port, secure],
+  );
+  return key == null || refused !== key;
+};
+
 /**
  * Full-screen login surface. Serves both initial login and credential re-entry after
  * the active Core rejects auth, where submitting resumes its connection.
  */
 export const Login = (): ReactElement => {
   const client = Synnax.use();
-  const connStatus = Synnax.useConnectionStatus();
+  const message = errorMessage(Synnax.useConnectionStatus());
   const servingCore = Core.detectConnection();
   const cores = Session.Core.useSelectMany();
   const activeKey = Session.Core.useSelectSelectedKey();
@@ -64,6 +115,7 @@ export const Login = (): ReactElement => {
     servingCore != null || activeKey != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
+  const passwordAccepted = usePasswordAccepted(target);
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
@@ -116,42 +168,56 @@ export const Login = (): ReactElement => {
           <Form.Form<typeof credentialsZ> {...methods}>
             <Flex.Box y align="center" justify="center" grow gap="huge" shrink={false}>
               <PlatformShell.Mark />
-              <Flex.Box y full="x" empty>
-                <Form.TextField
-                  path="username"
-                  required={false}
-                  inputProps={USERNAME_INPUT_PROPS}
-                />
-                <Form.TextField
-                  path="password"
-                  required={false}
-                  inputProps={PASSWORD_INPUT_PROPS}
-                />
-              </Flex.Box>
-              <Flex.Box gap="small" align="center" full="x">
-                {client != null && (
-                  <Flex.Box className={CSS.BE("login", "status")}>
-                    {connStatus.message !== "" && (
-                      <Status.Summary
-                        variant={connStatus.variant}
-                        message={connStatus.message}
-                        description={connStatus.description}
-                      />
-                    )}
+              {passwordAccepted ? (
+                <>
+                  <Flex.Box y full="x" empty>
+                    <Form.TextField
+                      path={path.username}
+                      required={false}
+                      inputProps={USERNAME_INPUT_PROPS}
+                    />
+                    <Form.TextField
+                      path={path.password}
+                      required={false}
+                      inputProps={PASSWORD_INPUT_PROPS}
+                    />
                   </Flex.Box>
-                )}
-                <Button.Button
-                  onClick={handleSubmit}
-                  trigger={LOG_IN_TRIGGER}
-                  variant="filled"
-                  size="large"
-                  full="x"
-                  justify="center"
-                >
-                  Log in
-                  <Icon.Arrow.Right />
-                </Button.Button>
-              </Flex.Box>
+                  <Flex.Box gap="small" align="center" full="x">
+                    <Button.Button
+                      onClick={handleSubmit}
+                      trigger={LOG_IN_TRIGGER}
+                      variant="filled"
+                      size="large"
+                      full="x"
+                      justify="center"
+                    >
+                      Log in
+                      <Icon.Arrow.Right />
+                    </Button.Button>
+                    <Note.Note
+                      variant="error"
+                      full="x"
+                      className={CSS.cls(
+                        CSS.BE("login", "error"),
+                        message == null && CSS.M("ghost"),
+                      )}
+                    >
+                      <Text.Text level="small">{message ?? "\u00a0"}</Text.Text>
+                    </Note.Note>
+                  </Flex.Box>
+                </>
+              ) : (
+                <Flex.Box y align="center" gap="small">
+                  <Text.Text level="h4" status="warning">
+                    <Status.Indicator variant="warning" />
+                    Password login is off
+                  </Text.Text>
+                  <Text.Text level="p" color={9} style={{ textAlign: "center" }}>
+                    This Core does not accept passwords. Ask an administrator to add
+                    password to its accepted login methods.
+                  </Text.Text>
+                </Flex.Box>
+              )}
             </Flex.Box>
           </Form.Form>
         </Flex.Box>

@@ -11,6 +11,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
+from framework.utils import hold
 from x import random_name
 
 LONG_LINE = "// " + "wide " * 200
@@ -58,7 +59,7 @@ class EditorScrollbar(ConsoleCase):
         x = start["x"] + start["width"] / 2
         y = start["y"] + start["height"] / 2
         page.mouse.move(x, y - 8)
-        sy.sleep(1.0)
+        hold(1.0, reason="lets Monaco hide the bar if the pointer left")
         page.mouse.move(x, y)
         page.mouse.down()
         page.mouse.move(x + 200, y, steps=10)

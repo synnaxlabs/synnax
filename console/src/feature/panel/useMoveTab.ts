@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project, type Synnax as Client } from "@synnaxlabs/client";
+import { panel, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
 
 const DEFAULT_NAME = "New panel";
@@ -22,7 +23,7 @@ const DEFAULT_NAME = "New panel";
 const resolveName = async (client: Client | null, tab: panel.Tab): Promise<string> => {
   if (client == null || tab.variant !== "resource") return DEFAULT_NAME;
   try {
-    return (await client.ontology.retrieve(tab.resource)).name;
+    return (await client.resources.retrieve(tab.resource)).name;
   } catch {
     return DEFAULT_NAME;
   }
@@ -47,12 +48,14 @@ export const useMintPanelForTab = (): MintPanelForTab => {
   const { updateAsync: create } = Panel.useCreate();
   const { dispatch } = Panel.useDispatch();
   const client = Synnax.use();
+  const getIconKey = PlatformPanel.useGetIconKey();
   return async ({ panel: source, tab }) => {
     const key = uuid.create();
     const created = await create({
       key,
       name: await resolveName(client, tab),
-      parent: project.ontologyID(projectKey),
+      icon: getIconKey(tab),
+      project: projectKey,
       root: { variant: "leaf", tabs: [tab] },
     });
     if (!created) return undefined;

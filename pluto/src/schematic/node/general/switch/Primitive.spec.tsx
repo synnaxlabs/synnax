@@ -39,15 +39,15 @@ describe("switch symbol", () => {
     });
 
     it("should carry the alpha channel so a translucent color stays translucent", () => {
-      const { container } = render(<Switch strokeColor={[255, 0, 0, 0.5]} />);
+      const { container } = render(<Switch strokeColor={[255, 0, 0, 51]} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "255, 0, 0, 0.5",
+        "255, 0, 0, 0.2",
       );
     });
 
     // An unset color must leave the switch on the input theme it draws itself from.
     it("should pass a fully transparent color through as a choice", () => {
-      const { container } = render(<Switch strokeColor={color.ZERO} />);
+      const { container } = render(<Switch strokeColor={color.TRANSPARENT} />);
       const root = getRoot(container);
       expect(root.getAttribute("class") ?? "").toContain("lyra-symbol-colored");
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");

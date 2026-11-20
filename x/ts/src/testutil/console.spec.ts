@@ -9,6 +9,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import { failOnConsoleOutput } from "@/testutil/console";
+
 // The x setup file calls failOnConsoleOutput, so these specs run under the check.
 describe("failOnConsoleOutput", () => {
   it.fails("should fail a test that writes to console.error", () => {
@@ -25,5 +27,18 @@ describe("failOnConsoleOutput", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     console.warn("expected warning");
     expect(warn).toHaveBeenCalledWith("expected warning");
+  });
+
+  describe("with an ignore list", () => {
+    failOnConsoleOutput({ ignore: [/slow step/] });
+
+    it("should pass a test that writes only ignored output", () => {
+      console.warn("a slow step took 23ms");
+    });
+
+    it.fails("should fail a test that writes other output", () => {
+      console.warn("a slow step took 23ms");
+      console.warn("unexpected warning");
+    });
   });
 });

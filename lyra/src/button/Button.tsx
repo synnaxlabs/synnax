@@ -20,13 +20,14 @@ import {
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
-import { type Generic } from "@/generic";
+import type { Generic } from "@/generic";
 import { useCombinedRefs, useHold, type UseHoldProps } from "@/hooks";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
+import { ownsEvent } from "@/util";
 
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
@@ -34,9 +35,10 @@ export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 /**
  * The rest-state emphasis of the button chassis. A glyph button never fills, so its
  * icon alone shows hover and press. Use it for an action inside another control, such
- * as a tab's close button.
+ * as a tab's close button. A shadow button draws no box at rest, for a field that reads
+ * as its value, and draws the outlined box on hover, on press, and while it is open.
  */
-export type Variant = "filled" | "outlined" | "text" | "glyph";
+export type Variant = "filled" | "outlined" | "text" | "glyph" | "card" | "shadow";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -59,7 +61,9 @@ export interface ExtensionProps
   /** Swallows the click without calling onClick. Use for a button that is momentarily
    * inapplicable but must not read as disabled. */
   preventClick?: boolean;
-  /** Lets the click reach an ancestor's handler. Clicks stop at the button otherwise. */
+  /**
+   * Lets the click reach an ancestor's handler. Clicks stop at the button otherwise.
+   */
   propagateClick?: boolean;
   /** Holds onClick until the button has been held this long, filling a progress bar
    * meanwhile. Use it to guard a destructive action. */
@@ -92,9 +96,6 @@ const resolveTriggerIndicator = (
   if (triggerIndicator != null && triggerIndicator !== false) return triggerIndicator;
   return undefined;
 };
-
-const FOCUSABLE =
-  'a[href], button, input, select, textarea, [contenteditable="true"], [tabindex]';
 
 /**
  * The standard clickable. Renders as a `button` unless `el` names another
@@ -189,13 +190,7 @@ export const Button = <E extends ElementType = "button">(
     // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
     // cancelled default also moves focus, so skip it when a focusable descendant owns
     // the press: the chassis is not the element the browser would focus.
-    if (
-      tabIndex == -1 &&
-      draggable !== true &&
-      e.target instanceof Element &&
-      e.target.closest(FOCUSABLE) === e.currentTarget
-    )
-      e.preventDefault();
+    if (tabIndex == -1 && draggable !== true && ownsEvent(e)) e.preventDefault();
     hold.onMouseDown(e);
   };
 
@@ -209,7 +204,8 @@ export const Button = <E extends ElementType = "button">(
 
   const res = color.colorZ.safeParse(colorVal);
   const hasCustomColor =
-    res.success && (variant === "filled" || variant === "outlined");
+    res.success &&
+    (variant === "filled" || variant === "outlined" || variant === "shadow");
   const theme = Theming.use();
 
   let pStyle = style;
@@ -217,7 +213,7 @@ export const Button = <E extends ElementType = "button">(
     pStyle = {
       ...pStyle,
       [COLOR_VARIABLE]: color.rgbString(res.data),
-      [TEXT_COLOR_VARIABLE]: color.rgbCSS(
+      [TEXT_COLOR_VARIABLE]: color.cssString(
         color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
       ),
     };
@@ -240,7 +236,9 @@ export const Button = <E extends ElementType = "button">(
     <Text.Text
       el={el}
       defaultEl={defaultEl}
-      direction="x"
+      direction={variant === "card" ? "y" : "x"}
+      align={variant === "card" ? "start" : undefined}
+      justify={variant === "card" ? "start" : undefined}
       className={CSS.cls(
         CSS.B(MODULE_CLASS),
         preventClick && CSS.BM(MODULE_CLASS, "prevent-click"),
@@ -262,11 +260,11 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant === "filled" || variant === "outlined"}
+      bordered={variant !== "text" && variant !== "glyph"}
       level={level}
       variant={textVariant}
       square={square}
-      overflow="nowrap"
+      overflow={variant === "card" ? "wrap" : "nowrap"}
       status={status}
       href={href}
       draggable={draggable}

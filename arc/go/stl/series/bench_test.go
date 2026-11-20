@@ -39,6 +39,7 @@ func benchLogical(
 	fn string,
 	args func(ss *series.ProgramState, lhs, rhs telem.Series) []uint64,
 ) {
+	b.Helper()
 	for _, size := range benchSizes {
 		b.Run(strconv.Itoa(size), func(b *testing.B) {
 			ctx := context.Background()

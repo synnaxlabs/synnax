@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import { type bounds, box, type destructor, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -20,7 +20,7 @@ import { rule } from "@/lineplot/rule/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
@@ -68,10 +68,10 @@ export class LinePlot
 {
   static readonly TYPE: string = "LinePlot";
 
-  schema = linePlotStateZ;
-  methods = linePlotMethodsZ;
+  override schema = linePlotStateZ;
+  override methods = linePlotMethodsZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
     this.internal.handleError = status.useErrorHandler(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
@@ -87,7 +87,7 @@ export class LinePlot
     this.requestRender("high", "layout");
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     this.internal.stopListeningRestore?.();
     this.internal.renderCtx = render.Context.use(ctx);
     this.requestRender("high", "layout");
@@ -96,6 +96,11 @@ export class LinePlot
   findByXDecimal(x: number): FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes.flatMap((xAxis) => xAxis.findByXDecimal(props, x)).flat();
+  }
+
+  private findDrawnByXDecimal(x: number): FindResult[] {
+    const props = { ...this.state, plot: this.calculatePlot() };
+    return this.axes.flatMap((a) => a.findDrawnByXDecimal(props, x));
   }
 
   findByXValue(x: number): FindResult[] {
@@ -136,7 +141,8 @@ export class LinePlot
   }
 
   private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
-    const p = { findByXDecimal: this.findByXDecimal.bind(this), region, canvases };
+    const findByXDecimal = this.findDrawnByXDecimal.bind(this);
+    const p = { findByXDecimal, region, canvases };
     this.tooltips.forEach((t) => t.render(p));
   }
 

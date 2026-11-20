@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, table } from "@synnaxlabs/client";
+import { type resource, table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/feature/table";
 import { createResource } from "@/platform/tree/testutil";
-import {
-  createConsoleWrapper,
-  resolveFocusedTab,
-  selectTestProject,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 
@@ -31,20 +27,20 @@ describe("table/search", () => {
   it("opens the table as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("table");
-    const resource = createResource(table.ontologyID(key), name);
+    const item = createResource(table.resourceID(key), name);
     const SearchListItem = Table.SEARCH_LIST_ITEMS.table;
     if (SearchListItem == null) throw new Error("table SearchListItem is not defined");
     const Harness = (): ReactElement => {
-      const staticProps = List.useStaticData<string, ontology.Resource>({
-        data: [resource],
+      const staticProps = List.useStaticData<string, resource.Resource>({
+        data: [item],
       });
       return (
-        <Select.Frame<string, ontology.Resource>
+        <Select.Frame<string, resource.Resource>
           {...staticProps}
           value={undefined}
           onChange={() => {}}
         >
-          <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+          <SearchListItem key={item.key} itemKey={item.key} index={0} />
         </Select.Frame>
       );
     };

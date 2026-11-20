@@ -29,7 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1800);
 
-  await session.click(capture.toolbarButton(page, "schematic", "add"), { zoom: false });
+  await session.click(capture.toolbarButton(page, "schematic-create"), { zoom: false });
   const modal = page.locator(capture.MODAL).first();
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);
@@ -78,7 +78,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
   // The second preset is the theme's secondary color.
   await session.click(
-    picker.locator(".lyra-color-picker__swatches .lyra-color-swatch").nth(1),
+    picker.locator(".lyra-color-swatches .lyra-color-swatch").nth(1),
     { zoom: false },
   );
   await session.hold(500);

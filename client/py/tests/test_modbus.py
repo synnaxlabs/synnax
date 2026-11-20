@@ -16,7 +16,9 @@ import synnax as sy
 from synnax.exceptions import PathError
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 from x.strings import random_name
+from x.testutil import untyped
 
 
 @pytest.mark.modbus
@@ -44,7 +46,6 @@ class TestModbusReadTask:
                             "data_type": "float32",
                             "bytes_swapped": False,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                     ],
                 },
@@ -67,7 +68,6 @@ class TestModbusReadTask:
                             "data_type": "uint32",
                             "bytes_swapped": True,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                     ],
                 },
@@ -128,7 +128,6 @@ class TestModbusReadTask:
                             "data_type": "float32",
                             "bytes_swapped": False,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                         {
                             "type": "input_register",
@@ -139,7 +138,6 @@ class TestModbusReadTask:
                             "data_type": "int16",
                             "bytes_swapped": False,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                         {
                             "type": "coil",
@@ -235,6 +233,22 @@ class TestModbusReadTask:
                 type="input_register_bit", address=3, channel=1234, bit=16
             )
 
+    def test_string_length_bounds(self) -> None:
+        """Test that a string channel holds 1 to 250 characters."""
+        for length in (1, 250):
+            ch = sy.modbus.InputRegisterStringReadChannel(
+                type="input_register_string", address=3, channel=1234, length=length
+            )
+            assert ch.length == length
+        for length in (0, 251):
+            with pytest.raises(ValidationError):
+                sy.modbus.InputRegisterStringReadChannel(
+                    type="input_register_string",
+                    address=3,
+                    channel=1234,
+                    length=length,
+                )
+
     def test_register_channels_default_to_uint16(self) -> None:
         """Test that a register channel without a data type reads uint16."""
         ch = sy.modbus.HoldingRegisterReadChannel(
@@ -281,7 +295,9 @@ class TestModbusReadTask:
         assert obj(channels[0])["address"] == 0
         assert obj(channels[0])["data_type"] == "float32"
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.modbus.ReadTask(
             name="test-modbus-read-task",
@@ -306,7 +322,9 @@ class TestModbusReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-modbus-read-task",
             type="modbus_read",
             config=task.config,
@@ -480,7 +498,9 @@ class TestModbusWriteTask:
         assert len(channels) == 1
         assert obj(channels[0])["address"] == 5
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.modbus.WriteTask(
             name="test-modbus-write-task",
@@ -502,14 +522,18 @@ class TestModbusWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-modbus-write-task",
             type="modbus_write",
             config=task.config,
         )
         sy.modbus.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.modbus.WriteTask(
             name="test-round-trip",
@@ -537,7 +561,9 @@ class TestModbusWriteTask:
         )
 
         # Create task in database
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="modbus_write",
             config=original_task.config,
@@ -565,7 +591,7 @@ class TestModbusWriteTask:
                 assert retr_ch.words_swapped == orig_ch.words_swapped
 
     def test_register_channel_without_override_follows_device(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """A register channel left unset keeps no swap fields, so the device's order
         applies, while an explicit False survives as an override."""
@@ -588,8 +614,12 @@ class TestModbusWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
-            name="test-swap-inherit", type="modbus_write", config=task.config
+            rack=task_targets.rack,
+            name="test-swap-inherit",
+            type="modbus_write",
+            config=task.config,
         )
         inherit, override = sy.modbus.WriteTask(created).config.channels
         assert isinstance(inherit, sy.modbus.HoldingRegisterWriteChannel)
@@ -772,7 +802,13 @@ class TestModbusDevicePropertyUpdates:
 
     def test_device_connection_defaults(self) -> None:
         """Should store the defaults the Driver applies to absent fields."""
-        dev = sy.modbus.Device(host="10.0.0.7", port=502)
+        dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            host="10.0.0.7",
+            port=502,
+        )
         assert dev.properties["connection"] == {
             "transport": "tcp",
             "host": "10.0.0.7",
@@ -794,6 +830,9 @@ class TestModbusDevicePropertyUpdates:
     def test_device_unit_and_requests(self) -> None:
         """Should store the unit, timing, and request settings it is given."""
         dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             host="gateway",
             port=502,
             unit_id=7,
@@ -819,7 +858,13 @@ class TestModbusDevicePropertyUpdates:
 
     def test_device_rtu_defaults(self) -> None:
         """Should store an RTU connection at 19200 8E1 that addresses unit 1."""
-        dev = sy.modbus.Device(transport="rtu", serial_port="/dev/ttyUSB0")
+        dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            transport="rtu",
+            serial_port="/dev/ttyUSB0",
+        )
         assert dev.properties["connection"] == {
             "transport": "rtu",
             "serial_port": "/dev/ttyUSB0",
@@ -836,6 +881,9 @@ class TestModbusDevicePropertyUpdates:
     def test_device_rtu_line_settings(self) -> None:
         """Should store the line settings and unit it is given."""
         dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             transport="rtu",
             serial_port="COM3",
             baud_rate=230400,
@@ -881,10 +929,10 @@ class TestModbusDevicePropertyUpdates:
             match=r"^baud_rate: must be one of 1200, 2400, 4800, 9600, 19200, 38400, "
             r"57600, 115200, 230400$",
         ):
-            sy.modbus.Device(
+            untyped(sy.modbus.Device)(
                 transport="rtu",
                 serial_port="COM3",
-                baud_rate=baud_rate,  # type: ignore[arg-type]
+                baud_rate=baud_rate,
             )
 
     def test_device_property_key_format(self) -> None:
@@ -981,3 +1029,50 @@ class TestModbusDevicePropertyUpdates:
         assert read_channels["register-bit-input-4-9"] == chs[1].key
         write_channels = obj(updated.properties, "write", "channels")
         assert write_channels["holding-register-bit-output-4-3"] == chs[2].key
+
+    def test_string_channels_update_device_properties(self, client: sy.Synnax) -> None:
+        """Test that string channels map to the keys of released string registers."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.modbus.Device(
+            host="127.0.0.1",
+            port=502,
+            name="Test Modbus String Device",
+            location="127.0.0.1:502",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        suffix = random_name()
+        index = client.channels.create(
+            name=f"str_time_{suffix}", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        chs = [
+            client.channels.create(
+                name=f"str_{i}_{suffix}",
+                data_type=sy.DataType.STRING,
+                index=index.key,
+            )
+            for i in range(2)
+        ]
+        read = sy.modbus.ReadTask(
+            name="String read task",
+            device=device.key,
+            channels=[
+                sy.modbus.HoldingRegisterStringReadChannel(
+                    type="holding_register_string",
+                    channel=chs[0].key,
+                    address=4,
+                    length=6,
+                ),
+                sy.modbus.InputRegisterStringReadChannel(
+                    type="input_register_string",
+                    channel=chs[1].key,
+                    address=8,
+                    length=3,
+                ),
+            ],
+        )
+        read.update_device_properties(client.devices)
+        updated = client.devices.retrieve(key=device.key)
+        read_channels = obj(updated.properties, "read", "channels")
+        assert read_channels["holding-register-input-4-string"] == chs[0].key
+        assert read_channels["register-input-8-string"] == chs[1].key

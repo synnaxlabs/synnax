@@ -18,8 +18,8 @@ Modbus TCP/IP) to Synnax.
    (discovery).
 3. **Pipelines** (`/driver/pipeline/`) — generic streaming: **Acquisition** (Source →
    Writer → Synnax) and **Control** (Synnax → Streamer → Sink). Automatic retry when
-   `synnax::errors::is_temporarily_unavailable` matches (unreachable or unlicensed
-   Core), breaker pattern (exponential backoff), thread management.
+   `synnax::errors::is_temporarily_unavailable` matches (unreachable, timed out, or
+   unlicensed Core), breaker pattern (exponential backoff), thread management.
 4. **Device integrations** — each implements
    `Factory → {Read|Write|Scan}Task → Source/Sink → Device API`.
 
@@ -30,8 +30,8 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 ## Integrations
 
 - **LabJack** (`/driver/labjack/`) — LJM wrapper + device manager. ReadTask has two
-  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource`
-  (thermocouples, with CJC config). Transform chain for scaling.
+  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource` (polled T7
+  thermocouples). The Driver converts thermocouples with `LJM_TCVoltsToTemp`.
 - **NI** (`/driver/ni/`) — DAQmx + NISysCfg wrappers. Analog/digital read/write +
   scanner. Scanner discovers CompactDAQ chassis/modules via link properties
   (`ConnectsToLinkName`/`ProvidesLinkName`) in a two-pass algorithm (collect devices +
@@ -46,6 +46,8 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 - **OPC UA** (`/driver/opcua/`) — vendored open62541 on BCR mbedtls.
   `util::ConnectionPool` shared clients; ReadTask modes for array vs scalar reads;
   NodeId-based writes; security policy support. Windows/Linux/macOS.
+- **EtherCAT** (`/driver/ethercat/`): SOEM and IgH masters. Read `ethercat/DEWESOFT.md`
+  before work on Dewesoft modules: it holds hardware facts the code does not show.
 
 ## Plugin pattern
 
@@ -55,13 +57,13 @@ for unrecognized types) and `configure_initial_tasks`; registered in
 
 ## Device hierarchy
 
-Device create API takes optional `parent` ontology ID (e.g. `"device:SERIAL"`),
-atomically creating the device + `ParentOf` relationship; defaults to the rack when
-absent (`core/pkg/service/device/writer.go`). The common scan task
-(`driver/common/scan_task.h`) tracks parent changes between cycles and re-creates the
-device when the parent changes. Console decides node expandability via make-based
-dispatch (`console/src/hardware/device/make.tsx`, e.g. NI `is_chassis`). Used today by
-NI (cDAQ chassis + modules).
+A device's optional `parent` field holds the key of the device that holds it (e.g. an NI
+chassis); with no parent the device sits directly on its rack
+(`core/pkg/service/legacy/device/writer.go`). The Core writes `parent` as sent, so the
+common scan task (`driver/common/scan_task.h`) keeps the stored parent of a device
+scanned with none, and updates the device when the parent changes. Console decides node
+expandability via make-based dispatch (`console/src/feature/device/make.tsx`, e.g. NI
+`is_chassis`). Used today by NI (cDAQ chassis + modules).
 
 ## Tests
 

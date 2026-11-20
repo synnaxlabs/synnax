@@ -40,6 +40,12 @@ describe("csv", () => {
         expect(csv.formatValue("hello\r\nworld")).toBe('"hello\r\nworld"');
         expect(csv.formatValue('"hello"')).toBe('"""hello"""');
       });
+
+      it("should quote a string with spaces at its ends", () => {
+        expect(csv.formatValue("hello ")).toBe('"hello "');
+        expect(csv.formatValue(" hello")).toBe('" hello"');
+        expect(csv.formatValue("hello world")).toBe("hello world");
+      });
     });
     describe("symbols", () => {
       it("should format symbols correctly", () => {
@@ -88,6 +94,13 @@ describe("csv", () => {
       ]);
     });
 
+    it("should split only on the delimiter it is given", () => {
+      expect(csv.parseBlock("1,\t10\n2,20", ",")).toEqual([
+        ["1", "10"],
+        ["2", "20"],
+      ]);
+    });
+
     it("should keep commas inside a tab delimited field", () => {
       expect(csv.parseBlock("1,000\t2,000")).toEqual([["1,000", "2,000"]]);
     });
@@ -102,6 +115,13 @@ describe("csv", () => {
 
     it("should trim the fields", () => {
       expect(csv.parseBlock(" 1 , 10 ")).toEqual([["1", "10"]]);
+    });
+
+    it("should keep the spaces inside the quotes of a field", () => {
+      expect(csv.parseBlock(' " a " ,b\n""," "')).toEqual([
+        [" a ", "b"],
+        ["", " "],
+      ]);
     });
 
     it("should drop empty lines", () => {

@@ -31,7 +31,8 @@ runs:
     # name with dashes. The updater looks up {os}-{arch}-{installer} before {os}-{arch},
     # so each Windows install updates with the installer it came from, and an install
     # that cannot name its installer gets NSIS, the one the download page offers. The
-    # macOS bundle is arm64 only, so an Intel Mac gets no entry.
+    # macOS bundle is arm64 only, so an Intel Mac gets no entry. There is no Linux build,
+    # so Linux gets a placeholder entry that no install can apply.
     - name: Write updater manifest
       shell: bash
       working-directory: ${{ runner.temp }}
@@ -50,25 +51,28 @@ runs:
         MSI="${NAME}_${APP_VERSION}_x64_en-US.msi"
         gh release download "$TAG" \
           --pattern "$MAC.sig" --pattern "$NSIS.sig" --pattern "$MSI.sig"
+        LINUX_ENTRIES=$(jq -n --arg url "$BASE/$MAC" '{
+          "linux-x86_64": {
+            signature: "not_supported_and_tauri_requires_an_entry",
+            url: $url
+          }
+        }')
         jq -n --arg version "v${APP_VERSION}" --arg notes "${APP} Update" \
           --arg mac "$BASE/$MAC" --arg nsis "$BASE/$NSIS" --arg msi "$BASE/$MSI" \
           --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           --rawfile darwin "$MAC.sig" \
           --rawfile nsis_sig "$NSIS.sig" \
           --rawfile msi_sig "$MSI.sig" \
+          --argjson linux "$LINUX_ENTRIES" \
           '{
             version: $version,
             notes: $notes,
             pub_date: $date,
-            platforms: {
+            platforms: ({
               "darwin-aarch64": {signature: $darwin, url: $mac},
-              "linux-x86_64": {
-                signature: "not_supported_and_tauri_requires_an_entry",
-                url: $mac
-              },
               "windows-x86_64": {signature: $nsis_sig, url: $nsis},
               "windows-x86_64-nsis": {signature: $nsis_sig, url: $nsis},
               "windows-x86_64-msi": {signature: $msi_sig, url: $msi}
-            }
+            } + $linux)
           }' > latest.json
         gh release upload --clobber "$TAG" latest.json

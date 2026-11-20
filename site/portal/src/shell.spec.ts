@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import type { Organization } from "@/server/db/schema";
 import { pick } from "@/server/organization";
 import { HOME, landing, scoped, tabs } from "@/shell";
 
@@ -19,6 +19,7 @@ const organization = (key: string, kind: Organization["kind"]): Organization => 
   name: key,
   clerkOrgID: kind === "team" ? `clerk-${key}` : null,
   ownerUserID: kind === "personal" ? "user" : null,
+  desktopChannels: null,
   createdAt: new Date(0),
 });
 

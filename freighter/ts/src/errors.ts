@@ -26,6 +26,12 @@ export class StreamClosed extends FreighterError.sub("stream_closed") {
   }
 }
 
+/** Error thrown when a stream holds more unread messages than its limit allows. */
+export class ReceiveOverflow extends FreighterError.sub("receive_overflow") {}
+
+/** Thrown when a target sends no response within the timeout. */
+export class Timeout extends FreighterError.sub("timeout") {}
+
 /** Arguments for constructing an Unreachable error */
 export interface UnreachableParams {
   message?: string;
@@ -33,16 +39,26 @@ export interface UnreachableParams {
   /** Underlying error that caused the target to be unreachable (e.g. the original fetch
    * failure). Preserved on Error.cause for stack-trace continuity. */
   cause?: unknown;
+  /** True when the target received the request, so a resend could repeat it. */
+  delivered?: boolean;
 }
 
 /** Thrown when a network target is unreachable. */
 export class Unreachable extends FreighterError.sub("unreachable") {
   url: url.URL;
+  /** True when the target received the request, so a resend could repeat it. */
+  readonly delivered: boolean;
 
   constructor(params: UnreachableParams = {}) {
-    const { message = "Unreachable", url: endpoint = url.URL.UNKNOWN, cause } = params;
+    const {
+      message = "Unreachable",
+      url: endpoint = url.URL.UNKNOWN,
+      cause,
+      delivered = false,
+    } = params;
     super(message, cause !== undefined ? { cause } : undefined);
     this.url = endpoint;
+    this.delivered = delivered;
   }
 }
 
@@ -53,6 +69,9 @@ const freighterErrorEncoder: errors.Encoder = (error: errors.Typed) => {
     return { type: StreamClosed.TYPE, data: "StreamClosed" };
   if (Unreachable.matches(error))
     return { type: Unreachable.TYPE, data: "Unreachable" };
+  if (ReceiveOverflow.matches(error))
+    return { type: ReceiveOverflow.TYPE, data: error.message };
+  if (Timeout.matches(error)) return { type: Timeout.TYPE, data: error.message };
   throw new Error(`Unknown error type: ${error.type}: ${error.message}`);
 };
 
@@ -65,6 +84,10 @@ const freighterErrorDecoder: errors.Decoder = (encoded: errors.Payload) => {
       return new StreamClosed();
     case Unreachable.TYPE:
       return new Unreachable();
+    case ReceiveOverflow.TYPE:
+      return new ReceiveOverflow(encoded.data);
+    case Timeout.TYPE:
+      return new Timeout(encoded.data);
     default:
       throw new errors.Unknown(`Unknown error type: ${encoded.data}`);
   }

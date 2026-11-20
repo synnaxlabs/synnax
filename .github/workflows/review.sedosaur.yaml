@@ -1,0 +1,489 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Reviews a pull request with Sedosaur on a review runner, and posts the review as the
+# sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
+# that started this workflow, on the default branch, never from the pull request or its
+# base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
+# The App token reaches only the steps that write to GitHub. A replay reviews any commit
+# against any base, posts nothing, and keeps only the record. It can take the policy of
+# another ref, so a new policy can be tried on old commits before it merges. A restore
+# runs no review: it puts the last summary of Sedosaur back in the pull request body.
+
+name: Review - Sedosaur
+run-name:
+  ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}${{ inputs.repeat && ' repeat'
+  || '' }}${{ inputs.restore && ' restore' || '' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull request to review"
+        type: number
+        required: true
+      head:
+        description: "Commit to review, if not the head of the pull request"
+        type: string
+        required: false
+      base:
+        description: "Commit to diff against, if not the base of the pull request"
+        type: string
+        required: false
+      replay:
+        description: "Review without posting, and keep only the record"
+        type: boolean
+        default: false
+      policy:
+        description: "Ref whose prompt, rules, and review settings a replay uses"
+        type: string
+        required: false
+      repeat:
+        description: "Review the head again, even when its last review succeeded"
+        type: boolean
+        default: false
+      restore:
+        description: "Put the last summary back in the body, without a review"
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  RUN_URL:
+    ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  # The review module reads the Claude Code stream with the agent wrapper's code.
+  PYTHONPATH: ${{ github.workspace }}/scripts
+
+# One review of a pull request at a time. A newer request replaces a queued one. Replays
+# post nothing, and a restore cannot replace a queued review, so each runs apart.
+concurrency:
+  group:
+    review-sedosaur-${{ inputs.pr }}-${{ (inputs.replay || inputs.restore) &&
+    github.run_id || 'live' }}
+  cancel-in-progress: false
+
+jobs:
+  start:
+    if: ${{ !inputs.restore }}
+    name: Prepare the review
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      pull-requests: read
+    outputs:
+      head: ${{ steps.pr.outputs.head }}
+      base: ${{ steps.pr.outputs.base }}
+      skip: ${{ steps.skip.outputs.skip }}
+      fork: ${{ steps.pr.outputs.fork }}
+      carried: ${{ steps.carry.outputs.carried }}
+      check: ${{ steps.check.outputs.id }}
+    timeout-minutes: 10
+    steps:
+      - name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          HEAD: ${{ inputs.head }}
+          BASE: ${{ inputs.base }}
+          POLICY: ${{ inputs.policy }}
+          REPLAY: ${{ inputs.replay }}
+        run: |
+          for sha in "$HEAD" "$BASE"; do
+            if [ -n "$sha" ] && ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::head and base must be full commit SHAs."
+              exit 1
+            fi
+          done
+          if [ -n "$POLICY" ] && { [ "$REPLAY" != true ] ||
+            ! [[ "$POLICY" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; }; then
+            echo "::error::policy must name a branch or commit, and only for a replay."
+            exit 1
+          fi
+          set -o pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" |
+            jq -r --arg head "$HEAD" --arg base "$BASE" '
+              "head=\(if $head == "" then .head.sha else $head end)",
+              "base=\(if $base == "" then .base.sha else $base end)",
+              "fork=\(.head.repo.full_name != .base.repo.full_name)",
+              "key=\(.number):\(.base.ref)"
+            ' >> "$GITHUB_OUTPUT"
+
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
+
+      - name: Decide whether to review
+        id: skip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          KEY: ${{ steps.pr.outputs.key }}
+          FORK: ${{ steps.pr.outputs.fork }}
+          PR: ${{ inputs.pr }}
+          REPEAT: ${{ inputs.repeat }}
+          REPLAY: ${{ inputs.replay }}
+        run: |
+          skip=$(.github/scripts/sedosaur_skip.sh)
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+      - name: Mint the GitHub App token
+        id: app
+        if: steps.skip.outputs.skip == 'false'
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-contents: read
+          permission-pull-requests: read
+
+      # The check run shows on the pull request while the runner boots.
+      - name: Queue the check run
+        id: check
+        if: steps.skip.outputs.skip == 'false' && !inputs.replay
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          KEY: ${{ steps.pr.outputs.key }}
+        run: |
+          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" -f external_id="$KEY" \
+            -f status=queued -f details_url="$RUN_URL" --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      # A push that leaves the diff the same, as a merge of the base does, gets the last
+      # review of the diff instead of a new one. A carry only saves a review, so when it
+      # fails, the review runs.
+      - name: Carry the last review
+        id: carry
+        if: steps.skip.outputs.skip == 'false' && !inputs.replay && !inputs.repeat
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          KEY: ${{ steps.pr.outputs.key }}
+          CHECK_RUN: ${{ steps.check.outputs.id }}
+        run: |
+          carried=$(python3 -m review carry || echo false)
+          echo "carried=$carried" >> "$GITHUB_OUTPUT"
+
+  review:
+    needs: start
+    if: needs.start.outputs.skip == 'false' && needs.start.outputs.carried != 'true'
+    name: Review
+    runs-on: [self-hosted, review]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      PR: ${{ inputs.pr }}
+      HEAD_SHA: ${{ needs.start.outputs.head }}
+      BASE_SHA: ${{ needs.start.outputs.base }}
+      CHECK_RUN: ${{ needs.start.outputs.check }}
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Start the check run
+        if: ${{ !inputs.replay }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
+            -f status=in_progress --silent
+
+      # Eyes on the pull request description show that Sedosaur is reviewing it. The
+      # unwatch job takes them away. They are only a signal, so a failure here does not
+      # stop the review.
+      - name: Watch the pull request
+        if: ${{ !inputs.replay }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/reactions" \
+            -f content=eyes --silent
+
+      # The runner keeps the clone between jobs, so each fetch is small. This checkout
+      # holds the scripts and the policy: the pull request and its base are not trusted.
+      - name: Check out the scripts and the policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # A policy ref can change the prompt, the rules, and the settings of the config
+      # that do not reach outside the checkout: the tools, the context documents, and
+      # the scripts stay those of this commit. The runner group runs only this workflow
+      # from the default branch, so a replay cannot start from the ref itself.
+      - name: Take the policy of the policy ref
+        id: policy
+        env:
+          POLICY: ${{ inputs.policy }}
+        run: |
+          if [ -z "$POLICY" ]; then
+            echo "sha=$(git log -1 --format=%H -- .sedosaur)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags origin "$POLICY"
+          rm -r .sedosaur/rules
+          git checkout FETCH_HEAD -- .sedosaur/prompt.md .sedosaur/rules \
+            .sedosaur/config.toml
+          python3 - <<'EOF'
+          import subprocess, sys, tomllib
+          def config(ref):
+              show = ["git", "show", f"{ref}:.sedosaur/config.toml"]
+              return tomllib.loads(subprocess.check_output(show, text=True))
+          allowed = {"model", "effort", "caps", "excluded", "diff_chars", "lens"}
+          ours, theirs = config("HEAD"), config("FETCH_HEAD")
+          if any(ours.get(k) != theirs.get(k) for k in ours.keys() | theirs.keys()
+                 if k not in allowed):
+              print("::error::A policy ref can change only", ", ".join(sorted(allowed)))
+              sys.exit(1)
+          EOF
+          echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+
+      # The diff needs the base commit. The runner empties its temporary directory after
+      # each job, so prune drops the checkout of the last review.
+      - name: Check out the head
+        run: |
+          git worktree prune
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
+
+      # The runners on one machine review at the same time, so each review gets its own
+      # copy in the temporary directory, which the runner empties after the job.
+      - name: Install Claude Code
+        run: |
+          cp -R .github/agents/cli "$RUNNER_TEMP/claude"
+          npm ci --prefix "$RUNNER_TEMP/claude"
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
+
+      # The fleet controller started the runner on a shared Claude login, which only
+      # this runner's machine may read.
+      - name: Read the Claude login
+        run: |
+          imds=http://169.254.169.254/latest
+          imds_token=$(curl -fsS -X PUT "$imds/api/token" \
+            -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          login=$(curl -fsS -H "X-aws-ec2-metadata-token: $imds_token" \
+            "$imds/meta-data/tags/instance/login")
+          token=$(uvx --from awscli==1.46.2 aws secretsmanager get-secret-value \
+            --region us-east-1 --secret-id "synnax-agents/logins/$login" \
+            --query SecretString --output text)
+          echo "::add-mask::$token"
+          echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Review
+        id: review
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          POLICY_DIR: ${{ github.workspace }}
+          POLICY_SHA: ${{ steps.policy.outputs.sha }}
+          REPLAY: ${{ inputs.replay }}
+          HEAD_DIR: ${{ runner.temp }}/head
+        run: python3 -m review run "$RUNNER_TEMP/review.json"
+
+      # A usage limit or a rejected token stops every job of the seat. The seat leaves
+      # the pool, and Agent - Requeue runs this job again on a seat with a usable login.
+      - name: Leave the pool until the usage limit resets
+        if: failure() && steps.review.outputs.limited-until != ''
+        env:
+          UNTIL: ${{ steps.review.outputs.limited-until }}
+        run: scripts/agent/leave.sh limited-until "$UNTIL"
+
+      - name: Leave the pool until a person renews the login
+        if: failure() && steps.review.outputs.login-broken != ''
+        env:
+          AT: ${{ steps.review.outputs.login-broken }}
+        run: |
+          scripts/agent/leave.sh login-broken "$AT"
+          echo "::error::Claude rejected the token of the seat's login. Store a new" \
+            "one with infra/agent-runner/seat.sh token <login>."
+
+      # A replay posts nothing, so this artifact is its only output.
+      - name: Keep the record of the replay
+        if: ${{ inputs.replay }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: sedosaur-replay
+          path: ${{ runner.temp }}/review.json
+          retention-days: 90
+          overwrite: true
+
+      # Its own token, minted after Claude Code exits: resolveReviewThread needs
+      # contents: write, which the review must never hold.
+      - name: Mint the token to post the review
+        if: ${{ !inputs.replay }}
+        id: post
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Post the review
+        if: ${{ !inputs.replay }}
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.post.outputs.token }}
+          BOT: ${{ steps.post.outputs.app-slug }}
+        run: python3 -m review post "$RUNNER_TEMP/review.json"
+
+  # Takes the eyes away however the review ends, even when its runner is lost.
+  unwatch:
+    needs: [start, review]
+    if: >-
+      always() && needs.start.outputs.skip == 'false' && needs.start.outputs.carried !=
+      'true' && !inputs.replay
+    name: Unwatch the pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - name: Take the eyes away
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          PR: ${{ inputs.pr }}
+        run: |
+          reactions="repos/$GITHUB_REPOSITORY/issues/$PR/reactions"
+          ids=$(gh api --paginate "$reactions?content=eyes&per_page=100" \
+            --jq '.[] | select(.user.login == env.LOGIN) | .id')
+          for id in $ids; do
+            gh api -X DELETE "$reactions/$id" --silent
+          done
+
+  # A review that never gets a runner cannot close its own check run, so a hosted job
+  # closes it whenever the review did not succeed.
+  end:
+    needs: [start, review]
+    if: >-
+      always() && needs.start.outputs.check != '' && needs.review.result != 'success' &&
+      needs.start.outputs.carried != 'true'
+    name: End the check run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+
+      - name: End the check run
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          CHECK_RUN: ${{ needs.start.outputs.check }}
+          STATUS:
+            ${{ needs.start.result != 'success' && needs.start.result ||
+            needs.review.result }}
+        # GitHub does not document whether an output without text keeps the old text,
+        # so the text that the review wrote is sent back.
+        run: |
+          run="repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN"
+          text=$(gh api "$run" --jq '.output.text // ""')
+          gh api -X PATCH "$run" \
+            -f status=completed -f conclusion="$STATUS" \
+            -f "output[title]=The review ended with $STATUS" \
+            -f "output[summary]=See the [run]($RUN_URL)." \
+            -f "output[text]=$text" --silent
+
+  # An edit of the body with an old copy drops or changes the summary. The App token
+  # reaches only the write.
+  restore:
+    if: inputs.restore
+    name: Restore the summary
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      pull-requests: read
+    timeout-minutes: 10
+    steps:
+      - name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -o pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
+            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
+          ' >> "$GITHUB_OUTPUT"
+
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
+
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      # One step, so the body is read again just before the write.
+      - name: Restore the summary
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WRITE_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          KEY: ${{ steps.pr.outputs.key }}
+        run: python3 -m review restore
+
+  relay-failure:
+    name: Relay the failure
+    needs: [start, review, unwatch, end, restore]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

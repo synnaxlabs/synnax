@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type table } from "@synnaxlabs/client";
+import type { table } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement, type ReactNode } from "react";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
+import type { ReactElement, ReactNode } from "react";
 
 import { getCellColumn } from "@/table/Indicator";
 import {
@@ -140,7 +140,7 @@ export const DefaultContextMenu = ({
   const { undo, canUndo } = useUndo({ key: resourceKey });
   const { redo, canRedo } = useRedo({ key: resourceKey });
   return (
-    <Menu.Menu level="small" gap="small">
+    <Menu.Menu gap="small">
       {editable && (
         <>
           <Menu.UndoRedoItems

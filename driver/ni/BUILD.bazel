@@ -19,11 +19,13 @@ cc_library(
 cc_library(
     name = "ni",
     srcs = [
+        "alias.cpp",
         "factory.cpp",
         "probe.cpp",
         "scan_task.cpp",
     ],
     hdrs = [
+        "alias.h",
         "ni.h",
         "probe.h",
         "read_task.h",
@@ -44,6 +46,7 @@ cc_library(
         "//driver/pipeline",
         "//driver/task",
         "//x/cpp/breaker",
+        "//x/cpp/defer",
         "//x/cpp/json",
         "//x/cpp/lib",
         "//x/cpp/loop",
@@ -64,6 +67,16 @@ cc_test(
         "//driver/ni",
         "//driver/ni/daqmx:mock",
         "//driver/pipeline/testutil",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "alias_test",
+    srcs = ["alias_test.cpp"],
+    deps = [
+        "//driver/ni",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

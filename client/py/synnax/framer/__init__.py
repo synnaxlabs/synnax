@@ -12,12 +12,13 @@ from synnax.framer.deleter import Deleter
 from synnax.framer.frame import CrudeFrame, Frame
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
-from synnax.framer.writer import Writer, WriterClosed, WriterMode
+from synnax.framer.writer import CommitResult, Writer, WriterClosed, WriterMode
 
 __all__ = [
     "AUTO_SPAN",
     "AsyncStreamer",
     "Client",
+    "CommitResult",
     "CrudeFrame",
     "Deleter",
     "Frame",

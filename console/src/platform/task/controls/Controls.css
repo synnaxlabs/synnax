@@ -33,6 +33,14 @@
         }
     }
 
+    > .console-task-status--absent {
+        cursor: default;
+
+        &:hover {
+            background: none;
+        }
+    }
+
     .console-task-status__expand-indicator {
         position: absolute;
         top: 1.5rem;
@@ -75,8 +83,8 @@
         white-space: pre-wrap;
         word-break: normal;
         overflow-wrap: anywhere;
-        user-select: text !important;
-        -webkit-user-select: text !important;
+        -webkit-user-select: text;
+        user-select: text;
         padding: 1rem;
         background: var(--pluto-gray-l0);
         border-radius: var(--pluto-border-radius);

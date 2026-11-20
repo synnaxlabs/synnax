@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Component } from "@synnaxlabs/lyra/component";
-import { type text } from "@synnaxlabs/x";
+import type { Component } from "@synnaxlabs/lyra/component";
+import type { text } from "@synnaxlabs/x";
 
-/** The text level a symbol renders at for each size rung. */
+/**
+ * The text level a symbol renders at for each size rung. A symbol must pass this level
+ * to Lyra, whose default level for a size is smaller on every rung below huge.
+ */
 export const SIZE_LEVELS: Record<Component.Size, text.Level> = {
   tiny: "small",
   small: "h5",

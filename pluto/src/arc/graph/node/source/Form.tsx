@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type ReactElement } from "react";
+import { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 
+const path = deep.path<{ channel: channel.Key }>();
+
 export const Form = (): ReactElement => (
-  <Base.Field<channel.Key> path="channel">
+  <Base.Field path={path.channel}>
     {({ value, onChange }) => (
       <Channel.SelectSingle
         value={value}

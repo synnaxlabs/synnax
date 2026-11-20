@@ -46,8 +46,6 @@ monorepo. The following is a summary of each:
 - [Arc](arc) - A domain-specific language and compiler for hardware automation and
   control sequences, with a reactive execution model and a WebAssembly compilation
   target.
-- [Aspen](aspen) - A gossip-based distributed key-value store used for propagating and
-  persisting metadata between nodes, such as cluster topology, state, and configuration.
 - [Cesium](cesium) - An embedded time series database engine optimized for
   high-performance reads and writes of time series sensor data.
 - [Client](client) - Client libraries for communicating with the Synnax server in C++,
@@ -75,7 +73,7 @@ monorepo. The following is a summary of each:
   by Pluto, the Console, and the documentation site.
 - [Pluto](pluto) - A React component library for building modular user interfaces on top
   of the Synnax telemetry engine.
-- [Core](core) - The core Synnax server, which integrates Aspen and Cesium to provide a
+- [Core](core) - The core Synnax server, which integrates Cesium and Gorp to provide a
   unified telemetry system.
 - [X](x) - Common utilities used by other projects.
 

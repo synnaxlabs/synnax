@@ -82,21 +82,29 @@ struct InputRegister final : Input {
     /// channel's override or else the device.
     bool words_swapped = false;
     /// @brief the number of characters in a string value.
-    std::size_t string_length = 0;
+    std::size_t length = 0;
     /// @brief the bit of the register the channel reads, if it reads one bit.
     std::optional<std::uint8_t> bit;
 
     InputRegister(
         const ::synnax::modbus::BaseReadChannel &base,
         const ::synnax::modbus::RegisterValue &value,
-        const std::int32_t string_length,
         const device::ConnectionConfig &conn
     ):
         Input(base),
         value_type(value.data_type),
         bytes_swapped(value.bytes_swapped.value_or(conn.swap_bytes)),
-        words_swapped(value.words_swapped.value_or(conn.swap_words)),
-        string_length(static_cast<std::size_t>(string_length)) {}
+        words_swapped(value.words_swapped.value_or(conn.swap_words)) {}
+
+    InputRegister(
+        const ::synnax::modbus::BaseReadChannel &base,
+        const ::synnax::modbus::RegisterString &str,
+        const device::ConnectionConfig &conn
+    ):
+        Input(base),
+        value_type(x::telem::STRING_T),
+        bytes_swapped(str.bytes_swapped.value_or(conn.swap_bytes)),
+        length(str.length) {}
 
     InputRegister(
         const ::synnax::modbus::BaseReadChannel &base,
@@ -108,13 +116,25 @@ struct InputRegister final : Input {
         const ::synnax::modbus::HoldingRegisterReadChannel &cfg,
         const device::ConnectionConfig &conn
     ):
-        InputRegister(cfg, cfg, cfg.string_length, conn) {}
+        InputRegister(cfg, cfg, conn) {}
 
     InputRegister(
         const ::synnax::modbus::InputRegisterReadChannel &cfg,
         const device::ConnectionConfig &conn
     ):
-        InputRegister(cfg, cfg, cfg.string_length, conn) {}
+        InputRegister(cfg, cfg, conn) {}
+
+    InputRegister(
+        const ::synnax::modbus::HoldingRegisterStringReadChannel &cfg,
+        const device::ConnectionConfig &conn
+    ):
+        InputRegister(cfg, cfg, conn) {}
+
+    InputRegister(
+        const ::synnax::modbus::InputRegisterStringReadChannel &cfg,
+        const device::ConnectionConfig &conn
+    ):
+        InputRegister(cfg, cfg, conn) {}
 
     explicit InputRegister(const ::synnax::modbus::HoldingRegisterBitReadChannel &cfg):
         InputRegister(cfg, cfg) {}
@@ -125,8 +145,7 @@ struct InputRegister final : Input {
     /// @returns the number of registers the channel covers.
     [[nodiscard]] std::size_t width() const {
         if (this->bit.has_value()) return 1;
-        if (this->value_type == x::telem::STRING_T)
-            return (this->string_length + 1) / 2;
+        if (this->value_type == x::telem::STRING_T) return (this->length + 1) / 2;
         return register_count(this->value_type);
     }
 
@@ -142,7 +161,7 @@ struct InputRegister final : Input {
             };
         if (this->value_type == x::telem::STRING_T)
             return {
-                util::parse_string(data, this->string_length, this->bytes_swapped),
+                util::parse_string(data, this->length, this->bytes_swapped),
                 x::errors::NIL
             };
         return util::parse_register_value(

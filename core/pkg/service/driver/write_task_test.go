@@ -11,13 +11,13 @@ package driver_test
 
 import (
 	"context"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -93,13 +93,16 @@ var _ = Describe("WriteTask", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{Key: uuid.New(), Name: "write-task-test", Type: "mock"}
+		createTask(ctx, t)
 		sink = &recordingSink{health: make(chan error, 1)}
 		cmdCh = channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &cmdCh)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &cmdCh)
+		})).To(Succeed())
 	})
 
 	open := func() *driver.WriteTask {
@@ -117,11 +120,10 @@ var _ = Describe("WriteTask", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
-	// command writes value to the command channel until check passes, because a
-	// streamer misses the frames written before it connects.
+	// command writes value to the command channel once and waits until check passes.
 	command := func(ctx context.Context, value float32, check func(g Gomega)) {
 		GinkgoHelper()
 		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -129,11 +131,9 @@ var _ = Describe("WriteTask", func() {
 			Start: telem.Now(),
 		}))
 		defer func() { Expect(w.Close()).To(Succeed()) }()
-		Eventually(func(g Gomega) {
-			g.Expect(w.Write(frame.NewUnary(cmdCh.Key(), telem.NewSeriesV(value)))).
-				To(BeTrue())
-			check(g)
-		}).Should(Succeed())
+		Expect(w.Write(frame.NewUnary(cmdCh.Key(), telem.NewSeriesV(value)))).
+			To(BeTrue())
+		Eventually(check).Should(Succeed())
 	}
 
 	Describe("NewWriteTask", func() {
@@ -178,7 +178,7 @@ var _ = Describe("WriteTask", func() {
 				sink.openErr = errors.New("broker refused the connection")
 				wt := open()
 				Expect(wt.Exec(ctx, task.Command{Type: "start", Key: "cmd-3"})).
-					To(MatchError("broker refused the connection"))
+					To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
@@ -239,11 +239,7 @@ var _ = Describe("WriteTask", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(sink.received()).To(ContainElement(float32(2)))
 				})
-				// A write of 1 still in flight when the error clears may land, but
-				// the dropped ones are never replayed after the recovery.
-				received := sink.received()
-				Expect(received[slices.Index(received, 2):]).
-					ToNot(ContainElement(float32(1)))
+				Expect(sink.received()).To(Equal([]float32{2}))
 			},
 			Entry("temporary", driver.ErrTemporary),
 			Entry("degraded", driver.ErrDegraded),

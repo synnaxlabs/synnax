@@ -13,43 +13,55 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 var (
-	node         testutil.Node
-	db           *gorp.DB
-	rackService  *rack.Service
-	deviceSvc    *device.Service
-	taskService  *task.Service
-	taskWriter   task.Writer
-	channelSvc   *channel.Service
-	framerSvc    *framer.Service
-	statusSvc    *status.Service
-	hostProvider = testutil.NewStaticHostProvider(1)
+	node testutil.Node
+	// hookedKV stores the node, so a spec can intercept the commits of db.
+	hookedKV    *hookkv.DB
+	db          *gorp.DB
+	rackService *rack.Service
+	// coreRack is the key of the rack that each driver of the suite runs on.
+	coreRack    rack.Key
+	deviceSvc   *device.Service
+	taskService *task.Service
+	channelSvc  *channel.Service
+	framerSvc   *framer.Service
+	statusSvc   *status.Service
 )
 
 func TestDriver(t *testing.T) {
@@ -61,46 +73,42 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = testutil.NewNode(ctx)
+	st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+	hookedKV = hookkv.Wrap(st.KV)
+	hookedDB := gorp.Wrap(hookedKV)
+	StartRun(hookedDB.Run)
+	node = testutil.NewNode(ctx, distribution.LayerConfig{
+		Storage: &storage.Layer{KV: hookedKV, TS: st.TS, Gorp: hookedDB},
+	})
 	db = node.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: node.DB,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       node.DB,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
+	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: node.DB,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           node.DB,
-		Ontology:     otg,
-		Group:        groupSvc,
-		HostProvider: hostProvider,
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DB:         node.DB,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
+	coreRack = MustSucceed(rackService.RetrieveOrCreateEmbedded(ctx, "Node 1")).Key
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Status:   statusSvc,
-		Rack:     rackService,
+		DB:     node.DB,
+		Status: statusSvc,
+		Rack:   rackService,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,
@@ -113,31 +121,97 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
-	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
-	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Rack:     rackService,
-		Status:   statusSvc,
-		Channel:  channelSvc,
-		ImEx:     imex.NewService(),
-		Configs:  configs,
+	secrets := secrettestutil.OpenService(ctx, node.DB)
+	for _, key := range []string{routingKey1, routingKey2} {
+		s := secret.Secret{Variant: secret.StoredSecret{
+			Base: secret.Base{Key: uuid.MustParse(key), Name: key},
+		}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return secrets.NewWriter(tx).Set(ctx, &s, []byte(key))
+		})).To(Succeed())
+	}
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+		DB:     node.DB,
+		Secret: secrets,
+		Rack:   secrettestutil.CoreRack,
 	}))
-	taskWriter = taskService.NewWriter(nil)
+	watched := MustOpen(taskconfig.OpenService(
+		ctx,
+		taskconfig.ServiceConfig[kafka.WriteConfig]{
+			DB:          node.DB,
+			Type:        watchedType,
+			Ladder:      kafkaversions.WriteConfigLadder,
+			SetEntryKey: (*kafka.WriteConfig).SetKey,
+			PatchEntry:  (*kafka.WriteConfig).Patch,
+			HashEntry:   (*kafka.WriteConfig).HashContent,
+			References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
+				gorp.NewKeyReference(
+					gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, string]{
+						Name:     "device",
+						Table:    "status",
+						OnDelete: gorp.Restrict,
+						Kind:     gorp.Use,
+						Targets: func(c *kafka.WriteConfig) []string {
+							return []string{c.Device}
+						},
+					},
+				),
+			},
+			HashedTables: []string{"status"},
+			HashReferences: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *kafka.WriteConfig,
+				h *content.Hash,
+			) error {
+				var st status.Status[any]
+				if err := statusSvc.NewRetrieve[any]().
+					Where(status.MatchKeys[any](c.Device)).
+					Entry(&st).
+					Exec(ctx, snap); err != nil {
+					return err
+				}
+				h.String(st.Message)
+				return nil
+			},
+		},
+	))
+	configs := MustSucceed(taskconfig.NewRegistry(
+		append(pd.Stores(), taskconfig.Store(watched))...,
+	))
+	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:      node.DB,
+		Rack:    rackService,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: configs,
+	}))
 })
 
-// retrieveStatus returns the status stored under key, or the zero status when none is
-// stored.
-func retrieveStatus[D any](ctx context.Context, key status.Key) status.Status[D] {
+// createTask stores t so that it can own a status. It skips task.Writer, which writes
+// a status of its own, so a spec sees only the statuses the code under test writes.
+func createTask(ctx context.Context, t task.Task) {
+	GinkgoHelper()
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskService.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
+	})
+}
+
+// retrieveStatus returns the status that owner holds, or the zero status when it holds
+// none.
+func retrieveStatus[D any](ctx context.Context, owner resource.ID) status.Status[D] {
 	GinkgoHelper()
 	var stat status.Status[D]
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[D]().
-			Where(status.MatchKeys[D](key)).
+			Where(status.MatchOwners[D](owner)).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat
@@ -184,7 +258,7 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	details.Cmd = cmdKey
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-			Key:         t.OntologyID().String(),
+			Owner:       new(t.ResourceID()),
 			Name:        t.Name,
 			Time:        telem.Now(),
 			Variant:     status.VariantError,

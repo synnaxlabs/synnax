@@ -15,6 +15,7 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -75,8 +76,8 @@ const (
 )
 
 // generateTestCodecFile renders the codec test file, then renders it again when it
-// imports more than one version of a dependency, so the aliases follow
-// naming.VersionAliases.
+// imports two packages that derive one alias, so the aliases follow
+// naming.ImportAliases.
 func generateTestCodecFile(
 	packageName string,
 	parentPath string,
@@ -85,10 +86,7 @@ func generateTestCodecFile(
 	repoRoot string,
 	pins versioning.Pins,
 ) ([]byte, error) {
-	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
-	if err != nil {
-		return nil, err
-	}
+	pkgImport := resolveGoImportPath(parentPath, repoRoot)
 	imports := make(map[string]string)
 	content, err := renderTestCodecFile(
 		packageName, parentPath, pkgImport, entries, table, repoRoot, pins, nil,
@@ -97,7 +95,7 @@ func generateTestCodecFile(
 	if err != nil {
 		return nil, err
 	}
-	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), pkgImport)
+	aliases := naming.ImportAliases(slices.Collect(maps.Keys(imports)), pkgImport)
 	if len(aliases) == 0 {
 		return content, nil
 	}
@@ -120,315 +118,34 @@ func renderTestCodecFile(
 	aliases map[string]string,
 	imports map[string]string,
 ) ([]byte, error) {
-	fo := testFileOutput{
-		Package:      packageName,
-		PkgImport:    pkgImport,
-		ExtraImports: imports,
-	}
-
-	sharedVars := make(map[string]string)
-	varNameOwner := make(map[string]string)
-	ensureShared := func(typ resolution.Type, ref resolution.TypeRef) error {
-		form, ok := typ.Form.(resolution.StructForm)
-		if !ok || form.IsGeneric() || typ.Synthetic {
-			return nil
-		}
-		if _, ok := sharedVars[typ.QualifiedName]; ok {
-			return nil
-		}
-		varName := "fullyPopulated" + naming.GetGoName(typ)
-		if owner, taken := varNameOwner[varName]; taken && owner != typ.QualifiedName {
-			return nil
-		}
-		b := &testValueBuilder{
-			table:       table,
-			repoRoot:    repoRoot,
-			packageName: packageName,
-			parentPath:  parentPath,
-			imports:     fo.ExtraImports,
-			aliases:     aliases,
-			pins:        pins,
-			pkgPrefix:   packageName + ".",
-			mode:        modeFullyPopulated,
-		}
-		expr, err := b.valueExpr(typ, ref)
-		if err != nil {
-			return errors.Wrapf(
-				err,
-				"failed to generate shared fixture for %s",
-				typ.Name,
-			)
-		}
-		if expr == "" {
-			return nil
-		}
-		if b.needsUUID {
-			fo.NeedsUUID = true
-		}
-		varNameOwner[varName] = typ.QualifiedName
-		sharedVars[typ.QualifiedName] = varName
-		fo.SharedFixtures = append(fo.SharedFixtures, sharedFixture{
-			VarName:   varName,
-			ValueExpr: expr,
-		})
-		return nil
+	r := &testFileRenderer{
+		fo: testFileOutput{
+			Package:      packageName,
+			PkgImport:    pkgImport,
+			ExtraImports: imports,
+		},
+		table:        table,
+		repoRoot:     repoRoot,
+		packageName:  packageName,
+		parentPath:   parentPath,
+		aliases:      aliases,
+		pins:         pins,
+		sharedVars:   make(map[string]string),
+		varNameOwner: make(map[string]string),
 	}
 	for _, e := range entries {
-		uform, isUnion := e.Type.Form.(resolution.UnionForm)
-		if !isUnion {
-			continue
-		}
-		for _, ext := range uform.Extends {
-			if parent, ok := ext.Resolve(table); ok {
-				if err := ensureShared(parent, ext); err != nil {
-					return nil, err
-				}
-			}
-		}
-		for _, v := range uform.Variants {
-			payload, ok := v.Type.Resolve(table)
-			if !ok {
-				continue
-			}
-			if err := ensureShared(payload, v.Type); err != nil {
-				return nil, err
-			}
-			pform, ok := payload.Form.(resolution.StructForm)
-			if !ok || !v.Inline {
-				continue
-			}
-			for _, ext := range pform.Extends {
-				if parent, ok := ext.Resolve(table); ok {
-					if err := ensureShared(parent, ext); err != nil {
-						return nil, err
-					}
-				}
-			}
+		if err := r.addSharedFixtures(e); err != nil {
+			return nil, err
 		}
 	}
-
 	for _, e := range entries {
-		recv := receiverName(e.GoName)
-		// In test files the receiver is used as a local variable, so it must
-		// not shadow the package import alias.
-		if recv == packageName {
-			recv = recv + "v"
-		}
-
-		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
-			te := testEntry{GoName: e.GoName, Receiver: recv}
-			for _, v := range uform.Variants {
-				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					aliases:     aliases,
-					pins:        pins,
-					pkgPrefix:   packageName + ".",
-					mode:        modeFullyPopulated,
-					sharedVars:  sharedVars,
-				}
-				valueExpr, err := b.unionExpr(e.Type, uform, v)
-				if err != nil {
-					return nil, errors.Wrapf(
-						err,
-						"failed to generate test value for %s variant %q",
-						e.GoName,
-						v.Name,
-					)
-				}
-				if b.needsUUID {
-					fo.NeedsUUID = true
-				}
-				te.Cases = append(te.Cases, testCase{
-					Name:      v.Name + " variant",
-					ValueExpr: valueExpr,
-				})
-			}
-			fo.Tests = append(fo.Tests, te)
-			continue
-		}
-
-		form, ok := e.Type.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-
-		// Collect non-defaulted type params (same logic as encoder).
-		var typeParams []typeParamData
-		if form.IsGeneric() {
-			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
-					continue
-				}
-				typeParams = append(typeParams, typeParamData{
-					Name:       tp.Name,
-					Constraint: typemap.TypeParamConstraint(tp),
-				})
-			}
-		}
-		modes := []struct {
-			name string
-			mode valueMode
-		}{
-			{"fully populated", modeFullyPopulated},
-			{"zero values", modeZeroValue},
-		}
-		if typeHasCollections(e.Type, table) {
-			modes = append(modes, struct {
-				name string
-				mode valueMode
-			}{"empty collections", modeEmptyCollections})
-		}
-
-		if len(typeParams) > 0 {
-			// Generic type: substitute concrete types for type params.
-			typeArgMap := make(map[string]resolution.TypeRef)
-			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
-					typeArgMap[tp.Name] = *tp.Default
-				} else {
-					typeArgMap[tp.Name] = concreteTypeRefForConstraint(tp)
-				}
-			}
-
-			gte := genericTestEntry{
-				GoName:     e.GoName,
-				Receiver:   recv,
-				TypeParams: typeParams,
-			}
-			for _, m := range modes {
-				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					aliases:     aliases,
-					pins:        pins,
-					owner:       e.Type.QualifiedName,
-					sharedVars:  sharedVars,
-					pkgPrefix:   packageName + ".",
-					mode:        m.mode,
-				}
-
-				fields := resolution.UnifiedFields(e.Type, table)
-				substituted := make([]resolution.Field, len(fields))
-				for i, f := range fields {
-					substituted[i] = f
-					substituted[i].Type = resolution.SubstituteTypeRef(
-						f.Type,
-						typeArgMap,
-					)
-				}
-
-				var concreteTypeArgStrs []string
-				for _, tp := range typeParams {
-					concreteTypeArgStrs = append(
-						concreteTypeArgStrs,
-						concreteGoTypeForConstraint(tp.Constraint),
-					)
-				}
-				concreteGoName := e.GoName + "[" + strings.Join(
-					concreteTypeArgStrs,
-					", ",
-				) + "]"
-
-				var fieldExprs []string
-				for _, f := range substituted {
-					if f.Type.Name == "nil" {
-						continue
-					}
-					if domain.GetStringFromField(f, "go", "marshal") == "omit" {
-						continue
-					}
-					r, ok := f.Type.Resolve(table)
-					if !ok {
-						continue
-					}
-					b.fieldIndex++
-					fieldGoName := naming.GetFieldName(f)
-					var expr string
-					var err error
-					if f.Optional && !typemap.Nilable(f.Type, b.table) {
-						expr, err = b.optionalExpr(r, f.Type)
-					} else {
-						expr, err = b.valueExpr(r, f.Type)
-					}
-					if err != nil {
-						return nil, errors.Wrapf(
-							err,
-							"failed to generate %s test value for %s field %s",
-							m.name,
-							e.GoName,
-							fieldGoName,
-						)
-					}
-					if expr != "" {
-						fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
-					}
-				}
-				if b.needsUUID {
-					fo.NeedsUUID = true
-				}
-				valueExpr := b.formatComposite(b.pkgPrefix+concreteGoName, fieldExprs)
-				gte.Cases = append(
-					gte.Cases,
-					testCase{Name: m.name, ValueExpr: valueExpr},
-				)
-			}
-			fo.GenericTests = append(fo.GenericTests, gte)
-		} else {
-			te := testEntry{GoName: e.GoName, Receiver: recv}
-			for _, m := range modes {
-				if m.mode == modeFullyPopulated {
-					if varName, ok := sharedVars[e.Type.QualifiedName]; ok {
-						te.Cases = append(
-							te.Cases,
-							testCase{Name: m.name, ValueExpr: varName},
-						)
-						continue
-					}
-				}
-				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					aliases:     aliases,
-					pins:        pins,
-					pkgPrefix:   packageName + ".",
-					mode:        m.mode,
-					sharedVars:  sharedVars,
-				}
-				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
-				if err != nil {
-					return nil, errors.Wrapf(
-						err,
-						"failed to generate %s test value for %s",
-						m.name,
-						e.GoName,
-					)
-				}
-				if b.needsUUID {
-					fo.NeedsUUID = true
-				}
-				te.Cases = append(
-					te.Cases,
-					testCase{Name: m.name, ValueExpr: valueExpr},
-				)
-			}
-			fo.Tests = append(fo.Tests, te)
+		if err := r.addTests(e); err != nil {
+			return nil, err
 		}
 	}
-
-	if len(fo.Tests) == 0 && len(fo.GenericTests) == 0 {
+	if len(r.fo.Tests) == 0 && len(r.fo.GenericTests) == 0 {
 		return nil, nil
 	}
-
 	tmpl, err := template.New("codec_test").Funcs(template.FuncMap{
 		"concreteGoType": concreteGoTypeForConstraint,
 		"tpNames":        tpNames,
@@ -438,10 +155,316 @@ func renderTestCodecFile(
 		return nil, errors.Wrap(err, "failed to parse test template")
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, fo); err != nil {
+	if err := tmpl.Execute(&buf, r.fo); err != nil {
 		return nil, errors.Wrap(err, "failed to execute test template")
 	}
 	return buf.Bytes(), nil
+}
+
+// testFileRenderer accumulates the fixtures and test entries of one codec test file.
+type testFileRenderer struct {
+	fo          testFileOutput
+	table       *resolution.Table
+	repoRoot    string
+	packageName string
+	parentPath  string
+	aliases     map[string]string
+	pins        versioning.Pins
+	// sharedVars maps a struct's qualified name to its shared fixture var.
+	sharedVars map[string]string
+	// varNameOwner maps a fixture var name to the qualified name that claimed it.
+	varNameOwner map[string]string
+}
+
+type testMode struct {
+	name string
+	mode valueMode
+}
+
+func (r *testFileRenderer) newBuilder(mode valueMode) *testValueBuilder {
+	return &testValueBuilder{
+		table:       r.table,
+		repoRoot:    r.repoRoot,
+		packageName: r.packageName,
+		parentPath:  r.parentPath,
+		imports:     r.fo.ExtraImports,
+		aliases:     r.aliases,
+		scope:       pinScope{pins: r.pins},
+		pkgPrefix:   r.packageName + ".",
+		mode:        mode,
+		sharedVars:  r.sharedVars,
+	}
+}
+
+func (r *testFileRenderer) collectUUID(b *testValueBuilder) {
+	if b.needsUUID {
+		r.fo.NeedsUUID = true
+	}
+}
+
+// addSharedFixtures adds a shared fixture for each struct that a union entry embeds.
+func (r *testFileRenderer) addSharedFixtures(e codecEntry) error {
+	uform, isUnion := e.Type.Form.(resolution.UnionForm)
+	if !isUnion {
+		return nil
+	}
+	if err := r.ensureSharedExtends(uform.Extends); err != nil {
+		return err
+	}
+	for _, v := range uform.Variants {
+		payload, ok := v.Type.Resolve(r.table)
+		if !ok {
+			continue
+		}
+		if err := r.ensureShared(payload, v.Type); err != nil {
+			return err
+		}
+		pform, ok := payload.Form.(resolution.StructForm)
+		if !ok || !v.Inline {
+			continue
+		}
+		if err := r.ensureSharedExtends(pform.Extends); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *testFileRenderer) ensureSharedExtends(extends []resolution.TypeRef) error {
+	for _, ext := range extends {
+		if parent, ok := ext.Resolve(r.table); ok {
+			if err := r.ensureShared(parent, ext); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *testFileRenderer) ensureShared(
+	typ resolution.Type,
+	ref resolution.TypeRef,
+) error {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok || form.IsGeneric() || typ.Synthetic {
+		return nil
+	}
+	if _, ok := r.sharedVars[typ.QualifiedName]; ok {
+		return nil
+	}
+	varName := "fullyPopulated" + naming.GetGoName(typ)
+	if owner, taken := r.varNameOwner[varName]; taken && owner != typ.QualifiedName {
+		return nil
+	}
+	b := r.newBuilder(modeFullyPopulated)
+	b.sharedVars = nil
+	expr, err := b.valueExpr(typ, ref)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate shared fixture for %s", typ.Name)
+	}
+	if expr == "" {
+		return nil
+	}
+	r.collectUUID(b)
+	r.varNameOwner[varName] = typ.QualifiedName
+	r.sharedVars[typ.QualifiedName] = varName
+	r.fo.SharedFixtures = append(r.fo.SharedFixtures, sharedFixture{
+		VarName:   varName,
+		ValueExpr: expr,
+	})
+	return nil
+}
+
+func (r *testFileRenderer) addTests(e codecEntry) error {
+	recv := receiverName(e.GoName)
+	// In test files the receiver is used as a local variable, so it must not shadow the
+	// package import alias.
+	if recv == r.packageName {
+		recv += "v"
+	}
+	if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
+		return r.addUnionTest(e, uform, recv)
+	}
+	form, ok := e.Type.Form.(resolution.StructForm)
+	if !ok {
+		return nil
+	}
+	modes := []testMode{
+		{"fully populated", modeFullyPopulated},
+		{"zero values", modeZeroValue},
+	}
+	if typeHasCollections(e.Type, r.table) {
+		modes = append(modes, testMode{"empty collections", modeEmptyCollections})
+	}
+	if typeParams := nonDefaultedTypeParams(form); len(typeParams) > 0 {
+		return r.addGenericTest(e, form, recv, typeParams, modes)
+	}
+	return r.addStructTest(e, recv, modes)
+}
+
+func (r *testFileRenderer) addUnionTest(
+	e codecEntry,
+	uform resolution.UnionForm,
+	recv string,
+) error {
+	te := testEntry{GoName: e.GoName, Receiver: recv}
+	for _, v := range uform.Variants {
+		b := r.newBuilder(modeFullyPopulated)
+		valueExpr, err := b.unionExpr(e.Type, uform, v)
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to generate test value for %s variant %q",
+				e.GoName,
+				v.Name,
+			)
+		}
+		r.collectUUID(b)
+		te.Cases = append(te.Cases, testCase{
+			Name:      v.Name + " variant",
+			ValueExpr: valueExpr,
+		})
+	}
+	r.fo.Tests = append(r.fo.Tests, te)
+	return nil
+}
+
+// nonDefaultedTypeParams returns the type params the encoder keeps generic.
+func nonDefaultedTypeParams(form resolution.StructForm) []typeParamData {
+	if !form.IsGeneric() {
+		return nil
+	}
+	var typeParams []typeParamData
+	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue
+		}
+		typeParams = append(typeParams, typeParamData{
+			Name:       tp.Name,
+			Constraint: typemap.TypeParamConstraint(tp),
+		})
+	}
+	return typeParams
+}
+
+// addGenericTest adds a test for a generic struct, with concrete types substituted for
+// its type params.
+func (r *testFileRenderer) addGenericTest(
+	e codecEntry,
+	form resolution.StructForm,
+	recv string,
+	typeParams []typeParamData,
+	modes []testMode,
+) error {
+	typeArgMap := make(map[string]resolution.TypeRef)
+	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			typeArgMap[tp.Name] = *tp.Default
+		} else {
+			typeArgMap[tp.Name] = concreteTypeRefForConstraint(tp)
+		}
+	}
+	fields := resolution.UnifiedFields(e.Type, r.table)
+	substituted := make([]resolution.Field, len(fields))
+	for i, f := range fields {
+		substituted[i] = f
+		substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
+	}
+	concreteTypeArgs := make([]string, 0, len(typeParams))
+	for _, tp := range typeParams {
+		concreteTypeArgs = append(
+			concreteTypeArgs,
+			concreteGoTypeForConstraint(tp.Constraint),
+		)
+	}
+	concreteGoName := e.GoName + "[" + strings.Join(concreteTypeArgs, ", ") + "]"
+	gte := genericTestEntry{GoName: e.GoName, Receiver: recv, TypeParams: typeParams}
+	for _, m := range modes {
+		b := r.newBuilder(m.mode)
+		b.scope.owners = []string{e.Type.QualifiedName}
+		fieldExprs, err := b.substitutedFieldExprs(substituted, m.name, e.GoName)
+		if err != nil {
+			return err
+		}
+		r.collectUUID(b)
+		valueExpr := b.formatComposite(b.pkgPrefix+concreteGoName, fieldExprs)
+		gte.Cases = append(gte.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+	}
+	r.fo.GenericTests = append(r.fo.GenericTests, gte)
+	return nil
+}
+
+// substitutedFieldExprs returns a `Name: value` expression for each field the codec
+// encodes. Its errors name the test case and the struct.
+func (b *testValueBuilder) substitutedFieldExprs(
+	fields []resolution.Field,
+	caseName, goName string,
+) ([]string, error) {
+	var fieldExprs []string
+	for _, f := range fields {
+		if f.Type.Name == "nil" {
+			continue
+		}
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+			continue
+		}
+		r, ok := f.Type.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		b.fieldIndex++
+		fieldGoName := naming.GetFieldName(f)
+		var expr string
+		var err error
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
+			expr, err = b.optionalExpr(r, f.Type)
+		} else {
+			expr, err = b.valueExpr(r, f.Type)
+		}
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"failed to generate %s test value for %s field %s",
+				caseName,
+				goName,
+				fieldGoName,
+			)
+		}
+		if expr != "" {
+			fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
+		}
+	}
+	return fieldExprs, nil
+}
+
+func (r *testFileRenderer) addStructTest(
+	e codecEntry,
+	recv string,
+	modes []testMode,
+) error {
+	te := testEntry{GoName: e.GoName, Receiver: recv}
+	for _, m := range modes {
+		if m.mode == modeFullyPopulated {
+			if varName, ok := r.sharedVars[e.Type.QualifiedName]; ok {
+				te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: varName})
+				continue
+			}
+		}
+		b := r.newBuilder(m.mode)
+		valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to generate %s test value for %s",
+				m.name,
+				e.GoName,
+			)
+		}
+		r.collectUUID(b)
+		te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+	}
+	r.fo.Tests = append(r.fo.Tests, te)
+	return nil
 }
 
 func concreteTypeRefForConstraint(tp resolution.TypeParam) resolution.TypeRef {
@@ -506,15 +529,14 @@ type testValueBuilder struct {
 	parentPath  string
 	imports     map[string]string
 	// aliases forces the alias of each import path it holds.
-	aliases map[string]string
-	// pins resolves a stored reference to the dependency version that owner's version
-	// file imports.
-	pins versioning.Pins
-	// owner is the qualified name of the type whose fields the builder is filling.
-	owner      string
-	pkgPrefix  string
-	needsUUID  bool
-	depth      int
+	aliases   map[string]string
+	scope     pinScope
+	pkgPrefix string
+	needsUUID bool
+	depth     int
+	// visits counts the values of each type on the path from the fixture root, so a
+	// recursive type nests one populated level.
+	visits     map[string]int
 	fieldIndex int
 	mode       valueMode
 	// sharedVars maps a struct's qualified name to a package-level fixture
@@ -527,11 +549,27 @@ type testValueBuilder struct {
 func (b *testValueBuilder) buildStructLiteral(
 	typ resolution.Type, goName string,
 ) (string, error) {
+	defer b.visit(typ.QualifiedName)()
 	fieldExprs, err := b.buildStructFieldExprs(typ)
 	if err != nil {
 		return "", errors.Wrapf(err, "type %s", goName)
 	}
 	return b.formatComposite(b.pkgPrefix+goName, fieldExprs), nil
+}
+
+// visit records a value of the named type on the path and returns a func that removes
+// it.
+func (b *testValueBuilder) visit(name string) func() {
+	if b.visits == nil {
+		b.visits = make(map[string]int)
+	}
+	b.visits[name]++
+	return func() { b.visits[name]-- }
+}
+
+// tooDeep reports whether a value of the named type nests too deep to populate.
+func (b *testValueBuilder) tooDeep(name string) bool {
+	return b.depth > 2 || b.visits[name] > 1
 }
 
 func (b *testValueBuilder) formatComposite(typeName string, entries []string) string {
@@ -588,9 +626,7 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	}
 	// An inline payload belongs to its union, which already owns the fields.
 	if !typ.Synthetic {
-		prev := b.owner
-		b.owner = typ.QualifiedName
-		defer func() { b.owner = prev }()
+		defer b.scope.enter(typ.QualifiedName)()
 	}
 	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
@@ -762,94 +798,7 @@ func (b *testValueBuilder) valueExpr(
 
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
-		typeArgSuffix := ""
-		if form.IsGeneric() {
-			var err error
-			if typeArgSuffix, err = b.typeArgSuffix(effectiveTypeArgs); err != nil {
-				return "", err
-			}
-		}
-		if b.depth > 2 {
-			goType, err := b.goTypeName(actual)
-			if err != nil {
-				return "", err
-			}
-			return goType + typeArgSuffix + "{}", nil
-		}
-		b.depth++
-		goName := naming.GetGoName(actual)
-		structPath := output.GetPath(actual, "go")
-		prefix := b.pkgPrefix
-		if structPath != "" && structPath != b.parentPath {
-			goType, err := b.goTypeName(actual)
-			if err != nil {
-				return "", err
-			}
-			prefix = strings.TrimSuffix(goType, goName)
-		}
-
-		if form.IsGeneric() && len(effectiveTypeArgs) > 0 {
-			typeArgMap := make(map[string]resolution.TypeRef)
-			for i, tp := range form.TypeParams {
-				if i < len(effectiveTypeArgs) {
-					typeArgMap[tp.Name] = effectiveTypeArgs[i]
-				} else if tp.HasDefault() {
-					typeArgMap[tp.Name] = *tp.Default
-				}
-			}
-			fields := resolution.UnifiedFields(actual, b.table)
-			substituted := make([]resolution.Field, len(fields))
-			for i, f := range fields {
-				substituted[i] = f
-				substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
-			}
-			var fieldExprs []string
-			outer := b.owner
-			for i, f := range substituted {
-				if f.Type.Name == "nil" {
-					continue
-				}
-				if domain.GetStringFromField(f, "go", "marshal") == "omit" {
-					continue
-				}
-				r, ok := f.Type.Resolve(b.table)
-				if !ok {
-					continue
-				}
-				b.fieldIndex++
-				fieldGoName := naming.GetFieldName(f)
-				// A field typed by a type argument was written in the outer
-				// declaration's file, so it keeps the outer pins.
-				b.owner = outer
-				if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
-					b.owner = actual.QualifiedName
-				}
-				var expr string
-				var err error
-				if f.Optional && !typemap.Nilable(f.Type, b.table) {
-					expr, err = b.optionalExpr(r, f.Type)
-				} else {
-					expr, err = b.valueExpr(r, f.Type)
-				}
-				b.owner = outer
-				if err != nil {
-					return "", err
-				}
-				if expr != "" {
-					fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
-				}
-			}
-			b.depth--
-			return b.formatComposite(prefix+goName+typeArgSuffix, fieldExprs), nil
-		}
-
-		fieldExprs, err := b.buildStructFieldExprs(actual)
-		if err != nil {
-			return "", err
-		}
-		b.depth--
-		return b.formatComposite(prefix+goName, fieldExprs), nil
-
+		return b.structExpr(actual, form, effectiveTypeArgs)
 	case resolution.BuiltinGenericForm:
 		if form.Name == "Array" && len(effectiveTypeArgs) > 0 {
 			return b.arrayExpr(effectiveTypeArgs[0])
@@ -872,6 +821,113 @@ func (b *testValueBuilder) valueExpr(
 	}
 }
 
+// structExpr builds a literal of the struct actual with each field it encodes
+// populated. Beyond the depth cutoff it falls back to an empty literal.
+func (b *testValueBuilder) structExpr(
+	actual resolution.Type,
+	form resolution.StructForm,
+	effectiveTypeArgs []resolution.TypeRef,
+) (string, error) {
+	typeArgSuffix := ""
+	if form.IsGeneric() {
+		var err error
+		if typeArgSuffix, err = b.typeArgSuffix(effectiveTypeArgs); err != nil {
+			return "", err
+		}
+	}
+	if b.tooDeep(actual.QualifiedName) {
+		goType, err := b.goTypeName(actual)
+		if err != nil {
+			return "", err
+		}
+		return goType + typeArgSuffix + "{}", nil
+	}
+	b.depth++
+	defer func() { b.depth-- }()
+	defer b.visit(actual.QualifiedName)()
+	goName := naming.GetGoName(actual)
+	structPath := output.GetPath(actual, "go")
+	prefix := b.pkgPrefix
+	if structPath != "" && structPath != b.parentPath {
+		goType, err := b.goTypeName(actual)
+		if err != nil {
+			return "", err
+		}
+		prefix = strings.TrimSuffix(goType, goName)
+	}
+	if form.IsGeneric() && len(effectiveTypeArgs) > 0 {
+		fieldExprs, err := b.genericFieldExprs(actual, form, effectiveTypeArgs)
+		if err != nil {
+			return "", err
+		}
+		return b.formatComposite(prefix+goName+typeArgSuffix, fieldExprs), nil
+	}
+	fieldExprs, err := b.buildStructFieldExprs(actual)
+	if err != nil {
+		return "", err
+	}
+	return b.formatComposite(prefix+goName, fieldExprs), nil
+}
+
+// genericFieldExprs returns a `Name: value` expression for each field of the generic
+// struct actual that the codec encodes, with its type params substituted.
+func (b *testValueBuilder) genericFieldExprs(
+	actual resolution.Type,
+	form resolution.StructForm,
+	effectiveTypeArgs []resolution.TypeRef,
+) ([]string, error) {
+	typeArgMap := make(map[string]resolution.TypeRef)
+	for i, tp := range form.TypeParams {
+		if i < len(effectiveTypeArgs) {
+			typeArgMap[tp.Name] = effectiveTypeArgs[i]
+		} else if tp.HasDefault() {
+			typeArgMap[tp.Name] = *tp.Default
+		}
+	}
+	fields := resolution.UnifiedFields(actual, b.table)
+	substituted := make([]resolution.Field, len(fields))
+	for i, f := range fields {
+		substituted[i] = f
+		substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
+	}
+	var fieldExprs []string
+	for i, f := range substituted {
+		if f.Type.Name == "nil" {
+			continue
+		}
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+			continue
+		}
+		r, ok := f.Type.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		b.fieldIndex++
+		fieldGoName := naming.GetFieldName(f)
+		// A field typed by a type argument was written in the outer declaration's file,
+		// so it keeps the outer pins.
+		leave := func() {}
+		if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
+			leave = b.scope.enter(actual.QualifiedName)
+		}
+		var expr string
+		var err error
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
+			expr, err = b.optionalExpr(r, f.Type)
+		} else {
+			expr, err = b.valueExpr(r, f.Type)
+		}
+		leave()
+		if err != nil {
+			return nil, err
+		}
+		if expr != "" {
+			fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
+		}
+	}
+	return fieldExprs, nil
+}
+
 // unionExpr builds a wrapper literal holding the given variant with its base
 // and payload structs populated. Beyond the depth cutoff it falls back to an
 // empty variant struct, which still encodes (a zero Variant field would not).
@@ -882,9 +938,7 @@ func (b *testValueBuilder) unionExpr(
 	if err != nil {
 		return "", err
 	}
-	prev := b.owner
-	b.owner = actual.QualifiedName
-	defer func() { b.owner = prev }()
+	defer b.scope.enter(actual.QualifiedName)()
 	goName := naming.GetGoName(actual)
 	variantType := strings.TrimSuffix(goType, goName) +
 		casing.VariantTypeName(goName, v.Name)
@@ -894,14 +948,68 @@ func (b *testValueBuilder) unionExpr(
 			"union %s variant %q: unresolved payload", actual.Name, v.Name,
 		)
 	}
-	if b.depth > 2 {
+	if b.tooDeep(actual.QualifiedName) {
 		return fmt.Sprintf("%s{Variant: %s{}}", goType, variantType), nil
 	}
 	b.depth++
 	defer func() { b.depth-- }()
+	defer b.visit(actual.QualifiedName)()
 
 	inherited, declared := resolver.VariantBases(form, v, "go", b.table)
 
+	embeds, err := b.baseEmbeds(inherited)
+	if err != nil {
+		return "", err
+	}
+	payloadExprs, err := b.payloadExprs(actual, v, payload, inherited, declared)
+	if err != nil {
+		return "", err
+	}
+	embeds = append(embeds, payloadExprs...)
+	return fmt.Sprintf(
+		"%s{Variant: %s}", goType, b.formatComposite(variantType, embeds),
+	), nil
+}
+
+// payloadExprs returns the expressions that populate the payload of the union variant
+// v: its fields when the payload is inline, else the embedded payload struct.
+func (b *testValueBuilder) payloadExprs(
+	actual resolution.Type,
+	v resolution.UnionVariant,
+	payload resolution.Type,
+	inherited []resolution.TypeRef,
+	declared []resolution.Field,
+) ([]string, error) {
+	if v.Inline {
+		pform, ok := payload.Form.(resolution.StructForm)
+		if !ok {
+			return nil, errors.Newf(
+				"union %s variant %q: inline payload is not a struct",
+				actual.Name,
+				v.Name,
+			)
+		}
+		return b.buildFieldExprs(append(
+			slices.Clone(declared),
+			declaredFields(inherited, pform.Fields, b.table)...,
+		))
+	}
+	if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
+		b.mode == modeFullyPopulated {
+		return []string{naming.GetGoName(payload) + ": " + varName}, nil
+	}
+	payloadExpr, err := b.valueExpr(payload, v.Type)
+	if err != nil {
+		return nil, err
+	}
+	return []string{naming.GetGoName(payload) + ": " + payloadExpr}, nil
+}
+
+// baseEmbeds returns an embedded field expression for each resolved base of a union
+// variant.
+func (b *testValueBuilder) baseEmbeds(
+	inherited []resolution.TypeRef,
+) ([]string, error) {
 	var embeds []string
 	for _, ext := range inherited {
 		parent, ok := ext.Resolve(b.table)
@@ -915,45 +1023,16 @@ func (b *testValueBuilder) unionExpr(
 		}
 		parentGoType, err := b.goTypeName(parent)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		parentExprs, err := b.buildStructFieldExprs(parent)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		embeds = append(embeds,
 			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
 	}
-	if v.Inline {
-		pform, ok := payload.Form.(resolution.StructForm)
-		if !ok {
-			return "", errors.Newf(
-				"union %s variant %q: inline payload is not a struct",
-				actual.Name,
-				v.Name,
-			)
-		}
-		fieldExprs, err := b.buildFieldExprs(append(
-			slices.Clone(declared),
-			declaredFields(inherited, pform.Fields, b.table)...,
-		))
-		if err != nil {
-			return "", err
-		}
-		embeds = append(embeds, fieldExprs...)
-	} else if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
-		b.mode == modeFullyPopulated {
-		embeds = append(embeds, naming.GetGoName(payload)+": "+varName)
-	} else {
-		payloadExpr, err := b.valueExpr(payload, v.Type)
-		if err != nil {
-			return "", err
-		}
-		embeds = append(embeds, naming.GetGoName(payload)+": "+payloadExpr)
-	}
-	return fmt.Sprintf(
-		"%s{Variant: %s}", goType, b.formatComposite(variantType, embeds),
-	), nil
+	return embeds, nil
 }
 
 func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
@@ -976,24 +1055,12 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 			base = "true"
 		}
 	case "int8":
-		base = fmt.Sprintf("%d", (idx%126)+1)
-	case "int16":
-		base = fmt.Sprintf("%d", idx+1)
-	case "int32":
-		base = fmt.Sprintf("%d", idx+1)
-	case "int64":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa((idx % 126) + 1)
+	case "int16", "int32", "int64", "uint12", "uint16", "uint20", "uint32", "uint64":
+		base = strconv.Itoa(idx + 1)
 	case "uint8":
-		base = fmt.Sprintf("%d", (idx%254)+1)
-	case "uint12", "uint16":
-		base = fmt.Sprintf("%d", idx+1)
-	case "uint20", "uint32":
-		base = fmt.Sprintf("%d", idx+1)
-	case "uint64":
-		base = fmt.Sprintf("%d", idx+1)
-	case "float32":
-		base = fmt.Sprintf("%d.5", idx)
-	case "float64":
+		base = strconv.Itoa((idx % 254) + 1)
+	case "float32", "float64":
 		base = fmt.Sprintf("%d.5", idx)
 	case "uuid":
 		b.needsUUID = true
@@ -1004,19 +1071,7 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 	case "bytes":
 		base = fmt.Sprintf("[]byte{%d, %d, %d}", idx%256, (idx+1)%256, (idx+2)%256)
 	case "record":
-		// Use msgpack.EncodedJSON literally so the value satisfies fields and
-		// map elements typed as map[string]msgpack.EncodedJSON without an
-		// explicit cast.
-		const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
-		alias, registered := b.imports[importPath]
-		if !registered {
-			b.imports[importPath] = ""
-		}
-		qualifier := alias
-		if qualifier == "" {
-			qualifier = "msgpack"
-		}
-		base = fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
+		base = b.recordExpr(idx)
 	case "any":
 		// Wrap in any(...) so an optional field pointerizes to *any instead of
 		// *map[string]any.
@@ -1028,6 +1083,21 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		return goTypeCast + "(" + base + ")", nil
 	}
 	return base, nil
+}
+
+// recordExpr builds a msgpack.EncodedJSON literal, so the value satisfies fields and
+// map elements typed as map[string]msgpack.EncodedJSON without an explicit cast.
+func (b *testValueBuilder) recordExpr(idx int) string {
+	const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
+	alias, registered := b.imports[importPath]
+	if !registered {
+		b.imports[importPath] = ""
+	}
+	qualifier := alias
+	if qualifier == "" {
+		qualifier = "msgpack"
+	}
+	return fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
 }
 
 func (b *testValueBuilder) zeroPrimitiveExpr(
@@ -1186,20 +1256,8 @@ func (b *testValueBuilder) resolveLeafPrim(
 
 func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
-		// `record` resolves to msgpack.EncodedJSON when used as a map value
-		// (or any nested container) so the literal type matches the Go field
-		// declaration. Mirrors the same special case in encoder.goTypeName.
 		if prim.Name == "record" {
-			const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
-			alias, registered := b.imports[importPath]
-			if !registered {
-				b.imports[importPath] = ""
-			}
-			qualifier := alias
-			if qualifier == "" {
-				qualifier = "msgpack"
-			}
-			return qualifier + ".EncodedJSON", nil
+			return recordGoType(b.imports), nil
 		}
 		goType, ok := typemap.PrimitiveGoType(prim.Name)
 		if !ok {
@@ -1215,13 +1273,10 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
 	}
-	if p, ok := b.pins.Path(b.owner, typ); ok {
+	if p, ok := b.scope.path(typ); ok {
 		goPath = p
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	alias, forced := b.aliases[importPath]
 	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
 	// shadows that resource's root package or another already-imported package sharing
@@ -1269,16 +1324,7 @@ func (b *testValueBuilder) aliasCollides(importPath, alias string) bool {
 	return false
 }
 
-const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
-// Code generated by oracle. DO NOT EDIT.
+const testCodecTemplate = `// Code generated by oracle. DO NOT EDIT.
 
 package {{.Package}}_test
 

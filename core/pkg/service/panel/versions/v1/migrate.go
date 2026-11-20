@@ -16,8 +16,13 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 )
 
-// Migration lifts stored panels from v0 to v1, dropping the args of every view tab.
-var Migration = migrate.NewEntry("v60_drop_view_args", autoMigratePanel)
+// MigratePanel lifts a v0 panel into v1, dropping the args of every view tab.
+func MigratePanel(ctx context.Context, old v0.Panel) (Panel, error) {
+	return autoMigratePanel(ctx, old)
+}
+
+// Migration lifts stored panels from v0 to v1.
+var Migration = migrate.NewEntry("v60_drop_view_args", MigratePanel)
 
 // MigrateView lifts a v0 view into the v1 shape, dropping its args.
 func MigrateView(ctx context.Context, old v0.View) (View, error) {

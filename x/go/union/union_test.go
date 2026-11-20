@@ -32,8 +32,9 @@ var _ = Describe("MissingPayload", func() {
 	})
 
 	It("Should include the variant name in the error message", func() {
-		err := union.MissingPayload("set_node_position")
-		Expect(err).To(MatchError(ContainSubstring(`variant "set_node_position"`)))
+		Expect(
+			union.MissingPayload("set_node_position"),
+		).To(MatchError(ContainSubstring(`variant "set_node_position"`)))
 	})
 })
 

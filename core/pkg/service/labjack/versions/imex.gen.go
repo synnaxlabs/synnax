@@ -16,13 +16,14 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v2.Version
+const Latest = v3.Version
 
 // ReadConfigLadder decodes ReadConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -39,6 +40,16 @@ func decodeReadConfig(
 ) (ReadConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "labjack.ReadConfig", version)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		t3, err := v3.MigrateReadConfig(ctx, t2)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t3, nil
+	case v3.Version:
 		return imex.DecodeBlob[ReadConfig](data, "labjack.ReadConfig", version)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("labjack.ReadConfig", version, Latest)
@@ -59,6 +70,12 @@ func decodeWriteConfig(
 ) (WriteConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "labjack.WriteConfig", version)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[WriteConfig](data, "labjack.WriteConfig", version)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("labjack.WriteConfig", version, Latest)
@@ -79,6 +96,16 @@ func decodeScanConfig(
 ) (ScanConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "labjack.ScanConfig", version)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		t3, err := v3.MigrateScanConfig(ctx, t2)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		return t3, nil
+	case v3.Version:
 		return imex.DecodeBlob[ScanConfig](data, "labjack.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("labjack.ScanConfig", version, Latest)

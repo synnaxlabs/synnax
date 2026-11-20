@@ -9,10 +9,11 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Group } from "@/schematic/node/group";
+import type { Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {
   key: "vessels",
+  scope: "schematic_symbol",
   name: "Vessels",
   Icon: Icon.Tank,
   symbols: ["tank", "cylinder", "t_junction", "cross_junction"],

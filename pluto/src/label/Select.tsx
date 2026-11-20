@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label } from "@synnaxlabs/client";
+import type { label, Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement } from "react";
+import { state } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
-import { type Flux } from "@/flux";
-import { type ListQuery, useList } from "@/label/queries";
+import { Flux } from "@/flux";
+import { useResultMultiple } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 
-const ListItem = ({
+/** An option of a label select: the color of the label, then its name. */
+export const ListItem = ({
   itemKey,
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
@@ -41,17 +43,16 @@ export interface SelectMultipleProps
       Select.MultipleProps<label.Key, label.Label | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, label.Key, label.Label> {}
+    Omit<Flux.UseListParams<label.RetrieveMultipleParams, label.Label>, "name"> {}
 
 const MultipleTag = (
   props: Select.MultipleTagProps<label.Key>,
 ): ReactElement | null => {
-  const { itemKey } = props;
+  const { itemKey, onClick, onRemove } = props;
   const item = List.useItem<label.Key, label.Label>(itemKey);
-  const { onSelect } = Select.useItemState<label.Key>(itemKey);
   if (item == null) return null;
   return (
-    <Tag.Tag color={item.color} onClose={onSelect} size="small">
+    <Tag.Tag color={item.color} onClose={onRemove} onClick={onClick} size="small">
       {item.name}
     </Tag.Tag>
   );
@@ -63,34 +64,68 @@ const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
   variant: "text",
 };
 
+interface BaseProps extends Omit<
+  Select.MultipleProps<label.Key, label.Label | undefined>,
+  "resourceName" | "children"
+> {}
+
+const Base = (props: BaseProps): ReactElement => (
+  <Select.Multiple<label.Key, label.Label | undefined>
+    haulType={HAUL_TYPE}
+    renderTag={labelRenderTag}
+    icon={<Icon.Label />}
+    triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
+    variant="floating"
+    {...props}
+    resourceName="label"
+  >
+    {listItemRenderProp}
+  </Select.Multiple>
+);
+
+/**
+ * Selects labels. Until the user first opens it, it reads only the labels of its value:
+ * the list of every label mounts on the first open, since a page can hold one of these
+ * per item.
+ */
 export const SelectMultiple = ({
   filter,
-  initialQuery,
+  query,
+  onVisibleChange,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const [opened, setOpened] = useState(
+    rest.visible === true || rest.initialVisible === true,
+  );
+  if (rest.visible === true && !opened) setOpened(true);
+  const list = Flux.useList((client: Synnax) => client.labels, {
+    name: "labels",
+    query: opened ? query : null,
     filter,
-    initialQuery,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const labels = useResultMultiple({ keys: rest.value }).data ?? [];
+  const getValueItem = List.createGetItem<label.Key, label.Label | undefined>(
+    (key) => labels.find((l) => l.key === key),
+    (keys) => labels.filter((l) => keys.includes(l.key)),
+  );
+  // It is closed until the first open, so the dialog's last state is false.
+  const handleVisibleChange = (next: state.SetArg<boolean>): void => {
+    if (!opened && state.resolve(next, false)) setOpened(true);
+    onVisibleChange?.(next);
+  };
+  // A change to virtual mounts the trigger again, so the list stays static once open.
   return (
-    <Select.Multiple<label.Key, label.Label | undefined>
-      haulType={HAUL_TYPE}
-      getItem={getItem}
-      onFetchMore={fetchMore}
-      onSearch={search}
-      status={status}
-      renderTag={labelRenderTag}
-      icon={<Icon.Label />}
-      triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
-      variant="floating"
+    <Base
+      getItem={opened ? list.getItem : getValueItem}
+      onFetchMore={opened ? list.more : undefined}
+      onSearch={opened ? list.search : undefined}
+      status={opened ? list.status : undefined}
+      virtual={false}
       {...rest}
-      data={data}
-      subscribe={subscribe}
-      resourceName="label"
-    >
-      {listItemRenderProp}
-    </Select.Multiple>
+      data={opened ? list.data : rest.value}
+      subscribe={opened ? list.subscribe : undefined}
+      onVisibleChange={handleVisibleChange}
+    />
   );
 };
 
@@ -100,22 +135,21 @@ export interface SelectSingleProps
       Select.SingleProps<label.Key, label.Label | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, label.Key, label.Label> {}
+    Omit<Flux.UseListParams<label.RetrieveMultipleParams, label.Label>, "name"> {}
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    filter,
-    initialQuery,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.labels,
+    { name: "labels", query, filter },
+  );
   return (
     <Select.Single<label.Key, label.Label | undefined>
       getItem={getItem}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       haulType={HAUL_TYPE}

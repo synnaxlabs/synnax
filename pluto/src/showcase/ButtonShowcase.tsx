@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 export const ButtonShowcase = () => (
   <Flex.Box y pack empty>

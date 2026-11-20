@@ -11,10 +11,10 @@ import { panel, query } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Panel, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
-import { type TabOrigin } from "@/feature/panel/useMoveTab";
+import type { TabOrigin } from "@/feature/panel/useMoveTab";
 import { useTearOffTab } from "@/feature/panel/useTearOff";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Panel as PlatformPanel } from "@/platform/panel";
@@ -68,7 +68,7 @@ const useOrigin = (): (() => TabOrigin | undefined) => {
   const tabKey = Panel.useTabKey();
   const client = Synnax.use();
   return () => {
-    const cached = client?.panels.getCached(key);
+    const cached = client?.panels.watch(key).getCached();
     if (!query.isLive(cached)) return undefined;
     const tab = panel.findTab(cached.root, tabKey);
     return tab == null ? undefined : { panel: key, tab };
@@ -102,7 +102,7 @@ const MoveToNewWindowItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
   const canEdit = Panel.useCanEdit({});
-  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(panel.TYPE_RESOURCE_ID);
   const handleMove = () => {
     const origin = getOrigin();
     if (origin != null) tearOff(origin);

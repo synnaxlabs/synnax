@@ -15,10 +15,13 @@ import { renderToString } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { builtinEnvironments } from "vitest/runtime";
 
+import { Media } from "@/components/media";
 import { start } from "@/components/media/lightbox";
 import Lightbox from "@/components/media/Lightbox.astro";
-import { Image, Video } from "@/components/media/Media";
 import { REDUCED_MOTION } from "@/components/media/video";
+import videos from "@/components/media/videos.json";
+
+const [ID] = Object.keys(videos);
 
 let dialogHTML = "";
 let duration = 10;
@@ -41,7 +44,7 @@ const dialog = (): HTMLDialogElement => find(".docs-lightbox");
 const control = (name: string): HTMLElement => find(`.docs-lightbox__${name}`);
 
 const openVideo = (): HTMLVideoElement => {
-  show(renderToString(<Video id="clip" />));
+  show(renderToString(<Media.Video id={ID} label="A video" />));
   const video = find<HTMLVideoElement>("video");
   video.click();
   return video;
@@ -144,16 +147,50 @@ describe("lightbox", () => {
       ).not.toBeNull();
     });
 
-    it("should caption a video with the heading of its section", () => {
+    it("should caption a video with its label", () => {
       openVideo();
+      expect(control("caption").textContent).toBe("A video");
+      expect(dialog().getAttribute("aria-label")).toBe("A video");
+    });
+
+    it("should caption a decorative image with the heading of its section", () => {
+      show('<img class="docs-image" src="still.webp" alt="">');
+      find<HTMLElement>(".docs-image").click();
       expect(control("caption").textContent).toBe("Create a plot");
-      expect(dialog().getAttribute("aria-label")).toBe("Create a plot");
     });
 
     it("should caption an image with its text alternative", () => {
-      show(renderToString(<Image id="still" alt="The plot toolbar" />));
+      show(
+        '<picture class="docs-picture">' +
+          '<img class="docs-image" src="still.webp" alt="The plot toolbar">' +
+          "</picture>",
+      );
       find<HTMLElement>(".docs-image").click();
       expect(control("caption").textContent).toBe("The plot toolbar");
+    });
+
+    it("should size an expanded image to the viewport, up to its width", () => {
+      const sized = '="min(100vw, 732px)"';
+      show(
+        '<picture class="docs-picture">' +
+          `<source type="image/avif" srcset="a.avif 640w, b.avif 2560w" sizes${sized}>` +
+          `<img class="docs-image" src="a.webp" srcset="a.webp 640w" sizes${sized} ` +
+          'width="1600" height="1000" alt="">' +
+          "</picture>",
+      );
+      const img = find<HTMLImageElement>(".docs-image");
+      img.click();
+      const stage = find(".docs-lightbox__stage");
+      expect(
+        [...stage.querySelectorAll("source, img")].map((el) =>
+          el.getAttribute("sizes"),
+        ),
+      ).toEqual(["min(100vw, 1600px)", "min(100vw, 1600px)"]);
+      dialog().dispatchEvent(new Event("close"));
+      expect(img.getAttribute("sizes")).toBe("min(100vw, 732px)");
+      expect(document.querySelector("article source")?.getAttribute("sizes")).toBe(
+        "min(100vw, 732px)",
+      );
     });
 
     it("should return the video to the page when the close button is clicked", () => {

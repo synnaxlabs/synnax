@@ -11,12 +11,19 @@ package rack
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
+	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
+	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -31,11 +38,17 @@ type (
 		rack.RetrieveRequest,
 		*RetrieveRequest,
 		rack.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		rack.DeleteRequest,
 		*DeleteRequest,
+		struct{},
+		*emptypb.Empty,
+	]
+	dispatchServer = grpc.UnaryServer[
+		rack.DispatchRequest,
+		*DispatchRequest,
 		struct{},
 		*emptypb.Empty,
 	]
@@ -47,21 +60,23 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
+	dispatchRequestTranslator  struct{}
 )
 
 var (
-	_ grpc.Translator[rack.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[rack.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[rack.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[rack.CreateRequest, *CreateRequest]          = createRequestTranslator{}
+	_ grpc.Translator[rack.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
+	_ grpc.Translator[rack.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
+	_ grpc.Translator[rack.DispatchRequest, *DispatchRequest]      = dispatchRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
 	_ context.Context,
 	req rack.CreateRequest,
 ) (*CreateRequest, error) {
-	racks, err := pb.RacksToPB(req.Racks)
+	racks, err := rackpb.RacksToPB(req.Racks)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +87,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
 ) (rack.CreateRequest, error) {
-	racks, err := pb.RacksFromPB(req.Racks)
+	racks, err := rackpb.RacksFromPB(req.Racks)
 	if err != nil {
 		return rack.CreateRequest{}, err
 	}
@@ -83,7 +98,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	res rack.CreateResponse,
 ) (*CreateResponse, error) {
-	racks, err := pb.RacksToPB(res.Racks)
+	racks, err := rackpb.RacksToPB(res.Racks)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +109,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
 ) (rack.CreateResponse, error) {
-	racks, err := pb.RacksFromPB(res.Racks)
+	racks, err := rackpb.RacksFromPB(res.Racks)
 	if err != nil {
 		return rack.CreateResponse{}, err
 	}
@@ -103,48 +118,39 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req rack.RetrieveRequest,
+	r rack.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (rack.RetrieveRequest, error) {
-	return rack.RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every rack.
+	if err := xpb.RejectUnknown(r); err != nil {
+		return rack.RetrieveRequest{}, err
+	}
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res rack.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	racks, err := pb.RacksToPB(res.Racks)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Racks: racks}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (rack.RetrieveResponse, error) {
-	racks, err := pb.RacksFromPB(res.Racks)
-	if err != nil {
-		return rack.RetrieveResponse{}, err
-	}
-	return rack.RetrieveResponse{Racks: racks}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(
@@ -165,25 +171,74 @@ func (deleteRequestTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &RackCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &RackRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RackDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackDelete = del
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &RackDispatchService_ServiceDesc,
+		Errors:             errs,
+	}
+	t.RackDispatch = dispatch
 
-	return grpc.CompoundBindableTransport{create, retrieve, del}
+	return grpc.CompoundBindableTransport{create, retrieve, del, dispatch}
+}
+
+func (dispatchRequestTranslator) Forward(
+	ctx context.Context,
+	req rack.DispatchRequest,
+) (*DispatchRequest, error) {
+	acts := make([][]byte, len(req.Actions))
+	for i, a := range req.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(a); err != nil {
+			return nil, err
+		}
+	}
+	return &DispatchRequest{
+		Key:         uint32(req.Key),
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
+func (dispatchRequestTranslator) Backward(
+	ctx context.Context,
+	req *DispatchRequest,
+) (rack.DispatchRequest, error) {
+	acts := make([]svcrack.Action, len(req.Actions))
+	for i, b := range req.Actions {
+		if err := json.Codec.Decode(b, &acts[i]); err != nil {
+			return rack.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
+	}
+	return rack.DispatchRequest{
+		Key:         svcrack.Key(req.Key),
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
 }

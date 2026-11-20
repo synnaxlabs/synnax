@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import type { ranger, Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import {
   findButton,
   type ModalOpenerHandle,
@@ -23,7 +25,7 @@ import { Range } from "@/platform/range";
 import {
   createOffPageTestRange,
   createTestRange,
-  uniqueRangeName,
+  createTestRangeName,
 } from "@/platform/range/testutil";
 import { Session } from "@/session";
 
@@ -37,14 +39,16 @@ interface OpenModalOptions {
 const openModal = async (
   params?: Range.CreateModalParams,
   { client: c = null, analytics }: OpenModalOptions = {},
-): Promise<ModalOpenerHandle<void>> => {
+): Promise<ModalOpenerHandle<Promise<ranger.Key | null>>> => {
   const handle = await renderModalOpener(Range.useCreateModal, [params ?? {}], {
     client: c,
     analytics,
   });
-  await waitFor(() => expect(screen.getByText("Save locally")).toBeTruthy());
+  await waitFor(() => expect(findButton("Create")).toBeTruthy());
   return handle;
 };
+
+const isOpen = (): boolean => screen.queryAllByText("Create").length > 0;
 
 const clickWhenEnabled = async (text: string): Promise<void> => {
   await waitFor(() => expect(findButton(text).className).not.toContain("disabled"));
@@ -52,9 +56,9 @@ const clickWhenEnabled = async (text: string): Promise<void> => {
 };
 
 describe("Range.useCreateModal", () => {
-  it("should disable Save to Core when there is no connected client", async () => {
+  it("should disable Create when there is no connected client", async () => {
     await openModal();
-    expect(findButton("Save to Core").className).toContain("lyra--disabled");
+    expect(findButton("Create").className).toContain("lyra--disabled");
   });
 
   it("should prefill the form from the initial params", async () => {
@@ -62,56 +66,48 @@ describe("Range.useCreateModal", () => {
     expect(screen.getByDisplayValue("Prefilled Range")).toBeTruthy();
   });
 
-  it("should add a non-persisted range to the slice and close on Save locally", async () => {
-    const { store } = await openModal({
-      name: "Local Range",
-      timeRange: { start: 1000, end: 2000 },
-    });
-    await clickWhenEnabled("Save locally");
-    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    const ranges = store.getState()[Session.Range.SLICE_NAME].ranges;
-    const created = ranges.find(
-      (r) => r.variant === "static" && r.name === "Local Range",
-    );
-    expect(created).toBeDefined();
+  it("should keep the modal open when the name is empty", async () => {
+    await openModal({ timeRange: { start: 1000, end: 2000 } }, { client });
+    await clickWhenEnabled("Create");
+    expect(isOpen()).toBe(true);
   });
 
-  it("should keep the modal open and add nothing when the name is empty", async () => {
-    const { store } = await openModal({ timeRange: { start: 1000, end: 2000 } });
-    const before = store.getState()[Session.Range.SLICE_NAME].ranges.length;
-    await clickWhenEnabled("Save locally");
-    expect(screen.getByText("Save locally")).toBeTruthy();
-    expect(store.getState()[Session.Range.SLICE_NAME].ranges.length).toBe(before);
-  });
-
-  it("should persist the range to the Core and favorite it on Save to Core", async () => {
-    const name = uniqueRangeName("persisted");
+  it("should create the range on the Core without adding it to the favorites", async () => {
+    const name = createTestRangeName(client, "persisted");
     const { store } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
     );
-    await clickWhenEnabled("Save to Core");
-    await waitFor(() => {
-      // A Core range is stored by key alone, so the session cannot be searched by name:
-      // the Core answers for it.
-      const { ranges } = store.getState()[Session.Range.SLICE_NAME];
-      const created = ranges.find((r) => r.variant === "persisted");
-      expect(created).toBeDefined();
-    });
-    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
+    await clickWhenEnabled("Create");
+    await waitFor(() => expect(isOpen()).toBe(false));
     await waitFor(async () => {
       const retrieved = await client.ranges.retrieve(name);
       expect(retrieved.name).toEqual(name);
     });
+    expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
+  });
+
+  it("should resolve with the key of the range it creates", async () => {
+    const name = createTestRangeName(client, "prompted");
+    const { result } = await openModal(
+      { name, timeRange: { start: 1, end: 2 } },
+      { client },
+    );
+    await clickWhenEnabled("Create");
+    const key = await result();
+    expect(key).toEqual((await client.ranges.retrieve(name)).key);
   });
 
   it("should report the range it saved to the Core", async () => {
     const analytics = createTestSink();
     await openModal(
-      { name: uniqueRangeName("reported"), timeRange: { start: 1, end: 2 } },
+      {
+        name: createTestRangeName(client, "reported"),
+        timeRange: { start: 1, end: 2 },
+      },
       { client, analytics },
     );
-    await clickWhenEnabled("Save to Core");
+    await clickWhenEnabled("Create");
     await waitFor(() =>
       expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
     );
@@ -119,9 +115,10 @@ describe("Range.useCreateModal", () => {
 
   it("should close on save after the prefilled parent is cleared", async () => {
     const parent = await createOffPageTestRange(client);
-    const { store } = await openModal(
+    const name = createTestRangeName(client, "orphaned");
+    await openModal(
       {
-        name: "Orphaned Range",
+        name,
         timeRange: { start: 1000, end: 2000 },
         parent: parent.key,
       },
@@ -129,22 +126,19 @@ describe("Range.useCreateModal", () => {
     );
     fireEvent.click(await screen.findByLabelText(`Clear ${parent.name}`));
     await waitFor(() => expect(screen.getByText("Parent range")).toBeTruthy());
-    await clickWhenEnabled("Save locally");
-    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    const { ranges } = store.getState()[Session.Range.SLICE_NAME];
-    const created = ranges.find(
-      (r) => r.variant === "static" && r.name === "Orphaned Range",
-    );
-    expect(created).toBeDefined();
+    await clickWhenEnabled("Create");
+    await waitFor(() => expect(isOpen()).toBe(false));
+    const created = await client.ranges.retrieve(name);
+    expect(await client.ranges.retrieveParent(created.key)).toBeNull();
   });
 
-  it("should attach the parent and labels when saving to Synnax", async () => {
+  it("should attach the parent and labels", async () => {
     const parent = await createTestRange(client);
-    const label = await client.labels.create({
-      name: uniqueRangeName("label"),
+    const label = await createTestLabel(client, {
+      name: uniqueName("label"),
       color: "#E774D0",
     });
-    const childName = uniqueRangeName("child");
+    const childName = uniqueName("child");
     await openModal(
       {
         name: childName,
@@ -154,7 +148,7 @@ describe("Range.useCreateModal", () => {
       },
       { client },
     );
-    await clickWhenEnabled("Save to Core");
+    await clickWhenEnabled("Create");
     let childKey = "";
     await waitFor(async () => {
       childKey = (await client.ranges.retrieve(childName)).key;

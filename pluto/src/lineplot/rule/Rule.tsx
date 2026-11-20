@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { box, color } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -120,7 +120,7 @@ export const Rule = ({
   const colorStyles = {
     tag: {
       borderColor,
-      backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
+      backgroundColor: color.hex(color.setOpacity(colorVal, 0.75)),
       ...style,
     },
     divider: { borderColor },
@@ -128,7 +128,7 @@ export const Rule = ({
 
   if (propsPosition == null || pixelPosition == null) return null;
 
-  const textColor = color.pickByContrast(colorVal, color.BLACK, color.WHITE);
+  const textColor = color.pickByContrast(colorVal, "black", "white");
 
   const content = (
     <div ref={ref} className={CSS.B("rule")} style={topStyle}>

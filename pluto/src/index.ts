@@ -11,14 +11,18 @@ export { Access } from "@/access";
 export { Aether } from "@/aether";
 export { Alamos } from "@/alamos";
 export { Arc } from "@/arc";
+export { Certificate } from "@/certificate";
 export { Channel } from "@/channel";
 export { Code } from "@/code";
+export { Color } from "@/color";
 export { Credential } from "@/credential";
 export { Device } from "@/device";
 export { Direction } from "@/direction";
+export { Enumeration } from "@/enumeration";
 export { Errors } from "@/errors";
 export { Flux } from "@/flux";
 export { Group } from "@/group";
+export { ICD } from "@/icd";
 export { JSON } from "@/json";
 export { Label } from "@/label";
 export { License } from "@/license";
@@ -26,15 +30,16 @@ export { LinePlot } from "@/lineplot";
 export { Log } from "@/log";
 export { Mosaic } from "@/mosaic";
 export { Notation } from "@/notation";
-export { Ontology } from "@/ontology";
 export { OS } from "@/os";
 export { Panel } from "@/panel";
 export { Pluto } from "@/pluto";
 export { Project } from "@/project";
 export { Rack } from "@/rack";
 export { Ranger } from "@/ranger";
+export { Resource } from "@/resource";
 export { Schematic } from "@/schematic";
 export { Scope } from "@/scope";
+export { Secret } from "@/secret";
 export { Status } from "@/status";
 export { Steps } from "@/steps";
 export { Synnax } from "@/synnax";
@@ -57,23 +62,3 @@ export { Line } from "@/vis/line";
 export { Properties } from "@/vis/properties";
 export { Staleness } from "@/vis/staleness";
 export { Value } from "@/vis/value";
-export {
-  type CrudeDataType,
-  type CrudeDensity,
-  type CrudeRate,
-  type CrudeSize,
-  type CrudeTimeSpan,
-  type CrudeTimeStamp,
-  DataType,
-  Density,
-  MultiSeries,
-  Rate,
-  Series,
-  type TelemValue,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-  type TimestampFormat,
-  type TimeZone,
-  type TypedArray,
-} from "@synnaxlabs/x";

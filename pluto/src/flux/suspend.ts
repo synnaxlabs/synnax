@@ -9,7 +9,7 @@
 
 import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, map } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
 
 export interface RetrieveParams<Query extends query.Params> {
@@ -66,7 +66,7 @@ const SETTLED_CAP = 256;
  * unbounded map leaks across a long session's distinct queries. An evicted entry
  * costs a refetch on the next read, never correctness.
  */
-export const setSettled = <Data>(
+const setSettled = <Data>(
   local: LocalCache<Data>,
   hash: string,
   entry: Settled<Data>,
@@ -90,8 +90,7 @@ export const subscribeReader = <Data>(
   hash: string,
   notify: () => void,
 ): destructor.Destructor => {
-  const readers = local.listeners.get(hash) ?? new Set<() => void>();
-  local.listeners.set(hash, readers);
+  const readers = map.getOrInsert(local.listeners, hash, () => new Set());
   readers.add(notify);
   return () => {
     readers.delete(notify);
@@ -100,19 +99,24 @@ export const subscribeReader = <Data>(
   };
 };
 
-/**
- * Discards a query's settled answer and its in-flight fetch, so the next read fetches
- * again and the older fetch's answer is dropped when it lands.
- */
-export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void => {
-  local.settled.delete(hash);
+// The discarded fetch's answer is dropped when it lands.
+const discardFetch = <Data>(local: LocalCache<Data>, hash: string): void => {
   local.inFlight.delete(hash);
   if (local.fetches.has(hash))
     local.generations.set(hash, generationOf(local, hash) + 1);
 };
 
+/**
+ * Discards a query's settled answer and its in-flight fetch, so the next read fetches
+ * again.
+ */
+export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void => {
+  local.settled.delete(hash);
+  discardFetch(local, hash);
+};
+
 const holdGeneration = <Data>(local: LocalCache<Data>, hash: string): (() => void) => {
-  local.fetches.set(hash, (local.fetches.get(hash) ?? 0) + 1);
+  map.increment(local.fetches, hash);
   return () => {
     const remaining = (local.fetches.get(hash) ?? 1) - 1;
     if (remaining > 0) {
@@ -193,17 +197,18 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
 ): Promise<Data> => {
   const { name, retrieve, getCached, onFetchError, local } = fetchParams;
   const hash = query.hash(params.query);
-  // A reader waiting on a fetch that invalidate discarded gets the answer that replaced
-  // it, starting a fetch when no other reader has.
+  // A reader waiting on a discarded fetch gets the answer that replaced it, starting a
+  // fetch when no other reader has. A refresh keeps the settled answer while its fetch
+  // runs, so the running fetch comes first.
   const follow = async (): Promise<Data> => {
+    if (local.inFlight.has(hash)) return await ensureFetch(params, fetchParams);
     const settled = local.settled.get(hash);
     if (settled != null) {
       if ("error" in settled) throw settled.error;
       return settled.data;
     }
     const cached = getCached?.(params);
-    if (local.inFlight.has(hash) || !query.isLive(cached))
-      return await ensureFetch(params, fetchParams);
+    if (!query.isLive(cached)) return await ensureFetch(params, fetchParams);
     return cached;
   };
   let promise = local.inFlight.get(hash);
@@ -244,11 +249,29 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
   return promise;
 };
 
+/**
+ * Fetches the query again. Readers keep the settled answer until the new one replaces
+ * it, and the answer of a fetch already running is dropped.
+ */
+export const refresh = <Query extends query.Params, Data extends query.Data>(
+  params: RetrieveParams<Query>,
+  fetchParams: EnsureFetchParams<Query, Data>,
+): void => {
+  discardFetch(fetchParams.local, query.hash(params.query));
+  // A failure settles, and the readers show it.
+  ensureFetch(params, fetchParams).catch(() => {});
+};
+
 export interface PendingFetch<Data> {
   /** The promise the attempt being replayed suspended on, if there is one. */
   promise: Promise<Data> | null;
   /** Records the promise this attempt suspends on. */
   set: (promise: Promise<Data>) => void;
+  /**
+   * Wraps a value as {@link fulfilled} does, but returns the same promise while the
+   * value stays the same. A replay must pass `use` the promise its attempt read.
+   */
+  fulfill: (value: Data) => Promise<Data>;
 }
 
 /**
@@ -266,6 +289,7 @@ export const usePendingFetch = <Query extends query.Params, Data>(
   // across the replay.
   "use no memo";
   const pending = useRef<{ query: Query | null; promise: Promise<Data> } | null>(null);
+  const settled = useRef<{ value: Data; promise: Promise<Data> } | null>(null);
   useLayoutEffect(() => {
     pending.current = null;
   });
@@ -275,6 +299,11 @@ export const usePendingFetch = <Query extends query.Params, Data>(
     promise: held != null && held.query === q ? held.promise : null,
     set: (promise) => {
       pending.current = { query: q, promise };
+    },
+    fulfill: (value) => {
+      if (settled.current?.value !== value)
+        settled.current = { value, promise: fulfilled(value) };
+      return settled.current.promise;
     },
   };
   /* eslint-enable synnax/react-compiler */
@@ -303,7 +332,7 @@ export const promiseFor = <Query extends query.Params, Data extends query.Data>(
   const settled = fetchParams.local.settled.get(query.hash(params.query));
   if (settled != null) {
     if ("error" in settled) throw settled.error;
-    return fulfilled(settled.data);
+    return pending.fulfill(settled.data);
   }
   const promise = ensureFetch(params, fetchParams);
   pending.set(promise);

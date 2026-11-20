@@ -93,8 +93,8 @@ works. Do not skip to a lower tier because it is faster to type.
 4. **A sanctioned environment seam (last resort, closed list).** The only things that
    may be mocked at module/global level are true boundaries of the host environment:
    `@tauri-apps/*` modules; the runtime engine pin — via `mockRuntimeEngine` from
-   `@/testutil/runtime`, ENGINE only, never a hand-rolled factory; host pins — via
-   `pinOS` (from `@/testutil/pinOS`, dynamically inside `vi.hoisted`) /
+   `@/testutil/runtime`, ENGINE and CORE_EMBEDDED only, never a hand-rolled factory;
+   host pins — via `pinOS` (from `@/testutil/pinOS`, dynamically inside `vi.hoisted`) /
    `pinLocationOrigin` (from `@/testutil`); and browser APIs at the genuine boundary of
    the unit under test (file pickers via `interceptFilePicker`, downloads via
    `captureBrowserDownloads`, FS Access via `@/testutil`). Mocking any module of ours or
@@ -334,7 +334,7 @@ Reach for these, in order of how close they are to production:
 | Component/hook that hits data, against a live cluster | `createConsoleWrapper({ client })` + `renderHook`/`render`                  | `@/testutil` + `createTestClient()`                          |
 | Component/hook needing the provider stack, no network | `renderWithConsole` / `renderHookWithConsole`                               | `@/testutil`                                                 |
 | A deep-link resource hook                             | `renderLinkHook`                                                            | `@/testutil`                                                 |
-| Pure reducer/selector                                 | minimal single-slice `configureStore` inline                                | `@reduxjs/toolkit`                                           |
+| Pure reducer/selector                                 | minimal single-slice `createMinimalStore` inline                            | `@/testutil`                                                 |
 | Flux queries without console slices                   | `createSynnaxWrapper` / `createAsyncSynnaxWrapper`                          | `@/testutil`                                                 |
 | Modal opener/prompt hooks                             | `renderModalOpener` / `renderModalHook` / `closeOf` / `findButton`          | `@/platform/modals/testutil`                                 |
 | Virtualized list rendering (needs fake sizes)         | automatic, no pixel asserts anywhere                                        | `@/testutil/setuptests`                                      |

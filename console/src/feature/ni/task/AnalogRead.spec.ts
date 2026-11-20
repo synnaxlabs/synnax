@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { ni, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
@@ -21,19 +22,21 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
+  awaitTare,
   clickDeploy,
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  reportTaskRunning,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
   findDialogTriggerByText,
+  findIconButton,
   getIconButton,
   getInputTable,
   getLabeledInput,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -49,7 +52,7 @@ const createChannel = (
     ...NI.Task.createAIChannel(type),
     key: id.create(),
     port,
-    device: "placeholder_device",
+    device: "",
     ...overrides,
   }) as NI.Task.AIChannel;
 
@@ -67,7 +70,7 @@ const renderAnalogRead = async (
   config: task.Payload<NI.Task.AnalogReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.AnalogRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.ANALOG_READ_TYPE], {
     client,
     taskKey: draft.key,
   });
@@ -75,6 +78,33 @@ const renderAnalogRead = async (
 };
 
 describe("AnalogRead", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createNIDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const draft = await createDraft({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key, channel: float.key }),
+      ],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderNITaskForm(
+        NI.Task.FORMS[NI.Task.ANALOG_READ_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should seed a voltage channel bound to the device on the task row", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({
@@ -439,6 +469,19 @@ describe("AnalogRead", () => {
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
+
+  it("should create the task with a channel on each of the given devices", async () => {
+    const devices = [await createNIDevice(client), await createNIDevice(client)];
+    const keys = devices.map((d) => d.key);
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+      {
+        deviceKeys: keys,
+      },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual(keys);
+  });
 });
 
 describe("AnalogRead ports", () => {
@@ -489,6 +532,188 @@ describe("AnalogRead ports", () => {
     expect(await screen.findByText(message)).toBeTruthy();
   });
 
+  const fieldInvalid = (label: string): boolean =>
+    screen.getByLabelText(label).getAttribute("aria-invalid") === "true";
+
+  it.each<[string, Partial<NI.Task.AIChannel>, string, string]>([
+    [
+      "the maximum of a voltage above every range",
+      { minVal: 0, maxVal: 20 },
+      "ai_voltage",
+      "Maximum value",
+    ],
+    [
+      "the minimum of a voltage below every range",
+      { minVal: -20, maxVal: 5 },
+      "ai_voltage",
+      "Minimum value",
+    ],
+    [
+      "the minimum of a reversed voltage outside every range",
+      { minVal: 20, maxVal: 5 },
+      "ai_voltage",
+      "Minimum value",
+    ],
+    [
+      "the maximum of a current outside every range",
+      { minVal: 0, maxVal: 0.5 },
+      "ai_current",
+      "Maximum value",
+    ],
+  ])("should mark %s", async (_, values, type, label) => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel(type as NI.Task.AIChannelType, 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        ...values,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid(label)).toBe(true));
+  });
+
+  it("should name the values that fit in no range", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 20,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid("Maximum value")).toBe(true));
+
+    fireEvent.pointerEnter(screen.getByLabelText("Maximum value"));
+    expect(
+      await screen.findByText("The device has no range from 0 to 20 V"),
+    ).toBeTruthy();
+  });
+
+  it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
+    ["inside a wider range", createHardware, { minVal: -5, maxVal: 5 }],
+    [
+      "on a device that lists no ranges",
+      () => ({ ...createHardware(), aiVoltageRanges: [] }),
+      { minVal: 0, maxVal: 20 },
+    ],
+    [
+      "with a custom scale",
+      createHardware,
+      {
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "Volts",
+        },
+      },
+    ],
+  ])("should not mark a channel %s", async (_, hardware, values) => {
+    const dev = await createNIDevice(client, { properties: { hardware: hardware() } });
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        ...values,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await screen.findByLabelText("Maximum value");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  const createCurrentDevice = async () => {
+    const hardware = createHardware();
+    const [ai0] = hardware.analogInputs;
+    hardware.analogInputs[0] = { ...ai0, types: [...ai0.types, "ai_current"] };
+    return await createNIDevice(client, { properties: { hardware } });
+  };
+
+  it("should give a channel switched to current the device's current range", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
+    await waitFor(() => expect(min.value).toBe("-0.02"));
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("0.02");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  it("should keep the range of a scaled channel switched to current", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "Volts",
+        },
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    await screen.findByText("Shunt resistance");
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("100");
+  });
+
+  it("should give a new channel the current range of the channel it copies", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
+    await waitFor(() => expect(min.value).toBe("-0.02"));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    await waitFor(() => {
+      const rows = screen.getAllByRole("option");
+      expect(rows).toHaveLength(2);
+      expect(rows[1].getAttribute("aria-selected")).toBe("true");
+    });
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe(
+      "-0.02",
+    );
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("0.02");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  it("should not mark a current outside every range through an external shunt", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_current", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 0.5,
+        shuntResistorLoc: "External",
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await screen.findByLabelText("Maximum value");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
   it("should mark a channel on the negative input of a differential channel", async () => {
     const dev = await createDevice();
     await renderWith([
@@ -509,6 +734,13 @@ describe("AnalogRead ports", () => {
   });
 
   it.each<[string, (device: string) => NI.Task.AIChannel[], number, string, string]>([
+    [
+      "an error below the minimum",
+      (device) => [createChannel("ai_voltage", 0, { device })],
+      0.5,
+      "samples at least 1 Hz",
+      "error",
+    ],
     [
       "an error above the single channel maximum",
       (device) => [createChannel("ai_voltage", 0, { device })],
@@ -546,6 +778,49 @@ describe("AnalogRead ports", () => {
       expect(text.className).toContain(variant);
     },
   );
+
+  it("should not mark a low sample rate on a device with no minimum", async () => {
+    const hardware = createHardware();
+    hardware.aiMinRate = 0;
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      sampleRate: 0.5,
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    });
+    await screen.findByText("Ports");
+    expect(screen.queryByText(/samples at least/)).toBeNull();
+  });
+
+  it("should round the displayed minimum rate up to a rate that passes", async () => {
+    const hardware = createHardware();
+    hardware.aiMinRate = 20e6 / 2 ** 32;
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      sampleRate: 0.00465661,
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    });
+    expect(await screen.findByText(/samples at least 0.00465662 Hz/)).toBeTruthy();
+  });
+
+  it("should not mark the sample rate of a device that reports no rates", async () => {
+    const hardware = createHardware();
+    hardware.aiMinRate = 0;
+    hardware.aiMaxSingleChannelRate = 0;
+    hardware.aiMaxMultiChannelRate = 0;
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      sampleRate: 10_000_000,
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key }),
+        createChannel("ai_voltage", 1, { device: dev.key }),
+      ],
+    });
+    await screen.findByText("Ports");
+    expect(screen.queryByText(/samples at most|may not sample/)).toBeNull();
+  });
 
   it("should deploy channels on free ports of the device", async () => {
     const dev = await createDevice();
@@ -604,6 +879,15 @@ describe("AnalogRead ports", () => {
     );
   });
 
+  it("should show port 0 of a device with no pairs", async () => {
+    const hardware = createHardware();
+    hardware.analogInputs = hardware.analogInputs.map((p) => ({ ...p, negative: 0 }));
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderWith([createChannel("ai_voltage", 1, { device: dev.key })]);
+    const grid = await openPorts(dev);
+    expect(within(grid).getByRole("button", { name: "ai0" })).toBeTruthy();
+  });
+
   it.each<
     [string, (device: string) => NI.Task.AIChannel[], string, string, boolean, string]
   >([
@@ -627,7 +911,7 @@ describe("AnalogRead ports", () => {
       "ai10",
       "free",
       false,
-      "ai10 is free",
+      "Add a channel on ai10",
     ],
     [
       "mark a differential pair as a conflict when another channel holds a port",
@@ -810,6 +1094,17 @@ describe("AnalogRead ports", () => {
     expect(
       await findDialogTriggerByText("Default (Referenced single ended)"),
     ).toBeTruthy();
+  });
+
+  it("should show Default alone on a port whose default was not read", async () => {
+    const hardware = createHardware();
+    hardware.analogInputs[8] = {
+      ...hardware.analogInputs[8],
+      defaultTerminalConfig: "Cfg_Default",
+    };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);
+    expect(await findDialogTriggerByText("Default")).toBeTruthy();
   });
 
   it("should resolve Default for a current channel on a port that takes only current", async () => {
@@ -1016,7 +1311,7 @@ describe("AnalogRead disabled channels", () => {
 });
 
 describe("AnalogRead channel names", () => {
-  it("should show the name configuring gives each channel in the list", async () => {
+  it("should show the name deploying gives each channel in the list", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),

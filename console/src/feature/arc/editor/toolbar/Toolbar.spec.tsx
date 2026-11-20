@@ -9,11 +9,12 @@
 
 import { arc } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Toolbar } from "@/feature/arc/editor/toolbar/Toolbar";
 import { createResourceTab } from "@/platform/panel/testutil";
@@ -22,17 +23,17 @@ import {
   CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
+  HaulProvider,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
+const createGraphArc = async (graph: Partial<arc.graph.Graph> = {}) =>
   await client.arcs.create({
     name: uniqueName("arc"),
-    mode: "graph",
-    graph: { nodes: [], edges: [], ...graph },
+    type: "automation",
+    source: { mode: "graph", graph: { nodes: [], edges: [], ...graph } },
   });
 
 interface ToolbarHandle {
@@ -43,14 +44,16 @@ interface ToolbarHandle {
 const renderToolbar = async (arcKey: string): Promise<ToolbarHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   let statuses: Status.NotificationSpec[] = [];
-  const { panelKey, tabKey } = await createResourceTab(client, arc.ontologyID(arcKey));
+  const { panelKey, tabKey } = await createResourceTab(client, arc.resourceID(arcKey));
   await act(async () => {
     render(
       <PlutoPanel.Scope.Provider value={panelKey}>
         <PlutoPanel.TabScope.Provider value={tabKey}>
-          <Suspense fallback={null}>
-            <Toolbar />
-          </Suspense>
+          <HaulProvider>
+            <Suspense fallback={null}>
+              <Toolbar />
+            </Suspense>
+          </HaulProvider>
           <CaptureStatuses onStatuses={(s) => (statuses = s)} />
         </PlutoPanel.TabScope.Provider>
       </PlutoPanel.Scope.Provider>,
@@ -80,6 +83,20 @@ describe("arc editor toolbar", () => {
     );
     fireEvent.click(screen.getByText("Telemetry"));
     await waitFor(() => expect(screen.queryAllByText("Constant")).toHaveLength(0));
+  });
+
+  it("pictures a dragged stage as its drawing with its corner on the pointer", async () => {
+    const arc = await createGraphArc();
+    await renderToolbar(arc.key);
+    const stages = await screen.findByRole("listbox", { name: "Stages" });
+    const stage = stages.querySelector('[aria-label="Constant"]');
+    if (stage == null) throw new Error("expected a Constant stage");
+    const setDragImage = vi.fn();
+    fireEvent.dragStart(stage, { dataTransfer: { setDragImage } });
+    const layer = document.querySelector(".lyra-haul__layer");
+    expect(layer?.children).toHaveLength(1);
+    expect(layer?.firstElementChild?.classList).toContain("pluto-arc__stage");
+    expect(setDragImage).toHaveBeenCalledWith(layer, 18, 18);
   });
 
   it("prompts for a selection on the properties tab", async () => {
@@ -127,7 +144,10 @@ describe("arc editor toolbar", () => {
       fireEvent.blur(input);
       const reader = createTestClient();
       await expect
-        .poll(async () => (await reader.arcs.retrieve(a.key)).graph.inputs.n1)
+        .poll(async () => {
+          const { source } = await reader.arcs.retrieve(a.key);
+          return source.mode === "graph" ? source.graph.inputs.n1 : undefined;
+        })
         .toEqual({ type: "constant", value: 7 });
     });
 
@@ -216,8 +236,8 @@ describe("arc editor toolbar", () => {
   it("renders the text toolbar for a text-mode arc", async () => {
     const arc = await client.arcs.create({
       name: uniqueName("arc"),
-      mode: "text",
-      text: { raw: "x = 1" },
+      type: "automation",
+      source: { mode: "text", text: { raw: "x = 1" } },
     });
     await renderToolbar(arc.key);
     expect(await screen.findByText(arc.name)).toBeTruthy();

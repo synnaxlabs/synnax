@@ -21,7 +21,9 @@ import {
 } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { theming } from "@synnaxlabs/pluto/ether";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -38,11 +40,11 @@ import {
   captureBrowserDownloads,
   countEditableText,
   createTestClientWithGrants,
-  getCompositeIconButton,
-  getCompositeIconButtons,
+  getIconButton,
+  getIconButtons,
   type Grants,
+  HaulProvider,
   removeSaveFilePicker,
-  uniqueName,
 } from "@/testutil";
 
 afterEach(() => {
@@ -60,9 +62,8 @@ const renderSymbolsToolbar = async (as?: Client) =>
 const createRemoteSymbolGroup = async (
   symbolNames: string[],
 ): Promise<{ grp: group.Group; symbols: schematic.symbol.Symbol[] }> => {
-  const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.ontologyID(root.key),
+    scope: "schematic_symbol",
     name: uniqueName("remote_grp"),
   });
   const symbols: schematic.symbol.Symbol[] = [];
@@ -70,7 +71,7 @@ const createRemoteSymbolGroup = async (
     symbols.push(
       await client.schematics.symbols.create({
         ...createSymbolPayload(name),
-        parent: group.ontologyID(grp.key),
+        group: grp.key,
       }),
     );
   return { grp, symbols };
@@ -83,8 +84,7 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      const nodeKey = retrieved.nodes[0].key;
-      expect(retrieved.configs[nodeKey]).toMatchObject({ variant: "gauge" });
+      expect(retrieved.nodes[0].config).toMatchObject({ variant: "gauge" });
     });
   });
 
@@ -118,8 +118,7 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      const nodeKey = retrieved.nodes[0].key;
-      expect(retrieved.configs[nodeKey]).toMatchObject({ specKey: symbols[0].key });
+      expect(retrieved.nodes[0].config).toMatchObject({ specKey: symbols[0].key });
     });
   });
 
@@ -201,8 +200,7 @@ describe("Schematic toolbar Symbols", () => {
     name.innerText = renamed;
     fireEvent.keyDown(name, { key: "Enter" });
     await waitFor(async () => {
-      const resource = await client.ontology.retrieve(group.ontologyID(grp.key));
-      expect(resource.name).toBe(renamed);
+      expect((await client.groups.retrieve({ key: grp.key })).name).toBe(renamed);
     });
   });
 
@@ -233,57 +231,93 @@ describe("Schematic toolbar Symbols", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("creates a new symbol group through the actions bar", async () => {
-    const { result } = await renderSymbolsToolbar();
+  it("creates a new symbol group through the actions bar and selects it", async () => {
+    const { key, result, store } = await renderSymbolsToolbar();
     await screen.findByText("Gauge");
     const createGroup = await waitFor(() =>
-      getCompositeIconButton(result.container, ["group", "add"]),
+      getIconButton(result.container, "group-create"),
     );
     fireEvent.click(createGroup);
     const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
     const name = uniqueName("new_grp");
     fireEvent.change(input, { target: { value: name } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const root = await client.schematics.symbols.retrieveGroup();
-    await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(root.key),
-      });
-      expect(children.map((c) => c.name)).toContain(name);
+    const [created] = await waitFor(async () => {
+      const found = await client.groups.retrieve({ searchTerm: name });
+      if (found[0]?.name !== name) throw new Error(`group ${name} not created`);
+      return found;
     });
+    expect(created.scope).toBe("schematic_symbol");
+    expect(created.parent).toBeUndefined();
+    await waitFor(() =>
+      expect(
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+          .selectedSymbolGroup,
+      ).toBe(created.key),
+    );
+    expect(await screen.findByText("No symbols found")).toBeDefined();
+    expect(
+      documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+        .selectedSymbolGroup,
+    ).toBe(created.key);
+  });
+});
+
+const DraggableToolbar = (): ReactElement =>
+  createElement(HaulProvider, null, createElement(Toolbar));
+
+const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
+
+describe("Schematic toolbar Symbols drag preview", () => {
+  it("should picture a symbol as its drawing with its corner on the pointer", async () => {
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    const setDragImage = vi.fn();
+    fireEvent.dragStart(await screen.findByText("Polygon"), {
+      dataTransfer: { setDragImage },
+    });
+    const path = layer()?.querySelector(".pluto-polygon path");
+    expect(path?.getAttribute("fill")).toBe("var(--pluto-gray-l1)");
+    expect(layer()?.querySelector(".lyra-haul-preview")).toBeNull();
+    expect(setDragImage).toHaveBeenCalledWith(layer(), 18, 18);
+  });
+
+  it("should picture a remote symbol as its drawing", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.dragStart(await screen.findByText(name));
+    expect(layer()?.querySelector(".pluto-custom-drawing")).toBeInstanceOf(Element);
+    expect(layer()?.textContent).toBe("");
   });
 });
 
 describe("schematic/toolbar/Symbols permissions", () => {
   const READS = [
-    schematicClient.TYPE_ONTOLOGY_ID,
-    schematicClient.symbol.TYPE_ONTOLOGY_ID,
-    group.TYPE_ONTOLOGY_ID,
-    project.TYPE_ONTOLOGY_ID,
-    panel.TYPE_ONTOLOGY_ID,
-    label.TYPE_ONTOLOGY_ID,
-    ranger.TYPE_ONTOLOGY_ID,
-    channel.TYPE_ONTOLOGY_ID,
+    schematicClient.TYPE_RESOURCE_ID,
+    schematicClient.symbol.TYPE_RESOURCE_ID,
+    group.TYPE_RESOURCE_ID,
+    project.TYPE_RESOURCE_ID,
+    panel.TYPE_RESOURCE_ID,
+    label.TYPE_RESOURCE_ID,
+    ranger.TYPE_RESOURCE_ID,
+    channel.TYPE_RESOURCE_ID,
   ];
 
   const createEditor = async (grants: Grants = {}) =>
     await createTestClientWithGrants(client, {
       ...grants,
       retrieve: READS,
-      update: [schematicClient.TYPE_ONTOLOGY_ID],
+      update: [schematicClient.TYPE_RESOURCE_ID],
     });
 
   it("should withhold the creation actions from an editor who cannot add symbols", async () => {
     const { result } = await renderSymbolsToolbar(await createEditor());
     await screen.findByText("Gauge");
     await waitFor(() =>
-      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
-        0,
-      ),
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(0),
     );
-    expect(
-      getCompositeIconButtons(result.container, ["schematic", "add"]),
-    ).toHaveLength(0);
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(0);
   });
 
   it("should withhold symbol and group rename from an editor who cannot update them", async () => {
@@ -305,18 +339,14 @@ describe("schematic/toolbar/Symbols permissions", () => {
 
   it("should offer the creation actions to an editor who may add symbols", async () => {
     const editor = await createEditor({
-      create: [group.TYPE_ONTOLOGY_ID, schematicClient.symbol.TYPE_ONTOLOGY_ID],
+      create: [group.TYPE_RESOURCE_ID, schematicClient.symbol.TYPE_RESOURCE_ID],
     });
     const { result } = await renderSymbolsToolbar(editor);
     await screen.findByText("Gauge");
     await waitFor(() =>
-      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
-        1,
-      ),
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(1),
     );
-    expect(
-      getCompositeIconButtons(result.container, ["schematic", "add"]),
-    ).toHaveLength(1);
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(1);
   });
 
   const openSymbolMenu = async (as: Client) => {
@@ -341,7 +371,7 @@ describe("schematic/toolbar/Symbols permissions", () => {
 
   it("should offer the delete item to an editor who may delete symbols", async () => {
     await openSymbolMenu(
-      await createEditor({ delete: [schematicClient.symbol.TYPE_ONTOLOGY_ID] }),
+      await createEditor({ delete: [schematicClient.symbol.TYPE_RESOURCE_ID] }),
     );
     expect(await screen.findByText("Delete")).toBeTruthy();
   });
@@ -353,7 +383,7 @@ describe("schematic/toolbar/Symbols permissions", () => {
   });
 
   it("should offer the delete item to an editor who may delete symbol groups", async () => {
-    await openGroupMenu(await createEditor({ delete: [group.TYPE_ONTOLOGY_ID] }));
+    await openGroupMenu(await createEditor({ delete: [group.TYPE_RESOURCE_ID] }));
     expect(await screen.findByText("Delete")).toBeTruthy();
   });
 });

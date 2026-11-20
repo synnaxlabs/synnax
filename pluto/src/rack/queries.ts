@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { type auth, rack } from "@synnaxlabs/client";
+import { errors, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 const RESOURCE_NAME = "rack";
 const PLURAL_RESOURCE_NAME = "racks";
@@ -24,16 +25,20 @@ const BASE_QUERY = { includeStatus: true } as const;
 
 export type ListQuery = rack.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.racks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.racks.onChange(key, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
-});
+/** Lists racks with their statuses, also for a rack outside the list. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, rack.Rack>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<rack.Key, rack.Rack> =>
+  Flux.useList((client) => client.racks, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : { ...BASE_QUERY, ...query },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve<
   RetrieveQuery,
@@ -42,8 +47,8 @@ export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve
   name: RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
+  onChange: ({ client, query }, handler) => client.racks.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.racks.watch(query).getCached(),
 });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
@@ -52,9 +57,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
+  ...flux.listReads(({ client, query }) => client.racks.watch(query)),
 });
 
 export const useName = createSelector(({ name }) => name);
@@ -79,11 +82,50 @@ export interface RenameParams extends Pick<rack.Rack, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ data, client, onOptimisticComplete }) => {
+  update: async ({ data, client }) => {
     const { key, name } = data;
-    await client.racks.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.racks.rename(key, name);
     return data;
+  },
+});
+
+export interface CreateParams {
+  name: string;
+}
+
+export interface CreateResult {
+  rack: rack.Rack;
+  /** The rack's first API key. */
+  key: auth.APIKey;
+  /** The only copy of the key's secret. */
+  token: string;
+}
+
+/**
+ * Creates a rack together with the API key its Driver logs in with. Deletes the rack
+ * when the key cannot be created. If that delete also fails, the thrown error names
+ * the rack and carries the key error as its cause.
+ */
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateResult>({
+  name: RESOURCE_NAME,
+  verbs: verbs.CREATE,
+  update: async ({ client, data: { name } }) => {
+    const created = await client.racks.create({ name });
+    try {
+      const { key, token } = await client.auth.createKey({
+        subject: rack.resourceID(created.key),
+        name,
+      });
+      return { rack: created, key, token };
+    } catch (keyErr) {
+      // a rack without a key is one no Driver can log in as
+      await client.racks.delete(created.key).catch((deleteErr: unknown) => {
+        const { message } = errors.fromUnknown(deleteErr);
+        throw new Error(`rack ${created.key} was not deleted: ${message}`, {
+          cause: keyErr,
+        });
+      });
+      throw errors.fromUnknown(keyErr);
+    }
   },
 });

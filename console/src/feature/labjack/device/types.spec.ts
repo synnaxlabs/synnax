@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { describe, expect, it } from "vitest";
+
 import { LabJack } from "@/feature/labjack";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
@@ -46,3 +48,23 @@ testPropertiesSchema(
     ],
   ],
 );
+
+describe("negativeChannelOf", () => {
+  it.each([
+    ["AIN0", 1],
+    ["AIN12", 13],
+    ["AIN48", 56],
+    ["AIN55", 63],
+    ["AIN64", 72],
+    ["AIN119", 127],
+  ])("should pair %s with AIN%d", (port, negChan) => {
+    expect(LabJack.Device.negativeChannelOf(port)).toBe(negChan);
+  });
+
+  it.each(["AIN1", "AIN13", "AIN14", "AIN56", "AIN120", "DIO4"])(
+    "should pair %s with no channel",
+    (port) => {
+      expect(LabJack.Device.negativeChannelOf(port)).toBeNull();
+    },
+  );
+});

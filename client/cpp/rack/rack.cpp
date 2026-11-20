@@ -17,48 +17,57 @@ Client::Client(
     std::unique_ptr<CreateClient> rack_create_client,
     std::unique_ptr<RetrieveClient> rack_retrieve_client,
     std::unique_ptr<DeleteClient> rack_delete_client,
+    std::unique_ptr<DispatchClient> rack_dispatch_client,
     task::Client tasks
 ):
     rack_create_client(std::move(rack_create_client)),
     rack_retrieve_client(std::move(rack_retrieve_client)),
     rack_delete_client(std::move(rack_delete_client)),
+    rack_dispatch_client(std::move(rack_dispatch_client)),
     tasks(std::move(tasks)) {}
-
-std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
-    return retrieve(key, RetrieveOptions{});
-}
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    auto req = grpc::rack::RetrieveRequest();
-    req.add_keys(key);
-    req.set_include_status(options.include_status);
-    return this->retrieve(req, "key " + std::to_string(key));
-}
-
-std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) const {
-    return retrieve(name, RetrieveOptions{});
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    auto req = grpc::rack::RetrieveRequest();
-    req.add_names(name);
-    req.set_include_status(options.include_status);
-    return this->retrieve(req, "name " + name);
+    return this->retrieve(Where{.name = name}, x::filter::one, options);
 }
 
-std::pair<Rack, x::errors::Error>
-Client::retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) const {
-    auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
+std::pair<std::vector<Rack>, x::errors::Error>
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
+    if (pb_err) return {std::vector<Rack>(), pb_err};
+    grpc::rack::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = rack_retrieve_client->send("/rack/retrieve", grpc_req);
+    if (err) return {std::vector<Rack>(), err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Rack>(), proto_err};
+    for (auto &rack: decoded.racks)
+        rack.tasks = this->tasks.scope_to_rack(rack.key);
+    return {std::move(decoded.racks), x::errors::NIL};
+}
+
+std::pair<Rack, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    if (options.limit.has_value() || options.after.has_value())
+        return {Rack{}, errors::paged_one_error()};
+    auto [racks, err] = this->retrieve(where, options);
     if (err) return {Rack{}, err};
-    if (res.racks_size() == 0) return {Rack{}, errors::not_found_error("Rack", query)};
-    if (res.racks_size() > 1)
-        return {Rack{}, errors::multiple_found_error("racks", query)};
-    auto [rack, proto_err] = Rack::from_proto(res.racks(0));
-    if (proto_err) return {Rack{}, proto_err};
-    rack.tasks = this->tasks.scope_to_rack(rack.key);
-    return {rack, x::errors::NIL};
+    if (const auto one_err = errors::check_one(
+            "rack",
+            where.to_json(),
+            options.search_term,
+            racks.size()
+        ))
+        return {Rack{}, one_err};
+    return {std::move(racks[0]), x::errors::NIL};
 }
 
 x::errors::Error Client::create(Rack &rack) const {
@@ -78,6 +87,15 @@ std::pair<Rack, x::errors::Error> Client::create(const std::string &name) const 
     auto rack = Rack{.name = name};
     auto err = create(rack);
     return {rack, err};
+}
+
+x::errors::Error
+Client::dispatch(const Key key, const std::vector<Action> &actions) const {
+    grpc::rack::DispatchRequest req;
+    req.set_key(key);
+    for (const auto &action: actions)
+        req.add_actions(to_json(action).dump());
+    return this->rack_dispatch_client->send("/rack/dispatch", req).second;
 }
 
 x::errors::Error Client::del(const Key key) const {

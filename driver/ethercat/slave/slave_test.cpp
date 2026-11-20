@@ -7,19 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <map>
+#include <string>
+
 #include "gtest/gtest.h"
+
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::slave {
 
-TEST(SlaveStateToString, ConvertsAllStatesToExpectedStrings) {
-    ASSERT_EQ(slave_state_to_string(State::INIT), "INIT");
-    ASSERT_EQ(slave_state_to_string(State::PRE_OP), "PRE-OP");
-    ASSERT_EQ(slave_state_to_string(State::SAFE_OP), "SAFE-OP");
-    ASSERT_EQ(slave_state_to_string(State::OP), "OP");
-    ASSERT_EQ(slave_state_to_string(State::BOOT), "BOOT");
-    ASSERT_EQ(slave_state_to_string(State::UNKNOWN), "UNKNOWN");
+/// @brief it should name each slave state as the EtherCAT standard does.
+TEST(StateToString, NamesEachState) {
+    ASSERT_EQ(to_string(State::INIT), "INIT");
+    ASSERT_EQ(to_string(State::PRE_OP), "PRE-OP");
+    ASSERT_EQ(to_string(State::SAFE_OP), "SAFE-OP");
+    ASSERT_EQ(to_string(State::OP), "OP");
+    ASSERT_EQ(to_string(State::BOOT), "BOOT");
+    ASSERT_EQ(to_string(State::UNKNOWN), "UNKNOWN");
 }
 
 TEST(FromAlState, ConvertsStandardStates) {
@@ -46,31 +52,6 @@ TEST(FromAlState, MasksErrorFlagBits) {
 TEST(FromAlState, AcceptsUint8Values) {
     const uint8_t igh_state = 0x08;
     ASSERT_EQ(from_al_state(igh_state), State::OP);
-}
-
-TEST(PropertiesPdoCount, ReturnsZeroForEmptyProperties) {
-    Properties props;
-    ASSERT_EQ(props.pdo_count(), 0);
-}
-
-TEST(PropertiesPdoCount, ReturnsSumOfInputAndOutputPdos) {
-    Properties props{
-        .input_pdos =
-            {
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 1,
-                 .bit_length = 16},
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 2,
-                 .bit_length = 16},
-            },
-        .output_pdos = {
-            {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 1, .bit_length = 8},
-        },
-    };
-    ASSERT_EQ(props.pdo_count(), 3);
 }
 
 Properties find_pdo_slave() {
@@ -166,7 +147,34 @@ TEST(PropertiesParse, ParsesBasicProperties) {
     ASSERT_EQ(props.name, "EL2008");
     ASSERT_EQ(props.network, "eth0");
     ASSERT_EQ(props.position, 1);
-    ASSERT_TRUE(props.enabled);
+    ASSERT_TRUE(props.config.enabled);
+}
+
+/// @brief it should read back the settings that a scan wrote for a slave.
+TEST(PropertiesParse, ReadsTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    auto parser = x::json::Parser(
+        Properties{.name = "6xSTG", .settings = settings}.to_json()
+    );
+    EXPECT_EQ(Properties::parse(parser).settings, settings);
+}
+
+/// @brief it should read back a serial number of 8 bytes, as IOLITE modules give.
+TEST(PropertiesParse, ReadsAnEightByteSerialNumber) {
+    auto parser = x::json::Parser(
+        Properties{.position = 1, .serial = 0x000000DB21014087}.to_json()
+    );
+    EXPECT_EQ(Properties::parse(parser).serial, 0x000000DB21014087);
+    ASSERT_NIL(parser.error());
+}
+
+/// @brief it should leave the settings empty for a slave that the catalog does not
+/// describe.
+TEST(PropertiesParse, LeavesMissingSettingsEmpty) {
+    auto parser = x::json::Parser(Properties{.name = "EL3102"}.to_json());
+    EXPECT_FALSE(Properties::parse(parser).settings.has_value());
 }
 
 TEST(PropertiesParse, ParsesWithPdos) {
@@ -224,6 +232,98 @@ TEST(PropertiesParse, HandlesMissingPdosField) {
     ASSERT_EQ(props.output_pdos.size(), 0);
 }
 
+/// @brief it should parse a device stored before slaves listed their OpModes as a slave
+/// with no OpModes.
+TEST(PropertiesParse, DefaultsToNoOpModes) {
+    auto j = Properties{.position = 1, .name = "EL2008"}.to_json();
+    j.erase("op_modes");
+    auto parser = x::json::Parser(j);
+    const auto props = Properties::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_TRUE(props.op_modes.empty());
+}
+
+/// @brief it should give back the OpModes of a slave in SII order after a JSON round
+/// trip.
+TEST(PropertiesParse, RoundTripsOpModes) {
+    const Properties props{
+        .position = 1,
+        .name = "6xSTG",
+        .op_modes = {
+            {.name = "SM-Synchron", .sync0_factor = 1},
+            {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+            {.name = "DC-bus1",
+             .assign_activate = 0x0700,
+             .sync0_cycle = 1000,
+             .sync1_factor = -1000}
+        },
+    };
+    auto parser = x::json::Parser(props.to_json());
+    const auto parsed = Properties::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(parsed.op_modes, props.op_modes);
+}
+
+/// @brief it should give back the chosen mode of a slave after a JSON round trip.
+TEST(PropertiesParse, RoundTripsTheChosenMode) {
+    const Properties props{
+        .position = 1,
+        .name = "6xSTG",
+        .config = {
+            .op_mode = dc::Choice{
+                .index = 1,
+                .assign_activate = 0x0300,
+                .cycles = {.sync0 = x::telem::MICROSECOND, .sync1 = x::telem::SECOND},
+            },
+        },
+    };
+    auto parser = x::json::Parser(props.to_json());
+    const auto parsed = Properties::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(parsed.config.op_mode, props.config.op_mode);
+}
+
+/// @brief it should leave out the chosen mode of a slave with no choice, as the Console
+/// stores no choice as a missing key.
+TEST(PropertiesToJson, LeavesOutAMissingChoice) {
+    EXPECT_FALSE(Properties{.name = "6xSTG"}.to_json().contains("op_mode"));
+}
+
+/// @brief it should write the settings that the catalog describes for a slave.
+TEST(PropertiesToJson, WritesTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    const Properties props{.name = "6xSTG", .settings = settings};
+    EXPECT_EQ(props.to_json().at("settings"), settings);
+}
+
+/// @brief it should replace a startup parameter at the same address in place, and add a
+/// parameter at a new address last.
+TEST(ConfigAddStartupParameters, ReplacesAParameterAtTheSameAddressInPlace) {
+    const auto param = [](const uint8_t sub_index, const double value) {
+        return StartupParameter{
+            .index = 0x8040,
+            .sub_index = sub_index,
+            .data_type = x::telem::UINT16_T,
+            .value = value,
+        };
+    };
+    Config config{.startup_parameters = {param(1, 1), param(2, 2)}};
+    config.add_startup_parameters({param(1, 5), param(3, 7)});
+    EXPECT_EQ(
+        config.startup_parameters,
+        (std::vector<StartupParameter>{param(1, 5), param(2, 2), param(3, 7)})
+    );
+}
+
+/// @brief it should leave out the settings of a slave that the catalog does not
+/// describe.
+TEST(PropertiesToJson, LeavesOutMissingSettings) {
+    EXPECT_FALSE(Properties{.name = "EL3102"}.to_json().contains("settings"));
+}
+
 TEST(PropertiesToJson, SerializesAllFields) {
     Properties props{
         .network = "eth0",
@@ -233,8 +333,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
         .revision = 1,
         .serial = 12345,
         .name = "EL3001",
-        .input_bits = 16,
-        .output_bits = 8,
         .input_pdos =
             {{.pdo_index = 0x1A00,
               .index = 0x6000,
@@ -243,16 +341,15 @@ TEST(PropertiesToJson, SerializesAllFields) {
               .is_input = true,
               .name = "Value",
               .data_type = x::telem::INT16_T}},
-        .output_pdos =
-            {{.pdo_index = 0x1600,
-              .index = 0x7000,
-              .sub_index = 1,
-              .bit_length = 8,
-              .is_input = false,
-              .name = "Control",
-              .data_type = x::telem::UINT8_T}},
-        .coe_pdo_order_reliable = true,
-        .enabled = true,
+        .output_pdos = {
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 1,
+             .bit_length = 8,
+             .is_input = false,
+             .name = "Control",
+             .data_type = x::telem::UINT8_T}
+        },
     };
 
     auto j = props.to_json();
@@ -263,9 +360,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["name"], "EL3001");
     ASSERT_EQ(j["network"], "eth0");
     ASSERT_EQ(j["position"], 3);
-    ASSERT_EQ(j["input_bits"], 16);
-    ASSERT_EQ(j["output_bits"], 8);
-    ASSERT_EQ(j["pdo_order_reliable"], true);
     ASSERT_EQ(j["enabled"], true);
     ASSERT_EQ(j["pdos"]["inputs"].size(), 1);
     ASSERT_EQ(j["pdos"]["inputs"][0]["name"], "Value");
@@ -285,5 +379,567 @@ TEST(PropertiesToJson, OmitsPaddingEntries) {
     const auto j = props.to_json();
     ASSERT_EQ(j["pdos"]["inputs"].size(), 2);
     EXPECT_EQ(j["pdos"]["inputs"][1]["sub_index"], 17);
+}
+
+/// @brief parses a startup parameter and returns it with the first field error, or an
+/// empty path and message when parsing succeeds.
+std::tuple<StartupParameter, std::string, std::string>
+parse_parameter(const x::json::json &json) {
+    x::json::Parser parser(json);
+    const auto param = StartupParameter::parse(parser);
+    if (parser.ok()) return {param, "", ""};
+    const auto err = parser.error_json()["errors"][0];
+    return {param, err["path"], err["message"]};
+}
+
+/// @brief it should parse each field of a startup parameter.
+TEST(StartupParameter, ParsesEachField) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 0x15},
+         {"data_type", "uint16"},
+         {"value", 3},
+         {"name", "Filter"}}
+    );
+    EXPECT_EQ(path, "");
+    EXPECT_EQ(
+        param,
+        (StartupParameter{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+            .name = "Filter",
+        })
+    );
+}
+
+/// @brief it should reject an index that does not fit in 16 bits.
+TEST(StartupParameter, RejectsAnIndexAboveSixteenBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x10000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "index");
+    EXPECT_EQ(message, "must be a whole number from 0x0000 to 0xFFFF");
+}
+
+/// @brief it should reject a sub-index that does not fit in 8 bits.
+TEST(StartupParameter, RejectsASubIndexAboveEightBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 256}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject a data type that is not numeric.
+TEST(StartupParameter, RejectsANonNumericDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "string"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "data_type");
+    EXPECT_EQ(message, "unsupported data type string");
+}
+
+/// @brief it should reject a value outside the range of its data type.
+TEST(StartupParameter, RejectsAValueOutsideTheDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 300}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject a fractional value for an integer data type.
+TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "int16"}, {"value", 1.5}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from -32768 to 32767");
+}
+
+/// @brief it should reject a sub-index with a fraction instead of truncating it.
+TEST(StartupParameter, RejectsAFractionalSubIndex) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 21.9}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject an int64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAnInt64ThatADoubleRounds) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", 9007199254740993}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(
+        message,
+        "must be a whole number from -9007199254740991 to 9007199254740991"
+    );
+}
+
+/// @brief it should accept the largest int64 magnitude that a double holds exactly.
+TEST(StartupParameter, AcceptsTheLargestExactInt64) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", -9007199254740991}}
+    );
+    EXPECT_EQ(path, "");
+    EXPECT_EQ(param.value, -9007199254740991.0);
+}
+
+/// @brief it should reject a uint64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAUint64ThatADoubleRounds) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "uint64"},
+         {"value", 18446744073709551615ULL}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from 0 to 9007199254740991");
+}
+
+/// @brief it should reject a value above the float32 maximum.
+TEST(StartupParameter, RejectsAValueAboveTheFloat32Maximum) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "float32"}, {"value", 1e39}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "1e+39 does not fit in float32");
+}
+
+/// @brief it should encode the value as the little-endian bytes of its data type.
+TEST(StartupParameter, EncodesLittleEndianBytesOfItsType) {
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::UINT16_T, .value = 0x1234}).bytes(),
+        (std::vector<uint8_t>{0x34, 0x12})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::INT32_T, .value = -2}).bytes(),
+        (std::vector<uint8_t>{0xFE, 0xFF, 0xFF, 0xFF})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::FLOAT32_T, .value = 1}).bytes(),
+        (std::vector<uint8_t>{0x00, 0x00, 0x80, 0x3F})
+    );
+}
+
+/// @brief it should parse the startup parameters of a slave.
+TEST(Properties, ParsesStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 1},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint16"},
+               {"value", 3}}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(props.config.startup_parameters.size(), 1);
+    EXPECT_EQ(props.config.startup_parameters[0].index, 0x8000);
+    EXPECT_FALSE(props.to_json().contains("startup_parameters"));
+}
+
+/// @brief it should report a field error for each invalid startup parameter.
+TEST(Properties, ReportsEveryInvalidStartupParameter) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 1},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint8"},
+               {"value", 300}},
+              {{"index", 0x8000},
+               {"sub_index", 0x19},
+               {"data_type", "uint16"},
+               {"value", 70000}}}},
+        }
+    );
+    Properties::parse(parser);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "startup_parameters.0.value");
+    EXPECT_EQ(errors[1]["path"], "startup_parameters.1.value");
+    EXPECT_EQ(errors[1]["message"], "must be a whole number from 0 to 65535");
+}
+
+/// @brief it should reject a position that no slave on a bus can have.
+TEST(Properties, RejectsAPositionOutsideTheBus) {
+    for (const auto &position:
+         {x::json::json(0),
+          x::json::json(-1),
+          x::json::json(65536),
+          x::json::json(1.5)}) {
+        x::json::Parser parser(
+            x::json::json{
+                {"serial", 1},
+                {"vendor_id", 2},
+                {"product_code", 3},
+                {"revision", 4},
+                {"name", "EL3102"},
+                {"position", position},
+                {"enabled", true},
+                {"pdos",
+                 {{"inputs", x::json::json::array()},
+                  {"outputs", x::json::json::array()}}},
+            }
+        );
+        Properties::parse(parser);
+        const auto errors = parser.error_json()["errors"];
+        ASSERT_EQ(errors.size(), 1) << position;
+        EXPECT_EQ(errors[0]["path"], "position");
+        EXPECT_EQ(errors[0]["message"], "must be a whole number from 1 to 65535");
+    }
+}
+
+/// @brief it should parse a slave that has no startup parameters field.
+TEST(Properties, ParsesWithoutStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 1},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_TRUE(props.config.startup_parameters.empty());
+}
+
+/// @brief it should return the sync mode that the catalog gives for the card's mode.
+TEST(PropertiesCatalogOpMode, ReturnsTheModeThatTheCatalogGives) {
+    Properties props;
+    props.settings = x::json::json{
+        {"mode",
+         {{"value", 0},
+          {"op_mode",
+           {{"index", 1},
+            {"assign_activate", 0x0300},
+            {"sync0_cycle", 1000},
+            {"sync1_cycle", 1000000000}}}}},
+    };
+    EXPECT_EQ(
+        props.catalog_op_mode(),
+        (dc::Choice{
+            .index = 1,
+            .assign_activate = 0x0300,
+            .cycles = {
+                .sync0 = x::telem::MICROSECOND,
+                .sync1 = x::telem::SECOND,
+            },
+        })
+    );
+}
+
+/// @brief it should return no sync mode when the catalog gives none for the card's
+/// mode, or describes no mode for the card.
+TEST(PropertiesCatalogOpMode, ReturnsNoneWhenTheCatalogGivesNone) {
+    Properties props;
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"device", x::json::json::array()}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"mode", {{"value", 1}, {"shared", true}}}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+}
+
+namespace {
+/// @brief returns a slave at position on the bus with a product and a serial number.
+DiscoveryResult on_bus(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0,
+    const uint32_t vendor_id = 2
+) {
+    DiscoveryResult result;
+    result.properties.position = position;
+    result.properties.vendor_id = vendor_id;
+    result.properties.product_code = product_code;
+    result.properties.serial = serial;
+    return result;
+}
+
+/// @brief returns a slave saved at position with a product and a serial number.
+Identity saved(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0,
+    const uint32_t vendor_id = 2
+) {
+    return {
+        .position = position,
+        .vendor_id = vendor_id,
+        .product_code = product_code,
+        .serial = serial,
+        .name = "Module " + std::to_string(position),
+    };
+}
+
+/// @brief returns a slave at position on the bus with SII serial number 0 whose CoE
+/// serial number read got no answer.
+DiscoveryResult unread_on_bus(const uint16_t position, const uint32_t product_code) {
+    auto result = on_bus(position, product_code);
+    result.status.serial_error = "no answer";
+    return result;
+}
+
+/// @brief returns a slave at position on the bus that was below PRE-OP at the scan,
+/// with serial as the serial number from its SII.
+DiscoveryResult starting_on_bus(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0
+) {
+    auto result = on_bus(position, product_code, serial);
+    result.status.starting = true;
+    return result;
+}
+
+using Positions = std::vector<uint16_t>;
+using Located = std::vector<std::optional<uint16_t>>;
+}
+
+/// @brief it should find each slave at its saved position, and ignore other slaves.
+TEST(Bind, FindsTheSlavesAtTheirSavedPositions) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(bind(
+            {saved(1, 0x1), saved(2, 0x2, 777)},
+            {on_bus(1, 0x1), on_bus(2, 0x2, 777), on_bus(3, 0x3)}
+        )),
+        (Positions{1, 2})
+    );
+}
+
+/// @brief it should reject a saved position with no slave.
+TEST(Bind, RejectsAMissingSlave) {
+    const auto err = bind({saved(2, 0x2)}, {on_bus(1, 0x1)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(err.data, "Module 2 (Module 2) is not on the bus.");
+}
+
+/// @brief it should reject a slave of another vendor at a saved position.
+TEST(Bind, RejectsAnotherVendor) {
+    const auto err = bind({saved(1, 0x1, 0, 0x99)}, {on_bus(1, 0x1)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 1 (Module 1): expected vendor_id 0x00000099, found 0x00000002."
+    );
+}
+
+/// @brief it should reject another product at a saved position.
+TEST(Bind, RejectsAnotherProduct) {
+    const auto err = bind({saved(1, 0x87654321)}, {on_bus(1, 0x12345678)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 1 (Module 1): expected product_code 0x87654321, found 0x12345678."
+    );
+}
+
+/// @brief it should report the mismatch at the lowest saved position.
+TEST(Bind, ReportsTheLowestMismatchedPosition) {
+    const auto err = bind(
+                         {saved(4, 0x9), saved(3, 0x9), saved(1, 0x1)},
+                         {on_bus(1, 0x1), on_bus(3, 0x3), on_bus(4, 0x4)}
+    )
+                         .second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 3 (Module 3): expected product_code 0x00000009, found 0x00000003."
+    );
+}
+
+/// @brief it should find a slave with a serial number after it moves.
+TEST(Bind, FindsASlaveBySerialNumberAfterItMoves) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(
+            bind({saved(2, 0x1, 777)}, {on_bus(1, 0x1, 888), on_bus(4, 0x1, 777)})
+        ),
+        (Positions{4})
+    );
+}
+
+/// @brief it should reject a slave whose serial number is not on the bus, even when a
+/// slave of its model is at its position.
+TEST(Bind, RejectsASlaveWhoseSerialNumberIsNotOnTheBus) {
+    const auto err = bind({saved(1, 0x1, 777)}, {on_bus(1, 0x1, 888)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(err.data, "Module 1 (serial 777) is not on the bus.");
+}
+
+/// @brief it should find each of two slaves with one serial number at its saved
+/// position.
+TEST(Bind, FindsSlavesWithOneSerialNumberAtTheirPositions) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(bind(
+            {saved(2, 0x1, 777), saved(1, 0x1, 777)},
+            {on_bus(1, 0x1, 777), on_bus(2, 0x1, 777)}
+        )),
+        (Positions{2, 1})
+    );
+}
+
+/// @brief it should keep a slave at its saved position before it gives a moved slave
+/// with one serial number a position.
+TEST(Bind, KeepsASlaveAtItsPositionBeforeItMovesAnother) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(bind(
+            {saved(1, 0x1, 777), saved(3, 0x1, 777)},
+            {on_bus(3, 0x1, 777), on_bus(5, 0x1, 777)}
+        )),
+        (Positions{5, 3})
+    );
+}
+
+/// @brief it should reject a slave with serial number 0 whose position holds the unit
+/// of a slave with a serial number.
+TEST(Bind, RejectsASlaveWhosePositionHoldsAKnownUnit) {
+    auto known = saved(3, 0x1, 777);
+    known.name = "Known";
+    const auto err = bind({saved(1, 0x1), known}, {on_bus(1, 0x1, 777)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 1 (Module 1) is not on the bus. Module 1 is Known (serial 777)."
+    );
+}
+
+/// @brief it should reject two slaves with one saved position.
+TEST(Bind, RejectsTwoSlavesWithOneSavedPosition) {
+    auto other = saved(1, 0x1, 888);
+    other.name = "Other";
+    const auto err = bind(
+                         {saved(1, 0x1, 777), other},
+                         {on_bus(1, 0x1, 888), on_bus(2, 0x1, 777)}
+    )
+                         .second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(err.data, "Module 1 and Other are both saved as module 1.");
+}
+
+/// @brief it should leave out each saved slave that it does not find on the bus.
+TEST(Locate, LeavesOutTheSlavesThatItDoesNotFind) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1), saved(2, 0x2), saved(3, 0x3, 777), saved(4, 0x4, 888)},
+            {on_bus(1, 0x1), on_bus(2, 0x9), on_bus(5, 0x3, 777)}
+        ),
+        (Located{1, std::nullopt, 5, std::nullopt})
+    );
+}
+
+/// @brief it should find each of two slaves with serial numbers that share a saved
+/// position.
+TEST(Locate, FindsTheSlavesOfOneSavedPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(2, 0x1, 777), saved(2, 0x1, 888)},
+            {on_bus(2, 0x1, 888), on_bus(4, 0x1, 777)}
+        ),
+        (Located{4, 2})
+    );
+}
+
+/// @brief it should give the slave at a saved position to the slave with its serial
+/// number before a slave with serial number 0 saved there.
+TEST(Locate, GivesAUnitToItsSerialNumberBeforeItsPosition) {
+    EXPECT_EQ(
+        locate({saved(1, 0x1), saved(3, 0x1, 777)}, {on_bus(1, 0x1, 777)}),
+        (Located{std::nullopt, 1})
+    );
+}
+
+/// @brief it should find a slave with an unread serial number for each slave of its
+/// model saved at its position.
+TEST(Locate, FindsASlaveWithAnUnreadSerialNumberAtItsPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(1, 0x1, 888), saved(2, 0x2, 999)},
+            {unread_on_bus(1, 0x1), unread_on_bus(2, 0x9)}
+        ),
+        (Located{1, 1, std::nullopt})
+    );
+}
+
+/// @brief it should give a slave with an unread serial number to a saved slave only
+/// after each unit with a known serial number goes to its saved slave.
+TEST(Locate, GivesASlaveWithAnUnreadSerialNumberToASlaveThatFoundNoUnit) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(1, 0x1, 888)},
+            {unread_on_bus(1, 0x1), on_bus(4, 0x1, 777)}
+        ),
+        (Located{4, 1})
+    );
+}
+
+/// @brief it should find a slave with SII serial number 0 that was below PRE-OP at the
+/// scan only at its saved position, as its serial number is unread.
+TEST(Locate, FindsAStartingSlaveWithNoSIISerialOnlyAtItsPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(3, 0x1, 888)},
+            {starting_on_bus(1, 0x1), starting_on_bus(5, 0x1)}
+        ),
+        (Located{1, std::nullopt})
+    );
+}
+
+/// @brief it should find a slave that was below PRE-OP at the scan by its nonzero SII
+/// serial number at any position.
+TEST(Locate, FindsAStartingSlaveByItsSIISerialNumber) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(3, 0x1, 888)},
+            {starting_on_bus(1, 0x1, 999), starting_on_bus(5, 0x1, 888)}
+        ),
+        (Located{std::nullopt, 5})
+    );
+}
+
+/// @brief it should find one slave for several slaves with serial number 0 saved at its
+/// position.
+TEST(Locate, FindsOneSlaveForSlavesWithNoSerialNumber) {
+    EXPECT_EQ(
+        locate({saved(1, 0x1), saved(1, 0x1)}, {on_bus(1, 0x1, 777)}),
+        (Located{1, 1})
+    );
 }
 }

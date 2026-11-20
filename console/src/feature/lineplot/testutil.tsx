@@ -11,8 +11,9 @@ import { lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
-import { act, render, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -72,7 +73,44 @@ export interface RenderLinePlotOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
+  /** Extra Aether components, for a component that needs the worker. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
+
+/** Opens the picker of the first color swatch in container and picks a named color. */
+export const pickNamedColor = async (
+  container: HTMLElement,
+  name: string,
+): Promise<void> => {
+  const swatch = container.querySelector<HTMLElement>(".lyra-color-swatch");
+  if (swatch == null) throw new Error("no color swatch rendered");
+  fireEvent.click(swatch);
+  fireEvent.click(await screen.findByRole("button", { name }));
+};
+
+/**
+ * Creates a line plot on the Core, and a Console wrapper with the plot loaded into the
+ * flux cache.
+ */
+export const createLinePlotWrapper = async ({
+  linePlot: overrides,
+  preloadedState,
+  as = client,
+  additionalRegistry,
+}: RenderLinePlotOptions = {}) => {
+  const created = await client.lineplots.create({
+    project: await project(),
+    name: "Test Plot",
+    ...overrides,
+  });
+  const { wrapper, store } = await createConsoleWrapper({
+    client: as,
+    preloadedState: preloadedState?.(created.key),
+    additionalRegistry,
+  });
+  await loadLinePlot(wrapper, created.key);
+  return { key: created.key, wrapper, store };
+};
 
 // renderLinePlot creates a line plot on the server, mounts Component inside the panel
 // and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the
@@ -80,30 +118,27 @@ export interface RenderLinePlotOptions {
 // result plus the Redux store and plot key.
 export const renderLinePlot = async (
   Component: ComponentType,
-  { linePlot: overrides, preloadedState, as = client }: RenderLinePlotOptions = {},
+  options: RenderLinePlotOptions = {},
 ) => {
-  const created = await client.lineplots.create(await project(), {
-    name: "Test Plot",
-    ...overrides,
-  });
-  const { wrapper: Wrapper, store } = await createConsoleWrapper({
-    client: as,
-    preloadedState: preloadedState?.(created.key),
-  });
-  await loadLinePlot(Wrapper, created.key);
+  const { key, wrapper: Wrapper, store } = await createLinePlotWrapper(options);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    lineplot.ontologyID(created.key),
+    lineplot.resourceID(key),
   );
   await primePanel(Wrapper, panelKey);
-  const result = render(
-    <PlutoPanel.Scope.Provider value={panelKey}>
-      <PlutoPanel.TabScope.Provider value={tabKey}>
-        <Component />
-        <Modals.Stack />
-      </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper: Wrapper },
-  );
-  return { key: created.key, result, store };
+  // React counts a `use` read as a suspend even when it is cached. A sync act leaves
+  // the work it queues unflushed.
+  let result!: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <PlutoPanel.Scope.Provider value={panelKey}>
+        <PlutoPanel.TabScope.Provider value={tabKey}>
+          <Component />
+          <Modals.Stack />
+        </PlutoPanel.TabScope.Provider>
+      </PlutoPanel.Scope.Provider>,
+      { wrapper: Wrapper },
+    );
+  });
+  return { key, result, store };
 };

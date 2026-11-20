@@ -9,6 +9,7 @@
 
 import { channel, DataType, type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +19,6 @@ import {
   settleWrites,
   writeStatus,
 } from "@/platform/notifications/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -35,7 +35,7 @@ const writeCalculatedStatus = async (variant: status.Variant): Promise<string> =
     virtual: true,
     expression: `return ${source.name} * 2`,
   });
-  return await writeStatus(client, channel.statusKey(calculated.key), variant);
+  return await writeStatus(client, channel.resourceID(calculated.key), variant);
 };
 
 describe("Channel.NOTIFICATION_RULE", () => {

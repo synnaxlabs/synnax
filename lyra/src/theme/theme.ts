@@ -92,6 +92,8 @@ export const themeZ = z
   .object({
     name: z.string(),
     key: z.string(),
+    /** True when the theme draws on a dark canvas. */
+    dark: z.boolean().default(false),
     colors: z.object({
       border: color.colorZ,
       primary: scaleZ,
@@ -99,19 +101,18 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
-      palettes: z.record(z.string(), color.paletteZ),
-      visualization: z
-        .object({ palettes: z.record(z.string(), z.array(color.colorZ)) })
-        .default({ palettes: {} }),
       white: color.colorZ,
       black: color.colorZ,
       text: color.colorZ,
       textInverted: color.colorZ,
-      textOnPrimary: color.colorZ.default(color.ZERO),
-      textOnWarning: color.colorZ.default(color.ZERO),
+      textOnPrimary: color.colorZ.optional(),
+      textOnWarning: color.colorZ.optional(),
       primaryText: color.colorZ,
       errorText: color.colorZ,
       warningText: color.colorZ,
+      /* Marks a value the program picks until a person sets one. */
+      auto: color.colorZ,
+      autoText: color.colorZ,
       logo: z.string(),
     }),
     sizes: z.object({
@@ -146,34 +147,90 @@ export const themeZ = z
     symbol: symbolZ,
   })
   .transform((theme) => {
-    if (theme.colors.textOnPrimary == null || color.isZero(theme.colors.textOnPrimary))
-      theme.colors.textOnPrimary = color.pickByContrast(
-        theme.colors.primary.z,
-        theme.colors.text,
-        theme.colors.textInverted,
-      );
-    if (theme.colors.textOnWarning == null || color.isZero(theme.colors.textOnWarning))
-      theme.colors.textOnWarning = color.pickByContrast(
-        theme.colors.warning.z,
-        theme.colors.text,
-        theme.colors.textInverted,
-      );
-    return theme;
+    const { colors } = theme;
+    const onScale = (scale: color.Color): color.Color =>
+      color.pickByContrast(scale, colors.text, colors.textInverted);
+    return {
+      ...theme,
+      colors: {
+        ...colors,
+        textOnPrimary: colors.textOnPrimary ?? onScale(colors.primary.z),
+        textOnWarning: colors.textOnWarning ?? onScale(colors.warning.z),
+      },
+    };
   });
 
 export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.infer<typeof themeZ>;
 
+/** A color with a value for each theme mode. */
+export interface Pair {
+  light: color.Crude;
+  /** When absent, the dark value is the light value in the theme's symbol band. */
+  dark?: color.Crude;
+}
+
+/**
+ * @returns the color with its OKLCH lightness clamped into the theme's symbol band, so
+ * it reads on the theme's background. Hue, chroma, and alpha stay.
+ */
+export const legible = (c: color.Crude, t: Theme): color.Color => {
+  const { lMin, lMax, lExtreme, cThresh } = t.symbol;
+  const [l, ch, h, a] = color.oklch(c);
+  const gray = Math.min(1, Math.max(0, (cThresh - ch) / cThresh));
+  const clamped = Math.min(lMax, Math.max(lMin, l)) * (1 - gray) + lExtreme * gray;
+  return color.fromOKLCH([clamped, ch, h, a]);
+};
+
+/** @returns the value of the pair for the mode of the theme. */
+export const resolve = (pair: Pair, t: Theme): color.Color => {
+  if (!t.dark) return color.construct(pair.light);
+  if (pair.dark != null) return color.construct(pair.dark);
+  return legible(pair.light, t);
+};
+
 const fontFamily = '"Inter Variable", sans-serif';
 const codeFontFamily = '"Geist Mono", monospace';
 const baseSize: number = 6;
 
+const PRIMARY = {
+  m2: "#041B3D",
+  m1: "#356fc5",
+  z: "#3774D0",
+  p1: "#5E94EE",
+  p2: "#8AB8FF",
+} as const;
+
 const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
+
+const ERROR = {
+  m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
+  m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
+  z: color.fromHSLA(ERROR_HSLA),
+  p1: color.fromHSLA(setLightness(ERROR_HSLA, 65)),
+  p2: color.fromHSLA(setLightness(ERROR_HSLA, 77)),
+};
 
 // Pure yellow only reads on dark surfaces; on light ones it washes out, and
 // darkening it alone goes olive. The light ramp rotates toward amber instead.
 const DARK_WARNING_HSLA: color.HSLA = [48, 90, 55, 1];
 const LIGHT_WARNING_HSLA: color.HSLA = [38, 92, 46, 1];
+
+const LIGHT_WARNING = {
+  m2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 28)),
+  m1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 36)),
+  z: color.fromHSLA(LIGHT_WARNING_HSLA),
+  p1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 54)),
+  p2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 64)),
+};
+
+const DARK_WARNING = {
+  m2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 30)),
+  m1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 40)),
+  z: color.fromHSLA(DARK_WARNING_HSLA),
+  p1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 65)),
+  p2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 75)),
+};
 
 // Both ramps are generated in OKLCH (hue 258, whisper chroma) with even
 // perceptual steps inside each band. Bands never overlap: a component fill is
@@ -201,13 +258,7 @@ const SYNNAX_BASE: ThemeSpec = {
   key: "synnaxBase",
   name: "Synnax Base",
   colors: {
-    primary: {
-      m2: "#041B3D",
-      m1: "#356fc5",
-      z: "#3774D0",
-      p1: "#5E94EE",
-      p2: "#8AB8FF",
-    },
+    primary: PRIMARY,
     secondary: {
       m2: "#2D8F4E",
       m1: "#38B261",
@@ -217,50 +268,20 @@ const SYNNAX_BASE: ThemeSpec = {
     },
     gray: lightGrayScale,
     border: lightGrayScale.l6,
-    error: {
-      m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
-      m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
-      z: color.fromHSLA(ERROR_HSLA),
-      p1: color.fromHSLA(setLightness(ERROR_HSLA, 65)),
-      p2: color.fromHSLA(setLightness(ERROR_HSLA, 77)),
-    },
-    warning: {
-      m2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 28)),
-      m1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 36)),
-      z: color.fromHSLA(LIGHT_WARNING_HSLA),
-      p1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 54)),
-      p2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 64)),
-    },
-    palettes: { recent: { key: "recent", name: "Recent", swatches: [] } },
-    visualization: {
-      palettes: {
-        default: [
-          "#DC136C",
-          "#20A4F3",
-          "#7AC74F",
-          "#FFC43D",
-          "#FE5F55",
-          "#8075FF",
-          "#D90429",
-          "#f7aef8",
-          "#f18f01",
-          "#791e94",
-          "#279af1",
-          "#d9fff5",
-          "#ff6b6b",
-          "#52ffb8",
-        ],
-      },
-    },
+    error: ERROR,
+    warning: LIGHT_WARNING,
     logo: "url(#synnax-linear-gradient)",
     white: "#FFFFFF",
     black: "#000000",
     text: lightGrayScale.l10,
     textInverted: lightGrayScale.l0,
     textOnPrimary: lightGrayScale.l0,
-    primaryText: "#3b82f6",
-    errorText: "#ef4444",
-    warningText: "#f59e0b",
+    // Text on a 15% tint of its own color takes a palette step that reads on the tint.
+    primaryText: PRIMARY.m1,
+    errorText: ERROR.m1,
+    warningText: LIGHT_WARNING.m2,
+    auto: "#635BFF",
+    autoText: "#5048E5",
   },
   sizes: {
     base: baseSize,
@@ -332,24 +353,20 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
   ...SYNNAX_BASE,
   key: "synnaxDark",
   name: "Synnax Dark",
+  dark: true,
   colors: {
     ...SYNNAX_BASE.colors,
     gray: DARK_GRAY_SCALE,
-    warning: {
-      m2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 30)),
-      m1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 40)),
-      z: color.fromHSLA(DARK_WARNING_HSLA),
-      p1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 65)),
-      p2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 75)),
-    },
+    warning: DARK_WARNING,
     logo: "var(--pluto-text-color)",
     border: DARK_GRAY_SCALE.l6,
     text: DARK_GRAY_SCALE.l10,
     textInverted: DARK_GRAY_SCALE.l0,
     textOnPrimary: DARK_GRAY_SCALE.l11,
-    primaryText: "#93c5fd",
-    errorText: "#fca5a5",
-    warningText: "#fcd34d",
+    primaryText: PRIMARY.p1,
+    errorText: ERROR.p1,
+    warningText: DARK_WARNING.z,
+    autoText: "#8F89FF",
   },
   // A shadow needs more weight to read against a dark surface.
   shadows: {

@@ -9,11 +9,14 @@
 
 #include <functional>
 #include <memory>
+#include <thread>
 #include <utility>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/lib/lib.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -95,5 +98,132 @@ TEST(LJMDeviceTest, testFailedStopAllowsNextStart) {
     ASSERT_NIL(start_stream(dev));
     ASSERT_OCCURRED_AS(dev.e_stream_stop(), FAKE_FAILURE);
     ASSERT_NIL(start_stream(dev));
+}
+
+/// @brief it should wait one poll interval after each read that finds no scans, and
+/// return the scans once they arrive.
+TEST(LJMDeviceTest, testStreamReadWaitsForScans) {
+    const LJMDevice dev(open_fake_api(), LATE_SCANS_HANDLE);
+    ASSERT_NIL(start_stream(dev));
+    double value = 0;
+    int dev_backlog = 0;
+    int ljm_backlog = 0;
+    x::breaker::Breaker breaker;
+    breaker.start();
+    x::defer::defer stop_breaker([&] { breaker.stop(); });
+    const auto start = x::telem::TimeStamp::now();
+    ASSERT_NIL(dev.e_stream_read(&value, &dev_backlog, &ljm_backlog, breaker));
+    EXPECT_GE(
+        x::telem::TimeStamp::now() - start,
+        STREAM_POLL_INTERVAL * LATE_SCANS_EMPTY_READS
+    );
+    EXPECT_EQ(value, READ_VALUE);
+}
+
+/// @brief it should report a lost stream.
+TEST(LJMDeviceTest, testStreamReadReportsLostStream) {
+    const LJMDevice dev(open_fake_api(), LOST_STREAM_HANDLE);
+    ASSERT_NIL(start_stream(dev));
+    double value = 0;
+    int dev_backlog = 0;
+    int ljm_backlog = 0;
+    x::breaker::Breaker breaker;
+    breaker.start();
+    x::defer::defer stop_breaker([&] { breaker.stop(); });
+    ASSERT_OCCURRED_AS(
+        dev.e_stream_read(&value, &dev_backlog, &ljm_backlog, breaker),
+        ljm::UNREACHABLE
+    );
+}
+
+/// @brief it should stop waiting for scans when the breaker stops.
+TEST(LJMDeviceTest, testStreamReadStopsWithBreaker) {
+    const LJMDevice dev(open_fake_api(), STALLED_STREAM_HANDLE);
+    ASSERT_NIL(start_stream(dev));
+    x::lib::Shared lib("./driver/labjack/device/libfake_ljm.so");
+    ASSERT_TRUE(lib.load());
+    const auto wait_for_stalled_read = reinterpret_cast<bool (*)()>(
+        const_cast<void *>(lib.get_func_ptr(WAIT_FOR_STALLED_READ))
+    );
+    ASSERT_NE(wait_for_stalled_read, nullptr);
+    x::breaker::Breaker breaker;
+    breaker.start();
+    bool stalled = false;
+    std::thread stopper([&] {
+        stalled = wait_for_stalled_read();
+        breaker.stop();
+    });
+    double value = 0;
+    int dev_backlog = 0;
+    int ljm_backlog = 0;
+    const auto start = x::telem::TimeStamp::now();
+    const auto err = dev.e_stream_read(&value, &dev_backlog, &ljm_backlog, breaker);
+    const auto elapsed = x::telem::TimeStamp::now() - start;
+    stopper.join();
+    EXPECT_TRUE(stalled);
+    ASSERT_OCCURRED_AS(err, driver::errors::NOMINAL_SHUTDOWN_ERROR);
+    EXPECT_LT(elapsed, x::telem::SECOND);
+}
+
+/// @brief it should keep the value of a read that warns of a default calibration, and
+/// report the calibration as invalid from then on.
+TEST(LJMDeviceTest, testReadWarnsOfDefaultCalibration) {
+    const LJMDevice dev(open_fake_api(), DEFAULT_CALIBRATION_HANDLE);
+    EXPECT_FALSE(dev.calibration_invalid());
+    double value = 0;
+    ASSERT_NIL(dev.e_read_name("AIN0", &value));
+    EXPECT_EQ(value, READ_VALUE);
+    EXPECT_TRUE(dev.calibration_invalid());
+    ASSERT_NIL(start_stream(dev));
+    EXPECT_TRUE(dev.calibration_invalid());
+}
+
+/// @brief it should open a device whose open warns of a default calibration, and report
+/// the calibration as invalid.
+TEST(LJMManagerTest, testOpenWarnsOfDefaultCalibration) {
+    LJMManager manager(open_fake_api());
+    const auto dev = ASSERT_NIL_P(manager.acquire(DEFAULT_CALIBRATION_SERIAL));
+    ASSERT_NE(dev, nullptr);
+    EXPECT_TRUE(dev->calibration_invalid());
+}
+
+/// @brief it should report a lost connection as unreachable, with one message for
+/// every cause.
+TEST(ParseErrorTest, testLostConnectionIsUnreachable) {
+    const auto api = open_fake_api();
+    for (const auto code:
+         {LJME_DEVICE_NOT_FOUND,
+          LJME_RECONNECT_FAILED,
+          LJME_NO_RESPONSE_BYTES_RECEIVED}) {
+        const auto err = ljm::parse_error(api, code);
+        ASSERT_OCCURRED_AS(err, ljm::UNREACHABLE);
+        EXPECT_EQ(err.data, ljm::UNREACHABLE_MESSAGE);
+    }
+}
+
+/// @brief it should report an error that a retry or a new stream clears as temporary.
+TEST(ParseErrorTest, testRetryableErrorIsTemporary) {
+    const auto api = open_fake_api();
+    for (const auto code: {LJME_LJM_BUFFER_FULL, STREAM_BUFFER_FULL_CODE}) {
+        const auto err = ljm::parse_error(api, code);
+        ASSERT_OCCURRED_AS(err, ljm::TEMPORARY_ERROR);
+        EXPECT_FALSE(err.matches(ljm::UNREACHABLE));
+    }
+}
+
+/// @brief it should ignore a warning after which the operation still ran.
+TEST(ParseErrorTest, testWarningIsNil) {
+    const auto api = open_fake_api();
+    ASSERT_NIL(ljm::parse_error(api, LJME_USING_DEFAULT_CALIBRATION));
+    ASSERT_NIL(ljm::parse_error(api, LJME_DEBUG_LOG_FAILURE));
+}
+
+/// @brief it should report a configuration error, and a warning that skipped part of
+/// the operation, as critical.
+TEST(ParseErrorTest, testOtherErrorsAreCritical) {
+    const auto api = open_fake_api();
+    for (const auto code:
+         {LJME_INVALID_ADDRESS, LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE})
+        ASSERT_OCCURRED_AS(ljm::parse_error(api, code), ljm::CRITICAL_ERROR);
 }
 }

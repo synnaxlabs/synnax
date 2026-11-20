@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/oracle
 
-go 1.27.2
+go 1.27.4
 
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
@@ -8,9 +8,9 @@ replace (
 )
 
 require (
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.1
 	github.com/antlr4-go/antlr/v4 v4.13.1
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/samber/lo v1.53.0
 	github.com/spf13/cobra v1.10.2
@@ -19,15 +19,15 @@ require (
 	go.lsp.dev/jsonrpc2 v1.0.1
 	go.lsp.dev/protocol v1.0.1
 	go.lsp.dev/uri v1.0.1
-	golang.org/x/sync v0.24.0
-	golang.org/x/text v0.43.0
+	golang.org/x/sync v0.25.0
+	golang.org/x/text v0.44.0
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect
-	github.com/charmbracelet/x/ansi v0.11.9 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20261119151026-8ecbcf0e188c // indirect
+	github.com/charmbracelet/x/ansi v0.11.10 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
@@ -38,13 +38,13 @@ require (
 	github.com/cockroachdb/redact v1.1.8 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/getsentry/sentry-go v0.50.0 // indirect
-	github.com/go-json-experiment/json v0.0.0-20260820222146-c27c302e5fc3 // indirect
+	github.com/go-json-experiment/json v1.27.2 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
+	github.com/google/pprof v0.0.0-20261118010117-084b33a85f63 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -58,16 +58,18 @@ require (
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/xo/terminfo v1.2.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
-	golang.org/x/mod v0.42.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/tools v0.52.0 // indirect
+	github.com/xo/terminfo v1.3.1 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
+	golang.org/x/exp v0.0.0-20261119141654-b15d094f3610 // indirect
+	golang.org/x/mod v0.43.0 // indirect
+	golang.org/x/net v0.63.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/tools v0.53.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+tool github.com/onsi/ginkgo/v2/ginkgo

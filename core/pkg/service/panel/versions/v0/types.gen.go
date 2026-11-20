@@ -14,14 +14,16 @@ package v0
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 	"uuid"
 
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TabKey uniquely identifies a tab within a panel.
@@ -47,13 +49,20 @@ type View struct {
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
+// TabType is the "variant" value that selects a variant of Tab.
 type TabType string
 
 const (
+	// ResourceTabType is a tab displaying a backing core document.
 	ResourceTabType TabType = "resource"
-	ViewTabType     TabType = "view"
+	// ViewTabType is a tab displaying an inline, self-describing view. Unlike a
+	// resource, a view has no backing core document: it carries its own type and opaque
+	// args. Used for app-views and tools (docs, explorers, task forms, and the selector
+	// pickers).
+	ViewTabType TabType = "view"
 )
 
+// TabVariant is implemented by every Tab variant.
 type TabVariant interface {
 	isTabVariant()
 }
@@ -63,7 +72,7 @@ type ResourceTab struct {
 	TabBase
 	// Resource is the visualization resource displayed by this tab, set via
 	// SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource resource.ID `json:"resource" msgpack:"resource"`
 }
 
 func (ResourceTab) isTabVariant() {}
@@ -155,28 +164,63 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ViewTab
 	default:
-		return errors.Newf("Tab: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Tab: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Tab) Validate() error {
+	v := validate.New("Tab")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case ResourceTab:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Tab) Base() TabBase {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		return variant.TabBase
+	case ViewTab:
+		return variant.TabBase
+	}
+	return TabBase{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Tab) SetBase(base TabBase) {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		variant.TabBase = base
+		u.Variant = variant
+	case ViewTab:
+		variant.TabBase = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Tab: cannot set the base of variant %T", variant))
+	}
+}
+
+// NodeType is the "variant" value that selects a variant of Node.
 type NodeType string
 
 const (
-	LeafNodeType  NodeType = "leaf"
+	// LeafNodeType is a leaf node in the panel tree displaying a tab strip.
+	LeafNodeType NodeType = "leaf"
+	// SplitNodeType is an interior split node dividing its area between two children.
 	SplitNodeType NodeType = "split"
 )
 
+// NodeVariant is implemented by every Node variant.
 type NodeVariant interface {
 	isNodeVariant()
 }
@@ -219,6 +263,8 @@ func (SplitNode) isNodeVariant() {}
 func (s SplitNode) Validate() error {
 	v := validate.New("SplitNode")
 	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
+	v.GreaterThanEq("size", s.Size, 0)
+	v.LessThanEq("size", s.Size, 1)
 	v.Exec(func() error { return validate.PathedError(s.First.Validate(), "first") })
 	v.Exec(func() error { return validate.PathedError(s.Last.Validate(), "last") })
 	return v.Error()
@@ -290,21 +336,27 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.SplitNode
 	default:
-		return errors.Newf("Node: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Node: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Node) Validate() error {
+	v := validate.New("Node")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LeafNode:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SplitNode:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Key is a unique identifier for a panel, represented as a UUID.
@@ -321,15 +373,34 @@ type Panel struct {
 	// Parent is the parent resource for the panel in the ontology, required on create.
 	// Parenthood lives in the ontology graph, so the field is not persisted on the
 	// panel record and is absent on retrieve.
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	Parent *resource.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *Panel) ApplyDefaults() {
-	if p.Root.Variant == nil {
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Panel) SetDefaults() {
+	{
 		v0 := LeafNode{}
 		p.Root.Variant = v0
 	}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Panel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

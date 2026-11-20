@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type MouseEventHandler, type ReactElement } from "react";
+import type { MouseEventHandler, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
-import { Handle } from "@/schematic/node/common/handle";
+import type { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Symbol } from "@/schematic/symbol";
 
-export interface ActuatorProps extends Omit<Toggle.ButtonProps, "onClick"> {
+export interface ActuatorProps
+  extends
+    Omit<Toggle.ButtonProps, "onClick">,
+    Pick<Primitive.SVGBasedProps, "strokeColor"> {
   specKey: string;
   onClick?: MouseEventHandler<HTMLElement>;
   scale?: number;
@@ -34,19 +37,12 @@ export const Actuator = ({
   scale = 1,
   className,
   stateOverrides,
+  strokeColor,
   ...rest
 }: ActuatorProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const setContainer = Custom.useRender({
-    orientation,
-    activeState: enabled ? "active" : "base",
-    externalScale: scale,
-    spec,
-    stateOverrides,
-  });
-  const svg = spec?.svg;
-  const invalid = svg != null && !Custom.isValidSVG(svg);
+  const invalid = spec != null && !Custom.isValidSVG(spec.svg);
   if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>
@@ -56,10 +52,8 @@ export const Actuator = ({
         </Text.Text>
       </Note.Note>
     );
-  const handles = spec?.handles ?? [];
   return (
     <Toggle.Button
-      ref={setContainer}
       className={CSS.cls(
         CSS.BM("symbol", "custom"),
         CSS.B("custom-actuator"),
@@ -73,18 +67,16 @@ export const Actuator = ({
       orientation={orientation}
       {...rest}
     >
-      <Handle.Boundary orientation={orientation}>
-        {handles.map((handle) => (
-          <Handle.Handle
-            key={handle.key}
-            id={handle.key}
-            location={handle.orientation}
-            orientation={orientation}
-            left={handle.position.x * 100}
-            top={handle.position.y * 100}
-          />
-        ))}
-      </Handle.Boundary>
+      {spec != null && (
+        <Custom.Drawing
+          spec={spec}
+          orientation={orientation}
+          scale={scale}
+          strokeColor={strokeColor}
+          enabled={enabled}
+          stateOverrides={stateOverrides}
+        />
+      )}
     </Toggle.Button>
   );
 };

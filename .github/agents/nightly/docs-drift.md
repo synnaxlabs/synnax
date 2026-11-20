@@ -14,8 +14,7 @@ Find docs that still describe an API the way it was before a recent change.
    write from the PR title alone.
 
 Follow `site/docs/CONTRIBUTING.md` for docs pages. Write in ASD-STE100 and sentence
-case. Do not add docs for a feature behind a flag in `console/src/flags.ts` or
-`site/docs/src/flags.ts` unless the docs page has the same flag.
+case. Do not add docs for a feature behind a flag in `console/src/flags.ts`.
 
 Title docs PRs `[docs] ...` and label them `review/bot`. One PR per merged PR whose docs
 drifted.

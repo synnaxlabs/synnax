@@ -193,17 +193,14 @@ func omitRemovedFields(c *analysisCtx) {
 			return t.QualifiedName == r.typ
 		})
 		typ := c.table.Types[i]
-		form := typ.Form.(resolution.StructForm)
+		form := resolution.MustForm[resolution.StructForm](typ)
 		bases := slices.Clone(form.Extends)
 		if r.union != "" {
 			union := c.table.MustGet(r.union)
-			bases = append(bases, union.Form.(resolution.UnionForm).Extends...)
-		}
-		if slices.ContainsFunc(bases, func(ref resolution.TypeRef) bool {
-			base, _, ok := resolution.Dealias(ref, c.table)
-			return ok && hasCircularInheritance(base, c.table, make(set.Set[string]))
-		}) {
-			return
+			bases = append(
+				bases,
+				resolution.MustForm[resolution.UnionForm](union).Extends...,
+			)
 		}
 		for ancestor := range structAncestors(bases, c.table) {
 			if ar, ok := pending[ancestor]; ok {
@@ -301,6 +298,7 @@ func copyUnion(
 	return unionDecl{
 		extends:  appendRefs(parent.extends, slices.Delete(decl.extends, i, i+1)),
 		variants: variants,
+		actions:  decl.actions,
 		domains:  mergeDomains(parent.domains, decl.domains),
 	}, true
 }

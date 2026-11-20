@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -66,5 +66,28 @@ describe("detectConnection", () => {
       port: 80,
       secure: false,
     });
+  });
+});
+
+describe("servesPage", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
+  it("should return true when the page came from the Core", () => {
+    pinLocationOrigin("http://example.com:9090");
+    expect(Core.servesPage({ host: "example.com", port: 9090 })).toBe(true);
+  });
+
+  it("should return false when another Core served the page", () => {
+    pinLocationOrigin("http://example.com:9090");
+    expect(Core.servesPage({ host: "example.com", port: 9091 })).toBe(false);
+    expect(Core.servesPage({ host: "other.com", port: 9090 })).toBe(false);
+  });
+
+  it("should return false in the tauri engine", () => {
+    mocks.engine = "tauri";
+    pinLocationOrigin("http://example.com:9090");
+    expect(Core.servesPage({ host: "example.com", port: 9090 })).toBe(false);
   });
 });

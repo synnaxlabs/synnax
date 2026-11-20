@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type License, type Organization } from "@/server/db/schema";
+import type { License, Organization } from "@/server/db/schema";
 import { expiring, issued, restored, revoked } from "@/server/license/notice";
 import { LICENSE } from "@/server/license/testutil";
 
@@ -19,6 +19,7 @@ const TEAM: Organization = {
   name: "Acme",
   clerkOrgID: "org_acme",
   ownerUserID: null,
+  desktopChannels: null,
   createdAt: new Date("2026-09-01T00:00:00Z"),
 };
 

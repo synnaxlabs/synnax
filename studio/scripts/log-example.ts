@@ -10,8 +10,8 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/logs/example`: create a log, add streaming channels in the
- * Channels tab, and give the timestamps sub-second precision; lines arrive as
+ * Docs `console/logs/example`: with a log open, open its toolbar, add streaming
+ * channels in the Channels tab, and set the precision of one; lines arrive as
  * telemetry does.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
@@ -20,16 +20,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await session.moveTo({ x: 800, y: 450 });
+    await capture.clickPanelCreate(session);
+    await capture.createComponent(session, "Log");
+    await session.waitFor(page.locator(".pluto-log").first());
+    await capture.hideBottomToolbar(session);
+    // Off the log's "Configure channels" action.
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
     await session.hold(1800);
-
-    await capture.clickPanelCreate(session);
-    await session.hold(800);
-    await capture.createComponent(session, "Log");
-    await session.waitFor(page.locator(".pluto-log").first());
-    await session.hold(1200);
 
     const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     const add = page.getByText("Add channel", { exact: true }).first();
@@ -61,16 +60,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.hold(800);
     }
 
-    await session.click(drawer.getByText("Properties", { exact: true }).first(), {
-      text: true,
-      zoom: false,
-    });
-    const precision = capture.field(page, "Receipt timestamp precision");
-    await session.waitFor(precision);
-    await session.hold(600);
-    await session.click(precision, { zoom: false });
-    await session.press("ControlOrMeta+a");
-    await session.type("3");
+    const precision = drawer.locator(".console-log__channel-precision input").first();
+    await session.click(precision);
+    await session.type("2");
     await session.press("Enter");
     session.endZoom();
     await session.moveTo({ x: 1200, y: 300 });

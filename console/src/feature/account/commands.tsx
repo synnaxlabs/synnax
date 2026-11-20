@@ -15,7 +15,7 @@ import { Command } from "@/platform/command";
 const OpenUsageDataCommand = Command.create({
   key: "open_usage_data",
   name: "Change usage data settings",
-  icon: <Icon.Analyze />,
+  icon: <Icon.UsageData />,
   useOnSelect: useUsageDataModal,
 });
 

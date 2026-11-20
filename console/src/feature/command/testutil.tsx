@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Synnax as Client } from "@synnaxlabs/client";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 
@@ -68,7 +68,8 @@ const CommandPalette = ({ commands }: CommandPaletteProps): ReactElement => {
 /**
  * Renders a domain's COMMANDS through the real command list plus a live modal stack, so
  * a spec can drive them end to end: filter, select, and interact with any modal a
- * command opens. Only commands are wired here; resource search lives in a separate seam.
+ * command opens. Only commands are wired here; resource search lives in a separate
+ * seam.
  */
 export const renderPalette = async ({
   commands = [],

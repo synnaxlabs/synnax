@@ -7,60 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
-  EOF,
-  HTTPClient,
-  type UnaryClient,
-  WebSocketClient,
-} from "@synnaxlabs/freighter";
-import { binary, Series, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
-import { describe, expect, it, onTestFinished } from "vitest";
+  binary,
+  type record,
+  Series,
+  TimeSpan,
+  TimeStamp,
+  url,
+  uuid,
+} from "@synnaxlabs/x";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { z } from "zod";
 
-import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { label } from "@/label";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { ranger } from "@/ranger";
 import { status } from "@/status";
 import { task } from "@/task";
-import { TEST_CORE_ADDRESS } from "@/testutil";
-
-/** A change stream that delivers the frames the spec pushes, in push order. */
-class PushStreamer implements framer.Streamer {
-  keys: channel.Key[] = [];
-  private readonly frames: framer.Frame[] = [];
-  private done = false;
-
-  push(frame: framer.Frame): void {
-    this.frames.push(frame);
-  }
-
-  async update(): Promise<void> {}
-
-  close(): void {
-    this.done = true;
-  }
-
-  async next(): Promise<IteratorResult<framer.Frame>> {
-    while (!this.done) {
-      const frame = this.frames.shift();
-      if (frame != null) return { done: false, value: frame };
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
-    return { done: true, value: undefined };
-  }
-
-  async read(): Promise<framer.Frame> {
-    const res = await this.next();
-    if (res.done) throw new EOF();
-    return res.value;
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<framer.Frame> {
-    return this;
-  }
-}
+import { PushStreamer, testCoreAddress } from "@/testutil";
 
 // Every request fails, so the cache holds only what the stream delivers.
 const unary: UnaryClient = {
@@ -70,51 +34,44 @@ const unary: UnaryClient = {
   },
 };
 
-const createStreamedClient = async () => {
+const createStreamedClient = async (recordCap?: number) => {
   const stream = new PushStreamer();
   const cache = new query.Cache({
     openStreamer: async () => stream,
     breaker: { baseInterval: TimeSpan.milliseconds(1) },
     onError: () => {},
+    recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const ont = new ontology.Client({ unary, cache });
-  const labels = new label.Client({ unary, cache, ontology: ont });
-  const coreURL = new url.URL(TEST_CORE_ADDRESS);
+  const coreURL = new url.URL(testCoreAddress());
   const frames = new framer.Client({
-    stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
+    stream: new WebSocketClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     unary,
-    file: new HTTPClient(coreURL, binary.JSON_CODEC),
+    file: new HTTPClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     retrieveChannels: async () => [],
   });
-  const ranges = new ranger.Client({
-    unary,
-    cache,
-    labels,
-    ontology: ont,
-    framer: frames,
-    channels: async () => [],
-  });
-  const statuses = new status.Client({ unary, cache, ontology: ont, labels });
-  const tasks = new task.Client({
-    unary,
-    framer: frames,
-    ontology: ont,
-    ranges,
-    cache,
-    statuses,
-  });
+  const statuses = new status.Client({ unary, cache });
+  const tasks = new task.Client({ unary, framer: frames, cache, statuses });
   await cache.ensureStreaming();
-  return { stream, tasks };
+  return { stream, tasks, statuses };
 };
 
-const createStatus = (key: task.Key, message: string, time: TimeStamp) => ({
-  key: task.statusKey(key),
+const STATUS_KEY = "5c1e7a0b-2d3f-4e6a-8b9c-0d1e2f3a4b5c";
+
+const createStatus = (
+  key: task.Key,
+  message: string,
+  time: TimeStamp,
+  statusKey: string = STATUS_KEY,
+) => ({
+  key: statusKey,
   name: "Task status",
   variant: "warning" as const,
   message,
   time,
-  details: { task: key, running: false, cmd: "", data: {} },
+  labels: [],
+  owner: task.resourceID(key),
+  details: { running: false, cmd: "", data: {} },
 });
 
 describe("task.Client", () => {
@@ -123,7 +80,7 @@ describe("task.Client", () => {
       const { stream, tasks } = await createStreamedClient();
       const key = "0a7d3c2e-6f1b-4c5d-9e8f-1a2b3c4d5e6f";
       const cachedMessage = () => {
-        const cached = tasks.getCached(key);
+        const cached = tasks.watch(key).getCached();
         return query.isLive(cached) ? cached.status?.message : undefined;
       };
       stream.push(
@@ -148,7 +105,7 @@ describe("task.Client", () => {
           ]),
         }),
       );
-      await expect.poll(() => query.isLive(tasks.getCached(key))).toBe(true);
+      await expect.poll(() => query.isLive(tasks.watch(key).getCached())).toBe(true);
       expect(cachedMessage()).toBe("Task not deployed");
       stream.push(
         new framer.Frame({
@@ -158,6 +115,143 @@ describe("task.Client", () => {
         }),
       );
       await expect.poll(cachedMessage).toBe("Task configured");
+    });
+  });
+
+  describe("parse", () => {
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({
+        routingKey: z.string(),
+        severity: z.string().default("high"),
+      }),
+      statusData: z.any().optional(),
+    };
+    const KEY = "3f6b2a1c-7d8e-4f90-a1b2-c3d4e5f6a7b8";
+    const untyped = (tasks: task.Client, config: record.Unknown): task.Task =>
+      tasks.sugar({
+        key: KEY,
+        rack: 0,
+        name: "alert",
+        type: "pagerduty_alert",
+        config,
+        configHash: "",
+        internal: false,
+      });
+
+    it("should fill schema defaults on an untyped task", async () => {
+      const { tasks } = await createStreamedClient();
+      const parsed = tasks.parse(untyped(tasks, { routingKey: "abc" }), schemas);
+      expect(query.isLive(parsed) && parsed.config).toEqual({
+        routingKey: "abc",
+        severity: "high",
+      });
+    });
+
+    it("should return the same instance for the same task and schemas", async () => {
+      const { tasks } = await createStreamedClient();
+      const cached = untyped(tasks, { routingKey: "abc" });
+      expect(tasks.parse(cached, schemas)).toBe(tasks.parse(cached, schemas));
+    });
+
+    it("should return undefined for a task that fails to parse", async () => {
+      const { tasks } = await createStreamedClient();
+      expect(tasks.parse(untyped(tasks, { routingKey: 1 }), schemas)).toBeUndefined();
+    });
+
+    it("should parse the corpse of a deleted task into one stable wrapper", async () => {
+      const { tasks } = await createStreamedClient();
+      const deleted = new query.Deleted(
+        untyped(tasks, { routingKey: "abc" }),
+        TimeStamp.now(),
+      );
+      const parsed = tasks.parse(deleted, schemas);
+      expect(query.Deleted.matches(parsed) && parsed.corpse.config.severity).toBe(
+        "high",
+      );
+      expect(tasks.parse(deleted, schemas)).toBe(parsed);
+    });
+  });
+
+  describe("record cap", () => {
+    it("should keep the status of a held task when it trims statuses", async () => {
+      const { stream, tasks, statuses } = await createStreamedClient(10);
+      const key = "3b8e1f4a-7c2d-4e9b-a5f6-2c3d4e5f6a7b";
+      onTestFinished(tasks.watch(key).onChange(() => {}));
+      const cachedMessage = () => {
+        const cached = tasks.watch(key).getCached();
+        return query.isLive(cached) ? cached.status?.message : undefined;
+      };
+      stream.push(
+        new framer.Frame({
+          [task.ACTION_CHANNEL_NAME]: new Series([
+            {
+              key,
+              dispatchKey: "remote-dispatch",
+              seq: 1,
+              actions: [
+                task.create({
+                  task: {
+                    key,
+                    name: "held",
+                    type: "test",
+                    config: {},
+                    status: createStatus(key, "Task not deployed", TimeStamp.now()),
+                  },
+                }),
+              ],
+            },
+          ]),
+        }),
+      );
+      await expect.poll(cachedMessage).toBe("Task not deployed");
+      const pushStatuses = (n: number) =>
+        stream.push(
+          new framer.Frame({
+            [status.SET_CHANNEL_NAME]: new Series(
+              Array.from({ length: n }, () =>
+                createStatus(uuid.create(), "Other", TimeStamp.now(), uuid.create()),
+              ),
+            ),
+          }),
+        );
+      pushStatuses(11);
+      await expect.poll(() => statuses.store.size).toBe(12);
+      pushStatuses(1);
+      await expect.poll(() => statuses.store.size).toBe(9);
+      expect(statuses.ownedBy(task.resourceID(key))?.message).toBe("Task not deployed");
+    });
+  });
+});
+
+describe("Task", () => {
+  describe("executeCommandSync", () => {
+    it("should close its streamer when the command write fails", async () => {
+      const close = vi.fn();
+      const frameClient = {
+        openStreamer: async () => ({
+          read: async () => await new Promise(() => {}),
+          close,
+        }),
+        openWriter: async () => {
+          throw new Error("denied");
+        },
+      } as unknown as framer.Client;
+      const tsk = new task.Task(
+        {
+          key: "1",
+          rack: 1,
+          name: "t",
+          type: "x",
+          config: {},
+          configHash: "",
+          internal: false,
+        },
+        undefined,
+        frameClient,
+      );
+      await expect(tsk.executeCommandSync({ type: "start" })).rejects.toThrow("denied");
+      expect(close).toHaveBeenCalledOnce();
     });
   });
 });

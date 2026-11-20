@@ -18,8 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -154,15 +153,15 @@ func proofBackward(p *Proof) (svcauth.Proof, error) {
 	}
 }
 
-func subjectForward(id ontology.ID) *Subject {
+func subjectForward(id resource.ID) *Subject {
 	return &Subject{Type: string(id.Type), Key: id.Key}
 }
 
-func subjectBackward(s *Subject) ontology.ID {
+func subjectBackward(s *Subject) resource.ID {
 	if s == nil {
-		return ontology.ID{}
+		return resource.ID{}
 	}
-	return ontology.ID{Type: ontology.ResourceType(s.Type), Key: s.Key}
+	return resource.ID{Type: resource.Type(s.Type), Key: s.Key}
 }
 
 func sessionForward(s svcauth.Session) *Session {
@@ -174,7 +173,7 @@ func sessionForward(s svcauth.Session) *Session {
 	}
 }
 
-func userForward(u *user.User) *User {
+func userForward(u *auth.User) *User {
 	if u == nil {
 		return nil
 	}
@@ -218,7 +217,7 @@ func (sessionRetrieveRequestTranslator) Backward(
 	r *SessionRetrieveRequest,
 ) (auth.SessionRetrieveRequest, error) {
 	return auth.SessionRetrieveRequest{
-		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) ontology.ID {
+		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) resource.ID {
 			return subjectBackward(s)
 		}),
 	}, nil
@@ -325,7 +324,7 @@ func (keyRetrieveRequestTranslator) Backward(
 	r *KeyRetrieveRequest,
 ) (auth.KeyRetrieveRequest, error) {
 	return auth.KeyRetrieveRequest{
-		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) ontology.ID {
+		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) resource.ID {
 			return subjectBackward(s)
 		}),
 	}, nil
@@ -357,48 +356,88 @@ func (keyDeleteRequestTranslator) Backward(
 	return auth.KeyDeleteRequest{Keys: keys}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+type (
+	methodsServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		auth.MethodsResponse,
+		*MethodsResponse,
+	]
+	methodsResponseTranslator struct{}
+)
+
+var _ grpc.ForwardTranslator[auth.MethodsResponse, *MethodsResponse] = (*methodsResponseTranslator)(
+	nil,
+)
+
+func (methodsResponseTranslator) Forward(
+	_ context.Context,
+	r auth.MethodsResponse,
+) (*MethodsResponse, error) {
+	return &MethodsResponse{
+		Methods: lo.Map(r.Methods, func(m svcauth.Method, _ int) string {
+			return string(m)
+		}),
+	}, nil
+}
+
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	login := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},
 		ServiceDesc:        &AuthLoginService_ServiceDesc,
+		Errors:             errs,
+	}
+	methods := &methodsServer{
+		RequestTranslator:  grpc.EmptyTranslator{},
+		ResponseTranslator: methodsResponseTranslator{},
+		ServiceDesc:        &AuthMethodsService_ServiceDesc,
+		Errors:             errs,
 	}
 	create := &sessionCreateServer{
 		RequestTranslator:  sessionCreateRequestTranslator{},
 		ResponseTranslator: sessionCreateResponseTranslator{},
 		ServiceDesc:        &AuthSessionCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	renew := &sessionRenewServer{
 		RequestTranslator:  grpc.EmptyTranslator{},
 		ResponseTranslator: sessionRenewResponseTranslator{},
 		ServiceDesc:        &AuthSessionRenewService_ServiceDesc,
+		Errors:             errs,
 	}
 	retrieve := &sessionRetrieveServer{
 		RequestTranslator:  sessionRetrieveRequestTranslator{},
 		ResponseTranslator: sessionRetrieveResponseTranslator{},
 		ServiceDesc:        &AuthSessionRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	del := &sessionDeleteServer{
 		RequestTranslator:  sessionDeleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AuthSessionDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	keyCreate := &keyCreateServer{
 		RequestTranslator:  keyCreateRequestTranslator{},
 		ResponseTranslator: keyCreateResponseTranslator{},
 		ServiceDesc:        &AuthKeyCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	keyRetrieve := &keyRetrieveServer{
 		RequestTranslator:  keyRetrieveRequestTranslator{},
 		ResponseTranslator: keyRetrieveResponseTranslator{},
 		ServiceDesc:        &AuthKeyRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	keyDelete := &keyDeleteServer{
 		RequestTranslator:  keyDeleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AuthKeyDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.AuthLogin = login
+	t.AuthMethods = methods
 	t.AuthSessionCreate = create
 	t.AuthSessionRenew = renew
 	t.AuthSessionRetrieve = retrieve
@@ -407,13 +446,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 	t.AuthKeyRetrieve = keyRetrieve
 	t.AuthKeyDelete = keyDelete
 	return grpc.CompoundBindableTransport{
-		login,
-		create,
-		renew,
-		retrieve,
-		del,
-		keyCreate,
-		keyRetrieve,
-		keyDelete,
+		login, create, renew, retrieve, del, keyCreate, keyRetrieve, keyDelete,
+		methods,
 	}
 }

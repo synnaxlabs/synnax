@@ -10,13 +10,15 @@
 from __future__ import annotations
 
 import struct
+from typing import override
+
+import numpy as np
 
 import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import Alignment, DataType, Series, TimeRange
-from x.codec import Codec as XCodec
-from x.codec import JSONCodec
+from x.codec import Codec as XCodec, JSONCodec
 
 _EXTENDED_FLAG_POS = 7
 _MULTIPLES_PRESENT_FLAG_POS = 6
@@ -48,18 +50,13 @@ def _series_wire_byte_length(ser: Series) -> int:
 
 
 def _pack_bool_bits(src: bytes) -> bytes:
-    dst = bytearray(_bit_packed_byte_count(len(src)))
-    for i, b in enumerate(src):
-        if b != 0:
-            dst[i // _BITS_PER_BYTE] |= 1 << (i % _BITS_PER_BYTE)
-    return bytes(dst)
+    nonzero = np.frombuffer(src, dtype=np.uint8) != 0
+    return np.packbits(nonzero, bitorder="little").tobytes()
 
 
 def _unpack_bool_bits(src: memoryview, sample_count: int) -> bytes:
-    dst = bytearray(sample_count)
-    for i in range(sample_count):
-        dst[i] = (src[i // _BITS_PER_BYTE] >> (i % _BITS_PER_BYTE)) & 1
-    return bytes(dst)
+    packed = np.frombuffer(src, dtype=np.uint8)
+    return np.unpackbits(packed, count=sample_count, bitorder="little").tobytes()
 
 
 class _CodecFlags:
@@ -194,7 +191,9 @@ class Codec:
 
             byte_array_size += _series_wire_byte_length(ser)
 
-        flg.time_ranges_zero = ref_tr is None or ref_tr == 0
+        flg.time_ranges_zero = flg.eq_tr and (
+            ref_tr is None or ref_tr == TimeRange.ZERO
+        )
         flg.zero_alignments = flg.eq_align and ref_align == 0
         byte_array_size += (int(flg.eq_len) or len(sorted_keys)) * _DATA_LENGTH_SIZE
         if not flg.time_ranges_zero:
@@ -408,5 +407,6 @@ class WSCodec(XCodec):
         self.codec = codec
         self.lower_perf_codec = JSONCodec()
 
+    @override
     def content_type(self) -> str:
         return "application/vnd.synnax.frame"

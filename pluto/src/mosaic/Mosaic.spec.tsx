@@ -9,9 +9,9 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
-import { createEvent, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { fireDragEvent, mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Mosaic } from "@/mosaic";
@@ -49,7 +49,12 @@ interface DragSourceProps {
 
 const DragSource = ({ items }: DragSourceProps): ReactElement => {
   const { startDrag } = Haul.useDrag({ type: "test-source", key: "source" });
-  return <button data-testid="drag-source" onClick={() => startDrag(items)} />;
+  return (
+    <button
+      data-testid="drag-source"
+      onDragStart={(event) => startDrag({ event, items, preview: null })}
+    />
+  );
 };
 
 interface LeafTabsProps {
@@ -114,34 +119,15 @@ const strip = (key: number = 1): HTMLElement => {
 };
 
 const beginDrag = (target: HTMLElement): void => {
-  fireEvent.click(screen.getByTestId("drag-source"));
+  fireEvent.dragStart(screen.getByTestId("drag-source"));
   stubLeafRects(target);
 };
 
-// jsdom has no DragEvent, so testing-library falls back to a plain Event for drag
-// event types and the cursor coordinates in the init are lost. Define them on the
-// event directly.
-const fireDragEvent = (
-  target: HTMLElement,
-  type: "dragOver" | "drop",
-  x: number,
-  y: number,
-): void => {
-  const event = createEvent[type](target);
-  Object.defineProperties(event, {
-    clientX: { value: x },
-    clientY: { value: y },
-    screenX: { value: x },
-    screenY: { value: y },
-  });
-  fireEvent(target, event);
-};
-
 const dragOver = (target: HTMLElement, x: number, y: number): void =>
-  fireDragEvent(target, "dragOver", x, y);
+  fireDragEvent(target, "dragOver", { x, y });
 
 const drop = (target: HTMLElement, x: number, y: number): void =>
-  fireDragEvent(target, "drop", x, y);
+  fireDragEvent(target, "drop", { x, y });
 
 const mask = (): HTMLElement | null => document.querySelector(".pluto-mosaic__mask");
 
@@ -182,6 +168,19 @@ describe("Mosaic", () => {
       ["top", 200, 40],
       ["bottom", 200, 280],
     ])("should report a %s drop at the matching edge", (location, x, y) => {
+      const onDrop = vi.fn();
+      render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      drop(leaf(), x, y);
+      expect(onDrop).toHaveBeenCalledWith(expect.objectContaining({ location }));
+    });
+
+    it.each<[string, number, number]>([
+      ["top", 100, 75],
+      ["top", 300, 75],
+      ["bottom", 100, 225],
+      ["bottom", 300, 225],
+    ])("should report a %s drop on a diagonal of the leaf", (location, x, y) => {
       const onDrop = vi.fn();
       render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);
       beginDrag(leaf());
@@ -233,7 +232,7 @@ describe("Mosaic", () => {
       render(
         <Harness
           onCreate={onCreate}
-          items={[Mosaic.createTabCreateHaulItem("ontology:1")]}
+          items={[Mosaic.createTabCreateHaulItem("tab:1")]}
         />,
       );
       beginDrag(leaf());
@@ -242,7 +241,7 @@ describe("Mosaic", () => {
       expect(onCreate).toHaveBeenCalledWith({
         nodeKey: 1,
         location: "center",
-        tabKeys: ["ontology:1"],
+        tabKeys: ["tab:1"],
         index: 1,
       });
     });
@@ -297,8 +296,8 @@ describe("Mosaic", () => {
         <Harness
           onCreate={onCreate}
           items={[
-            Mosaic.createTabCreateHaulItem("ontology:1"),
-            Mosaic.createTabCreateHaulItem("ontology:2"),
+            Mosaic.createTabCreateHaulItem("tab:1"),
+            Mosaic.createTabCreateHaulItem("tab:2"),
           ]}
         />,
       );
@@ -307,7 +306,7 @@ describe("Mosaic", () => {
       expect(onCreate).toHaveBeenCalledWith({
         nodeKey: 1,
         location: "left",
-        tabKeys: ["ontology:1", "ontology:2"],
+        tabKeys: ["tab:1", "tab:2"],
         index: undefined,
       });
     });
@@ -435,6 +434,37 @@ describe("Mosaic", () => {
   });
 
   describe("useDragTab", () => {
+    it("should picture a dragged tab without its close button", () => {
+      const ClosableTab = (): ReactElement => {
+        const { startDrag, onDragEnd } = Mosaic.useDragTab();
+        return (
+          <Tabs.Frame initialValue="a">
+            <Tabs.Selector>
+              <Tabs.Tab
+                itemKey="a"
+                draggable
+                onDragStart={(e) => startDrag(e, "a")}
+                onDragEnd={onDragEnd}
+              >
+                Tab a
+                <Tabs.Close />
+              </Tabs.Tab>
+            </Tabs.Selector>
+          </Tabs.Frame>
+        );
+      };
+      render(
+        <Haul.Provider>
+          <ClosableTab />
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(screen.getByRole("tab", { name: /Tab a/ }));
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.textContent).toBe("Tab a");
+      expect(layer?.querySelector('[aria-label="Close"]')).toBeNull();
+      expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
+    });
+
     it("should haul a tab dragged from one leaf onto another", () => {
       const onDrop = vi.fn();
       render(

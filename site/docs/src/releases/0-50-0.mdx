@@ -1,21 +1,16 @@
 ---
-title: "Version 0.50 release notes"
+title: "Arc automations"
+version: "0.50.0"
+date: "Jan 26, 2026"
 ---
 
 import { Hero } from "@/components/hero";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.50.0"
-    date="Jan 26, 2026"
-    title="Arc automations"
->
 
 Synnax v0.50 is the first release of the text-based version of our new programming
 language, Arc.
@@ -27,6 +22,7 @@ language, Arc.
   layout="bleed"
   tone="deep"
   palette="violet-blue"
+  alt="A pressurization sequence in Arc"
 />
 
 <Divider.Divider x />
@@ -64,6 +60,7 @@ most demanding tasks.
   layout="framed"
   inset
   palette="blue-violet"
+  alt="The range explorer with saved views"
 />
 
 Views allow you to save frequently used searches of ranges and statuses. You can create
@@ -90,7 +87,7 @@ to start automatically when the PC boots, run as a background process, and be ma
 the Windows Service Manager.
 
 To see how to deploy Synnax as a Windows service, see the
-[Core CLI Reference](/reference/enterprise/cli-reference#service-windows-only).
+[Core CLI Reference](/reference/enterprise/cli-reference#service).
 
 <Divider.Divider x />
 
@@ -123,5 +120,3 @@ To see how to deploy Synnax as a Windows service, see the
 #### Python client
 
 - Fix the `__array__` signatures in the `Series` and `MultiSeries` classes
-
-</Release>

@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
+import {
+  Label,
+  Node,
+  Pad,
+  Rack,
+  Trace,
+} from "@/components/deployments/DeploymentGeometry";
 import {
   Box,
   Cylinder,
@@ -19,8 +26,6 @@ import {
   SIGNAL,
   Wire,
 } from "@/components/IndustrialGeometry";
-
-import { Label, Node, Pad, Rack, Trace } from "./DeploymentGeometry";
 
 const BAYS = [
   { x: 90, y: 66, label: "Q.01", open: false },

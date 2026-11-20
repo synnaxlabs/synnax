@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Control, Diagram, Schematic } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
@@ -57,8 +57,7 @@ const TooltipsToggleButton = (): ReactElement => {
   );
 };
 
-export const Controls = memo((): ReactElement => {
-  const isSnapshot = Schematic.useIsSnapshot();
+export const Controls = (): ReactElement => {
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { canEdit, isCurrentlyEditable } = Session.Schematic.useSelectEditable();
   const canControl = Framer.useCanCommand();
@@ -69,9 +68,9 @@ export const Controls = memo((): ReactElement => {
       <TooltipsToggleButton />
       <Flex.Box x pack className={CSS.cls(isAcquired && Vis.CONTROLS_PINNED_CLASS)}>
         {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
-        {!isSnapshot && canControl && <ControlToggleButton />}
+        {canControl && <ControlToggleButton />}
       </Flex.Box>
     </Vis.Controls>
   );
-});
+};
 Controls.displayName = "Schematic.Controls";

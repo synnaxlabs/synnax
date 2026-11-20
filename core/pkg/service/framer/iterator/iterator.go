@@ -10,12 +10,9 @@
 package iterator
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -48,42 +45,37 @@ type responseSegment = confluence.Segment[Response, Response]
 var ErrClosed = framer.ErrIteratorClosed
 
 type Iterator struct {
-	requests    confluence.Inlet[Request]
-	responses   confluence.Outlet[Response]
-	shutdown    context.CancelFunc
-	wg          signal.WaitGroup
+	pipeline    framer.IteratorPipeline
 	value       []Response
 	valueFrames []framer.Frame
-	// closed is true once Close has run.
-	closed bool
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Next(span telem.TimeSpan) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandNext, Span: span})
+	return i.exec(Request{Command: CommandNext, Span: span}).Ack
 }
 
 // Prev reads all channel data occupying the previous span of time. Returns true
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandPrev, Span: span})
+	return i.exec(Request{Command: CommandPrev, Span: span}).Ack
 }
 
 // SeekFirst seeks the Iterator the start of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekFirst() bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekFirst})
+	return i.exec(Request{Command: CommandSeekFirst}).Ack
 }
 
 // SeekLast seeks the Iterator the end of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekLast() bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekLast})
+	return i.exec(Request{Command: CommandSeekLast}).Ack
 }
 
 // SeekLE seeks the Iterator to the first whose timestamp is less than or equal
@@ -91,7 +83,7 @@ func (i *Iterator) SeekLast() bool {
 // to any valid segments.
 func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekLE, Stamp: stamp})
+	return i.exec(Request{Command: CommandSeekLE, Stamp: stamp}).Ack
 }
 
 // SeekGE seeks the Iterator to the first whose timestamp is greater than the
@@ -99,18 +91,17 @@ func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 // any valid segments.
 func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekGE, Stamp: stamp})
+	return i.exec(Request{Command: CommandSeekGE, Stamp: stamp}).Ack
 }
 
 // Valid returns true if the Iterator is pointing at valid data and is error free.
 func (i *Iterator) Valid() bool {
-	return i.exec(Request{Command: CommandValid})
+	return i.exec(Request{Command: CommandValid}).Ack
 }
 
 // Error returns any errors accumulated during the iterators lifetime.
 func (i *Iterator) Error() error {
-	_, err := i.execErr(Request{Command: CommandError})
-	return err
+	return i.exec(Request{Command: CommandError}).Error
 }
 
 // Close closes the Iterator, ensuring that all in-progress reads complete before
@@ -118,19 +109,11 @@ func (i *Iterator) Error() error {
 // seek or SetBounds has cleared it since. Closing a closed iterator returns nil, every
 // other method returns false, and Error returns ErrClosed. All iterators must be
 // Closed, or the distribution layer will panic.
-func (i *Iterator) Close() error {
-	if i.closed {
-		return nil
-	}
-	i.closed = true
-	defer i.shutdown()
-	i.requests.Close()
-	return i.wg.Wait()
-}
+func (i *Iterator) Close() error { return i.pipeline.Close() }
 
 // SetBounds sets the lower and upper bounds of the Iterator.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
-	return i.exec(Request{Command: CommandSetBounds, Bounds: bounds})
+	return i.exec(Request{Command: CommandSetBounds, Bounds: bounds}).Ack
 }
 
 func (i *Iterator) Value() framer.Frame {
@@ -145,21 +128,4 @@ func (i *Iterator) Value() framer.Frame {
 	return frame.Merge(i.valueFrames)
 }
 
-func (i *Iterator) exec(req Request) bool {
-	ok, _ := i.execErr(req)
-	return ok
-}
-
-func (i *Iterator) execErr(req Request) (bool, error) {
-	if i.closed {
-		return false, ErrClosed
-	}
-	i.requests.Inlet() <- req
-	for res := range i.responses.Outlet() {
-		if res.Variant == ResponseVariantAck {
-			return res.Ack, res.Error
-		}
-		i.value = append(i.value, res)
-	}
-	return false, nil
-}
+func (i *Iterator) exec(req Request) Response { return i.pipeline.Exec(req, &i.value) }

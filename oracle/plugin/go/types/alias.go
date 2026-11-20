@@ -11,6 +11,7 @@ package types
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
@@ -64,20 +65,14 @@ type aliasData struct {
 	Types   []aliasDecl
 }
 
-func (g *aliasFileGenerator) GenerateFile(
-	ctx *framework.GenerateContext,
-) (string, error) {
-	versionedPath, ok := g.pathMap[ctx.OutputPath]
-	if !ok {
-		return "", nil
-	}
-	namespace := ctx.Namespace
-	pkg := naming.DerivePackageName(ctx.OutputPath)
+// newAliasTemplateData returns the template data that resolves types for the alias file
+// of package pkg.
+func newAliasTemplateData(ctx *framework.GenerateContext, pkg string) *templateData {
 	imp := imports.NewManager()
 	rctx := &resolver.Context{
 		Table:                         ctx.Table,
 		OutputPath:                    ctx.OutputPath,
-		Namespace:                     namespace,
+		Namespace:                     ctx.Namespace,
 		RepoRoot:                      ctx.RepoRoot,
 		DomainName:                    "go",
 		SubstituteDefaultedTypeParams: true,
@@ -88,16 +83,28 @@ func (g *aliasFileGenerator) GenerateFile(
 		ImportAdder:     imp,
 		PrimitiveMapper: primitiveMapper,
 	}
-	data := &templateData{
+	return &templateData{
 		Package:    pkg,
 		OutputPath: ctx.OutputPath,
-		Namespace:  namespace,
+		Namespace:  ctx.Namespace,
 		Manager:    imp,
 		table:      ctx.Table,
 		repoRoot:   ctx.RepoRoot,
 		resolver:   r,
 		ctx:        rctx,
 	}
+}
+
+func (g *aliasFileGenerator) GenerateFile(
+	ctx *framework.GenerateContext,
+) (string, error) {
+	versionedPath, ok := g.pathMap[ctx.OutputPath]
+	if !ok {
+		return "", nil
+	}
+	namespace := ctx.Namespace
+	pkg := naming.DerivePackageName(ctx.OutputPath)
+	data := newAliasTemplateData(ctx, pkg)
 
 	emitPkg := pkg
 	importPath := ctx.OutputPath + "/versions"
@@ -126,7 +133,7 @@ func (g *aliasFileGenerator) GenerateFile(
 		if d.kind == declEnum && d.typ.Namespace != namespace {
 			continue
 		}
-		ad.Types = append(ad.Types, buildAliasDecls(d, prefix, data)...)
+		ad.Types = append(ad.Types, buildAliasDecls(d, prefix, "", data)...)
 	}
 
 	// A path whose types are all @go omit generates no aliases; emitting the
@@ -144,50 +151,37 @@ func (g *aliasFileGenerator) GenerateFile(
 // buildAliasDecls returns the alias declarations re-exporting d's type from
 // the package referenced as prefix: a type alias per generated type (unions
 // expand to their variant, discriminator, and interface types) plus const
-// re-declarations for enum members and union discriminator values.
-func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDecl {
-	var decls []aliasDecl
-	addType := func(name, docStr string, tparams []resolution.TypeParam) {
-		lhs, rhs := name, prefix+"."+name
-		params := resolution.NonDefaultedTypeParams(tparams)
-		if len(params) > 0 {
-			lhs += "["
-			rhs += "["
-			for i, tp := range params {
-				if i > 0 {
-					lhs += ", "
-					rhs += ", "
-				}
-				tpd := processTypeParam(tp, data)
-				lhs += tpd.Name + " " + tpd.Constraint
-				rhs += tpd.Name
-			}
-			lhs += "]"
-			rhs += "]"
-		}
-		decls = append(decls, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
+// re-declarations for enum members and union discriminator values. target is the
+// Go name the prefix package declares for d's type; empty means d's own name.
+func buildAliasDecls(
+	d orderedDecl, prefix, target string, data *templateData,
+) []aliasDecl {
+	b := aliasDeclBuilder{prefix: prefix, data: data}
+	name := naming.GetGoName(d.typ)
+	if target == "" {
+		target = name
 	}
+	typeDoc := doc.Get(d.typ.Domains)
 	switch d.kind {
 	case declTypeDef:
 		switch form := d.typ.Form.(type) {
 		case resolution.DistinctForm:
-			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+			b.addType(name, target, typeDoc, form.TypeParams)
 		case resolution.AliasForm:
-			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+			b.addType(name, target, typeDoc, form.TypeParams)
 		default:
-			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), nil)
+			b.addType(name, target, typeDoc, nil)
 		}
 	case declEnum:
-		name := naming.GetGoName(d.typ)
-		addType(name, doc.Get(d.typ.Domains), nil)
-		form := d.typ.Form.(resolution.EnumForm)
-		decl := &decls[len(decls)-1]
+		b.addType(name, target, typeDoc, nil)
+		form := resolution.MustForm[resolution.EnumForm](d.typ)
+		decl := &b.decls[len(b.decls)-1]
 		for _, v := range form.Values {
-			member := name + naming.ToPascalCase(v.Name)
+			member := naming.ToPascalCase(v.Name)
 			decl.Consts = append(decl.Consts, aliasConst{
-				Name:   member,
+				Name:   name + member,
 				Type:   name,
-				Target: prefix + "." + member,
+				Target: prefix + "." + target + member,
 				Doc:    doc.Get(v.Domains),
 			})
 		}
@@ -196,36 +190,83 @@ func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDe
 		if !ok {
 			return nil
 		}
-		addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+		b.addType(name, target, typeDoc, form.TypeParams)
 	case declUnion:
 		form, ok := d.typ.Form.(resolution.UnionForm)
 		if !ok {
 			return nil
 		}
-		name := naming.GetGoName(d.typ)
-		addType(name, doc.Get(d.typ.Domains), nil)
-		addType(name+"Variant", "", nil)
-		if form.BorrowsEnum() {
-			for _, v := range form.Variants {
-				addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
-			}
-			return decls
-		}
-		discType := name + "Type"
-		addType(discType, "", nil)
-		discDecl := len(decls) - 1
-		for _, v := range form.Variants {
-			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
-			constName := casing.VariantConstName(name, v.Name)
-			decls[discDecl].Consts = append(decls[discDecl].Consts, aliasConst{
-				Name:   constName,
-				Type:   discType,
-				Target: prefix + "." + constName,
-				Doc:    doc.Get(v.Domains),
-			})
-		}
+		b.addType(name, target, typeDoc, nil)
+		b.addUnion(name, target, form)
 	}
-	return decls
+	return b.decls
+}
+
+// aliasDeclBuilder collects the alias declarations that re-export types from the
+// package referenced as prefix.
+type aliasDeclBuilder struct {
+	decls  []aliasDecl
+	prefix string
+	data   *templateData
+}
+
+// addType adds a type alias named name for the prefix package's targetName.
+func (b *aliasDeclBuilder) addType(
+	name, targetName, docStr string,
+	tparams []resolution.TypeParam,
+) {
+	lhs, rhs := name, b.prefix+"."+targetName
+	params := resolution.NonDefaultedTypeParams(tparams)
+	if len(params) > 0 {
+		lhsParams := make([]string, len(params))
+		rhsParams := make([]string, len(params))
+		for i, tp := range params {
+			tpd := processTypeParam(tp, b.data)
+			lhsParams[i] = tpd.Name + " " + tpd.Constraint
+			rhsParams[i] = tpd.Name
+		}
+		lhs += "[" + strings.Join(lhsParams, ", ") + "]"
+		rhs += "[" + strings.Join(rhsParams, ", ") + "]"
+	}
+	b.decls = append(b.decls, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
+}
+
+// addUnion adds the aliases of a union's interface and variant types, plus its
+// discriminator type and values when it does not borrow an enum.
+func (b *aliasDeclBuilder) addUnion(name, target string, form resolution.UnionForm) {
+	b.addType(name+"Variant", target+"Variant", interfaceDoc(name), nil)
+	if form.BorrowsEnum() {
+		for _, v := range form.Variants {
+			b.addType(
+				casing.VariantTypeName(name, v.Name),
+				casing.VariantTypeName(target, v.Name),
+				doc.Get(v.Domains),
+				nil,
+			)
+		}
+		return
+	}
+	discType := name + "Type"
+	b.addType(
+		discType,
+		target+"Type",
+		discDoc(name, casing.FieldSnake(form.Discriminator)),
+		nil,
+	)
+	discDecl := len(b.decls) - 1
+	for _, v := range form.Variants {
+		variantDoc := doc.Get(v.Domains)
+		variantType := casing.VariantTypeName(name, v.Name)
+		b.addType(
+			variantType, casing.VariantTypeName(target, v.Name), variantDoc, nil,
+		)
+		b.decls[discDecl].Consts = append(b.decls[discDecl].Consts, aliasConst{
+			Name:   casing.VariantConstName(name, v.Name),
+			Type:   discType,
+			Target: b.prefix + "." + casing.VariantConstName(target, v.Name),
+			Doc:    constDoc(variantDoc, variantType),
+		})
+	}
 }
 
 var aliasTemplate = template.Must(template.New("go-alias").

@@ -9,21 +9,28 @@
 
 import "@/select/SingleTrigger.css";
 
-import { primitive, type record } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useId } from "react";
+import type { record } from "@synnaxlabs/x";
+import {
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  useId,
+} from "react";
 
-import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
-import { type Icon } from "@/icon";
+import type { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { staticCanDrop } from "@/select/MultipleTrigger";
 import { useIsFixed, useText } from "@/select/registry";
+import { TriggerClear, useTriggerClear } from "@/select/TriggerClear";
+import { preventEnterWhileOpen } from "@/select/use";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
@@ -33,7 +40,8 @@ export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNa
 export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant"> {
   /**
    * The trigger's chassis. A shadow trigger reads as its value: no box at rest, a
-   * border on hover, and a box while open. Its caret shows only on hover or while open.
+   * border on hover, and a box while open. Its caret shows on hover, on focus, and
+   * while open.
    */
   variant?: Input.Variant;
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
@@ -43,13 +51,20 @@ export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant">
   /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
   /**
-   * Whether hovering the trigger shows a button that clears the selection, and Delete or
-   * Backspace on the focused trigger clears it. The button covers the icon, or the caret
-   * when there is no icon. Single sets it from `allowNone`.
+   * Whether hovering the trigger shows a button that clears the selection, and Delete
+   * or Backspace on the focused trigger clears it. The button covers the icon, or the
+   * caret when there is no icon. Single sets it from `allowNone`.
    */
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
+  /** Renders the drag preview of the selected entry. Defaults to its icon and name. */
+  renderHaulPreview?: (entry: unknown) => ReactNode;
+  /**
+   * Renders content from the selected entry at the trailing edge, before the caret. An
+   * icon-only trigger shows none.
+   */
+  renderEndContent?: (entry: unknown) => ReactNode;
   /**
    * Whether the trigger drops its name and caret when too narrow to read the name. A
    * tooltip then shows the name. The caller must size the select, because the
@@ -78,6 +93,8 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   variant: triggerVariant = "outlined",
   renderIcon,
+  renderHaulPreview,
+  renderEndContent,
   collapsible = false,
   clearable = false,
   preview,
@@ -90,13 +107,14 @@ export const SingleTrigger = <K extends record.Key>({
   ...rest
 }: SingleTriggerProps): ReactElement => {
   const allSelected = useSelected<K>();
-  const { setSelected, clear } = useContext<K>();
+  const { setSelected } = useContext<K>();
   const [selected] = allSelected;
   const fixed = useIsFixed(selected);
   const fixedText = useText(selected);
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
+  const endContent = iconOnly ? undefined : renderEndContent?.(item);
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, allSelected, disabled);
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
@@ -112,8 +130,15 @@ export const SingleTrigger = <K extends record.Key>({
   // resolves to an entry drags, so an empty sentinel such as 0 never does.
   const draggable =
     haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
-  const handleDragStart = () => {
-    if (item != null) startDrag([{ key: item.key, type: haulType }]);
+  const handleDragStart = (event: DragEvent<HTMLElement>) => {
+    if (item == null) return;
+    startDrag({
+      event,
+      items: [{ key: item.key, type: haulType }],
+      preview: renderHaulPreview?.(item) ?? (
+        <Haul.Preview icon={resolvedIcon} name={name ?? item.key} />
+      ),
+    });
   };
   const dragging = Haul.useDraggingState();
   const baseId = useId();
@@ -123,33 +148,16 @@ export const SingleTrigger = <K extends record.Key>({
   // aria-label followed by the selection.
   const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
   const { visible, variant } = Dialog.useContext();
-  // A key with no entry, such as a deleted resource, can still be cleared. A zero key
-  // means none.
-  const canClear =
-    clearable && primitive.isNonZero(selected) && disabled !== true && preview !== true;
-  const clearOnIcon = canClear && resolvedIcon != null;
+  const clear = useTriggerClear<K>({ clearable, disabled, preview });
+  const clearOnIcon = clear.canClear && resolvedIcon != null;
   const clearOnCaret =
-    canClear && !clearOnIcon && variant !== "modal" && !hideCaret && !iconOnly;
+    clear.canClear && !clearOnIcon && variant !== "modal" && !hideCaret && !iconOnly;
   const clearShown = clearOnIcon || clearOnCaret;
-  // The clear button is not a tab stop, so the focused trigger takes the key instead.
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     onKeyDown?.(e);
-    if (!canClear || (e.key !== "Delete" && e.key !== "Backspace")) return;
-    e.preventDefault();
-    clear();
+    preventEnterWhileOpen(e, visible);
+    clear.handleKeyDown(e);
   };
-  const withClear = (glyph: ReactElement): ReactElement => (
-    <span className={CSS.BE("select-single-trigger", "icon")}>
-      {glyph}
-      <Button.Close
-        el="div"
-        role="button"
-        aria-label={`Clear ${name ?? fixedText ?? "selection"}`}
-        className={CSS.BE("select-single-trigger", "clear")}
-        onClick={clear}
-      />
-    </span>
-  );
   const itemStatus = Input.useItemStatus({
     status,
     tooltip: tooltip ?? (collapsible ? shown : undefined),
@@ -165,15 +173,13 @@ export const SingleTrigger = <K extends record.Key>({
   return (
     <Dialog.Trigger
       id={id}
-      variant={triggerVariant === "shadow" ? "outlined" : triggerVariant}
+      variant={triggerVariant}
       gap="small"
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
-        triggerVariant === "shadow" && CSS.M("shadow"),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
-        clearShown && CSS.M("reveals"),
-        clearShown && CSS.BM("select-single-trigger", "clearable"),
+        clearShown && clear.className,
         className,
       )}
       disabled={disabled}
@@ -194,16 +200,24 @@ export const SingleTrigger = <K extends record.Key>({
       preview={preview}
       hideCaret={hideCaret || iconOnly || clearOnCaret}
     >
-      {clearOnIcon ? withClear(resolvedIcon) : resolvedIcon}
+      {clearOnIcon ? (
+        <TriggerClear name={name ?? fixedText}>{resolvedIcon}</TriggerClear>
+      ) : (
+        resolvedIcon
+      )}
       {!iconOnly && (
         <Label itemKey={selected} id={labelId}>
           {shown}
         </Label>
       )}
-      {clearOnCaret &&
-        withClear(
-          <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />,
-        )}
+      {endContent != null && (
+        <span className={CSS.BE("select-single-trigger", "end")}>{endContent}</span>
+      )}
+      {clearOnCaret && (
+        <TriggerClear name={name ?? fixedText}>
+          <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />
+        </TriggerClear>
+      )}
     </Dialog.Trigger>
   );
 };

@@ -16,7 +16,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type NotificationSpec } from "@/status/Aggregator";
+import type { NotificationSpec } from "@/status/Aggregator";
 import { Indicator } from "@/status/Indicator";
 import { toString } from "@/status/status";
 import { Text as TelemText } from "@/telem/text";
@@ -53,7 +53,8 @@ export const Notification = ({
   const getCopyText = () => toString(stat);
 
   return (
-    // The key remounts the card when a repeat arrives, replaying the entrance animation.
+    // The key remounts the card when a repeat arrives, replaying the entrance
+    // animation.
     <div
       className={CSS.cls(CSS.B("notification"), className)}
       key={time.toString()}

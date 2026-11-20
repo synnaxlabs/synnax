@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { task } from "@synnaxlabs/client";
+import { arc, channel, query, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,17 +21,20 @@ import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, type Flux, Task } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
+import { Access, Arc, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { array, errors, unique } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import { useState } from "react";
 
+import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
-import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
+import { ownedChannelsOf } from "@/feature/task/types";
 import {
   type SetDataSavingParams,
   useSetDataSaving,
 } from "@/feature/task/useSetDataSaving";
 import { Analytics } from "@/platform/analytics";
+import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -40,15 +43,15 @@ import { Export } from "@/platform/export";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
-import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
+import { Session } from "@/session";
 
 const EmptyContent = () => {
   const openSelector = useOpenSelector();
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No tasks"
@@ -59,38 +62,138 @@ const EmptyContent = () => {
 };
 
 const INITIAL_QUERY: Task.ListQuery = {
-  internal: false,
-  snapshot: false,
+  where: { internal: { eq: false } },
 };
 
-const filter = (task: task.Task) =>
-  !task.internal && !task.snapshot && task.type !== "arc";
+const filter = (task: task.Task) => !task.internal;
+
+const DELETE_CONCURRENCY = 8;
+
+// The Core refuses a whole batch when a task or a channel uses one of its channels, so
+// each channel goes in its own request. Returns the error of each channel that stayed.
+const deleteEach = async (
+  channels: channel.Client,
+  keys: channel.Key[],
+): Promise<Error[]> => {
+  const queue = [...keys];
+  const failures: Error[] = [];
+  const work = async (): Promise<void> => {
+    for (let key = queue.shift(); key != null; key = queue.shift())
+      await channels
+        .delete(key)
+        .catch((e: unknown) => failures.push(errors.fromUnknown(e)));
+  };
+  await Promise.all(Array.from({ length: DELETE_CONCURRENCY }, work));
+  return failures;
+};
+
+interface Owned {
+  channels: channel.Key[];
+  /** The indexes of the channels that the tasks do not own. */
+  indexes: channel.Key[];
+}
+
+const retrieveOwned = async (
+  channels: channel.Client | undefined,
+  keys: channel.Key[],
+): Promise<Owned> => {
+  if (channels == null || keys.length === 0) return { channels: [], indexes: [] };
+  const owned = await channels.retrieve({ where: { key: { in: keys } } });
+  return {
+    channels: owned.map(({ key }) => key),
+    indexes: unique
+      .unique(owned.map(({ index }) => index))
+      .filter((key) => key !== 0 && !keys.includes(key)),
+  };
+};
+
+const CHANNELS_DESCRIPTION =
+  "Their recorded data is deleted too. A channel that another task uses stays. Arc " +
+  "automations are not checked.";
 
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
+  const canDeleteChannels = Access.useDeleteGranted(channel.TYPE_RESOURCE_ID);
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const { data, getItem, subscribe, retrieve, answered } = Task.useList({
-    initialQuery: INITIAL_QUERY,
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
+  const { data, getItem, subscribe, more, answered } = Task.useList({
+    query: INITIAL_QUERY,
     filter,
+    pageSize: 1000,
   });
-  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: rename } = Task.useRename();
 
-  const { update: handleDelete } = Task.useDelete({
+  const dispatch = Session.useDispatch();
+  const { update: deleteArcs } = Arc.useDelete({
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
+      dispatch(Session.Arc.remove({ keys: array.toArray(data) }));
+      return data;
+    },
+  });
+
+  // The row of an Arc deletes the Arc, as the menu of the Arc does.
+  const { updateAsync: deleteTasks } = Task.useDelete({
     beforeUpdate: async ({
       data: keys,
     }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
       setSelected([]);
       if (keys.length === 0) return false;
-      if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
-      return keys;
+      const rows = getItem(array.toArray(keys));
+      const arcKeys = rows.map(arc.task.arcKeyOf).filter((key) => key != null);
+      if (arcKeys.length > 0) deleteArcs(arcKeys);
+      const taskKeys = rows
+        .filter(({ type }) => type !== arc.task.TYPE)
+        .map(({ key }) => key);
+      return taskKeys.length > 0 ? taskKeys : false;
     },
   });
+
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
+  // The Core refuses to delete a channel that a task uses, and an index that a channel
+  // uses, so the tasks go first, then the channels, then their indexes.
+  const handleDelete = (keys: task.Key[]) => {
+    const rows = getItem(keys);
+    const ownedKeys = canDeleteChannels
+      ? unique.unique(rows.flatMap(ownedChannelsOf))
+      : [];
+    handleError(
+      async () => {
+        const { channels, indexes } = await retrieveOwned(client?.channels, ownedKeys);
+        const count = channels.length + indexes.length;
+        let withChannels = false;
+        if (count === 0) {
+          if (!(await confirmDelete(rows))) return;
+        } else {
+          const answer = await confirmDelete(rows, {
+            label: `Also delete the ${pluralize("channel", count, true)} ${
+              rows.length === 1 ? "it" : "they"
+            } created`,
+            description: CHANNELS_DESCRIPTION,
+          });
+          if (answer == null) return;
+          withChannels = answer.option;
+        }
+        if (!(await deleteTasks(keys)) || !withChannels || client == null) return;
+        const failures = [
+          ...(await deleteEach(client.channels, channels)),
+          ...(await deleteEach(client.channels, indexes)),
+        ];
+        if (failures.length > 0)
+          addStatus({
+            variant: "warning",
+            message: `Kept ${pluralize("channel", failures.length, true)}`,
+            description: failures.map(({ message }) => message).join("\n"),
+          });
+      },
+      `Failed to delete ${pluralize("task", keys.length)}`,
+    );
+  };
 
   const { capture } = Analytics.use();
   const { update: runCommand } = Task.useCommand({
@@ -102,8 +205,17 @@ const Content = () => {
           .map(({ task }) => task),
       ).forEach(({ type }) => capture("task_started", { type })),
   });
-  const handleCommand = (keys: string[], type: string) =>
-    runCommand(keys.map((k) => ({ task: k, type })));
+  const captureDeploy = PlatformArc.useCaptureDeploy();
+  const { update: runArcCommand } = Task.useCommand({ afterSuccess: captureDeploy });
+  const handleCommand = (keys: task.Key[], type: string) => {
+    const rows = getItem(keys);
+    const commandsOf = (tasks: task.Task[]) =>
+      tasks.map(({ key }) => ({ task: key, type }));
+    const arcTasks = rows.filter((t) => t.type === arc.task.TYPE);
+    const otherTasks = rows.filter((t) => t.type !== arc.task.TYPE);
+    if (otherTasks.length > 0) runCommand(commandsOf(otherTasks));
+    if (arcTasks.length > 0) runArcCommand(commandsOf(arcTasks));
+  };
   const handleStart = (keys: string[]) => handleCommand(keys, "start");
   const handleStop = (keys: string[]) => handleCommand(keys, "stop");
   const { update: setDataSaving } = useSetDataSaving();
@@ -112,20 +224,30 @@ const Content = () => {
   const handleDisableDataSaving = (keys: task.Key[]) =>
     keys.forEach((key) => setDataSaving({ key, dataSaving: false }));
   const handleEdit = (key: task.Key) =>
-    openTab({ variant: "resource", resource: task.ontologyID(key) });
-  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = ({ keys }) => (
-    <ContextMenu
-      keys={keys}
-      getItem={getItem}
-      subscribe={subscribe}
-      onDelete={handleDelete}
-      onStart={handleStart}
-      onStop={handleStop}
-      onEdit={handleEdit}
-      onEnableDataSaving={handleEnableDataSaving}
-      onDisableDataSaving={handleDisableDataSaving}
-    />
-  );
+    openTab({ variant: "resource", resource: task.resourceID(key) });
+  const { update: renameArc } = Arc.useRename();
+  const handleEditArc = (key: arc.Key) =>
+    openTab({ variant: "resource", resource: arc.resourceID(key) });
+  const getArc = useGetArc();
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => {
+    const rows = getItem(props.keys);
+    const arcKeys = rows.map(arc.task.arcKeyOf).filter((key) => key != null);
+    if (arcKeys.length > 0 && arcKeys.length === rows.length)
+      return <PlatformArc.ContextMenu {...props} keys={arcKeys} getItem={getArc} />;
+    return (
+      <ContextMenu
+        keys={props.keys}
+        getItem={getItem}
+        subscribe={subscribe}
+        onDelete={handleDelete}
+        onStart={handleStart}
+        onStop={handleStop}
+        onEdit={handleEdit}
+        onEnableDataSaving={handleEnableDataSaving}
+        onDisableDataSaving={handleDisableDataSaving}
+      />
+    );
+  };
   const handleListItemStopStart = (command: PlatformTask.Command, key: task.Key) =>
     handleCommand([key], command);
   return (
@@ -138,9 +260,10 @@ const Content = () => {
           </Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
-                <Icon.Add />
-              </Toolbar.Action>
+              <Toolbar.CreateAction
+                tooltip="Create task"
+                onClick={() => openSelector()}
+              />
             </Toolbar.Actions>
           )}
         </Toolbar.Header>
@@ -152,7 +275,7 @@ const Content = () => {
             subscribe={subscribe}
             value={selected}
             onChange={setSelected}
-            onFetchMore={fetchMore}
+            onFetchMore={more}
             replaceOnSingle
           >
             <List.Scroll full="y" onContextMenu={menuProps.open}>
@@ -160,13 +283,15 @@ const Content = () => {
                 emptyContent={answered && <EmptyContent />}
               >
                 {({ key, ...p }) => (
-                  <TaskListItem
+                  <ListItem
                     key={key}
                     {...p}
                     onStopStart={handleListItemStopStart}
                     onSetDataSaving={setDataSaving}
                     onRename={rename}
                     onEdit={handleEdit}
+                    onRenameArc={renameArc}
+                    onEditArc={handleEditArc}
                   />
                 )}
               </List.Items>
@@ -186,7 +311,50 @@ export const TOOLBAR: Nav.Toolbar = {
   tooltip: "Tasks",
   initialSize: 300,
   sizeBounds: { lower: 225, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(task.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(task.TYPE_RESOURCE_ID),
+};
+
+// Reads Arcs from the client cache. Each Arc row loads its Arc.
+const useGetArc = (): List.GetItem<arc.Key, arc.Arc> => {
+  const client = Synnax.use();
+  const getOne = (key: arc.Key): arc.Arc | undefined => {
+    const cached = client?.arcs.watch({ key }).getCached();
+    return query.isLive(cached) ? cached : undefined;
+  };
+  return List.createGetItem(getOne, (keys) =>
+    keys.map(getOne).filter((a) => a != null),
+  );
+};
+
+interface ListItemProps extends TaskListItemProps {
+  onRenameArc: (params: { key: arc.Key; name: string }) => void;
+  onEditArc: (key: arc.Key) => void;
+}
+
+const ListItem = ({
+  onStopStart,
+  onSetDataSaving,
+  onRename,
+  onEdit,
+  onRenameArc,
+  onEditArc,
+  ...rest
+}: ListItemProps) => {
+  const tsk = List.useItem<task.Key, task.Task>(rest.itemKey);
+  const arcKey = tsk == null ? undefined : arc.task.arcKeyOf(tsk);
+  if (arcKey != null)
+    return (
+      <ArcItem {...rest} arcKey={arcKey} onRename={onRenameArc} onEdit={onEditArc} />
+    );
+  return (
+    <TaskListItem
+      {...rest}
+      onStopStart={onStopStart}
+      onSetDataSaving={onSetDataSaving}
+      onRename={onRename}
+      onEdit={onEdit}
+    />
+  );
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
@@ -206,7 +374,7 @@ const TaskListItem = ({
   const { itemKey } = rest;
   const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
-  const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(task.resourceID(itemKey));
   const canControl = Framer.useCanCommand();
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
@@ -258,7 +426,7 @@ const TaskListItem = ({
             )}
           </Flex.Box>
         </Flex.Box>
-        <Text.Text level="tiny" color={10}>
+        <Text.Text level="tiny" color={8}>
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
@@ -325,12 +493,19 @@ const ContextMenu = ({
   onDisableDataSaving,
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
-  const activeRange = Range.useResolve();
-  const snapshotToActiveRange = useRangeSnapshot();
-  const ontologyIDs = task.ontologyID(keys);
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
-  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const plot = PlatformTask.usePlot();
+  const { getPlotChannels } = PlatformTask.useRegistry();
+  const plotTasks = selectedTasks.flatMap(({ name, type, config }) => {
+    const plotChannels = getPlotChannels(type);
+    return plotChannels == null ? [] : [{ name, config, plotChannels }];
+  });
+  const resourceIDs = task.resourceID(keys);
+  // Deleting the row of an Arc deletes the Arc.
+  const arcIDs = arc.resourceID(
+    selectedTasks.map(arc.task.arcKeyOf).filter((key) => key != null),
+  );
+  const hasDeletePermission = Access.useDeleteGranted([...resourceIDs, ...arcIDs]);
+  const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const canControl = Framer.useCanCommand();
 
   const canStart = selectedTasks.some(
@@ -376,10 +551,8 @@ const ContextMenu = ({
         message: "Failed to copy link",
         description: "The task no longer exists.",
       });
-    copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+    copyLinkToClipboard({ name, resourceID: task.resourceID(key) });
   };
-  const showSnapshotToActiveRange =
-    activeRange?.variant === "persisted" && selectedTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canControl && (
@@ -441,25 +614,17 @@ const ContextMenu = ({
           )}
         </>
       )}
-      {hasCreatePermission && showSnapshotToActiveRange && (
-        <Range.SnapshotMenuItem
-          range={activeRange}
-          key="snapshot"
-          onClick={() =>
-            snapshotToActiveRange({
-              tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
-                key,
-                name,
-              })),
-            })
-          }
-        />
+      {plotTasks.length > 0 && (
+        <Menu.Item itemKey="plot" onClick={() => plot(plotTasks)}>
+          <Icon.LinePlot />
+          Plot
+        </Menu.Item>
       )}
       <Menu.Divider />
       {isSingle && (
         <>
           <Export.ContextMenuItem
-            onClick={() => handleExport(task.ontologyID(keys[0]))}
+            onClick={() => handleExport(task.resourceID(keys[0]))}
           />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
         </>

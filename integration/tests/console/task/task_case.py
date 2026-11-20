@@ -7,13 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, TypeVar
+from typing import TypeVar, Unpack
 
+from playwright.sync_api import expect
 from pydantic import JsonValue
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
+from framework.test_case import Config
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     assert_sample_rate,
@@ -24,10 +26,18 @@ from tests.driver.task import (
 from x import random_name
 
 PageT = TypeVar("PageT", bound=TaskPage)
-REJECTED_LEVELS = ("error", "warning")
+REJECTED_VARIANTS: tuple[sy.status.Variant, ...] = ("error", "warning")
+# Every variant but loading, which the status shows while Start checks the config.
+SETTLED_VARIANTS: tuple[sy.status.Variant, ...] = (
+    "success",
+    "info",
+    "warning",
+    "error",
+    "disabled",
+)
 
 
-def _keys_in(value: Any) -> set[int]:
+def _keys_in(value: JsonValue) -> set[int]:
     """Collect every integer nested in a device property subtree."""
     if isinstance(value, bool):
         return set()
@@ -50,8 +60,8 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
     task_names: list[str]
 
-    def __init__(self, **params: Any) -> None:
-        super().__init__(**params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.task_names = []
 
     def teardown(self) -> None:
@@ -171,19 +181,25 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
         )
 
     def assert_not_deployed(self, page: TaskPage, *, label: str) -> None:
-        status = page.status()
-        assert status["level"] == "disabled", (
+        status = page.wait_for_status_variant(SETTLED_VARIANTS)
+        assert status.variant == "disabled", (
             f"Task should not be deployed ({label}), "
-            f"but the status is '{status['level']}': '{status['msg']}'"
+            f"but the status is '{status.variant}': '{status.message}'"
         )
 
     def assert_device_required(self, page: TaskPage, *, label: str) -> None:
-        """Deploy without a device; the form blocks it at the ``label`` field."""
+        """Deploy without a device; the form blocks it at the ``label`` field and opens
+        the device dropdown. Closes the dropdown, so a later click on the field opens
+        it."""
         page.deploy(expect=None)
         message = page.field_help_text(label)
         assert message == "Device is required", (
             f"Device field should report it is required, got '{message}'"
         )
+        dropdown = page.layout.dialog
+        expect(dropdown).to_be_visible(timeout=5000)
+        page.layout.press_escape()
+        expect(dropdown).to_have_count(0, timeout=5000)
         self.assert_not_deployed(page, label="no device")
 
     def assert_channel_required(self, page: TaskPage) -> None:
@@ -208,8 +224,8 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     def assert_driver_rejects(self, page: TaskPage, *, label: str) -> None:
         """Deploy; the Driver rejects the task with an error or warning status."""
         page.deploy(expect=None)
-        status = page.wait_for_status_level(REJECTED_LEVELS)
-        self.log(f"  Correctly rejected ({label}): {status['msg']}")
+        status = page.wait_for_status_variant(REJECTED_VARIANTS)
+        self.log(f"  Correctly rejected ({label}): {status.message}")
 
     def _delete_tasks_and_channels(self) -> None:
         keys: set[int] = set()

@@ -16,13 +16,14 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v1.Version
+const Latest = v2.Version
 
 // TaskConfigLadder decodes TaskConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -39,6 +40,16 @@ func decodeTaskConfig(
 ) (TaskConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.TaskConfig](data, "pagerduty.TaskConfig", version)
+		if err != nil {
+			return TaskConfig{}, err
+		}
+		t2, err := v2.MigrateTaskConfig(ctx, t1)
+		if err != nil {
+			return TaskConfig{}, err
+		}
+		return t2, nil
+	case v2.Version:
 		return imex.DecodeBlob[TaskConfig](data, "pagerduty.TaskConfig", version)
 	}
 	return TaskConfig{}, imex.NewErrUnsupportedVersion("pagerduty.TaskConfig", version, Latest)

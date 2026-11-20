@@ -75,85 +75,29 @@ func (db *DB) Delete(
 	defer db.idx.deleteLock.Unlock()
 
 	var (
-		startDomain, endDomain int
-		startOffset, endOffset telem.Size
-		start, end             pointer
-		newPointers            = make([]pointer, 0)
+		start, end deleteBound
+		found      bool
 	)
-
-	// Search for the start position: the first domain greater or containing tr.Start.
-	db.idx.mu.RLock()
-	startDomain, exact := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
-	if exact {
-		start = db.idx.mu.pointers[startDomain]
-		db.idx.mu.RUnlock()
-		startOffset, tr.Start, err = calculateStartOffset(ctx, start.Start, tr.Start)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Non-exact: tr.Start is not contained within any domain.
-		// Add 1 since we want the first domain greater than tr.Start.
-		startDomain += 1
-
-		if startDomain == len(db.idx.mu.pointers) {
-			// delete nothing
-			db.idx.mu.RUnlock()
-			return err
-		}
-
-		start = db.idx.mu.pointers[startDomain]
-		db.idx.mu.RUnlock()
-		startOffset = 0
-		tr.Start = start.Start
+	if start, tr.Start, found, err = db.findDeleteStart(
+		ctx,
+		tr.Start,
+		calculateStartOffset,
+	); err != nil || !found {
+		return err
 	}
-
-	// Search for the end position: the first domain less or containing tr.End.
-	db.idx.mu.RLock()
-	endDomain, exact = db.idx.unprotectedSearch(tr.End.SpanRange(0))
-	if exact {
-		end = db.idx.mu.pointers[endDomain]
-		db.idx.mu.RUnlock()
-		if endOffset, tr.End, err = calculateEndOffset(
-			ctx,
-			end.Start,
-			tr.End,
-		); err != nil {
-			return err
-		}
-		endOffset = telem.Size(end.size) - endOffset
-	} else {
-		// Non-exact: tr.End is not contained within any domain.
-		if endDomain == -1 {
-			// delete nothing
-			db.idx.mu.RUnlock()
-			return err
-		}
-
-		end = db.idx.mu.pointers[endDomain]
-		db.idx.mu.RUnlock()
-		endOffset = 0
-		tr.End = end.End
+	if end, tr.End, found, err = db.findDeleteEnd(
+		ctx,
+		tr.End,
+		calculateEndOffset,
+	); err != nil || !found {
+		return err
 	}
 
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
-	// Repêchage: the location of start/end may have changed during the index lookup.
-	if db.idx.mu.pointers[startDomain] != start {
-		startDomain, exact = db.idx.unprotectedSearch(start.TimeRange)
-		// Edge cases such as startDomain is after the end must have been already
-		// handled before: a time range that existed in the domain before must not cease
-		// to exist.
-		if !exact {
-			startDomain += 1
-		}
-	}
-	if db.idx.mu.pointers[endDomain] != end {
-		endDomain, _ = db.idx.unprotectedSearch(end.TimeRange)
-	}
-
-	ok, err := validateDelete(startDomain, endDomain, &startOffset, &endOffset, db.idx)
+	db.idx.unprotectedRelocate(&start, &end)
+	ok, err := validateDelete(&start, &end, db.idx)
 	if err != nil || !ok {
 		return span.Error(err)
 	}
@@ -161,38 +105,146 @@ func (db *DB) Delete(
 	// A garbage collection may have moved these domains within their file since the
 	// lookup above. The partial pointers below inherit their offsets, so take the ones
 	// the index holds now.
-	start.offset = db.idx.mu.pointers[startDomain].offset
-	end.offset = db.idx.mu.pointers[endDomain].offset
+	start.ptr.offset = db.idx.mu.pointers[start.position].offset
+	end.ptr.offset = db.idx.mu.pointers[end.position].offset
 
+	db.idx.unprotectedSplice(start, end, tr)
+
+	write := db.idx.indexPersist.prepare(start.position)
+	db.idx.notifyHistoryChange(ctx, tr)
+	// We choose to keep the mutex locked while persisting to index.
+	err = write.run()
+	if errors.Is(err, errUncovered) {
+		err = db.idx.indexPersist.prepare(0).run()
+	}
+	return span.Error(err)
+}
+
+// deleteBound is one end of a deletion: the position of its domain in the index, the
+// domain's pointer at lookup time, and the offset of the deletion within the domain.
+type deleteBound struct {
+	position int
+	ptr      pointer
+	offset   telem.Size
+}
+
+// findDeleteStart finds the first domain greater than or containing ts and the offset
+// of ts within it. It returns ts snapped to the domain, and false if no domain follows
+// ts.
+func (db *DB) findDeleteStart(
+	ctx context.Context,
+	ts telem.TimeStamp,
+	calculateOffset offsetResolver,
+) (deleteBound, telem.TimeStamp, bool, error) {
+	db.idx.mu.RLock()
+	position, exact := db.idx.unprotectedSearch(ts.SpanRange(0))
+	if exact {
+		ptr := db.idx.mu.pointers[position]
+		db.idx.mu.RUnlock()
+		offset, ts, err := calculateOffset(ctx, ptr.Start, ts)
+		if err != nil {
+			return deleteBound{}, 0, false, err
+		}
+		return deleteBound{position: position, ptr: ptr, offset: offset}, ts, true, nil
+	}
+	// Non-exact: ts is not contained within any domain. Add 1 since we want the first
+	// domain greater than ts.
+	position += 1
+	if position == len(db.idx.mu.pointers) {
+		db.idx.mu.RUnlock()
+		return deleteBound{}, 0, false, nil
+	}
+	ptr := db.idx.mu.pointers[position]
+	db.idx.mu.RUnlock()
+	return deleteBound{position: position, ptr: ptr}, ptr.Start, true, nil
+}
+
+// findDeleteEnd finds the last domain less than or containing ts and the offset of ts
+// from the domain's end. It returns ts snapped to the domain, and false if no domain
+// precedes ts.
+func (db *DB) findDeleteEnd(
+	ctx context.Context,
+	ts telem.TimeStamp,
+	calculateOffset offsetResolver,
+) (deleteBound, telem.TimeStamp, bool, error) {
+	db.idx.mu.RLock()
+	position, exact := db.idx.unprotectedSearch(ts.SpanRange(0))
+	if exact {
+		ptr := db.idx.mu.pointers[position]
+		db.idx.mu.RUnlock()
+		offset, ts, err := calculateOffset(ctx, ptr.Start, ts)
+		if err != nil {
+			return deleteBound{}, 0, false, err
+		}
+		return deleteBound{
+			position: position,
+			ptr:      ptr,
+			offset:   telem.Size(ptr.size) - offset,
+		}, ts, true, nil
+	}
+	// Non-exact: ts is not contained within any domain.
+	if position == -1 {
+		db.idx.mu.RUnlock()
+		return deleteBound{}, 0, false, nil
+	}
+	ptr := db.idx.mu.pointers[position]
+	db.idx.mu.RUnlock()
+	return deleteBound{position: position, ptr: ptr}, ptr.End, true, nil
+}
+
+// unprotectedRelocate searches the index again for the domains of start and end when
+// they moved since the lookup. The caller must hold idx.mu.
+func (idx *index) unprotectedRelocate(start, end *deleteBound) {
+	if idx.mu.pointers[start.position] != start.ptr {
+		var exact bool
+		start.position, exact = idx.unprotectedSearch(start.ptr.TimeRange)
+		// Edge cases such as startDomain is after the end must have been already
+		// handled before: a time range that existed in the domain before must not cease
+		// to exist.
+		if !exact {
+			start.position += 1
+		}
+	}
+	if idx.mu.pointers[end.position] != end.ptr {
+		end.position, _ = idx.unprotectedSearch(end.ptr.TimeRange)
+	}
+}
+
+// unprotectedSplice replaces the domains from start to end with the parts of them that
+// lie outside tr. The caller must hold idx.mu.
+func (idx *index) unprotectedSplice(start, end deleteBound, tr telem.TimeRange) {
+	newPointers := make([]pointer, 0)
 	// Calculate size of removed pointers.
 	var removedSize int64
-	for i := startDomain; i <= endDomain; i++ {
-		removedSize += int64(db.idx.mu.pointers[i].size)
+	for i := start.position; i <= end.position; i++ {
+		removedSize += int64(idx.mu.pointers[i].size)
+		// Readers see what the delete leaves at once, also of an unpublished commit.
+		idx.report(idx.unprotectedReveal(idx.mu.pointers[i].Start))
 	}
 
 	// Remove old pointers.
-	db.idx.mu.pointers = append(
-		db.idx.mu.pointers[:startDomain],
-		db.idx.mu.pointers[endDomain+1:]...,
+	idx.mu.pointers = append(
+		idx.mu.pointers[:start.position],
+		idx.mu.pointers[end.position+1:]...,
 	)
 
-	if startOffset != 0 {
+	if start.offset != 0 {
 		newPointers = append(newPointers, pointer{
-			Start:   start.Start,
+			Start:   start.ptr.Start,
 			End:     tr.Start,
-			fileKey: start.fileKey,
-			offset:  start.offset,
-			size:    uint32(startOffset), // size from start.Start to tr.Start
+			fileKey: start.ptr.fileKey,
+			offset:  start.ptr.offset,
+			size:    uint32(start.offset), // size from start.Start to tr.Start
 		})
 	}
 
-	if endOffset != 0 {
+	if end.offset != 0 {
 		newPointers = append(newPointers, pointer{
 			Start:   tr.End,
-			End:     end.End,
-			fileKey: end.fileKey,
-			offset:  end.offset + end.size - uint32(endOffset),
-			size:    uint32(endOffset), // size from tr.End to end.End
+			End:     end.ptr.End,
+			fileKey: end.ptr.fileKey,
+			offset:  end.ptr.offset + end.ptr.size - uint32(end.offset),
+			size:    uint32(end.offset), // size from tr.End to end.End
 		})
 	}
 
@@ -201,19 +253,14 @@ func (db *DB) Delete(
 	for _, p := range newPointers {
 		addedSize += int64(p.size)
 	}
-	db.idx.totalSize.Add(addedSize - removedSize)
+	idx.totalSize.Add(addedSize - removedSize)
 
 	if len(newPointers) != 0 {
-		db.idx.mu.pointers = append(
-			db.idx.mu.pointers[:startDomain],
-			append(newPointers, db.idx.mu.pointers[startDomain:]...)...,
+		idx.mu.pointers = append(
+			idx.mu.pointers[:start.position],
+			append(newPointers, idx.mu.pointers[start.position:]...)...,
 		)
 	}
-
-	persist := db.idx.indexPersist.prepare(startDomain)
-	db.idx.notifyHistoryChange(ctx, tr)
-	// We choose to keep the mutex locked while persisting to index.
-	return span.Error(persist())
 }
 
 // GarbageCollect rewrites files that have accumulated enough tombstones to warrant
@@ -228,7 +275,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	db.resourceCount.Add(1)
 	defer db.resourceCount.Add(-1)
 
-	if _, err := db.fc.gcWriters(); err != nil {
+	if err := db.fc.gcWriters(); err != nil {
 		return span.Error(err)
 	}
 
@@ -259,12 +306,12 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	}
 
 	var collected bool
-	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
-		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
+	for fileKey := 1; fileKey <= int(db.fc.counter.Value()); fileKey++ {
+		s, err := db.cfg.FS.Stat(fileKeyToName(uint16(fileKey)))
 		if err != nil {
 			return span.Error(err)
 		}
-		fileCollected, err := db.garbageCollectFile(fileKey, s.Size())
+		fileCollected, err := db.garbageCollectFile(uint16(fileKey), s.Size())
 		if err != nil {
 			return span.Error(err)
 		}
@@ -278,11 +325,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
-	persist := db.idx.indexPersist.prepare(0)
+	write := db.idx.indexPersist.prepare(0)
 	// We choose to keep the mutex locked while persisting pointers: the time sacrifice
 	// should not be substantial, and this ensures that the order of index persists are
 	// in order of garbage collect so that the index does reflect the correct indexes.
-	return persist()
+	return write.run()
 }
 
 // garbageCollectFile rewrites key's file to drop its tombstones, reporting whether it
@@ -298,13 +345,8 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 	var (
 		name          = fileKeyToName(key)
 		copyName      = name + "_gc"
-		newOffset     uint32
 		tombstoneSize = size
 		ptrs          []pointer
-		// offsetDeltaMap maps each pointer (identified by the time range) to the
-		// difference between its new offset and its old offset. Note that time ranges
-		// are necessarily unique within a domain.
-		offsetDeltaMap = make(map[telem.TimeRange]uint32)
 	)
 
 	restore := func() {
@@ -352,37 +394,8 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 
 	// Copy the live pointers into the copy file. Both handles must be closed before the
 	// rename below: Windows refuses to rename a file that is still open.
-	if err := func() (err error) {
-		r, err := db.cfg.FS.Open(name, os.O_RDONLY)
-		if err != nil {
-			return err
-		}
-		defer func() { err = errors.Combine(err, r.Close()) }()
-
-		w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
-		if err != nil {
-			return err
-		}
-		defer func() { err = errors.Combine(err, w.Close()) }()
-
-		for _, ptr := range ptrs {
-			buf := make([]byte, ptr.size)
-			if _, err = r.ReadAt(buf, int64(ptr.offset)); err != nil {
-				return err
-			}
-
-			n, err := w.Write(buf)
-			if err != nil {
-				return err
-			}
-
-			if newOffset != ptr.offset {
-				offsetDeltaMap[ptr.TimeRange] = ptr.offset - newOffset
-			}
-			newOffset += uint32(n)
-		}
-		return nil
-	}(); err != nil {
+	offsetDeltaMap, err := db.copyPointers(name, copyName, ptrs)
+	if err != nil {
 		return false, err
 	}
 
@@ -398,25 +411,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 	//
 	// Using these two principles, we can find the new offset for any pointer with a
 	// time range contained in the original pointer by subtracting it by the same delta.
-	if err := func() error {
-		db.idx.mu.Lock()
-		defer db.idx.mu.Unlock()
-		for i, ptr := range db.idx.mu.pointers {
-			if ptr.fileKey == key {
-				if deltaOffset, ok := resolvePointerOffset(
-					ptr.TimeRange,
-					offsetDeltaMap,
-				); ok {
-					db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
-				}
-			}
-		}
-
-		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
-			return err
-		}
-		return db.cfg.FS.Rename(copyName, name)
-	}(); err != nil {
+	if err := db.swapCollectedFile(key, name, copyName, offsetDeltaMap); err != nil {
 		return false, err
 	}
 
@@ -425,6 +420,82 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 	}
 
 	return true, db.cfg.FS.Remove(name + "_temp")
+}
+
+// copyPointers copies the data of ptrs from the file name into the file copyName, back
+// to back. It returns a map from the time range of each moved pointer to the
+// difference between its old and new offset. Time ranges are unique within a domain.
+func (db *DB) copyPointers(
+	name, copyName string,
+	ptrs []pointer,
+) (offsetDeltaMap map[telem.TimeRange]uint32, err error) {
+	// Runs after the deferred closes, which can set err.
+	defer func() {
+		if err != nil {
+			offsetDeltaMap = nil
+		}
+	}()
+	offsetDeltaMap = make(map[telem.TimeRange]uint32)
+	r, err := db.cfg.FS.Open(name, os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
+
+	w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Combine(err, w.Close()) }()
+
+	var newOffset uint32
+	for _, ptr := range ptrs {
+		buf := make([]byte, ptr.size)
+		if _, err = r.ReadAt(buf, int64(ptr.offset)); err != nil {
+			return nil, err
+		}
+
+		n, err := w.Write(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		if newOffset != ptr.offset {
+			offsetDeltaMap[ptr.TimeRange] = ptr.offset - newOffset
+		}
+		newOffset += uint32(n)
+	}
+	return offsetDeltaMap, nil
+}
+
+// swapCollectedFile replaces the file name with the collected file copyName and moves
+// the offsets of the file's pointers by offsetDeltaMap.
+func (db *DB) swapCollectedFile(
+	key uint16,
+	name, copyName string,
+	offsetDeltaMap map[telem.TimeRange]uint32,
+) error {
+	db.idx.mu.Lock()
+	defer db.idx.mu.Unlock()
+	if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
+		return err
+	}
+	if err := db.cfg.FS.Rename(copyName, name); err != nil {
+		return errors.Combine(err, db.cfg.FS.Rename(name+"_temp", name))
+	}
+	for i, ptr := range db.idx.mu.pointers {
+		if ptr.fileKey != key {
+			continue
+		}
+		if deltaOffset, ok := resolvePointerOffset(
+			ptr.TimeRange,
+			offsetDeltaMap,
+		); ok {
+			db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
+			db.idx.persistHead = min(db.idx.persistHead, i)
+		}
+	}
+	return nil
 }
 
 func resolvePointerOffset(
@@ -441,13 +512,11 @@ func resolvePointerOffset(
 
 // validateDelete returns an error if the deletion request is invalid. In addition, it
 // returns true if there is some data to be deleted (i.e. deleting nothing).
-func validateDelete(
-	startPosition int,
-	endPosition int,
-	startOffset *telem.Size,
-	endOffset *telem.Size,
-	idx *index,
-) (bool, error) {
+func validateDelete(start, end *deleteBound, idx *index) (bool, error) {
+	var (
+		startPosition, endPosition = start.position, end.position
+		startOffset, endOffset     = &start.offset, &end.offset
+	)
 	if startPosition == len(idx.mu.pointers) {
 		return false, nil
 	}
@@ -498,7 +567,10 @@ func validateDelete(
 		)
 	}
 
-	if (startPosition == endPosition-1 && *startOffset == endPtrLen && *endOffset == endPtrLen) ||
+	if startPosition > endPosition ||
+		(startPosition == endPosition-1 &&
+			*startOffset == startPtrLen &&
+			*endOffset == endPtrLen) ||
 		startPosition == endPosition && *startOffset+*endOffset == startPtrLen {
 		return false, nil
 	}

@@ -13,14 +13,17 @@ import { channel } from "@synnaxlabs/client";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
+import { type color, primitive, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
-import { type Node } from "@/schematic/node";
+import type { Node } from "@/schematic/node";
+import { Synnax } from "@/synnax";
+import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
 export interface TooltipProps {
@@ -29,6 +32,7 @@ export interface TooltipProps {
 }
 
 const LOCATION: Base.FrameProps["location"] = { x: "center", y: "bottom" };
+const LIST_CLASS = CSS.BE("schematic-tooltip", "list");
 
 type KeysOf<C> = C extends object ? keyof C : never;
 type Field = KeysOf<Node.Config>;
@@ -39,13 +43,18 @@ const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
   { field: "commandChannel", icon: Icon.Control },
 ];
 
-const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
+// Channels the symbol already streams come first, so the row adds no subscription.
+const SAMPLE_AGE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
+
+const FIELD_ROWS: { field: Field; label?: string }[] = [
   { field: "mode" },
   { field: "normallyOpen" },
   { field: "clickable" },
-  { field: "onClickDelay", unit: "ms" },
+  { field: "onClickDelay" },
   { field: "stalenessTimeout", label: "Stale timeout" },
 ];
+
+const SPAN_FIELDS = new Set<Field>(["onClickDelay", "stalenessTimeout"]);
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
   if (ch.isIndex) return Icon.Time;
@@ -59,16 +68,51 @@ interface RowProps {
   value: ReactNode;
   labelColor?: Theming.Shade;
   valueColor?: Theming.Shade | color.Crude;
+  valueClassName?: string;
 }
 
-const Row = ({ label, value, labelColor, valueColor }: RowProps): ReactElement => (
+const Row = ({
+  label,
+  value,
+  labelColor,
+  valueColor,
+  valueClassName,
+}: RowProps): ReactElement => (
   <Description.Item>
     <Description.Label color={labelColor}>{label}</Description.Label>
-    <Description.Value variant="code" color={valueColor}>
+    <Description.Value variant="code" color={valueColor} className={valueClassName}>
       {value}
     </Description.Value>
   </Description.Item>
 );
+
+interface SampleAgeProps {
+  channel: channel.Key;
+}
+
+// Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
+const SampleAge = ({ channel }: SampleAgeProps): ReactElement => {
+  const time = LatestSample.use({ channel });
+  // The hook counts on the local clock, so the stamp moves by the measured skew.
+  const { clockSkew } = Synnax.useConnectionStatus().details;
+  const since = Telem.Text.useTimeSpanSince(time?.add(clockSkew) ?? 0).toString(
+    "semantic",
+  );
+  return (
+    <Description.List level="small" justify="between" className={LIST_CLASS}>
+      <Row
+        valueClassName={CSS.BE("schematic-tooltip", "sample-age")}
+        label={
+          <>
+            <Icon.TimeOutline />
+            Sample age
+          </>
+        }
+        value={time == null ? undefined : since}
+      />
+    </Description.List>
+  );
+};
 
 /** Shows a symbol's configuration beside its element. */
 export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null => {
@@ -91,7 +135,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   });
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
   const { data } = Channel.useResultMultiple(
-    visible && keys.length > 0 ? { keys } : null,
+    visible && keys.length > 0 ? { where: { key: { in: keys } } } : null,
   );
   if (!visible || (keys.length > 0 && data == null)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
@@ -117,29 +161,34 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
+  const followed = SAMPLE_AGE_ORDER.map((field) =>
+    data?.find((c) => c.key === values[field]),
+  ).find((c) => c != null);
   const stalenessColor = Staleness.resolveColor(
     "stalenessColor" in config ? config.stalenessColor : undefined,
     theme,
   );
-  const fields = FIELD_ROWS.flatMap(({ field, label, unit }) => {
+  const fields = FIELD_ROWS.flatMap(({ field, label }) => {
     const value = values[field];
     if (value == null) return [];
     // A zero click delay means none, so the row would only be noise.
     if (field === "onClickDelay" && value === 0) return [];
-    const text =
-      field === "stalenessTimeout"
-        ? TimeSpan.seconds(Number(value)).toString("semantic")
-        : `${String(value)}${unit ?? ""}`;
+    const text = SPAN_FIELDS.has(field)
+      ? new TimeSpan(Number(value)).toString("full")
+      : String(value);
     return (
       <Row
         key={field}
-        label={label ?? caseconv.toSentence(field)}
+        label={label ?? strings.toSentence(field)}
         value={text}
         valueColor={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );
   });
   if (channels.length + fields.length === 0) return null;
+  const divider = (
+    <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
+  );
   return (
     <Base.Frame
       anchor={anchor}
@@ -147,17 +196,21 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       className={CSS.B("schematic-tooltip")}
     >
       {channels.length > 0 && (
-        <Description.List level="small" justify="between">
+        <Description.List level="small" justify="between" className={LIST_CLASS}>
           {channels}
         </Description.List>
       )}
-      {channels.length > 0 && fields.length > 0 && (
-        <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
-      )}
+      {channels.length > 0 && fields.length > 0 && divider}
       {fields.length > 0 && (
-        <Description.List level="small" justify="between">
+        <Description.List level="small" justify="between" className={LIST_CLASS}>
           {fields}
         </Description.List>
+      )}
+      {followed != null && (
+        <>
+          {divider}
+          <SampleAge key={followed.key} channel={followed.key} />
+        </>
       )}
     </Base.Frame>
   );

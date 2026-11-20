@@ -15,8 +15,10 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { createElement, type FC, type PropsWithChildren } from "react";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Panel } from "@/platform/panel";
 import {
@@ -24,15 +26,20 @@ import {
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
   createTestClientWithGrants,
   resolveFocusedTab,
-  uniqueName,
   waitForFocusedTab,
 } from "@/testutil";
 
 const client = createTestClient();
+
+const createRangeID = async () => {
+  const { key } = await createTestRange(client, { name: uniqueName("range") });
+  return ranger.resourceID(key);
+};
 const roles = new RoleClients(client);
 
 let projectKey: string | undefined;
@@ -46,6 +53,30 @@ const viewLeaf = (key: string, type: string): panel.New["root"] => ({
 
 // A node key no tree in these specs reaches: the root's own children stop at 3.
 const STALE_LEAF = 99;
+
+const DRAFT = { name: "Drafted" };
+
+const withIconTab =
+  (Base: FC<PropsWithChildren>): FC<PropsWithChildren> =>
+  ({ children }) =>
+    createElement(
+      Base,
+      null,
+      createElement(
+        Panel.RendererContext,
+        {
+          value: {
+            created: {
+              Content: () => null,
+              Name: () => null,
+              Icon: () => null,
+              iconKey: "valve",
+            },
+          },
+        },
+        children,
+      ),
+    );
 
 const leafTabs = (root: panel.Node): panel.Tab[] => {
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
@@ -129,7 +160,7 @@ describe("Panel.useOpenTab", () => {
 
     it("focuses the existing tab when the resource already backs one", async () => {
       const seedTabKey = uuid.create();
-      const resource = ranger.ontologyID(uuid.create());
+      const resource = await createRangeID();
       const existing = await createServerPanel(client, {
         variant: "leaf",
         tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -230,6 +261,38 @@ describe("Panel.useOpenTab", () => {
       expect(leafTabs(doc.root)).toHaveLength(1);
     });
 
+    it("focuses the first tab that matches focus instead of opening one", async () => {
+      const otherTabKey = uuid.create();
+      const matchTabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [
+          { variant: "view", key: otherTabKey, type: "other" },
+          { variant: "view", key: matchTabKey, type: "match" },
+        ],
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey: otherTabKey,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current(
+          { variant: "view", type: "range_explorer" },
+          { focus: (tab) => tab.variant === "view" && tab.type === "match" },
+        );
+      });
+      await waitFor(() =>
+        expect(
+          Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
+        ).toBe(matchTabKey),
+      );
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root)).toHaveLength(2);
+    });
+
     it("focuses a new keyless resource tab opened beside the current tab", async () => {
       const curTabKey = uuid.create();
       const existing = await createServerPanel(client, viewLeaf(curTabKey, "current"));
@@ -240,7 +303,7 @@ describe("Panel.useOpenTab", () => {
       });
       await primePanel(wrapper, existing.key);
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
-      const resource = ranger.ontologyID(uuid.create());
+      const resource = await createRangeID();
       await act(async () => {
         result.current({ variant: "resource", resource });
       });
@@ -346,6 +409,22 @@ describe("Panel.useOpenTab", () => {
       expect(panel.findTab(doc.root, tabKey)).toBeDefined();
     });
 
+    it("gives the panel the icon registered for the tab's type", async () => {
+      const { wrapper, store } = await createPanelWrapper({ client });
+      const { result } = renderHook(() => Panel.useOpenTab(), {
+        wrapper: withIconTab(wrapper),
+      });
+      await act(async () => {
+        result.current({ variant: "view", key: uuid.create(), type: "created" });
+      });
+      await waitForFocusedTab(store);
+      const panelKey = Session.Panel.selectSelected(store.getState());
+      if (panelKey == null) throw new Error("no panel selected after create");
+      await waitFor(async () =>
+        expect((await client.panels.retrieve(panelKey)).icon).toBe("valve"),
+      );
+    });
+
     it("selects the new panel and focuses the seeded tab in the session", async () => {
       const { wrapper, store } = await createPanelWrapper({ client });
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
@@ -356,6 +435,103 @@ describe("Panel.useOpenTab", () => {
       const focused = await waitForFocusedTab(store);
       expect(focused).toBe(tabKey);
       expect(Session.Panel.selectSelected(store.getState())).toBeDefined();
+    });
+  });
+
+  describe("opening in a draft", () => {
+    const setup = async () => {
+      const me = (await client.users.current.retrieve()).key;
+      const proj = await testProject();
+      const shared = await client.panels.create({
+        name: uniqueName("shared"),
+        root: viewLeaf(uuid.create(), "other"),
+        project: proj,
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        project: proj,
+        panelKey: shared.key,
+      });
+      // Stands in for the strip, which keeps the list live.
+      const visible = client.panels.watch({ where: panel.visibleTo(proj, me) });
+      onTestFinished(visible.onChange(() => {}));
+      await visible.retrieve();
+      return { me, proj, shared, wrapper, store };
+    };
+    const selected = (store: Awaited<ReturnType<typeof setup>>["store"]) => {
+      const key = Session.Panel.selectSelected(store.getState());
+      if (key == null) throw new Error("no panel selected");
+      return key;
+    };
+
+    it("creates a named draft of the user when the selected panel is shared", async () => {
+      const { me, shared, wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      const tabKey = uuid.create();
+      await act(async () => {
+        result.current(
+          { variant: "view", key: tabKey, type: "drafted" },
+          { draft: DRAFT },
+        );
+      });
+      await waitFor(() => expect(selected(store)).not.toBe(shared.key));
+      const draft = await client.panels.retrieve(selected(store));
+      expect(draft).toMatchObject({ owner: me, ...DRAFT });
+      expect(panel.findTab(draft.root, tabKey)).toBeDefined();
+      const after = await client.panels.retrieve(shared.key);
+      expect(panel.findTab(after.root, tabKey)).toBeUndefined();
+    });
+
+    it("opens in the selected panel when it is a draft of the user", async () => {
+      const { me, proj } = await setup();
+      const draft = await client.panels.create({
+        name: uniqueName("draft"),
+        root: viewLeaf(uuid.create(), "other"),
+        project: proj,
+        owner: me,
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        project: proj,
+        panelKey: draft.key,
+      });
+      await primePanel(wrapper, draft.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      const tabKey = uuid.create();
+      await act(async () => {
+        result.current(
+          { variant: "view", key: tabKey, type: "drafted" },
+          { draft: DRAFT },
+        );
+      });
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(draft.key);
+        expect(panel.findTab(doc.root, tabKey)).toBeDefined();
+      });
+      expect(selected(store)).toBe(draft.key);
+    });
+
+    it("selects the draft that already holds a singleton view", async () => {
+      const { me, proj, shared, wrapper, store } = await setup();
+      const viewKey = uuid.create();
+      const draft = await client.panels.create({
+        name: uniqueName("draft"),
+        root: viewLeaf(viewKey, "single"),
+        project: proj,
+        owner: me,
+      });
+      await primePanel(wrapper, draft.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current(
+          { variant: "view", type: "single" },
+          { singleton: true, draft: DRAFT },
+        );
+      });
+      await waitFor(() => expect(selected(store)).toBe(draft.key));
+      const doc = await client.panels.retrieve(draft.key);
+      expect(leafTabs(doc.root).map(({ key }) => key)).toEqual([viewKey]);
+      expect((await client.panels.retrieve(shared.key)).root).toEqual(shared.root);
     });
   });
 });
@@ -384,7 +560,7 @@ describe("Panel.useOpenTabs", () => {
 
   it("opens the rest of the batch when one tab's resource is already open", async () => {
     const seedTabKey = uuid.create();
-    const resource = ranger.ontologyID(uuid.create());
+    const resource = await createRangeID();
     const existing = await createServerPanel(client, {
       variant: "leaf",
       tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -409,7 +585,7 @@ describe("Panel.useOpenTabs", () => {
   // skips it, so focus has to resolve to the tab already holding the resource.
   it("focuses the tab already holding the resource when the batch ends on a duplicate", async () => {
     const seedTabKey = uuid.create();
-    const resource = ranger.ontologyID(uuid.create());
+    const resource = await createRangeID();
     const existing = await createServerPanel(client, {
       variant: "leaf",
       tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -461,6 +637,23 @@ describe("Panel.useCanOpenTab", () => {
     },
   );
 
+  it.each<BuiltInRole>(["Viewer", "Operator"])(
+    "should allow both on a draft of a %s",
+    async (role) => {
+      const as = await roles.get(role);
+      const me = (await as.users.current.retrieve()).key;
+      const draft = await as.panels.create({
+        name: uniqueName("draft"),
+        root: viewLeaf(uuid.create(), "seed"),
+        project: await testProject(),
+        owner: me,
+      });
+      const { result } = await renderCan(as, draft.key);
+      await waitFor(() => expect(result.current.edit).toBe(true));
+      expect(result.current.open).toBe(true);
+    },
+  );
+
   it("should allow both for an engineer", async () => {
     const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
     const { result } = await renderCan(await roles.get("Engineer"), existing.key);
@@ -470,8 +663,8 @@ describe("Panel.useCanOpenTab", () => {
 
   it("should fall back to the create grant when no panel is in scope", async () => {
     const creator = await createTestClientWithGrants(client, {
-      retrieve: [panel.TYPE_ONTOLOGY_ID, project.TYPE_ONTOLOGY_ID],
-      create: [panel.TYPE_ONTOLOGY_ID],
+      retrieve: [panel.TYPE_RESOURCE_ID, project.TYPE_RESOURCE_ID],
+      create: [panel.TYPE_RESOURCE_ID],
     });
     const { result } = await renderCan(creator);
     await waitFor(() => expect(result.current.open).toBe(true));

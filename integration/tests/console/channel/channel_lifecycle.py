@@ -11,6 +11,7 @@ import random
 
 import synnax as sy
 from console.case import ConsoleCase
+from console.channels import Spec
 from console.plot import Plot
 from x import random_name
 
@@ -90,9 +91,7 @@ class ChannelLifecycle(ConsoleCase):
         data_types = random.sample(all_data_types, sample_size)
 
         index_name = f"multi_idx_{suffix}"
-        channels: list[dict[str, str | int | bool]] = [
-            {"name": index_name, "is_index": True}
-        ]
+        channels: list[Spec] = [{"name": index_name, "is_index": True}]
         channels.extend(
             {
                 "name": f"{dt!s}_ch_{suffix}",
@@ -111,7 +110,7 @@ class ChannelLifecycle(ConsoleCase):
         self.log(f"Created channels: {created}")
 
         for ch_config in channels:
-            ch_name = str(ch_config["name"])
+            ch_name = ch_config["name"]
             assert console.channels.exists(ch_name), f"Channel {ch_name} should exist"
 
             ch = client.channels.retrieve(ch_name)
@@ -125,7 +124,7 @@ class ChannelLifecycle(ConsoleCase):
                     f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
                 )
 
-        channels_to_delete = [str(ch["name"]) for ch in reversed(channels)]
+        channels_to_delete = [ch["name"] for ch in reversed(channels)]
         console.channels.delete(channels_to_delete)
 
     def test_open_channel_plot(self) -> None:

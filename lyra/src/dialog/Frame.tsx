@@ -7,22 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location, type state as xstate } from "@synnaxlabs/x";
+import { box, location, type state as xstate, type xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
   type RefCallback,
+  type RefObject,
   useEffect,
   useId,
   useRef,
   useState,
 } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
-import { BACKGROUND_CLASS } from "@/dialog/Background";
-import { PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
+import { BACKGROUND_CLASS, inTopModal } from "@/dialog/Background";
+import { contains, PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { CONTEXT_MENU_CLASS } from "@/menu/types";
@@ -35,7 +36,8 @@ import { Triggers } from "@/triggers";
  *
  * - `connected`: butts against the trigger and matches its width, but never narrower
  *   than its CSS min-width.
- * - `floating`: sits near the trigger at its own width.
+ * - `floating`: sits near the trigger at its own width, up to
+ *   `--pluto-dialog-max-width`.
  * - `modal`: centers over the page behind a backdrop.
  */
 export type Variant = "connected" | "floating" | "modal";
@@ -54,6 +56,11 @@ export interface FrameProps extends Omit<
   onVisibleChange?: xstate.Setter<boolean>;
   /** Pins the dialog to one corner pairing instead of choosing one that fits. */
   location?: position.LocationPreference;
+  /**
+   * @returns how far the dialog moves out past each edge it aligns with on the target,
+   * read from the open dialog each time the frame places it.
+   */
+  alignOffset?: (dialog: HTMLElement) => xy.Crude;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
@@ -84,10 +91,21 @@ export interface ContextValue {
   close: () => void;
   open: () => void;
   toggle: () => void;
+  /**
+   * Opens the dialog at `target`, a part of the trigger such as a tag, or closes it if
+   * it is open there. While open, the dialog keeps its first x until the window
+   * resizes, so a change to the tags never moves it sideways.
+   */
+  toggleAt: (target: HTMLElement) => void;
   visible: boolean;
   variant: Variant;
   /** The corner of the trigger the dialog opens from. */
   location: location.XY;
+  /**
+   * Holds the element that opens the dialog, which a dropdown gives the focus back to.
+   * {@link Trigger} sets it, so only a custom trigger needs to.
+   */
+  triggerRef: RefCallback<HTMLElement>;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -96,8 +114,10 @@ const [Context, useContext] = context.create<ContextValue>({
     location: location.BOTTOM_LEFT,
     open: () => {},
     toggle: () => {},
+    toggleAt: () => {},
     variant: "floating",
     visible: false,
+    triggerRef: () => {},
   },
   displayName: "Dialog.Context",
 });
@@ -110,6 +130,8 @@ interface InternalContextValue extends Pick<
   ref: RefCallback<HTMLDivElement>;
   /** Ties the portaled dialog back to this frame for click-outside checks. */
   id: string;
+  /** The element that `triggerRef` holds. */
+  trigger: RefObject<HTMLElement | null>;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -139,6 +161,13 @@ export const open = (id: string): void => {
 
 /** The gap in pixels a dialog keeps from the window edges. */
 const WINDOW_MARGIN = 6;
+
+const contextMenus = (): HTMLElement[] =>
+  Array.from(document.getElementsByClassName(CONTEXT_MENU_CLASS)) as HTMLElement[];
+
+// The content of a submenu portals out of its context menu but still belongs to it.
+const inContextMenu = (target: Element): boolean =>
+  contextMenus().some((menu) => contains(menu, target));
 
 /** Compares width too, since a wider dialog clamps further from the window edge. */
 const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean => {
@@ -194,7 +223,8 @@ const selectModalPosition = (
 
 /**
  * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
- * it in whatever space the viewport leaves.
+ * it in whatever space the viewport leaves. A dialog that is not modal closes when a
+ * click or the focus lands outside it and its trigger.
  *
  * @example
  * <Dialog.Frame>
@@ -205,6 +235,7 @@ const selectModalPosition = (
 export const Frame = ({
   children,
   location: propsLocation,
+  alignOffset,
   onPointerEnter,
   className,
   variant = "floating",
@@ -225,9 +256,27 @@ export const Frame = ({
   // Read through a ref, so a caller's onVisibleChange can change identity without
   // re-subscribing the outside-click and Escape listeners below.
   const setVisibleRef = useSyncedRef(setVisible);
+  // The part of the trigger the dialog opened against, if not the whole frame.
+  const [openedAt, setOpenedAt] = useState<HTMLElement | null>(null);
+  // The x a dialog opened at a tag keeps, and the tag's last box for when it goes.
+  const heldLeft = useRef<number | null>(null);
+  const openedAtBox = useRef<box.Box>(box.ZERO);
   const close = () => setVisibleRef.current(false);
-  const open = () => setVisibleRef.current(true);
-  const toggle = () => setVisibleRef.current((prev) => !prev);
+  const open = () => {
+    setOpenedAt(null);
+    setVisibleRef.current(true);
+  };
+  const toggle = () => {
+    setOpenedAt(null);
+    setVisibleRef.current((prev) => !prev);
+  };
+  const toggleAt = (target: HTMLElement) => {
+    if (visible && openedAt === target) return close();
+    heldLeft.current = null;
+    setOpenedAt(target);
+    setVisibleRef.current(true);
+  };
+  const anchorEl = anchor ?? openedAt;
 
   const id = useId();
   const visibleRef = useSyncedRef(visible);
@@ -237,15 +286,23 @@ export const Frame = ({
   const prevWindowBox = useRef<box.Box | undefined>(undefined);
   const prevAvailableHeight = useRef<number | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLElement | null>(null);
+  const triggerRef = (el: HTMLElement | null) => {
+    trigger.current = el;
+  };
 
   const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
   const calculatePosition = () => {
-    const targetEl = anchor ?? targetRef.current;
+    const targetEl = anchorEl ?? targetRef.current;
     if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
-    const target = box.construct(targetEl);
-    if (box.areaIsZero(target) && variant !== "modal") return close();
+    let target = box.construct(targetEl);
+    const atTag = targetEl === openedAt;
+    // The tag can go or fold into the count as the dialog changes the value.
+    if (atTag && box.areaIsZero(target)) target = openedAtBox.current;
+    else if (atTag) openedAtBox.current = target;
+    else if (box.areaIsZero(target) && variant !== "modal") return close();
 
     // Layout size, not the painted box: the entrance animation scales the dialog.
     const { offsetWidth, offsetHeight } = dialogRef.current;
@@ -290,10 +347,16 @@ export const Frame = ({
       prefer,
       initial: propsLocation,
       offset: 3,
+      alignOffset: alignOffset?.(dialogRef.current),
     });
     prevLocationPreference.current = locations;
     const { targetCorner, dialogCorner } = locations;
-    const roundedDialog = box.round(adjustedDialog);
+    let roundedDialog = box.round(adjustedDialog);
+    if (atTag) {
+      const left = heldLeft.current ?? box.left(roundedDialog);
+      heldLeft.current = left;
+      roundedDialog = box.translate(roundedDialog, "x", left - box.left(roundedDialog));
+    }
     if (
       positionsEqual(roundedDialog, prevBox.current) &&
       prevWindowBox.current != null &&
@@ -340,7 +403,7 @@ export const Frame = ({
   const combinedTargetRef = useCombinedRefs(targetRef, resizeTargetRef);
 
   const resizeAnchorRef = useResize(calculatePosition, { enabled: visible });
-  useEffect(() => resizeAnchorRef(anchor ?? null), [anchor, resizeAnchorRef]);
+  useEffect(() => resizeAnchorRef(anchorEl), [anchorEl, resizeAnchorRef]);
 
   useEffect(() => {
     const frame = targetRef.current;
@@ -349,7 +412,10 @@ export const Frame = ({
     return () => frame.removeEventListener(OPEN_EVENT_NAME, open);
   }, [open]);
 
-  useWindowResize(calculatePosition);
+  useWindowResize(() => {
+    heldLeft.current = null;
+    calculatePosition();
+  });
 
   const exclude = (e: MouseEvent) => {
     if (!visibleRef.current || dialogRef.current == null || targetRef.current == null)
@@ -380,20 +446,48 @@ export const Frame = ({
     const dialogEl = dialogRef.current;
     // A dialog with an open child dialog leaves Escape to the child.
     if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null) return;
+    // A context menu over the dialog closes first, unless the dialog opened in it.
+    if (contextMenus().some((menu) => !contains(menu, targetRef.current))) return;
     if (variant !== "modal") {
       close();
       stopPropagation();
       return;
     }
-    const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
-    const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
-    if (thisModalIndex === allModals.length - 1) {
+    if (inTopModal(dialogEl)) {
       close();
       stopPropagation();
     }
   };
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
+
+  useEffect(() => {
+    if (!visible || variant === "modal") return;
+    // A window that comes back gives the focus to the same element again.
+    let last = document.activeElement;
+    const handleFocusIn = ({ target }: FocusEvent): void => {
+      const frame = targetRef.current;
+      const moved = target !== last;
+      last = target instanceof Element ? target : null;
+      if (
+        !moved ||
+        frame == null ||
+        !(target instanceof Element) ||
+        contains(frame, target) ||
+        anchor?.contains(target) === true ||
+        // A context menu opened over the dialog acts on it, and so do its submenus.
+        inContextMenu(target) ||
+        // A dialog in a context menu closes with the menu, since a chosen item gives
+        // the focus back before it acts.
+        inContextMenu(frame)
+      )
+        return;
+      close();
+    };
+    document.addEventListener("focusin", handleFocusIn);
+    return () => document.removeEventListener("focusin", handleFocusIn);
+  }, [visible, variant, anchor, close]);
+
   Triggers.use({
     triggers: ESCAPE_TRIGGERS,
     callback: handleEscape,
@@ -404,6 +498,7 @@ export const Frame = ({
   const internalContextValue: InternalContextValue = {
     ref: combinedDialogRef,
     id,
+    trigger,
     targetCorner,
     dialogCorner,
     style,
@@ -414,10 +509,12 @@ export const Frame = ({
     close,
     open,
     toggle,
+    toggleAt,
     visible,
     onPointerEnter,
     variant,
     location: targetCorner,
+    triggerRef,
   };
 
   return (

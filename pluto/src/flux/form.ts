@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type query, type Synnax as Client } from "@synnaxlabs/client";
+import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import {
   useDebouncedCallback,
@@ -19,12 +19,12 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
-  type record,
   state,
   TimeSpan,
 } from "@synnaxlabs/x";
 import {
   type Dispatch,
+  type RefObject,
   type SetStateAction,
   use,
   useEffect,
@@ -32,7 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import {
   errorResult,
@@ -44,20 +44,28 @@ import {
 } from "@/flux/result";
 import {
   fulfilled,
+  invalidate,
   type LocalCache,
   localFor,
   promiseFor,
   type RetrieveParams,
+  subscribeReader,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
-import { type UpdateParams } from "@/flux/update";
+import type { UpdateParams } from "@/flux/update";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
   extends
     Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
-    Omit<Form.UseReturn<Schema>, "setStatus"> {}
+    Omit<Form.UseReturn<Schema>, "setStatus"> {
+  /**
+   * The record as the Core stores it, as far as the form knows: the values it read,
+   * then those of each save and each listener reset. Undefined until it reads or saves.
+   */
+  stored: z.infer<Schema> | undefined;
+}
 
 /** Client and query handles for a form operation. */
 interface FormClientParams<Query extends query.Params> {
@@ -180,16 +188,18 @@ const ABSENT = Symbol("absent");
  * value that holds it is gone.
  */
 const readLive = (live: unknown, path: string): unknown => {
-  if (deep.has(live, path)) return deep.get(live, path);
-  const split = path.lastIndexOf(deep.SEPARATOR);
-  const parentPath = split === -1 ? "" : path.slice(0, split);
-  const parent = deep.get<record.Unknown, unknown>(live, parentPath, {
-    optional: true,
-  });
-  return parent == null ? ABSENT : deep.defaultGetter(parent, path.slice(split + 1));
+  const found = deep.resolve(live, path);
+  if (found != null) return found.value;
+  const cut = path.lastIndexOf(deep.SEPARATOR);
+  const parent = cut === -1 ? live : deep.get(live, path.slice(0, cut));
+  return parent == null ? ABSENT : undefined;
 };
 
-/** @returns the value to write at the path, with live values kept at pending paths. */
+/**
+ * @returns the value to write at the path, with live values kept at pending paths. A
+ * pending path into a list entry the value no longer holds is dropped, unless it also
+ * reads as a path into a kept entry, as `a.b` does when the list keeps `a`.
+ */
 const keepPending = <V>(
   live: unknown,
   path: string,
@@ -201,11 +211,19 @@ const keepPending = <V>(
     if (!deep.pathsMatch(p, path)) continue;
     const current = readLive(live, p);
     if (current === ABSENT) continue;
+    const at = path === "" ? p : p.slice(path.length + 1);
+    if (!deep.canSet(kept, at)) continue;
     if (kept === value) kept = deep.copy(value);
-    deep.set(kept, path === "" ? p : p.slice(path.length + 1), current);
+    deep.set(kept, at, current);
   }
   return kept;
 };
+
+/** The values a save wrote, and the stored record its update read. */
+interface Saved<V> {
+  written: V;
+  read: V | undefined;
+}
 
 /** A save waiting on the one before it, and the signal its callers issued it under. */
 interface QueuedSave {
@@ -221,18 +239,23 @@ interface PersistParams<
     Pick<UseFormParams<Query, Schema>, "beforeValidate" | "beforeSave" | "afterSave">,
     Pick<CreateFormParams<Query, Schema>, "name" | "update"> {
   params: FormBeforeSaveParams<Query, Schema>;
+  stored: RefObject<z.infer<Schema> | undefined>;
   setResult: Dispatch<SetStateAction<Result<undefined>>>;
   addStatus: Status.Adder;
   signal?: AbortSignal;
 }
 
-/** Validates and writes the form, reporting progress through `setResult`. */
+/**
+ * Validates and writes the form, reporting progress through `setResult`.
+ * @returns what the update wrote and read, or undefined when it wrote nothing.
+ */
 const persist = async <
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 >({
   name,
   params,
+  stored,
   update,
   beforeValidate,
   beforeSave,
@@ -240,38 +263,40 @@ const persist = async <
   setResult,
   addStatus,
   signal,
-}: PersistParams<Query, Schema>): Promise<boolean> => {
+}: PersistParams<Query, Schema>): Promise<Saved<z.infer<Schema>> | undefined> => {
   try {
-    if (beforeValidate?.(params) === false) return false;
-    if (!(await params.validateAsync())) return false;
+    if (beforeValidate?.(params) === false) return undefined;
+    if (!(await params.validateAsync())) return undefined;
     setResult(loadingResult(`updating ${name}`, undefined));
     if ((await beforeSave?.(params)) === false) {
       setResult(successResult(`updated ${name}`, undefined));
-      return false;
+      return undefined;
     }
     if (signal?.aborted === true) {
       setResult(successResult(`updated ${name}`, undefined));
-      return false;
+      return undefined;
     }
     const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
       setResult((p) => {
-        const nextStatus = state.executeSetter(setter, p.status);
+        const nextStatus = state.resolve(setter, p.status);
         return {
           ...p,
           status: nextStatus,
           variant: nextStatus.variant,
         } as Result<undefined>;
       });
-    await update({ ...params, setStatus });
+    const written = params.value();
+    const read = stored.current;
+    await update({ ...params, setStatus, stored: read });
     setResult(successResult(`updated ${name}`, undefined));
     if (afterSave != null) afterSave(params);
-    return true;
+    return { written, read };
   } catch (error) {
-    if (signal?.aborted === true) return false;
+    if (signal?.aborted === true) return undefined;
     const res = errorResult(`update ${name}`, error);
     addStatus(res.status);
     setResult(res);
-    return false;
+    return undefined;
   }
 };
 
@@ -297,6 +322,16 @@ export const createForm = <
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
   const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
+  // The last form to unmount drops the settled answer, so a later mount reads again.
+  const holdSettled = (client: Client, q: Query): (() => void) => {
+    const local = localFor(locals, client);
+    const hash = query.hash(q);
+    const release = subscribeReader(local, hash, () => {});
+    return () => {
+      release();
+      if (!local.listeners.has(hash)) invalidate(local, hash);
+    };
+  };
   const useForm = ({
     query,
     initialValues,
@@ -345,6 +380,8 @@ export const createForm = <
     // sent would revert them, and the next save would store the reverted value.
     const unsaved = useRef(new Set<string>());
     const sending = useRef(new Set<string>());
+    // The client cache can lag a save: it changes only on the Core's signal.
+    const stored = useRef(retrieved);
     const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
@@ -358,21 +395,27 @@ export const createForm = <
       onHasTouched,
       mode,
     });
-    const noNotifySet = (path: string, value: unknown, options?: Form.SetOptions) =>
+    const noNotifySet: Form.SetFunc = (path, value, options) =>
       form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS });
     const pendingPaths = () => new Set([...unsaved.current, ...sending.current]);
-    const listenerSet = (path: string, value: unknown, options?: Form.SetOptions) => {
+    const listenerSet: Form.SetFunc = (target, value, options) => {
+      const path = String(target);
       const pending = pendingPaths();
       if (covers(pending, path)) return;
-      noNotifySet(path, keepPending(form.value(), path, value, pending), options);
+      noNotifySet(target, keepPending(form.value(), path, value, pending), options);
     };
     const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) =>
       form.reset(next == null ? next : keepPending(form.value(), "", next, pending()));
+    const listenerReset = (next?: z.infer<Schema>) => {
+      if (next != null) stored.current = next;
+      resetKeeping(pendingPaths)(next);
+    };
 
     // Form state is built once, so a query pointing at a different record has
     // to replace it.
     const readQuery = useRef(memoQuery);
     const valuesRef = useSyncedRef(values);
+    const retrievedRef = useSyncedRef(retrieved);
     useLayoutEffect(() => {
       if (readQuery.current === memoQuery) return;
       readQuery.current = memoQuery;
@@ -380,6 +423,7 @@ export const createForm = <
       abortRef.current = new AbortController();
       unsaved.current = new Set();
       sending.current = new Set();
+      stored.current = retrievedRef.current;
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
 
@@ -393,7 +437,7 @@ export const createForm = <
       const sent = unsaved.current;
       sending.current = sent;
       unsaved.current = new Set();
-      const saved = await persist({
+      const persisted = await persist({
         name,
         params: {
           client,
@@ -402,6 +446,7 @@ export const createForm = <
           set: noNotifySet,
           reset: resetKeeping(() => unsaved.current),
         },
+        stored,
         update,
         beforeValidate,
         beforeSave,
@@ -410,9 +455,14 @@ export const createForm = <
         addStatus,
         signal,
       });
+      const saved = persisted != null;
       // The form re-pointed at another record while this save ran.
       if (readQuery.current !== issuedFor) return saved;
       if (!saved) sent.forEach((path) => unsaved.current.add(path));
+      else if (stored.current === persisted.read) stored.current = persisted.written;
+      // A listener reset landed during the save. It can be older than the write, so
+      // keep the written values at the paths this save sent.
+      else stored.current = keepPending(persisted.written, "", stored.current, sent);
       sending.current = new Set();
       return saved;
     };
@@ -454,6 +504,12 @@ export const createForm = <
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
 
+    // Nothing keeps the settled answer current once no form shows it.
+    useEffect(() => {
+      if (client == null || memoQuery == null) return;
+      return holdSettled(client, memoQuery);
+    }, [client, memoQuery]);
+
     const abandon = () => {
       abandonedRef.current = true;
       debouncedSave.cancel();
@@ -469,12 +525,12 @@ export const createForm = <
           query: memoQuery,
           ...form,
           set: listenerSet,
-          reset: resetKeeping(pendingPaths),
+          reset: listenerReset,
           abandon,
         }),
       );
       return () => listeners.cleanup();
-    }, [client, memoQuery, form, listenerSet, resetKeeping, pendingPaths, abandon]);
+    }, [client, memoQuery, form, listenerSet, listenerReset, abandon]);
 
     return { form, save, saveAsync, ...result };
   };

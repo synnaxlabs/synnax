@@ -9,7 +9,7 @@
 
 import {
   DisconnectedError,
-  type label,
+  label,
   NotFoundError,
   query,
   UnexpectedError,
@@ -17,10 +17,17 @@ import {
 import {
   createSeverableProxy,
   createTestClient,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
 } from "@synnaxlabs/client/testutil";
-import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import { array, color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import {
   type FC,
   type PropsWithChildren,
@@ -59,7 +66,7 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
     ...status.REGISTRY,
   });
   const connParams = {
-    ...TEST_CLIENT_PARAMS,
+    ...testClientParams(),
     // The proxy listens on this machine, even when the Core runs on another.
     host: "localhost",
     port,
@@ -440,6 +447,54 @@ describe("use", () => {
       });
       expect(await mountThroughTransition(use, "replay-settled")).toEqual([]);
     });
+
+    it("should replay a cached read that comes before a suspending read", async () => {
+      const { use: useCached } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 3,
+        getCached: () => 3,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 4,
+      });
+      const useBoth = ({ key }: { key: string }): number =>
+        useCached({ key }) + useFetched({ key });
+      expect(await mountThroughTransition(useBoth, "replay-cached-first")).toEqual([]);
+    });
+
+    it("should replay a settled read that comes before a suspending read", async () => {
+      const { use: useSettled } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 0,
+      });
+      const key = "replay-settled-first";
+      expect(await mountThroughTransition(useSettled, key)).toEqual([]);
+      cleanup();
+      const useBoth = (q: { key: string }): number => useSettled(q) + useFetched(q);
+      expect(await mountThroughTransition(useBoth, key)).toEqual([]);
+    });
+
+    it("should replay a cached ensure that comes before a suspending read", async () => {
+      const { useEnsure } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 3,
+        getCached: () => 3,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      const useBoth = (q: { key: string }): number => {
+        useEnsure(q);
+        return useFetched(q);
+      };
+      expect(await mountThroughTransition(useBoth, "replay-ensure-first")).toEqual([]);
+    });
   });
 
   describe("suspended mount retry", () => {
@@ -501,9 +556,6 @@ describe("use", () => {
   });
 
   describe("equal", () => {
-    const sameNumbers = (a: number[], b: number[]): boolean =>
-      a.length === b.length && a.every((v, i) => v === b[i]);
-
     interface Harness {
       utils: ReturnType<typeof render>;
       seen: number[][];
@@ -524,7 +576,7 @@ describe("use", () => {
           return () => {};
         },
         getCached: () => [...source],
-        equal: sameNumbers,
+        equal: array.equal,
       });
 
       const seen: number[][] = [];
@@ -572,23 +624,23 @@ describe("use", () => {
 
     it("hands back the previous answer when the next one compares equal", async () => {
       const { utils, seen, push } = await renderProjection("equal-hold");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
       const renders = seen.length;
 
       await push([1, 2]);
 
       expect(utils.queryByTestId("error")).toBeNull();
       expect(seen.length).toEqual(renders);
-      expect(seen[seen.length - 1]).toBe(before);
+      expect(seen.at(-1)).toBe(before);
     });
 
     it("hands back the next answer when it compares unequal", async () => {
       const { utils, seen, push } = await renderProjection("equal-change");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
 
       await push([1, 2, 3]);
 
-      expect(seen[seen.length - 1]).not.toBe(before);
+      expect(seen.at(-1)).not.toBe(before);
       expect(utils.queryByTestId("value")?.textContent).toEqual("1,2,3");
     });
 
@@ -599,7 +651,7 @@ describe("use", () => {
         retrieve: async () => [1, 2],
         onChange: () => () => {},
         getCached: () => tombstone,
-        equal: sameNumbers,
+        equal: array.equal,
       });
 
       const Display = (): ReactElement => {
@@ -642,7 +694,7 @@ describe("use", () => {
           return () => {};
         },
         getCached: () => cached,
-        equal: sameNumbers,
+        equal: array.equal,
       });
 
       const Display = (): ReactElement => {
@@ -701,7 +753,7 @@ describe("use", () => {
       });
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
-      expect(seen[seen.length - 1]).toBe(cached);
+      expect(seen.at(-1)).toBe(cached);
     });
 
     it("settles a composed answer when no comparator is given", async () => {
@@ -733,7 +785,7 @@ describe("use", () => {
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
       expect(seen.length).toBeLessThan(10);
-      expect(seen[seen.length - 1]).toBe(seen[0]);
+      expect(seen.at(-1)).toBe(seen[0]);
     });
   });
 
@@ -1508,10 +1560,7 @@ describe("createSelector", () => {
 
   it("keeps the previous identity when the selected slice is equal", () => {
     const harness = createHarness({ name: "same", value: 1 });
-    const useNames = harness.createSelector(
-      (data) => [data.name],
-      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
-    );
+    const useNames = harness.createSelector((data) => [data.name], array.equal);
     const { result } = renderHook(() => useNames({ key: "a" }), { wrapper: Wrapper });
     const first = result.current;
     act(() => harness.set({ name: "same", value: 2 }));
@@ -1580,6 +1629,34 @@ describe("createSelector", () => {
     expect(result.current).toEqual("alpha");
     rerender({ index: 1 });
     expect(result.current).toEqual("beta");
+  });
+
+  it("passes the connected client to the projection", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createSelector((data, _, c) =>
+      c === client ? data.name : "other client",
+    );
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("cached");
+  });
+
+  it("projects again for a new client on the same answer", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useOwner = harness.createSelector((_, __, c) =>
+      c === client ? "first" : "second",
+    );
+    let current = client;
+    const { result, rerender } = renderHook(() => useOwner({ key: "a" }), {
+      wrapper: ({ children }) => (
+        <Wrapper>
+          <Synnax.TestProvider client={current}>{children}</Synnax.TestProvider>
+        </Wrapper>
+      ),
+    });
+    expect(result.current).toEqual("first");
+    current = createTestClient();
+    rerender();
+    expect(result.current).toEqual("second");
   });
 
   it("refuses to mint when the definition has no cache read", () => {
@@ -1721,11 +1798,20 @@ describe("createResultSelector", () => {
     expect(result.current).toBe(first);
   });
 
+  it("passes the connected client to the projection", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createResultSelector((data, _, c) =>
+      c === client ? data.name : "other client",
+    );
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.data).toEqual("cached");
+  });
+
   it("compares slices with the provided equality", () => {
     const harness = createHarness({ name: "a,b", value: 1 });
     const useParts = harness.createResultSelector(
       (data) => data.name.split(","),
-      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+      array.equal,
     );
     const { result } = renderHook(() => useParts({ key: "a" }), { wrapper: Wrapper });
     const first = result.current;
@@ -1864,13 +1950,14 @@ describe("useResult", () => {
     await client.labels.retrieve(second.key);
     const retrieve = vi.fn(
       async ({ client, query }: Flux.RetrieveParams<{ keys: label.Key[] }>) =>
-        await client.labels.retrieve(query),
+        await client.labels.retrieve(query.keys),
     );
     const { useResult } = Flux.createRetrieve<{ keys: label.Key[] }, label.Label[]>({
       name: "Labels",
       retrieve,
-      onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-      getCached: ({ client, query }) => client.labels.getCached(query),
+      onChange: ({ client, query }, handler) =>
+        client.labels.watch(query.keys).onChange(handler),
+      getCached: ({ client, query }) => client.labels.watch(query.keys).getCached(),
     });
     const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
       wrapper: Wrapper,
@@ -1892,16 +1979,20 @@ describe("useResult", () => {
     await client.labels.retrieve(second.key);
     const { useResult } = Flux.createRetrieve<{ keys: label.Key[] }, label.Label[]>({
       name: "Labels",
-      retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-      onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-      getCached: ({ client, query }) => client.labels.getCached(query),
+      retrieve: async ({ client, query }) => await client.labels.retrieve(query.keys),
+      onChange: ({ client, query }, handler) =>
+        client.labels.watch(query.keys).onChange(handler),
+      getCached: ({ client, query }) => client.labels.watch(query.keys).getCached(),
     });
     const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
       wrapper: Wrapper,
     });
     expect(result.current.variant).toEqual("success");
     const renamed = `live-a-renamed-${id.create()}`;
-    await client.labels.create({ ...first, name: renamed });
+    await client.labels.dispatch(
+      first.key,
+      label.set({ path: ["name"], value: renamed }),
+    );
     await waitFor(
       () =>
         expect(result.current.data?.map(({ name }) => name)).toEqual([

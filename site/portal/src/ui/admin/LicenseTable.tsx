@@ -9,13 +9,14 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type License, type Organization } from "@/server/db/schema";
+import type { License, Organization } from "@/server/db/schema";
 import { term } from "@/server/license/limits";
-import { date, statusOf } from "@/ui/format";
+import { statusOf } from "@/server/license/status";
 import { Licenses } from "@/ui/licenses";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface LicenseEntry {
   license: License;
@@ -35,6 +36,7 @@ const WITHOUT_ORGANIZATION = "minmax(0, 2fr) 14rem minmax(0, 1.4fr) 10rem 14rem 
 
 /** LicenseTable lists licenses for staff, each row opening the license. */
 export const LicenseTable = ({ entries, now }: LicenseTableProps): ReactElement => {
+  const clock = useClock();
   const owned = entries.some((e) => e.organization != null);
   const columns = owned ? WITH_ORGANIZATION : WITHOUT_ORGANIZATION;
   const head = ["Label", "Status", "Term", "Machines", "Issued", ""];
@@ -61,7 +63,7 @@ export const LicenseTable = ({ entries, now }: LicenseTableProps): ReactElement 
             {seats} of {lic.nodes}
           </Text.Text>
           <Text.Text level="p" color={9}>
-            {date(lic.issuedAt)}
+            {clock.date(lic.issuedAt)}
           </Text.Text>
         </Row>
       ))}

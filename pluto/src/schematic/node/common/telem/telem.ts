@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { type bounds } from "@synnaxlabs/x";
+import type { channel } from "@synnaxlabs/client";
+import type { bounds } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
@@ -17,7 +17,7 @@ export const DEFAULT_THRESHOLD: bounds.Bounds = { lower: 0.9, upper: 1.1 };
 
 /** booleanSource builds the boolean read pipeline for a state channel. */
 export const booleanSource = (
-  channel: channel.Key = 0,
+  channel: channel.Key,
   threshold: bounds.Bounds = DEFAULT_THRESHOLD,
 ): telem.BooleanSourceSpec =>
   telem.sourcePipeline("boolean", {
@@ -30,7 +30,7 @@ export const booleanSource = (
   });
 
 /** booleanSink builds the boolean command pipeline for a command channel. */
-export const booleanSink = (channel: channel.Key = 0): telem.BooleanSinkSpec =>
+export const booleanSink = (channel: channel.Key): telem.BooleanSinkSpec =>
   telem.sinkPipeline("boolean", {
     connections: [{ from: "setpoint", to: "setter" }],
     segments: {
@@ -41,7 +41,7 @@ export const booleanSink = (channel: channel.Key = 0): telem.BooleanSinkSpec =>
   });
 
 /** numberSink builds the numeric command pipeline for a command channel. */
-export const numberSink = (channel: channel.Key = 0): telem.NumberSinkSpec =>
+export const numberSink = (channel: channel.Key): telem.NumberSinkSpec =>
   telem.sinkPipeline("number", {
     connections: [],
     segments: { setter: control.setChannelValue({ channel }) },
@@ -49,7 +49,7 @@ export const numberSink = (channel: channel.Key = 0): telem.NumberSinkSpec =>
   });
 
 /** stringSink builds the string command pipeline for a command channel. */
-export const stringSink = (channel: channel.Key = 0): telem.StringSinkSpec =>
+export const stringSink = (channel: channel.Key): telem.StringSinkSpec =>
   telem.sinkPipeline("string", {
     connections: [],
     segments: { setter: control.setChannelValue({ channel }) },
@@ -57,7 +57,7 @@ export const stringSink = (channel: channel.Key = 0): telem.StringSinkSpec =>
   });
 
 /** numberSource builds the numeric read pipeline for a state channel. */
-export const numberSource = (channel: channel.Key = 0): telem.NumberSourceSpec =>
+export const numberSource = (channel: channel.Key): telem.NumberSourceSpec =>
   telem.sourcePipeline("number", {
     connections: [],
     segments: { valueStream: telem.streamChannelValue({ channel }) },
@@ -65,14 +65,14 @@ export const numberSource = (channel: channel.Key = 0): telem.NumberSourceSpec =
   });
 
 export interface SmoothedNumberSourceArgs {
-  channel?: channel.Key;
-  rollingAverage?: number;
+  channel: channel.Key;
+  rollingAverage: number;
 }
 
 /** smoothedNumberSource builds the rolling-average read pipeline for a channel. */
 export const smoothedNumberSource = ({
-  channel = 0,
-  rollingAverage = 1,
+  channel,
+  rollingAverage,
 }: SmoothedNumberSourceArgs): telem.NumberSourceSpec =>
   telem.sourcePipeline("number", {
     connections: [{ from: "valueStream", to: "rollingAverage" }],
@@ -82,15 +82,3 @@ export const smoothedNumberSource = ({
     },
     outlet: "rollingAverage",
   });
-
-export interface ControlChipArgs {
-  channel?: channel.Key;
-  authority?: number;
-}
-
-/** chipSink builds the control acquisition sink for a command channel. */
-export const chipSink = ({
-  channel = 0,
-  authority = 255,
-}: ControlChipArgs): telem.BooleanSinkSpec =>
-  control.acquireChannelControl({ channel, authority });

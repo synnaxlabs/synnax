@@ -9,8 +9,8 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 
-import { type status } from "@/status/aether";
-import { type CanvasVariant } from "@/vis/render/context";
+import type { status } from "@/status/aether";
+import type { CanvasVariant } from "@/vis/render/context";
 
 /**
  * A function that executes the render in the loop. This function can return an
@@ -39,9 +39,9 @@ export interface Request {
   priority: Priority;
   /**
    * A list of canvases that the component is requesting to render to. This provides
-   * information to cleanup functions about which canvases to clear. The component should
-   * ONLY render to these canvases, otherwise the cleanup function may unnecessarily
-   * clear canvases that should persist.
+   * information to cleanup functions about which canvases to clear. The component
+   * should ONLY render to these canvases, otherwise the cleanup function may
+   * unnecessarily clear canvases that should persist.
    */
   canvases: CanvasVariant[];
   /**
@@ -82,6 +82,8 @@ const add = (requests: Map<string, Request>, req: Request): void => {
 interface LoopParams {
   handleError: status.ErrorHandler;
   afterRender?: () => void;
+  /** Runs after every frame, even an empty one, with the canvases that it drew on. */
+  present?: (drawn: Set<CanvasVariant>) => void;
   instrumentation?: alamos.Instrumentation;
 }
 
@@ -98,6 +100,7 @@ export class Loop {
   private readonly cleanups = new Map<string, PendingCleanup[]>();
   /** A callback to run after each render call. */
   private readonly afterRender?: () => void;
+  private readonly present?: (drawn: Set<CanvasVariant>) => void;
   /** Instrumentation for logging, tracing, metrics, etc. */
   private readonly instrumentation: alamos.Instrumentation;
   /** A function to add status to the status bar. */
@@ -110,10 +113,12 @@ export class Loop {
 
   constructor({
     afterRender,
+    present,
     instrumentation = alamos.Instrumentation.NOOP,
     handleError,
   }: LoopParams) {
     this.afterRender = afterRender;
+    this.present = present;
     this.instrumentation = instrumentation;
     this.handleError = handleError;
     this.start();
@@ -145,11 +150,15 @@ export class Loop {
       held.forEach((req, key) => requests.set(key, req));
       held.clear();
     }
-    if (requests.size === 0) return;
-    this.runCleanupsSync();
-    this.renderSync();
-    requests.clear();
-    if (!this.glLost) this.afterRender?.();
+    const drawn = new Set<CanvasVariant>();
+    requests.forEach((req) => req.canvases.forEach((c) => drawn.add(c)));
+    if (requests.size > 0) {
+      this.runCleanupsSync();
+      this.renderSync();
+      requests.clear();
+      if (!this.glLost) this.afterRender?.();
+    }
+    this.present?.(drawn);
   }
 
   private runCleanupsSync(): void {

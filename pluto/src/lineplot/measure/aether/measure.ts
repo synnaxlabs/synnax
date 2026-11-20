@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
@@ -23,7 +23,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export const modeZ = z.enum(["one", "two"]);
@@ -38,13 +38,12 @@ export const measureStateZ = z.object({
     .union([
       color.colorZ,
       z.object({
-        verticalLine: color.colorZ.default(color.ZERO),
-        horizontalLine: color.colorZ.default(color.ZERO),
-        obliqueLine: color.colorZ.default(color.ZERO),
+        verticalLine: color.colorZ.optional(),
+        horizontalLine: color.colorZ.optional(),
+        obliqueLine: color.colorZ.optional(),
       }),
     ])
-    .optional()
-    .default(color.ZERO),
+    .optional(),
   strokeWidth: z.number().default(1),
   strokeDash: z.number().default(2),
 });
@@ -140,9 +139,9 @@ export interface MeasureProps {
 
 export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
-  schema = measureStateZ;
+  override schema = measureStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const renderCtx = render.Context.use(ctx);
     this.internal.theme = theming.use(ctx);
     this.internal.renderCtx = renderCtx;
@@ -152,39 +151,28 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.dotColorContrast = this.internal.theme.colors.textInverted;
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 
-  private get verticalLineColor(): color.Color {
-    if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
-      return this.state.color;
-    }
+  private lineColor(
+    line: "verticalLine" | "horizontalLine" | "obliqueLine",
+  ): color.Color {
+    const c = this.state.color;
+    const lineColor = c == null || color.isColor(c) ? c : c[line];
+    return lineColor ?? this.internal.theme.colors.gray.l9;
+  }
 
-    if (color.isZero(this.state.color.verticalLine))
-      return this.internal.theme.colors.gray.l9;
-    return this.state.color.verticalLine;
+  private get verticalLineColor(): color.Color {
+    return this.lineColor("verticalLine");
   }
 
   private get horizontalLineColor(): color.Color {
-    if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
-      return this.state.color;
-    }
-    if (color.isZero(this.state.color.horizontalLine))
-      return this.internal.theme.colors.gray.l9;
-    return this.state.color.horizontalLine;
+    return this.lineColor("horizontalLine");
   }
 
   private get obliqueLineColor(): color.Color {
-    if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
-      return this.state.color;
-    }
-    if (color.isZero(this.state.color.obliqueLine))
-      return this.internal.theme.colors.gray.l9;
-    return this.state.color.obliqueLine;
+    return this.lineColor("obliqueLine");
   }
 
   private findPoint(
@@ -308,7 +296,8 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     } else {
       region = box.construct(position, width, height);
 
-      // Check if label goes outside the view region on the right, if so flip it to the left
+      // Check if label goes outside the view region on the right, if so flip it to the
+      // left
       if (box.right(region) > box.right(viewRegion)) {
         const flippedPos = xy.translateX(
           position,
@@ -456,12 +445,12 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   private drawPointMarker(position: xy.XY, pointColor: color.Color): void {
     const { draw } = this.internal;
     draw.circle({
-      fill: color.setAlpha(pointColor, POINT_CIRCLE_ALPHA_OUTER),
+      fill: color.setOpacity(pointColor, POINT_CIRCLE_ALPHA_OUTER),
       radius: POINT_CIRCLE_RADIUS_OUTER,
       position,
     });
     draw.circle({
-      fill: color.setAlpha(pointColor, POINT_CIRCLE_ALPHA_MID),
+      fill: color.setOpacity(pointColor, POINT_CIRCLE_ALPHA_MID),
       radius: POINT_CIRCLE_RADIUS_MID,
       position,
     });
@@ -528,7 +517,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
     const position = s.reverse().pos(v.position);
     draw.circle({
-      stroke: color.setAlpha(v.color, 1),
+      stroke: color.setOpacity(v.color, 1),
       strokeWidth: HOVER_CIRCLE_STROKE_WIDTH,
       lineDash: HOVER_CIRCLE_LINE_DASH,
       radius: HOVER_CIRCLE_OUTER_RADIUS,
@@ -560,13 +549,13 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const onePos = s.pos(oneValue.position);
     const twoPos = s.pos(twoValue.position);
 
-    const xDistRaw = Math.abs(oneValue.value.x - twoValue.value.x);
+    const xDistRaw = twoValue.value.x - oneValue.value.x;
     const yDistRaw = twoValue.value.y - oneValue.value.y;
     const yDist = Math.abs(yDistRaw);
     if (!Number.isFinite(xDistRaw) || !Number.isFinite(yDist)) return;
 
-    const xDist = new TimeSpan(xDistRaw);
-    const slope = yDistRaw / xDist.seconds;
+    const xDist = new TimeSpan(Math.abs(xDistRaw));
+    const slope = yDistRaw / new TimeSpan(xDistRaw).seconds;
 
     const xPixelDist = Math.abs(onePos.x - twoPos.x);
     const yPixelDist = Math.abs(onePos.y - twoPos.y);

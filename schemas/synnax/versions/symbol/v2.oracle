@@ -72,7 +72,8 @@ Handle struct {
 
 Spec struct {
     svg              string            {
-        @doc value "is the SVG markup defining the symbol's visual geometry."
+        @doc value           "is the SVG markup defining the symbol's visual geometry."
+        @validate min_length 1
     }
     states           State[]           {
         @doc value """
@@ -80,9 +81,10 @@ Spec struct {
         """
     }
     variant          string            {
-        @doc value """
+        @doc value           """
             is the symbol variant: 'static' or 'actuator'.
         """
+        @validate min_length 1
     }
     handles          Handle[]          {
         @doc value "contains connection points for linking to other diagram elements."

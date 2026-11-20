@@ -54,7 +54,7 @@ type (
 	contextPolicy uint8
 )
 
-//go:generate stringer -type=RoutineState
+//go:generate go tool stringer -type=RoutineState
 const (
 	RoutineStateStarting RoutineState = iota
 	RoutineStateRunning
@@ -65,7 +65,7 @@ const (
 	RoutineStatePanicked
 )
 
-//go:generate stringer -type=panicPolicy
+//go:generate go tool stringer -type=panicPolicy
 const (
 	propagatePanic panicPolicy = iota
 	recoverNoErr
@@ -75,7 +75,7 @@ const (
 const (
 	// cancelOnExit defines if the routine should cancel the context upon exiting.
 	cancelOnExit contextPolicy = iota + 1
-	// cancelOnFail defines if the routine should cancel the context upon exiting
+	// cancelOnFail defines if the routine should cancel the context upon exiting.
 	cancelOnFail
 )
 
@@ -140,7 +140,7 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 
 // WithBaseRetryInterval sets the base interval for the breaker used to restart the
 // goroutine. The base retry interval is how much time the breaker waits before trying
-// to restart for the first time. (Default: 1 second)
+// to restart for the first time. (Default: 1 second).
 func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.BaseInterval = retryInterval
@@ -166,7 +166,7 @@ func WithRetryOnPanic(maxRetries ...int) RoutineOption {
 }
 
 // WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
-// defines the rate by which the interval between two retries grow. (Default: 1)
+// defines the rate by which the interval between two retries grow. (Default: 1).
 func WithRetryScale(scale float64) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.Scale = scale
@@ -229,7 +229,7 @@ func (r *routine) info() RoutineInfo {
 	}
 }
 
-func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
+func (r *routine) runPrelude() (ctx context.Context, err error) {
 	r.ctx.mu.Lock()
 	defer r.ctx.mu.Unlock()
 
@@ -237,27 +237,20 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 		r.key = "anonymous_" + strconv.Itoa(len(r.ctx.mu.routines))
 	}
 
-	if r.useBreaker {
-		r.breaker, r.state.err = breaker.NewBreaker(r.ctx, r.breakerCfg)
-		if r.state.err != nil {
-			return r.ctx, false
-		}
-	}
-
 	r.ctx.mu.routines = append(r.ctx.mu.routines, r)
-
-	// If the context has already been canceled, don't even start the routine.
-	if r.ctx.Err() != nil {
-		r.state.state = RoutineStateFailed
-		r.state.err = r.ctx.Err()
-		return r.ctx, false
-	}
+	// A routine runs even when the context is already canceled, since it may own
+	// resources that only it releases.
 	r.state.state = RoutineStateStarting
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
 
-	return ctx, true
+	if r.useBreaker {
+		if r.breaker, err = breaker.NewBreaker(r.breakerCfg); err != nil {
+			return nil, err
+		}
+	}
+	return ctx, nil
 }
 
 // runPostlude decides the state of the goroutine upon exiting and combines err with
@@ -278,7 +271,7 @@ func (r *routine) runPostlude(err error) error {
 	defer r.ctx.mu.Unlock()
 
 	if err != nil {
-		_ = r.span.Error(err, context.Canceled)
+		err = r.span.Error(err, context.Canceled)
 		// Only non-context errors are considered failures.
 		if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
 			r.state.state = RoutineStateContextCanceled
@@ -330,8 +323,7 @@ func (r *routine) maybeRecover(panicReason any) error {
 	case propagatePanic:
 		r.state.state = RoutineStatePanicked
 		if err, ok := panicReason.(error); ok {
-			r.state.err = err
-			_ = r.span.Error(err)
+			r.state.err = r.span.Error(err)
 		}
 		r.span.End()
 		panic(panicReason)
@@ -379,40 +371,43 @@ func (r *routine) path() string {
 }
 
 func (r *routine) goRun(f func(context.Context) error) {
-	if ctx, proceed := r.runPrelude(); proceed {
-		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
-			r.ctx.mu.Lock()
-			r.state.state = RoutineStateRunning
-			r.ctx.mu.Unlock()
-
-			r.ctx.internal.Go(func() (err error) {
-				for {
-					recovered := false
-					func() {
-						defer func() {
-							if e := recover(); e != nil {
-								recovered = true
-								err = r.maybeRecover(e)
-							}
-						}()
-						err = f(ctx)
-					}()
-					if !recovered || !r.useBreaker || !r.breaker.Wait() {
-						break
-					}
-				}
-				// When a breaker-managed routine exits its retry loop and the context
-				// is cancelled, always report the context error. This ensures
-				// deterministic behavior regardless of whether the cancellation
-				// landed during the breaker wait or during a re-execution of f.
-				if r.useBreaker && r.ctx.Err() != nil {
-					err = r.ctx.Err()
-				}
-				err = r.runPostlude(err)
-				return err
-			})
-		})
+	ctx, err := r.runPrelude()
+	if err != nil {
+		r.ctx.internal.Go(func() error { return r.runPostlude(err) })
+		return
 	}
+	pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
+		r.ctx.mu.Lock()
+		r.state.state = RoutineStateRunning
+		r.ctx.mu.Unlock()
+
+		r.ctx.internal.Go(func() (err error) {
+			for {
+				recovered := false
+				func() {
+					defer func() {
+						if e := recover(); e != nil {
+							recovered = true
+							err = r.maybeRecover(e)
+						}
+					}()
+					err = f(ctx)
+				}()
+				if !recovered || !r.useBreaker || !r.breaker.Wait(ctx) {
+					break
+				}
+			}
+			// When a breaker-managed routine exits its retry loop and the context is
+			// cancelled, always report the context error. This ensures deterministic
+			// behavior regardless of whether the cancellation landed during the
+			// breaker wait or during a re-execution of f.
+			if r.useBreaker && r.ctx.Err() != nil {
+				err = r.ctx.Err()
+			}
+			err = r.runPostlude(err)
+			return err
+		})
+	})
 }
 
 func newRoutine(c *core, opts []RoutineOption) *routine {

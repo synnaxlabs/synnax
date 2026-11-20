@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
@@ -113,6 +114,65 @@ describe("Input", () => {
         fireEvent.blur(input);
         expect(onChange).toHaveBeenCalledWith("test");
       });
+
+      it("should discard typed text on Esc and show the stored value", () => {
+        const onChange = vi.fn();
+        render(<Input.Text value="stored" onChange={onChange} onlyChangeOnBlur />);
+        const input = screen.getByRole<HTMLInputElement>("textbox");
+        act(() => input.focus());
+        fireEvent.change(input, { target: { value: "typed" } });
+        fireEvent.keyDown(input, { key: "Escape" });
+        expect(document.activeElement).not.toBe(input);
+        expect(input.value).toBe("stored");
+        expect(onChange).not.toHaveBeenCalled();
+      });
+
+      it("should commit text typed after an Esc that keeps focus", () => {
+        const onChange = vi.fn();
+        render(
+          <Input.Text
+            value="stored"
+            onChange={onChange}
+            onlyChangeOnBlur
+            onKeyDown={(e) => e.preventDefault()}
+          />,
+        );
+        const input = screen.getByRole<HTMLInputElement>("textbox");
+        act(() => input.focus());
+        fireEvent.change(input, { target: { value: "typed" } });
+        fireEvent.keyDown(input, { key: "Escape" });
+        expect(document.activeElement).toBe(input);
+        expect(input.value).toBe("stored");
+        fireEvent.change(input, { target: { value: "again" } });
+        act(() => input.blur());
+        expect(onChange).toHaveBeenCalledExactlyOnceWith("again");
+      });
+
+      it("should not call onChange on a blur that leaves the text as it was", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Text value="original" onChange={onChange} onlyChangeOnBlur />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        fireEvent.blur(input);
+        fireEvent.focus(input);
+        fireEvent.change(input, { target: { value: "new" } });
+        fireEvent.change(input, { target: { value: "original" } });
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
+      });
+      it("should not write the focus value back over a change made while focused", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Text value="original" onChange={onChange} onlyChangeOnBlur />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        c.rerender(<Input.Text value="remote" onChange={onChange} onlyChangeOnBlur />);
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
+      });
     });
 
     describe("focus and blur handlers", () => {
@@ -134,7 +194,7 @@ describe("Input", () => {
     });
 
     describe("resetOnBlurIfEmpty", () => {
-      it("should reset to original value on blur if empty", () => {
+      it("should reset to the original value with no onChange on blur if empty", () => {
         const onChange = vi.fn();
         const c = render(
           <Input.Text
@@ -148,7 +208,44 @@ describe("Input", () => {
         fireEvent.focus(input);
         fireEvent.change(input, { target: { value: "" } });
         fireEvent.blur(input);
-        expect(onChange).toHaveBeenCalledWith("original");
+        expect(onChange).not.toHaveBeenCalled();
+        expect(input).toHaveProperty("value", "original");
+      });
+
+      it("should not write the focus value over a change made while focused when emptied", () => {
+        const onChange = vi.fn();
+        const props = { onChange, resetOnBlurIfEmpty: true, onlyChangeOnBlur: true };
+        const c = render(<Input.Text value="original" {...props} />);
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        c.rerender(<Input.Text value="remote" {...props} />);
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
+      });
+
+      it("should change an emptied value back to the original on blur", () => {
+        const onChange = vi.fn();
+        const Controlled = () => {
+          const [value, setValue] = useState("original");
+          return (
+            <Input.Text
+              value={value}
+              onChange={(next) => {
+                onChange(next);
+                setValue(next);
+              }}
+              resetOnBlurIfEmpty
+            />
+          );
+        };
+        const c = render(<Controlled />);
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange.mock.calls).toEqual([[""], ["original"]]);
+        expect(input).toHaveProperty("value", "original");
       });
 
       it("should not reset if input is not empty on blur", () => {
@@ -235,6 +332,19 @@ describe("Input", () => {
         expect(c.getByText("units")).toBeTruthy();
       });
 
+      it("should hold block content in the start and end content", () => {
+        const c = render(
+          <Input.Text
+            value=""
+            onChange={vi.fn()}
+            startContent={<div>swatch</div>}
+            endContent={<div>warning</div>}
+          />,
+        );
+        expect(c.getByText("swatch").parentElement?.tagName).toBe("DIV");
+        expect(c.getByText("warning").parentElement?.tagName).toBe("DIV");
+      });
+
       it("should focus the input when the end content is pressed", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} endContent="units" />);
         fireEvent.mouseDown(c.getByText("units"));
@@ -287,6 +397,17 @@ describe("Input", () => {
         const input = c.getByRole("textbox");
         fireEvent.keyDown(input, { key: "Escape" });
         expect(onKeyDown).toHaveBeenCalled();
+      });
+
+      it("should stop Escape at an input outside a modal", () => {
+        const onKeyDown = vi.fn();
+        render(
+          <div onKeyDown={onKeyDown}>
+            <Input.Text value="" onChange={vi.fn()} />
+          </div>,
+        );
+        fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+        expect(onKeyDown).not.toHaveBeenCalled();
       });
     });
 

@@ -28,11 +28,14 @@ type Handle struct {
 // EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind uint8
 
-//go:generate stringer -type=EdgeKind
+//go:generate go tool stringer -type=EdgeKind
 
 const (
+	// EdgeKindUnspecified has no kind set.
 	EdgeKindUnspecified EdgeKind = iota
+	// EdgeKindContinuous fires on every output of the source.
 	EdgeKindContinuous
+	// EdgeKindConditional fires only when the source output is truthy.
 	EdgeKindConditional
 )
 

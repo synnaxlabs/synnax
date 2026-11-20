@@ -10,6 +10,8 @@
 package analyzer_test
 
 import (
+	stdctx "context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -18,8 +20,19 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type failingModules struct{}
+
+func (failingModules) Resolve(_ stdctx.Context, path string) (*symbol.Symbol, error) {
+	return nil, errors.Newf("%q is an automation and cannot be imported", path)
+}
+
+func (failingModules) Search(stdctx.Context, string) ([]*symbol.Symbol, error) {
+	return nil, nil
+}
 
 var _ = Describe("Import Pass", func() {
 	// A fresh "time" module is allocated in BeforeEach so each test's
@@ -61,6 +74,24 @@ var _ = Describe("Import Pass", func() {
 			},
 		)
 
+		It(
+			"Should resolve a module through the root's module resolver",
+			func(bCtx SpecContext) {
+				userModule := symbol.Symbol{Name: "lib.m", Kind: symbol.KindModule}
+				root := symbol.NewRoot(
+					nil,
+					nil,
+					symbol.WithModules(StaticResolver{userModule}),
+				)
+				prog := MustSucceed(parser.Parse(`import lib.m`))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				alias := ctx.Scope.FindChild("m")
+				Expect(alias).ToNot(BeNil())
+				Expect(alias.Target.Name).To(Equal("lib.m"))
+			},
+		)
+
 		It("Should diagnose a duplicate import", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import ( time time )`))
 			ctx := context.NewRoot(bCtx, prog, root)
@@ -79,6 +110,19 @@ var _ = Describe("Import Pass", func() {
 		})
 
 		It(
+			"Should give a code to each error of the module resolver",
+			func(bCtx SpecContext) {
+				root := symbol.NewRoot(nil, nil, symbol.WithModules(failingModules{}))
+				prog := MustSucceed(parser.Parse(`import fill`))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+					`[E4000]: import failed: "fill" is an automation and cannot be imported`,
+				))
+			},
+		)
+
+		It(
 			"Should not double-report an unknown module as unused",
 			func(bCtx SpecContext) {
 				prog := MustSucceed(parser.Parse(`import banana`))
@@ -86,7 +130,7 @@ var _ = Describe("Import Pass", func() {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(
 					ctx.Diagnostics.String(),
-				).ToNot(ContainSubstring(`imported module "banana" is unused`))
+				).ToNot(ContainSubstring(`unused import: "banana"`))
 			},
 		)
 
@@ -120,7 +164,7 @@ var _ = Describe("Import Pass", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(
 				ctx.Diagnostics.String(),
-			).To(ContainSubstring(`imported module "time" is unused`))
+			).To(ContainSubstring(`unused import: "time"`))
 		})
 
 		It("Should not flag a used import", func(bCtx SpecContext) {

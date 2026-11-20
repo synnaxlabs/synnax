@@ -67,6 +67,14 @@ var _ = Describe("FaultyFS", func() {
 			},
 		),
 		Entry(
+			"write at",
+			WithFailWriteAt("a.bin"),
+			func(_ *FaultyFS, f xfs.File) error {
+				_, err := f.WriteAt([]byte("more"), 0)
+				return err
+			},
+		),
+		Entry(
 			"rename",
 			WithFailRename("a.bin"),
 			func(fs *FaultyFS, _ xfs.File) error { return fs.Rename("a.bin", "b.bin") },
@@ -80,6 +88,52 @@ var _ = Describe("FaultyFS", func() {
 			},
 		),
 	)
+
+	It("Should fail Open on the paths it names, or on every path", func() {
+		fs, f := openWrapped()
+		Expect(f.Close()).To(Succeed())
+		Expect(MustSucceed(fs.Open("b.bin", os.O_CREATE|os.O_RDWR)).Close()).
+			To(Succeed())
+		fs.SetOptions(WithFailOpen("a.bin"))
+		Expect(fs.Open("a.bin", os.O_RDONLY)).Error().To(MatchError(ErrFault))
+		Expect(MustSucceed(fs.Open("b.bin", os.O_RDONLY)).Close()).To(Succeed())
+		fs.SetOptions(WithFailOpen())
+		Expect(fs.Open("b.bin", os.O_RDONLY)).Error().To(MatchError(ErrFault))
+		Expect(fs.OpenFiles()).To(BeZero())
+	})
+
+	It("Should fail Remove on the paths it names, or on every path", func() {
+		fs, f := openWrapped()
+		Expect(f.Close()).To(Succeed())
+		Expect(MustSucceed(fs.Open("b.bin", os.O_CREATE|os.O_RDWR)).Close()).
+			To(Succeed())
+		fs.SetOptions(WithFailRemove("a.bin"))
+		Expect(fs.Remove("a.bin")).To(MatchError(ErrFault))
+		Expect(fs.Remove("b.bin")).To(Succeed())
+		fs.SetOptions(WithFailRemove())
+		Expect(fs.Remove("a.bin")).To(MatchError(ErrFault))
+		Expect(fs.Exists("a.bin")).To(BeTrue())
+	})
+
+	It("Should fail List on the paths it names, or on every path", func() {
+		fs, f := openWrapped()
+		DeferClose(f)
+		Expect(fs.Sub("nested")).ToNot(BeNil())
+		fs.SetOptions(WithFailList(""))
+		Expect(fs.List("")).Error().To(MatchError(ErrFault))
+		Expect(fs.List("nested")).To(BeEmpty())
+		fs.SetOptions(WithFailList())
+		Expect(fs.List("nested")).Error().To(MatchError(ErrFault))
+	})
+
+	It("Should fail Close on the paths it names and still close the file", func() {
+		fs, f := openWrapped()
+		other := MustSucceed(fs.Open("b.bin", os.O_CREATE|os.O_RDWR))
+		fs.SetOptions(WithFailClose("a.bin"))
+		Expect(f.Close()).To(MatchError(ErrFault))
+		Expect(other.Close()).To(Succeed())
+		Expect(fs.OpenFiles()).To(BeZero())
+	})
 
 	It("Should fail an operation on every path when the failure names none", func() {
 		fs, f := openWrapped()
@@ -95,6 +149,24 @@ var _ = Describe("FaultyFS", func() {
 		Expect(MustSucceed(fs.Stat("a.bin")).Name()).To(Equal("a.bin"))
 		Expect(fs.Remove("b.bin")).To(Succeed())
 		Expect(fs.Stat("a.bin")).Error().To(MatchError(ErrFault))
+	})
+
+	It("Should make a write wait for the function given to WithBeforeWrite", func() {
+		fs, f := openWrapped()
+		var ran bool
+		fs.SetOptions(WithBeforeWrite(func() { ran = true }))
+		Expect(f.Write([]byte("more"))).To(Equal(4))
+		Expect(ran).To(BeTrue())
+		Expect(f.Close()).To(Succeed())
+	})
+
+	It("Should make a removal wait for the function given to WithBeforeRemove", func() {
+		fs, f := openWrapped()
+		Expect(f.Close()).To(Succeed())
+		var ran bool
+		fs.SetOptions(WithBeforeRemove(func() { ran = true }))
+		Expect(fs.Remove("a.bin")).To(Succeed())
+		Expect(ran).To(BeTrue())
 	})
 
 	It("Should stop failing once its options are cleared", func() {

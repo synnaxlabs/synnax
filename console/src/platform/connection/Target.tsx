@@ -12,20 +12,21 @@ import "@/platform/connection/Target.css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Indicator } from "@/platform/connection/Indicator";
-import { STATUS_LABELS } from "@/platform/connection/labels";
+import { label as statusLabel } from "@/platform/connection/labels";
 import { useHeldChecking } from "@/platform/connection/useHeldChecking";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 /** The active Core on one line: its name, address, and reachability. */
 export const Target = (): ReactElement => {
-  const { variant, details } = Synnax.useConnectionStatus();
+  const status = Synnax.useConnectionStatus();
+  const { variant, details } = status;
   const checking = useHeldChecking(details.checking);
   const core = Session.Core.useSelectSelected();
-  const label = STATUS_LABELS[variant];
+  const label = statusLabel(status);
   return (
     <Flex.Box
       x

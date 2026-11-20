@@ -17,24 +17,23 @@ import { List as BaseList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
-import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Status } from "@synnaxlabs/pluto";
+import { Access, Label, Status } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
-import { ContextMenu } from "@/feature/status/list/ContextMenu";
+import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Status as PlatformStatus } from "@/platform/status";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const NoStatuses = (): ReactElement => {
   const openExplorer = Explorer.useOpenTab();
-  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No favorited statuses"
@@ -43,15 +42,6 @@ const NoStatuses = (): ReactElement => {
     />
   );
 };
-
-// The explorer renders the same statuses under List.itemNameID, and both lists can be
-// mounted at once, so the favorites rows carry their own edit-target ids.
-const favoriteNameID = (key: status.Key): string =>
-  BaseList.itemNameID(`favorite-${key}`);
-
-const contextMenu = Component.renderProp((props: Menu.ContextMenuMenuProps) => (
-  <ContextMenu {...props} nameID={favoriteNameID} />
-));
 
 const List = (): ReactElement => {
   const favorites = Session.Status.useSelectFavorites();
@@ -77,17 +67,17 @@ const List = (): ReactElement => {
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const { data: item } = Status.useResult({ key: itemKey });
-  const canRename = Access.useUpdateGranted(status.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(status.resourceID(itemKey));
   const { update: rename } = Status.useRename();
   if (item == null) return null;
-  const { name, time, variant, message, labels } = item;
+  const { name, time, variant, message } = item;
   return (
     <Select.Item className={CSS.B("status-list-item")} gap="small" y {...props}>
       <Flex.Box x justify="between">
         <Flex.Box x align="center" gap="small">
           <Base.Indicator variant={variant} />
           <Text.MaybeEditable
-            id={favoriteNameID(itemKey)}
+            id={BaseList.itemNameID(itemKey)}
             level="p"
             weight={450}
             status={variant}
@@ -110,13 +100,9 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
           {message}
         </Text.Text>
       )}
-      {labels != null && labels.length > 0 && (
+      {item.labels.length > 0 && (
         <Flex.Box x gap="small" wrap className={CSS.B("status-list-item-labels")}>
-          {labels.map((l) => (
-            <Tag.Tag key={l.key} size="tiny" color={l.color}>
-              {l.name}
-            </Tag.Tag>
-          ))}
+          <Label.Tags keys={item.labels} size="tiny" />
         </Flex.Box>
       )}
     </Select.Item>
@@ -143,8 +129,8 @@ const Content = (): ReactElement => (
 const Actions = (): ReactElement | null => {
   const openExplorer = Explorer.useOpenTab();
   const openCreate = PlatformStatus.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
-  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_RESOURCE_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_RESOURCE_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
@@ -154,9 +140,7 @@ const Actions = (): ReactElement | null => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create status" onClick={() => openCreate()}>
-          <Icon.Add />
-        </Toolbar.Action>
+        <Toolbar.CreateAction tooltip="Create status" onClick={() => openCreate()} />
       )}
     </Toolbar.Actions>
   );
@@ -170,5 +154,5 @@ export const TOOLBAR: Nav.Toolbar = {
   trigger: ["S"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(status.TYPE_RESOURCE_ID),
 };

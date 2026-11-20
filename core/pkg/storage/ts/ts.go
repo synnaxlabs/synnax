@@ -47,7 +47,11 @@ type (
 	StreamerResponse = cesium.StreamerResponse
 )
 
-const AutoSpan = cesium.AutoSpan
+const (
+	AutoSpan                       = cesium.AutoSpan
+	AlwaysIndexPersistOnAutoCommit = cesium.AlwaysIndexPersistOnAutoCommit
+)
+
 const (
 	WriterModePersistStream = cesium.WriterModePersistStream
 	WriterModePersistOnly   = cesium.WriterModePersistOnly

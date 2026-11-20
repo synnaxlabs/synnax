@@ -19,27 +19,22 @@ Follow these scripts in order:
 
 ### 1. Connect your device
 
-First, register your LabJack device with Synnax:
+The Synnax Driver finds connected LabJacks on its own. Name the device it found:
 
 ```bash
 uv run python examples/labjack/connect_device.py
 ```
 
-This script will:
-
-- Check if the device is already registered
-- Register the device with the embedded Synnax rack
-- Set up the device configuration
+This script waits for the Driver to find the device, then names it so that the other
+examples can retrieve it.
 
 **Configuration**: Edit the constants at the top of `connect_device.py` to match your
 device:
 
 - `DEVICE_NAME`: A friendly name for your device
 - `MODEL`: Device model (`labjack.T4`, `labjack.T7`, or `labjack.T8`)
-- `IDENTIFIER`: How to find your device (`"ANY"`, serial number, IP address, or device
-  name)
-- `CONNECTION_TYPE`: Connection method (`"ANY"`, `"USB"`, `"TCP"`, `"ETHERNET"`, or
-  `"WIFI"`)
+- `SERIAL_NUMBER`: The serial number on the device label, or `None` for the first device
+  of `MODEL`
 
 ### 2. Read data from analog inputs
 
@@ -104,34 +99,12 @@ uv run python examples/labjack/delete_device.py
 
 This will remove the device and all associated tasks from Synnax.
 
-## Common device configurations
+## Network devices
 
-### USB connection (default)
-
-```python
-IDENTIFIER = "ANY"
-CONNECTION_TYPE = "USB"
-```
-
-The driver will connect to any LabJack device found on USB.
-
-### Specific serial number
-
-```python
-IDENTIFIER = "470012345"  # Replace with your serial number
-CONNECTION_TYPE = "ANY"
-```
-
-Connect to a specific device by serial number.
-
-### Ethernet/WiFi connection
-
-```python
-IDENTIFIER = "192.168.1.100"  # Replace with your device IP
-CONNECTION_TYPE = "ETHERNET"  # or "WIFI"
-```
-
-Connect to a network-connected LabJack.
+The Driver finds LabJacks on the local network. If it does not find one, for example
+because the device is on another subnet, add the device's IP address to LJM's
+`ljm_specific_ips.config` file. See
+[LJM specific IPs](https://support.labjack.com/docs/ljm-specific-ips).
 
 ## Channel types
 
@@ -177,7 +150,7 @@ Synnax. For example, 100 Hz sampling with 25 Hz streaming sends 4 samples per pa
 
 - Ensure the device is physically connected
 - Check the LJM driver is installed
-- Try `IDENTIFIER = "ANY"` to find any available device
+- Set `SERIAL_NUMBER = None` to use the first device of `MODEL`
 - Check device power and USB cable
 
 ### "Failed to connect device"

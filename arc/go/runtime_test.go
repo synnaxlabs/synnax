@@ -34,10 +34,13 @@ import (
 	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 // runtimeHarness provides a full end-to-end test harness that compiles Arc source
@@ -62,25 +65,78 @@ func newRuntimeHarness(
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
 	GinkgoHelper()
-	stlSyms := stl.NewSymbols()
-	ambient := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
-	ambient = append(ambient, stlSyms...)
-	for i := range channelSyms {
-		s := channelSyms[i]
-		ambient = append(ambient, &s)
-	}
-	root := symbol.NewRoot(nil, ambient)
-	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
+	return newModuleRuntimeHarness(ctx, source, nil, channelSyms, channelDigests...)
+}
 
+// compileWithModules compiles source with the STL, channelSyms, and the user modules in
+// modules, keyed by import path.
+func compileWithModules(
+	ctx context.Context,
+	source string,
+	modules map[string]string,
+	channelSyms []symbol.Symbol,
+) arc.Program {
+	GinkgoHelper()
+	ambient := func() []*symbol.Symbol {
+		stlSyms := stl.NewSymbols()
+		syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
+		syms = append(syms, stlSyms...)
+		for i := range channelSyms {
+			s := channelSyms[i]
+			syms = append(syms, &s)
+		}
+		return syms
+	}
+	loader := text.NewLoader(text.LoaderConfig{
+		Source: func(_ context.Context, path string) (text.Text, error) {
+			src, ok := modules[path]
+			if !ok {
+				return text.Text{}, errors.Wrapf(symbol.ErrModuleNotFound, "%q", path)
+			}
+			return text.Text{Raw: src}, nil
+		},
+		Ambient: ambient,
+	})
+	root := symbol.NewRoot(nil, ambient(), symbol.WithModules(loader))
+	return MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
+}
+
+func createNodes(
+	factory node.Factory,
+	prog arc.Program,
+	nodeState *node.ProgramState,
+) map[string]node.Node {
+	GinkgoHelper()
+	nodes := make(map[string]node.Node, len(prog.Nodes))
+	for _, irNode := range prog.Nodes {
+		nodes[irNode.Key] = MustSucceed(factory.Create(node.Config{
+			Node:    irNode,
+			Program: prog,
+			State:   nodeState.Node(irNode.Key),
+		}))
+	}
+	return nodes
+}
+
+// newModuleRuntimeHarness compiles source with the user modules in modules, keyed by
+// import path, and runs the program.
+func newModuleRuntimeHarness(
+	ctx context.Context,
+	source string,
+	modules map[string]string,
+	channelSyms []symbol.Symbol,
+	channelDigests ...channels.Digest,
+) *runtimeHarness {
+	GinkgoHelper()
+	prog := compileWithModules(ctx, source, modules, channelSyms)
 	nodeState := node.New(prog.IR)
 	channelState := channels.NewProgramState(channelDigests)
 	seriesState := series.NewProgramState()
 	stringsState := stlstrings.NewProgramState()
 	authorityState := &control.ProgramState{}
-
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 
-	timeMod := MustSucceed(time.NewHost(ctx, wasmRT))
+	timeMod := MustSucceed(time.NewHost(ctx, wasmRT, stringsState, discardReport))
 	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
 	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
 	MustSucceed(series.NewHost(ctx, wasmRT, seriesState))
@@ -106,15 +162,11 @@ func newRuntimeHarness(
 		authorityState: authorityState,
 		nodeState:      nodeState,
 		wasmRT:         wasmRT,
+		timeMod:        timeMod,
 	}
 
 	if len(prog.WASM) > 0 {
-		guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
-		stringsMod.SetMemory(guest.Memory())
-		errorsMod.SetMemory(guest.Memory())
-		h.closers = append(h.closers, func(ctx context.Context) error {
-			return guest.Close(ctx)
-		})
+		guest := h.instantiate(ctx, prog.WASM, stringsMod, errorsMod)
 		factory = append(factory, &wasm.Module{
 			Module:        guest,
 			Memory:        guest.Memory(),
@@ -123,24 +175,25 @@ func newRuntimeHarness(
 		})
 	}
 
-	nodes := make(map[string]node.Node)
-	for _, irNode := range prog.Nodes {
-		n := MustSucceed(factory.Create(node.Config{
-			Node:    irNode,
-			Program: prog,
-			State:   nodeState.Node(irNode.Key),
-		}))
-		nodes[irNode.Key] = n
-	}
-
+	nodes := createNodes(factory, prog, nodeState)
 	h.scheduler = MustSucceed(scheduler.New(prog.IR, nodes))
-	h.timeMod = timeMod
-
-	h.closers = append(h.closers, func(ctx context.Context) error {
-		return wasmRT.Close(ctx)
-	})
-
+	h.closers = append(h.closers, wasmRT.Close)
 	return h
+}
+
+// instantiate instantiates the guest module and points the hosts at its memory.
+func (h *runtimeHarness) instantiate(
+	ctx context.Context,
+	guestWASM []byte,
+	stringsMod *stlstrings.Host,
+	errorsMod *stlerrors.Host,
+) api.Module {
+	GinkgoHelper()
+	guest := MustSucceed(h.wasmRT.Instantiate(ctx, guestWASM))
+	h.closers = append(h.closers, guest.Close)
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+	return guest
 }
 
 func (h *runtimeHarness) Close(ctx context.Context) {

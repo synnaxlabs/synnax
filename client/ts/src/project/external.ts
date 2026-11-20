@@ -7,5 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/project/actions.gen";
 export * from "@/project/client";
+export type { MovePayload } from "@/project/member";
+export * from "@/project/member";
 export * from "@/project/types.gen";
+export type { WhereInput } from "@/project/where.gen";

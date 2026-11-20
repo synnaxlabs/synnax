@@ -13,6 +13,12 @@ export interface Page {
   html: string;
 }
 
+/** A line of a source file. The file is relative to the docs package. */
+export interface Source {
+  file: string;
+  line: number;
+}
+
 export interface Context {
   /** Normalized routes of every page the crawler fetched. */
   routes: Set<string>;
@@ -21,11 +27,13 @@ export interface Context {
   /**
    * Fetches a URL, returning null on success and a failure reason otherwise. A URL with
    * a fragment also fails when the document lacks the anchor target. An external URL
-   * fails only on proof that it is dead, such as a 404; an outage on its host is a
-   * warning. External hosts get caching, retries, and per-host serialization; the
-   * checks' own server is fetched directly.
+   * fails only on proof that it is dead, such as a 404; an outage or bot wall on its
+   * host is a warning. External hosts get caching, retries, and per-host serialization;
+   * the checks' own server is fetched directly.
    */
   fetchOk: (url: string) => Promise<string | null>;
+  /** Reports a problem that does not fail the run, at its source when known. */
+  warn: (message: string, at: Source | null) => void;
 }
 
 export interface Check {

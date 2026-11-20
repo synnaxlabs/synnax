@@ -25,8 +25,9 @@ import (
 
 // New opens a new in-memory key-value store implementing the kv.DB interface.
 func New() kv.DB {
+	logger := pebblekv.NewNoopLogger()
 	return pebblekv.Wrap(lo.Must(pebble.Open("", &pebble.Options{
 		FS:     vfs.NewMem(),
-		Logger: pebblekv.NewNoopLogger(),
-	})))
+		Logger: logger,
+	})), logger)
 }

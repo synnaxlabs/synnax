@@ -7,18 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import {
   NegatedSwitchField,
   type NegatedSwitchFieldProps,
 } from "@/schematic/node/common/form/NegatedSwitch";
 
+const path = deep.path<{ control: { hidden: boolean } }>();
+
 export const ControlChipField = (
   props: Partial<NegatedSwitchFieldProps>,
 ): ReactElement => (
   <NegatedSwitchField
-    path="control.hidden"
+    path={path.control.hidden}
     label="Control chip"
     padHelpText={false}
     {...props}

@@ -72,12 +72,6 @@ var _ = Describe("Arc", func() {
 			Expect(v0.Arc{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Arc{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("NormalizeKeys", func() {
@@ -86,6 +80,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(xmsgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Arc{Key: uuid.New(), Name: "Autosequence"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -103,13 +98,13 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[v0.Key, v0.Arc](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })
 
 var _ = Describe("Graph", func() {
-	It("Should decode a graph stored by a v0.53 Core", func(ctx SpecContext) {
+	It("Should decode a graph stored by a v0.53 Core", func() {
 		// An Arc as a v0.53.4 Core stored it: an "on" node wired to a "write" node.
 		stored := MustSucceed(hex.DecodeString(
 			"87a47465787482a3415354c0a3726177a0a776657273696f6ea0a46e616d65a96772" +
@@ -128,7 +123,7 @@ var _ = Describe("Graph", func() {
 				"00a45a6f6f6dca00000000a36b6579c41096e1d792008a4905a3bc5c9fc103cdda",
 		))
 		var a v0.Arc
-		Expect(xmsgpack.Codec.Decode(ctx, stored, &a)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(stored, &a)).To(Succeed())
 		Expect(a.Name).To(Equal("graph arc"))
 		Expect(a.Graph.Nodes).To(HaveLen(2))
 		Expect(a.Graph.Nodes[0]).To(And(

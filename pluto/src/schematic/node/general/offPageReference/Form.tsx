@@ -7,23 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, schematic } from "@synnaxlabs/client";
+import { resource, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type record, type text } from "@synnaxlabs/x";
+import { color, deep, type record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
-import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
+import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
+
+const path = deep.path<schematic.OffPageReferenceNodeConfig>();
 
 export const colorFallbacks = {
   fillColor: Form.defaultFallback,
@@ -51,23 +53,27 @@ interface Sibling extends record.KeyedNamed {
   icon: Icon.ReactElement;
 }
 
-const selectKey = (page?: schematic.Page | null): string =>
-  page == null || page.key.length === 0 ? "" : ontology.idToString(page);
+const selectKey = (page: schematic.Page): string =>
+  page.key.length === 0 ? "" : resource.idToString(page);
 
 const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return (v: string | null) => {
-    const prev = ctx.get<schematic.Page | undefined>("page", {
-      optional: true,
-    })?.value;
+    const prev = ctx.get(path.page).value;
     const cleared = v == null || v.length === 0;
     ctx.set(
-      "page",
-      cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
+      path.page,
+      cleared
+        ? { ...prev, key: "" }
+        : schematic.pageZ.parse(resource.stringIDZ.parse(v)),
     );
-    const hadPage = prev != null && prev.key.length > 0;
-    if (!hadPage && !cleared) ctx.set("fillColor", color.hex(theme.colors.primary.z));
+    const hadPage = prev.key.length > 0;
+    if (!hadPage && !cleared)
+      ctx.set(path.fillColor, {
+        type: "fixed",
+        value: color.construct(theme.colors.primary.z),
+      });
   };
 };
 
@@ -79,17 +85,17 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     setSiblings([]);
     if (client == null || schematicKey == null) return;
     handleError(async () => {
-      const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(schematicKey),
+      const retrieved = await Project.retrieveSiblings(client, {
+        resourceID: schematic.resourceID(schematicKey),
         types: [...schematic.PAGE_TYPES],
       });
       setSiblings(
-        children.flatMap(({ key, name, type }) => {
+        retrieved.flatMap(({ key, name, type }) => {
           const pageType = schematic.pageTypeZ.safeParse(type);
           if (!pageType.success) return [];
           const PageIcon = PAGE_ICONS[pageType.data];
           return {
-            key: ontology.idToString({ type: pageType.data, key }),
+            key: resource.idToString({ type: pageType.data, key }),
             name,
             icon: <PageIcon />,
           };
@@ -98,14 +104,12 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     }, "Failed to retrieve project pages");
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
-  const page = Base.useFieldValue<schematic.Page | undefined>("page", {
-    optional: true,
-  });
+  const page = Base.useFieldValue(path.page);
   return (
     <Base.Sections x>
       <Base.Section title="Label">
-        <Base.TextField path="label.label" label="Label" padHelpText={false} />
-        <Base.Field<text.Level> path="label.level" label="Size" padHelpText={false}>
+        <Base.TextField path={path.label.label} label="Label" padHelpText={false} />
+        <Base.Field path={path.label.level} label="Size" padHelpText={false}>
           {(p) => <Form.SelectTextLevel {...p} />}
         </Base.Field>
       </Base.Section>
@@ -126,8 +130,8 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
             ))}
           </Select.Simple>
         </Input.Item>
-        <Base.Field<boolean>
-          path="dblClickNavDisabled"
+        <Base.Field
+          path={path.doubleClickNavigationDisabled}
           label="Click mode"
           padHelpText={false}
         >
@@ -137,7 +141,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
       <Base.Section title="Appearance">
         <Form.FillField fallback={colorFallbacks.fillColor} />
       </Base.Section>
-      <Orientation.Section path="" hideOuter />
+      <Orientation.Section path={path} hideOuter />
     </Base.Sections>
   );
 };

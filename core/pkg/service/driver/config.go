@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -28,12 +28,14 @@ import (
 type Config struct {
 	// Factories are the factories for creating tasks.
 	Factories []Factory
-	// Host is the node key of the current host.
-	Host cluster.HostProvider
+	// HostKey is the key of the host node.
+	HostKey node.Key
 	// DB is the gorp database for observing task changes.
 	DB *gorp.DB
 	// Rack is the rack service for creating/managing racks.
 	Rack *rack.Service
+	// RackKey is the key of the Core's rack, which runs the tasks of the driver.
+	RackKey rack.Key
 	// Task is the task service for managing tasks.
 	Task *task.Service
 	// Framer is the framer service for streaming commands.
@@ -61,12 +63,13 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Factories = override.Slice(c.Factories, other.Factories)
-	c.Host = override.Nil(c.Host, other.Host)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.HeartbeatInterval = override.Numeric(c.HeartbeatInterval, other.HeartbeatInterval)
 	c.TaskTimeout = override.Numeric(c.TaskTimeout, other.TaskTimeout)
 	return c
@@ -77,11 +80,12 @@ func (c Config) Validate() error {
 	v := validate.New("service.driver")
 	v.NotNil("db", c.DB)
 	v.NotNil("rack", c.Rack)
+	v.NonZero("rack_key", c.RackKey)
 	v.NotNil("task", c.Task)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
 	v.NotEmptySlice("factories", c.Factories)
-	v.NotNil("host", c.Host)
+	v.NonZero("host_key", c.HostKey)
 	return v.Error()
 }

@@ -12,11 +12,11 @@ import { EOF } from "@synnaxlabs/freighter";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { breaker, errors, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
-import {
-  type BaseLanguageClient,
-  type LanguageClientOptions,
-  type MessageTransports,
+import type { Message, MessageReader, MessageWriter } from "vscode-jsonrpc";
+import type {
+  BaseLanguageClient,
+  LanguageClientOptions,
+  MessageTransports,
 } from "vscode-languageclient/browser";
 
 /** LSPMessage is a single framed LSP message carried over the transport. */
@@ -24,12 +24,13 @@ export interface LSPMessage {
   content: string;
 }
 
-/** LSPStream is the bidirectional message stream a language server is reached through. It
- * is structurally a freighter stream of LSPMessages, so a concrete
- * `Stream<lspMessageZ, lspMessageZ>` satisfies it without code depending on the schema. */
+/** LSPStream is the bidirectional message stream a language server is reached through.
+ * It is structurally a freighter stream of LSPMessages, so a concrete
+ * `Stream<lspMessageZ, lspMessageZ>` satisfies it without code depending on the schema.
+ */
 export interface LSPStream {
   receive: () => Promise<LSPMessage>;
-  send: (req: LSPMessage) => void;
+  send: (req: LSPMessage) => Promise<void>;
   closeSend: () => void;
 }
 
@@ -51,8 +52,7 @@ const createFreighterTransport = ({
   let onErrorCallback: ((error: Error) => void) | null = null;
   let onMessageCallback: ((message: Message) => void) | null = null;
 
-  let resolveClosed: () => void;
-  const closed = new Promise<void>((r) => (resolveClosed = r));
+  const { promise: closed, resolve: resolveClosed } = Promise.withResolvers<void>();
 
   const receiveLoop = async () => {
     try {
@@ -99,7 +99,7 @@ const createFreighterTransport = ({
   const writer: MessageWriter = {
     write: async (message) => {
       if (isClosed) throw new Error("Stream is closed");
-      stream.send({ content: JSON.stringify(message) });
+      await stream.send({ content: JSON.stringify(message) });
     },
     dispose: () => (isClosed = true),
     onError: (callback) => {
@@ -128,8 +128,8 @@ type LanguageClientConstructor = new (
 let languageClientConstructor: LanguageClientConstructor | null = null;
 
 // loadLanguageClientConstructor lazily imports vscode-languageclient and builds the
-// subclass on first use. The import is deferred so that merely importing this module does
-// not pull in the browser-only language client and its monaco dependencies.
+// subclass on first use. The import is deferred so that merely importing this module
+// does not pull in the browser-only language client and its monaco dependencies.
 const loadLanguageClientConstructor = async (): Promise<LanguageClientConstructor> => {
   if (languageClientConstructor != null) return languageClientConstructor;
   const { BaseLanguageClient } = await import("vscode-languageclient/browser");
@@ -215,10 +215,11 @@ export interface UseLanguageServerParams {
   onStatus: (status: status.Status) => void;
 }
 
-/** useLanguageServer runs a reconnecting language client for the lifetime of the calling
- * component, opening the stream via open and reporting connection state through onStatus.
- * It is a no-op (and reports a disabled status) until both monaco and client are ready.
- * Connection failures never throw into render — they surface only through onStatus. */
+/** useLanguageServer runs a reconnecting language client for the lifetime of the
+ * calling component, opening the stream via open and reporting connection state through
+ * onStatus. It is a no-op (and reports a disabled status) until both monaco and client
+ * are ready. Connection failures never throw into render — they surface only through
+ * onStatus. */
 export const useLanguageServer = ({
   monaco,
   client,

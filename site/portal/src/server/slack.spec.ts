@@ -9,8 +9,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Visit } from "@/server/analytics";
-import { type Organization } from "@/server/db/schema";
+import type { Visit } from "@/server/analytics";
+import type { Organization } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import {
   active,
@@ -165,6 +165,7 @@ describe("slack", () => {
         name: "Acme",
         clerkOrgID: "org_acme",
         ownerUserID: null,
+        desktopChannels: null,
         createdAt: NOW,
       };
       expect(
@@ -220,12 +221,21 @@ describe("slack", () => {
           facts: [
             { label: "Email", value: "ada@example.com" },
             { label: "Machine", value: "stand-1" },
-            { label: "Time", value: "14:02 UTC" },
+            { label: "Time", value: "08:02 MDT" },
             { label: "Last active", value: "9 days ago" },
             { label: "Active days", value: "12 of the last 30" },
           ],
           links: [{ label: "Open the user", href: "/admin/users/user_a" }],
         });
+      });
+
+      it("should read the time in MST outside daylight saving time", () => {
+        const note = active({
+          ...arrival,
+          at: new Date("2026-11-06T03:30:00Z"),
+          previous: null,
+        });
+        expect(note.facts.find((f) => f.label === "Time")?.value).toBe("20:30 MST");
       });
 
       it("should say yesterday, or never, for the last use", () => {
@@ -255,7 +265,7 @@ describe("slack", () => {
           title: "Ada Lovelace used Synnax Desktop for 1 h 38 min",
           facts: [
             { label: "Email", value: "ada@example.com" },
-            { label: "Time", value: "14:02 to 15:40 UTC" },
+            { label: "Time", value: "08:02 to 09:40 MDT" },
             { label: "App", value: "1.0.0 on macos" },
             {
               label: "Actions",
@@ -290,17 +300,31 @@ describe("slack", () => {
           "Someone who is not logged in used Synnax Desktop for under a minute",
         );
         expect(note.facts).toEqual([
-          { label: "Time", value: "14:02 to 14:02 UTC" },
+          { label: "Time", value: "08:02 to 08:02 MDT" },
           { label: "Actions", value: "None" },
           { label: "Screens", value: "None" },
         ]);
         expect(note.links.map((l) => l.label)).toEqual(["Watch the replay"]);
       });
 
+      it("should name each zone when a visit crosses a daylight saving change", () => {
+        const note = recap(
+          {
+            ...VISIT,
+            start: new Date("2026-03-08T08:55:00Z"),
+            end: new Date("2026-03-08T09:10:00Z"),
+          },
+          null,
+        );
+        expect(note.facts.find((f) => f.label === "Time")?.value).toBe(
+          "01:55 MST to 03:10 MDT",
+        );
+      });
+
       it("should name a user Clerk does not know by their email", () => {
         const note = recap(VISIT, null);
         expect(note.title).toBe("ada@example.com used Synnax Desktop for 1 h 38 min");
-        expect(note.facts[0]).toEqual({ label: "Time", value: "14:02 to 15:40 UTC" });
+        expect(note.facts[0]).toEqual({ label: "Time", value: "08:02 to 09:40 MDT" });
       });
 
       it("should read whole hours without minutes", () => {

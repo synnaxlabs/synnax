@@ -14,26 +14,41 @@ import { describe, expect, it } from "vitest";
 import { colorFallback } from "@/schematic/element";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
+const SERIES = [color.construct("#dc136c"), color.construct("#20a4f3")];
 
 describe("colorFallback", () => {
   it("should return the fallback the variant's spec declares", () => {
-    expect(colorFallback("strokeColor", "gauge", THEME)).toEqual(
-      THEME.colors.visualization.palettes.default[0],
+    expect(colorFallback("strokeColor", "gauge", THEME, SERIES)).toEqual(SERIES[0]);
+    expect(colorFallback("textColor", "tank", THEME, SERIES)).toEqual(
+      THEME.colors.gray.l10,
     );
-    expect(colorFallback("textColor", "tank", THEME)).toEqual(THEME.colors.gray.l10);
-    expect(colorFallback("fillColor", "button", THEME)).toEqual(THEME.colors.primary.z);
+    expect(colorFallback("fillColor", "button", THEME, SERIES)).toEqual(
+      THEME.colors.primary.z,
+    );
   });
 
   it("should return no fill for a variant that declares no fill fallback", () => {
-    expect(colorFallback("fillColor", "tank", THEME)).toEqual(color.ZERO);
+    expect(colorFallback("fillColor", "tank", THEME, SERIES)).toEqual(
+      color.TRANSPARENT,
+    );
   });
 
   it("should return the default for a stroke or text the variant does not override", () => {
-    expect(colorFallback("strokeColor", "valve", THEME)).toEqual(THEME.colors.gray.l11);
-    expect(colorFallback("textColor", "value", THEME)).toEqual(THEME.colors.gray.l11);
+    expect(colorFallback("strokeColor", "valve", THEME, SERIES)).toEqual(
+      THEME.colors.gray.l11,
+    );
+    expect(colorFallback("textColor", "value", THEME, SERIES)).toEqual(
+      THEME.colors.gray.l11,
+    );
+  });
+
+  it("should paint a gauge transparent while the series colors load", () => {
+    expect(colorFallback("strokeColor", "gauge", THEME, [])).toEqual(color.TRANSPARENT);
   });
 
   it("should resolve the fallbacks of edge variants", () => {
-    expect(colorFallback("strokeColor", "pipe", THEME)).toEqual(THEME.colors.gray.l11);
+    expect(colorFallback("strokeColor", "pipe", THEME, SERIES)).toEqual(
+      THEME.colors.gray.l11,
+    );
   });
 });

@@ -61,7 +61,7 @@ class RoleViewerPermissions(RoleCase):
         self.owner_creates_and_actuates()
         self.login_as_role()
         self.assert_badge_names_role()
-        self.assert_users_toolbar_hidden()
+        self.assert_users_page_hidden()
         self.creation_commands_are_hidden()
         self.mosaic_is_static()
         self.tab_menu_offers_no_writes()
@@ -168,3 +168,6 @@ class RoleViewerPermissions(RoleCase):
         )
         valve.press()
         self.wait_for_eq(VALVE_CHANNEL, 0, timeout=0)
+        assert not self.console.layout.check_for_errors("Failed to acquire control"), (
+            "a Viewer's press opened a writer that the Core denied"
+        )

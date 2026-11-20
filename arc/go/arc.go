@@ -30,8 +30,6 @@ import (
 type (
 	IR             = ir.IR
 	Node           = ir.Node
-	Edge           = ir.Edge
-	Function       = ir.Function
 	SymbolResolver = symbol.Resolver
 	Graph          = graph.Graph
 	Text           = text.Text

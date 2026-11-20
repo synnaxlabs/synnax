@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
-
 from examples.mqtt_sim.server import (
     SPARKPLUG_DEVICE,
     SPARKPLUG_EDGE_NODE,
@@ -17,7 +15,12 @@ from examples.mqtt_sim.server import (
 
 import synnax as sy
 from synnax import mqtt
-from tests.driver.mqtt_task import MQTTWriteTaskCase, run_reader, write_until
+from tests.driver.mqtt_task import (
+    MQTTWriteTaskCase,
+    create_plain_entry,
+    run_reader,
+    write_until,
+)
 from tests.driver.task import create_channel, create_index
 
 
@@ -69,14 +72,13 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                 device=device.key,
                 name=f"{self.task_name} Echo Reader",
                 channel="mqtt_valve_state_payload",
-                data_type=sy.DataType.STRING,
-                entry=lambda echo: mqtt.PlainReadEntry(
+                data_type=sy.DataType.JSON,
+                entry=lambda echo: create_plain_entry(
+                    self.client,
                     topic="plant/valve/state",
                     retained_ignored=True,
-                    fields=[
-                        mqtt.ReadField(
-                            pointer="", channel=echo.key, data_type=sy.DataType.STRING
-                        )
+                    bindings=[
+                        (sy.icd.JSONJSONField(name="payload", pointer=""), echo.key)
                     ],
                 ),
             ) as echo,
@@ -89,11 +91,13 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                 watched=echo,
                 matches=lambda _: True,
             )
-        payload = json.loads(str(sample))
-        if payload["position"] != 42.5 or payload["source"] != "synnax":
-            raise AssertionError(f"Unexpected command payload: {payload}")
-        if len(payload["id"]) != 36:
-            raise AssertionError(f"Payload has no generated UUID: {payload}")
+        if not isinstance(sample, dict):
+            raise AssertionError(f"Command payload is not an object: {sample!r}")
+        if sample["position"] != 42.5 or sample["source"] != "synnax":
+            raise AssertionError(f"Unexpected command payload: {sample}")
+        payload_id = sample["id"]
+        if not isinstance(payload_id, str) or len(payload_id) != 36:
+            raise AssertionError(f"Payload has no generated UUID: {sample}")
 
 
 class MQTTWriteSparkplug(MQTTWriteTaskCase):

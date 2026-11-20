@@ -33,48 +33,48 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
 }
 
 ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> &lib_): lib(std::move(lib_)) {
-    memset(&function_pointers_, 0, sizeof(function_pointers_));
-    function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
+    memset(&function_pointers, 0, sizeof(function_pointers));
+    function_pointers.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgInitializeSession"))
     );
 
-    function_pointers_.CreateFilter = reinterpret_cast<CreateFilterPtr>(
+    function_pointers.CreateFilter = reinterpret_cast<CreateFilterPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgCreateFilter"))
     );
 
-    function_pointers_.SetFilterPropertyV = reinterpret_cast<SetFilterPropertyVPtr>(
+    function_pointers.SetFilterPropertyV = reinterpret_cast<SetFilterPropertyVPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgSetFilterPropertyV"))
     );
 
-    function_pointers_.CloseHandle = reinterpret_cast<CloseHandlePtr>(
+    function_pointers.CloseHandle = reinterpret_cast<CloseHandlePtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgCloseHandle"))
     );
 
-    function_pointers_.FindHardware = reinterpret_cast<FindHardwarePtr>(
+    function_pointers.FindHardware = reinterpret_cast<FindHardwarePtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgFindHardware"))
     );
 
-    function_pointers_.NextResource = reinterpret_cast<NextResourcePtr>(
+    function_pointers.NextResource = reinterpret_cast<NextResourcePtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgNextResource"))
     );
 
-    function_pointers_.GetResourceProperty = reinterpret_cast<GetResourcePropertyPtr>(
+    function_pointers.GetResourceProperty = reinterpret_cast<GetResourcePropertyPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgGetResourceProperty"))
     );
 
-    function_pointers_
+    function_pointers
         .GetResourceIndexedProperty = reinterpret_cast<GetResourceIndexedPropertyPtr>(
         const_cast<void *>(
             this->lib->get_func_ptr("NISysCfgGetResourceIndexedProperty")
         )
     );
 
-    function_pointers_
+    function_pointers
         .GetStatusDescriptionW = reinterpret_cast<GetStatusDescriptionWPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgGetStatusDescriptionW"))
     );
 
-    function_pointers_.FreeDetailedStringW = reinterpret_cast<FreeDetailedStringWPtr>(
+    function_pointers.FreeDetailedStringW = reinterpret_cast<FreeDetailedStringWPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgFreeDetailedStringW"))
     );
 }
@@ -89,7 +89,7 @@ NISYSCFGCFUNC ProdAPI::InitializeSession(
     NISysCfgEnumExpertHandle *expertEnumHandle,
     NISysCfgSessionHandle *sessionHandle
 ) {
-    return function_pointers_.InitializeSession(
+    return function_pointers.InitializeSession(
         targetName,
         username,
         password,
@@ -105,7 +105,7 @@ NISYSCFGCFUNC ProdAPI::CreateFilter(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterHandle *filterHandle
 ) {
-    return function_pointers_.CreateFilter(sessionHandle, filterHandle);
+    return function_pointers.CreateFilter(sessionHandle, filterHandle);
 }
 
 NISYSCFGCDECL ProdAPI::SetFilterPropertyV(
@@ -113,7 +113,7 @@ NISYSCFGCDECL ProdAPI::SetFilterPropertyV(
     NISysCfgFilterProperty propertyID,
     va_list args
 ) {
-    return function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
+    return function_pointers.SetFilterPropertyV(filterHandle, propertyID, args);
 }
 
 NISYSCFGCDECL ProdAPI::SetFilterProperty(
@@ -139,7 +139,7 @@ NISYSCFGCDECL ProdAPI::SetFilterProperty(
 }
 
 NISYSCFGCFUNC ProdAPI::CloseHandle(void *syscfgHandle) {
-    return function_pointers_.CloseHandle(syscfgHandle);
+    return function_pointers.CloseHandle(syscfgHandle);
 }
 
 NISYSCFGCFUNC ProdAPI::FindHardware(
@@ -149,7 +149,7 @@ NISYSCFGCFUNC ProdAPI::FindHardware(
     const char *expertNames,
     NISysCfgEnumResourceHandle *resourceEnumHandle
 ) {
-    return function_pointers_.FindHardware(
+    return function_pointers.FindHardware(
         sessionHandle,
         filterMode,
         filterHandle,
@@ -163,7 +163,7 @@ NISYSCFGCFUNC ProdAPI::NextResource(
     NISysCfgEnumResourceHandle resourceEnumHandle,
     NISysCfgResourceHandle *resourceHandle
 ) {
-    return function_pointers_
+    return function_pointers
         .NextResource(sessionHandle, resourceEnumHandle, resourceHandle);
 }
 
@@ -172,7 +172,7 @@ NISYSCFGCFUNC ProdAPI::GetResourceProperty(
     NISysCfgResourceProperty propertyID,
     void *value
 ) {
-    return function_pointers_.GetResourceProperty(resourceHandle, propertyID, value);
+    return function_pointers.GetResourceProperty(resourceHandle, propertyID, value);
 }
 
 NISYSCFGCFUNC ProdAPI::GetResourceIndexedProperty(
@@ -181,7 +181,7 @@ NISYSCFGCFUNC ProdAPI::GetResourceIndexedProperty(
     unsigned int index,
     void *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetResourceIndexedProperty(resourceHandle, propertyID, index, value);
 }
 
@@ -190,11 +190,11 @@ NISysCfgStatus ProdAPI::GetStatusDescriptionW(
     NISysCfgStatus status,
     wchar_t **detailedDescription
 ) {
-    return function_pointers_
+    return function_pointers
         .GetStatusDescriptionW(sessionHandle, status, detailedDescription);
 }
 
 NISYSCFGCFUNC ProdAPI::FreeDetailedStringW(wchar_t str[]) {
-    return function_pointers_.FreeDetailedStringW(str);
+    return function_pointers.FreeDetailedStringW(str);
 }
 }

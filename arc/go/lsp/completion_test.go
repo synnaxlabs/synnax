@@ -396,6 +396,47 @@ var _ = Describe("Completion", func() {
 			},
 		)
 
+		Describe("User modules", func() {
+			BeforeEach(func() {
+				sources := map[string]string{
+					"lib.m":     "func f() {}",
+					"lib.sub.n": "func g() {}",
+					"other":     "func h() {}",
+				}
+				server = MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
+				}))
+				server.SetClient(&MockClient{})
+			})
+
+			It("should suggest the path of each user module", func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, docURI, "import ")
+				completions := Completion(server, ctx, docURI, 0, 7)
+				Expect(HasCompletion(completions.Items, "lib.m")).To(BeTrue())
+				Expect(HasCompletion(completions.Items, "lib.sub.n")).To(BeTrue())
+				Expect(HasCompletion(completions.Items, "other")).To(BeTrue())
+				Expect(HasCompletion(completions.Items, "math")).To(BeTrue())
+			})
+
+			It(
+				"should replace the typed path when it holds a dot",
+				func(ctx SpecContext) {
+					OpenArcDocument(server, ctx, docURI, "import lib.s")
+					completions := Completion(server, ctx, docURI, 0, 12)
+					Expect(HasCompletion(completions.Items, "lib.m")).To(BeFalse())
+					Expect(HasCompletion(completions.Items, "other")).To(BeFalse())
+					item := MustBeOk(FindCompletion(completions.Items, "lib.sub.n"))
+					Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 0, Character: 7},
+							End:   protocol.Position{Line: 0, Character: 12},
+						},
+						NewText: "lib.sub.n",
+					}))
+				},
+			)
+		})
+
 		It(
 			"should not surface internal modules in import-path completion",
 			func(ctx SpecContext) {
@@ -1097,6 +1138,45 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "add")).To(BeFalse(),
 				"Internal symbol math.add should not appear in module-qualified completion")
 		})
+
+		DescribeTable(
+			"Should complete float checks and constants",
+			func(ctx SpecContext, content string, line, col int) {
+				server = MustSucceed(
+					lsp.New(
+						lsp.Config{
+							NewRoot: func() *symbol.Symbol { return NewRoot(nil) },
+						},
+					),
+				)
+				server.SetClient(&MockClient{})
+				OpenArcDocument(server, ctx, docURI, content)
+
+				completions := Completion(
+					server,
+					ctx,
+					docURI,
+					uint32(line),
+					uint32(col),
+				)
+				check, found := FindCompletion(completions.Items, "is_nan")
+				Expect(found).To(BeTrue())
+				Expect(ItemTextEdit(check).NewText).To(Equal("math.is_nan($0)"))
+				constant, found := FindCompletion(completions.Items, "nan")
+				Expect(found).To(BeTrue())
+				Expect(constant.Kind).To(Equal(protocol.CompletionItemKindConstant))
+				Expect(ItemTextEdit(constant).NewText).To(Equal("math.nan"))
+				Expect(HasCompletion(completions.Items, "inf")).To(BeTrue())
+			},
+			Entry("in a flow", "math.", 0, 5),
+			Entry("in a func body", "func f() {\n    x := math.\n}", 1, 14),
+			Entry(
+				"in a stage",
+				"sequence s {\n    stage a {\n        math.\n    }\n}",
+				2,
+				13,
+			),
+		)
 
 		It("Should return all members for bare 'math.' prefix", func(ctx SpecContext) {
 			server = MustSucceed(

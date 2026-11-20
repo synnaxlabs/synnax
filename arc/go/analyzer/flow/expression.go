@@ -23,94 +23,86 @@ import (
 )
 
 // AnalyzeSingleExpression converts an inline expression into a synthetic function
-// node. Format-string placeholders are analyzed here; IR shape is chosen downstream.
+// node, or into a constant when its value is known at compile time.
 func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	// Re-analyzing an already-registered expression would duplicate its synth.
 	if _, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST); err == nil {
 		return
 	}
-	// enclosing is the lexical scope the expression appears in.
-	enclosing := ctx.Scope
-	exprType := atypes.InferFromExpression(ctx).Unwrap()
-	t := types.Function(types.FunctionProperties{})
-	t.Outputs = append(
-		t.Outputs,
-		types.Param{Name: ir.DefaultOutputParam, Type: exprType},
-	)
-
-	// Literals register as KindConstant; format strings with placeholders register
-	// as synthetic functions so placeholder channel reads track on the right symbol.
-	if parser.IsLiteral(ctx.AST) {
-		if lit := parser.GetLiteral(ctx.AST); lit != nil {
-			if strTerm := parser.StringTerminal(lit); strTerm != nil {
-				body, flags, ok := literal.StripQuotes(strTerm.GetText())
-				if !ok {
-					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-						"invalid string literal: %s", strTerm.GetText()))
-					return
-				}
-				if flags.Format {
-					segs, err := literal.FmtStrParse(body)
-					if err != nil {
-						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-						return
-					}
-					if literal.FmtStrHasPlaceholder(segs) {
-						fnScope, err := ctx.Scope.Root().
-							Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
-						if err != nil {
-							ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-							return
-						}
-						fnScope.AutoName("fmt_str_")
-						fnScope.SetLexicalResolver(enclosing)
-						expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), strTerm)
-						return
-					}
-				}
-			}
-		}
-		t.Inputs = append(t.Inputs, types.Param{Name: "value", Type: exprType})
-		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-			Kind: symbol.KindConstant,
-			Type: t,
-			AST:  ctx.AST,
-		})
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return
-		}
-		scope.AutoName("constant_")
+	if literal.IsConstant(ctx.AST) {
+		analyzeConstantExpression(ctx)
 		return
 	}
+	analyzeComputedExpression(ctx)
+}
 
-	// Complex expressions become synthetic functions that need compilation.
-	// The function takes no inputs — its body reads from channel state directly
-	// via host calls, and activation is handled by stratum membership rather
-	// than an input edge.
-	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-		Kind: symbol.KindFunction,
+// analyzeConstantExpression registers a constant literal as a KindConstant.
+func analyzeConstantExpression(ctx acontext.Context[parser.IExpressionContext]) {
+	t := types.Function(types.FunctionProperties{})
+	exprType := atypes.InferFromExpression(ctx).UnwrapChan()
+	t.Outputs = types.Params{{Name: ir.DefaultOutputParam, Type: exprType}}
+	t.Inputs = append(t.Inputs, types.Param{Name: "value", Type: exprType})
+	scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+		Kind: symbol.KindConstant,
 		Type: t,
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
+	}
+	scope.AutoName("constant_")
+}
+
+// analyzeComputedExpression registers a complex expression as a synthetic function.
+// The function takes no inputs: its body reads channel state through host calls, and
+// stratum membership, not an input edge, activates it.
+func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) {
+	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{}),
+		AST:  ctx.AST,
+	})
+	if err != nil {
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	// Set on the function scope, not the block: the compiler resolves the
 	// synth expression under fnScope, so the hook must live there too.
-	fnScope.SetLexicalResolver(enclosing)
+	fnScope.SetLexicalResolver(ctx.Scope)
 
 	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
-	expression.Analyze(ctx.WithScope(blockScope))
+	// Inferring in the body's scope gives the output and the body one type variable.
+	body := ctx.WithScope(blockScope)
+	fnScope.Type.Outputs = types.Params{{
+		Name: ir.DefaultOutputParam,
+		Type: atypes.InferFromExpression(body).UnwrapChan(),
+	}}
+	expression.Analyze(body)
+}
+
+// AnalyzeComputedArgs registers a synthetic function for each instance argument
+// that is not a constant literal, a float constant, or a bare name, so lowering can
+// sample it per fire.
+func AnalyzeComputedArgs[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	args []symbol.Argument,
+) {
+	for _, arg := range args {
+		head, _ := parser.ExpressionNameParts(arg.Expr)
+		if head != "" || literal.IsConstant(arg.Expr) {
+			continue
+		}
+		if _, ok := ctx.FloatConstant(arg.Expr); ok {
+			continue
+		}
+		AnalyzeSingleExpression(ctx.Child(arg.Expr))
+	}
 }
 
 // analyzeWASMCall registers a WASM-only call in a flow as a synthetic expression node.
@@ -131,8 +123,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	fnScope.SetLexicalResolver(enclosing)
@@ -141,47 +132,11 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	blockCtx := ctx.WithScope(blockScope)
 	args := inputArguments(blockCtx, ctx.AST)
 	expression.AnalyzeCallSite(blockCtx, callee, name, freshType, args, ctx.AST)
-}
-
-// LiftFmtStrVarReads lifts reassigned-variable reads in a format string's
-// placeholders into input params. No-op for non-format literals.
-func LiftFmtStrVarReads[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	fn *symbol.Symbol,
-	expr parser.IExpressionContext,
-) {
-	lit := parser.GetLiteral(expr)
-	if lit == nil {
-		return
-	}
-	strTerm := parser.StringTerminal(lit)
-	if strTerm == nil {
-		return
-	}
-	body, flags, ok := literal.StripQuotes(strTerm.GetText())
-	if !ok || !flags.Format {
-		return
-	}
-	segments, err := literal.FmtStrParse(body)
-	if err != nil {
-		return
-	}
-	for _, seg := range segments {
-		if !seg.IsPlaceholder || seg.Text == "" {
-			continue
-		}
-		phExpr, diags := parser.ParseExpression(seg.Text, ctx.Config)
-		if diags != nil && !diags.Ok() {
-			continue
-		}
-		LiftVarReads(ctx, fn, phExpr)
-	}
 }
 
 // LiftVarReads lifts reassigned-variable reads in a synth expression into input
@@ -191,16 +146,18 @@ func LiftVarReads[T antlr.ParserRuleContext](
 	fn *symbol.Symbol,
 	expr parser.IExpressionContext,
 ) {
-	for _, name := range parser.CollectIdentifiers(expr) {
+	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
+		name := parser.PrimaryName(pe)
 		if _, ok := fn.Type.Inputs.Get(name); ok {
 			continue
 		}
-		sym, err := fn.Resolve(ctx, name)
+		head, tail := parser.PrimaryNameParts(pe)
+		sym, err := fn.ResolveMember(ctx, head, tail)
 		if err != nil {
 			continue
 		}
 		exprRead := sym.IsReactive() && sym.SourceID == nil
-		if !sym.Reassigned && !exprRead {
+		if !sym.Reassigned && !exprRead && !sym.IsComputed() {
 			continue
 		}
 		// A channel-coupled var lifts as its value type; a node feeds it data.
@@ -215,9 +172,35 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			Internal: true,
 			AST:      expr,
 		}); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-			return
+			panic(err)
 		}
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
+	}
+}
+
+// BindOutput binds the output of the node registered for expr to t, the type of the
+// variable it writes.
+func BindOutput[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	t types.Type,
+) {
+	expression.TakeUnit(ctx, expr, t.Unit)
+	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return
+	}
+	out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam)
+	if !ok || out.Type.Unwrap().Kind != types.KindVariable {
+		return
+	}
+	if err := atypes.Check(
+		ctx.Constraints,
+		t,
+		out.Type,
+		expr,
+		"assignment",
+	); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 	}
 }

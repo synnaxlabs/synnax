@@ -9,7 +9,7 @@
 
 import { Log as PLog } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
@@ -20,6 +20,7 @@ const KEY = "log-1";
 
 const customState: Log.State = {
   hold: true,
+  position: "",
   toolbar: { selectedTab: "properties" },
 };
 
@@ -67,6 +68,13 @@ describe("log selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toBe(false);
+  });
+
+  it("should default the position to empty for a log with no stored state", () => {
+    const { result } = renderHook(() => Log.useSelectPosition({ key: "absent" }), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe("");
   });
 
   it("should track hold across dispatches", () => {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -89,7 +89,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.openToolbar(session, "project");
     const toolbar = page.locator(".console-nav__drawer.lyra--location-left").first();
-    // The handle listens for pointer events, which capture.resizeToolbar does not send.
     const handle = toolbar.locator(".lyra-resize__handle").first();
     const from = await handle.boundingBox();
     const width = (await toolbar.boundingBox())?.width;

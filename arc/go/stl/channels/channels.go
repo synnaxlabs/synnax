@@ -12,6 +12,7 @@ package channels
 import (
 	"context"
 	"slices"
+	"sort"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -192,12 +193,42 @@ type source struct {
 	// channelIdx is the channel ref input's index; -1 when not alias-bound.
 	channelIdx    int
 	highWaterMark telem.Alignment
+	// entryStamp is the cycle stamp of the last Reset. Samples stamped earlier were
+	// taken before the stage was entered and are dropped.
+	entryStamp telem.TimeStamp
+}
+
+// tail returns the samples of s from index from to the end.
+func tail(s telem.Series, from int) telem.Series {
+	offset := int64(from) * int64(s.DataType.Density())
+	if s.DataType.IsVariable() {
+		offset = 0
+		for range from {
+			_, n := telem.UnmarshalVariableSample(s.Data[offset:])
+			offset += int64(n)
+		}
+	}
+	return telem.Series{
+		TimeRange:         s.TimeRange,
+		DataType:          s.DataType,
+		Data:              s.Data[offset:],
+		Alignment:         s.Alignment + telem.Alignment(uint32(from)*s.Multiple()),
+		AlignmentMultiple: s.AlignmentMultiple,
+	}
+}
+
+// firstAtOrAfter returns the index of the first stamp in time at or after stamp, or
+// time.Len() when every stamp is earlier.
+func firstAtOrAfter(time telem.Series, stamp telem.TimeStamp) int {
+	return sort.Search(int(time.Len()), func(i int) bool {
+		return time.ValueAt[telem.TimeStamp](i) >= stamp
+	})
 }
 
 func (s *source) Init(node.Context) {}
 
 // rebindTo re-points the source at key. A rebind is not a value:
-// only values arriving afterward fire
+// only values arriving afterward fire.
 func (s *source) rebindTo(key uint32) {
 	s.currKey = key
 	s.highWaterMark = 0
@@ -215,11 +246,12 @@ func (s *source) raiseWaterMark() {
 	}
 }
 
-// Reset advances the high water mark to the current channel alignment,
-// ensuring that when a stage is (re-)activated it only responds to
-// data that arrives after activation rather than stale pre-existing data.
+// Reset advances the high water mark to the current channel alignment and the entry
+// stamp to the current cycle, so a (re-)activated stage only responds to samples
+// taken and arriving after activation.
 func (s *source) Reset(ctx node.Context) {
 	s.State.Reset(ctx)
+	s.entryStamp = ctx.Now
 	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
 		s.rebindTo(key)
 		return
@@ -246,27 +278,8 @@ func (s *source) Next(ctx node.Context) {
 			n := int(ser.Len())
 			timeSeries = telem.Arrange(ctx.ReserveStamps(n), n, 1*telem.NanosecondTS)
 			timeSeries.Alignment = ser.Alignment
-		} else {
-			// Match by alignment, not position: a shared index also buffers other
-			// channels' series, so position i no longer pairs to the right timestamp.
-			// A data series can cover only part of the index series that holds it.
-			i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
-				b := idx.AlignmentBounds()
-				return b.Lower <= ab.Lower && ab.Upper <= b.Upper
-			})
-			if i == -1 {
-				continue
-			}
-			timeSeries = indexData.Series[i]
-			if timeSeries.AlignmentBounds() != ab {
-				var (
-					density = int64(timeSeries.DataType.Density())
-					start   = int64(ser.Alignment-timeSeries.Alignment) * density
-				)
-				timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
-				timeSeries.Alignment = ser.Alignment
-				timeSeries.TimeRange = ser.TimeRange
-			}
+		} else if ser, timeSeries, ok = s.alignToIndex(ser, indexData); !ok {
+			continue
 		}
 		*s.Output(0) = ser
 		*s.OutputTime(0) = timeSeries
@@ -274,6 +287,47 @@ func (s *source) Next(ctx node.Context) {
 		s.Emit(ctx, 0)
 		return
 	}
+}
+
+// alignToIndex returns ser and its timestamps from the index series that holds it,
+// trimmed to the samples at or after the entry stamp. It returns false when no index
+// series holds ser, or when no sample is at or after the entry stamp; then it also
+// moves the high water mark past ser.
+func (s *source) alignToIndex(
+	ser telem.Series,
+	indexData telem.MultiSeries,
+) (telem.Series, telem.Series, bool) {
+	ab := ser.AlignmentBounds()
+	// Match by alignment, not position: a shared index also buffers other
+	// channels' series, so position i no longer pairs to the right timestamp.
+	// A data series can cover only part of the index series that holds it.
+	i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
+		b := idx.AlignmentBounds()
+		return b.Lower <= ab.Lower && ab.Upper <= b.Upper
+	})
+	if i == -1 {
+		return telem.Series{}, telem.Series{}, false
+	}
+	timeSeries := indexData.Series[i]
+	if timeSeries.AlignmentBounds() != ab {
+		var (
+			density = int64(timeSeries.DataType.Density())
+			start   = int64(ser.Alignment-timeSeries.Alignment) * density
+		)
+		timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
+		timeSeries.Alignment = ser.Alignment
+		timeSeries.TimeRange = ser.TimeRange
+	}
+	first := firstAtOrAfter(timeSeries, s.entryStamp)
+	if first == int(ser.Len()) {
+		s.highWaterMark = ab.Upper
+		return telem.Series{}, telem.Series{}, false
+	}
+	if first > 0 {
+		ser = tail(ser, first)
+		timeSeries = tail(timeSeries, first)
+	}
+	return ser, timeSeries, true
 }
 
 type sink struct {
@@ -309,12 +363,12 @@ func (s *sink) Next(ctx node.Context) {
 	s.state.writeChannel(key, data, time)
 	lastTS := time.ValueAt[telem.TimeStamp](-1)
 	out := s.Output(0)
-	out.Resize(1)
+	*out = out.Resized(1)
 	out.SetValueAt[uint8](0, 1)
 	out.Alignment = data.Alignment
 	out.TimeRange = data.TimeRange
 	outTime := s.OutputTime(0)
-	outTime.Resize(1)
+	*outTime = outTime.Resized(1)
 	outTime.SetValueAt(0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange

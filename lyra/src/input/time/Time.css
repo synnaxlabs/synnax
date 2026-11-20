@@ -121,3 +121,25 @@
     padding: 1.5rem 2.5rem;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 }
+
+/* An inline editor is a form field: it takes the field's width, not its text's. */
+.lyra-time-editor.lyra--inline {
+    width: auto;
+
+    --pluto-control-width: 24rem;
+
+    & .lyra-time-editor__field {
+        width: 100%;
+    }
+}
+
+/* Its dialog holds only the readings and the hint, so it needs less room. */
+.lyra-time-editor__dialog.lyra--inline {
+    --pluto-time-editor-width: 36rem;
+
+    /* The hint is prose, so it wraps. */
+    & .lyra-time-editor__note {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}

@@ -16,9 +16,12 @@ import (
 	"encoding/json/v2"
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir/versions"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -29,8 +32,11 @@ type Handle = versions.Handle
 type EdgeKind = versions.EdgeKind
 
 const (
+	// EdgeKindUnspecified has no kind set.
 	EdgeKindUnspecified EdgeKind = versions.EdgeKindUnspecified
-	EdgeKindContinuous  EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindContinuous fires on every output of the source.
+	EdgeKindContinuous EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindConditional fires only when the source output is truthy.
 	EdgeKindConditional EdgeKind = versions.EdgeKindConditional
 )
 
@@ -53,33 +59,44 @@ type Edges []Edge
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode uint8
 
-//go:generate stringer -type=ScopeMode
+//go:generate go tool stringer -type=ScopeMode
 
 const (
+	// ScopeModeUnspecified has no mode set.
 	ScopeModeUnspecified ScopeMode = iota
+	// ScopeModeParallel runs every member of the scope in strata.
 	ScopeModeParallel
+	// ScopeModeSequential runs one step of the scope at a time.
 	ScopeModeSequential
 )
 
 // Liveness defines whether a Scope is continuously active or must be activated.
 type Liveness uint8
 
-//go:generate stringer -type=Liveness
+//go:generate go tool stringer -type=Liveness
 
 const (
+	// LivenessUnspecified has no liveness set.
 	LivenessUnspecified Liveness = iota
+	// LivenessAlways activates the scope with its parent.
 	LivenessAlways
+	// LivenessGated activates the scope when one of its activations fires.
 	LivenessGated
 )
 
+// TargetType is the "type" value that selects a variant of Target.
 type TargetType string
 
 const (
-	ExitTargetType  TargetType = "exit"
-	StepTargetType  TargetType = "step"
+	// ExitTargetType leaves the scope and yields to its parent.
+	ExitTargetType TargetType = "exit"
+	// StepTargetType activates a sibling step of the same scope.
+	StepTargetType TargetType = "step"
+	// ScopeTargetType leaves the scope, then activates a top-level scope.
 	ScopeTargetType TargetType = "scope"
 )
 
+// TargetVariant is implemented by every Target variant.
 type TargetVariant interface {
 	isTargetVariant()
 }
@@ -184,9 +201,34 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ScopeTarget
 	default:
-		return errors.Newf("Target: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Target: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Target) Type() TargetType {
+	switch u.Variant.(type) {
+	case ExitTarget:
+		return ExitTargetType
+	case StepTarget:
+		return StepTargetType
+	case ScopeTarget:
+		return ScopeTargetType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Target) Validate() error {
+	v := validate.New("Target")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Transition is a declarative state-transition rule on a sequential Scope, or an exit
@@ -199,6 +241,14 @@ type Transition struct {
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
 	// Target is where the transition goes when it fires.
 	Target Target `json:"target" msgpack:"target"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Transition) Validate() error {
+	v := validate.New("Transition")
+	v.Exec(func() error { return validate.PathedError(t.Target.Validate(), "target") })
+	return v.Error()
 }
 
 // Activation is a handle that activates a gated Scope without leaving any scope.
@@ -219,6 +269,16 @@ type Member struct {
 	NodeKey *string `json:"node_key,omitzero" msgpack:"node_key,omitempty"`
 	// Scope is set when this member is a nested scope.
 	Scope *Scope `json:"scope,omitzero" msgpack:"scope,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (m Member) Validate() error {
+	v := validate.New("Member")
+	if m.Scope != nil {
+		v.Exec(func() error { return validate.PathedError(m.Scope.Validate(), "scope") })
+	}
+	return v.Error()
 }
 
 // Members is an ordered collection of Scope members, one per position.
@@ -246,6 +306,26 @@ type Scope struct {
 	// Transitions contains state-transition rules in source order. A parallel scope
 	// holds only exits.
 	Transitions []Transition `json:"transitions" msgpack:"transitions"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s Scope) Validate() error {
+	v := validate.New("Scope")
+	for i := range s.Strata {
+		for j := range s.Strata[i] {
+			v.Exec(func() error {
+				return validate.PathedError(s.Strata[i][j].Validate(), "strata", strconv.Itoa(i), strconv.Itoa(j))
+			})
+		}
+	}
+	for i := range s.Steps {
+		v.Exec(func() error { return validate.PathedError(s.Steps[i].Validate(), "steps", strconv.Itoa(i)) })
+	}
+	for i := range s.Transitions {
+		v.Exec(func() error { return validate.PathedError(s.Transitions[i].Validate(), "transitions", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // Node is a concrete instantiation of a function with typed parameters and values.
@@ -287,7 +367,16 @@ type IR struct {
 	// Root is the top-level execution context. The root is always a parallel,
 	// always-live Scope whose strata mix module-scope reactive flow with top-level
 	// gated scopes.
-	Root    Scope                                  `json:"root" msgpack:"root"`
-	Symbols *symbol.Symbol                         `json:"-"`
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Root       Scope                                  `json:"root" msgpack:"root"`
+	Symbols    *symbol.Symbol                         `json:"-"`
+	TypeMap    map[antlr.ParserRuleContext]types.Type `json:"-"`
+	FmtStrings parser.FmtStrings                      `json:"-"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IR) Validate() error {
+	v := validate.New("IR")
+	v.Exec(func() error { return validate.PathedError(i.Root.Validate(), "root") })
+	return v.Error()
 }

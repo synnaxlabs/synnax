@@ -11,46 +11,49 @@ import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Status } from "@synnaxlabs/pluto";
+import { Access, Flux } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
+import { useState } from "react";
 
+import { TAB_TYPE } from "@/feature/status/explorer/external";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { Label } from "@/platform/label";
-import { type Panel } from "@/platform/panel";
-import { Status as PlatformStatus } from "@/platform/status";
+import type { Panel } from "@/platform/panel";
+import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
 
-const item = Component.renderProp(PlatformStatus.List.Item);
+const item = Component.renderProp(Status.List.Item);
+
+const PROPERTIES: View.Filter.Properties<status.Where> = {
+  labels: Label.Filter.createProperty(),
+  variant: Status.Filter.VARIANT,
+};
 
 export const Explorer: Panel.Content = () => (
-  <View.Frame resourceType="status" icon="Status">
+  <View.Frame resourceType="status" icon="Status" tabType={TAB_TYPE}>
     <Internal />
   </View.Frame>
 );
 
 const Internal = () => {
-  const listProps = Status.useList({
-    initialQuery: View.useContext().getInitialView().query,
+  const [where, setWhere] = useState(View.useContext().getInitialView().where);
+  const listProps = Flux.useList((client) => client.statuses, {
+    name: "statuses",
+    query: { where },
   });
-  const openCreate = PlatformStatus.useCreateModal();
+  const openCreate = Status.useCreateModal();
   const handleCreate = () => openCreate();
-  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_RESOURCE_ID);
   return (
-    <View.Form {...listProps}>
-      <View.Toolbar>
-        <View.FilterMenu>
-          <Label.Filter.MenuItem />
-          <PlatformStatus.Filter.MenuItem />
-        </View.FilterMenu>
-        <View.Search />
-        <Label.Filter.Chips />
-        <PlatformStatus.Filter.Chips />
+    <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
+      <View.Toolbar properties={PROPERTIES}>
         {hasCreatePermission && (
           <Button.Button
-            onClick={handleCreate}
-            tooltipLocation={location.BOTTOM_LEFT}
+            variant="outlined"
+            size="medium"
             tooltip="Create status"
-            variant="filled"
+            tooltipLocation={location.BOTTOM_LEFT}
+            onClick={handleCreate}
           >
             <Icon.Add />
           </Button.Button>

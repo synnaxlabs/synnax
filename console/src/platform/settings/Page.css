@@ -1,0 +1,51 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-settings__card {
+    container: settings-card / inline-size;
+    padding: 0 3rem;
+}
+
+.console-settings__card--flush {
+    padding: 0;
+    overflow: hidden;
+}
+
+/* The text takes at least 36rem beside the control, else the control wraps under it. */
+.console-settings__entry {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 5rem;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 10rem;
+    padding: 2.5rem 0;
+
+    & + & {
+        border-top: var(--pluto-border);
+    }
+}
+
+.console-settings__body {
+    padding: 3rem 0;
+}
+
+.console-settings__entry-text {
+    flex: 1 1 36rem;
+    min-width: 0;
+}
+
+/* In a narrow card, every control goes under its label, so no two entries differ. */
+@container settings-card (width < 72rem) {
+    .console-settings__entry-text {
+        flex-basis: 100%;
+    }
+}

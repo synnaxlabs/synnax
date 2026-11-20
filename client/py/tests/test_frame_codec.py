@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 import synnax as sy
+from freighter import ExceptionPayload
 from freighter.websocket import Message
 from synnax.channel.payload import Key
 from synnax.framer.codec import (
@@ -21,6 +22,8 @@ from synnax.framer.codec import (
     _MULTIPLES_PRESENT_FLAG_POS,
     LOW_PERF_SPECIAL_CHAR,
     Codec,
+    _pack_bool_bits,
+    _unpack_bool_bits,
 )
 from synnax.framer.frame import FramePayload
 from synnax.framer.iterator import (
@@ -29,6 +32,39 @@ from synnax.framer.iterator import (
     _ResponseVariant,
     _WSIteratorCodec,
 )
+from synnax.framer.writer import WriterCommand, WriterResponse, _WSWriterCodec
+
+
+@pytest.mark.framer
+@pytest.mark.frame_codec
+class TestBoolBits:
+    def test_reference_vector(self) -> None:
+        """Should pack LSB first to the same bytes as the Go and TypeScript codecs."""
+        samples = bytes([1, 0, 1, 1, 0, 0, 0, 1, 1])
+        packed = _pack_bool_bits(samples)
+        assert packed == bytes([0x8D, 0x01])
+        assert _unpack_bool_bits(memoryview(packed), len(samples)) == samples
+
+    def test_nonzero_packs_true(self) -> None:
+        """Should pack every nonzero byte as a set bit."""
+        packed = _pack_bool_bits(bytes([2, 0, 255, 0, 0, 0, 0, 0, 7]))
+        assert packed == bytes([0x05, 0x01])
+        assert _unpack_bool_bits(memoryview(packed), 9) == bytes(
+            [1, 0, 1, 0, 0, 0, 0, 0, 1]
+        )
+
+    @pytest.mark.parametrize("n", [0, 1, 7, 8, 9, 15, 16, 17, 1000, 1003])
+    def test_round_trip(self, n: int) -> None:
+        """Should round trip any sample count, including partial final bytes."""
+        rng = np.random.default_rng(n)
+        samples = rng.integers(0, 2, n, dtype=np.uint8).tobytes()
+        packed = _pack_bool_bits(samples)
+        assert len(packed) == (n + 7) // 8
+        assert _unpack_bool_bits(memoryview(packed), n) == samples
+
+    def test_unpack_ignores_padding_bits(self) -> None:
+        """Should ignore set bits past the sample count in the final byte."""
+        assert _unpack_bool_bits(memoryview(bytes([0xFF])), 3) == bytes([1, 1, 1])
 
 
 @pytest.mark.framer
@@ -352,19 +388,6 @@ class TestCodec:
                 assert dec_ser.time_range == or_ser.time_range
             assert dec_ser.alignment == or_ser.alignment
 
-    def test_bool_reference_vector(self) -> None:
-        """The reference vector [1,0,1,1,0,0,0,1,1] must pack to bytes [0x8D, 0x01]
-        LSB-first across all language codecs. Any divergence here is a cross-language
-        wire-format bug.
-        """
-        from synnax.framer.codec import _pack_bool_bits, _unpack_bool_bits
-
-        samples = bytes([1, 0, 1, 1, 0, 0, 0, 1, 1])
-        packed = _pack_bool_bits(samples)
-        assert packed == bytes([0x8D, 0x01])
-        unpacked = _unpack_bool_bits(memoryview(packed), len(samples))
-        assert unpacked == samples
-
     def test_alignment_multiples_round_trip(self) -> None:
         """Should carry the alignment multiple of every series when any exceeds one."""
         codec = Codec(keys=[1, 2], data_types=[sy.DataType.INT64, sy.DataType.FLOAT32])
@@ -386,6 +409,23 @@ class TestCodec:
         assert [int(s.alignment) for s in decoded.series] == [10, 20]
         assert np.array_equal(decoded.series[0].to_numpy(), [1, 2])
         assert np.array_equal(decoded.series[1].to_numpy(), [3, 4])
+
+    def test_time_range_after_series_without_one(self) -> None:
+        """Should keep the time range of a series after a series without one."""
+        codec = Codec(keys=[1, 2], data_types=[sy.DataType.INT64, sy.DataType.INT64])
+        frame = sy.Frame(
+            channels=[1, 2],
+            series=[
+                sy.Series(data=np.array([1, 2], dtype=np.int64)),
+                sy.Series(
+                    data=np.array([3, 4], dtype=np.int64),
+                    time_range=sy.TimeRange(start=5, end=10),
+                ),
+            ],
+        )
+        decoded = codec.decode(codec.encode(frame))
+        assert decoded.series[0].time_range == sy.TimeRange.ZERO
+        assert decoded.series[1].time_range == sy.TimeRange(start=5, end=10)
 
     def test_no_alignment_multiples(self) -> None:
         """Should leave the multiples flag clear when no series is reduced."""
@@ -558,3 +598,37 @@ class TestCodec:
         assert len(decoded2.keys) == 1
         assert decoded2.keys[0] == 2
         assert list(decoded2.series[0]) == [1, 2, 3]
+
+    def test_writer_ws_codec_response(self) -> None:
+        """Should JSON-decode a writer response prefixed with the low-perf char"""
+        codec = _WSWriterCodec(Codec(keys=[1], data_types=[sy.DataType.INT32]))
+        res = Message[WriterResponse](
+            type="data",
+            payload=WriterResponse(
+                command=WriterCommand.COMMIT,
+                end=sy.TimeStamp(5),
+                err=ExceptionPayload(type=None, data=None),
+                authorized=True,
+            ),
+        )
+        body = json_lib.dumps(res.model_dump(mode="json", by_alias=True)).encode()
+        decoded = codec.decode(
+            bytes([LOW_PERF_SPECIAL_CHAR]) + body, Message[WriterResponse]
+        )
+        assert decoded.payload is not None
+        assert decoded.payload.command == WriterCommand.COMMIT
+        assert decoded.payload.end == sy.TimeStamp(5)
+
+    def test_writer_ws_codec_rejects_data_frame(self) -> None:
+        """Should fail on a high-performance data frame, which the Core never sends
+        on the writer response stream"""
+        base = Codec(keys=[1], data_types=[sy.DataType.INT32])
+        codec = _WSWriterCodec(base)
+        frame = sy.Frame(
+            channels=[1],
+            series=[sy.Series(data=np.array([1, 2, 3], dtype=np.int32))],
+        )
+        encoded = bytearray(base.encode(frame, start_offset=1))
+        encoded[0] = 0xFF
+        with pytest.raises(ValueError, match="writer response stream"):
+            codec.decode(bytes(encoded), Message[WriterResponse])

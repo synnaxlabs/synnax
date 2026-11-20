@@ -46,58 +46,14 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 			cfg.Node.Key, len(irFn.Inputs), cfg.Node.Type, len(def.ParamTypes()),
 		)
 	}
-	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
-	// per sample in Next; literal inputs get their constant value set once here.
-	params := make([]uint64, len(irFn.Inputs))
-	varInputs := make([]bool, len(cfg.Node.Inputs))
-	for i, param := range cfg.Node.Inputs {
-		if param.Type.Kind == types.KindVarRef {
-			varInputs[i] = true
-			continue
-		}
-		if param.Value == nil {
-			continue
-		}
-		if s, ok := param.Value.(string); ok {
-			// A literal string gets a stable handle that persists across Flush calls.
-			params[i] = uint64(w.Strings.CreateLiteral(s))
-			continue
-		}
-		val, err := ConvertLiteralValue(param.Value)
-		if err != nil {
-			return nil, err
-		}
-		params[i] = val
+	params, varInputs, err := w.literalParams(cfg.Node.Inputs, len(irFn.Inputs))
+	if err != nil {
+		return nil, err
 	}
-
 	base := cfg.Program.OutputMemoryBases[cfg.Node.Type]
-	memOffsets := make([]uint32, len(irFn.Outputs))
-	offset := base + 8
-	for i, t := range irFn.Outputs {
-		if !t.Type.IsValid() {
-			return nil, errors.Newf(
-				"node %s has output %q with unresolved type",
-				cfg.Node.Key, t.Name,
-			)
-		}
-		memOffsets[i] = offset
-		if t.Type.Kind == types.KindString {
-			offset += 4 // strings are i32 handles in WASM
-		} else {
-			offset += uint32(t.Type.Density())
-		}
-	}
-
-	stringInputs := make([]bool, len(irFn.Inputs))
-	chanInputs := make([]bool, len(irFn.Inputs))
-	for i, inp := range irFn.Inputs {
-		stringInputs[i] = inp.Type.Kind == types.KindString
-		chanInputs[i] = inp.Type.Kind == types.KindChan
-	}
-
-	stringOutputs := make([]bool, len(irFn.Outputs))
-	for i, out := range irFn.Outputs {
-		stringOutputs[i] = out.Type.Kind == types.KindString
+	memOffsets, err := outputMemOffsets(cfg.Node.Key, irFn.Outputs, base)
+	if err != nil {
+		return nil, err
 	}
 
 	// The reused call stack is separate from params because CallWithStack overwrites it
@@ -123,14 +79,78 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		offsets:       make([]int, len(irFn.Outputs)),
 		selIdx:        selIdx,
 		nodeKeySetter: w.NodeKeySetter,
-		stringInputs:  stringInputs,
-		chanInputs:    chanInputs,
+		stringInputs:  kindFlags(irFn.Inputs, types.KindString),
+		chanInputs:    kindFlags(irFn.Inputs, types.KindChan),
 		varInputs:     varInputs,
-		stringOutputs: stringOutputs,
+		stringOutputs: kindFlags(irFn.Outputs, types.KindString),
 		strings:       w.Strings,
 		batch:         w.newBatchCall(cfg, irFn, base),
 	}
 	return n, nil
+}
+
+// literalParams fills the WASM param slot of each literal input with its constant
+// value. Edge-fed inputs (nil Value) are streamed per sample in Next, and variable
+// reference inputs are flagged in the returned varInputs.
+func (w *Module) literalParams(
+	inputs types.Params,
+	count int,
+) (params []uint64, varInputs []bool, err error) {
+	params = make([]uint64, count)
+	varInputs = make([]bool, len(inputs))
+	for i, param := range inputs {
+		if param.Type.Kind == types.KindVarRef {
+			varInputs[i] = true
+			continue
+		}
+		if param.Value == nil {
+			continue
+		}
+		value := types.DecodeValue(param.Value, param.Type)
+		if s, ok := value.(string); ok {
+			// A literal string gets a stable handle that persists across Flush calls.
+			params[i] = uint64(w.Strings.CreateLiteral(s))
+			continue
+		}
+		if params[i], err = ConvertLiteralValue(value); err != nil {
+			return nil, nil, err
+		}
+	}
+	return params, varInputs, nil
+}
+
+// outputMemOffsets returns where in guest memory each output's value lands, after the
+// 8-byte dirty flags at base.
+func outputMemOffsets(
+	nodeKey string,
+	outputs types.Params,
+	base uint32,
+) ([]uint32, error) {
+	memOffsets := make([]uint32, len(outputs))
+	offset := base + 8
+	for i, t := range outputs {
+		if !t.Type.IsValid() {
+			return nil, errors.Newf(
+				"node %s has output %q with unresolved type",
+				nodeKey, t.Name,
+			)
+		}
+		memOffsets[i] = offset
+		if t.Type.Kind == types.KindString {
+			offset += 4 // strings are i32 handles in WASM
+		} else {
+			offset += uint32(t.Type.Density())
+		}
+	}
+	return memOffsets, nil
+}
+
+func kindFlags(params types.Params, kind types.Kind) []bool {
+	flags := make([]bool, len(params))
+	for i, p := range params {
+		flags[i] = p.Type.Kind == kind
+	}
+	return flags
 }
 
 // ConvertLiteralValue converts a literal value to uint64 for WASM function calls.

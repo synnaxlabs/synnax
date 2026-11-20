@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { connection, type Synnax as Client } from "@synnaxlabs/client";
+import { testClientParams } from "@synnaxlabs/client/testutil";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
-import { render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -31,13 +31,13 @@ const probeStateZ = z.object({});
 const createProbe = (seen: Array<Client | null>) =>
   class Probe extends aether.Leaf<typeof probeStateZ> {
     static readonly TYPE = PROBE_TYPE;
-    schema = probeStateZ;
+    override schema = probeStateZ;
 
-    afterUpdate(ctx: aether.Context): void {
+    override afterUpdate(ctx: aether.Context): void {
       seen.push(synnax.use(ctx));
     }
 
-    afterDelete(): void {}
+    override afterDelete(): void {}
   };
 
 const ProbeComponent = (): null => {
@@ -65,10 +65,11 @@ describe("Synnax.Provider", () => {
       [PROBE_TYPE]: createProbe(seen),
     });
     let page: Client | null = null;
+    const connParams = testClientParams();
     const Tree = (): ReactElement => (
       <Aether.Provider worker={mainSide}>
         <Status.Aggregator log={() => {}}>
-          <Synnax.Provider connParams={TEST_CLIENT_PARAMS}>
+          <Synnax.Provider connParams={connParams}>
             <PageClient onClient={(c) => (page = c)} />
             <ProbeComponent />
           </Synnax.Provider>
@@ -97,10 +98,11 @@ describe("Synnax.Provider", () => {
       [PROBE_TYPE]: createProbe(seen),
     });
     const pages: Client[] = [];
+    const connParams = testClientParams();
     const Tree = ({ host }: { host: string }): ReactElement => (
       <Aether.Provider worker={mainSide}>
         <Status.Aggregator log={() => {}}>
-          <Synnax.Provider connParams={{ ...TEST_CLIENT_PARAMS, host }}>
+          <Synnax.Provider connParams={{ ...connParams, host }}>
             <PageClient onClient={(c) => c != null && pages.push(c)} />
             <ProbeComponent />
           </Synnax.Provider>
@@ -123,13 +125,65 @@ describe("Synnax.Provider", () => {
     unmount();
   });
 
+  describe("status", () => {
+    const CONNECTED: connection.Status = {
+      ...connection.DEFAULT_STATUS,
+      variant: "success",
+      message: "Connected",
+    };
+    const createStatusWrapper = () => {
+      const control: { set: (status: connection.Status) => void } = { set: () => {} };
+      const Holder = ({ children }: PropsWithChildren): ReactElement => {
+        const [status, setStatus] = useState(connection.DEFAULT_STATUS);
+        control.set = setStatus;
+        return (
+          <Synnax.TestProvider client={null} status={status}>
+            {children}
+          </Synnax.TestProvider>
+        );
+      };
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <AetherProvider>
+          <Holder>{children}</Holder>
+        </AetherProvider>
+      );
+      return { control, wrapper };
+    };
+
+    it("should not re-render a reader of the client when the status changes", () => {
+      const { control, wrapper } = createStatusWrapper();
+      let renders = 0;
+      const { unmount } = renderHook(
+        () => {
+          renders += 1;
+          return Synnax.use();
+        },
+        { wrapper },
+      );
+      const before = renders;
+      act(() => control.set(CONNECTED));
+      expect(renders).toEqual(before);
+      unmount();
+    });
+
+    it("should re-render a reader of the status when the status changes", () => {
+      const { control, wrapper } = createStatusWrapper();
+      const { result, unmount } = renderHook(Synnax.useConnectionStatus, { wrapper });
+      expect(result.current).toBe(connection.DEFAULT_STATUS);
+      act(() => control.set(CONNECTED));
+      expect(result.current).toBe(CONNECTED);
+      unmount();
+    });
+  });
+
   it("should keep its client when the error handler changes", () => {
     // A new log makes the aggregator hand out a new error handler.
     let log = (): void => {};
+    const connParams = testClientParams();
     const wrapper = ({ children }: PropsWithChildren): ReactElement => (
       <AetherProvider>
         <Status.Aggregator log={log}>
-          <Synnax.Provider connParams={TEST_CLIENT_PARAMS}>{children}</Synnax.Provider>
+          <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
         </Status.Aggregator>
       </AetherProvider>
     );

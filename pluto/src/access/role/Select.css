@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-access-role__item {
-    overflow: hidden;
-    max-width: 100%;
+/* Long role descriptions wrap instead of widening a floating dropdown. */
+.pluto-access-role__dialog {
+    --pluto-dialog-max-width: 60rem;
 }

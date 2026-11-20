@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
-import "schemas/x/color"
+import "schemas/synnax/color"
+import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/resource"
+import "schemas/synnax/user"
+import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/panel"
+@py output "client/py/synnax/panel"
 @ts output "client/ts/src/panel"
 
 TabKey = uuid {
@@ -45,7 +51,7 @@ View struct {
 
 Tab union on variant extends TabBase {
     resource {
-        resource ontology.ID {
+        resource resource.ID {
             @doc value """
                 is the visualization resource displayed by this tab, set via
                 SetTabResource.
@@ -116,33 +122,46 @@ Key = uuid {
 }
 
 Panel struct {
-    key    Key = create {
+    key     Key = create {
         @doc value "is the unique identifier for this panel."
         @key
     }
-    name   string       {
+    name    string       {
         @doc value         "is a human-readable name for the panel."
+        @index sorted
         @search
         @validate required
     }
-    root   Node = { variant = "leaf", tabs = [] } {
+    root    Node = { variant = "leaf", tabs = [] } {
         @doc value "is the root of the panel tree."
     }
-    parent ontology.ID? {
-        @doc value  """
-            is the parent resource for the panel in the ontology. Required on create and
-            absent on retrieve.
-        """
-        @go marshal omit
-    }
-    icon   string?      {
+    icon    string?      {
         @doc value """
             is the key of the icon that marks the panel in lists. When null, the Console
             draws its default panel icon.
         """
     }
-    color  color.Color? {
-        @doc value "is the color of the panel's icon. When null, the theme picks it."
+    color   color.Ref?   {
+        @doc value """
+            is the color of the panel's icon, a named color or a fixed color. When null,
+            the theme picks it.
+        """
+    }
+    group   group.Key?   {
+        @doc value     "is the group the panel sits in, if any."
+        @group scope   project
+        @ref kind      place
+        @ref on_delete detach
+    }
+    project project.Key? {
+        @doc value     "is the project that holds the panel."
+        @ref kind      place
+        @ref on_delete cascade
+    }
+    owner   user.Key?    {
+        @doc value     "is the user whose draft the panel is. Nil for a shared panel."
+        @ref kind      use
+        @ref on_delete cascade
     }
 
     action Create {
@@ -154,12 +173,6 @@ Panel struct {
         """
     }
 
-    action Rename {
-        name string
-
-        @doc value "renames the panel."
-    }
-
     action SetIcon {
         icon string?
 
@@ -167,9 +180,12 @@ Panel struct {
     }
 
     action SetColor {
-        color color.Color?
+        color color.Ref?
 
-        @doc value "sets the color of the panel's icon. Null lets the theme pick it."
+        @doc value """
+            sets the color of the panel's icon, a named color or a fixed color. Null
+            lets the theme pick it.
+        """
     }
 
     action InsertTabs {
@@ -249,7 +265,7 @@ Panel struct {
 
     action SetTabResource {
         key      TabKey
-        resource ontology.ID
+        resource resource.ID
 
         @doc value """
             sets the visualization resource displayed by the tab with the given key,
@@ -271,10 +287,50 @@ Panel struct {
         """
     }
 
+    action Set = patch.Set {
+        @doc value "replaces the value at a path in the panel."
+    }
+
+    action Remove = patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the panel.
+        """
+    }
+
+    action Insert = patch.Insert {
+        @doc value "adds an entry to a list in the panel."
+    }
+
+    action Move = patch.Move {
+        @doc value "moves an entry in a list in the panel."
+    }
+
     @create
-    @doc value     "is a project-owned tree of visualization tabs."
+    @doc value     "is a tree of visualization tabs in a project."
     @go marshal
     @go migrate
-    @ontology type "panel"
+    @resource type "panel"
     @retrieve
+}
+
+Where filter Panel {
+    key
+    groups   group.Key[]   {
+        @doc value "matches the panels in any of the given groups."
+    }
+    grouped  bool          {
+        @doc value "matches the panels in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the panels in any of the given projects."
+    }
+    owners   user.Key[]    {
+        @doc value "matches the drafts of any of the given users."
+    }
+    owned    bool          {
+        @doc value "matches the drafts, or the shared panels when false."
+    }
+
+    @doc value         "is a filter that selects panels."
+    @go request_output "core/pkg/api/panel"
 }

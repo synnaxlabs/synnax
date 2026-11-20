@@ -7,26 +7,52 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type status } from "@synnaxlabs/client";
-import { type destructor, observe } from "@synnaxlabs/x";
+import type { channel, status } from "@synnaxlabs/client";
+import { type destructor, observe, type TimeRange } from "@synnaxlabs/x";
 
+import type { LogEntry, LogSource, LogSourceSpec } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
-
-import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
 export class MockLogSource implements LogSource {
   static readonly TYPE = TEST_SOURCE_TYPE;
   status: status.Status = telem.SUCCESS_STATUS;
   private _entries: LogEntry[] = [];
   private activeChannels: Set<channel.Key> = new Set();
-  private readonly observable = new observe.BaseObserver<void>();
+  private readonly observable = new observe.Observer<void>();
 
   value(): telem.Result<LogEntry[]> {
     const { activeChannels, status } = this;
     if (activeChannels.size === 0) return { data: this._entries, status };
     const data = this._entries.filter((e) => activeChannels.has(e.channelKey));
     return { data, status };
+  }
+
+  /** The number of times the log asked for older entries. */
+  loadOlderCalls = 0;
+
+  loadOlder(): void {
+    this.loadOlderCalls++;
+  }
+
+  /** The number of times the log asked for newer entries. */
+  loadNewerCalls = 0;
+
+  loadNewer(): void {
+    this.loadNewerCalls++;
+  }
+
+  live = true;
+
+  timeRange: TimeRange | null = null;
+
+  exhausted = false;
+
+  /** The number of times the log asked to return to the newest samples. */
+  resumeCalls = 0;
+
+  resume(): void {
+    this.resumeCalls++;
   }
 
   setChannels(channels: channel.Key[]): void {

@@ -20,9 +20,9 @@ them. A layer imports only layers below it — never above:
    Frameworks (tree, mosaic, panel, palette, link, import/export, modals) and
    cross-domain-shared widgets/hooks. Never imports `feature/`.
 3. **`feature/`** — isolated leaves: a domain's full widget (renderer, toolbar,
-   controls, `useCreate`) plus its ontology/palette/link glue. Imports platform +
-   session, **never a sibling feature** — cross-domain wiring bottoms out in `session/`,
-   the client SDK, or `platform/panel`.
+   controls, `useCreate`) plus its tree/palette/link glue. Imports platform + session,
+   **never a sibling feature** — cross-domain wiring bottoms out in `session/`, the
+   client SDK, or `platform/panel`.
 4. **`app/`** (highest) — composition root: aggregates every domain's exports into
    global registries + the shell chrome. No domain logic.
 
@@ -83,8 +83,8 @@ Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `proj
 `drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
 and `createSlice` reducers. Side effects go in middleware.
 
-**A Core record's key is opaque** — `LOCAL`, `DEMO`, `SERVED`, a UUID for the rest — so
-editing an address never moves an entry. Stored state is partitioned by the **cluster
+**A Core record's key is opaque** — `LOCAL`, `SERVED`, `EMBEDDED`, a UUID for the rest —
+so editing an address never moves an entry. Stored state is partitioned by the **cluster
 key** the record caches on connect, so two records reaching one cluster share its state.
 The record's key is machine-local, so deep links name the cluster instead
 (`synnax://cluster/<cluster-key>/<type>/<key>`) and resolve to whatever record this

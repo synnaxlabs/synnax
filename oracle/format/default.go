@@ -25,9 +25,10 @@ package format
 // inverse output that never converges across syncs.
 //
 // Files with extensions not listed pass through with header only (or unchanged if the
-// extension is also unknown to the License formatter).
-func Default(repoRoot string) (*Registry, error) {
-	license, err := NewLicense(repoRoot)
+// extension is also unknown to the License formatter). New files get the license header
+// for year. See NewLicense for prior.
+func Default(repoRoot string, year int, prior []string) (*Registry, error) {
+	license, err := NewLicense(repoRoot, year, prior)
 	if err != nil {
 		return nil, err
 	}

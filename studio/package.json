@@ -11,6 +11,7 @@
     "film": "tsx src/cli/film.ts",
     "batch": "tsx src/cli/batch.ts",
     "upload": "tsx src/cli/upload.ts",
+    "mail": "tsx src/cli/mail.ts",
     "gallery": "tsx src/cli/gallery.ts",
     "clean": "tsx src/cli/clean.ts"
   },

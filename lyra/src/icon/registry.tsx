@@ -32,6 +32,7 @@ import {
 } from "react-icons/bi";
 import {
   BsBorderWidth,
+  BsBox,
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShift,
@@ -73,13 +74,21 @@ import {
   IoTerminal,
   IoTerminalOutline,
   IoTime,
-  IoTvOutline,
 } from "react-icons/io5";
 import {
+  LuBadgeCheck,
+  LuChartColumn,
+  LuChartNoAxesGantt,
+  LuFile,
   LuFileBadge,
+  LuFolder,
+  LuGlobe,
+  LuInfo,
+  LuKeyRound,
   LuLock,
   LuLockOpen,
   LuPipette,
+  LuSquareAsterisk,
   LuSquareFunction,
   LuUngroup,
 } from "react-icons/lu";
@@ -99,6 +108,7 @@ import {
   MdBorderColor,
   MdCalculate,
   MdCalendarToday,
+  MdCode,
   MdComment,
   MdCommit,
   MdComputer,
@@ -155,7 +165,6 @@ import {
   MdPause,
   MdPeople,
   MdPerson,
-  MdPictureInPicture,
   MdPlayArrow,
   MdPolicy,
   MdQuestionMark,
@@ -167,6 +176,8 @@ import {
   MdRotateRight,
   MdSaveAlt,
   MdSensors,
+  MdSettingsEthernet,
+  MdSettingsInputSvideo,
   MdShield,
   MdSquare,
   MdSquareFoot,
@@ -179,6 +190,7 @@ import {
 } from "react-icons/md";
 import {
   PiBinary,
+  PiBooks,
   PiCaretDown,
   PiCaretLeft,
   PiCaretRight,
@@ -187,7 +199,11 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiSlidersHorizontalBold,
+  PiSwatches,
+  PiTreeViewBold,
   PiUploadSimple,
+  PiWaveformBold,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
@@ -202,8 +218,10 @@ import {
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
+  SiApachekafka,
   SiCplusplus,
   SiMqtt,
+  SiNodedotjs,
   SiNpm,
   SiPagerduty,
   SiPnpm,
@@ -241,6 +259,7 @@ import {
   TbRowInsertBottom,
   TbRowInsertTop,
   TbRowRemove,
+  TbStack2Filled,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -248,6 +267,7 @@ import {
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
+  VscSymbolEnum,
   VscSymbolString,
 } from "react-icons/vsc";
 
@@ -259,11 +279,13 @@ import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
+import { New } from "@/icon/New";
 import { NI } from "@/icon/NI";
 import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
 import { Rack } from "@/icon/Rack";
+import { Sift } from "@/icon/Sift";
 import { Units } from "@/icon/Units";
 import { Valve } from "@/icon/Valve";
 
@@ -272,6 +294,24 @@ export const Play = wrapSVGIcon(MdPlayArrow, "play");
 export const Replay = wrapSVGIcon(MdReplay, "replay");
 export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
+// A circle that fills its box, so its edges are the box's edges.
+export const Dot = wrapSVGIcon(
+  ({ color, size, style, ...rest }) => (
+    <svg
+      viewBox="0 0 2 2"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      color={color}
+      style={{ color, ...style }}
+      {...rest}
+    >
+      <circle cx="1" cy="1" r="1" />
+    </svg>
+  ),
+  "dot",
+);
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
@@ -290,7 +330,7 @@ export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
-export const View = wrapSVGIcon(IoTvOutline, "view");
+export const View = wrapSVGIcon(TbStack2Filled, "view");
 export const Delete = Object.assign(wrapSVGIcon(AiFillDelete, "delete"), {
   Row: wrapSVGIcon(TbRowRemove, "delete-row"),
   Col: wrapSVGIcon(TbColumnRemove, "delete-col"),
@@ -357,17 +397,27 @@ export const Group = wrapSVGIcon(AiFillFolder, "group");
 export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
-export const License = wrapSVGIcon(LuFileBadge, "license");
+export const License = wrapSVGIcon(LuBadgeCheck, "license");
+export const UsageData = wrapSVGIcon(LuChartColumn, "usage-data");
+export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
+export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
+export const About = wrapSVGIcon(LuInfo, "about");
+export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
+export const File = wrapSVGIcon(LuFile, "file");
+export const Folder = wrapSVGIcon(LuFolder, "folder");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
+export const NodeJS = wrapSVGIcon(SiNodedotjs, "nodejs");
+export const Browser = wrapSVGIcon(LuGlobe, "browser");
 export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
 export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
 export const Yarn = wrapSVGIcon(SiYarn, "yarn");
 export const QuestionMark = wrapSVGIcon(MdQuestionMark, "question-mark");
+export const Code = wrapSVGIcon(MdCode, "code");
 export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
 export const Logo = {
@@ -382,10 +432,12 @@ export const Logo = {
   NI,
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
+  Sift,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
   // Crops the view box to the mark, which fills only a thin strip of the original.
   HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
+  Kafka: wrapSVGIcon(SiApachekafka, "logo-kafka"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
@@ -424,9 +476,9 @@ export const User = wrapSVGIcon(MdPerson, "user");
 export const Role = wrapSVGIcon(MdPeople, "role");
 export const Policy = wrapSVGIcon(MdPolicy, "policy");
 export const Rename = wrapSVGIcon(BiRename, "rename");
-export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
+export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
 export const Auto = wrapSVGIcon(MdAutoAwesome, "auto");
 export const Table = wrapSVGIcon(FiTable, "table");
 export const Insert = {
@@ -467,6 +519,8 @@ export const TextAlign = {
 export const Connect = wrapSVGIcon(TbPlugConnected, "connect");
 export const Disconnect = wrapSVGIcon(TbPlugConnectedX, "disconnect");
 export const Hardware = wrapSVGIcon(MdHardware, "hardware");
+export const Network = wrapSVGIcon(MdSettingsEthernet, "network");
+export const Serial = wrapSVGIcon(MdSettingsInputSvideo, "serial");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Database = wrapSVGIcon(TbDatabase, "database");
 export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
@@ -482,6 +536,9 @@ export const Variable = wrapSVGIcon(TbVariable, "variable");
 export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
+export const Library = wrapSVGIcon(PiBooks, "library");
+export const Swatches = wrapSVGIcon(PiSwatches, "swatches");
+export const Sliders = wrapSVGIcon(PiSlidersHorizontalBold, "sliders");
 export const Details = wrapSVGIcon(MdOutlineTableRows, "details");
 export const LinkExternal = wrapSVGIcon(BiLinkExternal, "link-external");
 export const Access = wrapSVGIcon(MdShield, "access");
@@ -509,6 +566,7 @@ export const RotateAroundCenter = {
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
+export const Timeline = wrapSVGIcon(LuChartNoAxesGantt, "timeline");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
@@ -531,6 +589,7 @@ export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Waveform = wrapSVGIcon(PiWaveformBold, "waveform");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const TerminalOutline = wrapSVGIcon(IoTerminalOutline, "terminal-outline");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
@@ -538,6 +597,7 @@ export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Arc = wrapSVGIcon(TbChartArcs, "arc");
 export const ArcFlow = wrapSVGIcon(IoIosArrowRoundForward, "arc-flow");
+export const Module = wrapSVGIcon(BsBox, "module");
 export const ArcFunc = wrapSVGIcon(LuSquareFunction, "arc-func");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
@@ -546,6 +606,7 @@ export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const Enumeration = wrapSVGIcon(VscSymbolEnum, "enumeration");
 export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
 export const True = wrapSVGIcon(FaCheck, "true");
 export const False = wrapSVGIcon(FaXmark, "false");
@@ -597,6 +658,7 @@ const icons = {
   TimeOutline,
   Acquire,
   Analyze,
+  UsageData,
   Concepts,
   Visualize,
   Panel,
@@ -623,16 +685,23 @@ const icons = {
   Ungroup,
   Lock,
   Unlock,
+  Secret,
+  APIKey,
+  About,
+  Certificate,
   Project,
   Box,
   Boxes,
   Python,
   TypeScript,
+  NodeJS,
+  Browser,
   CPlusPlus,
   NPM,
   PNPM,
   Yarn,
   QuestionMark,
+  Code,
   Menu,
   Sidebar,
   Logo,
@@ -648,7 +717,6 @@ const icons = {
   Role,
   Policy,
   Rename,
-  Snapshot,
   Sync,
   Search,
   Auto,
@@ -659,6 +727,8 @@ const icons = {
   Connect,
   Disconnect,
   Hardware,
+  Network,
+  Serial,
   Save,
   Database,
   DatabaseOff,
@@ -675,6 +745,8 @@ const icons = {
   Type,
   Array,
   Label,
+  Library,
+  Swatches,
   Details,
   LinkExternal,
   Access,
@@ -721,11 +793,14 @@ const icons = {
   Map,
   Linear,
   None,
+  New,
   Constant,
+  Enumeration,
   Terminal,
   TerminalOutline,
   Arc,
   ArcFlow,
+  Module,
   ArcFunc,
   Select,
   Notification,
@@ -754,13 +829,10 @@ export const resolve = ((
   overrides?: IconProps,
 ): ReactElement | undefined => {
   if (icon == null) return;
-  if (typeof icon === "string")
-    try {
-      const C = deep.get<FC<IconProps>>(icons, icon);
-      return <C {...overrides} />;
-    } catch (cause) {
-      throw new Error(`Unable to find icon with path ${icon} in registry`, { cause });
-    }
-
+  if (typeof icon === "string") {
+    const C = deep.get<FC<IconProps>>(icons, icon);
+    if (C == null) throw new Error(`Unable to find icon with path ${icon} in registry`);
+    return <C {...overrides} />;
+  }
   return cloneElement(icon, overrides);
 }) as Resolve;

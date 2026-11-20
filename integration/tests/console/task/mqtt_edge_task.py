@@ -11,7 +11,7 @@ import synnax as sy
 from console.task.mqtt import MQTTEdge
 from synnax import mqtt
 from tests.console.task.mqtt_case import MQTTCase
-from tests.driver.mqtt_task import run_reader, write_until
+from tests.driver.mqtt_task import create_plain_entry, run_reader, write_until
 from tests.driver.task import create_channel, create_index, delete_channels
 
 # An edge node of its own, so it does not collide with the one the simulator runs.
@@ -38,11 +38,12 @@ class MQTTEdgeTask(MQTTCase):
         )
 
     def teardown(self) -> None:
+        # The Core refuses to delete a channel that a task uses, so the task goes first.
         try:
+            super().teardown()
+        finally:
             with self._try_to("delete the tag channel"):
                 delete_channels(self.client, [self.channel, self.index])
-        finally:
-            super().teardown()
 
     def run(self) -> None:
         page = self.test_create_task()
@@ -109,20 +110,17 @@ class MQTTEdgeTask(MQTTCase):
             name=f"{page.page_name} Mirror",
             channel=f"{CHANNEL}_mirror",
             data_type=sy.DataType.FLOAT64,
-            entry=lambda mirror: mqtt.PlainReadEntry(
+            entry=lambda mirror: create_plain_entry(
+                self.client,
                 topic=MIRROR_TOPIC,
-                fields=[
-                    mqtt.ReadField(
-                        pointer="/value",
-                        channel=mirror.key,
-                        data_type=sy.DataType.FLOAT64,
-                    )
+                bindings=[
+                    (sy.icd.FloatJSONField(name="value", pointer="/value"), mirror.key)
                 ],
             ),
         ) as mirror:
             write_until(self.client, channel=channel, value=VALUE, watched=mirror)
         status = page.status()
-        assert status["level"] == "success", (
+        assert status.variant == "success", (
             f"The edge node should keep running, but the status is "
-            f"'{status['level']}': '{status['msg']}'"
+            f"'{status.variant}': '{status.message}'"
         )

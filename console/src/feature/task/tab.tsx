@@ -11,29 +11,34 @@ import { query } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Panel as PPanel, Task as Base } from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 import { cloneElement } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
-import { getIcon } from "@/feature/task/types";
+import { Sift } from "@/feature/sift";
+import { devicesOf, getIcon, ownedChannelsOf } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
+  ...Kafka.Task.FORMS,
   ...LabJack.Task.FORMS,
   ...Modbus.Task.FORMS,
   ...MQTT.Task.FORMS,
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,
+  ...Sift.Task.FORMS,
 };
 
 const Content: Panel.Content = () => {
@@ -66,6 +71,7 @@ const Name: Panel.TabName = ({ allowRename = true, ...rest }) => {
       <Text.MaybeEditable
         id={Panel.tabNameID(tabKey)}
         value={name}
+        overflow="fade"
         disabled={!allowRename || !canRename}
         onChange={(name) => rename({ key, name })}
         {...rest}
@@ -84,8 +90,25 @@ export const TAB: Panel.Tab = {
   Content,
   Name,
   Icon,
+  iconKey: "task",
   restore: async ({ client, resource }) => {
-    const corpse = query.requireCorpse(client.tasks.getCached(resource.key));
+    const corpse = query.requireCorpse(client.tasks.watch(resource.key).getCached());
+    const owned = unique.unique(ownedChannelsOf(corpse.payload));
+    if (owned.length > 0) {
+      const kept = await client.channels.retrieve({ where: { key: { in: owned } } });
+      if (kept.length < owned.length)
+        throw new Error(
+          "The task uses channels that were deleted. Create the task again.",
+        );
+    }
+    const devices = devicesOf(corpse.payload);
+    if (devices.length > 0) {
+      const kept = await client.devices.retrieve(query.keysRequest(devices));
+      if (kept.length < devices.length)
+        throw new Error(
+          "The task uses devices that were deleted. Create the task again.",
+        );
+    }
     // The status goes with the instance, not the row: a restored task has
     // nothing running, so core seeds it as never deployed.
     await client.tasks.create({ ...corpse.payload, status: undefined });

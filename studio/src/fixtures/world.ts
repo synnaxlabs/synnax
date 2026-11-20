@@ -13,14 +13,14 @@ import path from "node:path";
 import {
   type channel,
   ni,
-  project,
+  type project,
   type rack,
   type Synnax,
   task,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/client";
-import { zip } from "@synnaxlabs/x";
+import { record, sleep, zip } from "@synnaxlabs/x";
 
 import { startArc } from "@/fixtures/arc";
 import { connect, type ConnectionOptions } from "@/fixtures/client";
@@ -73,7 +73,7 @@ const VALVES = {
 
 type Valve = keyof typeof VALVES;
 
-const VALVE_NAMES = Object.keys(VALVES) as Valve[];
+const VALVE_NAMES = record.keys(VALVES);
 
 /** Vents that pass flow when de-energized, so state 1 closes them. */
 const NORMALLY_OPEN = new Set<Valve>(["ox_vent", "fuel_vent"]);
@@ -120,7 +120,9 @@ const PAST_RUNS = [
 export interface WorldOptions extends ConnectionOptions {
   /**
    * The clock the stand samples on. A capture passes its virtual clock, so data arrives
-   * at the same rate per video frame however slowly frames are captured.
+   * at the same rate per video frame. When the clock falls behind wall time, the stand
+   * samples on wall time, since the Core's Arc ignores samples stamped before its stage
+   * began.
    */
   now?: () => TimeStamp;
 }
@@ -132,6 +134,8 @@ export interface World {
   logged: readonly string[];
   /** read returns a sensor's latest written value. Throws on an unknown sensor. */
   read: (sensor: string) => number;
+  /** now returns the time the stand stamps its samples with. */
+  now: () => TimeStamp;
   /** Stops the sequence and the simulation, closing every writer and the client. */
   stop: () => Promise<void>;
 }
@@ -396,10 +400,10 @@ const hardware = async (
   });
   await client.panels.create({
     name: "Hardware",
-    parent: project.ontologyID(proj),
+    project: proj,
     root: {
       variant: "leaf",
-      tabs: [{ variant: "resource", resource: task.ontologyID(acquire.key) }],
+      tabs: [{ variant: "resource", resource: task.resourceID(acquire.key) }],
     },
   });
   return { rack, task: acquire };
@@ -430,9 +434,10 @@ const report = async (
  * card's rack and task report that they run.
  */
 export const testStand = async ({
-  now = () => TimeStamp.now(),
+  now: clock = () => TimeStamp.now(),
   ...opts
 }: WorldOptions = {}): Promise<World> => {
+  const now = (): TimeStamp => TimeStamp.max(clock(), TimeStamp.now());
   const client = connect(opts);
   const keys = new Map<string, channel.Key>();
   const key = (name: string): channel.Key => {
@@ -543,12 +548,12 @@ export const testStand = async ({
   const heartbeat = (async () => {
     while (running) {
       await report(client, daqHardware);
-      await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS));
+      await sleep.sleep(TimeSpan.milliseconds(HEARTBEAT_MS));
     }
   })();
   const sim = (async () => {
     while (running) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+      await sleep.sleep(TimeSpan.milliseconds(POLL_MS));
       const target = now();
       const stamps: TimeStamp[] = [];
       const values = new Map<channel.Key, number[]>();
@@ -591,6 +596,7 @@ export const testStand = async ({
   return {
     project: imported.name,
     logged,
+    now,
     read: (sensor) => {
       const value = latest.get(sensor);
       if (value == null) throw new Error(`the stand has no sensor "${sensor}"`);

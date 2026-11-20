@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -66,7 +67,8 @@ type Config struct {
 	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
-	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
+	// MaxDescriptors is the maximum number of file descriptors that the DB will use for
+	// domain files. An open waits for a descriptor when the DB is at this limit. A
 	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively
 	// unknown.
@@ -83,21 +85,25 @@ type Config struct {
 	// It runs inline under the DB's locks and must not block or call back into the DB.
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
+	// Clock times the AutoIndexPersistInterval of each writer. It must be monotonic, so
+	// that a change to the system clock does not delay a persist.
+	// [OPTIONAL] Default: xtime.Real
+	Clock xtime.Clock
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{
-		FileSize:       800 * telem.Megabyte,
-		GCThreshold:    0.2,
-		MaxDescriptors: 100,
-	}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("domain")
 	v.Positive("file_size", c.FileSize)
+	// FileSize holds 80% of the configured size, and file offsets are 32-bit.
+	v.Ternaryf(
+		"file_size",
+		math.Round(1.25*float64(c.FileSize)) > math.MaxUint32,
+		"must be at most %d bytes",
+		uint32(math.MaxUint32),
+	)
 	v.Positive("max_descriptors", c.MaxDescriptors)
 	v.NotNil("fs", c.FS)
 	v.GreaterThanEq("gc_threshold", c.GCThreshold, 0)
@@ -113,6 +119,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
 	c.OnHistoryChange = override.Nil(c.OnHistoryChange, other.OnHistoryChange)
+	c.Clock = override.Nil(c.Clock, other.Clock)
 	// Store 80% of the desired maximum file size as file size since we must leave some
 	// buffer for when we stop acquiring a new writer on a file.
 	c.FileSize = telem.Size(math.Round(0.8 * float64(c.FileSize)))
@@ -122,7 +129,12 @@ func (c Config) Override(other Config) Config {
 // Open opens a DB using a merged view of the provided configurations (where the next
 // configuration overrides the previous).
 func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(Config{
+		FileSize:       800 * telem.Megabyte,
+		GCThreshold:    0.2,
+		MaxDescriptors: 100,
+		Clock:          xtime.Real,
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -173,23 +185,38 @@ func (db *DB) Size() telem.Size {
 	return telem.Size(db.idx.totalSize.Load())
 }
 
+// MarkClosed marks the DB closed, so that it refuses new writers. It returns an error
+// wrapping resource.ErrOpen and leaves the DB open if a writer or iterator is open, or
+// ErrDBClosed if the DB is already closed. After a nil error, call Release or
+// UnmarkClosed.
+func (db *DB) MarkClosed() error {
+	if !db.closed.CompareAndSwap(false, true) {
+		return ErrDBClosed
+	}
+	if count := db.resourceCount.Load(); count > 0 {
+		db.closed.Store(false)
+		return errors.Wrapf(
+			resource.ErrOpen,
+			"there are %d unclosed writers/iterators accessing it",
+			count,
+		)
+	}
+	return nil
+}
+
+// UnmarkClosed opens a DB that MarkClosed marked closed.
+func (db *DB) UnmarkClosed() { db.closed.Store(false) }
+
+// Release frees the files of a DB that MarkClosed marked closed.
+func (db *DB) Release() error { return errors.Join(db.fc.close(), db.idx.close()) }
+
 // Close closes the DB. Close should not be called concurrently with any other DB
 // methods. If close fails for a reason other than unclosed writers/readers, the
 // database will still be marked closed and no read/write operations are allowed on it
 // to protect data integrity.
 func (db *DB) Close() error {
-	if !db.closed.CompareAndSwap(false, true) {
-		return nil
+	if err := db.MarkClosed(); err != nil {
+		return errors.Skip(err, ErrDBClosed)
 	}
-	count := db.resourceCount.Load()
-	if count > 0 {
-		err := errors.Wrapf(
-			resource.ErrOpen,
-			"there are %d unclosed writers/iterators accessing it",
-			count,
-		)
-		db.closed.Store(false)
-		return err
-	}
-	return errors.Join(db.fc.close(), db.idx.close())
+	return db.Release()
 }

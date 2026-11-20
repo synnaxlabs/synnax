@@ -108,16 +108,6 @@ var _ = Describe("Keys", func() {
 			Expect(keys.Storage()).To(Equal([]ts.ChannelKey{1, 2, 3}))
 		})
 	})
-	Describe("UniqueLeaseholders", func() {
-		It("Should return a slice of the unique node ids for a set of keys", func() {
-			ids := channel.Keys{
-				channel.NewKey(node.Key(1), 2),
-				channel.NewKey(node.Key(3), 4),
-				channel.NewKey(node.Key(1), 2),
-			}
-			Expect(ids.UniqueLeaseholders()).To(ConsistOf([]node.Key{1, 3}))
-		})
-	})
 	Describe("Contains", func() {
 		It("Should return true if the slice contains the given key", func() {
 			keys := channel.Keys{1, 2, 3}

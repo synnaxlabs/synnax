@@ -13,7 +13,7 @@ import { LinePlot as Base } from "@synnaxlabs/pluto";
 
 import { Selectable } from "@/feature/lineplot/Selectable";
 import { Panel } from "@/platform/panel";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export * from "@/feature/lineplot/commands";
 export * from "@/feature/lineplot/link";
@@ -21,7 +21,7 @@ export * from "@/feature/lineplot/search";
 export * from "@/feature/lineplot/tree";
 export * from "@/platform/lineplot/external";
 
-const TAB_TYPE = lineplot.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = lineplot.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
@@ -29,14 +29,22 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/lineplot/LinePlot"), "LinePlot"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/lineplot/toolbar"), "Toolbar"),
   Icon: Icon.LinePlot,
+  iconKey: "line-plot",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.LinePlot />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.lineplots.getCached(resource.key));
-    await client.lineplots.create(project, corpse);
+    const corpse = query.requireCorpse(
+      client.lineplots.watch(resource.key).getCached(),
+    );
+    // A restored record comes back in the project, as its group may be gone.
+    await client.lineplots.create({
+      ...corpse,
+      project,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),

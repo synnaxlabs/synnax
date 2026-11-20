@@ -34,7 +34,7 @@ var NormalizeKeys = migrate.NormalizeKeys[string, Pair]("Pair")
 var RecoverKVPairKeys = migrate.New(
 	"v59_recover_kvpair_keys",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) (err error) {
-		prefix, err := msgpack.Codec.Encode(ctx, "KVPair")
+		prefix, err := msgpack.Codec.Encode("KVPair")
 		if err != nil {
 			return err
 		}
@@ -47,7 +47,7 @@ var RecoverKVPairKeys = migrate.New(
 		writer := gorp.WrapWriter[string, Pair](tx)
 		for itr.First(); itr.Valid(); itr.Next() {
 			var p Pair
-			if err = tx.Decode(ctx, itr.Value(), &p); err != nil {
+			if err = tx.Decode(itr.Value(), &p); err != nil {
 				return errors.Wrapf(err, "failed to decode KVPair row %x", itr.Key())
 			}
 			_, err = reader.Get(ctx, p.GorpKey())

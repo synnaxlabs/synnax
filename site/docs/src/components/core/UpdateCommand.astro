@@ -1,0 +1,31 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Inline from "@/components/code/Inline.astro";
+
+export interface Props {
+    os: string;
+    /** Download the update, update a Core service from a downloaded file, or replace
+        the binary. */
+    target: "release" | "service" | "binary";
+}
+
+const { os, target } = Astro.props;
+
+const version = await Astro.locals.releases.documented("core");
+const file = `./synnax-v${version}-${os.toLowerCase()}`;
+const codes: Record<Props["target"], string> = {
+    release: `sudo synnax update ${version}`,
+    service: `chmod +x ${file} && sudo ${file} update --file ${file}`,
+    binary: `chmod +x ${file} && sudo mv ${file} "$(command -v synnax)"`,
+};
+---
+
+<Inline lang="bash" code={codes[target]} theme="css-variables" />

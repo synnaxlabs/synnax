@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 export interface EditConnectionMenuItemProps extends Pick<
   Tree.ContextMenuProps,
@@ -27,7 +27,7 @@ export const EditConnectionMenuItem = ({
 }: EditConnectionMenuItemProps) => {
   const first = ids.at(0);
   const hasUpdatePermission = Access.useUpdateGranted(
-    first != null ? device.ontologyID(first.key) : device.TYPE_ONTOLOGY_ID,
+    first != null ? device.resourceID(first.key) : device.TYPE_RESOURCE_ID,
   );
   if (first == null || ids.length !== 1 || !hasUpdatePermission) return null;
   const handleClick = () => onConfigure(first.key);

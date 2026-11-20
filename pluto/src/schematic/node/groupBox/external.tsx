@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { type Config, VARIANT } from "@/schematic/node/groupBox/config";
 import { GroupBoxForm } from "@/schematic/node/groupBox/Form";
 import { Symbol } from "@/schematic/node/groupBox/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 export * from "@/schematic/node/groupBox/config";
+export * from "@/schematic/node/groupBox/context";
 
 const Preview = (): ReactElement => <div />;
 

@@ -19,7 +19,6 @@
 package versioning
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,14 +70,14 @@ func VersionDirs(repoRoot, goPath string) ([]int, error) {
 // output path to its chain's current version, and members holds the qualified
 // name of every current-surface member. Both are empty without a resolver.
 func Survey(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (entries map[string]int, members set.Set[string], err error) {
 	entries, members = make(map[string]int), make(set.Set[string])
 	if res == nil {
 		return entries, members, nil
 	}
 	for livePath, chain := range res.Chains() {
-		surf, err := res.Surface(ctx, livePath, chain.Current())
+		surf, err := res.Surface(livePath, chain.Current())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -113,7 +112,7 @@ type Pins struct {
 // NewPins reads the pins of every chain's current surface. It returns the zero Pins
 // without a resolver, and the error from reading any surface or version file.
 func NewPins(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (Pins, error) {
 	if res == nil {
 		return Pins{}, nil
@@ -136,14 +135,14 @@ func NewPins(
 		names[t.Name] = t.QualifiedName
 	}
 	for livePath, chain := range res.Chains() {
-		surf, err := res.Surface(ctx, livePath, chain.Current())
+		surf, err := res.Surface(livePath, chain.Current())
 		if err != nil {
 			return Pins{}, err
 		}
 		if len(surf) == 0 {
 			continue
 		}
-		cur, err := res.File(ctx, livePath, chain.Current())
+		cur, err := res.File(livePath, chain.Current())
 		if err != nil {
 			return Pins{}, err
 		}
@@ -153,7 +152,7 @@ func NewPins(
 			if !ok {
 				continue
 			}
-			definer, err := res.File(ctx, livePath, def.Version)
+			definer, err := res.File(livePath, def.Version)
 			if err != nil {
 				return Pins{}, err
 			}
@@ -190,9 +189,9 @@ func (p Pins) resolve(pins map[string]int, ref resolution.Type) (string, bool) {
 // rewritten to its current versions/vN sub-path, plus the applied path map keyed
 // by original path and the current-surface member set.
 func RewriteCurrent(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (*resolution.Table, map[string]string, set.Set[string], error) {
-	entries, members, err := Survey(ctx, table, res)
+	entries, members, err := Survey(table, res)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -203,15 +202,16 @@ func RewriteCurrent(
 	if len(pathMap) == 0 {
 		return table, pathMap, members, nil
 	}
-	return RewriteOutputPaths(table, pathMap, members), pathMap, members, nil
+	return rewriteOutputPaths(table, pathMap, members), pathMap, members, nil
 }
 
-// RewriteOutputPaths clones table, replacing the @go output value of every
+// rewriteOutputPaths clones table, replacing the @go output value of every
 // version-declaring type whose path appears in pathMap. Types at unmapped paths are
 // unchanged. Non-member types also stay put: they are transient
 // (never persisted), living at the package root rather than the version layout even
-// when siblings at their path are versioned.
-func RewriteOutputPaths(
+// when siblings at their path are versioned. A member loses its live @go omit, so its
+// version package declares it.
+func rewriteOutputPaths(
 	table *resolution.Table,
 	pathMap map[string]string,
 	members set.Set[string],
@@ -236,22 +236,27 @@ func RewriteOutputPaths(
 		newDomains := make(map[string]resolution.Domain, len(typ.Domains))
 		for k, v := range typ.Domains {
 			if k == "go" {
-				newExprs := make(resolution.Expressions, len(v.Expressions))
-				for i, expr := range v.Expressions {
+				newExprs := make(resolution.Expressions, 0, len(v.Expressions))
+				for _, expr := range v.Expressions {
+					// The version file records a member, so its version package
+					// declares it even when the live file omits it, as a frozen
+					// package does.
+					if expr.Name == "omit" && members.Contains(typ.QualifiedName) {
+						continue
+					}
 					if expr.Name == "output" && len(expr.Values) > 0 {
 						newVals := make([]resolution.ExpressionValue, len(expr.Values))
 						copy(newVals, expr.Values)
 						newVals[0] = resolution.ExpressionValue{
 							StringValue: mirroredPath,
 						}
-						newExprs[i] = resolution.Expression{
+						expr = resolution.Expression{
 							AST:    expr.AST,
 							Name:   expr.Name,
 							Values: newVals,
 						}
-					} else {
-						newExprs[i] = expr
 					}
+					newExprs = append(newExprs, expr)
 				}
 				newDomains[k] = resolution.Domain{
 					AST:         v.AST,

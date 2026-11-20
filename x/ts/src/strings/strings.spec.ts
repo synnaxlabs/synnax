@@ -68,6 +68,23 @@ describe("createShortIdentifiers", () => {
     expect(strings.createShortIdentifiers("Alice Bob")).toEqual(
       expect.arrayContaining(["ab", "a_b", "alibob", "ali_bob"]),
     ));
+
+  it("should split identifiers only between words", () =>
+    expect(strings.createShortIdentifiers("IOLITEr 32xDO BUS1")).toEqual([
+      "i3b",
+      "i_3_b",
+      "i32xdob",
+      "i_32xdo_b",
+      "i3bus1",
+      "i_3_bus1",
+      "iol32xbus",
+      "iol_32x_bus",
+    ]));
+
+  it("should leave out identifiers with characters other than letters, digits, and underscores", () =>
+    expect(
+      strings.createShortIdentifiers("IOLITE GATE LATCH v2.00 BUS1"),
+    ).not.toContainEqual(expect.stringMatching(/[^\w]/)));
 });
 
 describe("trimPrefix", () => {
@@ -121,4 +138,106 @@ describe("escapeHTML", () => {
     expect(strings.escapeHTML(`<a href="x">&`)).toBe(
       "&lt;a href=&quot;x&quot;&gt;&amp;",
     ));
+});
+
+describe("toKebab", () => {
+  const SPECS: [string, string][] = [
+    ["fooBar", "foo-bar"],
+    ["fooBarBaz", "foo-bar-baz"],
+    ["foo bar", "foo-bar"],
+    ["foo bar baz", "foo-bar-baz"],
+    ["foo.bar", "foo.bar"],
+    ["foo.bar.baz", "foo.bar.baz"],
+    ["Foo Bar", "foo-bar"],
+    ["foo_bar", "foo-bar"],
+    ["foo_bar_baz", "foo-bar-baz"],
+  ];
+  SPECS.forEach(([input, expected]) => {
+    it(`should convert ${input} to ${expected}`, () => {
+      expect(strings.toKebab(input)).toBe(expected);
+    });
+  });
+});
+describe("toProperNoun", () => {
+  const SPECS: [string, string][] = [
+    ["fooBar", "Foo Bar"],
+    ["foo_bar", "Foo Bar"],
+    ["foo-bar", "Foo Bar"],
+    ["FooBar", "Foo Bar"],
+    ["foo_bar_baz", "Foo Bar Baz"],
+    ["fooBarBaz", "Foo Bar Baz"],
+    ["foo-bar-baz", "Foo Bar Baz"],
+    ["XMLParser", "XML Parser"],
+    ["parseXMLDocument", "Parse XML Document"],
+    ["IODevice", "IO Device"],
+    ["temperature_sensor", "Temperature Sensor"],
+    ["pressure-gauge", "Pressure Gauge"],
+    ["flowMeter", "Flow Meter"],
+    ["my_custom_symbol", "My Custom Symbol"],
+    ["valve-actuator-v2", "Valve Actuator V2"],
+    ["PIDController", "PID Controller"],
+    ["", ""],
+    ["a", "A"],
+    ["ABC", "ABC"],
+    ["test123value", "Test123value"],
+    ["test_123_value", "Test 123 Value"],
+  ];
+  SPECS.forEach(([input, expected]) => {
+    it(`should convert ${input} to ${expected}`, () => {
+      expect(strings.toProperNoun(input)).toBe(expected);
+    });
+  });
+});
+
+describe("toSentence", () => {
+  const SPECS: [string, string][] = [
+    ["sampleRate", "Sample rate"],
+    ["state_update_rate", "State update rate"],
+    ["data-type", "Data type"],
+    ["FooBar", "Foo bar"],
+    ["name", "Name"],
+    ["XMLParser", "XML parser"],
+    ["parseXMLDocument", "Parse XML document"],
+    ["IODevice", "IO device"],
+    ["apiKey", "Api key"],
+    ["cjcSource", "Cjc source"],
+    ["PIDController", "PID controller"],
+    ["valve-actuator-v2", "Valve actuator v2"],
+    ["", ""],
+    ["_", ""],
+    ["-", ""],
+    [" ", ""],
+    ["a", "A"],
+    ["ABC", "ABC"],
+    ["test_123_value", "Test 123 value"],
+  ];
+  SPECS.forEach(([input, expected]) => {
+    it(`should convert ${input} to ${expected}`, () => {
+      expect(strings.toSentence(input)).toBe(expected);
+    });
+  });
+});
+
+describe("capitalize", () => {
+  it("should capitalize the first character", () => {
+    expect(strings.capitalize("hello world")).toBe("Hello world");
+  });
+
+  it("should return an empty string unchanged", () => {
+    expect(strings.capitalize("")).toBe("");
+  });
+});
+
+describe("count", () => {
+  it("should use the singular noun for a count of 1", () => {
+    expect(strings.count(1, "cell")).toEqual("1 cell");
+  });
+  it("should add an s for any other count", () => {
+    expect(strings.count(0, "cell")).toEqual("0 cells");
+    expect(strings.count(3, "cell")).toEqual("3 cells");
+  });
+  it("should use the given plural", () => {
+    expect(strings.count(2, "entry", "entries")).toEqual("2 entries");
+    expect(strings.count(1, "entry", "entries")).toEqual("1 entry");
+  });
 });

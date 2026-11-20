@@ -22,7 +22,7 @@ import {
     SIZE,
     STILLS,
 } from "@/components/console/tour/stills";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 
 /** What each still shows, for readers who cannot see it. */
 const ALT: Record<string, string> = {
@@ -68,10 +68,8 @@ const place = ({ left, top, width, height }: Box): string =>
                         id={`${ID}/${still}`}
                         extension="webp"
                         alt={ALT[still]}
-                        width={SIZE.width}
-                        height={SIZE.height}
                         loading={still === BASE ? "eager" : "lazy"}
-                        className="docs-tour__image"
+                        class="docs-tour__image"
                     />
                 </div>
             ))}
@@ -82,7 +80,7 @@ const place = ({ left, top, width, height }: Box): string =>
                     data-hotspots={still}
                     hidden={still !== BASE}
                 >
-                    {hotspots(still).map(({ box, step }) =>
+                    {hotspots(still).map(({ box, step, title }) =>
                         step == null ? (
                             <div class="docs-tour__blocker" style={place(box)} />
                         ) : (
@@ -91,8 +89,8 @@ const place = ({ left, top, width, height }: Box): string =>
                                 class="docs-tour__hotspot"
                                 style={place(box)}
                                 data-step-target={step.key}
-                                aria-label={step.title}
-                                title={step.title}
+                                aria-label={title}
+                                title={title}
                             />
                         ),
                     )}

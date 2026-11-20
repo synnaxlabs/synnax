@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// <reference lib="esnext.disposable" preserve="true" />
+
 import {
   EOF,
   type Stream,
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
+import { disposable, errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -57,7 +59,10 @@ const intermediateStreamerConfigZ = z.object({
   channels: channel.paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.uint32().default(1),
-  /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
+  /**
+   * Optional throttle rate in Hz to limit the rate of frames sent to the client.
+   * Defaults to 0 (no throttling).
+   */
   throttleRate: Rate.z.default(new Rate(0)),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */
@@ -92,11 +97,13 @@ export interface StreamerUpdateOptions {
 /**
  * Streams frames of telemetry from a Synnax cluster in real time. Open one with the
  * client's openStreamer method, never directly. Read frames with `read` or by
- * iterating the streamer. Close it in a `finally` block to free its resources.
+ * iterating the streamer. Declare it with `using` or close it in a `finally` block to
+ * free its resources.
  *
  * @see https://docs.synnaxlabs.com/reference/client/stream-data
  */
-export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
+export interface Streamer
+  extends AsyncIterator<Frame>, AsyncIterable<Frame>, Disposable, AsyncDisposable {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
   /**
@@ -143,7 +150,7 @@ export const createStreamOpener =
       cfg.excludeGroups,
       cfg.keepAlive,
     );
-    stream.send({
+    await stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
@@ -174,6 +181,12 @@ export const openStreamer = async (
 const KEEP_ALIVE_DEADLINE_FACTOR = 3;
 
 class BaseStreamer implements Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;
@@ -267,17 +280,23 @@ class BaseStreamer implements Streamer {
     if (this.failure != null) throw this.failure;
     if (!hasChanged && !waitForAck) return;
     this.adapter.advance();
-    this.stream.send({
+    const sent = this.stream.send({
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
       excludeGroups: this.excludeGroups,
       ackRequested: waitForAck,
     });
-    if (!waitForAck) return;
+    if (!waitForAck) return await sent;
+    // Queued before send can wait, so a read that fails meanwhile rejects it.
     const ack = Promise.withResolvers<void>();
     this.pendingAcks.push(ack);
-    await ack.promise;
+    const unsent = sent.catch((err: unknown) => {
+      const i = this.pendingAcks.indexOf(ack);
+      if (i !== -1) this.pendingAcks.splice(i, 1);
+      throw errors.fromUnknown(err);
+    });
+    await Promise.all([unsent, ack.promise]);
   }
 
   close(): void {
