@@ -10,7 +10,8 @@
 // Package group extracts @group domain data: the record types that can sit in a group.
 // A record marks the field that holds its group with @group. scope names the scope of
 // the groups that can hold the record, and pinned says that the top parent of the group
-// must be the record's holder, or none when the record has no holder.
+// must be the record's holder, or none when the record has no holder. namespace says
+// that the names of the records and the groups in one group are unique.
 package group
 
 import (
@@ -42,6 +43,12 @@ type Member struct {
 	Scope resolution.EnumValue
 	// Pinned is true when the top parent of the group must be the record's holder.
 	Pinned bool
+	// Namespace is true when the names of the records and the groups in one group are
+	// unique.
+	Namespace bool
+	// Record is the record type, and Field is its field that holds its group.
+	Record resolution.Type
+	Field  resolution.Field
 }
 
 // Extract returns the @group data of table, or nil when no field carries @group. A type
@@ -136,7 +143,7 @@ func newMember(
 			data.Record.QualifiedName,
 		)
 	}
-	m := Member{}
+	m := Member{Record: typ, Field: f}
 	for _, expr := range domain.Expressions {
 		switch expr.Name {
 		case "scope":
@@ -159,6 +166,17 @@ func newMember(
 				return Member{}, errors.New("@group needs no value for pinned")
 			}
 			m.Pinned = true
+		case "namespace":
+			if len(expr.Values) > 0 {
+				return Member{}, errors.New("@group needs no value for namespace")
+			}
+			if !hasNameField(typ, table) {
+				return Member{}, errors.Newf(
+					"@group namespace needs %s to have a string name field",
+					typ.QualifiedName,
+				)
+			}
+			m.Namespace = true
 		default:
 			return Member{}, errors.Newf("@group has unknown expression %s", expr.Name)
 		}
@@ -183,6 +201,17 @@ func newMember(
 		)
 	}
 	return m, nil
+}
+
+// hasNameField reports whether typ has a string field named name.
+func hasNameField(typ resolution.Type, table *resolution.Table) bool {
+	return slices.ContainsFunc(
+		resolution.UnifiedFields(typ, table),
+		func(f resolution.Field) bool {
+			return f.Name == "name" &&
+				resolution.PrimitiveBase(f.Type, table) == "string"
+		},
+	)
 }
 
 // keyName returns the name of the type of typ's key field, or "" when it has none.

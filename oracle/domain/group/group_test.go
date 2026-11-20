@@ -100,6 +100,49 @@ var _ = Describe("Extract", func() {
 		Expect(values(data.Members[1])).To(Equal([]any{"rack", "device", true}))
 	})
 
+	It("Should mark a namespace member with its record and field", func() {
+		data := MustSucceed(extract(`
+			Name = string
+
+			Channel struct {
+				key   uint32 {
+					@key
+				}
+				name  Name
+				group group.Key? {
+					@group scope channel
+					@group namespace
+				}
+
+				@resource type "channel"
+			}
+		`))
+		Expect(data.Members).To(HaveLen(1))
+		m := data.Members[0]
+		Expect(m.Namespace).To(BeTrue())
+		Expect(m.Record.Name).To(Equal("Channel"))
+		Expect(m.Field.Name).To(Equal("group"))
+	})
+
+	It("Should reject a namespace member with no string name field", func() {
+		Expect(extract(rack(`
+			@group scope device
+			@group namespace
+		`))).Error().To(MatchError(
+			"records.Rack.group: @group namespace needs records.Rack to have a " +
+				"string name field",
+		))
+	})
+
+	It("Should reject a value for namespace", func() {
+		Expect(extract(rack(`
+			@group scope device
+			@group namespace yes
+		`))).Error().To(MatchError(
+			"records.Rack.group: @group needs no value for namespace",
+		))
+	})
+
 	DescribeTable(
 		"Should reject a malformed @group",
 		func(domains, message string) {

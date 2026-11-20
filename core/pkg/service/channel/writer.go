@@ -131,7 +131,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return nil, nameTaken(err)
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
@@ -859,11 +859,14 @@ func validateNames(names []string) error {
 }
 
 // nameTaken returns err as a validation error that names the taken name when err is a
-// clash of the name index, and returns err unchanged otherwise.
+// clash of the name index or of sibling names, and returns err unchanged otherwise.
 func nameTaken(err error) error {
 	var clash gorp.UniqueError
-	if !errors.As(err, &clash) || clash.Space != nameSpace {
+	if !errors.As(err, &clash) {
 		return err
+	}
+	if clash.Space != nameSpace {
+		return group.SiblingError(err)
 	}
 	return validate.PathedError(
 		errors.Wrapf(
