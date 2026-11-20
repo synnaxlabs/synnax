@@ -27,6 +27,7 @@ import { List } from "@/list";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
 import { useContext } from "@/select/Context";
+import { onFirstInput } from "@/select/firstInput";
 import { useRegistryContext } from "@/select/registry";
 import { ClosedContext, InlineContext } from "@/select/scope";
 import { useOrder } from "@/select/use";
@@ -56,21 +57,9 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
   return createPortal(<ClosedContext value>{children}</ClosedContext>, detached);
 };
 
-// Inputs that scroll the list or move its cursor. The first one ends a reveal that
-// still waits, so the list never moves under the user.
-const STOP_EVENTS = ["wheel", "touchmove", "pointerdown"] as const;
-const STOP_KEYS: ReadonlySet<string> = new Set([
-  "ArrowUp",
-  "ArrowDown",
-  "PageUp",
-  "PageDown",
-  "Home",
-  "End",
-]);
-
 // The dialog opens on its first choice, as a native dropdown does. A fetched list can
 // load the choice after the dialog is placed, so the reveal waits for it once, until
-// the user scrolls or searches.
+// the user's first input. The list never moves under the user.
 const useRevealChoice = (placed: boolean): void => {
   const registry = useRegistryContext("Select.Dialog");
   const order = useOrder();
@@ -94,14 +83,7 @@ const useRevealChoice = (placed: boolean): void => {
       if (element != null) element.scrollIntoView({ block: "nearest" });
       else scrollToIndex(getData().indexOf(key));
     };
-    const handleKey = (e: KeyboardEvent): void => {
-      if (STOP_KEYS.has(e.key)) stop();
-    };
-    const controller = new AbortController();
-    const options = { capture: true, passive: true, signal: controller.signal };
-    STOP_EVENTS.forEach((type) => window.addEventListener(type, stop, options));
-    window.addEventListener("keydown", handleKey, options);
-    stops.push(() => controller.abort(), order.subscribe(tryReveal));
+    stops.push(onFirstInput(registry, stop), order.subscribe(tryReveal));
     tryReveal();
     return stop;
   }, [placed, registry, readRef]);

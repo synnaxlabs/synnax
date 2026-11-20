@@ -20,6 +20,7 @@ import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
 import { Context } from "@/select/Context";
+import { onFirstInput } from "@/select/firstInput";
 import { type Registry, RegistryContext, useRegistry } from "@/select/registry";
 import { KeyboardContext } from "@/select/scope";
 import {
@@ -87,8 +88,9 @@ interface BaseFrameProps<
 > extends optional.Optional<Omit<List.FrameProps<K, E>, "onChange">, "data"> {
   /**
    * Whether to list the selected entries first each time the enclosing dialog opens.
-   * The order holds while the dialog stays open, except that an entry that loads later
-   * joins the front. A search lists its matches in their own order.
+   * The order holds while the dialog stays open, except that an entry that loads before
+   * the user's first input joins the front. A search lists its matches in their own
+   * order.
    */
   selectedFirst?: boolean;
 }
@@ -144,20 +146,27 @@ const useSelectedFirst = <K extends record.Key, E extends record.Keyed<K> | unde
     setPending(getItem == null ? EMPTY : selected.filter(loading));
   }
   // An entry still loading when the dialog opens goes first once it loads, after the
-  // entries already there. A subscription can fetch, so it runs only as keys load.
+  // entries already there, until the user's first input. Subscribing can fetch, so only
+  // the keys still loading subscribe.
   const readRef = useSyncedRef({ getItem, subscribe });
   useEffect(() => {
     const { subscribe } = readRef.current;
     if (subscribe == null || pending.length === 0) return;
-    const stops = pending.map((key) =>
-      subscribe(() => {
-        if (readRef.current.getItem?.(key) == null) return;
-        setPending((keys) => keys.filter((k) => k !== key));
-        setFront((keys) => (keys.includes(key) ? keys : [...keys, key]));
-      }, key),
+    const waiting = new Set(pending);
+    const stops: destructor.Destructor[] = [];
+    const stop = (): void => stops.splice(0).forEach((s) => s());
+    const join = (key: K): void => {
+      if (!waiting.has(key) || readRef.current.getItem?.(key) == null) return;
+      waiting.delete(key);
+      setFront((keys) => [...keys, key]);
+      if (waiting.size === 0) stop();
+    };
+    stops.push(
+      onFirstInput(registry, stop),
+      ...pending.map((key) => subscribe(() => join(key), key)),
     );
-    return () => stops.forEach((stop) => stop());
-  }, [pending, readRef]);
+    return stop;
+  }, [pending, readRef, registry]);
   const isSearching = (): boolean => registry.getTerm() !== "";
   const searching = useSyncExternalStore(
     value == null ? NOOP_SUBSCRIBE : registry.subscribe,

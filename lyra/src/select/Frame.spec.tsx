@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -100,25 +100,31 @@ describe("Select.Frame nested in a list", () => {
   });
 });
 
-interface OrderedProps {
+interface OrderedProps extends Pick<
+  List.FrameProps<string, record.Keyed<string>>,
+  "getItem" | "subscribe"
+> {
   selectedFirst?: boolean;
   visible?: boolean;
-  getItem?: List.GetItem<string, record.Keyed<string>>;
+  value?: string[];
 }
 
 const Ordered = ({
   selectedFirst,
   visible = true,
+  value = ["b", "none"],
   getItem,
+  subscribe,
 }: OrderedProps): ReactElement => (
   <Triggers.Provider>
     <Dialog.Frame visible={visible} onVisibleChange={vi.fn()}>
       <Select.Frame
         multiple
         data={["a", "b"]}
-        value={["b", "none"]}
+        value={value}
         onChange={vi.fn()}
         getItem={getItem}
+        subscribe={subscribe}
         selectedFirst={selectedFirst}
       >
         <Select.List>
@@ -135,10 +141,12 @@ interface OrderedSingleProps extends Pick<
   "getItem" | "subscribe"
 > {
   value: string;
+  search?: boolean;
 }
 
 const OrderedSingle = ({
   value,
+  search = false,
   getItem,
   subscribe,
 }: OrderedSingleProps): ReactElement => (
@@ -152,6 +160,7 @@ const OrderedSingle = ({
         subscribe={subscribe}
         selectedFirst
       >
+        {search && <Select.Search />}
         <Select.List>
           <Select.Item itemKey="none">None</Select.Item>
           <Select.Items<string>>{row}</Select.Items>
@@ -160,6 +169,29 @@ const OrderedSingle = ({
     </Dialog.Frame>
   </Triggers.Provider>
 );
+
+/** A fetched list whose entries load when the spec loads them. */
+const createLoader = (...loaded: string[]) => {
+  const ready = new Set(loaded);
+  const listeners = new Map<string, () => void>();
+  const subscribed: string[] = [];
+  const getOne = (key: string): record.Keyed<string> | undefined =>
+    ready.has(key) ? { key } : undefined;
+  const getItem = ((keys: string | string[]) =>
+    Array.isArray(keys)
+      ? keys.flatMap((key) => getOne(key) ?? [])
+      : getOne(keys)) as List.GetItem<string, record.Keyed<string>>;
+  const subscribe = (callback: () => void, key: string): (() => void) => {
+    subscribed.push(key);
+    listeners.set(key, callback);
+    return () => listeners.delete(key);
+  };
+  const load = (key: string): void => {
+    ready.add(key);
+    act(() => listeners.get(key)?.());
+  };
+  return { getItem, subscribe, load, listeners, subscribed };
+};
 
 describe("Select.Frame selectedFirst", () => {
   const options = (c: ReturnType<typeof render>): string[] =>
@@ -194,27 +226,57 @@ describe("Select.Frame selectedFirst", () => {
   });
 
   it("should list a selected entry first once it loads", () => {
-    const loaded = new Set(["a"]);
-    const listeners = new Map<string, () => void>();
-    const getOne = (key: string): record.Keyed<string> | undefined =>
-      loaded.has(key) ? { key } : undefined;
-    const getItem = ((keys: string | string[]) =>
-      Array.isArray(keys)
-        ? keys.flatMap((key) => getOne(key) ?? [])
-        : getOne(keys)) as List.GetItem<string, record.Keyed<string>>;
-    const subscribe = (callback: () => void, key: string): (() => void) => {
-      listeners.set(key, callback);
-      return () => listeners.delete(key);
-    };
+    const { getItem, subscribe, load, listeners } = createLoader("a");
     const c = render(
       <OrderedSingle value="b" getItem={getItem} subscribe={subscribe} />,
     );
     expect(options(c)).toEqual(["None", "a", "b"]);
     expect([...listeners.keys()]).toEqual(["b"]);
-    loaded.add("b");
-    act(() => listeners.get("b")?.());
+    load("b");
     expect(options(c)).toEqual(["None", "b", "a"]);
     expect(listeners.size).toBe(0);
+  });
+
+  it("should subscribe once to each entry that loads after the dialog opens", () => {
+    const { getItem, subscribe, load, listeners, subscribed } = createLoader();
+    const c = render(
+      <Ordered
+        selectedFirst
+        value={["b", "a"]}
+        getItem={getItem}
+        subscribe={subscribe}
+      />,
+    );
+    load("b");
+    load("a");
+    expect(options(c)).toEqual(["None", "b", "a"]);
+    expect(subscribed).toEqual(["b", "a"]);
+    expect(listeners.size).toBe(0);
+  });
+
+  it.each([
+    ["scrolls", () => window.dispatchEvent(new WheelEvent("wheel"))],
+    [
+      "moves the cursor",
+      () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" })),
+    ],
+    [
+      "searches",
+      (c: ReturnType<typeof render>) => {
+        const search = c.getByRole("textbox");
+        fireEvent.change(search, { target: { value: "a" } });
+        fireEvent.change(search, { target: { value: "" } });
+      },
+    ],
+  ])("should not list an entry first that loads after the user %s", (_, input) => {
+    const { getItem, subscribe, load, listeners } = createLoader("a");
+    const c = render(
+      <OrderedSingle value="b" search getItem={getItem} subscribe={subscribe} />,
+    );
+    input(c);
+    expect(listeners.size).toBe(0);
+    load("b");
+    expect(options(c)).toEqual(["None", "a", "b"]);
   });
 
   it("should keep a selected fixed item of a single selection in its place", () => {
