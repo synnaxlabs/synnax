@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
-import { type Color } from "@synnaxlabs/lyra/color";
-import { type color as xcolor } from "@synnaxlabs/x";
+import type { color } from "@synnaxlabs/client";
+import type { Color } from "@synnaxlabs/lyra/color";
+import type { color as xcolor } from "@synnaxlabs/x";
 
 import { usePalettes, useResolve } from "@/color/library";
 

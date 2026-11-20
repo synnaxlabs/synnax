@@ -33,6 +33,11 @@ extern synnax::Config test_client_config();
 /// @brief instantiates a new client for the Core named by test_client_config.
 extern synnax::Synnax new_test_client();
 
+/// @returns the config of a client for the Core named by test_client_config that signs
+/// in as the rack with key, through a new API key that client creates.
+extern synnax::Config
+rack_client_config(const synnax::Synnax &client, synnax::rack::Key key);
+
 /// @brief creates a new random generator for a test suite, and outputs the seed to
 /// stdout for reproducibility.
 extern std::mt19937 random_generator(const std::string &suite_name);

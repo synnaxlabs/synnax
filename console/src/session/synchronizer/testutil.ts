@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action } from "@reduxjs/toolkit";
+import type { Action } from "@reduxjs/toolkit";
 
-import { type Synchronizers } from "@/session/synchronizer/create";
+import type { Synchronizers } from "@/session/synchronizer/create";
 
 /**
  * Narrows a registry to the named synchronizer so a spec can mount it without

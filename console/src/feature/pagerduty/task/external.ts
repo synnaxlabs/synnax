@@ -9,7 +9,7 @@
 
 import { ALERT_TYPE } from "@/feature/pagerduty/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/pagerduty/task/commands";
 export * from "@/feature/pagerduty/task/create";

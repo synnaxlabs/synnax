@@ -15,7 +15,7 @@ import {
   SpanStatusCode,
   type Tracer as OtelTracer,
 } from "@opentelemetry/api";
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 
 import {
   type Environment,

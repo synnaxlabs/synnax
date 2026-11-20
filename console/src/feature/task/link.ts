@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 
-import { type Link } from "@/platform/link";
+import type { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 
 export const useLink = (): Link.Handler => {

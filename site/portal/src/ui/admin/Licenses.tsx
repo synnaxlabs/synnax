@@ -16,9 +16,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { strings } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type LicenseList } from "@/page";
-import { type Listed } from "@/server/directory";
-import { type Query } from "@/server/license/list";
+import type { LicenseList } from "@/page";
+import type { Listed } from "@/server/directory";
+import type { Query } from "@/server/license/list";
 import { type Status, STATUSES } from "@/server/license/status";
 import { IssueDialog } from "@/ui/admin/IssueDialog";
 import { LicenseTable } from "@/ui/admin/LicenseTable";

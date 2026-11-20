@@ -32,7 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import {
   errorResult,
@@ -53,7 +53,7 @@ import {
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
-import { type UpdateParams } from "@/flux/update";
+import type { UpdateParams } from "@/flux/update";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>

@@ -16,7 +16,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";

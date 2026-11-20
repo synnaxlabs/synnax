@@ -19,7 +19,7 @@ import {
 
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
-import { type position } from "@/position";
+import type { position } from "@/position";
 import { Text } from "@/text";
 import { Frame } from "@/tooltip/Frame";
 import { useVisibility } from "@/tooltip/useVisibility";

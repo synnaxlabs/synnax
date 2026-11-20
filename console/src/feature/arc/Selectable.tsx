@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Arc } from "@/platform/arc";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = {
   title: "Arc automation",

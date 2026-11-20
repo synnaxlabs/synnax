@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**

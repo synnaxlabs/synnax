@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, deep, Density } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ByteOrderOption } from "@/feature/modbus/device/ByteOrder";
 import { MENU_PROPS, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/device/Option";
