@@ -82,7 +82,12 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   );
 };
 
-const TreeItem = Tree.createItem({ Content, ContextMenu: TreeContextMenu });
+const TreeItem = Tree.createItem({
+  icon: <Icon.Logo.NI />,
+  typeName: "NI chassis",
+  Content,
+  ContextMenu: TreeContextMenu,
+});
 
 export const TREE_ITEMS = { ni_chassis: TreeItem } satisfies Tree.Items;
 

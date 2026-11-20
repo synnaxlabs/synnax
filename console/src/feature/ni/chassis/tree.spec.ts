@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import {
   createHostItems,
+  createResource,
   findTreeRow,
   HOST_ID,
   renderLiveTree,
@@ -61,5 +63,19 @@ describe("NI chassis tree item", async () => {
       name: renamed,
     });
     await waitFor(async () => expect(await findTreeRow(renamed)).not.toBeNull());
+  });
+
+  it("should preview a dragged chassis with its type name", () => {
+    const key = uuid.create();
+    render(
+      NI.Chassis.TREE_ITEMS.ni_chassis.haulPreview({
+        resource: createResource(ni.chassis.resourceID(key), "Chassis A"),
+        client,
+        count: 1,
+        resolveColor: () => undefined,
+      }),
+    );
+    expect(screen.getByText("Chassis A")).toBeTruthy();
+    expect(screen.getByText("NI chassis")).toBeTruthy();
   });
 });
