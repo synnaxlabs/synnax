@@ -10,9 +10,9 @@
 import { createServer, type Server } from "node:http";
 import { type AddressInfo } from "node:net";
 
+import { sleep } from "@synnaxlabs/x";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { sleep } from "@/sleep";
 import { shortenKeepAlive } from "@/testutil/keepAlive";
 
 describe("shortenKeepAlive", () => {
