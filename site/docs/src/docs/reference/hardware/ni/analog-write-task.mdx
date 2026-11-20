@@ -155,9 +155,9 @@ Each table shows the Console label of a setting, with its Python field under it.
 and current channels also have **Custom scaling**.
 
 **Range** is the lowest and highest value that the channel writes. NI-DAQmx uses it to
-select the output range of the device, and rejects a command outside it. The Console
-compares the range with the output ranges of the device, and shows "The device has no
-range from ... to ..." if no output range holds it. With a
+select the output range of the device, and rejects a command outside it. When the device
+reports its output ranges, the Console compares the range with them, and shows "The
+device has no range from ... to ..." if no output range holds it. With a
 [custom scale](#custom-scaling), the range is in the scaled units, and the Console does
 not compare it.
 

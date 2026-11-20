@@ -185,9 +185,11 @@ selects the smallest input range that holds your values, which gives the best
 resolution. Set the range near the real signal. A signal outside the input range that
 NI-DAQmx selects reads as the limit of that input range.
 
-For a voltage channel, and for a current channel with an internal shunt, the Console
-compares the range with the input ranges of the device. If no input range holds the
-values, the Console shows "The device has no range from ... to ...".
+For a **Voltage** channel, and for a **Current** channel whose **Shunt resistor
+location** is not **External**, the Console compares the range with the input ranges of
+the device. If no input range holds the values, the Console shows "The device has no
+range from ... to ...". The Console skips this check when the device reports no input
+ranges.
 
 With a [custom scale](#custom-scaling), the range is in the scaled units. For example, a
 0 to 500 psi transducer with a 0 to 10 V output and a linear scale to psi takes a range
