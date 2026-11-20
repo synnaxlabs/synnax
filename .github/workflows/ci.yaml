@@ -1456,24 +1456,36 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # The check suite keeps the check runs of earlier attempts, so the job reads
+          # only the check runs that this attempt started or ended.
+          since=""
+          if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
+            attempt="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            attempt="$attempt/attempts/$GITHUB_RUN_ATTEMPT"
+            until since=$(gh api "$attempt" --jq .run_started_at); do sleep 90; done
+          fi
           # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
           query='query($url: URI!) {
             resource(url: $url) { ... on WorkflowRun { checkSuite {
               failed: checkRuns(first: 100, filterBy: {checkType: LATEST,
-                conclusions: [FAILURE, TIMED_OUT, CANCELLED]}) { nodes { name } }
+                conclusions: [FAILURE, TIMED_OUT, CANCELLED]}) {
+                nodes { name completedAt }
+              }
               ok: checkRuns(first: 1, filterBy: {checkType: LATEST, checkName: "OK"}) {
-                nodes { status }
+                nodes { status startedAt }
               }
             } } }
           }'
           while true; do
-            # The next poll retries a failed API call.
+            # The next poll retries a failed call, or a run GraphQL does not show yet.
             if ! suite=$(gh api graphql -f url="$url" -f query="$query" \
-              --jq .data.resource.checkSuite); then
+              --jq .data.resource.checkSuite) ||
+              ! jq -e '.failed.nodes and .ok.nodes' <<< "$suite" > /dev/null; then
               sleep 90
               continue
             fi
-            failed=$(jq -r '.failed.nodes[].name' <<< "$suite")
+            failed=$(jq -r --arg since "$since" '.failed.nodes[]
+              | select(.completedAt >= $since) | .name' <<< "$suite")
             if [ -n "$failed" ]; then
               echo "$failed"
               echo "::error::A job failed, so the run is cancelled."
@@ -1481,8 +1493,9 @@ jobs:
               exit 1
             fi
             # OK starts only after every other job finished.
-            jq -e '.ok.nodes[] | select(.status == "IN_PROGRESS"
-              or .status == "COMPLETED")' <<< "$suite" > /dev/null && exit 0
+            jq -e --arg since "$since" '.ok.nodes[] | select(.startedAt >= $since
+              and (.status == "IN_PROGRESS" or .status == "COMPLETED"))' \
+              <<< "$suite" > /dev/null && exit 0
             sleep 90
           done
 
