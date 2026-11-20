@@ -431,9 +431,11 @@ describe("Swatch", () => {
         fireEvent.click(swatchOf(c));
         pick(c, GREEN);
         pick(c, BLUE);
+        // The top right corner of the page, clear of the swatch and the picker.
+        const root = document.documentElement.getBoundingClientRect();
         fireEvent.pointerDown(document.body, {
-          clientX: window.innerWidth - 1,
-          clientY: window.innerHeight - 1,
+          clientX: root.right - 1,
+          clientY: root.top + 1,
         });
         expect(onChange).toHaveBeenCalledOnce();
         expect(color.hex(onChange.mock.calls[0][0])).toEqual(`#${BLUE}`);
