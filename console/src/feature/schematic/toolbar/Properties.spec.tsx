@@ -429,6 +429,23 @@ describe("Schematic toolbar Properties", () => {
       );
     });
 
+    it("shows the first series color as the stroke of auto-stroked gauges", async () => {
+      const [first] = (
+        await client.colors.retrieve({ groups: [clientColor.SERIES_PALETTE] })
+      ).sort(clientColor.compare);
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "gauge" }),
+      });
+      await screen.findByText("Colors");
+      const swatch = getSwatches("Stroke")[0];
+      await waitFor(() =>
+        expect(swatch.style.getPropertyValue("--pluto-swatch-color")).toBe(
+          color.hex(first.light),
+        ),
+      );
+    });
+
     it("shows Mixed when auto-filled symbols paint different fills", async () => {
       await renderProperties({
         nodeKeys: ["n1", "n2"],

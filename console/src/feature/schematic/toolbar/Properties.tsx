@@ -19,6 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import {
+  Color,
   Diagram,
   Direction,
   type Properties as PProperties,
@@ -198,6 +199,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const getViewport = Session.Schematic.useGetViewport();
   const parentOf = Schematic.useParentOf();
   const theme = Theming.use();
+  const seriesColors = Color.useSeriesValues();
   // Grouped symbols never move alone: boxes align, the dispatch fans out to members.
   const movable = selected.filter((k) => !parentOf.has(k));
   // The selection closure includes group configs, so shielding sees locked flags.
@@ -501,7 +503,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             <MultiEdit.ColorField
               label="Stroke"
               values={selection.colors("strokeColor", (c) =>
-                Schematic.colorFallback("strokeColor", c.variant, theme),
+                Schematic.colorFallback("strokeColor", c.variant, theme, seriesColors),
               )}
               onChange={(c) => selection.setColor("strokeColor", c)}
               palettesHidden={selection.valueOnly("strokeColor")}
@@ -511,7 +513,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             <MultiEdit.ColorField
               label="Fill"
               values={selection.colors("fillColor", (c) =>
-                Schematic.colorFallback("fillColor", c.variant, theme),
+                Schematic.colorFallback("fillColor", c.variant, theme, seriesColors),
               )}
               onChange={(c) => selection.setColor("fillColor", c)}
               palettesHidden={selection.valueOnly("fillColor")}
@@ -521,7 +523,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             <MultiEdit.ColorField
               label="Text"
               values={selection.colors("textColor", (c) =>
-                Schematic.colorFallback("textColor", c.variant, theme),
+                Schematic.colorFallback("textColor", c.variant, theme, seriesColors),
               )}
               onChange={(c) => selection.setColor("textColor", c)}
               palettesHidden={selection.valueOnly("textColor")}

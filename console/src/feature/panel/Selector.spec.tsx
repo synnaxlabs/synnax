@@ -19,7 +19,14 @@ import { fireDragEvent } from "@synnaxlabs/lyra/testutil";
 import { Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { color, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -616,12 +623,16 @@ describe("Panel.Selector", () => {
 
     it("should tint the pill icon and keep the picker open on a color", async () => {
       const pan = await openPicker();
+      const frame = picker();
+      if (frame == null) throw new Error("the icon picker is not open");
+      const [swatch] = within(frame).getAllByRole("button", { name: /^#[0-9a-f]+$/ });
+      const [r, g, b] = color.construct(swatch.getAttribute("aria-label") ?? "");
       await act(async () => {
-        fireEvent.click(screen.getByLabelText("#dc136c"));
+        fireEvent.click(swatch);
       });
       await waitFor(() =>
         expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
-          "220, 19, 108",
+          `${r}, ${g}, ${b}`,
         ),
       );
       expect(picker()).not.toBeNull();

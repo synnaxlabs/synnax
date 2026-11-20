@@ -10,7 +10,7 @@
 import "@/vis/value/RedlineForm.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
+import { Color as Base } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,6 +21,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type compare, deep, id } from "@synnaxlabs/x";
 import type { CSSProperties, ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 
 const root = deep.path<{ units?: string }>();
@@ -66,7 +67,7 @@ const BandItem = ({
       <Bar {...bar} />
       <Form.Field path={bandPath.color} showLabel={false} showHelpText={false}>
         {({ value, onChange }) => (
-          <Color.Swatch value={value} onChange={onChange} size="small" bordered />
+          <Base.Swatch value={value} onChange={onChange} size="small" bordered />
         )}
       </Form.Field>
       <Text.Text level="small" color={9} className={CSS.BE("redline-form", "relation")}>
@@ -123,7 +124,7 @@ interface FloorItemProps {
 const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactElement => (
   <Flex.Box x align="center" gap="small" className={CSS.BE("redline-form", "floor")}>
     <Bar on={color.cssString(background ?? color.TRANSPARENT)} />
-    <Color.Swatch
+    <Base.Swatch
       value={background ?? color.TRANSPARENT}
       size="small"
       bordered
@@ -184,6 +185,7 @@ export const RedlineForm = ({ path, background }: RedlineFormProps): ReactElemen
   const units = Form.useFieldValue(root.units, { optional: true }) ?? "";
   const { push, remove } = Form.useFieldListUtils(path.bands);
   const theme = Theming.use();
+  const seriesColors = Color.useSeriesValues();
   const { bands, smooth } = redline;
   const sorted = bands.toSorted(ascending);
   const keys = sorted.map(({ key }) => key);
@@ -210,11 +212,7 @@ export const RedlineForm = ({ path, background }: RedlineFormProps): ReactElemen
       const step = second == null ? 0 : highest.threshold - second.threshold;
       threshold = highest.threshold + (step > 0 ? step : 1);
     }
-    const palette = [
-      theme.colors.warning.z,
-      theme.colors.error.z,
-      ...(theme.colors.visualization.palettes.default ?? []),
-    ];
+    const palette = [theme.colors.warning.z, theme.colors.error.z, ...seriesColors];
     push(
       {
         key: id.create(),

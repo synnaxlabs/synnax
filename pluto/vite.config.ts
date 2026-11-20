@@ -9,8 +9,8 @@
 
 /// <reference types="vitest/config" />
 
-import react from "@vitejs/plugin-react";
 import { layers, lib, plutoLayers } from "@synnaxlabs/vite-plugin";
+import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import path from "path";
 import { defineConfig, esmExternalRequirePlugin } from "vite";
@@ -83,7 +83,25 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["src/testutil/setup.ts"],
           include: ["src/**/*.spec.{ts,tsx}"],
-          exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.browser.spec.tsx"],
+          exclude: [
+            "**/node_modules/**",
+            "**/dist/**",
+            "src/**/*.browser.spec.tsx",
+            "src/**/*.builtins.spec.{ts,tsx}",
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // Every spec file shares the built-in records of one Core, so the specs that
+          // change them run one file at a time, after every other spec.
+          name: "builtins",
+          environment: "jsdom",
+          setupFiles: ["src/testutil/setup.ts"],
+          include: ["src/**/*.builtins.spec.{ts,tsx}"],
+          fileParallelism: false,
+          sequence: { groupOrder: 1 },
         },
       },
       {
