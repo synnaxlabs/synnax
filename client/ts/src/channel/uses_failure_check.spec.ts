@@ -101,10 +101,10 @@ const createFake = async () => {
 describe("Channel uses refetch after a failure", () => {
   it("should fetch the uses of a failed refetch again at the next change", async () => {
     const { channels, core, usesRetrieves, change } = await createFake();
-    await channels.retrieve({
-      where: { key: { in: [FAILED.key, LATER.key] } },
-      includeUses: true,
-    });
+    const q = { where: { key: { in: [FAILED.key, LATER.key] } }, includeUses: true };
+    const list = channels.watch(q);
+    onTestFinished(list.onChange(() => {}));
+    await list.retrieve();
     expect(usesRetrieves).toEqual([[FAILED.key, LATER.key]]);
     core.failUses = 1;
     change(FAILED.key);
