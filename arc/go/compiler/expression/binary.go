@@ -296,6 +296,9 @@ func compileComparison[N, O antlr.ParserRuleContext](
 	op string,
 	compile func(context.Context[O]) (types.Type, error),
 ) (types.Type, error) {
+	if scalarBeforeSeries(ctx, operands) {
+		return compileScalarSeriesComparison(ctx, operands, op, compile)
+	}
 	// A comparison gives a bool, so an outer hint says nothing about its operands.
 	leftType, err := compile(ctx.Child(operands[0]).WithHint(types.Type{}))
 	if err != nil {
@@ -337,4 +340,45 @@ func compileComparison[N, O antlr.ParserRuleContext](
 		return types.Type{}, err
 	}
 	return types.Bool(), nil
+}
+
+// mirroredComparisons maps each comparison operator to the operator that gives the
+// same result with the operands swapped.
+var mirroredComparisons = map[string]string{
+	"<": ">", ">": "<", "<=": ">=", ">=": "<=", "==": "==", "!=": "!=",
+}
+
+// scalarBeforeSeries returns true when the first operand is a scalar and the second
+// is a series.
+func scalarBeforeSeries[N, O antlr.ParserRuleContext](
+	ctx context.Context[N],
+	operands []O,
+) bool {
+	left, ok := ctx.TypeMap[operands[0]]
+	return ok && left.Kind != types.KindSeries &&
+		ctx.TypeMap[operands[1]].Kind == types.KindSeries
+}
+
+// compileScalarSeriesComparison compiles a comparison whose first operand is a scalar
+// and whose second is a series. It compiles the series first and mirrors op, as the
+// series comparison functions take the series before the scalar.
+func compileScalarSeriesComparison[N, O antlr.ParserRuleContext](
+	ctx context.Context[N],
+	operands []O,
+	op string,
+	compile func(context.Context[O]) (types.Type, error),
+) (types.Type, error) {
+	seriesType, err := compile(ctx.Child(operands[1]).WithHint(types.Type{}))
+	if err != nil {
+		return types.Type{}, err
+	}
+	if _, _, err = CompileOperand(ctx, seriesType, operands[0], compile); err != nil {
+		return types.Type{}, err
+	}
+	if err = ctx.Resolver.EmitSeriesComparison(
+		ctx.Writer, ctx.WriterID, mirroredComparisons[op], *seriesType.Elem, true,
+	); err != nil {
+		return types.Type{}, err
+	}
+	return types.Series(types.Bool()), nil
 }

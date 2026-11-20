@@ -3162,6 +3162,22 @@ var _ = Describe("Compiler", func() {
 				return m[1]
 			}`, false),
 
+			Entry("scalar-series less than f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := 2.0 < s
+				return m[2]
+			}`, true),
+			Entry("scalar-series less than f64 false", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := 2.0 < s
+				return m[1]
+			}`, false),
+			Entry("scalar-series equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := 2 == s
+				return m[1]
+			}`, true),
+
 			// Series-series arithmetic (f64)
 			Entry("series-series add f64", `{
 				a series f64 := [1.0, 2.0, 3.0]
