@@ -78,7 +78,7 @@ func (l *Lookup[S, K, V]) Stage(scope S, key K, value V) {
 		l.Set(key, value)
 		return
 	}
-	l.overlay.load(scope).set(key, []V{value})
+	l.overlay.load(scope).setOne(key, value)
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed

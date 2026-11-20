@@ -60,7 +60,7 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 	name  string
 	space string
 	// value returns the value of an entry, and false when the entry holds none.
-	value func(e *E) (V, bool)
+	value func(e E) (V, bool)
 	store *index.Lookup[*txState, K, V]
 	// members is the space of the index on the DB of its table, registry is the
 	// registry of that DB, and table is the name of that table. All are set when the
@@ -76,7 +76,7 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 func NewUniqueIndex[K Key, E Entry[K], V comparable](
 	name string,
 	space string,
-	value func(e *E) (V, bool),
+	value func(e E) (V, bool),
 ) *UniqueIndex[K, E, V] {
 	return &UniqueIndex[K, E, V]{
 		name:  name,
@@ -92,7 +92,7 @@ func (u *UniqueIndex[K, E, V]) Name() string { return u.name }
 func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert, finish := u.store.Populate()
 	return func(entry E) {
-			if v, ok := u.value(&entry); ok {
+			if v, ok := u.value(entry); ok {
 				insert(entry.GorpKey(), v)
 			}
 		},
@@ -100,7 +100,7 @@ func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
 }
 
 func (u *UniqueIndex[K, E, V]) set(entry E) {
-	if v, ok := u.value(&entry); ok {
+	if v, ok := u.value(entry); ok {
 		u.store.Set(entry.GorpKey(), v)
 		return
 	}
@@ -110,7 +110,7 @@ func (u *UniqueIndex[K, E, V]) set(entry E) {
 func (u *UniqueIndex[K, E, V]) delete(key K) { u.store.Delete(key) }
 
 func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	if v, ok := u.value(&entry); ok {
+	if v, ok := u.value(entry); ok {
 		u.store.Stage(tx.txIdentity(), entry.GorpKey(), v)
 		return
 	}
@@ -126,7 +126,7 @@ func (u *UniqueIndex[K, E, V]) stageDelete(tx Tx, key K) {
 // already holds that value in tx. Each write of the table runs it, so call it only to
 // fail before work that a refused write would waste.
 func (u *UniqueIndex[K, E, V]) Check(ctx context.Context, tx Tx, e *E) error {
-	v, ok := u.value(e)
+	v, ok := u.value(*e)
 	if !ok {
 		return nil
 	}

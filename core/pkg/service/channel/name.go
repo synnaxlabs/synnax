@@ -21,6 +21,6 @@ func newNameIndex() *gorp.UniqueIndex[Key, Channel, string] {
 	return gorp.NewUniqueIndex(
 		"unique_name",
 		nameSpace,
-		func(c *Channel) (string, bool) { return c.Name, true },
+		func(c Channel) (string, bool) { return c.Name, true },
 	)
 }

@@ -49,7 +49,7 @@ func newItemIndex() *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling] {
 	return gorp.NewUniqueIndex(
 		"sibling",
 		uniqueSpaceName,
-		func(i *uniqueItem) (uniqueSibling, bool) {
+		func(i uniqueItem) (uniqueSibling, bool) {
 			return uniqueSibling{Parent: i.Folder, Name: i.Name}, !i.Exempt
 		},
 	)
@@ -59,7 +59,7 @@ func newFolderIndex() *gorp.UniqueIndex[string, uniqueFolder, uniqueSibling] {
 	return gorp.NewUniqueIndex(
 		"sibling",
 		uniqueSpaceName,
-		func(f *uniqueFolder) (uniqueSibling, bool) {
+		func(f uniqueFolder) (uniqueSibling, bool) {
 			return uniqueSibling{Parent: f.Parent, Name: f.Name}, true
 		},
 	)
@@ -367,7 +367,7 @@ var _ = Describe("UniqueIndex", func() {
 					gorp.NewUniqueIndex(
 						"name",
 						uniqueSpaceName,
-						func(i *uniqueItem) (string, bool) { return i.Name, true },
+						func(i uniqueItem) (string, bool) { return i.Name, true },
 					),
 				},
 			})).Error().To(MatchError(ContainSubstring(
