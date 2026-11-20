@@ -67,8 +67,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// ValidateNames sets whether to validate channel names during creation and
-	// renaming.
+	// ValidateNames is false on a Core started with the old name validation flag. Arc
+	// then reads a dashed name as one identifier, so text written under the flag keeps
+	// compiling until the upgrade quotes it. Names follow the name rule either way.
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
@@ -120,7 +121,9 @@ type Service struct {
 	builtIns atomic.Pointer[builtInSet]
 	// builtInFilters holds the filters of MatchInternal.
 	builtInFilters builtInFilters
-	mu             struct {
+	// names keeps channel names unique across the Core.
+	names *gorp.UniqueIndex[Key, Channel, string]
+	mu    struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -145,6 +148,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
+	s.names = newNameIndex()
 	s.builtIns.Store(&builtInSet{})
 	s.builtInFilters = newBuiltInFilters(&s.builtIns)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -156,7 +160,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), s.names),
 		References:      append(s.indexes.references(), s.index),
 		Issued:          cfg.Channel.Issued,
 		Instrumentation: cfg.Instrumentation,
@@ -376,5 +380,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // Actions returns the action batches that Writer attaches to its transactions.
 func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
-// ShouldValidateNames reports whether channel-name validation is enabled.
+// ShouldValidateNames reports false on a Core started with the old name validation
+// flag, where Arc reads a dashed name as one identifier.
 func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }

@@ -101,6 +101,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err != nil {
 		return nil, err
 	}
+	if next.Name != prev.Name {
+		next.Name = validate.NormalizeName(next.Name)
+	}
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
@@ -371,7 +374,7 @@ func (w Writer) create(
 	opts createOptions,
 ) error {
 	channels := *_channels
-	if err := w.validateCreate(ctx, channels, opts); err != nil {
+	if err := w.validateCreate(ctx, channels); err != nil {
 		return err
 	}
 	if err := w.prepareCreate(channels); err != nil {
@@ -416,12 +419,16 @@ func (w Writer) create(
 	return w.attachCreates(ctx, lo.Uniq(written))
 }
 
-// validateCreate validates each channel, its group, and the names of channels.
+// validateCreate puts the name of each channel in NFC and validates each channel, its
+// group, and the names of channels. The name index refuses a name that another channel
+// holds when the create writes.
 func (w Writer) validateCreate(
 	ctx context.Context,
 	channels []Channel,
-	opts createOptions,
 ) error {
+	for i := range channels {
+		channels[i].Name = validate.NormalizeName(channels[i].Name)
+	}
 	for i, ch := range channels {
 		if err := ch.Validate(); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
@@ -436,15 +443,7 @@ func (w Writer) validateCreate(
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}
-	if !*w.svc.cfg.ValidateNames {
-		return nil
-	}
-	return w.validateChannelNames(
-		ctx,
-		KeysFromChannels(channels),
-		Names(channels),
-		opts.retrieveIfNameExists,
-	)
+	return validateNames(Names(channels))
 }
 
 // prepareCreate sets the leaseholder of each channel. A calculated channel is virtual
@@ -757,7 +756,7 @@ func (w Writer) allocateAndWrite(
 		Exclusive().
 		Entries(&toCreate).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nameTaken(err)
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
@@ -826,60 +825,16 @@ func indexesFirst(a, b Channel) int {
 	}
 }
 
-// validateChannelNames rejects a create/rename request whose proposed names are not
-// identifiers, duplicate each other, or collide with an existing channel under a
-// different key. It leaves an empty name to Channel.Validate.
-func (w Writer) validateChannelNames(
-	ctx context.Context,
-	keys Keys,
-	names []string,
-	skipExisting bool,
-) error {
-	if err := validateNameSyntax(names); err != nil {
-		return err
-	}
-	if skipExisting {
-		return nil
-	}
-	var conflictingChannels []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
-		Entries(&conflictingChannels).
-		Exec(ctx, w.tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	nameConflicts := make(map[string]int, len(conflictingChannels))
-	for i, ch := range conflictingChannels {
-		nameConflicts[ch.Name] = i
-	}
+// validateNames rejects names that break the name rule (validate.IsPathSegment) or that
+// repeat. It leaves an empty name to Channel.Validate.
+func validateNames(names []string) error {
 	for i, name := range names {
-		conflictingIdx, conflict := nameConflicts[name]
-		if !conflict {
-			continue
-		}
-		existingCh := conflictingChannels[conflictingIdx]
-		if existingCh.Key() == keys[i] {
-			continue
-		}
-		return validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation, "channel with name '%s' already exists", name,
-			),
-			fmt.Sprintf("[%d].name", i),
-		)
-	}
-	return nil
-}
-
-// validateNameSyntax rejects names that are not identifiers or that repeat. It
-// leaves an empty name to Channel.Validate.
-func validateNameSyntax(names []string) error {
-	for i, name := range names {
-		if name != "" && !validate.IsIdentifier(name) {
+		if name != "" && !validate.IsPathSegment(name) {
 			return validate.PathedError(
 				errors.Wrapf(
 					validate.ErrValidation,
-					"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
+					"channel name '%s' must hold a visible character, and no '.' or "+
+						"invisible character",
 					name,
 				),
 				fmt.Sprintf("[%d]", i), "name",
@@ -901,6 +856,23 @@ func validateNameSyntax(names []string) error {
 		namesSeen.Add(name)
 	}
 	return nil
+}
+
+// nameTaken returns err as a validation error that names the taken name when err is a
+// clash of the name index, and returns err unchanged otherwise.
+func nameTaken(err error) error {
+	var clash gorp.UniqueError
+	if !errors.As(err, &clash) || clash.Space != nameSpace {
+		return err
+	}
+	return validate.PathedError(
+		errors.Wrapf(
+			validate.ErrValidation,
+			"channel with name '%v' already exists",
+			clash.Value,
+		),
+		"name",
+	)
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
@@ -943,10 +915,12 @@ func (w Writer) rename(
 			"keys and names must be the same length",
 		)
 	}
-	if *w.svc.cfg.ValidateNames {
-		if err := w.validateChannelNames(ctx, keys, names, false); err != nil {
-			return err
-		}
+	names = slices.Clone(names)
+	for i := range names {
+		names[i] = validate.NormalizeName(names[i])
+	}
+	if err := validateNames(names); err != nil {
+		return err
 	}
 	renameMap := make(map[Key]string, len(keys))
 	for i, key := range keys {
@@ -969,7 +943,7 @@ func (w Writer) rename(
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nameTaken(err)
 	}
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})

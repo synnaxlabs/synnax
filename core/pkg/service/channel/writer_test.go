@@ -192,6 +192,10 @@ var _ = Describe("Writer", func() {
 			Entry("with digits", "name_valid_sensor1"),
 			Entry("with underscores", "name_valid_sensor_temp"),
 			Entry("letters, digits, and underscores", "name_valid_temp123_sensor"),
+			Entry("dashes and capitals", "name_valid PT-FU-01"),
+			Entry("a leading digit", "1sensor_name_valid"),
+			Entry("punctuation", "name_valid sensor!@#$%"),
+			Entry("letters of other scripts", "name_valid 圧力"),
 		)
 		DescribeTable(
 			"Should reject invalid names",
@@ -207,13 +211,10 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("empty name", "", "name: required"),
-			Entry("name starting with a digit", "1sensor", "cannot start with a digit"),
-			Entry("name with spaces", "my channel", "contains invalid characters"),
-			Entry(
-				"name with special characters",
-				"sensor!",
-				"contains invalid characters",
-			),
+			Entry("spaces only", "   ", "must hold a visible character"),
+			Entry("a separator", "stand.pt", "no '.' or invisible character"),
+			Entry("a zero-width space", "pt\u200B01", "no '.' or invisible character"),
+			Entry("a no-break space", "pt\u00A001", "no '.' or invisible character"),
 		)
 	})
 
@@ -244,11 +245,11 @@ var _ = Describe("Writer", func() {
 				It(
 					"Should return an error if the name is invalid",
 					func(ctx SpecContext) {
-						ch.Name = "invalid name"
+						ch.Name = "invalid.name"
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 							return svc.NewWriter(tx).Create(ctx, &ch)
 						})).
-							To(MatchError(ContainSubstring("contains invalid characters")))
+							To(MatchError(ContainSubstring("no '.' or invisible character")))
 					},
 				)
 				It(
@@ -1418,8 +1419,8 @@ var _ = Describe("Writer", func() {
 				It("Should return an error", func(ctx SpecContext) {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).
-							Rename(ctx, ch.Key(), "invalid name", false)
-					})).To(MatchError(ContainSubstring("contains invalid characters")))
+							Rename(ctx, ch.Key(), "invalid.name", false)
+					})).To(MatchError(ContainSubstring("no '.' or invisible character")))
 				})
 			})
 			Context("new name is empty", func() {
