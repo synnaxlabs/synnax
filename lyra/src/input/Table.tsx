@@ -690,7 +690,7 @@ export const Table = ({
                       <Button.Button
                         variant="text"
                         size="small"
-                        textColor={8}
+                        textColor={9}
                         draggable
                         className={HANDLE_CLASS}
                         aria-label={`Move ${resourceName} ${rowName(i)}`}

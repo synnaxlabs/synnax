@@ -159,6 +159,19 @@ describe("Input.Table", () => {
     expect(center(icon)).toBeCloseTo(center(handle), 0);
   });
 
+  it("should draw the drag icon in the color of the remove button", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[1]]} onChange={() => {}} onMove={() => {}} rowKey={String}>
+        <Input.TableColumn />
+      </Input.Table>,
+    );
+    const row = container.querySelector("tbody tr");
+    const handle = row?.querySelector(`.${CSS.BE("input", "table-handle")}`);
+    const remove = row?.lastElementChild?.querySelector("button");
+    if (handle == null || remove == null) throw new Error("The row has no controls");
+    expect(computed(handle, "color")).toBe(computed(remove, "color"));
+  });
+
   it("should center a boolean cell's checkbox in its cell", async () => {
     const { container } = await renderThemed(
       <Input.Table value={[[true]]} onChange={() => {}}>
