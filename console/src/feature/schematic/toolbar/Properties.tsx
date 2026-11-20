@@ -35,7 +35,7 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement, type ReactNode } from "react";
+import { type FC, type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
@@ -52,7 +52,7 @@ const path = deep.path<{
   specKey?: schematic.symbol.Key;
 }>();
 
-export const Properties = memo((): ReactElement => {
+export const Properties = (): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
   const configByKey = Schematic.useConfigs({ keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
@@ -70,7 +70,7 @@ export const Properties = memo((): ReactElement => {
       : "";
   // A symbol's form holds that symbol's config, so a change remounts it.
   return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
-});
+};
 Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
