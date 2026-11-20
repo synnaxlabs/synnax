@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color as xcolor, uuid } from "@synnaxlabs/x";
+import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -48,7 +48,7 @@ describe("MultiEdit", () => {
         {
           key: "a",
           path: "textColor",
-          value: { type: "fixed", value: xcolor.construct("#00ff00") },
+          value: { type: "fixed", value: color.construct("#00ff00") },
         },
       ]);
     });
@@ -72,7 +72,7 @@ describe("MultiEdit", () => {
         {
           key: "a",
           path: "strokeColor",
-          value: { type: "fixed", value: xcolor.construct("#ff0000") },
+          value: { type: "fixed", value: color.construct("#ff0000") },
           valueOnly: true,
         },
       ]);
