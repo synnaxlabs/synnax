@@ -50,7 +50,9 @@ Write-Host "Found Synnax binary at: $synnaxPath"
 $logFile = "$env:USERPROFILE\synnax-data\synnax-core.log"
 # Use cmd /c with shell redirection to capture logs while keeping -WindowStyle Hidden
 # for proper process detachment (required so the process survives the step ending).
-$cmdArgs = "/c `"`"$synnaxPath`" start -mi --listen $Listen > `"$logFile`" 2>&1`""
+$secretsDir = "$env:USERPROFILE\synnax-data\secrets"
+New-Item -ItemType Directory -Force -Path $secretsDir | Out-Null
+$cmdArgs = "/c `"`"$synnaxPath`" start -mi --listen $Listen --secrets-dir `"$secretsDir`" > `"$logFile`" 2>&1`""
 $process = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Hidden -PassThru -WorkingDirectory "$env:USERPROFILE\synnax-data"
 
 # Store the process ID for tracking

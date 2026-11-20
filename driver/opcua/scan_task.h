@@ -29,6 +29,7 @@
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/structure/structure.h"
 #include "driver/opcua/types/types.h"
+#include "driver/secret/secret.h"
 #include "driver/task/task.h"
 
 namespace driver::opcua {
@@ -42,6 +43,10 @@ struct ScanTaskConfig : common::ScanTaskConfig {
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA
 /// server.
 struct ScanCommandArgs {
+    /// @brief the key of a saved device whose connection to use, or empty to use
+    /// connection.
+    std::string device;
+    /// @brief the connection to use when device is empty.
     connection::Config connection;
     std::string node_id;
     types::NodeId node;
@@ -50,8 +55,10 @@ struct ScanCommandArgs {
     structure::Path field;
 
     explicit ScanCommandArgs(x::json::Parser &parser):
-        connection(opcua::connection::Config(parser.child("connection"))),
+        device(parser.field<std::string>("device", "")),
         node_id(parser.field<std::string>("node_id", "")) {
+        if (this->device.empty())
+            this->connection = connection::Config(parser.child("connection"));
         if (node_id.empty())
             node = types::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
         else
@@ -89,7 +96,8 @@ public:
         std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
         std::shared_ptr<connection::Pool> conn_pool,
-        std::shared_ptr<certificate::Store> store
+        std::shared_ptr<certificate::Store> store,
+        std::shared_ptr<secret::Reader> reader
     );
 
     /// @brief Returns scanner configuration for common::ScanTask.
@@ -122,12 +130,27 @@ private:
     synnax::task::Task task;
     std::shared_ptr<connection::Pool> conn_pool;
     std::shared_ptr<certificate::Store> store;
+    std::shared_ptr<secret::Reader> reader;
     ScanTaskConfig cfg;
     /// @brief only scan() reads or writes it, since commands run on another thread.
     Renewal renewal;
     /// @brief the time of the last health check of each device, by device key. Only
     /// scan() reads or writes it.
     std::unordered_map<std::string, x::telem::TimeStamp> checked;
+
+    /// @returns the connection that a browse command names, with its password: the
+    /// saved connection of its device, or the connection in its arguments, whose
+    /// password only a grant may give.
+    std::pair<connection::Config, x::errors::Error> connection_of(
+        const ScanCommandArgs &args,
+        const std::optional<synnax::secret::Grant> &grant
+    ) const;
+
+    /// @brief runs cmd with the grant that it carried, if any.
+    /// @returns false when the scanner does not handle the type of cmd.
+    bool
+    run(const synnax::task::Command &cmd,
+        const std::optional<synnax::secret::Grant> &grant) const;
 
     /// @brief connects to the server that a browse command names and finds its node.
     /// When a step fails, sets the command's status with the failure message.
@@ -136,24 +159,37 @@ private:
     std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> target(
         const x::json::Parser &parser,
         const ScanCommandArgs &args,
+        const std::optional<synnax::secret::Grant> &grant,
         synnax::task::Status &status,
         const std::string &failure
     ) const;
 
     /// @brief Browse child nodes of a given OPC UA node.
-    void browse_nodes(const synnax::task::Command &cmd) const;
+    void browse_nodes(
+        const synnax::task::Command &cmd,
+        const std::optional<synnax::secret::Grant> &grant
+    ) const;
 
     /// @brief replies with the variables under the command's node, each with its browse
     /// path from below the node, and whether the search stopped at a limit.
-    void browse_variables(const synnax::task::Command &cmd) const;
+    void browse_variables(
+        const synnax::task::Command &cmd,
+        const std::optional<synnax::secret::Grant> &grant
+    ) const;
 
     /// @brief replies with the attributes and the value of the command's node, or of
     /// the member of its structure value that the command's field names.
-    void read_node(const synnax::task::Command &cmd) const;
+    void read_node(
+        const synnax::task::Command &cmd,
+        const std::optional<synnax::secret::Grant> &grant
+    ) const;
 
     /// @brief Test connection to an OPC UA server. Never trusts a server certificate
     /// that the configuration does not name.
-    void test_connection(const synnax::task::Command &cmd) const;
+    void test_connection(
+        const synnax::task::Command &cmd,
+        const std::optional<synnax::secret::Grant> &grant
+    ) const;
 
     /// @brief replies with the endpoints of the server that the command's connection
     /// names.
