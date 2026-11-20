@@ -64,7 +64,8 @@ export interface TextProps
  * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous
  * value if blurred while empty.
  * @param props.onlyChangeOnBlur - If true, the input calls `onChange` only when the
- * user blurs it or presses 'Enter', and only when the text differs from `value`.
+ * user blurs it or presses 'Enter', and only when the text differs from `value`. Esc
+ * discards the typed text.
  * @param props.flush - Marks the input as its surface's sole keystroke target,
  * removing the focus ring and widening the content inset.
  * @param props.onKeyDown - Called before the input handles Escape, which blurs the
@@ -121,6 +122,8 @@ export const Text = ({
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
   const [tempValue, setTempValue] = useState<string | null>(null);
+  // Set by an Esc, so no blur commits until the next edit.
+  const discardedRef = useRef(false);
   const internalRef = useRef<HTMLInputElement>(null);
   const focusedRef = useRef(false);
 
@@ -130,17 +133,26 @@ export const Text = ({
     // Only the user's edit commits, so a change from elsewhere while focused stays.
     if (resetOnBlurIfEmpty && e.target.value === "")
       committed = onlyChangeOnBlur ? null : cachedFocusRef.current;
-    else if (onlyChangeOnBlur && tempValue !== cachedFocusRef.current)
+    else if (
+      onlyChangeOnBlur &&
+      !discardedRef.current &&
+      tempValue !== cachedFocusRef.current
+    )
       committed = tempValue;
     if (committed != null && committed !== value) onChange?.(committed);
+    discardedRef.current = false;
     setTempValue(null);
     onBlur?.(e);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     if (disabled) return;
-    if (!onlyChangeOnBlur) onChange?.(e.target.value);
-    else setTempValue(e.target.value);
+    if (!onlyChangeOnBlur) {
+      onChange?.(e.target.value);
+      return;
+    }
+    discardedRef.current = false;
+    setTempValue(e.target.value);
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>): void => {
@@ -151,10 +163,13 @@ export const Text = ({
 
   // Start and end content ignore the pointer, and a textarea leaves slack around
   // itself, so a press on the frame focuses the input. Preventing the default keeps
-  // the press from first moving focus to the body.
+  // the press from first moving focus to the body. A button in a slot, or in a dialog
+  // that it opens, keeps its own press.
   const handleFrameMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (disabled || internalRef.current == null || e.target === internalRef.current)
       return;
+    if (!(e.target instanceof Element)) return;
+    if (e.target.closest(`.${CSS.B("btn")}`) !== e.currentTarget) return;
     e.preventDefault();
     internalRef.current?.focus();
   };
@@ -170,7 +185,12 @@ export const Text = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (onlyChangeOnBlur && e.key === "Enter") e.currentTarget.blur();
     onKeyDown?.(e);
-    if (e.key !== "Escape" || e.defaultPrevented) return;
+    if (e.key !== "Escape") return;
+    if (onlyChangeOnBlur) {
+      discardedRef.current = true;
+      setTempValue(value);
+    }
+    if (e.defaultPrevented) return;
     e.currentTarget.blur();
     e.stopPropagation();
   };
@@ -280,6 +300,7 @@ export const Text = ({
       )}
       {startContent != null && (
         <BaseText.Text
+          el="div"
           className={CSS.BE("input", "start-content")}
           level={level ?? SIZE_TEXT_LEVELS[size]}
         >
@@ -321,6 +342,7 @@ export const Text = ({
       )}
       {endContent != null && (
         <BaseText.Text
+          el="div"
           className={CSS.BE("input", "end-content")}
           level={level ?? SIZE_TEXT_LEVELS[size]}
         >

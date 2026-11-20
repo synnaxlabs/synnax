@@ -18,6 +18,7 @@ import { RoleClients } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -42,14 +43,12 @@ import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { documentIn } from "@/session/window/testutil";
 import {
-  assertDefined,
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
   resolveFocusedTab,
-  uniqueName,
 } from "@/testutil";
 
 const CORE = createCore("test");

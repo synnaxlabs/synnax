@@ -24,7 +24,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Wrap wraps the provided key-value database in a DB.
+// Wrap wraps the provided key-value database in a DB. Wrap a key-value database in
+// one DB only: the indexes of a DB see no write made through another.
 func Wrap(
 	kv kv.DB,
 	opts ...Option,
@@ -104,7 +105,9 @@ func (db *DB) OpenTx() Tx {
 			zap.Duration("wait", wait),
 		)
 	}
-	return &tx{Tx: db.DB.OpenTx(), options: db.options, db: db, unlock: db.lock.Unlock}
+	t := &tx{Tx: db.DB.OpenTx(), options: db.options, db: db, unlock: db.lock.Unlock}
+	t.state.cleanups = t.state.inline[:0]
+	return t
 }
 
 // Set sets key to value in a transaction of its own.
@@ -309,6 +312,9 @@ type txState struct {
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+	// inline holds the first cleanups of a transaction, so that registering them
+	// allocates nothing.
+	inline [8]func(committed bool)
 	// committing is true during a commit attempt.
 	committing atomic.Bool
 	// changes is what the typed writes through the transaction changed. Only the

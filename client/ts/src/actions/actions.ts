@@ -292,9 +292,11 @@ export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
     actions: actionZ.array(),
   });
 
-/** The payload of a dispatch entry in a batch. The entry carries no dispatch key. */
+/** The payload of a dispatch entry in a batch. */
 export interface DispatchPayload<K, A> {
   key: K;
+  /** Set when the controller of the document holds the entry as pending. */
+  dispatchKey?: string;
   actions: A[];
 }
 

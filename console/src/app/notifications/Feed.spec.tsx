@@ -10,6 +10,7 @@
 import { device, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -23,7 +24,7 @@ import {
   UncappedFeed,
   writeStatus,
 } from "@/platform/notifications/testutil";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 

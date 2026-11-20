@@ -184,7 +184,7 @@ const createHeldPair = () => {
   const toMain: aether.WorkerMessage[][] = [];
   let workerHandler: (messages: aether.MainMessage[]) => void = () => {};
   let mainHandler: (messages: aether.WorkerMessage[]) => void = () => {};
-  const flushed = async (): Promise<void> => await scheduler.flushTaskQueue();
+  const flushed = async (): Promise<void> => await scheduler.nextTask();
   return {
     workerSide: {
       send: (messages) => toMain.push(messages),
@@ -740,7 +740,7 @@ describe("Aether Main", () => {
         </Provider>,
       );
       expect(captured.length).toBeGreaterThanOrEqual(3);
-      expect(captured[0]).toBe(captured[captured.length - 1]);
+      expect(captured[0]).toBe(captured.at(-1));
       for (let i = 1; i < captured.length; i++) expect(captured[i]).toBe(captured[0]);
     });
     it("should keep path identity stable across re-renders", async () => {
@@ -1710,7 +1710,7 @@ describe("Aether Main", () => {
     it("should send only the fields a main update changed", async () => {
       const { handle, toWorker } = await stageLive();
       handle.setState((p) => ({ ...p, y: "b" }));
-      await scheduler.flushTaskQueue();
+      await scheduler.nextTask();
       expect(toWorker.flat()).toEqual([
         {
           variant: "update",

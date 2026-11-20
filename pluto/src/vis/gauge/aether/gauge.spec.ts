@@ -52,14 +52,39 @@ const styles = (recorder: canvasTest.Recorder, prop: string): string[] =>
     .filter((c) => c.op === `set:${prop}`)
     .map((c) => c.args[0] as string);
 
+// The end angle of the value arc, the last arc the gauge draws.
+const valueEnd = (recorder: canvasTest.Recorder): number =>
+  recorder.upper2d.calls.filter((c) => c.op === "arc").at(-1)?.args[4] as number;
+
 describe("gauge/aether/Gauge", () => {
+  describe("value arc", () => {
+    it("should measure the arc from a stored lower above the upper", () => {
+      const reversed = setup({
+        value: "25",
+        state: { bounds: { lower: 100, upper: 0 } },
+      });
+      const ordered = setup({
+        value: "75",
+        state: { bounds: { lower: 0, upper: 100 } },
+      });
+      expect(valueEnd(reversed.recorder)).toBeCloseTo(valueEnd(ordered.recorder));
+    });
+  });
+
   describe("staleness", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    // The worker draws the gauge, so a transition must not cost a state push.
-    it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(gauge.Gauge.z.parse({ box: BOX })).not.toHaveProperty("stale");
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("60");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("61");
+      expect(component.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {

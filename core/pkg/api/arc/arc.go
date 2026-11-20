@@ -542,9 +542,8 @@ func (s *Service) compileCalculations(
 			continue
 		}
 		err = g.Add(ctx, ch)
-		invalid := errors.As(err, new(*diagnostics.Diagnostics)) ||
-			errors.Is(err, graph.ErrCycle)
-		if err != nil && !invalid {
+		_, invalid := errors.AsType[*diagnostics.Diagnostics](err)
+		if err != nil && !invalid && !errors.Is(err, graph.ErrCycle) {
 			return nil, err
 		}
 	}

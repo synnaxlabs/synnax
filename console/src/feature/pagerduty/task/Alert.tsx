@@ -15,6 +15,7 @@ import {
   type status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -35,12 +36,10 @@ import {
   type AlertSchemas,
   deployAlertTaskConfigZ,
 } from "@/feature/pagerduty/task/types";
-import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Secret } from "@/platform/secret";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<AlertSchemas>>();
@@ -256,7 +255,11 @@ const Form: FC = () => {
             </Select.Frame>
           </PMenu.ContextMenu>
           {!isPreview && (
-            <Button.CreateListItem size="small" onClick={handleAdd}>
+            <Button.CreateListItem
+              size="small"
+              onClick={handleAdd}
+              className={CSS.BE("panes", "create")}
+            >
               Add alert
             </Button.CreateListItem>
           )}
@@ -274,15 +277,6 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
-  const parsed = ALERT_SCHEMAS.config.safeParse(config ?? {});
-  return {
-    name: "PagerDuty alert task",
-    type: ALERT_TYPE,
-    config: parsed.success ? parsed.data : ALERT_SCHEMAS.config.parse({}),
-  };
-};
-
 const onConfigure: Task.OnConfigure<AlertSchemas["config"]> = async (
   _client: Client,
   config,
@@ -296,15 +290,3 @@ export const Alert = Task.wrapForm({
   type: ALERT_TYPE,
   onConfigure,
 });
-
-export const useCreateAlert = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const AlertSelectable: Selector.Selectable = {
-  type: ALERT_TYPE,
-  title: "PagerDuty alert task",
-  label: "Alert",
-  icon: <Icon.Logo.PagerDuty />,
-  useOnSelect: useCreateAlert,
-};

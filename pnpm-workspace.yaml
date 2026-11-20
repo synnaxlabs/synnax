@@ -130,16 +130,16 @@ catalog:
   '@synnaxlabs/vite-plugin': workspace:^
   '@synnaxlabs/x': workspace:^
   '@tanstack/react-virtual': ^3.14.21
-  '@tauri-apps/api': ^2.12.4
-  '@tauri-apps/cli': ^2.12.3
-  '@tauri-apps/plugin-deep-link': ^2.6.2
-  '@tauri-apps/plugin-dialog': ^2.8.3
+  '@tauri-apps/api': ^2.12.5
+  '@tauri-apps/cli': ^2.12.6
+  '@tauri-apps/plugin-deep-link': ^2.6.3
+  '@tauri-apps/plugin-dialog': ^2.8.4
   '@tauri-apps/plugin-fs': ^2.7.1
   '@tauri-apps/plugin-os': ^2.4.0
   '@tauri-apps/plugin-process': ^2.4.0
-  '@tauri-apps/plugin-shell': ^2.5.0
-  '@tauri-apps/plugin-store': ^2.5.0
-  '@tauri-apps/plugin-updater': ^2.14.0
+  '@tauri-apps/plugin-shell': ^2.6.0
+  '@tauri-apps/plugin-store': ^2.5.1
+  '@tauri-apps/plugin-updater': ^2.14.1
   '@testing-library/react': ^16.3.3
   '@testing-library/user-event': ^14.6.8
   '@types/babel__core': ^7.20.5
@@ -147,7 +147,7 @@ catalog:
   '@types/hast': ^3.0.5
   '@types/html-escaper': ^3.0.4
   '@types/jsdom': ^30.0.0
-  '@types/node': ^24.19.2
+  '@types/node': ^26.6.6
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.3.0

@@ -143,7 +143,7 @@ export const Editor = <V,>({
   // renders again. The ref lets that blur see the edit is over.
   const draftRef = useRef<Draft | null>(null);
   const setDraft = (next: state.SetArg<Draft | null>): void => {
-    const value = state.executeSetter(next, draftRef.current);
+    const value = state.resolve(next, draftRef.current);
     draftRef.current = value;
     setDraftState(value);
   };
@@ -181,7 +181,7 @@ export const Editor = <V,>({
   };
 
   const handleVisibleChange = (next: state.SetArg<boolean>): void => {
-    if (state.executeSetter(next, draft != null)) setDraft(openDraft(initialText));
+    if (state.resolve(next, draft != null)) setDraft(openDraft(initialText));
     else finish();
   };
 

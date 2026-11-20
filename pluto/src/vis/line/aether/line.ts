@@ -111,8 +111,8 @@ export interface FindResult {
 export interface DataBounds {
   bounds: bounds.Bounds;
   loading: boolean;
-  /** True when the bounds end at the newest sample and move as samples arrive. */
-  rolling?: boolean;
+  /** Set when the bounds end at the newest sample. */
+  edge?: telem.Edge;
 }
 
 export interface LineProps {
@@ -389,7 +389,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x), rolling: x.rolling };
+    return { bounds: x.data[0], loading: isLoading(x), edge: x.edge };
   }
 
   /**
@@ -487,7 +487,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       x: Number(x.at(xOffset + i, true)),
       y: Number(y.at(yOffset + i, true)),
     };
-    result.bounds = bounds.max(
+    result.bounds = bounds.union(
       drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
     );
     result.position = props.dataToDecimalScale.pos(result.value);

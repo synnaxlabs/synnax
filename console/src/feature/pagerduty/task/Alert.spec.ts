@@ -9,6 +9,7 @@
 
 import { pagerduty, type secret, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -21,7 +22,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -40,11 +41,14 @@ afterEach(async () => {
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderAlert = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(PagerDuty.Task.Alert, {
-    client,
-    task: ZERO_DRAFT,
-    ...options,
-  });
+  const rendered = await renderTaskFormTab(
+    PagerDuty.Task.FORMS[PagerDuty.Task.ALERT_TYPE],
+    {
+      client,
+      task: ZERO_DRAFT,
+      ...options,
+    },
+  );
   await awaitEditableForm();
   return rendered;
 };
