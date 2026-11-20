@@ -22,6 +22,14 @@ const LIST_COMMAND_TYPE = "list";
 
 const LIST_TIMEOUT = TimeSpan.seconds(10);
 
+/** What a dialog reads from a session. Each change makes a new snapshot. */
+export interface Snapshot {
+  /** The last listing of each folder. */
+  listings: ReadonlyMap<string, Listing>;
+  /** The folders that the session lists now. */
+  loading: ReadonlySet<string>;
+}
+
 /**
  * Lists the files of the Driver on one rack. It finds the rack's file browser task once
  * and keeps the last listing of each folder.
@@ -30,7 +38,8 @@ export class Session {
   private readonly client: Synnax;
   private readonly rack: rack.Key;
   private browser: Promise<task.Task> | null = null;
-  private readonly listings = new Map<string, Listing>();
+  private snap: Snapshot = { listings: new Map(), loading: new Set() };
+  private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, Promise<Listing>>();
 
   constructor(client: Synnax, rack: rack.Key) {
@@ -38,10 +47,17 @@ export class Session {
     this.rack = rack;
   }
 
-  /** @returns the last listing of the folder, or undefined if it was never listed. */
-  cached(path: string): Listing | undefined {
-    return this.listings.get(path);
-  }
+  /** @returns the snapshot of the session now. */
+  readonly snapshot = (): Snapshot => this.snap;
+
+  /**
+   * Calls the listener after each change of the snapshot.
+   * @returns a function that stops the calls.
+   */
+  readonly subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
 
   /**
    * Lists a folder, sharing a request already in flight for it. An empty path lists the
@@ -52,10 +68,21 @@ export class Session {
   async list(path: string = ""): Promise<Listing> {
     let request = this.pending.get(path);
     if (request == null) {
-      request = this.request(path).finally(() => this.pending.delete(path));
+      request = this.request(path).finally(() => {
+        this.pending.delete(path);
+        this.update();
+      });
       this.pending.set(path, request);
+      this.update();
     }
     return await request;
+  }
+
+  /** Lists a folder in the background, unless it has a listing or is being listed. */
+  prefetch(path: string): void {
+    if (this.snap.listings.has(path) || this.pending.has(path)) return;
+    // The folder lists again when it opens, and that shows the failure.
+    this.list(path).catch(() => {});
   }
 
   private async request(path: string): Promise<Listing> {
@@ -67,8 +94,15 @@ export class Session {
     });
     if (res.variant === "error") throw status.toError(res);
     const listing = listingZ.parse(res.details?.data);
-    this.listings.set(path, listing);
+    this.update(path, listing);
     return listing;
+  }
+
+  private update(path?: string, listing?: Listing): void {
+    let { listings } = this.snap;
+    if (path != null && listing != null) listings = new Map(listings).set(path, listing);
+    this.snap = { listings, loading: new Set(this.pending.keys()) };
+    this.listeners.forEach((listener) => listener());
   }
 
   private async retrieveBrowser(): Promise<task.Task> {
