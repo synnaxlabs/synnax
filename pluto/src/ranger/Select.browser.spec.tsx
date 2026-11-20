@@ -12,7 +12,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
 import { Ranger } from "@/ranger";
@@ -38,11 +38,16 @@ describe("Ranger.Select", () => {
       name: `drag-${id.create()}`,
       light: "#123456",
     });
-    const start = TimeStamp.now();
+    // A range far in the future is never among the running ranges of other specs.
+    const start = TimeStamp.now().add(TimeSpan.days(18250));
     const rng = await client.ranges.create({
       name: `drag-${id.create()}`,
       timeRange: { start, end: start.add(TimeSpan.hours(1)) },
       color: { type: "named", key: named.key },
+    });
+    onTestFinished(async () => {
+      await client.ranges.delete(rng.key);
+      await client.colors.delete(named.key);
     });
     const c = await render(<Ranger.Select value={rng.key} onChange={vi.fn()} />, {
       wrapper,
