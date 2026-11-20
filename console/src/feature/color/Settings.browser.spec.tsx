@@ -204,7 +204,9 @@ describe("Color.Settings", () => {
   it("should picture a dragged color filled with its light value", async () => {
     const shade = await createColor(await createPalette());
     await renderColors();
-    fireEvent.dragStart(await findColor(shade.name));
+    fireEvent.dragStart(await findColor(shade.name), {
+      dataTransfer: new DataTransfer(),
+    });
     const layer = document.querySelector(".lyra-haul__layer");
     const tile = layer?.querySelector<HTMLElement>(".lyra-haul-preview__tile");
     expect(tile?.style.background).toBe("rgb(0, 255, 0)");

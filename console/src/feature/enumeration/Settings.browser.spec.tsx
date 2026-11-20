@@ -296,7 +296,9 @@ describe("Enumeration.Settings", () => {
       },
     ]);
     await renderEnumerations();
-    fireEvent.dragStart(await findEntry(e.entries[0].name));
+    fireEvent.dragStart(await findEntry(e.entries[0].name), {
+      dataTransfer: new DataTransfer(),
+    });
     const layer = document.querySelector(".lyra-haul__layer");
     const tile = layer?.querySelector<HTMLElement>(".lyra-haul-preview__tile");
     expect(tile?.style.background).toBe("rgb(0, 255, 0)");
@@ -310,12 +312,20 @@ describe("Enumeration.Settings", () => {
     const sibling = await findEntry(e.entries[1].name);
     const stranger = await findEntry(other.entries[1].name);
     const over = "console-enumeration-settings__item--over";
-    fireEvent.dragStart(dragged);
-    fireEvent.dragOver(stranger, { screenX: 1, screenY: 1 });
-    fireEvent.dragOver(sibling, { screenX: 2, screenY: 2 });
+    fireEvent.dragStart(dragged, { dataTransfer: new DataTransfer() });
+    fireEvent.dragOver(stranger, {
+      screenX: 1,
+      screenY: 1,
+      dataTransfer: new DataTransfer(),
+    });
+    fireEvent.dragOver(sibling, {
+      screenX: 2,
+      screenY: 2,
+      dataTransfer: new DataTransfer(),
+    });
     expect(sibling.className).toContain(over);
     expect(stranger.className).not.toContain(over);
-    fireEvent.dragEnd(dragged);
+    fireEvent.dragEnd(dragged, { dataTransfer: new DataTransfer() });
   });
 
   it("should warn about each entry that is hard to tell apart", async () => {
