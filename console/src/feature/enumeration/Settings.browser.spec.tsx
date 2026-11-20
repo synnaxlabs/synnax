@@ -21,6 +21,7 @@ import {
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { server } from "vitest/browser";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
@@ -48,6 +49,9 @@ const createEnumeration = async (
   await client.enumerations.create({ name: uniqueName("enumeration"), entries });
 
 /** Returns the nth built-in from the end, which no other spec edits. */
+// Chromium and WebKit can run at once against one Core, so each edits its own built-in.
+const EDITED_FROM_END = server.browser === "webkit" ? 4 : 2;
+
 const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   const shipped = (await client.enumerations.retrieveBuiltins()).at(-n);
   if (shipped == null) throw new Error("the Core ships no enumerations");
@@ -386,7 +390,7 @@ describe("Enumeration.Settings", () => {
   });
 
   it("should mark an edited built-in and restore its shipped entries", async () => {
-    const shipped = await builtinFromEnd(2);
+    const shipped = await builtinFromEnd(EDITED_FROM_END);
     await client.enumerations.retrieve(shipped.key);
     await client.enumerations.dispatch(
       shipped.key,

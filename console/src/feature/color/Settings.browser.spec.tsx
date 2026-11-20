@@ -21,6 +21,7 @@ import {
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { server } from "vitest/browser";
 
 import { Color } from "@/feature/color";
 import { Modals } from "@/platform/modals";
@@ -49,6 +50,9 @@ const createColor = async (
   await client.colors.create({ name, light: "#00FF00", group: palette.key, position });
 
 /** Returns the nth built-in color from the end, which no other spec here edits. */
+// Chromium and WebKit can run at once against one Core, so each edits its own built-in.
+const EDITED_FROM_END = server.browser === "webkit" ? 4 : 2;
+
 const builtinFromEnd = async (n: number): Promise<color.Named> => {
   const shipped = (await client.colors.retrieveBuiltins()).at(-n);
   if (shipped == null) throw new Error("the Core ships no named colors");
@@ -253,7 +257,7 @@ describe("Color.Settings", () => {
   });
 
   it("should mark an edited built-in and restore the values Synnax ships", async () => {
-    const shipped = await builtinFromEnd(2);
+    const shipped = await builtinFromEnd(EDITED_FROM_END);
     await client.colors.retrieve(shipped.key);
     await client.colors.dispatch(
       shipped.key,
