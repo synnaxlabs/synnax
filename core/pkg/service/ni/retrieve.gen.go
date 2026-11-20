@@ -29,127 +29,217 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *AnalogReadConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AIVoltageChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIAccelChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIBridgeChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AICurrentChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIForceBridgeTableChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIForceBridgeTwoPointLinChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIForceIEPEChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIMicrophoneChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIPressureBridgeTableChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIPressureBridgeTwoPointLinChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIResistanceChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIRTDChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIStrainGaugeChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AITempBuiltinChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIThermocoupleChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AITorqueBridgeTableChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AITorqueBridgeTwoPointLinChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIVelocityIEPEChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIAccel4WireDCVoltageChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIAccelChargeChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIChargeChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AICurrentRMSChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIForceBridgePolynomialChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIFreqVoltageChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIPressureBridgePolynomialChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIThermistorIexChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIThermistorVexChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AITorqueBridgePolynomialChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIVoltageRMSChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case AIVoltageWithExcitChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -319,127 +409,217 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *AnalogReadConfig) []device.Key {
-				targets := make([]device.Key, 0, len(e.Channels))
+				var targets []device.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AIVoltageChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIAccelChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIBridgeChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AICurrentChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIForceBridgeTableChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIForceBridgeTwoPointLinChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIForceIEPEChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIMicrophoneChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIPressureBridgeTableChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIPressureBridgeTwoPointLinChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIResistanceChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIRTDChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIStrainGaugeChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AITempBuiltinChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIThermocoupleChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AITorqueBridgeTableChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AITorqueBridgeTwoPointLinChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIVelocityIEPEChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIAccel4WireDCVoltageChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIAccelChargeChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIChargeChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AICurrentRMSChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIForceBridgePolynomialChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIFreqVoltageChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIPressureBridgePolynomialChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIThermistorIexChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIThermistorVexChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AITorqueBridgePolynomialChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIVoltageRMSChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case AIVoltageWithExcitChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					}
@@ -616,51 +796,84 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *CounterReadConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CIFrequencyChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIEdgeCountChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIPeriodChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIPulseWidthChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CISemiPeriodChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CITwoEdgeSepChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIVelocityLinearChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIVelocityAngularChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIPositionLinearChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIPositionAngularChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case CIDutyCycleChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -735,51 +948,84 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *CounterReadConfig) []device.Key {
-				targets := make([]device.Key, 0, len(e.Channels))
+				var targets []device.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CIFrequencyChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIEdgeCountChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIPeriodChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIPulseWidthChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CISemiPeriodChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CITwoEdgeSepChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIVelocityLinearChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIVelocityAngularChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIPositionLinearChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIPositionAngularChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case CIDutyCycleChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					}
@@ -879,15 +1125,21 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *AnalogWriteConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AOCurrentChannel:
 						if v2.CmdChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.CmdChannel)
 						}
 					case AOVoltageChannel:
 						if v2.CmdChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.CmdChannel)
 						}
 					}
@@ -918,15 +1170,21 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *AnalogWriteConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AOCurrentChannel:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case AOVoltageChannel:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					}
@@ -981,9 +1239,12 @@ func digitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *DigitalReadConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.Channel != 0 {
+						if targets == nil {
+							targets = make([]channel.Key, 0, len(e.Channels))
+						}
 						targets = append(targets, v1.Channel)
 					}
 				}
@@ -1028,9 +1289,12 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *DigitalWriteConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.CmdChannel != 0 {
+						if targets == nil {
+							targets = make([]channel.Key, 0, len(e.Channels))
+						}
 						targets = append(targets, v1.CmdChannel)
 					}
 				}
@@ -1051,9 +1315,12 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *DigitalWriteConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					if v1.StateChannel != 0 {
+						if targets == nil {
+							targets = make([]channel.Key, 0, len(e.Channels))
+						}
 						targets = append(targets, v1.StateChannel)
 					}
 				}

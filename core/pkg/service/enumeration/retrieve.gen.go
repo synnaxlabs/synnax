@@ -56,11 +56,14 @@ func newIndexes() indexes {
 			OnDelete: gorp.Inline,
 			Kind:     gorp.Use,
 			Targets: func(e *Enumeration) []color.Key {
-				targets := make([]color.Key, 0, len(e.Entries))
+				var targets []color.Key
 				for _, v1 := range e.Entries {
 					if v1.Color != nil {
 						switch v2 := v1.Color.Variant.(type) {
 						case color.NamedRef:
+							if targets == nil {
+								targets = make([]color.Key, 0, len(e.Entries))
+							}
 							targets = append(targets, v2.Key)
 						}
 					}

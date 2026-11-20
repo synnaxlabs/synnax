@@ -86,8 +86,11 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *Log) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Channels))
+					}
 					targets = append(targets, v1.Channel)
 				}
 				return targets

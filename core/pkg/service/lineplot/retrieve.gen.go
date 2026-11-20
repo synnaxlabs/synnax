@@ -85,11 +85,14 @@ func newIndexes() indexes {
 			OnDelete: gorp.Inline,
 			Kind:     gorp.Use,
 			Targets: func(e *LinePlot) []color.Key {
-				targets := make([]color.Key, 0, len(e.Lines))
+				var targets []color.Key
 				for _, v1 := range e.Lines {
 					if v1.Color != nil {
 						switch v2 := v1.Color.Variant.(type) {
 						case color.NamedRef:
+							if targets == nil {
+								targets = make([]color.Key, 0, len(e.Lines))
+							}
 							targets = append(targets, v2.Key)
 						}
 					}
@@ -134,11 +137,14 @@ func newIndexes() indexes {
 			OnDelete: gorp.Inline,
 			Kind:     gorp.Use,
 			Targets: func(e *LinePlot) []color.Key {
-				targets := make([]color.Key, 0, len(e.Rules))
+				var targets []color.Key
 				for _, v1 := range e.Rules {
 					if v1.Color != nil {
 						switch v2 := v1.Color.Variant.(type) {
 						case color.NamedRef:
+							if targets == nil {
+								targets = make([]color.Key, 0, len(e.Rules))
+							}
 							targets = append(targets, v2.Key)
 						}
 					}
