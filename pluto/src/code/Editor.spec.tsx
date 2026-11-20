@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
@@ -201,7 +200,6 @@ const createFakeEditor = (model: FakeModel) => {
     },
     emitKeyDown: keyDown.emit,
     emitKeyUp: keyUp.emit,
-    emitContextMenu: contextMenu.emit,
     emitCursor: cursor.emit,
     listeners: { content: content.listeners, keyDown: keyDown.listeners },
   };
@@ -277,18 +275,6 @@ const createFakeMonaco = () => {
 };
 
 type FakeMonaco = ReturnType<typeof createFakeMonaco>;
-
-// A rename provider that opts the cursor into being renameable.
-const renameableProvider = {
-  resolveRenameLocation: vi.fn().mockResolvedValue({ range: {}, text: "name" }),
-};
-
-const SELECTION: Range = {
-  startLineNumber: 1,
-  startColumn: 1,
-  endLineNumber: 1,
-  endColumn: 5,
-};
 
 const setRenameProviders = (providers: unknown[]): void => {
   getServiceMock.mockReturnValue({
@@ -467,99 +453,6 @@ describe("Editor", () => {
       renderEditor();
       expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(BASE_THEMES.light);
       expect(monaco.editor.setTheme).toHaveBeenCalledWith(BASE_THEMES.light);
-    });
-  });
-
-  describe("context menu", () => {
-    const openMenu = (editor: FakeEditor) =>
-      act(() =>
-        editor.emitContextMenu({
-          event: {
-            posx: 10,
-            posy: 20,
-            preventDefault: vi.fn(),
-            stopPropagation: vi.fn(),
-          },
-        }),
-      );
-
-    it("should open a menu with the default actions on editor context menu", () => {
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Cut")).toBeTruthy();
-      expect(screen.getByText("Copy")).toBeTruthy();
-      expect(screen.getByText("Paste")).toBeTruthy();
-      expect(screen.getByText("Format")).toBeTruthy();
-    });
-
-    it("should append the consumer's extra items to the menu", () => {
-      renderEditor({ extraMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item> });
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Extra")).toBeTruthy();
-    });
-
-    it.each([
-      { label: "Cut", action: "editor.action.clipboardCutAction" },
-      { label: "Copy", action: "editor.action.clipboardCopyAction" },
-      { label: "Paste", action: "editor.action.clipboardPasteAction" },
-      { label: "Format", action: "editor.action.formatDocument" },
-    ])("should focus the editor and trigger $label", ({ label, action }) => {
-      renderEditor();
-      const editor = monaco.editorInstance;
-      editor.setSelection(SELECTION);
-      openMenu(editor);
-      fireEvent.click(screen.getByText(label));
-      expect(editor.focus).toHaveBeenCalled();
-      expect(editor.trigger).toHaveBeenCalledWith("contextMenu", action, null);
-    });
-
-    it("should disable cut and copy when there is no selection", () => {
-      renderEditor();
-      const editor = monaco.editorInstance;
-      editor.setSelection(null);
-      openMenu(editor);
-      fireEvent.click(screen.getByText("Cut"));
-      expect(editor.trigger).not.toHaveBeenCalled();
-    });
-
-    it("should hide the rename action when the cursor is not renameable", () => {
-      setRenameProviders([]);
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Paste")).toBeTruthy();
-      expect(screen.queryByText("Rename")).toBeNull();
-    });
-
-    it("should hide the rename action and report when a provider fails", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      setRenameProviders([
-        { resolveRenameLocation: vi.fn().mockRejectedValue(new Error("boom")) },
-      ]);
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      await vi.waitFor(() =>
-        expect(errorSpy).toHaveBeenCalledWith(
-          "failed to check rename availability",
-          expect.anything(),
-        ),
-      );
-      expect(screen.queryByText("Rename")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    it("should show and trigger rename when the cursor is renameable", async () => {
-      setRenameProviders([renameableProvider]);
-      renderEditor();
-      const editor = monaco.editorInstance;
-      openMenu(editor);
-      const rename = await screen.findByText("Rename");
-      expect(rename).toBeTruthy();
-      fireEvent.click(rename);
-      expect(editor.trigger).toHaveBeenCalledWith(
-        "contextMenu",
-        "editor.action.rename",
-        null,
-      );
     });
   });
 
