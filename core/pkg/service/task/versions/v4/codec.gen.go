@@ -19,6 +19,53 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (c Command) EncodeOrc(w *orc.Writer) error {
+	w.Write(c.Task[:])
+	w.String(c.Type)
+	w.String(c.Key)
+	w.String(c.ConfigHash)
+	{
+		b, err := json.Marshal(c.Args)
+		if err != nil {
+			return err
+		}
+		w.WriteWithLen(b)
+	}
+	w.Bool(c.Pinned)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (c *Command) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(c.Task[:]); err != nil {
+		return err
+	}
+	if c.Type, err = r.String(); err != nil {
+		return err
+	}
+	if c.Key, err = r.String(); err != nil {
+		return err
+	}
+	if c.ConfigHash, err = r.String(); err != nil {
+		return err
+	}
+	{
+		b, err := r.ReadWithLen()
+		if err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &c.Args); err != nil {
+			return err
+		}
+	}
+	if c.Pinned, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.Write(t.Key[:])
 	w.Uint32(uint32(t.Rack))

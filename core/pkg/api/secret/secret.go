@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -39,6 +40,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Task finds the rack of the task that a grant's command targets.
+	//
+	// [REQUIRED]
+	Task *task.Service
 }
 
 var (
@@ -51,6 +56,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Task = override.Nil(c.Task, other.Task)
 	return c
 }
 
@@ -59,6 +65,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("task", c.Task)
 	return v.Error()
 }
 
@@ -67,6 +74,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *secret.Service
+	task     *task.Service
 }
 
 // NewService opens a Service with the given configuration.
@@ -78,6 +86,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Secret,
+		task:     cfg.Task,
 	}, nil
 }
 
@@ -247,22 +256,27 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// GrantCreateRequest names a subject and the secrets it may read once.
+// GrantCreateRequest names a subject, the command it may run once, and the secrets it
+// reads to run it.
 type GrantCreateRequest struct {
-	// Subject is the subject that may read the secrets. It must be a rack.
+	// Subject is the subject that may run the command. It must be a rack.
 	Subject resource.ID `json:"subject" msgpack:"subject"`
-	// Secrets are the secrets the subject may read.
+	// Secrets are the secrets the subject reads to run the command.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
+	// Command is the command the subject runs. Its task must be on the subject rack.
+	Command task.Command `json:"command" msgpack:"command"`
 }
 
-// GrantCreateResponse holds the key of a grant to send with a command to the subject.
+// GrantCreateResponse holds the key of a grant to send to the task of the command.
 type GrantCreateResponse struct {
 	Grant grant.Key `json:"grant" msgpack:"grant"`
 }
 
-// CreateGrant creates a grant that lets the subject read the secrets once, within a
-// minute. Only a user with create access on devices and retrieve access on each secret
-// may call it.
+// CreateGrant creates a grant that lets the subject run the command once with the
+// secrets, within a minute. Only a user with create access on devices and retrieve
+// access on each secret may call it. It returns query.ErrNotFound when the task of the
+// command does not exist, and a validation error when the task is not on the subject
+// rack.
 func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -271,7 +285,24 @@ func (s *Service) CreateGrant(
 	if err := s.enforceGrant(ctx, tx, req.Secrets); err != nil {
 		return GrantCreateResponse{}, err
 	}
-	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Secrets...)
+	var t task.Task
+	if err := s.task.NewRetrieve().
+		Where(task.MatchKeys(req.Command.Task)).
+		Entry(&t).
+		Exec(ctx, tx); err != nil {
+		return GrantCreateResponse{}, err
+	}
+	v := validate.New("grant")
+	if v.Ternaryf(
+		"command.task",
+		t.Rack.ResourceID() != req.Subject,
+		"%s is not on %s",
+		t,
+		req.Subject,
+	) {
+		return GrantCreateResponse{}, v.Error()
+	}
+	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Command, req.Secrets...)
 	if err != nil {
 		return GrantCreateResponse{}, err
 	}
@@ -300,13 +331,13 @@ func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) erro
 	})
 }
 
-// ResolveRequest selects the secrets to resolve.
+// ResolveRequest names the grant to spend and the task that runs its command.
 type ResolveRequest struct {
-	// Grant is the key of a grant for the calling rack. The request reads only the
-	// secrets that the grant names, and spends the grant.
+	// Grant is the key of a grant for the calling rack.
 	Grant grant.Key `json:"grant" msgpack:"grant"`
-	// Keys selects the secrets to resolve.
-	Keys []Key `json:"keys" msgpack:"keys"`
+	// Task is the task that runs the command. It must be the task of the grant's
+	// command.
+	Task task.Key `json:"task" msgpack:"task"`
 }
 
 // Value is the plain text value of a secret.
@@ -317,15 +348,20 @@ type Value struct {
 	Key Key `json:"key" msgpack:"key"`
 }
 
-// ResolveResponse holds the values of the secrets, in the order of the request.
+// ResolveResponse holds the command of a grant and the values of its secrets.
 type ResolveResponse struct {
+	// Command is the command to run, in place of the arguments of the command that
+	// carried the grant.
+	Command task.Command `json:"command" msgpack:"command"`
+	// Values holds one value for each secret that the grant names.
 	Values []Value `json:"values" msgpack:"values"`
 }
 
 var errResolveSubject = errors.Wrap(access.ErrDenied, "only a rack can resolve secrets")
 
-// Resolve returns the plain text values of the secrets. Only a rack may call it, and
-// only for secrets that the grant names.
+// Resolve spends a grant and returns its command with the plain text values of its
+// secrets. Only a rack may call it, and only for a grant to the rack for the task of
+// the request.
 func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,
@@ -334,13 +370,13 @@ func (s *Service) Resolve(
 	if subject.Type != resource.TypeRack {
 		return ResolveResponse{}, errResolveSubject
 	}
-	values, err := s.internal.Resolve(ctx, subject, req.Grant, req.Keys...)
+	cmd, values, err := s.internal.Resolve(ctx, subject, req.Task, req.Grant)
 	if err != nil {
 		return ResolveResponse{}, err
 	}
-	res := ResolveResponse{Values: make([]Value, len(req.Keys))}
-	for i, k := range req.Keys {
-		res.Values[i] = Value{Key: k, Value: string(values[k])}
+	res := ResolveResponse{Command: cmd, Values: make([]Value, 0, len(values))}
+	for k, v := range values {
+		res.Values = append(res.Values, Value{Key: k, Value: string(v)})
 	}
 	return res, nil
 }

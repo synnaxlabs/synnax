@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
@@ -243,13 +242,11 @@ func (e *env) expiry(ctx SpecContext, key certificate.Key) status.Status[any] {
 	return s
 }
 
-// resolveKey reads the private key secret of c as the Driver of a rack would.
+// resolveKey reads the private key secret of c.
 func (e *env) resolveKey(ctx SpecContext, c certificate.Certificate) []byte {
 	GinkgoHelper()
 	key := *storedOf(c).PrivateKey
-	rk := rack.Key(1).ResourceID()
-	g := MustSucceed(e.secrets.Grant(ctx, e.db, rk, key))
-	return MustSucceed(e.secrets.Resolve(ctx, rk, g, key))[key]
+	return MustSucceed(e.secrets.Reveal(ctx, e.db, key))[key]
 }
 
 // keyName returns the name of the private key secret of c.

@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
@@ -123,9 +122,7 @@ var _ = Describe("Service", func() {
 				s := e.createStored(ctx, "Password", "hunter2")
 				Expect(e.svc.Close()).To(Succeed())
 				e.svc = MustOpen(openService(ctx, e, key))
-				rk := rack.Key(1).ResourceID()
-				g := MustSucceed(e.svc.Grant(ctx, e.db, rk, s.Base().Key))
-				Expect(e.svc.Resolve(ctx, rk, g, s.Base().Key)).To(Equal(
+				Expect(e.svc.Reveal(ctx, e.db, s.Base().Key)).To(Equal(
 					map[secret.Key][]byte{s.Base().Key: []byte("hunter2")},
 				))
 			},

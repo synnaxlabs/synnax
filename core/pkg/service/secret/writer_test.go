@@ -15,8 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,14 +24,8 @@ import (
 const notFileName = "file_name: must be a file name, not a path"
 
 var _ = Describe("Writer", func() {
-	var (
-		e  *env
-		rk resource.ID
-	)
-	BeforeEach(func(ctx SpecContext) {
-		e = newEnv(ctx)
-		rk = rack.Key(1).ResourceID()
-	})
+	var e *env
+	BeforeEach(func(ctx SpecContext) { e = newEnv(ctx) })
 
 	fileSecret := func(fileName string) secret.Secret {
 		return secret.Secret{Variant: secret.FileSecret{
@@ -42,10 +34,9 @@ var _ = Describe("Writer", func() {
 		}}
 	}
 
-	resolve := func(ctx SpecContext, key secret.Key) string {
+	reveal := func(ctx SpecContext, key secret.Key) string {
 		GinkgoHelper()
-		g := MustSucceed(e.svc.Grant(ctx, e.db, rk, key))
-		return string(MustSucceed(e.svc.Resolve(ctx, rk, g, key))[key])
+		return string(MustSucceed(e.svc.Reveal(ctx, e.db, key))[key])
 	}
 
 	Describe("Set", func() {
@@ -55,7 +46,7 @@ var _ = Describe("Writer", func() {
 				s := e.createStored(ctx, "Password", "hunter2")
 				Expect(s.Base().Key).ToNot(Equal(uuid.Nil()))
 				Expect(s.Base().Updated).To(Equal(e.now))
-				Expect(resolve(ctx, s.Base().Key)).To(Equal("hunter2"))
+				Expect(reveal(ctx, s.Base().Key)).To(Equal("hunter2"))
 			},
 		)
 		It("Should keep a key the caller gives", func(ctx SpecContext) {
@@ -89,7 +80,7 @@ var _ = Describe("Writer", func() {
 					return w.Set(ctx, &s, []byte("new"))
 				})).To(Succeed())
 				Expect(e.retrieve(ctx, s.Base().Key).Base().Updated).To(Equal(e.now))
-				Expect(resolve(ctx, s.Base().Key)).To(Equal("new"))
+				Expect(reveal(ctx, s.Base().Key)).To(Equal("new"))
 			},
 		)
 		DescribeTable("Should refuse a replace that changes the source",
@@ -203,7 +194,7 @@ var _ = Describe("Writer", func() {
 				return w.Rename(ctx, s.Base().Key, "After")
 			})).To(Succeed())
 			Expect(e.retrieve(ctx, s.Base().Key).Base().Name).To(Equal("After"))
-			Expect(resolve(ctx, s.Base().Key)).To(Equal("hunter2"))
+			Expect(reveal(ctx, s.Base().Key)).To(Equal("hunter2"))
 		})
 		It("Should reject an empty name", func(ctx SpecContext) {
 			s := e.createStored(ctx, "Before", "hunter2")

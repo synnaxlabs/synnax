@@ -180,14 +180,43 @@ class TestSecret:
     def test_grant(self, client: sy.Synnax) -> None:
         """Should return the key of a new grant each time."""
         r = client.racks.create(name="Grant rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=r.key
+        )
         s = client.secrets.set(secret.NewStored(name="Grant", value="abc"))
-        first = client.secrets.grant(rack.resource_id(r.key), s.key)
-        second = client.secrets.grant(rack.resource_id(r.key), [s.key])
+        first = client.secrets.grant(
+            rack.resource_id(r.key), s.key, task=t.key, type_="test_connection"
+        )
+        second = client.secrets.grant(
+            rack.resource_id(r.key),
+            [s.key],
+            task=t.key,
+            type_="test_connection",
+            args={"connection": {"uri": "sift.example.com"}},
+        )
         assert first != second
 
     def test_grant_missing(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no secret has a key."""
         r = client.racks.create(name="Grant rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=r.key
+        )
         key = uuid4()
         with pytest.raises(sy.NotFoundError, match=f"Secrets with keys \\[{key}\\]"):
-            client.secrets.grant(rack.resource_id(r.key), key)
+            client.secrets.grant(
+                rack.resource_id(r.key), key, task=t.key, type_="test_connection"
+            )
+
+    def test_grant_task_on_other_rack(self, client: sy.Synnax) -> None:
+        """Should raise ValidationError when the task is not on the subject rack."""
+        r = client.racks.create(name="Grant rack")
+        other = client.racks.create(name="Other rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=other.key
+        )
+        s = client.secrets.set(secret.NewStored(name="Grant", value="abc"))
+        with pytest.raises(sy.ValidationError, match="is not on rack:"):
+            client.secrets.grant(
+                rack.resource_id(r.key), s.key, task=t.key, type_="test_connection"
+            )
