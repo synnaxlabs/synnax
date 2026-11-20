@@ -77,11 +77,12 @@ func BenchmarkStreamKeyChange(b *testing.B) {
 		Calculation: layer.Calculation,
 	}
 	api := xtestutil.MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
-		DB:      db,
-		Framer:  layer.Framer,
-		Channel: layer.Channel,
-		RBAC:    layer.RBAC,
-		Errors:  errors.NewCodec(),
+		DB:          db,
+		Framer:      layer.Framer,
+		Channel:     layer.Channel,
+		Calculation: layer.Calculation,
+		RBAC:        layer.RBAC,
+		Errors:      errors.NewCodec(),
 	}))
 	for _, calculated := range []int{0, 1, 10, 100} {
 		b.Run(fmt.Sprintf("calculated=%d", calculated), func(b *testing.B) {

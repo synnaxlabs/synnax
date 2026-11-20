@@ -703,14 +703,6 @@ func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key
 	}
 }
 
-// hasDerivative reports whether ops holds a derivative.
-func hasDerivative(ops []calculation.Operation) bool {
-	return slices.ContainsFunc(ops, func(op calculation.Operation) bool {
-		_, ok := op.Variant.(calculation.DerivativeOperation)
-		return ok
-	})
-}
-
 func (g *Graph) newAnalyzer(tx gorp.Tx) *channel.CalculationAnalyzer {
 	return channel.NewCalculationAnalyzer(g.svc.NewArcSymbolResolver(tx), parser.Config{
 		AllowDashedNames: !g.svc.ShouldValidateNames(),
@@ -734,7 +726,7 @@ func (g *Graph) inspectNode(
 		ctx,
 		ch,
 		c.Expression,
-		hasDerivative(c.Operations),
+		calculation.HasDerivative(c.Operations),
 	)
 	nd := node{Channel: ch, calculation: c}
 	if err == nil {

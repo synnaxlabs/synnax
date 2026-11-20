@@ -23,6 +23,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -154,6 +155,34 @@ var _ = Describe("Framer", func() {
 				go func() { done <- apiSvc.Iterate(readerCtx(ctx, calc), server) }()
 				Expect(client.Send(apiframer.IteratorRequest{
 					Keys:   channel.Keys{calc.Key()},
+					Bounds: telem.TimeRangeMax,
+				})).To(Succeed())
+				Eventually(done).WithTimeout(5 * time.Second).
+					Should(Receive(MatchError(access.ErrDenied)))
+			},
+		)
+
+		It(
+			"Should deny a calculation that only its record holds and whose input the "+
+				"subject cannot read",
+			func(ctx SpecContext) {
+				input, output := createVirtual(ctx), createVirtual(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					c := calculation.Calculation{
+						Output:     output.Key(),
+						Expression: fmt.Sprintf("return %s * 2", input.Name),
+					}
+					return svc.Calculation.NewWriter(tx).Create(ctx, &c)
+				})).To(Succeed())
+				client, server := freightertestutil.NewStreams[
+					apiframer.IteratorRequest,
+					apiframer.IteratorResponse,
+				](ctx)
+				DeferCleanup(client.CloseSend)
+				done := make(chan error, 1)
+				go func() { done <- apiSvc.Iterate(readerCtx(ctx, output), server) }()
+				Expect(client.Send(apiframer.IteratorRequest{
+					Keys:   channel.Keys{output.Key()},
 					Bounds: telem.TimeRangeMax,
 				})).To(Succeed())
 				Eventually(done).WithTimeout(5 * time.Second).
@@ -648,11 +677,12 @@ var _ = Describe("Framer", func() {
 			})).To(Succeed())
 			keys := channel.Keys{records.Key(), other.Key()}
 			svc := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
-				DB:      db,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				RBAC:    rbacSvc,
-				Errors:  errors.NewCodec(),
+				DB:          db,
+				Framer:      framerSvc,
+				Channel:     channelSvc,
+				Calculation: svc.Calculation,
+				RBAC:        rbacSvc,
+				Errors:      errors.NewCodec(),
 				Records: map[channel.Key]signals.Record{
 					records.Key(): {Of: func(sample []byte) (resource.ID, error) {
 						id, err := strconv.Unquote(string(sample))

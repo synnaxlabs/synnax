@@ -184,7 +184,7 @@ func (s *Service) Create(
 	req CreateRequest,
 ) (CreateResponse, error) {
 	translated := translateChannelsBackward(req.Channels)
-	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
+	inputs, err := s.calculations.Inputs(ctx, tx, translated)
 	if err != nil {
 		return CreateResponse{}, err
 	}

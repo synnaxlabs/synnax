@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/errors"
@@ -28,6 +29,7 @@ var _ = Describe("ServiceConfig", func() {
 			Instrumentation: alamos.New("test"),
 			Framer:          &framer.Service{},
 			Channel:         &channel.Service{},
+			Calculation:     &calculation.Service{},
 			RBAC:            &rbac.Service{},
 			Errors:          errors.NewCodec(),
 		}
@@ -59,6 +61,11 @@ var _ = Describe("ServiceConfig", func() {
 				"channel",
 				func(c *apiframer.ServiceConfig) { c.Channel = nil },
 				"channel: must be non-nil",
+			),
+			Entry(
+				"calculation",
+				func(c *apiframer.ServiceConfig) { c.Calculation = nil },
+				"calculation: must be non-nil",
 			),
 			Entry(
 				"rbac",

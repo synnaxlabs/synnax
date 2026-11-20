@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -65,6 +66,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation finds the channels that each calculated channel reads.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -93,6 +98,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Records = override.Nil(c.Records, other.Records)
 	c.Errors = override.Nil(c.Errors, other.Errors)
@@ -105,18 +111,20 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
 type Service struct {
-	db       *gorp.DB
-	access   *rbac.Service
-	channel  *channel.Service
-	internal *framer.Service
-	records  map[channel.Key]signals.Record
-	errs     *errors.Codec
+	db          *gorp.DB
+	access      *rbac.Service
+	channel     *channel.Service
+	calculation *calculation.Service
+	internal    *framer.Service
+	records     map[channel.Key]signals.Record
+	errs        *errors.Codec
 	alamos.Instrumentation
 }
 
@@ -130,6 +138,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Framer,
 		channel:         cfg.Channel,
+		calculation:     cfg.Calculation,
 		access:          cfg.RBAC,
 		records:         cfg.Records,
 		errs:            cfg.Errors,
@@ -300,15 +309,14 @@ func (s *Service) enforceRetrieve(
 	subject resource.ID,
 	keys channel.Keys,
 ) error {
-	var calculated []channel.Channel
+	var channels []channel.Channel
 	if err := s.channel.NewRetrieve().
 		Where(channel.MatchKeys(keys...)).
-		Where(channel.MatchCalculated()).
-		Entries(&calculated).
+		Entries(&channels).
 		Exec(ctx, snap); err != nil {
 		return err
 	}
-	inputs, err := s.channel.CalculationInputs(ctx, snap, calculated)
+	inputs, err := s.calculation.Inputs(ctx, snap, channels)
 	if err != nil {
 		return err
 	}

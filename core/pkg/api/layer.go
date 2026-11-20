@@ -979,6 +979,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		DB:              cfg.Distribution.DB,
 		Framer:          cfg.Service.Framer,
 		Channel:         cfg.Service.Channel,
+		Calculation:     cfg.Service.Calculation,
 		RBAC:            cfg.Service.RBAC,
 		Records:         cfg.Service.Signals.Records(),
 		Errors:          cfg.Errors,

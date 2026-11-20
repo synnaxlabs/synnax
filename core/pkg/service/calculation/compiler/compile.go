@@ -12,7 +12,6 @@ package compiler
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
@@ -98,7 +97,7 @@ func preProcess(
 		ctx,
 		cfg.Channel,
 		cfg.Calculation.Expression,
-		hasDerivative(cfg.Calculation.Operations),
+		calculation.HasDerivative(cfg.Calculation.Operations),
 	)
 	if err != nil {
 		return arc.Program{}, err
@@ -163,14 +162,6 @@ func addNode(g *arc.Graph, key, typ string, inputs xmsgpack.EncodedJSON) {
 
 func addEdge(g *arc.Graph, source, target ir.Handle) {
 	g.Edges = append(g.Edges, graph.Edge{Source: source, Target: target})
-}
-
-// hasDerivative reports whether ops holds a derivative.
-func hasDerivative(ops []calculation.Operation) bool {
-	return slices.ContainsFunc(ops, func(op calculation.Operation) bool {
-		_, ok := op.Variant.(calculation.DerivativeOperation)
-		return ok
-	})
 }
 
 // operationNode returns the node type of op and its window, which is zero for an
