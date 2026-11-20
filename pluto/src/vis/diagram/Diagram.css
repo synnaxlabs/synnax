@@ -25,6 +25,10 @@
     }
 
     .pluto-diagram {
+        /* React Flow 13 opts its defaults, such as a dark background, into the OS dark
+           mode. The theme colors the diagram instead. */
+        color-scheme: normal;
+
         .react-flow__selection,
         .react-flow__nodesselection-rect {
             background: var(--pluto-primary-z-10) !important;
