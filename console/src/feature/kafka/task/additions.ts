@@ -51,13 +51,61 @@ export const isPickable = (
     .filter((f, i) => i === shape.index || picked.has(f.pointer))
     .every((f) => isVariable(f) === isVariable(field));
 
+/** @returns the messages of an ICD, by its key. */
+export type MessagesOf = (icdKey: icd.Key) => icd.Message[];
+
+/** The pointers of the fields that the task reads from each Kafka key, by key. */
+export type Reads = Map<string, Set<string>>;
+
+/** @returns the pointers of the fields that a record binds, in any of its messages. */
+const pointersOf = (record: ReadRecord, messagesOf: MessagesOf): Set<string> => {
+  const held = messagesOf(record.icd);
+  return new Set(
+    record.messages.flatMap(({ message, bindings }) => {
+      const fields = ICD.jsonFields(held.find(({ key }) => key === message));
+      return fields
+        .filter(({ key }) => bindings.some(({ field }) => field === key))
+        .map(({ pointer }) => pointer);
+    }),
+  );
+};
+
+/** @returns the pointers that the records of each Kafka key read. */
+export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
+  const reads: Reads = new Map();
+  for (const record of records) {
+    const pointers = reads.get(record.recordKey) ?? new Set<string>();
+    pointersOf(record, messagesOf).forEach((p) => pointers.add(p));
+    reads.set(record.recordKey, pointers);
+  }
+  return reads;
+};
+
+/** @returns the pointers that every key of a shape reads: its fields in the task. */
+export const takenPointers = (shape: json.Shape, reads: Reads): Set<string> => {
+  const [first, ...rest] = shape.sources.map(
+    (key) => reads.get(key) ?? new Set<string>(),
+  );
+  return new Set([...(first ?? [])].filter((p) => rest.every((r) => r.has(p))));
+};
+
 /**
- * @returns the fields that a click on a shape picks: each one it can take, without
- * mixing variable-length fields among fixed ones. Fixed fields go first.
+ * @returns the pointers that any key of a shape reads. Their messages gain the picks of
+ * the shape, so the picks must not mix variable-length fields among them.
  */
-export const defaultPicks = (shape: json.Shape): Set<string> => {
+export const heldPointers = (shape: json.Shape, reads: Reads): Set<string> =>
+  new Set(shape.sources.flatMap((key) => [...(reads.get(key) ?? [])]));
+
+/**
+ * @returns the fields that a click on a shape picks: each one that a key of the shape
+ * does not read and that the shape can take, without mixing variable-length fields
+ * among fixed ones. Fixed fields go first.
+ */
+export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
+  const taken = takenPointers(shape, reads);
+  const held = heldPointers(shape, reads);
   const free = shape.fields.filter(
-    (f, i) => i !== shape.index && isPickable(shape, new Set(), f),
+    (f, i) => i !== shape.index && !taken.has(f.pointer) && isPickable(shape, held, f),
   );
   const fixed = free.filter((f) => !isVariable(f));
   return new Set((fixed.length > 0 ? fixed : free).map(({ pointer }) => pointer));
@@ -142,3 +190,72 @@ export const createRecords = (icdKey: icd.Key, additions: Addition[]): ReadRecor
       kafka.readRecordZ.parse({ icd: icdKey, recordKey, messages: [read] }),
     );
   });
+
+/** Picks that a message gains, because records of the task read the message already. */
+export interface Extension {
+  icd: icd.Key;
+  message: icd.MessageKey;
+  /** The fields that the message gains. */
+  fields: icd.JSONField[];
+  /** The field keys that each record starts to bind, by record and read index. */
+  bindings: { record: string; read: number; fields: icd.FieldKey[] }[];
+}
+
+/**
+ * @returns the picks that the records of the task gain, in the first JSON message that
+ * each record reads. A message gains each picked field that it does not hold, once for
+ * all of its records. A record starts to read each picked field that it does not. A
+ * record that reads no JSON message gains nothing.
+ */
+export const createExtensions = (
+  shapes: json.Shape[],
+  picks: Picks,
+  records: ReadRecord[],
+  messagesOf: MessagesOf,
+): Extension[] => {
+  const extensions = new Map<icd.MessageKey, Extension>();
+  for (const shape of shapes) {
+    const pointers = picks.get(shapeKey(shape));
+    if (pointers == null) continue;
+    for (const record of records) {
+      if (!shape.sources.includes(record.recordKey)) continue;
+      const held = messagesOf(record.icd);
+      const read = record.messages.findIndex(
+        ({ message }) =>
+          held.find(({ key }) => key === message)?.payload.format === "json",
+      );
+      if (read < 0) continue;
+      const { message } = record.messages[read];
+      const bound = pointersOf(record, messagesOf);
+      const picked = shape.fields.filter(
+        (f) => pointers.has(f.pointer) && !bound.has(f.pointer),
+      );
+      if (picked.length === 0) continue;
+      const extension = extensions.get(message) ?? {
+        icd: record.icd,
+        message,
+        fields: [],
+        bindings: [],
+      };
+      const holds = [
+        ...ICD.jsonFields(held.find(({ key }) => key === message)),
+        ...extension.fields,
+      ];
+      const missing = picked.filter((f) => !holds.some((h) => h.pointer === f.pointer));
+      const names = ICD.fieldNames(
+        missing.map(({ pointer }) => pointer),
+        holds.map(({ name }) => name),
+      );
+      const added = missing.map((f, i) => toJSONField(f, names[i]));
+      extension.fields.push(...added);
+      const existing = holds.filter((h) => picked.some((f) => f.pointer === h.pointer));
+      extension.bindings.push({
+        record: record.key,
+        read,
+        fields: [...existing, ...added].map(({ key }) => key),
+      });
+      extensions.set(message, extension);
+    }
+  }
+  return [...extensions.values()];
+};
