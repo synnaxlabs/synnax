@@ -484,8 +484,10 @@ var _ = Describe("Service", func() {
 		It(
 			"Should leave out calculated channels that read each other",
 			func(ctx SpecContext) {
+				// base holds the name cy_a until a takes it, which closes a cycle that
+				// no save writes.
 				base := channel.Channel{
-					Name: "cy_base", DataType: telem.Int64T, Virtual: true,
+					Name: "cy_a", DataType: telem.Int64T, Virtual: true,
 				}
 				out := channel.Channel{
 					Name: "cy_out", DataType: telem.Int64T, Virtual: true,
@@ -494,10 +496,10 @@ var _ = Describe("Service", func() {
 					Name:       "cy_b",
 					DataType:   telem.Int64T,
 					Virtual:    true,
-					Expression: "return cy_base + 1",
+					Expression: "return cy_a + 1",
 				}
 				a := channel.Channel{
-					Name:       "cy_a",
+					Name:       "cy_a_next",
 					DataType:   telem.Int64T,
 					Virtual:    true,
 					Expression: "return cy_b * 2",
@@ -517,12 +519,13 @@ var _ = Describe("Service", func() {
 					b, a = calcs[0], calcs[1]
 					return nil
 				})).To(Succeed())
-				Expect(creator.Apply(ctx, b.Key(), channel.NewSetAction(
-					channel.SetPayload{
-						Path:  []string{"expression"},
-						Value: "return cy_a + 1",
-					},
-				))).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := channelSvc.NewWriter(tx)
+					if err := w.Rename(ctx, base.Key(), "cy_base", false); err != nil {
+						return err
+					}
+					return w.Rename(ctx, a.Key(), "cy_a", false)
+				})).To(Succeed())
 				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 					Name: "cy_automation",
 					Source: arc.Source{Variant: arc.TextSource{

@@ -12,6 +12,7 @@ package calculation
 import (
 	"context"
 	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -24,6 +25,7 @@ import (
 
 // Writer creates, changes, and deletes calculations in a transaction.
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Calculation]
 	indexes    indexes
@@ -42,8 +44,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // be a virtual channel that is not an index or a built-in channel, and that no other
 // record writes. It returns an error wrapping validate.ErrValidation when the
 // calculation is not valid or its output breaks that rule, and an error wrapping
-// query.ErrNotFound when the output does not exist. The commit broadcasts a create
-// action that holds the stored calculation.
+// query.ErrNotFound when the output does not exist. It fails as compile does, and sets
+// the data type of the output to the type of the expression. The commit broadcasts a
+// create action that holds the stored calculation.
 func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	if c.Key == uuid.Nil() {
 		c.Key = uuid.New()
@@ -51,7 +54,11 @@ func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
-	if err := w.checkOutput(ctx, c.Output); err != nil {
+	output, err := w.checkOutput(ctx, c.Output)
+	if err != nil {
+		return err
+	}
+	if err = w.compile(ctx, output, *c); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(c).Exec(ctx, w.tx); err != nil {
@@ -61,40 +68,47 @@ func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	return nil
 }
 
-// checkOutput fails when the channel with key does not exist, stores its samples, is an
-// index or a built-in channel, or has a record that writes it.
-func (w Writer) checkOutput(ctx context.Context, key channel.Key) error {
+// checkOutput returns the channel with key. It fails when the channel does not exist,
+// stores its samples, is an index or a built-in channel, or has a record that writes
+// it.
+func (w Writer) checkOutput(
+	ctx context.Context,
+	key channel.Key,
+) (channel.Channel, error) {
 	var ch channel.Channel
 	if err := w.channels.NewRetrieve().
 		Where(channel.MatchKeys(key)).
 		Entry(&ch).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return ch, err
 	}
 	switch {
 	case !ch.Virtual:
-		return outputError(
+		return ch, outputError(
 			"channel %s stores its samples, so no calculation writes it",
 			ch,
 		)
 	case ch.IsIndex:
-		return outputError("channel %s is an index, so no calculation writes it", ch)
+		return ch, outputError(
+			"channel %s is an index, so no calculation writes it",
+			ch,
+		)
 	case w.channels.IsBuiltIn(key):
-		return outputError(
+		return ch, outputError(
 			"the Core writes channel %s, so no calculation writes it",
 			ch,
 		)
 	}
 	uses, err := w.channels.Uses(ctx, w.tx, []channel.Key{key})
 	if err != nil {
-		return err
+		return ch, err
 	}
 	for _, u := range uses[0] {
 		if u.Direction == channel.DirectionWrite {
-			return outputError("another record already writes channel %s", ch)
+			return ch, outputError("another record already writes channel %s", ch)
 		}
 	}
-	return nil
+	return ch, nil
 }
 
 func outputError(format string, ch channel.Channel) error {
@@ -107,27 +121,155 @@ func outputError(format string, ch channel.Channel) error {
 // Apply applies the actions to the calculation with the given key, and the commit
 // broadcasts them. It returns an error wrapping validate.ErrValidation when an action
 // is a create or the result is not valid, and an error wrapping query.ErrNotFound when
-// no calculation has the key.
+// no calculation has the key. It fails as compile does, and sets the data type of the
+// output to the type of the expression.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	if err := w.table.
-		NewUpdate().
+	var c Calculation
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Calculation](key)).
-		ChangeErr(func(_ gorp.Context, c Calculation) (Calculation, error) {
-			next, err := Reduce(c, acts...)
-			if err != nil {
-				return Calculation{}, err
-			}
-			if err = next.Validate(); err != nil {
-				return Calculation{}, err
-			}
-			return next, nil
-		}).
+		Entry(&c).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	next, err := Reduce(c, acts...)
+	if err != nil {
+		return err
+	}
+	if err = next.Validate(); err != nil {
+		return err
+	}
+	var output channel.Channel
+	if err = w.channels.NewRetrieve().
+		Where(channel.MatchKeys(next.Output)).
+		Entry(&output).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err = w.compile(ctx, output, next); err != nil {
+		return err
+	}
+	if err = w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Calculation](key)).
+		Change(func(gorp.Context, Calculation) Calculation { return next }).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
 }
+
+// compile analyzes c as the calculation that writes output. It returns the analysis
+// error when the expression does not compile, and an error wrapping
+// validate.ErrValidation when the primary of c is not a channel the expression reads or
+// the calculations the expression reads lead back to output. It sets the data type of
+// output to the type of the expression.
+func (w Writer) compile(
+	ctx context.Context,
+	output channel.Channel,
+	c Calculation,
+) error {
+	analyzer := w.newAnalyzer()
+	result, err := analyzer.AnalyzeExpression(
+		ctx,
+		output,
+		c.Expression,
+		HasDerivative(c.Operations),
+	)
+	if err != nil {
+		return validate.PathedError(err, "expression")
+	}
+	if c.Primary != nil && !slices.Contains(result.Deps, *c.Primary) {
+		return validate.PathedError(errors.Wrapf(
+			validate.ErrValidation,
+			"channel %s is not a channel that the expression reads",
+			*c.Primary,
+		), "primary")
+	}
+	if err = w.checkCycle(ctx, analyzer, output, result.Deps); err != nil {
+		return err
+	}
+	if output.DataType == result.ChanDataType {
+		return nil
+	}
+	return w.channels.NewWriter(w.tx).
+		ChangeDataType(ctx, output.Key(), result.ChanDataType)
+}
+
+// checkCycle returns an error wrapping validate.ErrValidation, which names the path,
+// when
+// a calculation among the channels with keys deps reads output, directly or through
+// other calculations.
+func (w Writer) checkCycle(
+	ctx context.Context,
+	analyzer *channel.CalculationAnalyzer,
+	output channel.Channel,
+	deps channel.Keys,
+) error {
+	type step struct {
+		key  channel.Key
+		path channel.Keys
+	}
+	queue := make([]step, 0, len(deps))
+	for _, d := range deps {
+		queue = append(queue, step{key: d, path: channel.Keys{output.Key(), d}})
+	}
+	visited := set.New[channel.Key]()
+	for len(queue) > 0 {
+		s := queue[0]
+		queue = queue[1:]
+		if s.key == output.Key() {
+			return w.cycleError(ctx, s.path)
+		}
+		if visited.Contains(s.key) {
+			continue
+		}
+		visited.Add(s.key)
+		level, err := w.svc.pendingOf(ctx, w.tx, channel.Keys{s.key})
+		if err != nil {
+			return err
+		}
+		for _, p := range level {
+			reads, err := calculationReads(ctx, analyzer, p)
+			if err != nil {
+				return err
+			}
+			for _, r := range reads {
+				queue = append(
+					queue,
+					step{key: r, path: append(slices.Clone(s.path), r)},
+				)
+			}
+		}
+	}
+	return nil
+}
+
+// cycleError returns an error wrapping validate.ErrValidation that names the channels
+// of path, a cycle of calculations that read each other.
+func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
+	var channels []channel.Channel
+	if err := w.channels.NewRetrieve().
+		Where(channel.MatchKeys(path.Unique()...)).
+		Entries(&channels).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	names := make(map[channel.Key]string, len(channels))
+	for _, ch := range channels {
+		names[ch.Key()] = ch.Name
+	}
+	steps := make([]string, len(path))
+	for i, k := range path {
+		steps[i] = names[k]
+	}
+	return validate.PathedError(errors.Wrapf(
+		validate.ErrValidation,
+		"the calculations of %s read each other",
+		strings.Join(steps, " -> "),
+	), "expression")
+}
+
+func (w Writer) newAnalyzer() *channel.CalculationAnalyzer { return w.svc.newAnalyzer(w.tx) }
 
 // Delete deletes the calculations with the given keys. A key with no calculation is not
 // an error. The output of each one stays as a channel with no producer.

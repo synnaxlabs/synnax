@@ -70,6 +70,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}
 })
 
+// rename gives the channel with key the name name.
+func rename(ctx context.Context, key channel.Key, name string) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Rename(ctx, key, name, false)
+	})).To(Succeed())
+}
+
 // setExpression applies a set of expr to the expression of ch, then reads ch back.
 func setExpression(ctx context.Context, ch *channel.Channel, expr string) {
 	GinkgoHelper()
@@ -133,17 +141,27 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should detect circular dependencies", func(ctx SpecContext) {
+			base := channel.Channel{
+				Name:     "circ_base",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &base)
+			})).To(Succeed())
 			calc1 := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "circ1",
 				DataType:   telem.Int64T,
-				Expression: "return 1",
+				Expression: "return circ_base",
 			}))
-			MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			calc2 := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "circ2",
 				DataType:   telem.Int64T,
 				Expression: "return circ1",
 			}))
-			setExpression(ctx, &calc1, "return circ2")
+			// A save refuses a cycle, but renames can still close one.
+			rename(ctx, base.Key(), "circ_base_old")
+			rename(ctx, calc2.Key(), "circ_base")
 			Expect(
 				g.Add(ctx, calc1),
 			).To(MatchError(graph.ErrCycle))
@@ -1131,7 +1149,8 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
-			setExpression(ctx, &calcs[0], "return upcirc2")
+			rename(ctx, bases[0].Key(), "upbase12_old")
+			rename(ctx, calcs[1].Key(), "upbase12")
 			Expect(
 				g.Update(ctx, calcs[0]),
 			).To(MatchError(ContainSubstring("circular dependency")))

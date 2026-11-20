@@ -154,6 +154,7 @@ func (s *Service) Channels(c Calculation) []resource.ID {
 // NewWriter opens a Writer that changes calculations in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:        s,
 		tx:         tx,
 		table:      s.table,
 		indexes:    s.indexes,

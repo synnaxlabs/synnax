@@ -1424,22 +1424,21 @@ var _ = Describe("Calculation", Ordered, func() {
 							Expression: fmt.Sprintf("return %s * 2", calc.Name),
 						}),
 					)
-					calc.Expression = fmt.Sprintf(
-						"return %s + 100 / %s", dependent.Name, base.Name,
-					)
-					Expect(creator.Apply(
-						ctx,
-						calc.Key(),
-						channel.NewSetAction(channel.SetPayload{
-							Path:  []string{"expression"},
-							Value: calc.Expression,
-						}),
-					)).To(Succeed())
+					// A save refuses a cycle, so renames close one: dependent takes the
+					// name that calc reads.
+					moved := UniqueChannelName()
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						w := channelSvc.NewWriter(tx)
+						if err := w.Rename(ctx, base.Key(), moved, false); err != nil {
+							return err
+						}
+						return w.Rename(ctx, dependent.Key(), base.Name, false)
+					})).To(Succeed())
 					Eventually(written).Should(ContainElement(SatisfyAll(
 						compileFailure(),
 						HaveField("Description", ContainSubstring("circular")),
 					)))
-					failAndRebuild(ctx, base.Name)
+					failAndRebuild(ctx, moved)
 					Expect(written()).To(HaveEach(compileFailure()))
 				},
 			)

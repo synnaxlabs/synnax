@@ -169,6 +169,91 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Compile", func() {
+		apply := func(ctx SpecContext, key calculation.Key, path string, value any) error {
+			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Apply(ctx, key, calculation.NewSetAction(
+					calculation.SetPayload{Path: []string{path}, Value: value},
+				))
+			})
+		}
+
+		It("Should fail on an expression that does not compile", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return missing * 2",
+			}
+			Expect(create(ctx, &c)).To(MatchError(ContainSubstring("missing")))
+			Expect(retrieve(ctx, out.Key())).To(BeEmpty())
+		})
+
+		It("Should fail on a primary that the expression does not read", func(
+			ctx SpecContext,
+		) {
+			read, other := createVirtual(ctx, "read"), createVirtual(ctx, "other")
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return read * 2",
+				Primary:    new(other.Key()),
+			}
+			Expect(create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("not a channel that the expression reads")),
+			))
+			c.Primary = new(read.Key())
+			Expect(create(ctx, &c)).To(Succeed())
+		})
+
+		It("Should give the output the data type of the expression", func(
+			ctx SpecContext,
+		) {
+			createChannel(ctx, channel.Channel{
+				Name:     "wide",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			})
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return wide * 2",
+			}
+			Expect(create(ctx, &c)).To(Succeed())
+			var stored channel.Channel
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchKeys(out.Key())).
+				Entry(&stored).
+				Exec(ctx, node.DB)).To(Succeed())
+			Expect(stored.DataType).To(Equal(telem.Int64T))
+		})
+
+		It("Should fail on an edit after which calculations read each other", func(
+			ctx SpecContext,
+		) {
+			createVirtual(ctx, "base")
+			first := calculation.Calculation{
+				Output:     createVirtual(ctx, "first").Key(),
+				Expression: "return base * 2",
+			}
+			Expect(create(ctx, &first)).To(Succeed())
+			second := calculation.Calculation{
+				Output:     createVirtual(ctx, "second").Key(),
+				Expression: "return first + 1",
+			}
+			Expect(create(ctx, &second)).To(Succeed())
+			Expect(
+				apply(ctx, first.Key, "expression", "return second * 2"),
+			).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("first -> second -> first")),
+			))
+			Expect(
+				retrieve(ctx, first.Output)[0].Expression,
+			).To(Equal("return base * 2"))
+		})
+	})
+
 	Describe("SetFromChannel", func() {
 		setFromChannel := func(ctx SpecContext, ch channel.Channel) error {
 			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {

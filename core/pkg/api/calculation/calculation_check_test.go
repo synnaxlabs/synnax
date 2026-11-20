@@ -42,7 +42,7 @@ var _ = Describe("Calculation access checks", func() {
 		out, primary := createVirtual(ctx), createVirtual(ctx)
 		createAsCore(ctx, calculation.Calculation{
 			Output:     out.Key(),
-			Expression: "return 2",
+			Expression: "return " + primary.Name,
 			Primary:    new(primary.Key()),
 		})
 		grant(ctx, retrieves, u.ResourceID(), anyCalculation)
@@ -112,7 +112,7 @@ var _ = Describe("Calculation access checks", func() {
 			out, hidden := createVirtual(ctx), createVirtual(ctx)
 			c := createAsCore(ctx, calculation.Calculation{
 				Output:     out.Key(),
-				Expression: "return 2",
+				Expression: "return " + hidden.Name,
 			})
 			grant(ctx, access.AllActions, u.ResourceID(), anyCalculation)
 			grant(ctx, access.AllActions, u.ResourceID(), channel.ResourceID(out.Key()))

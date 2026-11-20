@@ -522,28 +522,39 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					// This test verifies that circular dependencies are caught by the
 					// topological sort.
 
-					// Create a simple 2-node cycle: A -> B -> A
+					// Create a simple 2-node cycle: A -> B -> A. A save refuses a
+					// cycle,
+					// so renames close it.
+					base := channel.Channel{
+						Name:     "calc_circ_base",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					}
+					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &base)
+					})).To(Succeed())
 					calcA := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "calc_circ_a",
 						DataType:   telem.Float32T,
-						Expression: "return 1",
+						Expression: "return calc_circ_base + 1",
 					}))
-
-					MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					calcB := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "calc_circ_b",
 						DataType:   telem.Float32T,
 						Expression: "return calc_circ_a + 1",
 					}))
-
-					calcA.Expression = "return calc_circ_b + 1"
-					Expect(creator.Apply(
-						ctx,
-						calcA.Key(),
-						channel.NewSetAction(channel.SetPayload{
-							Path:  []string{"expression"},
-							Value: calcA.Expression,
-						}),
-					)).To(Succeed())
+					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						w := channelSvc.NewWriter(tx)
+						if err := w.Rename(
+							ctx,
+							base.Key(),
+							"calc_circ_old",
+							false,
+						); err != nil {
+							return err
+						}
+						return w.Rename(ctx, calcB.Key(), "calc_circ_base", false)
+					})).To(Succeed())
 
 					// Opening an iterator over the now-cyclic channel should fail.
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
