@@ -241,7 +241,7 @@ func errVariantChanged(channel string, variant any) error {
 }
 
 // aiBase returns the BaseAIChannel that an analog input variant embeds, or false for a
-// variant without one.
+// variant without one. Every variant but the built-in temperature channel embeds one.
 func aiBase[B any](variant any) (B, bool) {
 	v := reflect.ValueOf(variant)
 	if v.Kind() != reflect.Struct {
@@ -266,9 +266,12 @@ func logAIChannel(l changeLog, old v3.AIChannel, migrated AIChannel) error {
 		logDisabled(l, o.Disabled, n.Disabled)
 		return nil
 	}
+	if old.Variant == nil {
+		return nil
+	}
 	o, ok := aiBase[v3.BaseAIChannel](old.Variant)
 	if !ok {
-		return nil
+		return errors.Newf("analog input variant %T has no base", old.Variant)
 	}
 	n, ok := aiBase[BaseAIChannel](migrated.Variant)
 	if !ok {
