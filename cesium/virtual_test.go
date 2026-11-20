@@ -57,7 +57,7 @@ var _ = Describe("Virtual channel directories", func() {
 			db := openDBOnFS(ctx, mem)
 			Expect(db.RetrieveChannel(ctx, key)).Error().
 				To(MatchError(cesium.ErrChannelNotFound))
-			Expect(db.Sweep(ctx, []cesium.ChannelKey{key})).To(BeEmpty())
+			Expect(sweep(ctx, db, []cesium.ChannelKey{key})).To(BeEmpty())
 			Expect(db.Close()).To(Succeed())
 			Expect(xfs.ReadFile(mem, metaPath())).To(Equal(before))
 		},
@@ -75,7 +75,7 @@ var _ = Describe("Virtual channel directories", func() {
 		ctx SpecContext,
 	) {
 		db := mustOpenDBOnFS(ctx, mem)
-		Expect(db.Sweep(ctx, nil)).To(BeEmpty())
+		Expect(sweep(ctx, db, nil)).To(BeEmpty())
 		Expect(mem.Exists(channelKeyToPath(key))).To(BeFalse())
 	})
 

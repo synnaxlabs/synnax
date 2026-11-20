@@ -41,18 +41,13 @@ func (s *Service) sweep(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	kept, err := sweepStorage(ctx, records, s.cfg.TS)
+	kept, highest, err := sweepStorage(ctx, records, s.cfg.TS)
 	if err != nil {
 		return err
 	}
-	// A key that kept data holds must not go to a new channel, which would merge with
-	// the old samples.
-	if err = s.cfg.Channel.Reserve(
-		ctx,
-		lo.Map(kept, func(k cesium.KeptChannel, _ int) Key {
-			return Key(k.Key)
-		}),
-	); err != nil {
+	// A key that storage holds in any form must not go to a new channel, which would
+	// merge with the old samples.
+	if err = s.cfg.Channel.Reserve(ctx, Keys{Key(highest)}); err != nil {
 		return err
 	}
 	return s.db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -106,10 +101,11 @@ func Purge(
 			)
 		}
 	}
-	kept, err := sweepStorage(ctx, records, ts)
+	kept, _, err := sweepStorage(ctx, records, ts)
 	if err != nil {
 		return nil, err
 	}
+	purged := set.New(keys...)
 	keptKeys := set.New(lo.Map(kept, func(k cesium.KeptChannel, _ int) Key {
 		return Key(k.Key)
 	})...)
@@ -122,6 +118,17 @@ func Purge(
 			)
 		}
 	}
+	for _, k := range kept {
+		if idx := Key(k.Index); purged.Contains(idx) && !purged.Contains(Key(k.Key)) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"channel %d is the index of channel %d, which also holds data with no "+
+					"channel record. Purge both channels together",
+				idx,
+				k.Key,
+			)
+		}
+	}
 	if len(keys) > 0 {
 		if err = ts.Intend(Keys(keys).Uint32()); err != nil {
 			return nil, err
@@ -130,7 +137,6 @@ func Purge(
 			return nil, err
 		}
 	}
-	purged := set.New(keys...)
 	return lo.Reject(kept, func(k cesium.KeptChannel, _ int) bool {
 		return purged.Contains(Key(k.Key))
 	}), nil
@@ -146,12 +152,13 @@ func recordKeys(ctx context.Context, db *gorp.DB) (Keys, error) {
 	return KeysFromChannels(records), nil
 }
 
-// sweepStorage sweeps ts against records and returns the data it keeps.
+// sweepStorage sweeps ts against records and returns the data it keeps and the highest
+// key it holds.
 func sweepStorage(
 	ctx context.Context,
 	records Keys,
 	ts *cesium.DB,
-) ([]cesium.KeptChannel, error) {
+) ([]cesium.KeptChannel, cesium.ChannelKey, error) {
 	stored := lo.Reject(records, func(k Key, _ int) bool { return k.Free() })
 	return ts.Sweep(ctx, stored.Uint32())
 }

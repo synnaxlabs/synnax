@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"encoding/binary"
 	"hash/crc32"
 	"io"
@@ -149,7 +150,7 @@ var _ = Describe("Delete intents", func() {
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 				restarted, fs := crash(ctx)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx, data})).
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx, data})).
 					To(BeEmpty())
 				Expect(intents(fs)).To(BeZero())
 				fr := MustSucceed(restarted.Read(ctx, telem.TimeRangeMax, data))
@@ -162,7 +163,7 @@ var _ = Describe("Delete intents", func() {
 		It("Should drop a key with an intent and no record", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			restarted, fs := crash(ctx)
-			Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 			expectGone(ctx, restarted, fs, data)
 			Expect(intents(fs)).To(BeZero())
 		})
@@ -172,7 +173,7 @@ var _ = Describe("Delete intents", func() {
 			Expect(db.CreateChannel(ctx, cesium.Channel{
 				Key: empty, Name: "empty", IsIndex: true, DataType: telem.TimestampT,
 			})).To(Succeed())
-			Expect(db.Sweep(ctx, []cesium.ChannelKey{idx, data})).To(BeEmpty())
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx, data})).To(BeEmpty())
 			expectGone(ctx, db, mem, empty)
 		})
 
@@ -180,7 +181,7 @@ var _ = Describe("Delete intents", func() {
 			"Should keep a key with samples, no record, and no intent, and refuse it",
 			func(ctx SpecContext) {
 				size := db.Metrics().DiskSize
-				kept := MustSucceed(db.Sweep(ctx, []cesium.ChannelKey{idx}))
+				kept := sweep(ctx, db, []cesium.ChannelKey{idx})
 				Expect(db.Metrics().DiskSize).To(Equal(size))
 				Expect(kept).To(HaveLen(1))
 				Expect(kept[0].Key).To(Equal(data))
@@ -198,17 +199,77 @@ var _ = Describe("Delete intents", func() {
 			},
 		)
 
+		It("Should refuse a second Sweep on one open of the DB", func(ctx SpecContext) {
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx, data})).To(BeEmpty())
+			Expect(db.Sweep(ctx, []cesium.ChannelKey{idx, data})).Error().
+				To(MatchError(ContainSubstring("Sweep runs once per open of a DB")))
+		})
+
+		It("Should return the highest key that the DB holds, with an intent included",
+			func(ctx SpecContext) {
+				keptData, intendedIdx := GenerateChannelKey(), GenerateChannelKey()
+				Expect(db.CreateChannel(
+					ctx,
+					cesium.Channel{
+						Key:      intendedIdx,
+						Name:     "time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					},
+					cesium.Channel{
+						Key:      keptData,
+						Name:     "data",
+						Index:    intendedIdx,
+						DataType: telem.Int64T,
+					},
+				)).To(Succeed())
+				Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					[]cesium.ChannelKey{intendedIdx, keptData},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11),
+						telem.NewSeriesV[int64](1, 2),
+					},
+				))).To(Succeed())
+				Expect(db.Intend([]cesium.ChannelKey{intendedIdx})).To(Succeed())
+				kept, highest := MustSucceed2(db.Sweep(
+					ctx,
+					[]cesium.ChannelKey{idx, data},
+				))
+				Expect(kept).To(ConsistOf(SatisfyAll(
+					HaveField("Key", keptData),
+					HaveField("Index", intendedIdx),
+				)))
+				Expect(highest).To(Equal(intendedIdx))
+			},
+		)
+
+		It("Should make the intent of a drop durable before Sweep removes a key with "+
+			"no samples", func(ctx SpecContext) {
+			var ops []string
+			logged := mustOpenDBOnFS(ctx, opLogFS{FS: xfs.NewMem(), ops: &ops})
+			Expect(logged.CreateChannel(ctx, cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			})).To(Succeed())
+			ops = nil
+			Expect(sweep(ctx, logged, nil)).To(BeEmpty())
+			Expect(ops).To(HaveExactElements(
+				"sync delete-intents",
+				"syncdir",
+				"sync delete-intents",
+			))
+		})
+
 		It("Should open a kept channel after a delete drops its index", func(
 			ctx SpecContext,
 		) {
-			Expect(db.Sweep(ctx, nil)).To(ConsistOf(
+			Expect(sweep(ctx, db, nil)).To(ConsistOf(
 				HaveField("Key", idx),
 				HaveField("Key", data),
 			))
 			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
 			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
 			restarted, fs := crash(ctx)
-			Expect(restarted.Sweep(ctx, nil)).To(ConsistOf(HaveField("Key", data)))
+			Expect(sweep(ctx, restarted, nil)).To(ConsistOf(HaveField("Key", data)))
 			Expect(fs.Exists(channelKeyToPath(idx))).To(BeTrue())
 		})
 
@@ -216,7 +277,7 @@ var _ = Describe("Delete intents", func() {
 			"Should keep the index of a kept channel, and the intent of the index",
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
-				kept := MustSucceed(db.Sweep(ctx, nil))
+				kept := sweep(ctx, db, nil)
 				Expect(kept).To(ConsistOf(HaveField("Key", data)))
 				Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
 				Expect(intents(mem)).To(Equal(1))
@@ -226,7 +287,7 @@ var _ = Describe("Delete intents", func() {
 
 	Describe("Drop of a kept key", func() {
 		It("Should remove a key that Sweep keeps", func(ctx SpecContext) {
-			Expect(db.Sweep(ctx, []cesium.ChannelKey{idx})).To(HaveLen(1))
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).To(HaveLen(1))
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
 			expectGone(ctx, db, mem, data)
@@ -289,7 +350,7 @@ var _ = Describe("Delete intents", func() {
 				Expect(ldb.Intend([]cesium.ChannelKey{other})).To(Succeed())
 				fs := lossy.crash()
 				restarted := mustOpenDBOnFS(ctx, fs)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 				expectGone(ctx, restarted, fs, other)
 			})
 
@@ -298,7 +359,7 @@ var _ = Describe("Delete intents", func() {
 				Expect(ldb.Drop([]cesium.ChannelKey{idx})).To(Succeed())
 				fs := lossy.crash()
 				restarted := mustOpenDBOnFS(ctx, fs)
-				Expect(restarted.Sweep(ctx, nil)).To(BeEmpty())
+				Expect(sweep(ctx, restarted, nil)).To(BeEmpty())
 				expectGone(ctx, restarted, fs, other)
 			})
 		})
@@ -323,7 +384,7 @@ var _ = Describe("Delete intents", func() {
 			})
 			Expect(intents(fs)).To(Equal(1))
 			Expect(restarted.CorruptIntents()).To(Equal(1))
-			kept := MustSucceed(restarted.Sweep(ctx, []cesium.ChannelKey{idx}))
+			kept := sweep(ctx, restarted, []cesium.ChannelKey{idx})
 			Expect(kept).To(ConsistOf(HaveField("Key", data)))
 			expectGone(ctx, restarted, fs, other)
 		})
@@ -347,7 +408,7 @@ var _ = Describe("Delete intents", func() {
 			restarted, fs := crash(ctx)
 			Expect(intents(fs)).To(Equal(1))
 			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(Equal(int64(12)))
-			Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 			expectGone(ctx, restarted, fs, data)
 		})
 
@@ -357,7 +418,7 @@ var _ = Describe("Delete intents", func() {
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 				restarted, _ := crash(ctx)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx, data})).
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx, data})).
 					To(BeEmpty())
 				MustSucceed(restarted.Read(ctx, telem.TimeRangeMax, data))
 			},
@@ -368,7 +429,7 @@ var _ = Describe("Delete intents", func() {
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 				restarted, fs := crash(ctx)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 				expectGone(ctx, restarted, fs, data)
 			},
 		)
@@ -394,7 +455,7 @@ var _ = Describe("Delete intents", func() {
 			cp := xfs.NewMem()
 			Expect(xfs.CopyDir(faulty, cp, "")).To(Succeed())
 			restarted := mustOpenDBOnFS(ctx, cp)
-			Expect(restarted.Sweep(ctx, nil)).To(BeEmpty())
+			Expect(sweep(ctx, restarted, nil)).To(BeEmpty())
 			expectGone(ctx, restarted, cp, idx)
 			Expect(cp.Exists(channelKeyToPath(idx) + "-DELETE")).To(BeFalse())
 			Expect(intents(cp)).To(BeZero())
@@ -421,13 +482,24 @@ var _ = Describe("Delete intents", func() {
 				again := xfs.NewMem()
 				Expect(xfs.CopyDir(cp, again, "")).To(Succeed())
 				last := mustOpenDBOnFS(ctx, again)
-				Expect(last.Sweep(ctx, nil)).To(BeEmpty())
+				Expect(sweep(ctx, last, nil)).To(BeEmpty())
 				expectGone(ctx, last, again, idx)
 				Expect(intents(again)).To(BeZero())
 			},
 		)
 	})
 })
+
+// sweep runs Sweep on db with the record keys keys, and returns the channels it keeps.
+func sweep(
+	ctx context.Context,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+) []cesium.KeptChannel {
+	GinkgoHelper()
+	kept, _ := MustSucceed2(db.Sweep(ctx, keys))
+	return kept
+}
 
 // opLogFS records the syncs, renames, and directory syncs of the intents file.
 type opLogFS struct {

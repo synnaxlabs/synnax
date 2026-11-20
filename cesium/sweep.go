@@ -19,10 +19,13 @@ import (
 )
 
 // KeptChannel is a channel that Sweep keeps: it holds samples but has no record and no
-// delete intent. Writers and iterators cannot open on it until Purge removes it.
+// delete intent. Writers and iterators cannot open on it until an intent and a Drop of
+// its key remove it.
 type KeptChannel struct {
-	Key  ChannelKey
-	Size telem.Size
+	Key ChannelKey
+	// Index is the key of the channel's index, or zero for an index.
+	Index ChannelKey
+	Size  telem.Size
 }
 
 // Sweep reconciles the DB with keys, the keys of every channel record, and must run
@@ -31,21 +34,27 @@ type KeptChannel struct {
 // intent and no record, and a key with no record and no samples. It keeps a key with
 // samples, no record, and no intent: writers and iterators on it fail, Sweep returns
 // it, and only an intent and a Drop of its key remove it. An index that a kept or
-// recorded channel uses stays, with any intent of the index.
-func (db *DB) Sweep(ctx context.Context, keys []ChannelKey) ([]KeptChannel, error) {
+// recorded channel uses stays, with any intent of the index. Each drop is a durable
+// intent first. Sweep also returns the highest key that the DB holds in any form, so
+// that no new channel takes it. Sweep runs once per open of the DB.
+func (db *DB) Sweep(
+	ctx context.Context,
+	keys []ChannelKey,
+) ([]KeptChannel, ChannelKey, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if db.closed.Load() {
-		return nil, ErrDBClosed
+		return nil, 0, ErrDBClosed
 	}
+	if db.mu.swept {
+		return nil, 0, errors.New(
+			"Sweep runs once per open of a DB, and it already ran",
+		)
+	}
+	db.mu.swept = true
 	records := set.New(keys...)
-	// A later Sweep decides again on the channels an earlier one kept.
-	for k, u := range db.mu.dbs.hidden {
-		db.mu.dbs.unary[k] = u
-		delete(db.mu.dbs.hidden, k)
-	}
 	if err := db.reopenFailedDeletes(ctx, records); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	kept := set.New[ChannelKey]()
 	var drop []ChannelKey
@@ -73,18 +82,44 @@ func (db *DB) Sweep(ctx context.Context, keys []ChannelKey) ([]KeptChannel, erro
 			delete(db.mu.dbs.unary, k)
 		}
 	}
+	if unintended := slices.DeleteFunc(slices.Clone(drop), db.intents.has); len(
+		unintended,
+	) > 0 {
+		if err := db.intents.add(unintended); err != nil {
+			return nil, 0, err
+		}
+	}
 	err := errors.Join(db.dropLocked(drop), db.removeOrphanIntents(records, hidden))
 	db.mu.skipped = set.New[ChannelKey]()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	out := make([]KeptChannel, 0, len(kept))
 	for k := range kept {
 		u := db.mu.dbs.hidden[k]
-		out = append(out, KeptChannel{Key: k, Size: u.Size()})
+		out = append(out, KeptChannel{Key: k, Index: u.Channel().Index, Size: u.Size()})
 	}
 	slices.SortFunc(out, func(a, b KeptChannel) int { return int(a.Key) - int(b.Key) })
-	return out, nil
+	return out, db.highestKey(), nil
+}
+
+// highestKey returns the highest key that the DB holds: open, kept, with an intent, or
+// with the directory of a virtual channel. The caller must hold db.mu.
+func (db *DB) highestKey() ChannelKey {
+	var highest ChannelKey
+	for k := range db.mu.dbs.unary {
+		highest = max(highest, k)
+	}
+	for k := range db.mu.dbs.hidden {
+		highest = max(highest, k)
+	}
+	for _, k := range db.intents.all() {
+		highest = max(highest, k)
+	}
+	for k := range db.mu.virtualDirs {
+		highest = max(highest, k)
+	}
+	return highest
 }
 
 // removeOrphanIntents removes the files of each key with an intent that has no record,
