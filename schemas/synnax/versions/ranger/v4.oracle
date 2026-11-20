@@ -1,0 +1,61 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/color/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+Range = v3.Range
+
+Stage = v3.Stage
+
+Where = v3.Where
+
+Ref union on variant {
+    key {
+        key   Key {
+            @doc value "is the key of a range saved in the Core."
+        }
+        t0    telem.TimeStamp? {
+            @doc value """
+                is the zero of the range on a relative time axis. Null is the range
+                start.
+            """
+        }
+        color color.Ref? {
+            @doc value """
+                is the color that a relative time axis draws the range in. A line plot
+                write with no color gets the range's own color when it is clearly apart
+                from the other colors of the plot, else a series color.
+            """
+        }
+
+        @doc value "is a range saved in the Core."
+    }
+    window {
+        window telem.Window {
+            @doc value "is the window the reference resolves to."
+        }
+        color  color.Ref? {
+            @doc value """
+                is the color that a relative time axis draws the window in. A line plot
+                write with no color gets a series color.
+            """
+        }
+
+        @doc value "is a window carried inline: rolling or fixed."
+    }
+
+    @doc value  """
+        is the range a visualization shows: a range saved in the Core, or an inline
+        window.
+    """
+    @go marshal
+}

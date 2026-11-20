@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/union"
 )
@@ -51,6 +52,14 @@ const (
 	ActionTypeRemoveRange = "remove_range"
 	// ActionTypeSetRanges is the Type of an Action that carries SetRangesPayload.
 	ActionTypeSetRanges = "set_ranges"
+	// ActionTypeSetRangeT0 is the Type of an Action that carries SetRangeT0Payload.
+	ActionTypeSetRangeT0 = "set_range_t0"
+	// ActionTypeSetRangeColor is the Type of an Action that carries
+	// SetRangeColorPayload.
+	ActionTypeSetRangeColor = "set_range_color"
+	// ActionTypeSetAxisTimeMode is the Type of an Action that carries
+	// SetAxisTimeModePayload.
+	ActionTypeSetAxisTimeMode = "set_axis_time_mode"
 	// ActionTypeSetAxisLabel is the Type of an Action that carries SetAxisLabelPayload.
 	ActionTypeSetAxisLabel = "set_axis_label"
 	// ActionTypeSetAxisLabelDirection is the Type of an Action that carries
@@ -169,22 +178,44 @@ type SetXChannelPayload struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// AddRangePayload appends the range reference to the plot's ranges. No-op when an equal
-// reference is already present.
+// AddRangePayload appends the range reference to the plot's ranges. No-op when a
+// reference to the same range or window is already present.
 type AddRangePayload struct {
 	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
-// RemoveRangePayload removes the reference equal to range from the plot's ranges. No-op
-// when no reference is equal.
+// RemoveRangePayload removes the reference to the same range or window as range from
+// the plot's ranges. No-op when there is none.
 type RemoveRangePayload struct {
 	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
 // SetRangesPayload replaces the plot's range references with ranges, such as when the
-// user edits a window. Lines style channels, so they are unaffected.
+// user edits a window. A reference to a range or window the plot already shows keeps
+// its T0 and color unless the new reference sets them. Lines style channels, so they
+// are unaffected.
 type SetRangesPayload struct {
 	Ranges []ranger.Ref `json:"ranges" msgpack:"ranges"`
+}
+
+// SetRangeT0Payload sets the zero of the saved range on a relative time axis. Null
+// resets it to the range start. No-op when the plot does not show the range.
+type SetRangeT0Payload struct {
+	Range ranger.Key       `json:"range" msgpack:"range"`
+	T0    *telem.TimeStamp `json:"t0,omitzero" msgpack:"t0,omitempty"`
+}
+
+// SetRangeColorPayload sets the color that a relative time axis draws the reference to
+// the same range or window as range in. No-op when there is none.
+type SetRangeColorPayload struct {
+	Range ranger.Ref `json:"range" msgpack:"range"`
+	Color color.Ref  `json:"color" msgpack:"color"`
+}
+
+// SetAxisTimeModePayload sets where the x axis named by key draws the ranges.
+type SetAxisTimeModePayload struct {
+	Key      XAxisKey  `json:"key" msgpack:"key"`
+	TimeMode *TimeMode `json:"time_mode,omitzero" msgpack:"time_mode,omitempty"`
 }
 
 // SetAxisLabelPayload sets the label rendered along the axis identified by key.
@@ -356,6 +387,9 @@ type Action struct {
 	AddRange              *AddRangePayload              `json:"add_range,omitzero" msgpack:"add_range,omitempty"`
 	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitzero" msgpack:"remove_range,omitempty"`
 	SetRanges             *SetRangesPayload             `json:"set_ranges,omitzero" msgpack:"set_ranges,omitempty"`
+	SetRangeT0            *SetRangeT0Payload            `json:"set_range_t0,omitzero" msgpack:"set_range_t0,omitempty"`
+	SetRangeColor         *SetRangeColorPayload         `json:"set_range_color,omitzero" msgpack:"set_range_color,omitempty"`
+	SetAxisTimeMode       *SetAxisTimeModePayload       `json:"set_axis_time_mode,omitzero" msgpack:"set_axis_time_mode,omitempty"`
 	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitzero" msgpack:"set_axis_label,omitempty"`
 	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitzero" msgpack:"set_axis_label_direction,omitempty"`
 	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitzero" msgpack:"set_axis_label_level,omitempty"`
@@ -451,6 +485,21 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRanges.Handle(state)
+		case ActionTypeSetRangeT0:
+			if a.SetRangeT0 == nil {
+				return LinePlot{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRangeT0.Handle(state)
+		case ActionTypeSetRangeColor:
+			if a.SetRangeColor == nil {
+				return LinePlot{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRangeColor.Handle(state)
+		case ActionTypeSetAxisTimeMode:
+			if a.SetAxisTimeMode == nil {
+				return LinePlot{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetAxisTimeMode.Handle(state)
 		case ActionTypeSetAxisLabel:
 			if a.SetAxisLabel == nil {
 				return LinePlot{}, union.MissingPayload(a.Type)
@@ -644,6 +693,21 @@ func NewRemoveRangeAction(p RemoveRangePayload) Action {
 // NewSetRangesAction wraps a SetRangesPayload in an Action envelope.
 func NewSetRangesAction(p SetRangesPayload) Action {
 	return Action{Type: ActionTypeSetRanges, SetRanges: &p}
+}
+
+// NewSetRangeT0Action wraps a SetRangeT0Payload in an Action envelope.
+func NewSetRangeT0Action(p SetRangeT0Payload) Action {
+	return Action{Type: ActionTypeSetRangeT0, SetRangeT0: &p}
+}
+
+// NewSetRangeColorAction wraps a SetRangeColorPayload in an Action envelope.
+func NewSetRangeColorAction(p SetRangeColorPayload) Action {
+	return Action{Type: ActionTypeSetRangeColor, SetRangeColor: &p}
+}
+
+// NewSetAxisTimeModeAction wraps a SetAxisTimeModePayload in an Action envelope.
+func NewSetAxisTimeModeAction(p SetAxisTimeModePayload) Action {
+	return Action{Type: ActionTypeSetAxisTimeMode, SetAxisTimeMode: &p}
 }
 
 // NewSetAxisLabelAction wraps a SetAxisLabelPayload in an Action envelope.

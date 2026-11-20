@@ -15,6 +15,7 @@ import "schemas/synnax/ranger"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/spatial"
+import "schemas/x/telem"
 import "schemas/x/text"
 
 @go output "core/pkg/service/lineplot"
@@ -179,6 +180,9 @@ Axis struct {
             selects the tick label style. Null means default (linear). X-axes typically
             carry "time" when bound to a timestamp channel.
         """
+    }
+    time_mode       TimeMode?         {
+        @doc value "selects where an x axis draws the ranges. Null is absolute."
     }
 
     @doc value  "is the configuration for a single plot axis."
@@ -413,8 +417,8 @@ LinePlot struct {
         range ranger.Ref
 
         @doc value """
-            appends the range reference to the plot's ranges. No-op when an equal
-            reference is already present.
+            appends the range reference to the plot's ranges. No-op when a reference to
+            the same range or window is already present.
         """
     }
 
@@ -422,8 +426,8 @@ LinePlot struct {
         range ranger.Ref
 
         @doc value """
-            removes the reference equal to range from the plot's ranges. No-op when no
-            reference is equal.
+            removes the reference to the same range or window as range from the plot's
+            ranges. No-op when there is none.
         """
     }
 
@@ -432,8 +436,37 @@ LinePlot struct {
 
         @doc value """
             replaces the plot's range references with ranges, such as when the user
-            edits a window. Lines style channels, so they are unaffected.
+            edits a window. A reference to a range or window the plot already shows
+            keeps its T0 and color unless the new reference sets them. Lines style
+            channels, so they are unaffected.
         """
+    }
+
+    action SetRangeT0 {
+        range ranger.Key
+        t0    telem.TimeStamp?
+
+        @doc value """
+            sets the zero of the saved range on a relative time axis. Null resets it to
+            the range start. No-op when the plot does not show the range.
+        """
+    }
+
+    action SetRangeColor {
+        range ranger.Ref
+        color color.Ref
+
+        @doc value """
+            sets the color that a relative time axis draws the reference to the same
+            range or window as range in. No-op when there is none.
+        """
+    }
+
+    action SetAxisTimeMode {
+        key       XAxisKey
+        time_mode TimeMode?
+
+        @doc value "sets where the x axis named by key draws the ranges."
     }
 
     action SetAxisLabel {
@@ -683,4 +716,15 @@ Detail enum {
         selects how many sample groups a line draws per pixel column: one per four, two,
         or one pixel columns.
     """
+}
+
+TimeMode enum {
+    absolute = "absolute" {
+        @doc value "draws each range at its real time."
+    }
+    relative = "relative" {
+        @doc value "draws each range from its zero, its start or a custom T0."
+    }
+
+    @doc value "selects where an x axis draws the ranges of a line plot."
 }

@@ -30,6 +30,9 @@ type Range struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the range.
 	Name string `json:"name" msgpack:"name"`
+	// HasChildren is true when a range is nested in the range, derived on read and not
+	// persisted.
+	HasChildren bool `json:"has_children" msgpack:"has_children"`
 	// TimeRange is the temporal extent of the range, defining its start and end
 	// timestamps.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
@@ -41,9 +44,6 @@ type Range struct {
 	// Parent is the key of the range this range is nested in. Empty for a top-level
 	// range.
 	Parent *Key `json:"parent,omitzero" msgpack:"parent,omitempty"`
-	// HasChildren is true when a range is nested in the range, derived on read and not
-	// persisted.
-	HasChildren bool `json:"has_children" msgpack:"has_children"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
