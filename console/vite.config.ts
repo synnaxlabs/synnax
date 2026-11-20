@@ -26,7 +26,7 @@ const desktop = process.env.VITE_DESKTOP === "true";
 const release = process.env.VITE_RELEASE === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
-const BROWSER_SPECS = "src/**/*.browser.spec.tsx";
+const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
