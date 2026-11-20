@@ -617,8 +617,8 @@ func (r *reference[K, E, T]) check(
 ) error {
 	held := r.targetsOf(e)
 	stored, known := r.store.Held(scopeOf(tx), (*e).GorpKey())
-	for _, v := range held {
-		if known && slices.Contains(stored, v) {
+	for i, v := range held {
+		if known && indexedAt(stored, i, v) {
 			continue
 		}
 		target := r.format(v)
@@ -654,6 +654,13 @@ func (r *reference[K, E, T]) check(
 		return r.checkAcyclic(ctx, tx, t, e)
 	}
 	return nil
+}
+
+// indexedAt reports whether stored holds v, the target at position i of an entry. An
+// edit keeps most targets at their positions, so it scans stored only for the targets
+// that moved.
+func indexedAt[T comparable](stored []T, i int, v T) bool {
+	return (i < len(stored) && stored[i] == v) || slices.Contains(stored, v)
 }
 
 func (r *reference[K, E, T]) checkUnique(
