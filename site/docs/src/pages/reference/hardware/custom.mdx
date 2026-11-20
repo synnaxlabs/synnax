@@ -185,7 +185,10 @@ script uses the existing channels when you run it again. For more about writers,
 
 While the script runs, open a line plot in the Console and add `arduino_value`:
 
-<Video id="client/resources/build-device-driver/line-plot" />
+<Video
+  id="client/resources/build-device-driver/line-plot"
+  label="A line plot shows the live value from the Arduino"
+/>
 
 <Divider.Divider x />
 
@@ -289,7 +292,10 @@ While the script runs, add a switch to a [schematic](/reference/visualize/schema
 and set its command channel and its state channel to `arduino_command`. Then take
 control of the schematic, and click the switch:
 
-<Video id="client/resources/build-device-driver/schematic" />
+<Video
+  id="client/resources/build-device-driver/schematic"
+  label="Click a schematic switch that writes a command to the Arduino"
+/>
 
 The switch changes when you click it, even when the script does not run. Five seconds
 after each click, it shows the stale color. The next section fixes this.
@@ -471,6 +477,9 @@ While the script runs, set the command channel of the switch to `arduino_command
 its state channel to `arduino_state`. Then take control, and click the switch. It turns
 on when the Arduino reports the new state:
 
-<Video id="client/resources/build-device-driver/console-setup" />
+<Video
+  id="client/resources/build-device-driver/console-setup"
+  label="A schematic switch shows the state that the Arduino reports"
+/>
 
 To plot `arduino_value`, add it to a line plot, as in the first section.
