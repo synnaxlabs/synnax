@@ -7,30 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type certificate, type rack } from "@synnaxlabs/client";
+import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { assert, beforeAll, describe, expect, it } from "vitest";
 
 import { Certificate } from "@/certificate";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 
-const createCertificate = async (name: string): Promise<certificate.Certificate> =>
-  await client.certificates.set({
-    name,
-    source: "file",
-    certificatePath: "/etc/synnax/client.crt",
-  });
-
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
+  let rackKey: rack.Key;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
+    rackKey = (await client.racks.create({ name: "Certificate queries" })).key;
   });
+
+  const createCertificate = async (name: string): Promise<certificate.Certificate> =>
+    await client.certificates.set({
+      name,
+      source: "file",
+      certificatePath: "/etc/synnax/client.crt",
+      rack: rackKey,
+    });
 
   describe("useList", () => {
     it("should list certificates by name and move a renamed one", async () => {
@@ -98,6 +101,32 @@ describe("queries", () => {
         await client.certificates.rename(created.key, "after rename");
       });
       await waitFor(() => expect(result.current.name).toEqual("after rename"));
+    });
+  });
+
+  describe("useCreate", () => {
+    it("should create a stored certificate with its private key", async () => {
+      let created: certificate.Certificate | undefined;
+      const { result } = renderHook(
+        () =>
+          Certificate.useCreate({
+            afterSuccess: ({ data }) => {
+              created = data;
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync({
+          name: "new certificate",
+          source: "stored",
+          ...CERTIFICATE,
+        });
+      });
+      assert(created?.source === "stored");
+      expect(created.details.subject).toContain("Synnax Test Client");
+      expect(created.privateKey).toBeDefined();
+      expect(await client.certificates.retrieve(created.key)).toEqual(created);
     });
   });
 

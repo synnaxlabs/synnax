@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
 )
@@ -36,6 +37,7 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 	name   *gorp.SortedIndex[Key, Secret, string]
+	rack   *gorp.KeyReference[Key, Secret, rack.Key]
 	search *gorp.SearchIndex[Key, Secret]
 }
 
@@ -48,6 +50,20 @@ func newIndexes() indexes {
 			"name",
 			func(e *Secret) string { return compare.TextKey(string(e.Base().Name)) },
 		),
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Secret, rack.Key]{
+			Name:     "rack",
+			Table:    "rack",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Use,
+			Targets: func(e *Secret) []rack.Key {
+				var targets []rack.Key
+				switch v1 := e.Variant.(type) {
+				case FileSecret:
+					targets = append(targets, v1.Rack)
+				}
+				return targets
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Secret](
 			"search",
 			func(e *Secret) []string {
@@ -63,6 +79,14 @@ func (i indexes) all() []gorp.Index[Key, Secret] {
 	return []gorp.Index[Key, Secret]{
 		i.name,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Secret] {
+	return []gorp.Reference[Key, Secret]{
+		i.rack,
 	}
 }
 
@@ -173,6 +197,18 @@ func MatchNames(vals ...string) Filter {
 				return want.Contains(e.Base().Name), nil
 			}),
 		)
+	}
+}
+
+// MatchSources returns a filter for
+// secrets whose Source matches any of the
+// provided values.
+func MatchSources(vals ...Source) Filter {
+	return func(Retrieve) gorp.Filter[Key, Secret] {
+		want := set.New(vals...)
+		return gorp.Match(func(_ gorp.Context, e *Secret) (bool, error) {
+			return want.Contains(e.Source()), nil
+		})
 	}
 }
 

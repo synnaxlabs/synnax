@@ -9,6 +9,7 @@
 
 import { compare } from "@synnaxlabs/x";
 
+import { NOTES_PAGE } from "@/util/releaseNotes";
 import { normalizeRoute } from "@/util/route";
 
 interface Frontmatter {
@@ -40,16 +41,18 @@ const toRoute = (file: string): string =>
       .replace(/(^|\/)index$/, "$1"),
   );
 
-/** Every published MDX page. */
-export const PAGES: Page[] = Object.entries(FRONTMATTER)
-  .map(([file, frontmatter]) => ({ route: toRoute(file), ...frontmatter }))
-  .map(({ route, title, heading, description, published }) => ({
-    route,
-    title: (heading ?? title).replace(/`/g, ""),
-    description,
-    published,
-  }))
-  .sort(compare.by((p) => p.route));
+/** Every published docs page. */
+export const PAGES: Page[] = [
+  ...Object.entries(FRONTMATTER)
+    .map(([file, frontmatter]) => ({ route: toRoute(file), ...frontmatter }))
+    .map(({ route, title, heading, description, published }) => ({
+      route,
+      title: (heading ?? title).replace(/`/g, ""),
+      description,
+      published,
+    })),
+  NOTES_PAGE,
+].sort(compare.by((p) => p.route));
 
 /** The blog posts, newest first. */
 export const POSTS: Page[] = PAGES.filter(({ route }) =>

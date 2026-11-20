@@ -9,7 +9,7 @@
 
 import { capture } from "@/index";
 
-import { ASSET, siftScript } from "./common/sift";
+import { ASSET, fillUpload, siftScript } from "./common/sift";
 
 export const desktop = true;
 
@@ -41,32 +41,7 @@ export default siftScript(async (session) => {
   await capture.contextMenu(session, run, "Upload to Sift");
   const modal = page.locator(capture.MODAL).last();
   await session.waitFor(modal.getByText(`Upload ${RUN} to Sift`));
-  // The modal zooms in as it opens, and the camera frames its box at the start.
-  await session.settle(300);
-  await session.zoom(modal);
-  const asset = modal.getByText("Select asset", { exact: true }).first();
-  await session.waitFor(asset);
-  await session.click(asset, { text: true });
-  await session.settleWall(1200);
-  const tpc = page.getByRole("option", { name: ASSET, exact: true }).first();
-  await session.waitFor(tpc);
-  await session.click(tpc, { text: true });
-  const channels = modal.getByText("Select channels to upload").first();
-  await session.click(channels, { text: true });
-  await session.hold(500);
-  await session.type("ox_");
-  for (const name of CHANNELS) {
-    const option = page.getByRole("option", { name, exact: true }).first();
-    await session.waitFor(option);
-    await session.click(option, { text: true });
-    await session.hold(250);
-  }
-  await page.keyboard.press("Escape");
-  // The camera followed the clicks in the channel list, so frame the modal again.
-  await session.zoom(modal);
-  await session.hold(900);
-  await session.click(modal.getByRole("button", { name: "Upload", exact: true }));
-  session.endZoom();
+  await fillUpload(session, modal, "ox_", CHANNELS);
   await session.settleWall(1500);
   await session.hold(1200);
   await session.click(run, { text: true });

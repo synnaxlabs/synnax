@@ -98,10 +98,10 @@ const walk = (
   values: unknown,
   found: Discriminator[],
 ): $ZodType | NotFound => {
-  if (index >= parts.length) return schema;
+  const part = parts[index];
+  if (part == null) return schema;
   schema = unwrap(schema);
   const def = schema._zod.def as $ZodTypeDef & Record<string, unknown>;
-  const part = parts[index];
   switch (def.type) {
     case "unknown":
     case "any":
