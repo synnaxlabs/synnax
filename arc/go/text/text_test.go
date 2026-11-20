@@ -8901,11 +8901,8 @@ time.wait(duration=500ms) -> output`
 							Node:  "on_sensor_0",
 							Param: ir.DefaultOutputParam,
 						},
-						Target: ir.Handle{
-							Node:  "check_0",
-							Param: ir.DefaultInputParam,
-						},
-						Kind: ir.EdgeKindContinuous,
+						Target: ir.Handle{Node: "check_0", Param: "$trigger"},
+						Kind:   ir.EdgeKindContinuous,
 					}))
 				},
 				Entry(
@@ -8938,6 +8935,66 @@ time.wait(duration=500ms) -> output`
 					"without feeding its declared trigger",
 					`func check() {x f32 = 1.0} f32 { return x + sensor }`,
 					`check() -> out`,
+				),
+			)
+
+			DescribeTable(
+				"Should not feed a parameter named input",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					Expect(inter.Edges).To(ContainElement(
+						HaveField("Target.Node", "check_0"),
+					))
+					Expect(inter.Edges).ToNot(ContainElement(HaveField(
+						"Target",
+						ir.Handle{Node: "check_0", Param: "input"},
+					)))
+				},
+				Entry(
+					"first of two, with no trigger",
+					`func check(input f32, b f32) f32 { return input + b + sensor }`,
+					`check(5.0, 6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with no trigger",
+					`func check(a f32, input f32, b f32) f32 {
+					return a + input + b + sensor
+				}`,
+					`check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"last of two, on a bare call",
+					`func check(a f32, input f32) { out = a + input + sensor }`,
+					`check(4.0, 5.0)`,
+				),
+				Entry(
+					"a channel between two literals, with no trigger",
+					`func check(a f32, input chan f32, b f32) f32 {
+					return a + input + b
+				}`,
+					`check(4.0, sensor, 6.0) -> out`,
+				),
+				Entry(
+					"a declared trigger with a default, with no trigger",
+					`func check(b f32) {input f32 = 5.0} f32 {
+					return input + b + sensor
+				}`,
+					`check(6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with a -> trigger",
+					`func check(a f32, input f32, b f32) f32 { return a + input + b }`,
+					`sensor -> check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with a => trigger",
+					`func check(a f32, input f32, b f32) f32 { return a + input + b }`,
+					`sensor => check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"a channel after a literal, with a -> trigger",
+					`func check(a f32, input chan f32) f32 { return a + input }`,
+					`start -> check(4.0, sensor) -> out`,
 				),
 			)
 

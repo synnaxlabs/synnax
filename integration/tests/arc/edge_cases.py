@@ -110,6 +110,35 @@ func test_chan_fwd_ref() {
 func chan_fwd_callee() {ch chan f32} {
     ch = 66.0
 }
+// Edge case 11: A parameter named `input` keeps its value in any position.
+// Each parameter sets one digit of the output, and edge_input_src sets the last.
+func input_first(input f32, b f32) f32 {
+    return 100.0 * input + 10.0 * b + edge_input_src
+}
+func input_middle(a f32, input f32, b f32) f32 {
+    return 1000.0 * a + 100.0 * input + 10.0 * b + edge_input_src
+}
+func input_last(a f32, input f32) f32 {
+    return 100.0 * a + 10.0 * input + edge_input_src
+}
+func input_chan(a f32, input chan f32, b f32) f32 {
+    return 100.0 * a + 10.0 * b + input
+}
+func input_default(b f32) {input f32 = 2.0} f32 {
+    return 100.0 * input + 10.0 * b + edge_input_src
+}
+func input_second(b f32) {x f32 = 2.0, input f32 = 3.0} f32 {
+    return 1000.0 * x + 100.0 * input + 10.0 * b + edge_input_src
+}
+func input_trigger(b f32) {input f32} f32 {
+    return 10.0 * b + input
+}
+func input_wired(a f32, input f32, b f32) f32 {
+    return 100.0 * a + 10.0 * input + b
+}
+func input_wired_chan(a f32, input chan f32) f32 {
+    return 10.0 * a + input
+}
 
 start_edge_case_cmd -> test_same_channel_write()
 start_edge_case_cmd -> test_diamond()
@@ -121,6 +150,17 @@ start_edge_case_cmd -> test_chan_chain()
 start_edge_case_cmd -> test_chan_diff_args()
 start_edge_case_cmd -> test_chan_multi_param()
 start_edge_case_cmd -> test_chan_fwd_ref()
+input_first(2.0, 3.0) -> edge_input_first
+input_first(b=3.0, input=2.0) -> edge_input_named
+input_middle(2.0, 3.0, 4.0) -> edge_input_middle
+input_last(2.0, 3.0) -> edge_input_last
+input_chan(2.0, edge_input_src, 3.0) -> edge_input_chan
+input_default(3.0) -> edge_input_default
+input_second(4.0) -> edge_input_second
+edge_input_src -> input_trigger(2.0) -> edge_input_trigger
+edge_input_src -> input_wired(2.0, 3.0, 4.0) -> edge_input_wired
+edge_input_src => input_wired(2.0, 3.0, 4.0) -> edge_input_wired_cond
+edge_input_src -> input_wired_chan(2.0, edge_input_src) -> edge_input_wired_chan
 """
 
 # ── Read-only monitor (no write channels, only status.set) ──
@@ -614,6 +654,21 @@ func commit() {
 start_edge_case_cmd -> init_seq()
 """
 
+# The value each flow with a parameter named input writes when edge_input_src is 1.
+INPUT_PARAM_OUTPUTS = {
+    "edge_input_first": 231.0,
+    "edge_input_named": 231.0,
+    "edge_input_middle": 2341.0,
+    "edge_input_last": 231.0,
+    "edge_input_chan": 231.0,
+    "edge_input_default": 231.0,
+    "edge_input_second": 2341.0,
+    "edge_input_trigger": 21.0,
+    "edge_input_wired": 234.0,
+    "edge_input_wired_cond": 234.0,
+    "edge_input_wired_chan": 21.0,
+}
+
 CHANNEL_VIRTUAL = [
     "edge_same_ch",
     "edge_diamond",
@@ -628,6 +683,8 @@ CHANNEL_VIRTUAL = [
     "edge_chan_mp_a",
     "edge_chan_mp_b",
     "edge_chan_fwd",
+    "edge_input_src",
+    *INPUT_PARAM_OUTPUTS,
     "ch1",
 ]
 
@@ -742,6 +799,11 @@ class EdgeCases(ArcCase):
 
         self.log("[ChanFwdRef] chan_fwd_callee -> 66.0")
         self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01)
+
+        self.log("[InputParam] a parameter named input keeps its value")
+        self.writer.write("edge_input_src", 1.0)
+        for channel, expected in INPUT_PARAM_OUTPUTS.items():
+            self.wait_for_near(channel, expected, tolerance=0.01)
 
     def _verify_circular_cases(self) -> None:
         self.log("=== Circular dependency detection ===")

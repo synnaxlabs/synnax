@@ -36,6 +36,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// triggerParam is the input of a call that a wire only activates. The `$` keeps it
+// apart from every parameter name a function can declare.
+const triggerParam = "$trigger"
+
 // keyGenerator produces globally unique IR node keys. It maintains a running
 // per-role counter so that successive channel reads, writes, or function
 // invocations with the same logical name receive distinct keys.
@@ -1375,7 +1379,7 @@ func analyzeFunctionNode(
 		return nodeResult{}, false
 	}
 	n.Inputs = inputs
-	inputParam := ir.DefaultInputParam
+	inputParam := triggerParam
 	if sym.Trigger.Target != "" {
 		inputParam = sym.Trigger.Target
 	}
@@ -2074,7 +2078,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	}
 	// An implicit trigger activates the head and never feeds a declared trigger.
 	if implicit {
-		result.node.input.Param = ir.DefaultInputParam
+		result.node.input.Param = triggerParam
 	}
 
 	if result.inlineScope != nil {
@@ -3145,7 +3149,7 @@ func analyzeSingleInvocation(
 			return nil, false
 		}
 		// An implicit trigger activates the call and never feeds a declared trigger.
-		targets := []ir.Handle{{Node: result.node.Key, Param: ir.DefaultInputParam}}
+		targets := []ir.Handle{{Node: result.node.Key, Param: triggerParam}}
 		for _, arg := range result.args {
 			targets = append(targets, ir.Handle{
 				Node:  arg.Key,
