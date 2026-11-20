@@ -60,6 +60,11 @@ export interface Reads {
   pointers: Map<string, Set<string>>;
   /** The keys with a record that reads no JSON message. */
   jsonless: Set<string>;
+  /**
+   * The fields that the record of the empty key reads, by pointer. The Core sends that
+   * record each record whose key has no record of its own.
+   */
+  anyKey: Map<string, icd.JSONField>;
 }
 
 /** @returns the index of the first JSON message that a record reads, or -1 for none. */
@@ -68,50 +73,75 @@ const jsonRead = (record: ReadRecord, held: icd.Message[]): number =>
     ({ message }) => held.find(({ key }) => key === message)?.payload.format === "json",
   );
 
-/** @returns the pointers of the fields that a record binds, in any of its messages. */
-const pointersOf = (record: ReadRecord, messagesOf: MessagesOf): Set<string> => {
+/** @returns the fields that a record binds, in any of its messages. */
+const boundFields = (record: ReadRecord, messagesOf: MessagesOf): icd.JSONField[] => {
   const held = messagesOf(record.icd);
-  return new Set(
-    record.messages.flatMap(({ message, bindings }) => {
-      const fields = ICD.jsonFields(held.find(({ key }) => key === message));
-      return fields
-        .filter(({ key }) => bindings.some(({ field }) => field === key))
-        .map(({ pointer }) => pointer);
-    }),
+  return record.messages.flatMap(({ message, bindings }) =>
+    ICD.jsonFields(held.find(({ key }) => key === message)).filter(({ key }) =>
+      bindings.some(({ field }) => field === key),
+    ),
   );
 };
 
 /** @returns what the records of each Kafka key read. */
 export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
-  const reads: Reads = { pointers: new Map(), jsonless: new Set() };
+  const reads: Reads = { pointers: new Map(), jsonless: new Set(), anyKey: new Map() };
   for (const record of records) {
     const { recordKey } = record;
     if (jsonRead(record, messagesOf(record.icd)) < 0) reads.jsonless.add(recordKey);
     const pointers = reads.pointers.get(recordKey) ?? new Set<string>();
-    pointersOf(record, messagesOf).forEach((p) => pointers.add(p));
+    for (const field of boundFields(record, messagesOf)) {
+      pointers.add(field.pointer);
+      if (recordKey === "") reads.anyKey.set(field.pointer, field);
+    }
     reads.pointers.set(recordKey, pointers);
   }
   return reads;
+};
+
+/**
+ * @returns the fields of a shape that the record of the empty key reads for the keys of
+ * the shape with no record of their own, by pointer. A new record of those keys reads
+ * them too, so the keys keep their fields when they leave that record.
+ */
+export const carriedFields = (
+  shape: json.Shape,
+  { pointers, anyKey }: Reads,
+): Map<string, icd.JSONField> => {
+  const carried = new Map<string, icd.JSONField>();
+  if (shape.sources.every((key) => pointers.has(key))) return carried;
+  shape.fields.forEach(({ pointer }, i) => {
+    const field = anyKey.get(pointer);
+    if (i !== shape.index && field != null) carried.set(pointer, field);
+  });
+  return carried;
 };
 
 /** @returns whether a pick of a shape can extend each record of its keys. */
 export const isExtendable = (shape: json.Shape, { jsonless }: Reads): boolean =>
   !shape.sources.some((key) => jsonless.has(key));
 
-/** @returns the pointers that every key of a shape reads: its fields in the task. */
+/**
+ * @returns the pointers that every key of a shape reads: its fields in the task. A key
+ * with no record of its own reads what the record of the empty key reads.
+ */
 export const takenPointers = (shape: json.Shape, { pointers }: Reads): Set<string> => {
   const [first, ...rest] = shape.sources.map(
-    (key) => pointers.get(key) ?? new Set<string>(),
+    (key) => pointers.get(key) ?? pointers.get("") ?? new Set<string>(),
   );
   return new Set([...(first ?? [])].filter((p) => rest.every((r) => r.has(p))));
 };
 
 /**
- * @returns the pointers that any key of a shape reads. Their messages gain the picks of
- * the shape, so the picks must not mix variable-length fields among them.
+ * @returns the pointers that any key of a shape reads, or that a new record of its keys
+ * carries. Their messages gain the picks of the shape, so the picks must not mix
+ * variable-length fields among them.
  */
-export const heldPointers = (shape: json.Shape, { pointers }: Reads): Set<string> =>
-  new Set(shape.sources.flatMap((key) => [...(pointers.get(key) ?? [])]));
+export const heldPointers = (shape: json.Shape, reads: Reads): Set<string> =>
+  new Set([
+    ...shape.sources.flatMap((key) => [...(reads.pointers.get(key) ?? [])]),
+    ...carriedFields(shape, reads).keys(),
+  ]);
 
 /**
  * @returns the fields that a click on a shape picks: each one that a key of the shape
@@ -129,9 +159,9 @@ export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
   return new Set((fixed.length > 0 ? fixed : free).map(({ pointer }) => pointer));
 };
 
-/** @returns the Kafka keys of a shape that no record of the task reads yet. */
-const freeKeys = (shape: json.Shape, records: ReadRecord[]): string[] =>
-  shape.sources.filter((key) => !records.some(({ recordKey }) => recordKey === key));
+/** @returns the Kafka keys of a shape with no record of their own. */
+const freeKeys = (shape: json.Shape, { pointers }: Reads): string[] =>
+  shape.sources.filter((key) => !pointers.has(key));
 
 const toJSONField = (
   { pointer, type, dataType, timeFormat }: json.InferredField,
@@ -159,28 +189,39 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
 };
 
 /**
- * @returns a message for each shape with picks, holding the picked fields and the
- * shape's timestamp. Its records read the keys of the shape that the task does not
- * read yet. A message takes the name of its first key, or label for the empty key.
+ * @returns a message for each shape with picks, holding the picked fields, the fields
+ * that its keys carry, and the shape's timestamp. Its records read the keys of the
+ * shape with no record of their own. A message takes the name of its first key, or
+ * label for the empty key.
  */
 export const createAdditions = (
   shapes: json.Shape[],
   picks: Picks,
-  records: ReadRecord[],
+  reads: Reads,
   held: icd.Message[],
   label: (recordKey: string) => string,
 ): Addition[] => {
   const taken = [...held];
   return shapes.flatMap((shape): Addition[] => {
     const pointers = picks.get(shapeKey(shape));
-    const recordKeys = freeKeys(shape, records);
+    const recordKeys = freeKeys(shape, reads);
     if (pointers == null || pointers.size === 0 || recordKeys.length === 0) return [];
+    const carried = carriedFields(shape, reads);
     const indexField = shape.index == null ? undefined : shape.fields[shape.index];
     const picked = shape.fields.filter(
-      (f) => f === indexField || pointers.has(f.pointer),
+      (f) => f === indexField || (pointers.has(f.pointer) && !carried.has(f.pointer)),
     );
-    const names = ICD.fieldNames(picked.map(({ pointer }) => pointer));
-    const fields = picked.map((f, i) => toJSONField(f, names[i]));
+    const names = ICD.fieldNames(
+      picked.map(({ pointer }) => pointer),
+      [...carried.values()].map(({ name }) => name),
+    );
+    const named = new Map(picked.map((f, i) => [f, toJSONField(f, names[i])]));
+    const fields = shape.fields.flatMap((f): icd.JSONField[] => {
+      const field = carried.get(f.pointer);
+      if (field != null) return [{ ...field, key: uuid.create() }];
+      const own = named.get(f);
+      return own == null ? [] : [own];
+    });
     const index =
       indexField == null
         ? undefined
@@ -241,7 +282,9 @@ export const createExtensions = (
       const read = jsonRead(record, held);
       if (read < 0) throw new Error(`Record ${record.key} reads no JSON message`);
       const { message } = record.messages[read];
-      const bound = pointersOf(record, messagesOf);
+      const bound = new Set(
+        boundFields(record, messagesOf).map(({ pointer }) => pointer),
+      );
       const picked = shape.fields.filter(
         (f) => pointers.has(f.pointer) && !bound.has(f.pointer),
       );

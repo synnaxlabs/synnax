@@ -48,12 +48,11 @@ export interface SelectMultipleProps
 const MultipleTag = (
   props: Select.MultipleTagProps<label.Key>,
 ): ReactElement | null => {
-  const { itemKey, onClick } = props;
+  const { itemKey, onClick, onRemove } = props;
   const item = List.useItem<label.Key, label.Label>(itemKey);
-  const { onSelect } = Select.useItemState<label.Key>(itemKey);
   if (item == null) return null;
   return (
-    <Tag.Tag color={item.color} onClose={onSelect} onClick={onClick} size="small">
+    <Tag.Tag color={item.color} onClose={onRemove} onClick={onClick} size="small">
       {item.name}
     </Tag.Tag>
   );

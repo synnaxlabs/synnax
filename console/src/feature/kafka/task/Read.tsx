@@ -481,7 +481,7 @@ const Records: FC<RecordsProps> = ({
     if (result.variant === "record") return await addRecord();
     const { shapes, picks } = result;
     extend(createExtensions(shapes, picks, records, messagesOf));
-    const additions = createAdditions(shapes, picks, records, heldMessages(), label);
+    const additions = createAdditions(shapes, picks, reads, heldMessages(), label);
     if (additions.length === 0) return;
     await addRecords(
       additions.map(({ message }) => message),
