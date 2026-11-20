@@ -280,6 +280,113 @@ describe("FileBrowser.useModal", () => {
     });
   });
 
+  describe("path field", () => {
+    const openField = (): HTMLElement => {
+      fireEvent.click(screen.getByRole("group", { name: "Path" }));
+      return screen.getByRole("textbox", { name: "Path" });
+    };
+
+    const submit = (field: HTMLElement, text: string): void => {
+      fireEvent.change(field, { target: { value: text } });
+      fireEvent.keyDown(field, { key: "Enter" });
+    };
+
+    it("should open a typed folder", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      submit(openField(), "/etc");
+      expect(await findEntry("hosts")).toBeDefined();
+    });
+
+    it("should open the folder of a typed file with the file selected", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      submit(openField(), "/etc/client.crt");
+      expect(await findEntry("client.crt", true)).toBeDefined();
+    });
+
+    it("should read a leading ~ as the home folder", async () => {
+      const top = createListing({
+        secretsDir: SECRETS_DIR,
+        entries: [...TOP.entries, { name: "op", path: "/home/op", kind: "directory" }],
+      });
+      const home = createListing({ path: "/home/op", parent: "/home" });
+      const certs = createListing({
+        path: "/home/op/certs",
+        parent: "/home/op",
+        entries: [{ name: "a.crt", path: "/home/op/certs/a.crt", kind: "file" }],
+      });
+      await openBrowser([top, home, certs]);
+      await screen.findByText("This folder is empty");
+      submit(openField(), "~/certs");
+      expect(await findEntry("a.crt")).toBeDefined();
+    });
+
+    it("should suggest folders and complete one on Tab", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      const field = openField();
+      fireEvent.change(field, { target: { value: "/e" } });
+      await screen.findByRole("option", { name: "etc/" });
+      fireEvent.keyDown(field, { key: "Tab" });
+      expect(field).toHaveProperty("value", "/etc/");
+    });
+
+    it("should suggest a hidden folder only after a typed dot", async () => {
+      const root = createListing({
+        path: "/",
+        entries: [
+          ...ROOT.entries,
+          { name: ".cache", path: "/.cache", kind: "directory" },
+        ],
+      });
+      await openBrowser([TOP, root, ETC]);
+      await findEntry("secrets");
+      const field = openField();
+      fireEvent.change(field, { target: { value: "/" } });
+      await screen.findByRole("option", { name: "etc/" });
+      expect(screen.queryByRole("option", { name: ".cache/" })).toBeNull();
+      fireEvent.change(field, { target: { value: "/." } });
+      expect(await screen.findByRole("option", { name: ".cache/" })).toBeDefined();
+    });
+
+    it("should close the field on Escape and keep the dialog open", async () => {
+      const { result } = await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      fireEvent.keyDown(openField(), { key: "Escape" });
+      expect(screen.queryByRole("textbox", { name: "Path" })).toBeNull();
+      fireEvent.click(findButton("Cancel"));
+      await expect(result()).resolves.toBeNull();
+    });
+
+    it("should open the field with a / typed in the list", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "/" });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "/",
+      );
+    });
+
+    it("should open the field with the open folder on Ctrl+L", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "/etc/",
+      );
+    });
+
+    it("should select the first entry that starts with a typed letter", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "h" });
+      expect(await findEntry("hosts", true)).toBeDefined();
+    });
+  });
+
   describe("pick", () => {
     it("should resolve with a certificate file picked in a folder", async () => {
       const { result } = await openBrowser(LISTINGS);

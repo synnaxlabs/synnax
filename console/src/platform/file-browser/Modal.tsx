@@ -27,6 +27,7 @@ import {
   type ReactElement,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -42,8 +43,13 @@ import {
   sortEntries,
   type TypeFilter,
 } from "@/platform/file-browser/Entries";
-import { type Entry } from "@/platform/file-browser/list";
-import { dirnameOf } from "@/platform/file-browser/path";
+import { type Entry, type Listing } from "@/platform/file-browser/list";
+import {
+  dirnameOf,
+  expandHome,
+  trimSeparator,
+  withSeparator,
+} from "@/platform/file-browser/path";
 import { PathBar } from "@/platform/file-browser/PathBar";
 import { Places, placesOf } from "@/platform/file-browser/Places";
 import { useSession } from "@/platform/file-browser/Provider";
@@ -114,6 +120,10 @@ const Content = ({
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
   const [shownPath, setShownPath] = useState<string | null>(null);
+  // The text the path field opened with, or null while the bar shows the path.
+  const [editing, setEditing] = useState<string | null>(null);
+  const holderRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const path = history.stack[history.index];
   const places = placesOf(snapshot.listings.get(""));
@@ -145,10 +155,10 @@ const Content = ({
       : sortEntries(shown.entries, sort).map((e) => ({ ...e, key: e.path }));
   const { data, getItem } = List.useStaticData<string, KeyedEntry>({ data: entries });
 
-  // A folder opens with the folder the user came from selected, if it holds it.
-  const go = (to: string, from: string | null = null): void => {
+  // A folder opens with the entry selected, such as the folder the user came up from.
+  const go = (to: string, select: string | null = null): void => {
+    setSelected(select);
     if (to === path) return;
-    setSelected(from);
     setHistory((h) => ({
       stack: [...h.stack.slice(0, h.index + 1), to],
       index: h.index + 1,
@@ -173,9 +183,10 @@ const Content = ({
     if (entry.kind === "directory") go(entry.path);
     else if (pickable(entry, type)) close(entry);
   };
+  const listAhead = (folder: string): void => session?.prefetch(folder);
   // A folder the user points at lists in the background, so it often opens at once.
   const prefetch = (entry: Entry): void => {
-    if (entry.kind === "directory") session?.prefetch(entry.path);
+    if (entry.kind === "directory") listAhead(entry.path);
   };
   const handleSelect = (key: string | null): void => {
     setSelected(key);
@@ -186,8 +197,43 @@ const Content = ({
   const picked =
     selectedEntry != null && pickable(selectedEntry, type) ? selectedEntry : undefined;
 
+  const focusList = (): void => (listRef.current ?? holderRef.current)?.focus();
+  const cancelEditing = (): void => {
+    setEditing(null);
+    focusList();
+  };
+  // A failed list here only leaves the typed path as it is, and the folder it opens
+  // then shows the failure.
+  const listingOf = async (folder: string): Promise<Listing | undefined> =>
+    snapshot.listings.get(folder) ??
+    (await session?.list(folder).catch(() => undefined));
+  // A typed file opens its folder with the file selected. The top listing names the
+  // home folder for a ~, and the folder's listing tells a file from a folder.
+  const goTyped = async (text: string): Promise<void> => {
+    cancelEditing();
+    let typed = text.trim();
+    if (typed.startsWith("~"))
+      typed = expandHome(
+        typed,
+        placesOf(await listingOf("")).find((p) => p.kind === "home")?.path,
+      );
+    const target = trimSeparator(typed);
+    if (target === "") return;
+    const folder = dirnameOf(target);
+    const entry = (await listingOf(folder))?.entries.find((e) => e.path === target);
+    if (entry?.kind === "file") go(folder, target);
+    else go(target);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
-    if ((e.altKey && e.key === "ArrowLeft") || (e.metaKey && e.key === "[")) {
+    // The path field keeps the keys it edits with.
+    if (editing != null) return;
+    const mod = e.metaKey || e.ctrlKey;
+    const key = e.key.toLowerCase();
+    if ((e.ctrlKey && key === "l") || (mod && e.shiftKey && key === "g")) {
+      e.preventDefault();
+      setEditing(withSeparator(path));
+    } else if ((e.altKey && e.key === "ArrowLeft") || (e.metaKey && e.key === "[")) {
       e.preventDefault();
       back();
     } else if ((e.altKey && e.key === "ArrowRight") || (e.metaKey && e.key === "]")) {
@@ -233,7 +279,18 @@ const Content = ({
       </State>
     );
   else
-    body = <Entries now={now} type={type} onOpen={open} onPoint={prefetch} onUp={up} />;
+    body = (
+      <Entries
+        ref={listRef}
+        now={now}
+        type={type}
+        onSelect={handleSelect}
+        onOpen={open}
+        onPoint={prefetch}
+        onUp={up}
+        onEditPath={setEditing}
+      />
+    );
 
   let summary = "";
   if (shown != null && !stale && failure == null) {
@@ -301,7 +358,17 @@ const Content = ({
                 >
                   <Icon.Arrow.Up />
                 </Button.Button>
-                <PathBar path={path} onGo={go} />
+                <PathBar
+                  path={path}
+                  home={home}
+                  listings={snapshot.listings}
+                  editing={editing}
+                  onEdit={setEditing}
+                  onCancel={cancelEditing}
+                  onPrefetch={listAhead}
+                  onGo={go}
+                  onSubmit={(text) => void goTyped(text)}
+                />
                 {loading && stale && (
                   <Progress.Progress
                     thin
@@ -315,6 +382,7 @@ const Content = ({
                   CSS.BE("file-browser", "list"),
                   stale && loading && CSS.M("stale"),
                 )}
+                ref={holderRef}
                 tabIndex={-1}
               >
                 {body}

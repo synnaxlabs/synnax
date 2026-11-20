@@ -86,13 +86,50 @@
     }
 }
 
+/* Its folders start where the typed text of the field starts. */
 .console-file-browser__path {
     flex: 1 1 0;
     min-width: 0;
     height: var(--pluto-height-small);
-    padding: 0 1.5rem;
+    padding: 0 1.5rem 0 1rem;
     gap: 1rem;
     overflow: hidden;
+    cursor: text;
+}
+
+.console-file-browser__field {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* The surface, shadow, and fills of a Lyra dropdown. */
+.console-file-browser__suggestions {
+    --pluto-fill-rest: var(--pluto-gray-l3);
+    --pluto-fill-hover: var(--pluto-gray-l4);
+    --pluto-fill-press: var(--pluto-gray-l5);
+
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    padding: 0.5rem 0;
+    background: var(--pluto-gray-l1-l2);
+    box-shadow: var(--pluto-shadow-overlay);
+}
+
+/* The doubled class outranks the padding and radius of a small button. */
+.console-file-browser__suggestion.console-file-browser__suggestion {
+    width: 100%;
+    gap: 1.5rem;
+    padding: 0 1.5rem 0 1rem;
+    border-radius: 0;
+
+    &.console--active {
+        background: var(--pluto-fill-hover);
+    }
 }
 
 .console-file-browser__path-icon {

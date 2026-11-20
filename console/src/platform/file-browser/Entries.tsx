@@ -7,14 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate, type TimeStamp } from "@synnaxlabs/client";
+import { type certificate, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type KeyboardEvent, type ReactElement, useLayoutEffect, useRef } from "react";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  type Ref,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import { CSS } from "@/platform/css";
 import { type Entry } from "@/platform/file-browser/list";
@@ -255,17 +262,35 @@ export interface EntriesProps extends Pick<
   ItemProps,
   "now" | "type" | "onOpen" | "onPoint"
 > {
+  ref?: Ref<HTMLDivElement>;
+  /** Selects the entry with the path. */
+  onSelect: (path: string) => void;
   /** Opens the parent folder on Backspace. */
   onUp: () => void;
+  /** Opens the path field with a typed / or ~. */
+  onEditPath: (text: string) => void;
 }
 
+// A pause this long starts a new name for the keys typed to jump to an entry.
+const TYPE_AHEAD_RESET = TimeSpan.milliseconds(900);
+
 /**
- * The entries of a folder. Enter double-clicks the selected entry. A state that takes
- * the place of the list keeps the focus in its holder, so keys still reach the dialog.
+ * The entries of a folder. Enter double-clicks the selected entry, and typed letters
+ * select the first entry whose name starts with them. A state that takes the place of
+ * the list keeps the focus in its holder, so keys still reach the dialog.
  */
-export const Entries = ({ onUp, ...rest }: EntriesProps): ReactElement => {
+export const Entries = ({
+  ref: propsRef,
+  onSelect,
+  onUp,
+  onEditPath,
+  ...rest
+}: EntriesProps): ReactElement => {
   const keyboard = Select.useKeyboard();
+  const { getData, getItem, scrollToIndex } = List.useUtilContext<string, KeyedEntry>();
   const ref = useRef<HTMLDivElement>(null);
+  const combinedRef = useCombinedRefs(ref, propsRef);
+  const typed = useRef({ text: "", at: TimeStamp.ZERO });
   useLayoutEffect(() => {
     const el = ref.current;
     const holder = el?.parentElement;
@@ -274,17 +299,36 @@ export const Entries = ({ onUp, ...rest }: EntriesProps): ReactElement => {
       if (el?.contains(document.activeElement)) holder?.focus();
     };
   }, []);
-  const handleKeyDown = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Backspace" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  const typeAhead = (key: string): void => {
+    const now = TimeStamp.now();
+    const t = typed.current;
+    t.text = t.at.span(now).greaterThan(TYPE_AHEAD_RESET) ? key : `${t.text}${key}`;
+    t.at = now;
+    const name = t.text.toLowerCase();
+    const keys = getData();
+    const i = keys.findIndex(
+      (k) => getItem?.(k)?.name.toLowerCase().startsWith(name) === true,
+    );
+    if (i < 0) return;
+    onSelect(keys[i]);
+    scrollToIndex(i);
+  };
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    if (e.ctrlKey || e.metaKey || e.altKey) keyboard.onKeyDown(e);
+    else if (e.key === "/" || e.key === "~") {
+      e.preventDefault();
+      onEditPath(e.key);
+    } else if (e.key === "Backspace") {
       e.preventDefault();
       onUp();
-      return;
-    }
-    keyboard.onKeyDown(e);
+    } else if (e.key.length === 1 && e.key !== " ") {
+      e.preventDefault();
+      typeAhead(e.key);
+    } else keyboard.onKeyDown(e);
   };
   return (
     <List.Scroll
-      ref={ref}
+      ref={combinedRef}
       role="listbox"
       aria-label="Files"
       tabIndex={0}
