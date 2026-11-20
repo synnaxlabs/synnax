@@ -69,6 +69,8 @@ type DB struct {
 	// corruptIntents is the number of intent records that Open found bad before a good
 	// one.
 	corruptIntents int
+	// engine is the pointer log layout of the DB, and nil on the old layout.
+	engine *engine
 	// lifecycle orders the start of Run against Close.
 	lifecycle struct {
 		sync.Mutex
@@ -208,6 +210,9 @@ func (db *DB) Run(ctx context.Context) error {
 		signal.WithInstrumentation(db.Instrumentation),
 	)
 	defer cancel()
+	if db.engine != nil {
+		return db.engine.run(ctx)
+	}
 	db.startGC(sCtx, db.options)
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
@@ -225,9 +230,20 @@ func (db *DB) Close() error {
 		return errors.Wrap(resource.ErrOpen, "close called while Run runs")
 	}
 	closing := db.closed.CompareAndSwap(false, true)
+	ran := db.lifecycle.state != runIdle
 	db.lifecycle.Unlock()
 	if !closing {
 		return nil
+	}
+	if db.engine != nil {
+		if ran {
+			return db.engine.close()
+		}
+		// The owners close only while they run, so a DB that never ran runs them with
+		// a done context, which closes them in order.
+		done, cancel := context.WithCancel(context.Background())
+		cancel()
+		return db.engine.run(done)
 	}
 	var err error
 	db.mu.Lock()

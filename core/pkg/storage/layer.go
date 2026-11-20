@@ -26,6 +26,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"math/rand/v2"
 	"path/filepath"
 
 	"github.com/cockroachdb/pebble/v2"
@@ -48,6 +49,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -114,6 +116,23 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to the OS file system, or to memory when InMemory is true.
 	TSFS xfs.FS
+	// Clock is the clock that the time-series engine reads the time from.
+	//
+	// [OPTIONAL] - Defaults to the clock of the engine.
+	Clock xtime.Clock
+	// Random is the source of every random choice of the time-series engine.
+	//
+	// [OPTIONAL] - Defaults to the source of the engine.
+	Random rand.Source
+	// Executor runs each step of the owners of the time-series engine and each sync of
+	// its files.
+	//
+	// [OPTIONAL] - Defaults to the executor of the engine.
+	Executor func(f func())
+	// PointerLogEnabled opens the time-series engine on its pointer log layout.
+	//
+	// [OPTIONAL] - Defaults to false.
+	PointerLogEnabled *bool
 	// Version is the semantic version of the Core, without a "v" prefix. Open checks it
 	// against the version recorded in the data directory, unless it is a 0.0 version.
 	//
@@ -135,6 +154,7 @@ func defaultLayerConfig() LayerConfig {
 		KVEngine:             KVEnginePebble,
 		TSEngine:             TSEngineCesium,
 		UpdateBackupDisabled: new(false),
+		PointerLogEnabled:    new(false),
 	}
 }
 
@@ -148,6 +168,10 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
 	cfg.KVFS = override.Nil(cfg.KVFS, other.KVFS)
 	cfg.TSFS = override.Nil(cfg.TSFS, other.TSFS)
+	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
+	cfg.Random = override.Nil(cfg.Random, other.Random)
+	cfg.Executor = override.Nil(cfg.Executor, other.Executor)
+	cfg.PointerLogEnabled = override.Nil(cfg.PointerLogEnabled, other.PointerLogEnabled)
 	cfg.Version = override.String(cfg.Version, other.Version)
 	cfg.UpdateBackupDisabled = override.Nil(
 		cfg.UpdateBackupDisabled,
@@ -544,10 +568,21 @@ func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*cesium.DB, error)
 			cfg.TSEngine,
 		)
 	}
-	return cesium.Open(
-		ctx,
-		filepath.Join(cfg.Dirname, cesiumDir),
+	opts := []cesium.Option{
 		cesium.WithFS(fs),
 		cesium.WithInstrumentation(cfg.Child("ts")),
-	)
+	}
+	if cfg.Clock != nil {
+		opts = append(opts, cesium.WithClock(cfg.Clock))
+	}
+	if cfg.Random != nil {
+		opts = append(opts, cesium.WithRandom(cfg.Random))
+	}
+	if cfg.Executor != nil {
+		opts = append(opts, cesium.WithExecutor(cfg.Executor))
+	}
+	if *cfg.PointerLogEnabled {
+		opts = append(opts, cesium.WithPointerLog())
+	}
+	return cesium.Open(ctx, filepath.Join(cfg.Dirname, cesiumDir), opts...)
 }

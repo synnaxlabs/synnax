@@ -11,6 +11,7 @@ package storage_test
 
 import (
 	"context"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -53,6 +54,24 @@ var _ = Describe("storage", func() {
 		Expect(kvFS.Stat(filepath.Join("data", "LOCK"))).Error().ToNot(HaveOccurred())
 		Expect(MustSucceed(kvFS.List(filepath.Join("data", "kv")))).ToNot(BeEmpty())
 		Expect(tsFS.Exists(filepath.Join("data", "cesium", "1"))).To(BeTrue())
+	})
+
+	It("Should open the time-series engine on the pointer log when it is enabled", func(
+		ctx SpecContext,
+	) {
+		tsFS := xfs.NewMem()
+		l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+			Dirname:           "data",
+			Version:           "0.0.0",
+			KVFS:              vfs.NewMem(),
+			TSFS:              tsFS,
+			Random:            rand.NewPCG(1, 2),
+			PointerLogEnabled: new(true),
+		}))
+		StartRun(l.Run)()
+		Expect(tsFS.Exists(
+			filepath.Join("data", "cesium", "0000000000000001.head"),
+		)).To(BeTrue())
 	})
 
 	Describe("Run", func() {

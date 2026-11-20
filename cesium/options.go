@@ -10,10 +10,14 @@
 package cesium
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	jsonv2 "encoding/json/v2"
+	"math/rand/v2"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -37,6 +41,10 @@ type options struct {
 	fileSize  telem.Size
 	chunkSize int64
 	clock     xtime.Clock
+	random    rand.Source
+	executor  func(f func())
+	// pointerLog opens the database on the pointer log layout.
+	pointerLog bool
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -65,6 +73,19 @@ func mergeAndValidateOptions(o *options) error {
 	)
 	o.fs = override.Nil(xfs.Default, o.fs)
 	o.clock = override.Nil(xtime.Real, o.clock)
+	if o.random == nil {
+		var seed [16]byte
+		if _, err := crand.Read(seed[:]); err != nil {
+			return err
+		}
+		o.random = rand.NewPCG(
+			binary.LittleEndian.Uint64(seed[:8]),
+			binary.LittleEndian.Uint64(seed[8:]),
+		)
+	}
+	if o.executor == nil {
+		o.executor = segment.GoExecutor
+	}
 	gcCfg := GCConfig{
 		MaxGoroutine: 10,
 		TryInterval:  30 * time.Second,
@@ -87,6 +108,21 @@ func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
 // WithClock sets the clock that Cesium reads the time from. It must be monotonic. This
 // defaults to the system clock.
 func WithClock(clock xtime.Clock) Option { return func(o *options) { o.clock = clock } }
+
+// WithRandom sets the source of every random choice of the DB, such as its identity.
+// This defaults to a source seeded by the operating system.
+func WithRandom(src rand.Source) Option { return func(o *options) { o.random = src } }
+
+// WithExecutor sets the executor that runs each step of the owners of the DB and each
+// sync of its segment files. It must run every function it gets, and no function may
+// wait for another that it runs. This defaults to one goroutine per function.
+func WithExecutor(exec func(f func())) Option {
+	return func(o *options) { o.executor = exec }
+}
+
+// WithPointerLog opens the DB on the pointer log layout, which commits writes through
+// one log and syncs them, in place of the old layout.
+func WithPointerLog() Option { return func(o *options) { o.pointerLog = true } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.

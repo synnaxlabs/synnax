@@ -41,6 +41,18 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 
 	o.L.Debug("opening cesium time series engine", o.Report().ZapFields()...)
+	if o.pointerLog {
+		e, err := openEngine(o)
+		if err != nil {
+			return nil, err
+		}
+		return &DB{
+			options:        o,
+			closed:         &atomic.Bool{},
+			historyChanges: observe.New[HistoryChange](),
+			engine:         e,
+		}, nil
+	}
 
 	info, err := o.fs.List("")
 	if err != nil {
