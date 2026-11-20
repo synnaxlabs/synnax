@@ -79,7 +79,7 @@ export interface ClientConfig {
   cache: query.Cache;
   /**
    * The channels that announce changes to records that can use an enumeration. A
-   * change on one refetches the uses the client holds.
+   * change on one refetches the uses that a maintained query watches.
    */
   usesChannels: string[];
 }

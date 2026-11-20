@@ -61,8 +61,8 @@ const Delete = ({
   enumeration: e,
   close,
 }: Modals.ContentProps<DeleteParams, void>): ReactElement => {
-  const dependents = Enumeration.useResult({ key: e.key, includeUses: true });
-  const users = dependents.data?.uses ?? NO_USERS;
+  const res = Enumeration.useResult({ key: e.key, includeUses: true });
+  const users = res.data?.uses ?? NO_USERS;
   const [replacement, setReplacement] = useState<enumeration.Key>();
   const [confirmed, setConfirmed] = useState(false);
   const { update: remove, variant: removeVariant } = Enumeration.useDelete({
@@ -86,22 +86,20 @@ const Delete = ({
       icon={<Icon.Enumeration />}
       message={`Are you sure you want to delete ${e.name}?`}
       description={
-        dependents.variant === "success"
+        res.variant === "success"
           ? `${inUse ? IN_USE : NOT_IN_USE} ${CANNOT_UNDO}`
           : CANNOT_UNDO
       }
       confirm={{
         label: inUse ? "Replace" : "Delete",
         variant: busy ? "loading" : "error",
-        disabled: dependents.variant !== "success",
+        disabled: res.variant !== "success",
       }}
       cancel={{ disabled: busy }}
       onConfirm={handleConfirm}
       onCancel={() => close()}
     >
-      {dependents.variant === "error" && (
-        <Status.Summary level="small" status={dependents.status} />
-      )}
+      {res.variant === "error" && <Status.Summary level="small" status={res.status} />}
       {inUse && (
         <>
           <Suspense>

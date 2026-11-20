@@ -108,7 +108,7 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Dependents", func() {
+	Describe("Uses", func() {
 		var (
 			users *gorp.Table[string, user]
 			e     enumeration.Enumeration
