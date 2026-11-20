@@ -398,7 +398,11 @@ export default class Synnax extends framer.Client {
       },
     });
     this.colors = new color.Client({ unary, cache });
-    this.enumerations = new enumeration.Client({ unary, cache });
+    this.enumerations = new enumeration.Client({
+      unary,
+      cache,
+      usesChannels: [schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME],
+    });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,

@@ -116,6 +116,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Enumeration: ...
 
@@ -130,6 +131,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Enumeration: ...
 
@@ -146,6 +148,7 @@ class Client:
         keys: list[Key] | None = ...,
         names: list[str] | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: Literal[True],
     ) -> Enumeration: ...
 
@@ -165,6 +168,7 @@ class Client:
         limit: int | None = ...,
         order: Order | None = ...,
         after: Cursor | None = ...,
+        include_uses: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Enumeration]: ...
 
@@ -178,6 +182,7 @@ class Client:
         limit: int | None = None,
         order: Order | None = None,
         after: Cursor | None = None,
+        include_uses: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Enumeration | list[Enumeration]:
@@ -202,6 +207,9 @@ class Client:
         :param after: Retrieves the enumerations past this position in the order: the
             key of the last enumeration of the page before, and its value of the order
             field.
+        :param include_uses: Whether to fill each enumeration's uses with the resource
+            IDs of the resources that use it and that the caller can read.
+            Enumerations come back with no uses when false.
         :param one: Returns one enumeration for any filter.
         :returns: One enumeration for a plain ``key`` or ``name`` or when ``one`` is
             set, otherwise a list of them. The list leaves out keys that do not exist.
@@ -222,6 +230,7 @@ class Client:
             limit=limit,
             order=order,
             after=after,
+            include_uses=include_uses,
         )
         res = self._client.send("/enumeration/retrieve", req, RetrieveResponse)
         return (

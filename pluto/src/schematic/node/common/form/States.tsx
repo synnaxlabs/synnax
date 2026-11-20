@@ -97,8 +97,8 @@ interface UsedByProps {
 
 /** Names how many schematics use the enumeration, this one included. */
 const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
-  const res = Enumeration.useResultDependents({ key });
-  const n = (res.data ?? []).filter(
+  const res = Enumeration.useResult({ key, includeUses: true });
+  const n = (res.data?.uses ?? []).filter(
     ({ type }) => type === schematic.TYPE_RESOURCE_ID.type,
   ).length;
   if (n === 0) return null;

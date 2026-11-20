@@ -135,15 +135,15 @@ describe("queries", () => {
     });
   });
 
-  describe("useResultDependents", () => {
-    it("should return no records for an unused enumeration", async () => {
+  describe("useResult", () => {
+    it("should return empty uses of an unused enumeration", async () => {
       const created = await createEnumeration();
       const { result } = renderHook(
-        () => Enumeration.useResultDependents({ key: created.key }),
+        () => Enumeration.useResult({ key: created.key, includeUses: true }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toBe("success"));
-      expect(result.current.data).toEqual([]);
+      expect(result.current.data?.uses).toEqual([]);
     });
   });
 

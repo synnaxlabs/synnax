@@ -61,8 +61,10 @@ const Delete = ({
   enumeration: e,
   close,
 }: Modals.ContentProps<DeleteParams, void>): ReactElement => {
-  const dependents = Enumeration.useResultDependents({ key: e.key });
-  const users = dependents.data ?? NO_USERS;
+  const live = Enumeration.useResult({ key: e.key, includeUses: true });
+  // A delete or replace drops the enumeration from the store before the dialog closes,
+  // so the dialog shows the result it had when the action started.
+  const [held, setHeld] = useState<typeof live>();
   const [replacement, setReplacement] = useState<enumeration.Key>();
   const [confirmed, setConfirmed] = useState(false);
   const { update: remove, variant: removeVariant } = Enumeration.useDelete({
@@ -73,12 +75,20 @@ const Delete = ({
   });
   const busy = removeVariant === "loading" || replaceVariant === "loading";
   Modals.useBusy(busy);
+  const failed = removeVariant === "error" || replaceVariant === "error";
+  const res = held == null || failed ? live : held;
+  const users = res.data?.uses ?? NO_USERS;
   const inUse = users.length > 0;
   const error = confirmed && replacement == null ? REPLACEMENT_REQUIRED : undefined;
   const handleConfirm = () => {
-    if (!inUse) return remove(e.key);
+    if (!inUse) {
+      setHeld(res);
+      return remove(e.key);
+    }
     setConfirmed(true);
-    if (replacement != null) replace({ from: e.key, to: replacement });
+    if (replacement == null) return;
+    setHeld(res);
+    replace({ from: e.key, to: replacement });
   };
   return (
     <Modals.ConfirmLayout
@@ -86,22 +96,20 @@ const Delete = ({
       icon={<Icon.Enumeration />}
       message={`Are you sure you want to delete ${e.name}?`}
       description={
-        dependents.variant === "success"
+        res.variant === "success"
           ? `${inUse ? IN_USE : NOT_IN_USE} ${CANNOT_UNDO}`
           : CANNOT_UNDO
       }
       confirm={{
         label: inUse ? "Replace" : "Delete",
         variant: busy ? "loading" : "error",
-        disabled: dependents.variant !== "success",
+        disabled: res.variant !== "success",
       }}
       cancel={{ disabled: busy }}
       onConfirm={handleConfirm}
       onCancel={() => close()}
     >
-      {dependents.variant === "error" && (
-        <Status.Summary level="small" status={dependents.status} />
-      )}
+      {res.variant === "error" && <Status.Summary level="small" status={res.status} />}
       {inUse && (
         <>
           <Suspense>

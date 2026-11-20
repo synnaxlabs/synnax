@@ -235,10 +235,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,
 	]{}
-	t.EnumerationRetrieveDependents = noop.UnaryServer[
-		enumeration.RetrieveDependentsRequest,
-		enumeration.RetrieveDependentsResponse,
-	]{}
 
 	// ACCESS
 	t.AccessCreatePolicy = noop.UnaryServer[policy.CreateRequest, policy.CreateResponse]{}

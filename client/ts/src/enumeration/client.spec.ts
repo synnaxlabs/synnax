@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color as xcolor, id, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { color as xcolor, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type color } from "@/color";
 import { enumeration } from "@/enumeration";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive } from "@/testutil";
+import { schematic } from "@/schematic";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -27,6 +33,25 @@ const createEnumeration = async (c = client): Promise<enumeration.Enumeration> =
       { key: "open", value: 1, name: "Open" },
     ],
   });
+
+const createSchematicUsing = async (
+  c: typeof client,
+  key: enumeration.Key,
+): Promise<schematic.Schematic> => {
+  const project = await c.projects.create({ name: id.create() });
+  return await c.schematics.create({
+    project: project.key,
+    name: id.create(),
+    nodes: [
+      {
+        key: "select",
+        position: { x: 0, y: 0 },
+        zIndex: 0,
+        config: schematic.nodeConfigZ.parse({ variant: "select", enumeration: key }),
+      },
+    ],
+  });
+};
 
 describe("enumeration.Client", () => {
   describe("create", () => {
@@ -215,10 +240,77 @@ describe("enumeration.Client", () => {
     });
   });
 
-  describe("retrieveDependents", () => {
-    it("should return no records for an enumeration that nothing uses", async () => {
+  describe("uses", () => {
+    it("should retrieve empty uses for an enumeration that nothing uses", async () => {
       const created = await createEnumeration();
-      expect(await client.enumerations.retrieveDependents(created.key)).toEqual([]);
+      const q = { key: created.key, includeUses: true };
+      expect((await client.enumerations.retrieve(q)).uses).toEqual([]);
+      expect((await client.enumerations.retrieve(created.key)).uses).toBeUndefined();
+    });
+
+    it("should update the uses of an enumeration as a schematic uses it", async () => {
+      const c = createTestClient();
+      await waitForStreamLive(c.connection);
+      const created = await createEnumeration(c);
+      const q = { key: created.key, includeUses: true };
+      const off = c.enumerations.watch(q).onChange(() => {});
+      try {
+        expect((await c.enumerations.retrieve(q)).uses).toEqual([]);
+        const s = await createSchematicUsing(c, created.key);
+        await vi.waitFor(() =>
+          expect(expectLive(c.enumerations.watch(q).getCached()).uses).toEqual([
+            schematic.resourceID(s.key),
+          ]),
+        );
+        await c.schematics.delete(s.key);
+        await vi.waitFor(() =>
+          expect(expectLive(c.enumerations.watch(q).getCached()).uses).toEqual([]),
+        );
+      } finally {
+        off();
+      }
+    });
+
+    it("should list an enumeration that a slow create adds to a query for uses", async () => {
+      const list = client.enumerations.watch({ includeUses: true });
+      const off = list.onChange(() => {});
+      try {
+        await list.retrieve();
+        const key = uuid.create();
+        await client.enumerations.create(
+          { key, name: id.create(), entries: [] },
+          // A commit slower than the list's refetch lets the refetch miss the key.
+          { onOptimistic: async () => await sleep.sleep(TimeSpan.milliseconds(300)) },
+        );
+        await vi.waitFor(() =>
+          expect(list.getCached()?.records.find((e) => e.key === key)?.uses).toEqual(
+            [],
+          ),
+        );
+      } finally {
+        off();
+      }
+    });
+
+    it("should keep the uses of an enumeration when a create of its key fails", async () => {
+      const created = await createEnumeration();
+      const s = await createSchematicUsing(client, created.key);
+      const q = { key: created.key, includeUses: true };
+      const off = client.enumerations.watch(q).onChange(() => {});
+      try {
+        const uses = [schematic.resourceID(s.key)];
+        expect((await client.enumerations.retrieve(q)).uses).toEqual(uses);
+        await expect(
+          client.enumerations.create({
+            key: created.key,
+            name: id.create(),
+            entries: [],
+          }),
+        ).rejects.toThrow(created.key);
+        expect(expectLive(client.enumerations.watch(q).getCached()).uses).toEqual(uses);
+      } finally {
+        off();
+      }
     });
   });
 
