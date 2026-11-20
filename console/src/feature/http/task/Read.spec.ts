@@ -163,6 +163,26 @@ describe("Read", () => {
     await screen.findByPlaceholderText(`${name}_2`);
   });
 
+  it("should preview the channel that an earlier endpoint with the same path creates", async () => {
+    const dev = await createHTTPDevice(client);
+    const name = channel.escapeInvalidName(`${dev.name}/data/value`);
+    await client.channels.create({ name, dataType: DataType.FLOAT64, virtual: true });
+    const endpoint = (key: string) => ({
+      ...http.readEndpointZ.parse({}),
+      key,
+      path: "/data",
+      fields: [createReadField(`${key}_f`, "/value")],
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [endpoint("ep1"), endpoint("ep2")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    const items = await screen.findAllByRole("treeitem", { name: /\/value/ });
+    fireEvent.click(items[1]);
+    await screen.findByPlaceholderText(`${name}_2`);
+  });
+
   describe("a typed channel name", () => {
     const renderTyped = async (typed: string) => {
       const dev = await createHTTPDevice(client);
@@ -194,6 +214,32 @@ describe("Read", () => {
         virtual: true,
       });
       await renderTyped(typed);
+      await screen.findByText(`Saves as ${typed}_2`);
+    });
+
+    it("should say the numbered name that a name typed in an earlier endpoint saves as", async () => {
+      const typed = uniqueName("pressure");
+      const dev = await createHTTPDevice(client);
+      const endpoint = (key: string, path: string, name = "") => ({
+        ...http.readEndpointZ.parse({}),
+        key,
+        path,
+        fields: [createReadField(`${key}_f`, "/value", { name })],
+      });
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          endpoint("ep1", "/a", typed),
+          endpoint("ep2", "/b"),
+        ]),
+      );
+      await renderRead({ client, taskKey: draft.key });
+      const items = await screen.findAllByRole("treeitem", { name: /\/value/ });
+      fireEvent.click(items[1]);
+      const input = await screen.findByPlaceholderText(
+        channel.escapeInvalidName(`${dev.name}/b/value`),
+      );
+      fireEvent.change(input, { target: { value: typed } });
       await screen.findByText(`Saves as ${typed}_2`);
     });
 
