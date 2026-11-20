@@ -461,6 +461,93 @@ var _ = Describe("Change channels", func() {
 		Expect(sent).To(Equal([]string{shown.ResourceID().String()}))
 	})
 
+	It(
+		"Should send a reference change when a holder starts to write a channel it reads",
+		func(
+			ctx SpecContext,
+		) {
+			virtual := func(name string) channel.Channel {
+				return channel.Channel{
+					Name:     name,
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+			}
+			used, sentinel := virtual(
+				"reference_direction_used",
+			), virtual(
+				"reference_direction_sentinel",
+			)
+			proj := project.Project{Name: "reference-direction"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+					return err
+				}
+				if err := svc.Channel.NewWriter(tx).Create(ctx, &used); err != nil {
+					return err
+				}
+				return svc.Channel.NewWriter(tx).Create(ctx, &sentinel)
+			})).To(Succeed())
+			stream(
+				ctx,
+				signals.ReferenceChangeName,
+				resource.ID{Type: resource.TypeChannel},
+				resource.ID{Type: resource.TypeSchematic},
+			)
+			next := func() []string {
+				GinkgoHelper()
+				res := MustSucceed(client.Receive())
+				var sent []string
+				for _, series := range res.Frame.Get(ch.Key()).Series {
+					for sample := range series.Samples() {
+						sent = append(sent, string(sample))
+					}
+				}
+				return sent
+			}
+			createReading := func(name string, key channel.Key) schematic.Schematic {
+				GinkgoHelper()
+				var value schematic.ValueNodeConfig
+				value.SetDefaults()
+				value.Channel = key
+				sch := schematic.Schematic{
+					Name:    name,
+					Project: &proj.Key,
+					Nodes: []schematic.Node{
+						{Key: "value", Config: schematic.NodeConfig{Variant: value}},
+					},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Schematic.NewWriter(tx).Create(ctx, &sch)
+				})).To(Succeed())
+				return sch
+			}
+			sch := createReading("direction", used.Key())
+			Expect(next()).To(Equal([]string{used.ResourceID().String()}))
+			var setpoint schematic.SetpointNodeConfig
+			setpoint.SetDefaults()
+			setpoint.CommandChannel = used.Key()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.Schematic.NewWriter(tx).Apply(
+					ctx,
+					sch.Key,
+					schematic.NewSetNodeAction(schematic.SetNodePayload{Node: schematic.Node{
+						Key:    "setpoint",
+						Config: schematic.NodeConfig{Variant: setpoint},
+					}}),
+				)
+				return err
+			})).To(Succeed())
+			// The schematic now writes the channel as well as reading it.
+			uses := MustSucceed(svc.Channel.Uses(ctx, db, []channel.Key{used.Key()}))[0]
+			Expect(
+				uses,
+			).To(ContainElement(HaveField("Direction", channel.DirectionWrite)))
+			createReading("sentinel", sentinel.Key())
+			Expect(next()).To(Equal([]string{used.ResourceID().String()}))
+		},
+	)
+
 	It("Should send a subject the changes to the policies of its role", func(
 		ctx SpecContext,
 	) {
