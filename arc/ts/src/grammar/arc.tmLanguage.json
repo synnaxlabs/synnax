@@ -121,6 +121,9 @@
               "include": "#numbers"
             },
             {
+              "include": "#channel-names"
+            },
+            {
               "include": "#strings"
             },
             {
@@ -170,7 +173,7 @@
       "patterns": [
         {
           "name": "support.type.channel.arc",
-          "match": "'(?:[^'\\\\\\r\\n]|\\\\['\\\\])*'"
+          "match": "'(?:[^'\\\\\\r\\n]|\\\\['\\\\])+'"
         }
       ]
     },
