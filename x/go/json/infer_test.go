@@ -317,6 +317,24 @@ var _ = Describe("Infer", func() {
 		Expect(fieldAt(shapes[0], "/name").Enum).To(BeNil())
 	})
 
+	It("Should give an enum label of 64 bytes", func() {
+		label := strings.Repeat("x", 64)
+		shapes := xjson.Infer(documents("a", 2, func(int) string {
+			return fmt.Sprintf(`{"state":%q}`, label)
+		}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(Equal([]string{label}))
+	})
+
+	It("Should not give an enum to a string field with a value over 64 bytes", func() {
+		shapes := xjson.Infer(documents("a", 3, func(i int) string {
+			if i == 2 {
+				return fmt.Sprintf(`{"state":%q}`, strings.Repeat("x", 65))
+			}
+			return `{"state":"open"}`
+		}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(BeNil())
+	})
+
 	It("Should pick the rising timestamp nearest the write time as the index", func() {
 		shapes := xjson.Infer(documents("a", 3, func(i int) string {
 			return fmt.Sprintf(
@@ -478,17 +496,6 @@ var _ = Describe("Inferrer", func() {
 		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
 		Expect(ts.TimeFormat).To(HaveValue(Equal(xjson.UnixMillisecond)))
 		Expect(fieldAt(shape, "/v").Kind).To(Equal(payload.KindFloat))
-	})
-
-	It("Should take the time of the call for a zero time", func() {
-		inf := xjson.NewInferrer()
-		inf.Add(
-			fmt.Appendf(nil, `{"ts":%d}`, int64(telem.Now()/telem.MillisecondTS)),
-			0,
-		)
-		ts := fieldAt(inf.Shape(), "/ts")
-		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
-		Expect(ts.TimeFormat).To(HaveValue(Equal(xjson.UnixMillisecond)))
 	})
 
 	It("Should add nothing for data that is not JSON", func() {

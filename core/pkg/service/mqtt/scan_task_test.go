@@ -774,7 +774,24 @@ var _ = Describe("Scan task", func() {
 				Expect(fields[255]).To(
 					Equal(field("/f255", "number", "255", payload.KindInteger)),
 				)
-				Expect(topic).To(HaveKeyWithValue("index", ""))
+				Expect(topic).ToNot(HaveKey("index"))
+			},
+		)
+
+		It("Should give no kind to a field past the first 1,024 fields of a topic",
+			func(ctx SpecContext) {
+				names := make([]string, 1024)
+				for i := range names {
+					names[i] = fmt.Sprintf(`"f%04d": %d`, i, i)
+				}
+				broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
+				publishUntilDone(broker, "plant/a", `{"late": 1}`)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(HaveKeyWithValue("fields", []any{
+					map[string]any{"pointer": "/late", "type": "number", "sample": "1"},
+				}))
 			},
 		)
 
@@ -789,7 +806,7 @@ var _ = Describe("Scan task", func() {
 				Expect(topics[0]).To(SatisfyAll(
 					HaveKeyWithValue("format", "text"),
 					HaveKeyWithValue("fields", BeEmpty()),
-					HaveKeyWithValue("index", ""),
+					Not(HaveKey("index")),
 				))
 			},
 		)
@@ -830,7 +847,7 @@ var _ = Describe("Scan task", func() {
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
 				Expect(topics[0]).To(SatisfyAll(
-					HaveKeyWithValue("index", ""),
+					Not(HaveKey("index")),
 					HaveKeyWithValue("fields", []any{
 						field("/time", "string", `"soon"`, payload.KindString),
 						field("/v", "number", "1", payload.KindInteger),
