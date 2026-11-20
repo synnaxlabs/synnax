@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 import "@/platform/file-browser/Modal.css";
 
 import { type rack, status, TimeSpan, type TimeStamp } from "@synnaxlabs/client";
@@ -86,7 +85,10 @@ const State = ({ children }: { children: ReactNode }): ReactElement => (
 export interface ModalParams {
   /** The rack whose files the modal lists. */
   rack: rack.Key;
-  /** A file whose folder the modal opens first. Without it, the home folder opens. */
+  /**
+   * A file whose folder the modal opens first, with the file selected. Without it, the
+   * home folder opens.
+   */
   path?: string;
 }
 
@@ -110,8 +112,9 @@ const Content = ({
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
   const [lastShown, setLastShown] = useState<Listing | null>(null);
-  // The folder to select once the next folder opens: the one the user came up from.
-  const selectAfter = useRef<string | null>(null);
+  // The entry to select once the next folder opens: the start file, or the folder the
+  // user came up from.
+  const selectAfter = useRef<string | null>(start.trim() === "" ? null : start.trim());
 
   const path = history.stack[history.index];
   const places = placesOf(snapshot.listings.get(""));
@@ -242,9 +245,7 @@ const Content = ({
       </State>
     );
   else
-    body = (
-      <Entries now={now} type={type} onOpen={open} onHover={prefetch} onUp={up} />
-    );
+    body = <Entries now={now} type={type} onOpen={open} onPoint={prefetch} onUp={up} />;
 
   let summary = "";
   if (shown != null && !stale && failure == null) {
@@ -276,7 +277,12 @@ const Content = ({
         >
           <List.Columns columns={COLUMNS}>
             <Flex.Box y grow empty className={CSS.BE("file-browser", "main")}>
-              <Flex.Box x align="center" gap="small" className={CSS.BE("file-browser", "toolbar")}>
+              <Flex.Box
+                x
+                align="center"
+                gap="small"
+                className={CSS.BE("file-browser", "toolbar")}
+              >
                 <Button.Button
                   variant="text"
                   size="small"
@@ -309,7 +315,10 @@ const Content = ({
                 </Button.Button>
                 <PathBar path={path} onGo={go} />
                 {loading && stale && (
-                  <Progress.Progress thin className={CSS.BE("file-browser", "progress")} />
+                  <Progress.Progress
+                    thin
+                    className={CSS.BE("file-browser", "progress")}
+                  />
                 )}
               </Flex.Box>
               <Head sort={sort} onSort={setSort} />

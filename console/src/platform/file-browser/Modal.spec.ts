@@ -33,7 +33,7 @@ const client = createTestClient();
 afterEach(() => cleanup());
 
 const DETAILS: certificate.Details = {
-  subject: "CN=Plant client",
+  subject: "O=Plant,CN=Plant client",
   issuer: "CN=Plant CA",
   notBefore: TimeStamp.now().sub(TimeSpan.days(1)),
   notAfter: TimeStamp.now().add(TimeSpan.days(365)),
@@ -41,11 +41,13 @@ const DETAILS: certificate.Details = {
   sha256: "CD",
 };
 
+const SECRETS_DIR = "/etc/synnax/secrets";
+
 const TOP = createListing({
-  secretsDir: "/etc/synnax/secrets",
+  secretsDir: SECRETS_DIR,
   entries: [
     { name: "/", path: "/", kind: "directory" },
-    { name: "secrets", path: "/etc/synnax/secrets", kind: "directory" },
+    { name: "secrets", path: SECRETS_DIR, kind: "directory" },
   ],
 });
 
@@ -58,6 +60,7 @@ const ETC = createListing({
   path: "/etc",
   parent: "/",
   entries: [
+    { name: "hosts", path: "/etc/hosts", kind: "file", size: 40 },
     { name: "ssl", path: "/etc/ssl", kind: "directory", size: 0 },
     {
       name: "client.crt",
@@ -66,27 +69,49 @@ const ETC = createListing({
       size: 1200,
       certificate: DETAILS,
     },
-    { name: "hosts", path: "/etc/hosts", kind: "file", size: 40 },
   ],
 });
 
-const openBrowser = async (listings: ReturnType<typeof createListing>[]) => {
+const SECRETS = createListing({
+  path: SECRETS_DIR,
+  parent: "/etc/synnax",
+  secret: true,
+  entries: [{ name: "ca.crt", path: `${SECRETS_DIR}/ca.crt`, kind: "file", size: 9 }],
+});
+
+const LISTINGS = [TOP, ROOT, ETC];
+
+const openBrowser = async (
+  listings: ReturnType<typeof createListing>[],
+  path?: string,
+) => {
   const files = await createFileRack(client);
   const served = await serveListings(client, files, listings);
   const handle = await renderModalOpener(
     FileBrowser.useModal,
-    [{ rack: files.rack.key }],
+    [{ rack: files.rack.key, path }],
     { client },
   );
   return { ...handle, rack: files.rack, served };
 };
 
+const findEntry = async (name: string, selected?: boolean): Promise<HTMLElement> =>
+  await screen.findByRole("option", { name: new RegExp(`^${name}`), selected });
+
 const openFolder = async (name: string): Promise<void> => {
-  fireEvent.doubleClick(await screen.findByText(name));
+  fireEvent.doubleClick(await findEntry(name));
 };
 
+const openEtc = async (): Promise<void> => {
+  await openFolder("/");
+  await openFolder("etc");
+  await findEntry("hosts");
+};
+
+const findFiles = (): HTMLElement => screen.getByRole("listbox", { name: "Files" });
+
 const pressEnter = (): void => {
-  const files = screen.getByRole("listbox", { name: "Files" });
+  const files = findFiles();
   fireEvent.keyDown(files, { key: "Enter", code: "Enter" });
   fireEvent.keyUp(files, { key: "Enter", code: "Enter" });
 };
@@ -98,139 +123,290 @@ const pressSave = (): void => {
   fireEvent.keyUp(window, { code: "ControlLeft" });
 };
 
+const entryNames = (): string[] =>
+  screen.getAllByRole("option").map((o) => o.textContent);
+
 describe("FileBrowser.useModal", () => {
-  it("should show the last listing of a folder at once when it opens again", async () => {
-    const { result, reopen, rack, served } = await openBrowser([TOP]);
-    await screen.findByText("secrets");
-    fireEvent.click(findButton("Cancel"));
-    await expect(result()).resolves.toBeNull();
-    // Nothing answers now, so the entries can only come from the last listing.
-    served.stop();
-    reopen();
-    await screen.findByText(rack.name);
-    expect(await screen.findByText("secrets")).toBeDefined();
-    expect(served.paths).toEqual([""]);
-  });
-
-  it("should find the file browser again once the rack gains it", async () => {
-    const r = await createRunningRack(client, "file");
-    const { result, reopen } = await renderModalOpener(
-      FileBrowser.useModal,
-      [{ rack: r.key }],
-      { client },
-    );
-    await screen.findByText("Failed to list files");
-    fireEvent.click(findButton("Cancel"));
-    await expect(result()).resolves.toBeNull();
-    const browser = await r.createTask({
-      name: uniqueName("file_browser"),
-      type: FileBrowser.TASK_TYPE,
-      config: {},
+  describe("session", () => {
+    it("should show the last listing of a folder at once when it opens again", async () => {
+      const { result, reopen, rack, served } = await openBrowser([TOP]);
+      await findEntry("secrets");
+      fireEvent.click(findButton("Cancel"));
+      await expect(result()).resolves.toBeNull();
+      // Nothing answers now, so the entries can only come from the last listing.
+      served.stop();
+      reopen();
+      await screen.findByText(rack.name);
+      expect(await findEntry("secrets")).toBeDefined();
+      expect(served.paths).toEqual([""]);
     });
-    await serveListings(client, { rack: r, browser }, [TOP]);
-    reopen();
-    expect(await screen.findByText("secrets")).toBeDefined();
+
+    it("should find the file browser again once the rack gains it", async () => {
+      const r = await createRunningRack(client, "file");
+      const { result, reopen } = await renderModalOpener(
+        FileBrowser.useModal,
+        [{ rack: r.key }],
+        { client },
+      );
+      await screen.findByText("Failed to list files");
+      fireEvent.click(findButton("Cancel"));
+      await expect(result()).resolves.toBeNull();
+      const browser = await r.createTask({
+        name: uniqueName("file_browser"),
+        type: FileBrowser.TASK_TYPE,
+        config: {},
+      });
+      await serveListings(client, { rack: r, browser }, [TOP]);
+      reopen();
+      expect(await findEntry("secrets")).toBeDefined();
+    });
+
+    it("should list a selected folder before it opens", async () => {
+      const { served } = await openBrowser(LISTINGS);
+      await openFolder("/");
+      fireEvent.click(await findEntry("etc"));
+      await waitFor(() => expect(served.paths).toContain("/etc"));
+    });
   });
 
-  it("should resolve with a certificate file picked in a folder", async () => {
-    const { result, rack } = await openBrowser([TOP, ROOT, ETC]);
-    await screen.findByText(rack.name);
-    await openFolder("/");
-    await openFolder("etc");
-    fireEvent.click(await screen.findByText("client.crt"));
-    expect(screen.getByText(/^CN=Plant client · Expires /)).toBeDefined();
-    fireEvent.click(findButton("Select"));
-    await expect(result()).resolves.toEqual(
-      expect.objectContaining({
-        path: "/etc/client.crt",
-        certificate: expect.objectContaining({ subject: DETAILS.subject }),
-      }),
-    );
+  describe("start folder", () => {
+    it("should open the home folder first", async () => {
+      const home = createListing({
+        path: "/home/op",
+        parent: "/home",
+        entries: [{ name: "notes.txt", path: "/home/op/notes.txt", kind: "file" }],
+      });
+      const top = createListing({
+        secretsDir: SECRETS_DIR,
+        entries: [...TOP.entries, { name: "op", path: "/home/op", kind: "directory" }],
+      });
+      await openBrowser([top, home]);
+      expect(await findEntry("notes.txt")).toBeDefined();
+    });
+
+    it("should open the folder of a given file with the file selected", async () => {
+      const { result } = await openBrowser(LISTINGS, "/etc/client.crt");
+      await findEntry("client.crt", true);
+      fireEvent.click(findButton("Select"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: "/etc/client.crt" }),
+      );
+    });
   });
 
-  it("should pick a file on a double click", async () => {
-    const { result } = await openBrowser([TOP, ROOT, ETC]);
-    await openFolder("/");
-    await openFolder("etc");
-    fireEvent.doubleClick(await screen.findByText("hosts"));
-    await expect(result()).resolves.toEqual(
-      expect.objectContaining({ path: "/etc/hosts" }),
-    );
+  describe("navigation", () => {
+    it("should open a place of the Driver", async () => {
+      await openBrowser([...LISTINGS, SECRETS]);
+      await findEntry("secrets");
+      fireEvent.click(screen.getByText("Secrets folder"));
+      expect(await findEntry("ca.crt")).toBeDefined();
+    });
+
+    it("should open a folder on the way to the open one", async () => {
+      const ssl = createListing({
+        path: "/etc/ssl",
+        parent: "/etc",
+        entries: [{ name: "ca.pem", path: "/etc/ssl/ca.pem", kind: "file" }],
+      });
+      await openBrowser([...LISTINGS, ssl]);
+      await openEtc();
+      await openFolder("ssl");
+      await findEntry("ca.pem");
+      const path = screen.getByLabelText("Path");
+      fireEvent.click(within(path).getByRole("button", { name: "etc" }));
+      expect(await findEntry("hosts")).toBeDefined();
+    });
+
+    it("should select a folder on a single click and not open it", async () => {
+      await openBrowser(LISTINGS);
+      await openFolder("/");
+      fireEvent.click(await findEntry("etc"));
+      await findEntry("etc", true);
+      expect(findButton("Select").getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("should go up and select the folder it came from", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.click(screen.getByRole("button", { name: "Up" }));
+      expect(await findEntry("etc", true)).toBeDefined();
+    });
+
+    it("should go up on Backspace in the list", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "Backspace" });
+      expect(await findEntry("etc", true)).toBeDefined();
+    });
+
+    it("should go up a Windows path to its drive", async () => {
+      const dir = (path: string, name: string) =>
+        ({ name, path, kind: "directory" }) as const;
+      await openBrowser(
+        [
+          createListing({ entries: [dir("C:\\", "C:\\")] }),
+          createListing({ path: "C:\\", entries: [dir("C:\\Users", "Users")] }),
+          createListing({ path: "C:\\Users", entries: [dir("C:\\Users\\op", "op")] }),
+          createListing({
+            path: "C:\\Users\\op",
+            entries: [{ name: "a.crt", path: "C:\\Users\\op\\a.crt", kind: "file" }],
+          }),
+        ],
+        "C:\\Users\\op\\a.crt",
+      );
+      await findEntry("a.crt", true);
+      const up = screen.getByRole("button", { name: "Up" });
+      fireEvent.click(up);
+      await findEntry("op", true);
+      fireEvent.click(up);
+      await findEntry("Users", true);
+      expect(up.getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("should go back and forward", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      await findEntry("etc", true);
+      fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+      expect(await findEntry("hosts")).toBeDefined();
+    });
+
+    it("should go back on Alt+Left", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "ArrowLeft", altKey: true });
+      expect(await findEntry("etc", true)).toBeDefined();
+    });
   });
 
-  it("should select a folder on a single click and not open it", async () => {
-    await openBrowser([TOP, ROOT, ETC]);
-    await openFolder("/");
-    fireEvent.click(await screen.findByText("etc"));
-    await screen.findByRole("option", { name: "etc", selected: true });
-    expect(findButton("Select").getAttribute("aria-disabled")).toBe("true");
+  describe("pick", () => {
+    it("should resolve with a certificate file picked in a folder", async () => {
+      const { result } = await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.click(await findEntry("client.crt"));
+      expect(screen.getByText("Plant client")).toBeDefined();
+      fireEvent.click(findButton("Select"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({
+          path: "/etc/client.crt",
+          certificate: expect.objectContaining({ subject: DETAILS.subject }),
+        }),
+      );
+    });
+
+    it("should pick a certificate on a double click", async () => {
+      const { result } = await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.doubleClick(await findEntry("client.crt"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: "/etc/client.crt" }),
+      );
+    });
+
+    it("should pick a file that is not a certificate only under All files", async () => {
+      const { result } = await openBrowser(LISTINGS);
+      await openEtc();
+      const hosts = await findEntry("hosts");
+      fireEvent.click(hosts);
+      fireEvent.doubleClick(hosts);
+      await findEntry("hosts", true);
+      expect(findButton("Select").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(screen.getByText("All files"));
+      fireEvent.doubleClick(await findEntry("hosts"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: "/etc/hosts" }),
+      );
+    });
+
+    it("should open a selected folder and pick a selected file on Enter", async () => {
+      const { result } = await openBrowser(LISTINGS);
+      await openFolder("/");
+      fireEvent.click(await findEntry("etc"));
+      await findEntry("etc", true);
+      pressEnter();
+      fireEvent.click(await findEntry("client.crt"));
+      await findEntry("client.crt", true);
+      pressEnter();
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: "/etc/client.crt" }),
+      );
+    });
+
+    it("should pick the selected file on the shortcut its Select button shows", async () => {
+      const { result } = await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.click(await findEntry("client.crt"));
+      within(findButton("Select")).getByText("Ctrl");
+      pressSave();
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: "/etc/client.crt" }),
+      );
+    });
+
+    it("should resolve with null on cancel", async () => {
+      const { result } = await openBrowser([TOP]);
+      await findEntry("secrets");
+      fireEvent.click(findButton("Cancel"));
+      await expect(result()).resolves.toBeNull();
+      await waitFor(() => expect(screen.queryByText("secrets")).toBeNull());
+    });
   });
 
-  it("should open a folder on a double click", async () => {
-    const { result } = await openBrowser([TOP, ROOT, ETC]);
-    await openFolder("/");
-    fireEvent.doubleClick(await screen.findByText("etc"));
-    await screen.findByText("hosts");
-    fireEvent.click(findButton("Cancel"));
-    await expect(result()).resolves.toBeNull();
-  });
+  describe("list", () => {
+    it("should list folders first, then files by name", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      expect(entryNames()).toEqual([
+        expect.stringMatching(/^ssl/),
+        expect.stringMatching(/^client\.crt/),
+        expect.stringMatching(/^hosts/),
+      ]);
+    });
 
-  it("should open a selected folder and pick a selected file on Enter", async () => {
-    const { result } = await openBrowser([TOP, ROOT, ETC]);
-    await openFolder("/");
-    fireEvent.click(await screen.findByText("etc"));
-    await screen.findByRole("option", { name: "etc", selected: true });
-    pressEnter();
-    fireEvent.click(await screen.findByText("hosts"));
-    await screen.findByRole("option", { name: "hosts", selected: true });
-    pressEnter();
-    await expect(result()).resolves.toEqual(
-      expect.objectContaining({ path: "/etc/hosts" }),
-    );
-  });
+    it("should reverse the order on a click of the sorted heading", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.click(screen.getByRole("button", { name: /^Name/ }));
+      await waitFor(() =>
+        expect(entryNames()).toEqual([
+          expect.stringMatching(/^ssl/),
+          expect.stringMatching(/^hosts/),
+          expect.stringMatching(/^client\.crt/),
+        ]),
+      );
+    });
 
-  it("should pick the selected file on the shortcut its Select button shows", async () => {
-    const { result } = await openBrowser([TOP, ROOT, ETC]);
-    await openFolder("/");
-    await openFolder("etc");
-    fireEvent.click(await screen.findByText("client.crt"));
-    within(findButton("Select")).getByText("Ctrl");
-    pressSave();
-    await expect(result()).resolves.toEqual(
-      expect.objectContaining({ path: "/etc/client.crt" }),
-    );
-  });
+    it("should count the entries of a folder", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      expect(screen.getByText("3 items")).toBeDefined();
+    });
 
-  it("should go up to the parent folder", async () => {
-    await openBrowser([TOP, ROOT, ETC]);
-    await openFolder("/");
-    await openFolder("etc");
-    await screen.findByText("hosts");
-    fireEvent.click(screen.getByRole("button", { name: "Up" }));
-    await screen.findByText("etc");
-    expect(screen.queryByText("hosts")).toBeNull();
-  });
+    it("should say when the Driver stopped before it listed every entry", async () => {
+      await openBrowser([{ ...TOP, truncated: true }]);
+      expect(await screen.findByText("Shows the first 2 items.")).toBeDefined();
+    });
 
-  it("should keep the listing and show the error of a folder that fails", async () => {
-    await openBrowser([TOP, ROOT, ETC]);
-    await openFolder("/");
-    await openFolder("etc");
-    await openFolder("ssl");
-    await screen.findByText("/etc/ssl does not exist.");
-    expect(screen.getByText("Failed to list files")).toBeDefined();
-    expect(screen.getByText("hosts")).toBeDefined();
-  });
+    it("should say when a folder is empty", async () => {
+      await openBrowser([
+        ...LISTINGS,
+        createListing({ path: "/etc/ssl", parent: "/etc" }),
+      ]);
+      await openEtc();
+      await openFolder("ssl");
+      expect(await screen.findByText("This folder is empty")).toBeDefined();
+    });
 
-  it("should say when the rack stopped before it listed every entry", async () => {
-    await openBrowser([{ ...TOP, truncated: true }]);
-    await screen.findByText(`Shows the first ${TOP.entries.length} entries.`);
-  });
-
-  it("should resolve with null on cancel", async () => {
-    const { result } = await openBrowser([TOP]);
-    await screen.findByText("secrets");
-    fireEvent.click(findButton("Cancel"));
-    await expect(result()).resolves.toBeNull();
-    await waitFor(() => expect(screen.queryByText("secrets")).toBeNull());
+    it("should show the error of a folder that fails and go back from it", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      await openFolder("ssl");
+      await screen.findByText("/etc/ssl does not exist.");
+      expect(screen.getByText("Failed to list files")).toBeDefined();
+      expect(screen.queryByRole("listbox", { name: "Files" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+      expect(await findEntry("ssl", true)).toBeDefined();
+    });
   });
 });

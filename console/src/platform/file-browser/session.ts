@@ -100,7 +100,8 @@ export class Session {
 
   private update(path?: string, listing?: Listing): void {
     let { listings } = this.snap;
-    if (path != null && listing != null) listings = new Map(listings).set(path, listing);
+    if (path != null && listing != null)
+      listings = new Map(listings).set(path, listing);
     this.snap = { listings, loading: new Set(this.pending.keys()) };
     this.listeners.forEach((listener) => listener());
   }

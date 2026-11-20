@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -38,8 +37,16 @@ export const PathBar = ({ path, onGo }: PathBarProps): ReactElement => {
     >
       <Icon.Computer className={CSS.BE("file-browser", "path-icon")} />
       {shown.map((s, i) => (
-        <Flex.Box x align="center" empty key={s.path} className={CSS.BE("file-browser", "segment")}>
-          {i > 0 && <Icon.Caret.Right className={CSS.BE("file-browser", "separator")} />}
+        <Flex.Box
+          x
+          align="center"
+          empty
+          key={s.path}
+          className={CSS.BE("file-browser", "segment")}
+        >
+          {i > 0 && (
+            <Icon.Caret.Right className={CSS.BE("file-browser", "separator")} />
+          )}
           <Button.Button
             variant="text"
             size="tiny"

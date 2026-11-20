@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 import { type certificate, type TimeStamp } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -77,6 +76,8 @@ export const COLUMNS: Column[] = [
 
 const NUMERIC_CLASS = CSS.BE("file-browser", "numeric");
 
+const CELLS_CLASS = CSS.BE("file-browser", "cells");
+
 export interface HeadProps {
   sort: Sort;
   onSort: (sort: Sort) => void;
@@ -85,7 +86,7 @@ export interface HeadProps {
 /** The headings of the columns. A click on a heading sorts by its column. */
 export const Head = ({ sort, onSort }: HeadProps): ReactElement => (
   <div className={CSS.BE("file-browser", "head")}>
-    <List.Cells>
+    <List.Cells className={CELLS_CLASS}>
       {COLUMNS.map(({ key, name, numeric = false }) => {
         if (key == null)
           return (
@@ -106,7 +107,9 @@ export const Head = ({ sort, onSort }: HeadProps): ReactElement => (
                 CSS.BE("file-browser", "heading-text"),
                 active && CSS.M("active"),
               )}
-              onClick={() => onSort({ key, ascending: active ? !sort.ascending : true })}
+              onClick={() =>
+                onSort({ key, ascending: active ? !sort.ascending : true })
+              }
             >
               {numeric && caret}
               {name}
@@ -169,17 +172,28 @@ const Expiry = ({ details, now }: ExpiryProps): ReactElement | null => {
   let text = DATE.format(details.notAfter.date());
   if (now.afterEq(details.notAfter)) text = "Expired";
   else if (now.before(details.notBefore)) text = "Not yet valid";
-  return <Badge.Badge status={validity.status}>{text}</Badge.Badge>;
+  return (
+    <Badge.Badge status={validity.status} className={CSS.BE("file-browser", "badge")}>
+      {text}
+    </Badge.Badge>
+  );
 };
 
 interface ItemProps extends List.ItemProps<string> {
   now: TimeStamp;
   type: TypeFilter;
   onOpen: (entry: Entry) => void;
-  onHover: (entry: Entry) => void;
+  /** Called when the pointer enters an entry. */
+  onPoint: (entry: Entry) => void;
 }
 
-const Item = ({ now, type, onOpen, onHover, ...rest }: ItemProps): ReactElement | null => {
+const Item = ({
+  now,
+  type,
+  onOpen,
+  onPoint,
+  ...rest
+}: ItemProps): ReactElement | null => {
   const entry = List.useItem<string, KeyedEntry>(rest.itemKey);
   if (entry == null) return null;
   const { certificate } = entry;
@@ -195,11 +209,16 @@ const Item = ({ now, type, onOpen, onHover, ...rest }: ItemProps): ReactElement 
       )}
       textValue={entry.name}
       onDoubleClick={() => onOpen(entry)}
-      onMouseEnter={() => onHover(entry)}
+      onMouseEnter={() => onPoint(entry)}
     >
-      <List.Cells>
+      <List.Cells className={CELLS_CLASS}>
         <List.Cell>
-          <Flex.Box x align="center" gap="medium" className={CSS.BE("file-browser", "name")}>
+          <Flex.Box
+            x
+            align="center"
+            gap="medium"
+            className={CSS.BE("file-browser", "name")}
+          >
             <EntryIcon
               className={CSS.cls(
                 CSS.BE("file-browser", "icon"),
@@ -214,7 +233,9 @@ const Item = ({ now, type, onOpen, onHover, ...rest }: ItemProps): ReactElement 
             {certificate == null ? "" : subjectName(certificate.subject)}
           </Text.Text>
         </List.Cell>
-        <List.Cell>{certificate != null && <Expiry details={certificate} now={now} />}</List.Cell>
+        <List.Cell>
+          {certificate != null && <Expiry details={certificate} now={now} />}
+        </List.Cell>
         <List.Cell className={NUMERIC_CLASS}>
           <Text.Text level="small" color={9}>
             {entry.kind === "file" ? formatSize(entry.size) : ""}
@@ -230,7 +251,10 @@ const Item = ({ now, type, onOpen, onHover, ...rest }: ItemProps): ReactElement 
   );
 };
 
-export interface EntriesProps extends Pick<ItemProps, "now" | "type" | "onOpen" | "onHover"> {
+export interface EntriesProps extends Pick<
+  ItemProps,
+  "now" | "type" | "onOpen" | "onPoint"
+> {
   /** Opens the parent folder on Backspace. */
   onUp: () => void;
 }
