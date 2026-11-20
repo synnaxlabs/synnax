@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/config"
@@ -287,6 +288,11 @@ func (c *Calculator) WriteTo() channel.Keys { return c.deps.Writes.Slice() }
 func (c *Calculator) ReadFrom() channel.Keys { return c.deps.Reads.Slice() }
 
 func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
+
+// Calculation returns the calculation the calculator runs.
+func (c *Calculator) Calculation() calculation.Calculation {
+	return c.cfg.Module.Calculation
+}
 
 // String returns a human-readable representation of the calculator including channel
 // properties like name, key, index, data type, and dependency count.

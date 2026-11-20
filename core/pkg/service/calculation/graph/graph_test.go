@@ -80,16 +80,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func openGraph(ctx context.Context) *graph.Graph {
 	GinkgoHelper()
 	return MustOpen(graph.Open(ctx, graph.Config{
-		DB:      db,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		DB:          db,
+		Channel:     channelSvc,
+		Calculation: creator.Calculation,
+		Status:      statusSvc,
 	}))
 }
 
 func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
+	c, err := creator.CalculationOf(ctx, key)
+	if err != nil {
+		return calculation.Status{}, false
+	}
 	var statuses []calculation.Status
-	err := statusSvc.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
+	err = statusSvc.NewRetrieve[struct{}]().
+		Where(status.MatchOwners[struct{}](calculation.ResourceID(c.Key))).
 		Entries(&statuses).
 		Exec(ctx, db)
 	if err != nil || len(statuses) == 0 {
@@ -1147,8 +1152,30 @@ var _ = Describe("Graph", func() {
 				Expect(s.Variant).To(Equal(status.VariantError))
 				Expect(s.Message).To(Equal("Failed to compile calculation"))
 				Expect(s.Description).ToNot(BeEmpty())
-				Expect(s.Owner).To(HaveValue(Equal(channel.ResourceID(calc.Key()))))
+				c := MustSucceed(creator.CalculationOf(ctx, calc.Key()))
+				Expect(s.Owner).To(HaveValue(Equal(calculation.ResourceID(c.Key))))
 				Expect(s.Name).To(Equal("st_detail"))
+			},
+		)
+
+		It(
+			"Should rename the status of a calculation when its output is renamed",
+			func(ctx SpecContext) {
+				openGraph(ctx)
+				calc := createBrokenCalc(ctx, "st_rename", "st_rename_dep")
+				expectStatus(ctx, calc.Key())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := channelSvc.NewWriter(tx).Apply(
+						ctx,
+						calc.Key(),
+						channel.NewRenameAction(channel.RenamePayload{Name: "st_renamed"}),
+					)
+					return err
+				})).To(Succeed())
+				Eventually(func() string {
+					s, _ := fetchStatus(ctx, calc.Key())
+					return s.Name
+				}).Should(Equal("st_renamed"))
 			},
 		)
 
@@ -1814,17 +1841,19 @@ var _ = Describe("Graph", func() {
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			Expect(MustOpen(graph.Open(ctx, graph.Config{
-				DB:      db,
-				Channel: channelSvc,
-				Status:  statusSvc,
+				DB:          db,
+				Channel:     channelSvc,
+				Calculation: creator.Calculation,
+				Status:      statusSvc,
 			}))).ToNot(BeNil())
 		})
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				DB:      db,
-				Channel: channelSvc,
-				Status:  statusSvc,
+				DB:          db,
+				Channel:     channelSvc,
+				Calculation: creator.Calculation,
+				Status:      statusSvc,
 			}))
 			base := channel.Channel{
 				Name:     "lc_disc_base",
@@ -1880,9 +1909,10 @@ var _ = Describe("Graph", func() {
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {
 			g := MustOpen(graph.Open(ctx, graph.Config{
-				DB:      db,
-				Channel: channelSvc,
-				Status:  statusSvc,
+				DB:          db,
+				Channel:     channelSvc,
+				Calculation: creator.Calculation,
+				Status:      statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())
 		})

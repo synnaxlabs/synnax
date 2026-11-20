@@ -10,16 +10,15 @@
 package calculation
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// StatusFromError builds the error status for a calculated channel whose expression
-// fails to compile.
-func StatusFromError(key channel.Key, name string, err error) *Status {
+// StatusFromError builds the error status for the calculation with key, whose output
+// is named name, when its expression fails to compile.
+func StatusFromError(key Key, name string, err error) *Status {
 	return &Status{
-		Owner:       new(channel.ResourceID(key)),
+		Owner:       new(ResourceID(key)),
 		Name:        name,
 		Variant:     status.VariantError,
 		Message:     "Failed to compile calculation",

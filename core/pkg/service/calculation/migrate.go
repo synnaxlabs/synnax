@@ -37,9 +37,9 @@ func migratedKey(key channel.Key) Key {
 // Migration returns the migration that builds the calculation record of each stored
 // channel with an expression, keyed by a UUIDv5 of the channel key, and deletes the
 // status of each one. A reset channel that issuedAtOpen says the Core never issued
-// becomes absent. An operation of no type is dropped, and the calculation gets a
-// warning status that names it. Migration reads the channel and status tables, so it
-// runs after both open.
+// becomes absent. An operation of no type is dropped, with a warning status that names
+// the channel. Migration reads the channel and status tables, so it runs after both
+// open.
 func (s *Service) Migration(
 	statuses *status.Service,
 	issuedAtOpen func(channel.Key) bool,
@@ -69,7 +69,7 @@ func (s *Service) Migration(
 					return err
 				}
 				if dropped {
-					warnings = append(warnings, droppedStatus(c.Key, ch.Name))
+					warnings = append(warnings, droppedStatus(ch.Name))
 				}
 			}
 			w := statuses.NewWriter(tx)
@@ -100,9 +100,10 @@ func storedOperations(
 	return kept, len(kept) < len(ops)
 }
 
-func droppedStatus(key Key, name string) Status {
+// droppedStatus returns the warning that the upgrade dropped operations of the channel
+// named name. It has no owner, since the graph writes the status of a calculation.
+func droppedStatus(name string) Status {
 	return Status{
-		Owner:   new(ResourceID(key)),
 		Name:    name,
 		Variant: status.VariantWarning,
 		Message: "Dropped operations with no type",

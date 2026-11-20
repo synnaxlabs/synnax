@@ -126,6 +126,8 @@ type Module struct {
 	arc.Program
 	// Channel is the calculated channel this module was compiled for.
 	Channel channel.Channel
+	// Calculation is the calculation this module was compiled from.
+	Calculation calculation.Calculation
 }
 
 // Compile builds a full execution Module for the given calculated channel. The module
@@ -294,5 +296,10 @@ func compile(
 	if err != nil {
 		return Module{}, err
 	}
-	return Module{Channel: cfg.Channel, Dependencies: deps, Program: program}, nil
+	return Module{
+		Channel:      cfg.Channel,
+		Calculation:  cfg.Calculation,
+		Dependencies: deps,
+		Program:      program,
+	}, nil
 }

@@ -218,24 +218,21 @@ func (w Writer) CreateMany(
 	return w.create(ctx, channels, o)
 }
 
-// ChangeDataType persists dataType to the already-existing channel with the given key,
-// without analyzing its expression. It is the calculation graph's write path for the
-// calculated-channel DataTypes it derives via a cross-channel fixpoint: the graph is
-// their source of truth, so re-deriving them here — as CreateMany would — is both
-// redundant and, for interdependent channels analyzed in one pass against pre-update
-// storage, incorrect. It returns validate.Error if the target channel is not
-// calculated, since a non-calculated channel's DataType is fixed by its persistent
-// storage. It attaches a set of the data type.
+// ChangeDataType persists dataType to the existing virtual channel with the given key
+// and attaches a set of the data type. It is the write path of the calculation graph,
+// which derives the data type of each calculation output. It returns an error wrapping
+// validate.ErrValidation when the channel stores its samples, since its storage fixes
+// its data type.
 func (w Writer) ChangeDataType(
 	ctx context.Context, key Key, dataType telem.DataType,
 ) error {
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](key)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if !c.IsCalculated() {
+			if !c.Virtual {
 				return Channel{}, errors.Wrapf(
 					validate.ErrValidation,
-					"cannot change the data type of non-calculated channel %q",
+					"cannot change the data type of channel %q, which stores its samples",
 					c.Name,
 				)
 			}

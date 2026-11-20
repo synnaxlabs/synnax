@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -95,6 +96,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 
 // Close releases the resources of the service.
 func (s *Service) Close() error { return s.closer.Close() }
+
+// Observe returns an observable that fires with the changes each commit makes to
+// calculations.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Calculation]] {
+	return s.table.Observe()
+}
 
 // Changes returns the changes that c made to calculations.
 func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Calculation] {

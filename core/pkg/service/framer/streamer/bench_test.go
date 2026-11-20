@@ -85,9 +85,10 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	})
 	writerSvc = mustOpen(b, "writer service", writerSvc, err)
 	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
-		DB:      node.DB,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		DB:          node.DB,
+		Calculation: calcSvc,
+		Channel:     channelSvc,
+		Status:      statusSvc,
 	})
 	channelGraph = mustOpen(b, "channel calculation graph", channelGraph, err)
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{

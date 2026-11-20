@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -87,7 +86,9 @@ var _ = Describe("Calculation records upgrade checks", func() {
 			Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().
 				Entries(&statuses).
 				Exec(ctx, n.DB)).To(Succeed())
-			owner := channel.ResourceID(broken.Key())
+			owner := calculation.ResourceID(
+				calculationOf(ctx, n, l.Calculation, broken.Key()).Key,
+			)
 			var owned []status.Status[any]
 			for _, st := range statuses {
 				if st.Owner != nil && *st.Owner == owner {

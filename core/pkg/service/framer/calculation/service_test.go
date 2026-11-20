@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
@@ -155,9 +156,10 @@ var _ = Describe("Calculation", Ordered, func() {
 			Channel: channelSvc,
 		}))
 		channelGraph = MustOpen(calcgraph.Open(ctx, calcgraph.Config{
-			DB:      dist.DB,
-			Channel: channelSvc,
-			Status:  statusSvc,
+			DB:          dist.DB,
+			Calculation: calcSvc,
+			Channel:     channelSvc,
+			Status:      statusSvc,
 		}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:           dist.DB,
@@ -167,6 +169,91 @@ var _ = Describe("Calculation", Ordered, func() {
 			Calculation:  calcSvc,
 			ChannelGraph: channelGraph,
 		}))
+	})
+
+	// statusOwner returns the owner of the status of the calculation that writes
+	// output.
+	statusOwner := func(ctx context.Context, output channel.Channel) resource.ID {
+		GinkgoHelper()
+		c := MustSucceed(creator.CalculationOf(ctx, output.Key()))
+		return calcsvc.ResourceID(c.Key)
+	}
+
+	Describe("Calculation records", func() {
+		It("Should run and recompile a calculation that only its record holds", func(
+			ctx SpecContext,
+		) {
+			base := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			output := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			record := calcsvc.Calculation{
+				Expression: fmt.Sprintf("return %s * 2", base.Name),
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				if err := w.Create(ctx, &base); err != nil {
+					return err
+				}
+				if err := w.Create(ctx, &output); err != nil {
+					return err
+				}
+				record.Output = output.Key()
+				return calcSvc.NewWriter(tx).Create(ctx, &record)
+			})).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.Keys{output.Key()})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { Expect(rm.Close(ctx)).To(Succeed()) })
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: 1 * telem.SecondTS,
+				Keys:  channel.Keys{base.Key()},
+			}))
+			DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+			streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        channel.Keys{output.Key()},
+				SendOpenAck: new(true),
+			}))
+			_, sOutlet := confluence.Attach(streamer, 1, 1)
+			streamer.Flow(sCtx)
+			Eventually(sOutlet.Outlet()).Should(Receive())
+			Expect(
+				w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](1, 2))),
+			).To(BeTrue())
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.Get(output.Key()).Series[0]).
+				To(telem.MatchSeriesDataV[int64](2, 4))
+
+			By("Editing the expression of the calculation")
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return calcSvc.NewWriter(tx).Apply(
+					ctx,
+					record.Key,
+					calcsvc.NewSetAction(calcsvc.SetPayload{
+						Path:  []string{"expression"},
+						Value: fmt.Sprintf("return %s * 3", base.Name),
+					}),
+				)
+			})).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(
+					w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](3))),
+				).To(BeTrue())
+				var res framer.StreamerResponse
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(output.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[int64](9))
+			}, 5*time.Second, 10*time.Millisecond).Should(Succeed())
+		})
 	})
 
 	Describe("Calculation Patterns", func() {
@@ -976,7 +1063,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
 				).To(Succeed())
 				var st calculation.Status
-				owner := calc.ResourceID()
+				owner := statusOwner(ctx, calc)
 				Expect(statusSvc.NewRetrieve[struct{}]().
 					Where(status.MatchOwners[struct{}](owner)).
 					Entry(&st).
@@ -1021,7 +1108,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					)
 				})).To(Succeed())
 				var st calculation.Status
-				owner := calc.ResourceID()
+				owner := statusOwner(ctx, calc)
 				Eventually(func(g Gomega) {
 					g.Expect(statusSvc.NewRetrieve[struct{}]().
 						Where(status.MatchOwners[struct{}](owner)).
@@ -1053,7 +1140,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				stored := func() (calculation.Status, error) {
 					var st calculation.Status
 					err := statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchOwners[struct{}](dep.ResourceID())).
+						Where(status.MatchOwners[struct{}](statusOwner(ctx, dep))).
 						Entry(&st).
 						Exec(ctx, dist.DB)
 					return st, err
@@ -1150,7 +1237,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				mu.Lock()
 				writes = nil
 				mu.Unlock()
-				owner := calc.ResourceID()
+				owner := statusOwner(ctx, calc)
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],
@@ -1267,15 +1354,24 @@ var _ = Describe("Calculation", Ordered, func() {
 					openCalc(ctx)
 					write(0)
 					Eventually(written).Should(ConsistOf(failure()))
+					renamed := UniqueChannelName()
 					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 						return channelSvc.NewWriter(tx).Rename(
-							ctx, calc.Key(), UniqueChannelName(), false,
+							ctx, calc.Key(), renamed, false,
 						)
 					})).To(Succeed())
 					flushChanges(ctx)
+					// The rename gives the failure the new name of the channel.
+					Eventually(written).Should(HaveExactElements(failure(), failure()))
+					var st calculation.Status
+					Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchOwners[struct{}](statusOwner(ctx, calc))).
+						Entry(&st).
+						Exec(ctx, dist.DB)).To(Succeed())
+					Expect(st.Name).To(Equal(renamed))
 					writeGood()
 					Eventually(written).
-						Should(HaveExactElements(failure(), success))
+						Should(HaveExactElements(failure(), failure(), success))
 				},
 			)
 
@@ -1385,7 +1481,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					stored := func() (calculation.Status, error) {
 						var st calculation.Status
 						err := statusSvc.NewRetrieve[struct{}]().
-							Where(status.MatchOwners[struct{}](calc.ResourceID())).
+							Where(status.MatchOwners[struct{}](statusOwner(ctx, calc))).
 							Entry(&st).
 							Exec(ctx, dist.DB)
 						return st, err
@@ -1428,7 +1524,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				flushChanges(ctx)
 				var st calculation.Status
 				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](calc.ResourceID())).
+					Where(status.MatchOwners[struct{}](statusOwner(ctx, calc))).
 					Entry(&st).
 					Exec(ctx, dist.DB)).To(MatchError(query.ErrNotFound))
 			},
@@ -1456,7 +1552,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				var st calculation.Status
-				owner := calc.ResourceID()
+				owner := statusOwner(ctx, calc)
 				Expect(statusSvc.NewRetrieve[struct{}]().
 					Where(status.MatchOwners[struct{}](owner)).
 					Entry(&st).

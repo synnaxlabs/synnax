@@ -463,6 +463,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		Calculation:     l.Calculation,
 		Status:          l.Status,
 	})
 	if !ok(err, channelGraph) {

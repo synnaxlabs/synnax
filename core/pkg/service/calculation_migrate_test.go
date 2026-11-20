@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -303,7 +304,7 @@ var _ = Describe("Calculation records upgrade", func() {
 		Expect(second).To(Equal(first))
 	})
 
-	It("Should warn on a calculation whose operation it drops for no type", func(
+	It("Should keep a warning for an operation it drops for no type", func(
 		ctx SpecContext,
 	) {
 		var untyped channelv1.Channel
@@ -333,14 +334,17 @@ var _ = Describe("Calculation records upgrade", func() {
 		Expect(c.Operations).To(Equal([]calculation.Operation{
 			{Variant: calculation.MaxOperation{}},
 		}))
-		var warning status.Status[any]
-		Expect(l.Status.NewRetrieve[any]().
-			Where(status.MatchOwners[any](calculation.ResourceID(c.Key))).
-			Entry(&warning).
-			Exec(ctx, n.DB)).To(Succeed())
+		var statuses []status.Status[any]
+		Expect(l.Status.NewRetrieve[any]().Entries(&statuses).Exec(ctx, n.DB)).
+			To(Succeed())
+		warnings := lo.Filter(statuses, func(s status.Status[any], _ int) bool {
+			return s.Message == "Dropped operations with no type"
+		})
+		Expect(warnings).To(HaveLen(1))
+		warning := warnings[0]
+		Expect(warning.Owner).To(BeNil())
 		Expect(warning.Variant).To(Equal(status.VariantWarning))
 		Expect(warning.Name).To(Equal("untyped"))
-		Expect(warning.Message).To(Equal("Dropped operations with no type"))
 		Expect(warning.Description).To(Equal(
 			"The upgrade dropped the stored operations of untyped that had no type. " +
 				"Add them again to keep them.",

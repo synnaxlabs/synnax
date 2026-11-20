@@ -78,19 +78,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      node.DB,
 		Channel: channelSvc,
-		Status:  statusSvc,
+	}))
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:          node.DB,
+		Calculation: calcSvc,
+		Channel:     channelSvc,
+		Status:      statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		DB:      node.DB,
-		Framer:  node.Framer,
-		Channel: channelSvc,
-		Calculation: MustOpen(calculation.OpenService(
-			ctx,
-			calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
-		)),
+		DB:           node.DB,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		Calculation:  calcSvc,
 		ChannelGraph: channelGraph,
 	}))
 	sigs := MustSucceed(signals.New(signals.Config{

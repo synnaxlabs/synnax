@@ -11,6 +11,7 @@ package calculation
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	"github.com/samber/lo"
@@ -407,7 +408,8 @@ func groupEquals(mods []compiler.Module, g *group) bool {
 		return false
 	}
 	for i, m := range mods {
-		if !m.Channel.Equals(g.Calculators[i].Channel(), "Name") {
+		if !m.Channel.Equals(g.Calculators[i].Channel(), "Name") ||
+			!reflect.DeepEqual(m.Calculation, g.Calculators[i].Calculation()) {
 			return false
 		}
 	}

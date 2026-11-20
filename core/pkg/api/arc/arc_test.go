@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -470,7 +471,9 @@ var _ = Describe("Service", func() {
 				Eventually(func(g Gomega) {
 					var stat status.Status[struct{}]
 					g.Expect(statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchOwners[struct{}](channel.ResourceID(inner.Key()))).
+						Where(status.MatchOwners[struct{}](calculation.ResourceID(
+							MustSucceed(creator.CalculationOf(ctx, inner.Key())).Key,
+						))).
 						Entry(&stat).
 						Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(Equal(status.VariantError))

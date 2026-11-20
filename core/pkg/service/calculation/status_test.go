@@ -10,10 +10,11 @@
 package calculation_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -21,13 +22,14 @@ import (
 var _ = Describe("Status", func() {
 	Describe("StatusFromError", func() {
 		It("Should build a status with the correct fields", func() {
+			key := uuid.New()
 			st := calculation.StatusFromError(
-				channel.Key(42),
+				key,
 				"my_channel",
 				errors.New("unexpected token"),
 			)
 			Expect(st.Key).To(BeEmpty())
-			Expect(st.Owner).To(HaveValue(Equal(channel.ResourceID(42))))
+			Expect(st.Owner).To(HaveValue(Equal(calculation.ResourceID(key))))
 			Expect(st.Name).To(Equal("my_channel"))
 			Expect(st.Variant).To(Equal(status.VariantError))
 			Expect(st.Message).To(Equal("Failed to compile calculation"))

@@ -73,9 +73,10 @@ var _ = Describe("Streamer", Ordered, func() {
 			Channel: channelSvc,
 		}))
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
-			DB:      node.DB,
-			Channel: channelSvc,
-			Status:  statusSvc,
+			DB:          node.DB,
+			Calculation: calcSvc,
+			Channel:     channelSvc,
+			Status:      statusSvc,
 		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:           node.DB,

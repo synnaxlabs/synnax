@@ -204,6 +204,31 @@ func (s *Service) Create(
 	}, nil
 }
 
+// statusOwners returns the owner of the status of each of channels: the calculation
+// that writes it, or the channel itself.
+func (s *Service) statusOwners(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	channels []channel.Channel,
+) ([]resource.ID, error) {
+	calcs, err := s.calculations.Outputs(
+		ctx,
+		snap,
+		channel.KeysFromChannels(channels)...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	owners := make([]resource.ID, len(channels))
+	for i, ch := range channels {
+		owners[i] = channel.ResourceID(ch.Key())
+		if c, ok := calcs[ch.Key()]; ok {
+			owners[i] = calculation.ResourceID(c.Key)
+		}
+	}
+	return owners, nil
+}
+
 var _ bind.Named = RetrieveRequest{}
 
 // Named implements bind.Named. It returns the channels that the top level of Where
@@ -231,11 +256,11 @@ func (s *Service) Retrieve(
 		Channels: translateChannelsForward(resChannels, s.internal.IsBuiltIn),
 	}
 	if req.IncludeStatus {
-		statuses, err := s.status.Join[struct{}](
-			ctx,
-			snap,
-			channel.ResourceIDsFromChannels(resChannels),
-		)
+		owners, err := s.statusOwners(ctx, snap, resChannels)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		statuses, err := s.status.Join[struct{}](ctx, snap, owners)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}

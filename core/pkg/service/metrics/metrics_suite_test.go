@@ -64,9 +64,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel: channelSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
-		DB:      dist.DB,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		DB:          dist.DB,
+		Calculation: calcSvc,
+		Channel:     channelSvc,
+		Status:      statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		DB:           dist.DB,

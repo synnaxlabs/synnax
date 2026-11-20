@@ -66,19 +66,21 @@ var _ = Describe("Signals", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  stat,
 		}))
-		graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channelSvc,
-			Status:  stat,
+		}))
+		graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:          node.DB,
+			Calculation: calcSvc,
+			Channel:     channelSvc,
+			Status:      stat,
 		}))
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			DB:      node.DB,
-			Framer:  node.Framer,
-			Channel: channelSvc,
-			Calculation: MustOpen(calculation.OpenService(
-				ctx,
-				calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
-			)),
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			Calculation:  calcSvc,
 			ChannelGraph: graph,
 		}))
 		sigs := MustSucceed(signals.New(signals.Config{

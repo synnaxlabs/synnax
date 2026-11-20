@@ -2035,13 +2035,12 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should return a validation error when changing the data type of a non-calculated channel",
+			"Should return a validation error when changing the data type of a stored channel",
 			func(ctx SpecContext) {
 				ch := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Float64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &ch)
@@ -2053,7 +2052,7 @@ var _ = Describe("Writer", func() {
 					MatchError(validate.ErrValidation),
 					MatchError(
 						ContainSubstring(
-							"cannot change the data type of non-calculated channel",
+							"which stores its samples",
 						),
 					),
 				))
@@ -2064,7 +2063,7 @@ var _ = Describe("Writer", func() {
 						Entry(&retrieved).
 						Exec(ctx, db),
 				).To(Succeed())
-				Expect(retrieved.DataType).To(Equal(telem.Float64T))
+				Expect(retrieved.DataType).To(Equal(telem.TimestampT))
 			},
 		)
 	})
