@@ -210,7 +210,7 @@ as one event (RFC 0117 §4.8), at the cost of one sealed segment and one new str
 | `cesium/internal/log` (NEW)               | The log file, frames, the record codec                                                           | `place`, `x/go/io/fs`                       | `segment`, `state`, `checkpoint`                 |
 | `cesium/internal/state` (NEW)             | Pointer sets, claims, the counters, and the rules that apply or refuse a record                  | `log`, `x/go/telem`                         | `segment`, `checkpoint`                          |
 | `core/cmd/purge`, `core/cmd/repair` (NEW) | The offline commands, the directory lock, the prompt                                             | `core/pkg/storage`, `cesium`                | `cesium/internal`                                |
-| `cesium/internal/checkpoint` (NEW)        | Heads, parts, the part cache                                                                     | `place`, `state`, `x/go/io/fs`              | `segment`                                        |
+| `cesium/internal/checkpoint` (NEW)        | Heads, parts, the part cache, the files of logs                                                  | `place`, `state`, `log`, `x/go/io/fs`       | `segment`                                        |
 | `cesium/internal/convert` (NEW)           | The old-layout reader and the first head and log                                                 | `state`, `checkpoint`, `log`, `x/go/io/fs`  | `segment`                                        |
 | `core/pkg/distribution/framer`            | Sessions, relay, virtual channels, control, the delete claim, alignment numbers of unstored data | `cesium`, `x/go/control`, channel key types | `cesium/internal`, the service layer             |
 | `core/pkg/service/channel`                | Channel records, delete order, the `Sweep` call, the lookup it gives the framer                  | `gorp`, `cesium`, the framer                | `cesium/internal`                                |
@@ -580,9 +580,10 @@ then has no head, the older head and its logs stay, and the next switch writes h
    head in use. A failed sync before the stop can leave them only in the page cache. The
    bytes are equal, so a torn write of them changes nothing (principle 3).
 9. Unless the last valid frame is a clean mark, write one frame with a Restart at the
-   next 4 KiB boundary and sync. When the log is past three quarters, write the header
-   of the next log first and put the Restart there. No Reserve is written at open: the
-   log reserves a block when a writer first needs a value, 16 values at first and 1,024
+   next 4 KiB boundary and sync. When the log is past three quarters and the file of the
+   next log exists, write its header first and put the Restart there; when it is
+   missing, the Restart goes in the live log. No Reserve is written at open: the log
+   reserves a block when a writer first needs a value, 16 values at first and 1,024
    after that.
 10. Open. The orphan pass runs once, on the listing taken at open. It removes every
     `.seg` and `.chk` file in that listing that the state does not name, at any
