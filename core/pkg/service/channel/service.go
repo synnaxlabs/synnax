@@ -67,8 +67,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// ValidateNames sets whether to validate channel names during creation and
-	// renaming.
+	// ValidateNames is false on a Core started with the old name validation flag. Arc
+	// then reads a dashed name as one identifier, so text written under the flag keeps
+	// compiling until the upgrade quotes it. Names follow the name rule either way.
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
@@ -379,5 +380,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // Actions returns the action batches that Writer attaches to its transactions.
 func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
-// ShouldValidateNames reports whether channel-name validation is enabled.
+// ShouldValidateNames reports false on a Core started with the old name validation
+// flag, where Arc reads a dashed name as one identifier.
 func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }

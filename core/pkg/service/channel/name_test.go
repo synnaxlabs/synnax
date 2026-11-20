@@ -96,7 +96,7 @@ var _ = Describe("Unique names", Ordered, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).CreateMany(ctx, &chs)
 		})).To(MatchError(
-			ContainSubstring("channel with name 'pt_batch_01' already exists"),
+			ContainSubstring("duplicate channel name 'pt_batch_01' in request"),
 		))
 	})
 
