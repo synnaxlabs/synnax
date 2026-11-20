@@ -32,7 +32,11 @@ export const stateZ = z.object({
 });
 
 /** drawnStateZ is the state of a component that draws its stale color on the worker. */
-export const drawnStateZ = stateZ.extend({ stalenessColor: color.colorZ.optional() });
+export const drawnStateZ = stateZ.extend({
+  stalenessColor: color.colorZ.optional(),
+  // A stale indicator beside the component shows the staleness instead.
+  staleColorHidden: z.boolean().default(false),
+});
 
 export interface EntryProps {
   /** Returns the current staleness timeout, in nanoseconds. */
@@ -257,8 +261,9 @@ export const resolveColor = (
  * undefined while the component paints in its own colors.
  */
 export const drawnColor = (
-  { stale, stalenessColor }: z.infer<typeof drawnStateZ>,
+  { stale, staleColorHidden, stalenessColor }: z.infer<typeof drawnStateZ>,
   theme: theme.Theme,
-): color.Color | undefined => (stale ? resolveColor(stalenessColor, theme) : undefined);
+): color.Color | undefined =>
+  stale && !staleColorHidden ? resolveColor(stalenessColor, theme) : undefined;
 
 export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };

@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { useCreateAlert } from "@/feature/pagerduty/task/Alert";
+import { useCreateAlert } from "@/feature/pagerduty/task/create";
 import { Task } from "@/platform/task";
 
 const CreateAlertCommand = Task.createCommand({
