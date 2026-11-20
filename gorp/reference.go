@@ -103,12 +103,9 @@ type Reference[K Key, E Entry[K]] interface {
 	// inlineTarget replaces target in e through the reference's Inline.
 	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
 	// check validates the targets that e holds against tx, for a write of e to t.
-	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
+	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) (bool, error)
 	// links appends the links that e holds to out.
 	links(out []Link, e *E) []Link
-	// current reports whether the index holds the targets of e for its entry, with the
-	// changes of tx applied.
-	current(tx Tx, e *E) bool
 	// indexedLinks appends to out the links that the index holds for the entry with key
 	// k, with the changes of tx applied. It reports false when the index has not
 	// loaded.
@@ -421,10 +418,6 @@ func (r *reference[K, E, T]) links(out []Link, e *E) []Link {
 	return out
 }
 
-func (r *reference[K, E, T]) current(tx Tx, e *E) bool {
-	return r.store.Current(scopeOf(tx), (*e).GorpKey(), r.targetsOf(e))
-}
-
 func (r *reference[K, E, T]) indexedLinks(out []Link, tx Tx, k K) ([]Link, bool) {
 	held, known := r.store.Held(scopeOf(tx), k)
 	if !known {
@@ -626,16 +619,17 @@ func (r *reference[K, E, T]) check(
 	tx Tx,
 	t *Table[K, E],
 	e *E,
-) error {
+) (bool, error) {
 	held := r.targetsOf(e)
 	stored, known := r.store.Held(scopeOf(tx), (*e).GorpKey())
+	current := known && slices.Equal(held, stored)
 	for i, v := range held {
-		if known && indexedAt(stored, i, v) {
+		if current || (known && indexedAt(stored, i, v)) {
 			continue
 		}
 		target := r.format(v)
 		if r.textKeys && !slices.Contains(r.tables, target.Table) {
-			return r.fieldErr(
+			return false, r.fieldErr(
 				"%s cannot reference %s %s",
 				t.name,
 				target.Table,
@@ -644,28 +638,28 @@ func (r *reference[K, E, T]) check(
 		}
 		table, err := t.db.registry.table(target.Table)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if r.textKeys && !table.canonical(target.Key) {
-			return r.fieldErr("%q is not a key of %s", target.Key, target.Table)
+			return false, r.fieldErr("%q is not a key of %s", target.Key, target.Table)
 		}
 		ok, err := table.exists(ctx, tx, target.Key)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !ok {
-			return r.fieldErr("%s %s does not exist", target.Table, target.Key)
+			return false, r.fieldErr("%s %s does not exist", target.Table, target.Key)
 		}
 	}
 	if r.unique {
 		if err := r.checkUnique(ctx, tx, t.name, e, held); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if r.acyclic {
-		return r.checkAcyclic(ctx, tx, t, e)
+		return current, r.checkAcyclic(ctx, tx, t, e)
 	}
-	return nil
+	return current, nil
 }
 
 // indexedAt reports whether stored holds v, the target at position i of an entry. An

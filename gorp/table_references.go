@@ -209,14 +209,18 @@ func (t *Table[K, E]) Dependents(
 	return t.db.registry.dependents(ctx, snap, Target{Table: t.name, Key: FormatKey(k)})
 }
 
-// check validates the references e holds against tx.
-func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) error {
+// check validates the references e holds against tx. It reports whether every index
+// already holds the targets of e for its entry, with the changes of tx applied.
+func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) (bool, error) {
+	current := true
 	for _, r := range t.references {
-		if err := r.check(ctx, tx, t, e); err != nil {
-			return err
+		held, err := r.check(ctx, tx, t, e)
+		if err != nil {
+			return false, err
 		}
+		current = current && held
 	}
-	return nil
+	return current, nil
 }
 
 func parseKeys[K Key](keys []string) ([]K, error) {
