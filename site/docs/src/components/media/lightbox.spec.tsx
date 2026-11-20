@@ -19,9 +19,9 @@ import { Media } from "@/components/media";
 import { start } from "@/components/media/lightbox";
 import Lightbox from "@/components/media/Lightbox.astro";
 import { REDUCED_MOTION } from "@/components/media/video";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-const [ID] = Object.keys(versions);
+const [ID] = Object.keys(videos);
 
 let dialogHTML = "";
 let duration = 10;

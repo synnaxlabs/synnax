@@ -25,6 +25,8 @@ interface Props {
     article?: Article;
     /** Asks search engines to leave the page out of their index. */
     unindexed?: boolean;
+    /** The site name for Open Graph. Defaults to Synnax. */
+    siteName?: string;
 }
 
 const DEFAULT_IMAGE =
@@ -38,6 +40,7 @@ const {
     imageAlt = "Synnax",
     article,
     unindexed = false,
+    siteName = "Synnax",
 } = Astro.props;
 ---
 
@@ -55,7 +58,7 @@ const {
             image,
             url: canonical,
         },
-        optional: { description, siteName: "Synnax" },
+        optional: { description, siteName },
         image: { alt: imageAlt },
         article,
     }}
