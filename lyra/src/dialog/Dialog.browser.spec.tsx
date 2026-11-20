@@ -817,7 +817,7 @@ describe("Dialog", () => {
         await expect.poll(() => computed(dropdown, "opacity")).toBe("1");
         expect(onTop(dropdown)).toBe(true);
         await userEvent.fill(page.getByLabelText("Search"), "abc");
-        expect(search.value).toBe("abc");
+        await expect.element(page.getByLabelText("Search")).toHaveValue("abc");
       });
 
       it("should close only an open dropdown on Escape", async () => {
