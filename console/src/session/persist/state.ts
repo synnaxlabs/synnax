@@ -492,12 +492,14 @@ class Engine<S extends object> {
   /**
    * Load the Core and project (or project-only) slices for the target context,
    * defaulting unvisited partitions to their initial slices. When includeCore is
-   * true the target project is re-derived from the loaded Core partition.
+   * true the target project is re-derived from the loaded Core partition, unless
+   * projectPicked is true: then the project in context stays.
    */
   async loadSwap(
     state: S,
     context: Context,
     includeCore: boolean,
+    projectPicked: boolean,
   ): Promise<Partial<S>> {
     const out: Partial<S> = {};
     let project = context.project;
@@ -505,8 +507,14 @@ class Engine<S extends object> {
       const coreSlices =
         context.core == null ? {} : await this.core(context.core).read();
       this.fill(out, this.scopes.core, coreSlices);
+      if (projectPicked)
+        // A stored slice that names another project would undo the pick.
+        scopeKeys(this.scopes.core).forEach((key) => {
+          if (this.getContext({ ...state, [key]: out[key] }).project !== project)
+            out[key] = state[key];
+        });
       // The target Core's partition records which project was last active.
-      project = this.getContext({ ...state, ...out }).project;
+      else project = this.getContext({ ...state, ...out }).project;
     }
     const projectSlices =
       context.core == null || project == null
@@ -712,8 +720,9 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
  * Saves every change dispatched so far without waiting out the debounce, and resolves
- * once storage holds them. Only the main window persists: elsewhere, and in a store
- * without persistence, it resolves at once.
+ * once storage holds them. During a session swap it saves nothing and resolves once the
+ * swap is done. Only the main window persists: elsewhere, and in a store without
+ * persistence, it resolves at once.
  * @throws {Error} if the write fails.
  */
 export const flush = async (dispatch: (action: Action) => unknown): Promise<void> => {
@@ -815,6 +824,9 @@ const createMiddleware = <S extends object>(
           // Core they came from.
           const superseded = swap;
           const includeCore = ctx.core !== old.core || superseded?.includeCore === true;
+          // The Core stayed, so the user picked this project during a Core swap.
+          const projectPicked =
+            includeCore && ctx.core === old.core && ctx.project != null;
           swap = { includeCore };
           debouncedPersist.cancel();
           current = ctx;
@@ -824,7 +836,12 @@ const createMiddleware = <S extends object>(
             .then(async () => {
               if (superseded == null) await engine.persist(state, old);
               if (gen !== swapGen) return;
-              const loaded = await engine.loadSwap(state, ctx, includeCore);
+              const loaded = await engine.loadSwap(
+                state,
+                ctx,
+                includeCore,
+                projectPicked,
+              );
               if (gen !== swapGen) return;
               store.dispatch(hydrate(loaded));
             })

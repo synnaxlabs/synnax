@@ -1330,6 +1330,39 @@ describe("Persist.middleware", () => {
       const { initialState } = await openPersist(store, { scopes });
       expect(initialState?.work.value).toBe("c2-work");
     });
+
+    it("should keep a project picked while a Core swap loads", async () => {
+      const store = new MemoryKV();
+      const c2 = new GatedKV(store, /^core\.c2\./);
+      const scopes: Persist.Scopes<MockState> = {
+        ...SCOPES,
+        core: { project: selectedZ, work: workZ },
+        project: { windows: z.string().array() },
+      };
+      const driver = await createDriver(store, { openKV: () => c2, scopes });
+      await enter(driver, { core: "c2", project: "p9" });
+      await commit(driver, "c2-work");
+      await enter(driver, CTX);
+      await commit(driver, "c1-work");
+      c2.held = true;
+      driver.dispatch(
+        { type: "Core/select" },
+        { ...driver.getState(), core: { selected: "c2" } },
+      );
+      await vi.waitFor(() => expect(c2.hit).toHaveBeenCalled());
+      driver.dispatch(
+        { type: "project/select" },
+        { ...driver.getState(), project: { selected: "p3" } },
+      );
+      c2.release();
+      await driver.settle();
+      expect(driver.getState().project.selected).toBe("p3");
+      expect(driver.getState().work.value).toBe("c2-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      const { initialState } = await openPersist(store, { scopes });
+      expect(initialState?.project.selected).toBe("p3");
+      expect(initialState?.work.value).toBe("c2-work");
+    });
   });
 
   it("should queue a swap's flush behind a write already in flight", async () => {
