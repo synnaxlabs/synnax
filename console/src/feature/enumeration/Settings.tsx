@@ -113,7 +113,11 @@ const Section = ({
         </Header.Group>
       </div>
       {open && (
-        <div className={CSS.BE("enumeration-settings", "entries")}>
+        // A right click in the grid keeps the browser's menu, not the settings menu.
+        <div
+          className={CSS.BE("enumeration-settings", "entries")}
+          onContextMenu={(ev) => ev.stopPropagation()}
+        >
           <Enumeration.Entries enumeration={e.key} />
         </div>
       )}
