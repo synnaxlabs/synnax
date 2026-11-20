@@ -264,11 +264,14 @@ describe("lineplot/toolbar/Data", () => {
       const newer = await create(TimeSpan.hours(1));
       await renderData([]);
       openSearch();
-      await screen.findByText(older.name);
-      await screen.findByText(newer.name);
-      const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
-      const at = (name: string) => names.findIndex((n) => n.includes(name));
-      expect(at(newer.name)).toBeLessThan(at(older.name));
+      // A spec running at the same time can stream in newer ranges that push these out
+      // of the rendered rows until it deletes them.
+      await waitFor(() => {
+        const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+        const at = (name: string) => names.findIndex((n) => n.includes(name));
+        expect(at(newer.name)).toBeGreaterThanOrEqual(0);
+        expect(at(older.name)).toBeGreaterThan(at(newer.name));
+      });
     });
 
     it("lists the plotted ranges first", async () => {
