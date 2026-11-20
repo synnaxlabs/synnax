@@ -135,6 +135,14 @@ describe("lineplot/toolbar/Data", () => {
       fireEvent.click(screen.getByText("Absolute"));
       await expectTimeMode(key, undefined);
     });
+
+    it("does not offer relative time on an x axis that does not show time", async () => {
+      await renderLinePlot(Toolbar, {
+        linePlot: { axes: { x1: { key: "x1", type: "linear" } } },
+      });
+      await screen.findByText("Ranges");
+      expect(screen.queryByText("Relative")).toBeNull();
+    });
   });
 
   describe("rolling window", () => {
