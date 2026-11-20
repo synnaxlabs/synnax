@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 /** Panel is the raised surface every block of portal content sits on. */
 export const Panel = (props: Flex.BoxProps): ReactElement => (

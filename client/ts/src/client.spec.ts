@@ -10,7 +10,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:https";
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -30,7 +30,7 @@ import {
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
-import { type connection } from "@/connection";
+import type { connection } from "@/connection";
 import {
   DisconnectedError,
   InvalidCredentialsError,

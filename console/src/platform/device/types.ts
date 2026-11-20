@@ -10,8 +10,8 @@
 import { channel, type device, type rack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { type Tree } from "@/platform/tree";
-import { type Session } from "@/session";
+import type { Tree } from "@/platform/tree";
+import type { Session } from "@/session";
 
 /** Props of an action beside the status of a scan task that warns or fails. */
 export interface ScanActionProps {

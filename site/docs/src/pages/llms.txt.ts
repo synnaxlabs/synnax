@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 
-import { type Nav } from "@/components/nav";
+import type { Nav } from "@/components/nav";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { type Page, PAGES, POSTS } from "@/util/pages";
 import { normalizeRoute } from "@/util/route";

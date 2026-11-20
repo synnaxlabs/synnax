@@ -12,7 +12,7 @@ import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Notifications } from "@/app/notifications";

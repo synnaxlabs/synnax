@@ -9,7 +9,7 @@
 
 import { compare, deep, type record, TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";

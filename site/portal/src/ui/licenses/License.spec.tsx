@@ -21,7 +21,7 @@ import {
 } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type License, type Organization } from "@/server/db/schema";
+import type { License, Organization } from "@/server/db/schema";
 import { NOW } from "@/server/license/testutil";
 import { Licenses } from "@/ui/licenses";
 

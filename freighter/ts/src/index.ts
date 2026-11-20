@@ -24,19 +24,14 @@ export {
   Timeout,
   Unreachable,
 } from "@/errors";
-export {
-  type FileEncoding,
-  type FileOptions,
-  type FileTransport,
-  type UploadBody,
-} from "@/file";
+export type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 export { HTTPClient, type HTTPClientConfig } from "@/http";
-export { type Context, type Middleware, type Next } from "@/middleware";
-export { type Stream, type StreamClient } from "@/stream";
+export type { Context, Middleware, Next } from "@/middleware";
+export type { Stream, StreamClient } from "@/stream";
 export { type UnaryClient, unaryWithBreaker } from "@/unary";
+export type { WebsocketMessage } from "@/websocket";
 export {
   type FlowControl,
   WebSocketClient,
   type WebSocketClientConfig,
 } from "@/websocket";
-export { type WebsocketMessage } from "@/websocket";
