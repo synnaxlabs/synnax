@@ -35,18 +35,24 @@ func owners(
 ) (*log.Log, *state.State) {
 	GinkgoHelper()
 	Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
-	var l *log.Log
+	Expect(checkpoint.Write(fs, 1, checkpoint.Encode(db, 1, &state.Snapshot{
+		Limits: state.Limits{Segments: 1, Alignments: 1},
+	}))).To(Succeed())
+	var (
+		l  *log.Log
+		cp *checkpoint.Checkpointer
+	)
 	st := MustSucceed(state.Open(state.Config{
 		Versions: set.New[uint16](1),
 		Version:  1,
 		Append:   func(e *log.Entry) { l.Append(e) },
 		Executor: exec,
+		OnHead:   func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
 	}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
-	cp := MustSucceed(checkpoint.New(checkpoint.Config{
+	cp = MustSucceed(checkpoint.New(checkpoint.Config{
 		FS:       fs,
 		DB:       db,
 		LogSize:  logSize,
-		Snapshot: st.Snapshot,
 		Prepared: func(next uint64, err error) { l.Prepared(next, err) },
 		Executor: exec,
 	}))
@@ -57,15 +63,10 @@ func owners(
 			_ = st.Durable(sequence, records)
 		},
 		Prepare: cp.Prepare,
-		Seals: func() ([]log.Record, error) {
-			seals, err := st.SealUnheld()
-			records := make([]log.Record, len(seals))
-			for i := range seals {
-				records[i] = &seals[i]
-			}
-			return records, err
+		OnRefused: func(records []log.Record, err error) {
+			_ = st.Refused(records, err)
 		},
-		Switched:   cp.Switched,
+		Switched:   func(g uint64) { _ = st.Switch(g) },
 		DB:         db,
 		Generation: 1,
 		Sequence:   1,
@@ -73,6 +74,10 @@ func owners(
 	go func() { _ = st.Run(ctx) }()
 	go func() { _ = l.Run(ctx) }()
 	go func() { _ = cp.Run(ctx) }()
+	// The log switches only once the file of the next log exists.
+	Eventually(func() bool { return MustSucceed(fs.Exists(log.Name(2))) }).
+		WithTimeout(10 * time.Second).
+		Should(BeTrue())
 	return l, st
 }
 
@@ -96,17 +101,49 @@ func fill(l *log.Log) chan error {
 	return done
 }
 
+// sealSequence returns the sequence of the first entry of the log file b, of
+// generation 2, that holds a Seal, or 0. It reads each frame at the end of the one
+// before it, or at the next block boundary.
+func sealSequence(b []byte) uint64 {
+	GinkgoHelper()
+	at := int64(log.FramesStart)
+	for at+log.FrameHeaderSize <= int64(len(b)) {
+		f, err := log.DecodeFrame(b[at:], db, 2, uint64(at))
+		if err != nil {
+			aligned := (at + log.BlockSize - 1) &^ (log.BlockSize - 1)
+			if aligned == at || aligned+log.FrameHeaderSize > int64(len(b)) {
+				return 0
+			}
+			at = aligned
+			if f, err = log.DecodeFrame(b[at:], db, 2, uint64(at)); err != nil {
+				return 0
+			}
+		}
+		seq := f.Sequence
+		for off := 0; off < len(f.Entries); seq++ {
+			var d log.Decoder
+			n := MustSucceed(d.Reset(f.Entries[off:]))
+			for {
+				r, ok := MustSucceed2(d.Next())
+				if !ok {
+					break
+				}
+				if _, sealed := r.(*log.Seal); sealed {
+					return seq
+				}
+			}
+			off += n
+		}
+		at += int64(f.Size())
+	}
+	return 0
+}
+
 var _ = Describe("Switch check", func() {
 	It("Should switch logs when the executor runs one job at a time", func() {
-		jobs := make(chan func(), 64)
-		go func() {
-			for f := range jobs {
-				f()
-			}
-		}()
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
-		l, _ := owners(ctx, xfs.NewMem(), func(f func()) { jobs <- f })
+		l, _ := owners(ctx, xfs.NewMem(), executor(true))
 		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 	})
 
@@ -121,7 +158,7 @@ var _ = Describe("Switch check", func() {
 			var err error
 			h, _, err = checkpoint.Read(fs, 2)
 			return err
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 		f := MustSucceed(fs.Open(log.Name(2), os.O_RDONLY))
 		b := make([]byte, log.HeaderSize)
 		MustSucceed(f.ReadAt(b, 0))
@@ -132,12 +169,12 @@ var _ = Describe("Switch check", func() {
 	})
 
 	It("Should write a head at a switch that covers no entry of the next log, when "+
-		"the next log starts with a Seals entry", func() {
+		"the next log holds a Seals entry", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
 		fs := xfs.NewMem()
 		l, st := owners(ctx, fs, func(f func()) { go f() })
-		// An open segment that no writer holds gets its Seal first in the next log.
+		// An open segment that no writer holds gets a Seal in the next log.
 		w := MustSucceed(st.OpenWriter(state.WriterConfig{
 			Keys: []state.WriterKey{{Key: 5, DataType: 4}}, Clock: 5, Start: 10,
 		}))
@@ -152,23 +189,17 @@ var _ = Describe("Switch check", func() {
 			var err error
 			h, _, err = checkpoint.Read(fs, 2)
 			return err
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 		f := MustSucceed(fs.Open(log.Name(2), os.O_RDONLY))
 		b := make([]byte, log.FramesStart+log.MaxFrame)
 		n, _ := f.ReadAt(b, 0)
 		Expect(f.Close()).To(Succeed())
 		b = b[:n]
 		lh := MustSucceed(log.DecodeHeader(b, db, 2, 0))
-		first := MustSucceed(
-			log.DecodeFrame(b[log.FramesStart:], db, 2, log.FramesStart),
-		)
-		var d log.Decoder
-		MustSucceed(d.Reset(first.Entries))
-		r, ok := MustSucceed2(d.Next())
-		Expect(ok).To(BeTrue())
-		Expect(r).To(BeAssignableToTypeOf(&log.Seal{}))
-		Expect(first.Sequence).To(Equal(lh.Sequence))
+		sealed := sealSequence(b)
+		Expect(sealed).ToNot(BeZero(), "log 2 holds no Seal of the open segment")
 		Expect(h.Sequence).To(Equal(lh.Sequence - 1))
+		Expect(sealed).To(BeNumerically(">", h.Sequence))
 	})
 
 	It("Should refuse a head whose chunk table offset wraps past 2^64, with no panic",
@@ -185,8 +216,12 @@ var _ = Describe("Switch check", func() {
 			binary.LittleEndian.PutUint32(b[80:], 9)
 			binary.LittleEndian.PutUint64(b[88:], chunks)
 			binary.LittleEndian.PutUint32(b[508:], place.Head(7, 3, 0).Sum(b[:508]))
+			fs := xfs.NewMem()
+			f := MustSucceed(fs.Open(checkpoint.Name(3), os.O_CREATE|os.O_RDWR))
+			MustSucceed(f.Write(b))
+			Expect(f.Close()).To(Succeed())
 			var err error
-			Expect(func() { _, _, err = checkpoint.Decode(b) }).ToNot(Panic())
+			Expect(func() { _, _, err = checkpoint.Read(fs, 3) }).ToNot(Panic())
 			Expect(err).To(MatchError(place.ErrCorrupt))
 		},
 	)

@@ -90,14 +90,13 @@ var _ = Describe("Check: logs while heads fail", func() {
 			FS:       fs,
 			DB:       db,
 			LogSize:  logSize,
-			Snapshot: func() (*state.Snapshot, error) { return sample(2), nil },
 			Prepared: func(uint64, error) {},
 			Executor: goExec,
 		}))
 		start(c)
-		c.Switched(2)
+		c.Head(2, sample(2))
 		Eventually(c.Err).Should(MatchError(errSync))
-		c.Switched(3)
+		c.Head(3, sample(2))
 		Eventually(func() error { return readErr(fs, 3) }).Should(Succeed())
 		Eventually(c.Err).Should(Succeed())
 		// Recovery falls back to the head before the newest when the newest fails on
@@ -122,12 +121,10 @@ var _ = Describe("Check: logs while heads fail", func() {
 			Sequence: 1,
 		}))).To(Succeed())
 		p := &prepared{}
-		fault := errors.New("no head")
 		c := MustSucceed(checkpoint.New(checkpoint.Config{
 			FS:       fs,
 			DB:       db,
 			LogSize:  size,
-			Snapshot: func() (*state.Snapshot, error) { return nil, fault },
 			Prepared: p.on,
 			Executor: goExec,
 		}))
@@ -137,8 +134,9 @@ var _ = Describe("Check: logs while heads fail", func() {
 			_ = c.Close()
 			Eventually(ran).Should(Receive(BeNil()))
 		})
-		// The log asks for log 2 at its start. At each switch it reports the new log
-		// and asks for the one after it. It switches only to a file that is ready.
+		// The log asks for log 2 at its start. At each switch it asks for the log after
+		// it, and no head is written, as when every head fails. It switches only to a
+		// file that is ready.
 		c.Prepare(2)
 		for g := uint64(2); g <= checkpoint.MaxLogs+4; g++ {
 			Eventually(p.count).Should(Equal(int(g - 1)))
@@ -148,10 +146,8 @@ var _ = Describe("Check: logs while heads fail", func() {
 			if err != nil {
 				break
 			}
-			c.Switched(g)
 			c.Prepare(g + 1)
 		}
-		Eventually(c.Err).Should(MatchError(fault))
 		logs := 0
 		for _, e := range MustSucceed(fs.List("")) {
 			if strings.HasSuffix(e.Name(), ".log") {

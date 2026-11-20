@@ -13,6 +13,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,7 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 			Version:  1,
 			Append:   func(e *log.Entry) { l.Append(e) },
 			Executor: goExe,
+			OnHead:   func(uint64, *state.Snapshot) {},
 		}, head(1, 1)))
 		l = MustSucceed(log.Start(log.Config{
 			FS:       fs,
@@ -59,15 +61,10 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 					made.Add(1)
 				}()
 			},
-			Seals: func() ([]log.Record, error) {
-				seals, err := st.SealUnheld()
-				records := make([]log.Record, len(seals))
-				for i := range seals {
-					records[i] = &seals[i]
-				}
-				return records, err
+			OnRefused: func(records []log.Record, err error) {
+				_ = st.Refused(records, err)
 			},
-			Switched:   func(uint64) {},
+			Switched:   func(g uint64) { _ = st.Switch(g) },
 			DB:         7,
 			Generation: 1,
 			Sequence:   1,
@@ -103,10 +100,17 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 			Clock: 5,
 			Start: 100,
 		}))
-		// The Reserve of this identity reaches a full log.
-		id := MustSucceed(w.NewSegment(5))
-		// Space frees up. The writer logs its Create until the log takes it.
+		// The Reserve of this identity reaches a full log, so no value is given out.
+		Expect(w.NewSegment(5)).Error().To(MatchError(log.ErrFull))
+		// Space frees up. The writer asks again, and logs its Create until the log
+		// takes it.
 		room.Store(true)
+		var id uint64
+		Eventually(func() error {
+			var err error
+			id, err = w.NewSegment(5)
+			return err
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 		var e log.Entry
 		e.Add(create(id, 5, 5))
 		Eventually(func() error {

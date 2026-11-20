@@ -51,7 +51,7 @@ var _ = Describe("Log end check", func() {
 					go l.Prepared(next, errors.New("no space for the next log"))
 				},
 				OnDurable:  noDurable,
-				Seals:      noSeals,
+				OnRefused:  func([]log.Record, error) {},
 				Switched:   func(uint64) {},
 				DB:         db,
 				Generation: generation,
