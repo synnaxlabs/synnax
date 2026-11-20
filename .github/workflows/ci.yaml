@@ -1457,8 +1457,8 @@ jobs:
     permissions:
       actions: write
       checks: read
-    # It lasts as long as the run, and a queued group waits up to 240 minutes for its
-    # turn. A GitHub-hosted job runs at most 360.
+    # It lasts as long as the run, which can wait for the groups ahead. A GitHub-hosted
+    # job runs at most 360.
     timeout-minutes: 360
     steps:
       # GraphQL filters the jobs by conclusion, and its budget is apart from the REST
