@@ -131,6 +131,15 @@ describe("createChannel", () => {
       expect(result.channel).not.toBe(3);
     });
 
+    it("should give a new voltage channel a range of ±10 V", () => {
+      expect(createNextAIChannel([])).toMatchObject({ minVal: -10, maxVal: 10 });
+    });
+
+    it("should keep the range of the copied channel", () => {
+      const source = { ...aiChannel("1", 0), minVal: -1, maxVal: 1 };
+      expect(createNextAIChannel([source])).toMatchObject({ minVal: -1, maxVal: 1 });
+    });
+
     it("should copy the last channel when no channel to copy is given", () => {
       const channels = [aiChannel("1", 0, "ai_accel"), aiChannel("2", 1, "ai_bridge")];
       const result = createNextAIChannel(channels);

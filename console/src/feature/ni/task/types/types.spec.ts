@@ -506,6 +506,23 @@ describe("default ranges", () => {
     });
   });
 
+  it("should give a new voltage input the widest voltage range", () => {
+    expect(
+      NI.Task.defaultAIVoltageRange({
+        ...hardware,
+        aiVoltageRanges: [
+          { lower: -1, upper: 1 },
+          { lower: -5, upper: 5 },
+        ],
+      }),
+    ).toEqual({ lower: -5, upper: 5 });
+  });
+
+  it("should give a new voltage input ±10 V on a device that reports no ranges", () => {
+    expect(NI.Task.defaultAIVoltageRange(hardware)).toEqual({ lower: -10, upper: 10 });
+    expect(NI.Task.defaultAIVoltageRange()).toEqual({ lower: -10, upper: 10 });
+  });
+
   it.each([
     ["a voltage input", NI.Task.defaultAIRange("ai_voltage", hardware)],
     ["a voltage output", NI.Task.defaultAORange("ao_voltage", hardware)],
