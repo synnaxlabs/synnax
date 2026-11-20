@@ -38,9 +38,9 @@ import {
 import { type FC, type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
-import { Enumeration } from "@/feature/enumeration";
 import { Symbol } from "@/feature/schematic/symbol";
 import { CSS } from "@/platform/css";
+import { Enumeration } from "@/platform/enumeration";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
 

@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { enumeration, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { enumeration, schematic, type Synnax } from "@synnaxlabs/client";
+import {
+  createProxiedTestClient,
+  createTestClient,
+  FAST_RETRY,
+} from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -72,8 +76,8 @@ const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   return shipped;
 };
 
-const renderEnumerations = async (): Promise<void> => {
-  const { wrapper: Console } = await createConsoleWrapper({ client });
+const renderEnumerations = async (as: Synnax = client): Promise<void> => {
+  const { wrapper: Console } = await createConsoleWrapper({ client: as });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Tree.Provider items={{}}>
@@ -387,6 +391,32 @@ describe("Enumeration.Settings", () => {
     ).toBeTruthy();
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
+    await waitForDialogToClose();
+    await expect
+      .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)
+      .toMatchObject({ variant: "select", enumeration: to.key });
+  });
+
+  it("should keep the users and Replace while the replace runs", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    const user = await createSelectUser(from.key);
+    // While the link is severed, the replace retries, so it stays in flight.
+    const { client: editor, proxy } = await createProxiedTestClient({
+      retry: { ...FAST_RETRY, maxRetries: 200 },
+      onRetry: () => {},
+    });
+    await renderEnumerations(editor);
+    const dialog = await openDelete(from.name);
+    expect(
+      await within(await dialog.findByLabelText("Users")).findByText(user.name),
+    ).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    await proxy.sever();
+    await clickWhenEnabled(dialog, "Replace");
+    expect(dialog.getByRole("button", { name: "Replace" })).toBeTruthy();
+    expect(within(dialog.getByLabelText("Users")).getByText(user.name)).toBeTruthy();
+    expect(dialog.getByText(/Each of these moves/)).toBeTruthy();
+    await proxy.restore();
     await waitForDialogToClose();
     await expect
       .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)

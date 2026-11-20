@@ -16,7 +16,7 @@ import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/re
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Enumeration } from "@/feature/enumeration";
+import { Enumeration } from "@/platform/enumeration";
 import { Modals } from "@/platform/modals";
 import { createConsoleWrapper } from "@/testutil";
 
