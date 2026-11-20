@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { panel } from "@synnaxlabs/client";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 
 /** OnSelectParams is passed to a selectable's onSelect hook when it is chosen. */
 export interface OnSelectParams {

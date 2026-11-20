@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AriaAttributes, type Dispatch, type SetStateAction } from "react";
+import type { AriaAttributes, Dispatch, SetStateAction } from "react";
 
 import { context } from "@/context";
-import { type KeyboardHandlers } from "@/select/useCursor";
-import { type Status } from "@/status";
+import type { KeyboardHandlers } from "@/select/useCursor";
+import type { Status } from "@/status";
 
 /** True inside a closed select dialog, whose children render into a detached node. */
 export const [ClosedContext, useClosed] = context.create<boolean>({

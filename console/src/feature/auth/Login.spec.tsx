@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createServer } from "node:http";
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 
 import {
   auth,

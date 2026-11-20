@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { type Context } from "@/util/checks/check";
+import type { Context } from "@/util/checks/check";
 import { notes } from "@/util/checks/notes";
 
 // No page source exists for this route, so failures carry the bare route.

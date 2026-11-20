@@ -9,7 +9,7 @@
 
 import "@/table/Table.css";
 
-import { type table } from "@synnaxlabs/client";
+import type { table } from "@synnaxlabs/client";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -19,7 +19,7 @@ import { box, direction, math, xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
-import { type RowLayout } from "@/table/queries";
+import type { RowLayout } from "@/table/queries";
 import { transform } from "@/table/shift";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";

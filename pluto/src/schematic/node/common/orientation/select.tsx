@@ -11,9 +11,9 @@ import "@/schematic/node/common/orientation/select.css";
 
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type Input } from "@synnaxlabs/lyra/input";
-import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { Input } from "@synnaxlabs/lyra/input";
+import type { location } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 

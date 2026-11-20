@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { colorFallbacks, SelectForm } from "@/schematic/node/general/select/Form";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 const Preview = ({ fillColor, size }: schematic.SelectNodeConfig): ReactElement => {
   const resolve = Color.useResolve();

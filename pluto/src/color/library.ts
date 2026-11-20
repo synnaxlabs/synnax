@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, type group } from "@synnaxlabs/client";
-import { type Color } from "@synnaxlabs/lyra/color";
+import type { Color } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color as xcolor, compare } from "@synnaxlabs/x";
 

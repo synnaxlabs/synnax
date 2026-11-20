@@ -9,7 +9,7 @@
 
 import "@/label/Select.css";
 
-import { type label, type Synnax } from "@synnaxlabs/client";
+import type { label, Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";

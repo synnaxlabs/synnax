@@ -18,13 +18,13 @@ import {
 import type z from "zod";
 
 import { AccessDeniedError, isConnectionError } from "@/errors";
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { type ListQuery, Lists, type ListsConfig } from "@/query/list";
 import { Space, type SpaceConfig, type SpaceHooks } from "@/query/query";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
-import { type Data, type Params } from "@/query/types";
+import type { Data, Params } from "@/query/types";
 
 export interface CacheParams {
   /**

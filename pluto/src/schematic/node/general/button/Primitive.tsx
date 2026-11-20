@@ -9,11 +9,11 @@
 
 import "@/schematic/node/general/button/button.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button as Base } from "@synnaxlabs/lyra/button";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, TimeSpan } from "@synnaxlabs/x";
-import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
+import type { CSSProperties, MouseEventHandler, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";

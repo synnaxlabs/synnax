@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
 import { Button } from "@/schematic/node/general/button/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 
 export const Symbol = ({

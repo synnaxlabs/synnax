@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { INTEGRATION_KEY, MAKE } from "@/feature/mqtt/device/types";
 import { Connect } from "@/feature/mqtt/device/useConnectModal";
 import { SCAN_TYPE } from "@/feature/mqtt/task/types";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
   key: INTEGRATION_KEY,
