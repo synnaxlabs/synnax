@@ -111,20 +111,24 @@ func (f *Factory) CreateCAPair() error {
 	if err != nil {
 		return err
 	}
-	base, err := newBasex509()
+	b, err := signCACert(key)
 	if err != nil {
 		return err
+	}
+	return f.writePEM(f.cfg.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
+}
+
+func signCACert(key crypto.Signer) ([]byte, error) {
+	base, err := newBasex509()
+	if err != nil {
+		return nil, err
 	}
 	base.BasicConstraintsValid = true
 	base.IsCA = true
 	base.MaxPathLen = 1
 	base.KeyUsage |= x509.KeyUsageCertSign
 	base.KeyUsage |= x509.KeyUsageContentCommitment
-	b, err := x509.CreateCertificate(rand.Reader, base, base, key.Public(), key)
-	if err != nil {
-		return err
-	}
-	return f.writePEM(f.cfg.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
+	return x509.CreateCertificate(rand.Reader, base, base, key.Public(), key)
 }
 
 // caKey generates the CA private key and writes it to CAKeyPath, or reads back the key
@@ -166,17 +170,34 @@ func (f *Factory) caKey() (crypto.Signer, error) {
 	return signer, nil
 }
 
-// CreateCAPairIfMissing creates the CA certificate and its private key if the
-// certificate does not already exist. An existing pair is left untouched.
+// CreateCAPairIfMissing creates the CA certificate and its private key if either does
+// not exist, replacing the other one. An existing pair is left untouched.
 func (f *Factory) CreateCAPairIfMissing() error {
-	exists, err := f.cfg.FS.Exists(f.cfg.CACertPath)
+	exists, err := f.pairExists(f.cfg.CACertPath, f.cfg.CAKeyPath)
+	if err != nil || exists {
+		return err
+	}
+	return f.replacePair(f.cfg.CACertPath, f.cfg.CAKeyPath, f.writeCAPair)
+}
+
+func (f *Factory) writeCAPair(certPath, keyPath string) error {
+	key, err := f.cfg.KeyAlgorithm.GenerateKey(f.cfg.KeySize)
 	if err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	b, err := signCACert(key)
+	if err != nil {
+		return err
 	}
-	return f.CreateCAPair()
+	return f.writeKeyAndCert(certPath, keyPath, key, b)
+}
+
+func (f *Factory) pairExists(certPath, keyPath string) (bool, error) {
+	certExists, err := f.cfg.FS.Exists(certPath)
+	if err != nil || !certExists {
+		return false, err
+	}
+	return f.cfg.FS.Exists(keyPath)
 }
 
 // CreateAll creates everything a Core needs to serve securely: the CA pair if it does
@@ -189,12 +210,12 @@ func (f *Factory) CreateAll() error {
 	return f.CreateNodePairIfStale()
 }
 
-// CreateNodePairIfStale creates the node certificate and its private key if they do not
-// exist, and replaces them when the existing certificate is not a leaf the CA signed or
-// does not cover every host in Hosts. Any other certificate is left untouched. Callers
-// that do not own the files on disk must not use it.
+// CreateNodePairIfStale creates the node certificate and its private key if either does
+// not exist, and replaces them when the existing certificate is not a leaf the CA
+// signed or does not cover every host in Hosts. Any other certificate is left
+// untouched. Callers that do not own the files on disk must not use it.
 func (f *Factory) CreateNodePairIfStale() error {
-	exists, err := f.cfg.FS.Exists(f.cfg.NodeCertPath)
+	exists, err := f.pairExists(f.cfg.NodeCertPath, f.cfg.NodeKeyPath)
 	if err != nil {
 		return err
 	}
@@ -257,23 +278,30 @@ func checkIssuedBy(c *x509.Certificate, cas []*x509.Certificate) error {
 	return errors.New("no CA certificate signed the certificate")
 }
 
-// replaceNodePair writes a new node pair beside the current one, then renames it over
-// the current one.
 func (f *Factory) replaceNodePair() error {
-	certPath, keyPath := f.cfg.NodeCertPath+nextSuffix, f.cfg.NodeKeyPath+nextSuffix
-	if err := f.cfg.FS.Remove(certPath); err != nil {
+	return f.replacePair(f.cfg.NodeCertPath, f.cfg.NodeKeyPath, f.writeNodePair)
+}
+
+// replacePair writes a new pair beside the current one with write, then renames it over
+// the current one.
+func (f *Factory) replacePair(
+	certPath, keyPath string,
+	write func(certPath, keyPath string) error,
+) error {
+	nextCert, nextKey := certPath+nextSuffix, keyPath+nextSuffix
+	if err := f.cfg.FS.Remove(nextCert); err != nil {
 		return err
 	}
-	if err := f.cfg.FS.Remove(keyPath); err != nil {
+	if err := f.cfg.FS.Remove(nextKey); err != nil {
 		return err
 	}
-	if err := f.writeNodePair(certPath, keyPath); err != nil {
+	if err := write(nextCert, nextKey); err != nil {
 		return err
 	}
-	if err := f.cfg.FS.Rename(keyPath, f.cfg.NodeKeyPath); err != nil {
+	if err := f.cfg.FS.Rename(nextKey, keyPath); err != nil {
 		return err
 	}
-	return f.cfg.FS.Rename(certPath, f.cfg.NodeCertPath)
+	return f.cfg.FS.Rename(nextCert, certPath)
 }
 
 // uncoveredHosts returns the hosts in Hosts that c is not valid for, using the same
@@ -304,14 +332,22 @@ func (f *Factory) writeNodePair(certPath, keyPath string) error {
 	if err != nil {
 		return err
 	}
-	keyP, err := xpem.FromPrivateKey(nodeKey)
+	return f.writeKeyAndCert(certPath, keyPath, nodeKey, b)
+}
+
+func (f *Factory) writeKeyAndCert(
+	certPath, keyPath string,
+	key crypto.Signer,
+	cert []byte,
+) error {
+	keyP, err := xpem.FromPrivateKey(key)
 	if err != nil {
 		return err
 	}
 	if err = f.writePEM(keyPath, keyP, false); err != nil {
 		return err
 	}
-	return f.writePEM(certPath, xpem.FromCertBytes(b) /* multi */, false)
+	return f.writePEM(certPath, xpem.FromCertBytes(cert) /* multi */, false)
 }
 
 // SignNodeCert signs an in-memory node certificate for the given hosts using the CA,

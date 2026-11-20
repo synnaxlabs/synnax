@@ -75,6 +75,40 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateCAPair()).To(Succeed())
 		})
 	})
+	Describe("CreateCAPairIfMissing", func() {
+		DescribeTable("Should create the pair when one of its files is missing",
+			func(certMissing, reuse bool) {
+				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+					FS:            fs,
+					AllowKeyReuse: new(reuse),
+					KeySize:       testutil.SmallKeySize,
+				}))
+				Expect(f.CreateCAPairIfMissing()).To(Succeed())
+				cfg := f.Config()
+				missing := cfg.CAKeyPath
+				if certMissing {
+					missing = cfg.CACertPath
+				}
+				Expect(cfg.FS.Remove(missing)).To(Succeed())
+				Expect(f.CreateCAPairIfMissing()).To(Succeed())
+				Expect(f.Loader.LoadCAPair()).Error().ToNot(HaveOccurred())
+			},
+			Entry("certificate", true, false),
+			Entry("certificate with key reuse", true, true),
+			Entry("key", false, false),
+		)
+		It("Should leave an existing pair untouched", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				FS:      fs,
+				KeySize: testutil.SmallKeySize,
+			}))
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			before, _ := MustSucceed2(f.Loader.LoadCAPair())
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			after, _ := MustSucceed2(f.Loader.LoadCAPair())
+			Expect(after.Equal(before)).To(BeTrue())
+		})
+	})
 	Describe("Node Generation", func() {
 		It("Should generate a node certificate and a key", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
@@ -137,6 +171,14 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateNodePairIfStale()).To(Succeed())
 			c, _ := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com"))
+		})
+		It("Should create the pair when only the node certificate exists", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(fs.Remove(f.Config().AbsoluteNodeKeyPath())).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(f.Loader.LoadNodeTLS()).Error().ToNot(HaveOccurred())
 		})
 		It("Should fail on a node certificate it cannot parse", func() {
 			f := newFactory("synnaxlabs.com")
