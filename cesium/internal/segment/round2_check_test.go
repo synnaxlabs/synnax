@@ -102,8 +102,8 @@ func (f *holdFile) Close() error {
 }
 
 var _ = Describe("Round 2 check", func() {
-	It("Should finish a budget sync of a handle whose close is in flight, when "+
-		"the executor runs one job at a time", func() {
+	It("Should finish two closes in a row and the budget syncs that wait for them, "+
+		"when the executor runs one job at a time", func() {
 		fs := newOpFS(xfs.NewMem())
 		jobs := make(chan func(), 16)
 		worker := make(chan struct{})
@@ -118,33 +118,45 @@ var _ = Describe("Round 2 check", func() {
 		h := MustSucceed(b.Create(fs, "0.seg"))
 		Expect(b.Sync([]*segment.Handle{h})).To(Succeed())
 		Expect(h.WriteAt([]byte("0.seg"), 0)).To(Equal(5))
-		// An earlier job keeps the worker busy while the next two queue.
+		// An earlier job keeps the worker busy while the sync jobs queue.
 		gate, started := make(chan struct{}), make(chan struct{})
+		var openGate sync.Once
 		exec(func() { close(started); <-gate })
 		Eventually(started).Should(BeClosed())
-		synced := make(chan error, 1)
-		go func() { synced <- b.Sync([]*segment.Handle{h}) }()
-		Eventually(func() int { return len(jobs) }).Should(Equal(1))
-		created := make(chan *segment.Handle, 1)
-		go func() {
-			defer GinkgoRecover()
-			created <- MustSucceed(b.Create(fs, "1.seg"))
-		}()
-		Eventually(func() int { return len(jobs) }).Should(Equal(2))
 		DeferCleanup(func() {
-			for len(jobs) > 0 {
-				(<-jobs)()
-			}
-			Eventually(synced).Should(Receive())
-			var second *segment.Handle
-			Eventually(created).Should(Receive(&second))
+			openGate.Do(func() { close(gate) })
 			close(jobs)
 			Eventually(worker).Should(BeClosed())
-			Expect(second.Close()).To(Succeed())
-			Expect(h.Close()).To(Succeed())
 		})
-		close(gate)
+		// create creates name, and fails when the close it needs waits for the busy
+		// executor.
+		create := func(name string) *segment.Handle {
+			GinkgoHelper()
+			created := make(chan *segment.Handle, 1)
+			go func() {
+				defer GinkgoRecover()
+				created <- MustSucceed(b.Create(fs, name))
+			}()
+			var c *segment.Handle
+			Eventually(created).WithTimeout(2 * time.Second).Should(Receive(&c))
+			return c
+		}
+		synced := make(chan error, 2)
+		go func() { synced <- b.Sync([]*segment.Handle{h}) }()
+		Eventually(func() int { return len(jobs) }).Should(Equal(1))
+		// Each close syncs its dirty handle inline in Create, with no job of the busy
+		// executor.
+		second := create("1.seg")
+		Expect(second.WriteAt([]byte("1.seg"), 0)).To(Equal(5))
+		go func() { synced <- b.Sync([]*segment.Handle{second}) }()
+		Eventually(func() int { return len(jobs) }).Should(Equal(2))
+		third := create("2.seg")
+		openGate.Do(func() { close(gate) })
 		Eventually(synced).Should(Receive(BeNil()))
+		Eventually(synced).Should(Receive(BeNil()))
+		for _, c := range []*segment.Handle{h, second, third} {
+			Expect(c.Close()).To(Succeed())
+		}
 	})
 
 	for attempt := range 8 {
