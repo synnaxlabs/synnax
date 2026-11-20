@@ -294,12 +294,100 @@ func (f *Frame[K]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack implements msgpack.CustomEncoder to handle data masking.
+// EncodeMsgpack implements msgpack.CustomEncoder to handle data masking. It writes the
+// map of each series by hand, with the keys of the struct tags of Series, and leaves
+// out a zero clock.
 func (f Frame[K]) EncodeMsgpack(enc *msgpack.Encoder) error {
-	return enc.Encode(serializableFrame[K]{
-		Keys:   f.KeysSlice(),
-		Series: f.SeriesSlice(),
-	})
+	if err := enc.EncodeMapLen(2); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("keys"); err != nil {
+		return err
+	}
+	if err := enc.Encode(f.KeysSlice()); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("series"); err != nil {
+		return err
+	}
+	series := f.SeriesSlice()
+	if series == nil {
+		return enc.EncodeNil()
+	}
+	if err := enc.EncodeArrayLen(len(series)); err != nil {
+		return err
+	}
+	for i := range series {
+		if err := encodeSeriesMsgpack(enc, &series[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// encodeSeriesMsgpack writes the msgpack map of s with no allocation.
+func encodeSeriesMsgpack(enc *msgpack.Encoder, s *Series) error {
+	fields := 4
+	if s.AlignmentMultiple != 0 {
+		fields++
+	}
+	if s.Clock != 0 {
+		fields++
+	}
+	if err := enc.EncodeMapLen(fields); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("time_range"); err != nil {
+		return err
+	}
+	if err := enc.EncodeMapLen(2); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("start"); err != nil {
+		return err
+	}
+	if err := enc.EncodeInt64(int64(s.TimeRange.Start)); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("end"); err != nil {
+		return err
+	}
+	if err := enc.EncodeInt64(int64(s.TimeRange.End)); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("data_type"); err != nil {
+		return err
+	}
+	if err := enc.EncodeString(string(s.DataType)); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("data"); err != nil {
+		return err
+	}
+	if err := enc.EncodeBytes(s.Data); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("alignment"); err != nil {
+		return err
+	}
+	if err := enc.EncodeUint64(uint64(s.Alignment)); err != nil {
+		return err
+	}
+	if s.AlignmentMultiple != 0 {
+		if err := enc.EncodeString("alignment_multiple"); err != nil {
+			return err
+		}
+		if err := enc.EncodeUint32(s.AlignmentMultiple); err != nil {
+			return err
+		}
+	}
+	if s.Clock != 0 {
+		if err := enc.EncodeString("clock"); err != nil {
+			return err
+		}
+		return enc.EncodeUint32(s.Clock)
+	}
+	return nil
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder. It replaces the receiver whole, so a

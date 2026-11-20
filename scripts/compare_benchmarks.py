@@ -176,6 +176,19 @@ GROUPS: tuple[Group, ...] = (
         "core/pkg/distribution/framer/codec",
         "^Benchmark(Encode|Decode)$",
     ),
+    go(
+        "framer/codec-shapes",
+        "cpu",
+        "core/pkg/distribution/framer/codec",
+        "^Benchmark(Encode|Decode)Shapes$",
+    ),
+    go(
+        "framer/codec-frames",
+        "cpu",
+        "core/pkg/distribution/framer/codec",
+        "^Benchmark(StreamerFrame|IteratorFrame)_",
+    ),
+    go("telem/msgpack", "cpu", "x/go/telem", "^BenchmarkEncodeMsgpack$"),
     go("api/stream", "cpu", "core/pkg/api/framer", "^BenchmarkStreamKeyChange$"),
     go("iterator/calc", "cpu", f"{FRAMER}/iterator", "^BenchmarkIteratorCalc_"),
     go(
@@ -192,6 +205,7 @@ GROUPS: tuple[Group, ...] = (
     ),
     gbench("cpp/codec", "client/cpp/framer", "codec_bench"),
     gbench("driver/sample-clock", "driver/common", "sample_clock_bench"),
+    gbench("driver/bypass", "driver/bypass", "bypass_bench"),
     go("floors/cpu", "cpu", "cesium", "^BenchmarkFloor(Copy|CRC32C)$", control=True),
     go("floors", "io", "cesium", "^BenchmarkFloor", control=True),
 )

@@ -168,6 +168,25 @@ var _ = Describe("Agreement", func() {
 				)),
 			)
 		})
+
+		DescribeTable(
+			"Should fail, not panic, on a type with no code beside a series of its key",
+			func(ctx SpecContext, first, second telem.Series) {
+				fr := multi(keyed{1, first}, keyed{1, second})
+				Expect(float32Codec().Encode(ctx, fr)).Error().
+					To(invalid(`data type "int128" of channel 1 has no type code`))
+			},
+			Entry(
+				"before the series",
+				telem.Series{DataType: "int128", Data: make([]byte, 16)},
+				telem.NewSeriesV[float32](1),
+			),
+			Entry(
+				"after the series",
+				telem.NewSeriesV[float32](1),
+				telem.Series{DataType: "int128", Data: make([]byte, 16)},
+			),
+		)
 	})
 
 	Describe("Rejects", func() {

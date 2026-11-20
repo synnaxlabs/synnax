@@ -46,18 +46,47 @@ type vectorFrame struct {
 type vectorSeries struct {
 	Key      channel.Key    `json:"key"`
 	DataType telem.DataType `json:"data_type"`
-	Data     string         `json:"data"`
-	Clock    uint32         `json:"clock"`
+	// DecodedDataType is the type the decoder gives the series, when it differs from
+	// DataType.
+	DecodedDataType telem.DataType `json:"decoded_data_type"`
+	Data            string         `json:"data"`
+	Clock           uint32         `json:"clock"`
+	// TimeRange holds the start and end of the series in nanoseconds.
+	TimeRange [2]int64 `json:"time_range"`
+	Alignment uint64   `json:"alignment"`
 }
 
+func (s vectorSeries) series(dt telem.DataType) telem.Series {
+	return telem.Series{
+		DataType: dt,
+		Data:     MustSucceed(hex.DecodeString(s.Data)),
+		Clock:    s.Clock,
+		TimeRange: telem.TimeRange{
+			Start: telem.TimeStamp(s.TimeRange[0]),
+			End:   telem.TimeStamp(s.TimeRange[1]),
+		},
+		Alignment: telem.Alignment(s.Alignment),
+	}
+}
+
+// entries returns the series that the frame encodes.
 func (f vectorFrame) entries() []keyed {
 	entries := make([]keyed, len(f.Series))
 	for i, s := range f.Series {
-		entries[i] = keyed{s.Key, telem.Series{
-			DataType: s.DataType,
-			Data:     MustSucceed(hex.DecodeString(s.Data)),
-			Clock:    s.Clock,
-		}}
+		entries[i] = keyed{s.Key, s.series(s.DataType)}
+	}
+	return entries
+}
+
+// decoded returns the series that the frame decodes to.
+func (f vectorFrame) decoded() []keyed {
+	entries := make([]keyed, len(f.Series))
+	for i, s := range f.Series {
+		dt := s.DataType
+		if s.DecodedDataType != "" {
+			dt = s.DecodedDataType
+		}
+		entries[i] = keyed{s.Key, s.series(dt)}
 	}
 	return entries
 }
@@ -74,7 +103,7 @@ var _ = Describe("Golden frames", func() {
 				By(f.Name)
 				encoded := MustSucceed(enc.Encode(ctx, multi(f.entries()...)))
 				Expect(hex.EncodeToString(encoded)).To(Equal(f.Encoded))
-				expectSeries(MustSucceed(dec.Decode(encoded)), f.entries()...)
+				expectSeries(MustSucceed(dec.Decode(encoded)), f.decoded()...)
 			}
 		})
 	}

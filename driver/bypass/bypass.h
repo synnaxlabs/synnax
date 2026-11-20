@@ -160,40 +160,35 @@ public:
 ///
 /// The Bus assigns monotonically increasing alignment to each series before delivery,
 /// fulfilling the role that Cesium plays on the server path, and the clock of each
-/// series' channel, the role of the Core's writer. Channels must be
-/// registered via register_channels before publishing. Registration locks; the publish
-/// hot path uses only atomic fetch_add. When externally-aligned frames (e.g. from
-/// Cesium) are observed, callers must invoke advance_alignments to keep the counters
-/// ahead of externally-assigned values.
+/// series' channel, the role of the Core's writer. Channels must be registered via
+/// register_channels before publishing. Registration locks; the publish hot path uses
+/// only atomic fetch_add. When externally-aligned frames (e.g. from Cesium) are
+/// observed, callers must invoke advance_alignments to keep the counters ahead of
+/// externally-assigned values.
 class Bus {
     mutable std::shared_mutex mu;
     std::vector<std::weak_ptr<Subscription>> subscribers;
 
-    mutable std::shared_mutex alignment_mu;
-    std::unordered_map<synnax::channel::Key, std::unique_ptr<std::atomic<uint64_t>>>
-        alignment_counters;
-    std::unordered_map<synnax::channel::Key, std::uint32_t> clocks;
+    /// @brief the next alignment and the clock that the bus gives a channel's series.
+    struct Stamp {
+        std::atomic<std::uint64_t> alignment{0};
+        std::uint32_t clock = 0;
+    };
+
+    mutable std::shared_mutex stamps_mu;
+    std::unordered_map<synnax::channel::Key, std::unique_ptr<Stamp>> stamps;
 
 public:
-    /// @brief registers channels for alignment tracking. Must be called before
-    /// publishing frames containing these channels (typically at writer open).
-    void register_channels(const std::vector<synnax::channel::Key> &keys) {
-        std::unique_lock lock(this->alignment_mu);
-        for (auto key: keys) {
-            if (!this->alignment_counters.contains(key))
-                this->alignment_counters.emplace(
-                    key,
-                    std::make_unique<std::atomic<uint64_t>>(0)
-                );
+    /// @brief registers channels before their frames publish: an alignment counter for
+    /// each, and the clock that the bus gives each of its series, which is the index of
+    /// the channel, or zero for a channel with no index.
+    void register_channels(const std::vector<synnax::channel::Channel> &channels) {
+        std::unique_lock lock(this->stamps_mu);
+        for (const auto &ch: channels) {
+            auto &stamp = this->stamps[ch.key];
+            if (stamp == nullptr) stamp = std::make_unique<Stamp>();
+            stamp->clock = ch.is_index ? ch.key : ch.index;
         }
-    }
-
-    /// @brief sets the clock that the bus gives each series of each channel: the index
-    /// of the channel, or zero for a channel with no index.
-    void register_clocks(const std::vector<synnax::channel::Channel> &channels) {
-        std::unique_lock lock(this->alignment_mu);
-        for (const auto &ch: channels)
-            this->clocks[ch.key] = ch.is_index ? ch.key : ch.index;
     }
 
     /// @brief publishes a frame to all subscribers with matching channel keys.
@@ -213,23 +208,23 @@ public:
                     continue;
                 }
                 if (!aligned) {
-                    std::shared_lock alm_lock(this->alignment_mu);
+                    std::shared_lock stamps_lock(this->stamps_mu);
                     alignments.resize(frame.size());
                     clocks.resize(frame.size());
                     for (size_t i = 0; i < frame.size(); i++) {
-                        auto key = frame.channels->at(i);
-                        const auto clock = this->clocks.find(key);
-                        clocks[i] = clock == this->clocks.end() ? 0 : clock->second;
-                        auto it = this->alignment_counters.find(key);
-                        if (it != this->alignment_counters.end()) {
-                            auto &counter = *it->second;
-                            const auto samples = frame.series->at(i).size();
-                            alignments[i] = x::telem::Alignment(counter.fetch_add(
-                                samples > 0 ? samples : 1,
-                                std::memory_order_relaxed
-                            ));
-                        } else
+                        const auto it = this->stamps.find(frame.channels->at(i));
+                        if (it == this->stamps.end()) {
                             alignments[i] = x::telem::Alignment(0);
+                            clocks[i] = 0;
+                            continue;
+                        }
+                        auto &stamp = *it->second;
+                        const auto samples = frame.series->at(i).size();
+                        alignments[i] = x::telem::Alignment(stamp.alignment.fetch_add(
+                            samples > 0 ? samples : 1,
+                            std::memory_order_relaxed
+                        ));
+                        clocks[i] = stamp.clock;
                     }
                     aligned = true;
                 }
@@ -247,12 +242,11 @@ public:
     /// subsequent bus-assigned alignments will be monotonically past any
     /// externally-assigned (e.g. Cesium) alignments observed by the caller.
     void advance_alignments(const x::telem::Frame &frame) {
-        std::shared_lock lock(this->alignment_mu);
+        std::shared_lock lock(this->stamps_mu);
         for (size_t i = 0; i < frame.size(); i++) {
-            const auto key = frame.channels->at(i);
-            const auto it = this->alignment_counters.find(key);
-            if (it == this->alignment_counters.end()) continue;
-            auto &counter = *it->second;
+            const auto it = this->stamps.find(frame.channels->at(i));
+            if (it == this->stamps.end()) continue;
+            auto &counter = it->second->alignment;
             const auto &s = frame.series->at(i);
             const auto target = s.alignment.uint64() + (!s.empty() ? s.size() : 1);
             auto current = counter.load(std::memory_order_relaxed);
