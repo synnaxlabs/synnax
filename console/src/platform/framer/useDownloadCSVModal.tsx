@@ -74,7 +74,7 @@ const TimeRangeFields = ({ index, preview, labelShown }: TimeRangeFieldsProps) =
   const rangePath = path.timeRanges[index];
   const range = Form.useFieldValue(rangePath);
   return (
-    <Flex.Box x gap="medium">
+    <>
       <Form.DateTimeField
         path={rangePath.start}
         padHelpText={false}
@@ -102,7 +102,7 @@ const TimeRangeFields = ({ index, preview, labelShown }: TimeRangeFieldsProps) =
           preview,
         }}
       />
-    </Flex.Box>
+    </>
   );
 };
 
@@ -151,7 +151,7 @@ const DownloadCSV = ({
             Download data for {name} as CSV
           </Text.Text>
           <Flex.Box y full="x" gap="medium">
-            <Flex.Box y gap="small">
+            <div className={CSS.BE("download-csv", "spans")}>
               {shown.map((_, i) => (
                 <TimeRangeFields
                   key={i}
@@ -160,7 +160,7 @@ const DownloadCSV = ({
                   labelShown={i === 0}
                 />
               ))}
-            </Flex.Box>
+            </div>
             <Form.Field path={path.channels}>
               {({ value, onChange }) => (
                 <Channel.SelectMultiple
