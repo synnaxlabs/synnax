@@ -7,14 +7,20 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-alias(
-    name = "crypto",
-    actual = "@openssl//:crypto",
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "icd_proto",
+    srcs = ["pb/icd.proto"],
     visibility = ["//visibility:public"],
+    deps = ["//core/pkg/service/icd:icd_proto"],
 )
 
-alias(
-    name = "ssl",
-    actual = "@openssl//:ssl",
+cpp_grpc_library(
+    name = "icd_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":icd_proto"],
     visibility = ["//visibility:public"],
+    deps = ["//core/pkg/service/icd:icd_grpc"],
 )

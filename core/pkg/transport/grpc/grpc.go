@@ -49,6 +49,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
+	grpcicd "github.com/synnaxlabs/synnax/pkg/transport/grpc/icd"
 	nichassis "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
@@ -83,6 +84,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		control.New(&t, errs),
 		nidevice.New(&t, errs),
 		nichassis.New(&t, errs),
+		grpcicd.New(&t, errs),
 	}
 
 	// AUTH
@@ -170,8 +172,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]{}
 
 	// ICD
-	t.ICDCreate = noop.UnaryServer[icd.CreateRequest, icd.CreateResponse]{}
-	t.ICDRetrieve = noop.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]{}
 	t.ICDCheck = noop.UnaryServer[icd.CheckRequest, icd.CheckResponse]{}
 	t.ICDDispatch = noop.UnaryServer[icd.DispatchRequest, struct{}]{}
 	t.ICDImport = noop.UnaryServer[icd.ImportRequest, icd.ImportResponse]{}

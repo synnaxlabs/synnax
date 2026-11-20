@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type certificate, type rack } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { assert, beforeAll, describe, expect, it } from "vitest";
 
 import { Certificate } from "@/certificate";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
@@ -101,6 +101,32 @@ describe("queries", () => {
         await client.certificates.rename(created.key, "after rename");
       });
       await waitFor(() => expect(result.current.name).toEqual("after rename"));
+    });
+  });
+
+  describe("useCreate", () => {
+    it("should create a stored certificate with its private key", async () => {
+      let created: certificate.Certificate | undefined;
+      const { result } = renderHook(
+        () =>
+          Certificate.useCreate({
+            afterSuccess: ({ data }) => {
+              created = data;
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync({
+          name: "new certificate",
+          source: "stored",
+          ...CERTIFICATE,
+        });
+      });
+      assert(created?.source === "stored");
+      expect(created.details.subject).toContain("Synnax Test Client");
+      expect(created.privateKey).toBeDefined();
+      expect(await client.certificates.retrieve(created.key)).toEqual(created);
     });
   });
 
