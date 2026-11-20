@@ -56,7 +56,7 @@ describe("Uses", () => {
       where: { key: { eq: ch.key } },
       includeUses: true,
     });
-    expect(retrieved.uses ?? []).toEqual([]);
+    expect(retrieved.uses).toEqual([]);
   });
 
   it("should leave uses out when the request does not ask for them", async () => {

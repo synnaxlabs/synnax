@@ -1134,6 +1134,13 @@ class TestChannelUses:
             ("schematic", str(diagram.key), "read")
         ]
 
+    def test_uses_empty(self, client: sy.Synnax) -> None:
+        """Should return empty uses for a channel that nothing uses."""
+        ch = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        assert client.channels.retrieve(ch.key, include_uses=True).uses == []
+
     def test_uses_not_asked(self, client: sy.Synnax) -> None:
         """Should leave uses out when the retrieve does not ask for them."""
         ch = client.channels.create(
