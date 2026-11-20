@@ -10,6 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { ENDPOINT, send } from "@synnaxlabs/site-common/contact";
 import {
   type ReactElement,
   type SubmitEvent,
@@ -18,7 +19,6 @@ import {
   useState,
 } from "react";
 
-const ENDPOINT = "https://formspree.io/f/mgegebvq";
 const EMPTY_VALUES = { name: "", email: "", company: "", phone: "", message: "" };
 const REQUIRED_MESSAGES = {
   name: "Enter your name.",
@@ -130,17 +130,8 @@ export const ContactForm = (): ReactElement => {
     setPending(true);
     setError(false);
     void (async () => {
-      try {
-        const response = await fetch(ENDPOINT, {
-          method: "POST",
-          body: data,
-          headers: { Accept: "application/json" },
-        });
-        if (response.ok) setSuccess(true);
-        else setError(true);
-      } catch {
-        setError(true);
-      }
+      if (await send(data)) setSuccess(true);
+      else setError(true);
       inFlight.current = false;
       setPending(false);
     })();

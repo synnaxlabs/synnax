@@ -10,17 +10,31 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { type InjectedRoute } from "astro";
+import {
+  type ClientDirectiveConfig,
+  type InjectedRoute,
+  type InjectedType,
+} from "astro";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { integration } from "./integration";
 
 describe("integration", () => {
   const routes: InjectedRoute[] = [];
+  const directives: ClientDirectiveConfig[] = [];
+  const types: InjectedType[] = [];
 
   beforeAll(() => {
-    integration().hooks["astro:config:setup"]({
+    const { hooks } = integration();
+    hooks["astro:config:setup"]({
       injectRoute: (route) => routes.push(route),
+      addClientDirective: (directive) => directives.push(directive),
+    });
+    hooks["astro:config:done"]({
+      injectTypes: (type) => {
+        types.push(type);
+        return new URL("file:///types.d.ts");
+      },
     });
   });
 
@@ -43,5 +57,15 @@ describe("integration", () => {
     routes.forEach(({ entrypoint }) =>
       expect(existsSync(fileURLToPath(entrypoint))).toBe(true),
     );
+  });
+
+  it("should add the interaction directive from an existing entry point", () => {
+    expect(directives.map(({ name }) => name)).toEqual(["interaction"]);
+    expect(existsSync(fileURLToPath(directives[0].entrypoint))).toBe(true);
+  });
+
+  it("should declare the interaction directive for type checks", () => {
+    expect(types).toHaveLength(1);
+    expect(types[0].content).toContain('"client:interaction"');
   });
 });
