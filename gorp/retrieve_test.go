@@ -934,6 +934,39 @@ var _ = Describe("Retrieve", func() {
 			Expect(q.HasFilterKeys()).To(BeFalse())
 		})
 	})
+	Describe("Failing filter", func() {
+		failing := gorp.Match[int32](func(_ gorp.Context, e *entry) (bool, error) {
+			if e.ID == entries[1].ID {
+				return false, query.ErrNotFound
+			}
+			return true, nil
+		})
+		keys := func() gorp.Filter[int32, entry] {
+			return gorp.MatchKeys[int32, entry](
+				entries[0].GorpKey(),
+				entries[1].GorpKey(),
+			)
+		}
+		It("Should return the filter error from Exists", func(ctx SpecContext) {
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
+					return false, query.ErrNotFound
+				})).
+				Exists(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should return the filter error from Exists on keys", func(ctx SpecContext) {
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(keys()).
+				Where(failing).
+				Exists(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should return the filter error from Count on keys", func(ctx SpecContext) {
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(keys()).
+				Where(failing).
+				Count(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
+		})
+	})
 	Describe("Count", func() {
 		Context("WhereKeys", func() {
 			It("Should return the count of existing keys", func(ctx SpecContext) {

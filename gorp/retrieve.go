@@ -290,7 +290,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 		}
 		e := make([]E, 0, len(keys))
 		r.entries.bindMultiple(&e)
-		if _, err := r.execKeys(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
+		if _, err := r.execKeys(ctx, snap); err != nil {
 			return false, err
 		}
 		if r.keysRequired() {
@@ -301,7 +301,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 	e := make([]E, 0, 1)
 	r.entries.bindMultiple(&e)
 	r.limit = 1
-	if err := r.execFilter(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
+	if err := r.execFilter(ctx, snap); err != nil {
 		return false, err
 	}
 	return len(e) > 0, nil
@@ -336,11 +336,7 @@ func (r Retrieve[K, E]) Count(
 	}
 	if r.HasFilterKeys() {
 		r.entries.bindMultiple(new(make([]E, 0, len(r.filter.keys.Keys()))))
-		if _, err := r.execKeys(
-			ctx,
-			snap,
-		); err != nil &&
-			!errors.Is(err, query.ErrNotFound) {
+		if _, err := r.execKeys(ctx, snap); err != nil {
 			return 0, err
 		}
 		return len(r.entries.All()), nil
