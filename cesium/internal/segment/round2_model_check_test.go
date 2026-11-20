@@ -59,7 +59,7 @@ var _ = Describe("Round 2 check, random handles", func() {
 				t.mu.Lock()
 				n := len(t.data)
 				t.mu.Unlock()
-				err := t.h.Sync()
+				err := b.Sync([]*segment.Handle{t.h})
 				if failedBefore {
 					Expect(err).To(HaveOccurred(), "a sync after a failed sync of %s",
 						t.name)

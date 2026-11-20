@@ -116,7 +116,7 @@ var _ = Describe("Round 2 check", func() {
 		exec := func(f func()) { jobs <- f }
 		b := MustSucceed(segment.NewBudget(1, 4, exec))
 		h := MustSucceed(b.Create(fs, "0.seg"))
-		Expect(h.Sync()).To(Succeed())
+		Expect(b.Sync([]*segment.Handle{h})).To(Succeed())
 		Expect(h.WriteAt([]byte("0.seg"), 0)).To(Equal(5))
 		// An earlier job keeps the worker busy while the next two queue.
 		gate, started := make(chan struct{}), make(chan struct{})
@@ -161,7 +161,7 @@ var _ = Describe("Round 2 check", func() {
 			fs := newHoldFS(mem)
 			b := MustSucceed(segment.NewBudget(3, 4, segment.GoExecutor))
 			h1 := MustSucceed(b.Create(fs, "1.seg"))
-			Expect(h1.Sync()).To(Succeed())
+			Expect(b.Sync([]*segment.Handle{h1})).To(Succeed())
 			Expect(h1.WriteAt([]byte("1"), 0)).To(Equal(1))
 			c1 := MustSucceed(b.Create(fs, "c1.seg"))
 			c2 := MustSucceed(b.Create(fs, "c2.seg"))
@@ -172,7 +172,7 @@ var _ = Describe("Round 2 check", func() {
 			fs.mu.Unlock()
 			syncGate := fs.Gate("sync 1.seg")
 			synced := make(chan error, 1)
-			go func() { synced <- h1.Sync() }()
+			go func() { synced <- b.Sync([]*segment.Handle{h1}) }()
 			Eventually(fs.entered).Should(Receive(Equal("sync 1.seg")))
 
 			// Two closes hold the lock of the budget, one after the other, while the

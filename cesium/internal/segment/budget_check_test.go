@@ -52,7 +52,7 @@ var _ = Describe("Budget check", func() {
 									err = nil
 								}
 							case 2:
-								err = o.Sync()
+								err = b.Sync([]*segment.Handle{o})
 							default:
 								err = b.Sync([]*segment.Handle{o, hs[i]})
 							}
@@ -90,12 +90,9 @@ var _ = Describe("Budget check", func() {
 					SyncErrorRate: 0.5,
 				}))
 				g := newGateFS(ffs)
-				h := MustSucceed(
-					MustSucceed(
-						segment.NewBudget(4, 4, segment.GoExecutor),
-					).Create(g, "1.seg"),
-				)
-				if h.Sync() != nil {
+				budget := MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
+				h := MustSucceed(budget.Create(g, "1.seg"))
+				if budget.Sync([]*segment.Handle{h}) != nil {
 					Expect(h.Close()).To(Succeed())
 					continue
 				}
@@ -104,7 +101,7 @@ var _ = Describe("Budget check", func() {
 				for {
 					Expect(h.WriteAt([]byte("abc"), at)).To(Equal(3))
 					at += 3
-					go func() { bErr <- h.Sync() }()
+					go func() { bErr <- budget.Sync([]*segment.Handle{h}) }()
 					select {
 					case err := <-bErr:
 						Expect(err).ToNot(HaveOccurred())

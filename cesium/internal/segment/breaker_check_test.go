@@ -59,11 +59,8 @@ func (f discardFS) Open(name string, flag int) (xfs.File, error) {
 var _ = Describe("Breaker check", func() {
 	It("Should not return a committed length that wraps past 2^32 stream bytes",
 		func() {
-			h := MustSucceed(
-				MustSucceed(
-					segment.NewBudget(8, 8, segment.GoExecutor),
-				).Create(discardFS{xfs.NewMem()}, "3.seg"),
-			)
+			budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+			h := MustSucceed(budget.Create(discardFS{xfs.NewMem()}, "3.seg"))
 			w := segment.NewWriter(h, cfg)
 			chunk := make([]byte, 16<<20)
 			for range 256 {
@@ -81,18 +78,17 @@ var _ = Describe("Breaker check", func() {
 	It("Should leave the written bytes durable when Sync returns nil after a "+
 		"failed sync", func() {
 		disk := MustSucceed(fault.New(fault.Config{SyncErrorRate: 1}))
-		h := MustSucceed(
-			MustSucceed(
-				segment.NewBudget(8, 8, segment.GoExecutor),
-			).Create(disk, "3.seg"),
-		)
+		budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+		h := MustSucceed(budget.Create(disk, "3.seg"))
 		w := segment.NewWriter(h, cfg)
 		disk.Writeback()
 		data := pattern(100)
 		Expect(w.Write(data)).To(Succeed())
 		w.Commit()
-		Expect(h.Sync()).To(MatchError(ContainSubstring("input/output error")))
-		if err := h.Sync(); err == nil {
+		Expect(
+			budget.Sync([]*segment.Handle{h}),
+		).To(MatchError(ContainSubstring("input/output error")))
+		if err := budget.Sync([]*segment.Handle{h}); err == nil {
 			Expect(crashBytes(disk)).To(Equal(data))
 		}
 		Expect(h.Close()).To(Succeed())
@@ -105,11 +101,8 @@ var _ = Describe("Breaker check", func() {
 				RunKey:        key,
 				SyncErrorRate: 0.5,
 			}))
-			h := MustSucceed(
-				MustSucceed(
-					segment.NewBudget(8, 8, segment.GoExecutor),
-				).Create(disk, "3.seg"),
-			)
+			budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+			h := MustSucceed(budget.Create(disk, "3.seg"))
 			w := segment.NewWriter(h, cfg)
 			disk.Writeback()
 			data := pattern(3*segment.BlockSize + 77)
@@ -122,7 +115,7 @@ var _ = Describe("Breaker check", func() {
 				}
 				at += n
 				w.Commit()
-				if h.Sync() == nil {
+				if budget.Sync([]*segment.Handle{h}) == nil {
 					durable = w.Len()
 				}
 			}
@@ -148,16 +141,13 @@ var _ = Describe("Breaker check", func() {
 
 	It("Should keep a new segment file after a Sync returns nil", func() {
 		disk := MustSucceed(fault.New(fault.Config{}))
-		h := MustSucceed(
-			MustSucceed(
-				segment.NewBudget(8, 8, segment.GoExecutor),
-			).Create(disk, "3.seg"),
-		)
+		budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+		h := MustSucceed(budget.Create(disk, "3.seg"))
 		w := segment.NewWriter(h, cfg)
 		data := pattern(100)
 		Expect(w.Write(data)).To(Succeed())
 		w.Commit()
-		Expect(h.Sync()).To(Succeed())
+		Expect(budget.Sync([]*segment.Handle{h})).To(Succeed())
 		img := MustSucceed(disk.Crash(fault.CrashConfig{}))
 		Expect(img.Exists("3.seg")).To(BeTrue())
 		Expect(h.Close()).To(Succeed())

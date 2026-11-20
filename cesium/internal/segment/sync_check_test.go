@@ -85,7 +85,7 @@ var _ = Describe("Sync check", func() {
 				g := newGateFS(ffs)
 				b := MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
 				h := MustSucceed(b.Create(g, "1.seg"))
-				if h.Sync() != nil {
+				if b.Sync([]*segment.Handle{h}) != nil {
 					Expect(h.Close()).To(Succeed())
 					continue
 				}
@@ -102,7 +102,7 @@ var _ = Describe("Sync check", func() {
 					)
 					Expect(h.WriteAt(chunk, int64(len(data)))).To(Equal(len(chunk)))
 					data = append(data, chunk...)
-					go func() { bErr <- h.Sync() }()
+					go func() { bErr <- b.Sync([]*segment.Handle{h}) }()
 					select {
 					case err := <-bErr:
 						Expect(err).ToNot(HaveOccurred())
@@ -114,7 +114,9 @@ var _ = Describe("Sync check", func() {
 				// Caller B's sync failed and has not returned. Caller A syncs now. A
 				// sync
 				// that does not wait for B returns inside the window.
-				aDone := callWithin(func() error { return h.Sync() })
+				aDone := callWithin(
+					func() error { return b.Sync([]*segment.Handle{h}) },
+				)
 				close(g.resume)
 				Expect(<-bErr).To(MatchError(syscall.EIO))
 				aErr := <-aDone
@@ -158,7 +160,7 @@ var _ = Describe("Sync check", func() {
 					fs.FailSync("1.seg", nil)
 					fs.Unhold()
 					synced := make(chan error, 1)
-					go func() { synced <- first.Sync() }()
+					go func() { synced <- b.Sync([]*segment.Handle{first}) }()
 					Consistently(synced, 200*time.Millisecond).ShouldNot(Receive())
 					close(release)
 					Expect(<-synced).To(MatchError(ContainSubstring(
@@ -205,16 +207,13 @@ var _ = Describe("Sync check", func() {
 			It(
 				"Should sync the directory of a new file once when two callers sync it",
 				func() {
-					h := MustSucceed(
-						MustSucceed(
-							segment.NewBudget(2, 2, segment.GoExecutor),
-						).Create(fs, "12/1.seg"),
-					)
+					budget := MustSucceed(segment.NewBudget(2, 2, segment.GoExecutor))
+					h := MustSucceed(budget.Create(fs, "12/1.seg"))
 					release := fs.Hold()
 					done := make(chan error, 2)
-					go func() { done <- h.Sync() }()
+					go func() { done <- budget.Sync([]*segment.Handle{h}) }()
 					Eventually(fs.held).Should(Receive(Equal("12")))
-					go func() { done <- h.Sync() }()
+					go func() { done <- budget.Sync([]*segment.Handle{h}) }()
 					select {
 					case <-fs.held:
 					case <-time.After(300 * time.Millisecond):
