@@ -46,6 +46,15 @@ target-version = "py313"
 [tool.ruff.lint]
 select = [
     "F",
+    "ASYNC",
+    "EXE",
+    "FURB",
+    "PGH",
+    "PLW1508",
+    "T10",
+    "TID252",
+    "W605",
+    "YTT",
     "I",
     "B",
     "DTZ",
