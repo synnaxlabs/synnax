@@ -37,19 +37,24 @@ export interface Segment {
 
 /**
  * Layout maps the values of an x axis to decimal positions across its home view and
- * across its viewport. Its segments sit side by side in value order and share one
- * scale per unit of value. The values between two segments map to the position where
- * the segments meet, and the first and last segments extend past their bounds.
+ * across its viewport. Its segments sit side by side in value order and share one scale
+ * per unit of value. The values between two segments map to the position where the
+ * segments meet, and the first and last segments extend past their bounds.
  */
 export class Layout {
   /** The segments, in value order. */
   readonly segments: readonly Segment[];
+  /** The values from the lower bound of the first segment to the upper of the last. */
+  readonly bounds: bounds.Bounds;
   // homes maps a value of each segment to a decimal position across the home view, and
   // positions holds the home position bounds of each segment.
   private readonly homes: readonly scale.Scale[];
   private readonly reverseHomes: readonly scale.Scale[];
   private readonly positions: readonly bounds.Bounds[];
+  private readonly lowers: readonly number[];
+  private readonly positionLowers: readonly number[];
   private readonly viewport: scale.Scale;
+  private readonly reverseViewport: scale.Scale;
   private readonly spans: ReadonlyMap<string, bounds.Bounds>;
 
   /**
@@ -76,26 +81,28 @@ export class Layout {
     const translate = -box.root(viewport).x;
     const magnify = 1 / box.width(viewport);
     this.viewport = scale.Scale.translate(translate).magnify(magnify);
+    this.reverseViewport = this.viewport.reverse();
     this.segments = segments.map((b, i) => {
       const s = this.homes[i].translate(translate).magnify(magnify);
       return {
         bounds: b,
         scale: s,
-        extent: extended(segments, b.lower),
+        extent: {
+          lower: i === 0 ? -Infinity : b.lower,
+          upper: i === segments.length - 1 ? Infinity : b.upper,
+        },
         position: {
           lower: i === 0 ? -Infinity : s.pos(b.lower),
           upper: i === segments.length - 1 ? Infinity : s.pos(b.upper),
         },
       };
     });
-  }
-
-  /** The values from the lower bound of the first segment to the upper of the last. */
-  get bounds(): bounds.Bounds {
-    return {
-      lower: this.segments[0].bounds.lower,
-      upper: this.segments[this.segments.length - 1].bounds.upper,
+    this.bounds = {
+      lower: segments[0].lower,
+      upper: segments[segments.length - 1].upper,
     };
+    this.lowers = segments.map((b) => b.lower);
+    this.positionLowers = this.positions.map((b) => b.lower);
   }
 
   /**
@@ -114,11 +121,7 @@ export class Layout {
     const span = this.span(key);
     const value = Number.isFinite(span.lower) ? span.lower : span.upper;
     if (!Number.isFinite(value)) return this.segments[0];
-    const i = lastAtOrBelow(
-      this.segments.length,
-      (j) => this.segments[j].bounds.lower,
-      value,
-    );
+    const i = lastAtOrBelow(this.lowers, value);
     return this.segments[i];
   }
 
@@ -129,16 +132,12 @@ export class Layout {
 
   /** @returns the value at a decimal position across the viewport. */
   reverse(position: number): number {
-    return this.reverseHome(this.viewport.reverse().pos(position));
+    return this.reverseHome(this.reverseViewport.pos(position));
   }
 
   /** @returns the decimal position of value across the home view. */
   home(value: number): number {
-    const i = lastAtOrBelow(
-      this.segments.length,
-      (j) => this.segments[j].bounds.lower,
-      value,
-    );
+    const i = lastAtOrBelow(this.lowers, value);
     const { upper } = this.segments[i].bounds;
     if (i < this.segments.length - 1 && value > upper) return this.positions[i].upper;
     return this.homes[i].pos(value);
@@ -149,11 +148,7 @@ export class Layout {
    * two segments meet gives the lower bound of the later one.
    */
   reverseHome(position: number): number {
-    const i = lastAtOrBelow(
-      this.positions.length,
-      (j) => this.positions[j].lower,
-      position,
-    );
+    const i = lastAtOrBelow(this.positionLowers, position);
     return this.reverseHomes[i].pos(position);
   }
 }
@@ -238,7 +233,9 @@ export const spans = (
   const groups = new Map<string, Trace[]>();
   finite.forEach((t) => {
     const group = t.group ?? t.key;
-    groups.set(group, [...(groups.get(group) ?? []), t]);
+    const members = groups.get(group);
+    if (members == null) groups.set(group, [t]);
+    else members.push(t);
   });
   groups.forEach((members) =>
     split(members, segments).forEach((b, key) => result.set(key, b)),
@@ -267,13 +264,15 @@ const split = (
   );
   const result = new Map<string, bounds.Bounds>();
   const owned: Array<[string, bounds.Bounds]> = [];
+  const taken: bounds.Bounds[] = [];
   ordered.forEach(({ key, bounds: b }) => {
-    const piece = newestLeft(
-      b,
-      owned.map(([, o]) => o),
-    );
-    if (piece == null) result.set(key, EMPTY);
-    else owned.push([key, piece]);
+    const piece = newestLeft(b, taken);
+    if (piece == null) {
+      result.set(key, EMPTY);
+      return;
+    }
+    owned.push([key, piece]);
+    taken.push(piece);
   });
   owned.sort(([, a], [, b]) => a.lower - b.lower);
   owned.forEach(([key, piece], i) => {
@@ -292,7 +291,10 @@ const split = (
 // segments extended past their bounds.
 const extended = (segments: bounds.Bounds[], value: number): bounds.Bounds => {
   if (segments.length < 2) return bounds.INFINITE;
-  const i = lastAtOrBelow(segments.length, (j) => segments[j].lower, value);
+  const i = lastAtOrBelow(
+    segments.map((s) => s.lower),
+    value,
+  );
   return {
     lower: i === 0 ? -Infinity : segments[i].lower,
     upper: i === segments.length - 1 ? Infinity : segments[i].upper,
@@ -314,17 +316,13 @@ const newestLeft = (b: bounds.Bounds, taken: bounds.Bounds[]): bounds.Bounds | n
   return left.at(-1) ?? null;
 };
 
-// lastAtOrBelow returns the last index in [0, length) whose ascending key is at or
-// below target, or 0 when every key is above it.
-const lastAtOrBelow = (
-  length: number,
-  key: (i: number) => number,
-  target: number,
-): number => {
-  let [lo, hi] = [0, length - 1];
+// lastAtOrBelow returns the index of the last of the ascending keys that is at or below
+// target, or 0 when every key is above it.
+const lastAtOrBelow = (keys: readonly number[], target: number): number => {
+  let [lo, hi] = [0, keys.length - 1];
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (key(mid) <= target) lo = mid;
+    if (keys[mid] <= target) lo = mid;
     else hi = mid - 1;
   }
   return lo;

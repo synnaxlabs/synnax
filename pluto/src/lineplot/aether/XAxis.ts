@@ -79,17 +79,6 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return this.yAxes.map((el) => el.findDrawnByXValue(p, value)).flat();
   }
 
-  /**
-   * @returns the values that a span of decimal positions across the home view holds.
-   */
-  values(props: LayoutProps, positions: bounds.Bounds): bounds.Bounds {
-    const layout = this.layout(props);
-    return {
-      lower: layout.reverseHome(positions.lower),
-      upper: layout.reverseHome(positions.upper),
-    };
-  }
-
   private yAxisProps(
     props: Omit<AxisRenderProps, "canvases">,
   ): Omit<YAxisProps, "canvases"> {
