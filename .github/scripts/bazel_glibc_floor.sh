@@ -22,6 +22,10 @@ image=synnax-driver-linux:$(sha256sum "$dockerfile" | cut -c1-12)
 if ! docker image inspect "$image" > /dev/null 2>&1; then
     docker build --tag "$image" - < "$dockerfile"
 fi
+# The PPA's GCC is not pinned, and GCC rejects LTO objects from another version, so the
+# action keys name the installed compiler as well as the Dockerfile.
+gcc=$(docker run --rm "$image" dpkg-query --showformat='${Version}' --show gcc-13)
+key="$image+gcc-13=$gcc"
 root="$HOME/.cache/bazel-glibc-floor/${RUNNER_NAME:-local}"
 mkdir -p "$root"
 command=$1
@@ -38,6 +42,6 @@ docker run --rm --init --name "$name" --user "$(id -u):$(id -g)" \
     --env HOME="$root" --env USER=runner \
     --volume "$PWD:$PWD" --volume "$root:$root" --workdir "$PWD" "$image" \
     bazel --output_user_root="$root/bazel" "$command" \
-    --action_env=BUILD_IMAGE="$image" --host_action_env=BUILD_IMAGE="$image" \
+    --action_env=BUILD_IMAGE="$key" --host_action_env=BUILD_IMAGE="$key" \
     --repo_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm --linkopt=-static-libgcc "$@" &
 wait $!
