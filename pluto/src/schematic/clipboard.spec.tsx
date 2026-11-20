@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import {
-  type ClipboardEvent as ReactClipboardEvent,
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
+import type {
+  ClipboardEvent as ReactClipboardEvent,
+  FC,
+  PropsWithChildren,
+  ReactElement,
 } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -452,6 +452,53 @@ describe("schematic clipboard", () => {
       await copyAndPaste(result.current.clipboard);
       await waitFor(() => expect(result.current.nodes).toHaveLength(3));
       expect(result.current.nodes[2]).not.toHaveProperty("parent");
+    });
+
+    it("drops a named color that the Core no longer holds from a pasted node", async () => {
+      const [kept, deleted] = await client.colors.create([
+        { name: `kept_${uuid.create()}`, light: "#00ff00" },
+        { name: `deleted_${uuid.create()}`, light: "#ff0000" },
+      ]);
+      const proj = await client.projects.create({ name: `project_${uuid.create()}` });
+      const schem = await client.schematics.create({
+        project: proj.key,
+        name: `schem_${uuid.create()}`,
+        nodes: [
+          {
+            key: "n1",
+            position: { x: 0, y: 0 },
+            config: {
+              ...tank("Tank"),
+              strokeColor: { type: "named", key: kept.key },
+              fillColor: { type: "named", key: deleted.key },
+            },
+          },
+        ],
+        edges: [],
+      });
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      await loadSchematic(Wrapper, schem.key);
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ selected: ["n1"] }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+        }),
+        { wrapper: scoped(Wrapper, schem.key) },
+      );
+      const copyData = createDataTransfer();
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
+      await client.colors.delete(deleted.key);
+      const pasteEvent = createClipboardEvent(
+        createDataTransfer({ [MIME]: copyData.getData(MIME) }),
+      );
+      await act(async () => result.current.clipboard.onPaste(pasteEvent, xy.ZERO));
+      await waitFor(() => expect(result.current.nodes).toHaveLength(2));
+      const pasted = result.current.nodes.find((n) => n.key !== "n1");
+      assert(pasted?.config.variant === "tank");
+      expect(pasted.config.strokeColor).toEqual({ type: "named", key: kept.key });
+      expect(pasted.config.fillColor).toBeUndefined();
     });
 
     it("does nothing when the clipboard has no Synnax payload", async () => {

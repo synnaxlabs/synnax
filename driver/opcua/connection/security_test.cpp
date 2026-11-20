@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <filesystem>
-#include <fstream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -19,6 +18,7 @@
 
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
+#include "x/cpp/x509/testutil/testutil.h"
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/certificate/store.h"
@@ -48,11 +48,6 @@ std::string mismatch_message(
            " instead of the trusted certificate " + trusted.thumbprint() +
            ". If the server certificate changed on purpose, trust the new one in the "
            "device's connection settings.";
-}
-
-void write_file(const std::filesystem::path &path, const std::string &data) {
-    std::ofstream out(path, std::ios::binary);
-    out << data;
 }
 
 class SecurityTest : public ::testing::Test {
@@ -184,6 +179,27 @@ TEST_F(SecurityTest, CertificateMismatch) {
     ASSERT_EQ(server_certificate(client.get()), server_id.certificate);
 }
 
+/// @brief it should reject a server whose certificate holds the PEM of the trusted
+/// certificate in an extension, as a forged certificate would.
+TEST_F(SecurityTest, CertificateHoldingTrustedPem) {
+    const auto der = x::x509::testutil::create_der_holding(
+        server_id.private_key,
+        testutil::SERVER_APPLICATION_URI,
+        other_id.certificate.pem()
+    );
+    const certificate::Identity forged{
+        .certificate = ASSERT_NIL_P(x::x509::Certificate::parse(der)),
+        .private_key = server_id.private_key,
+    };
+    this->start_server(forged);
+    auto cfg = config();
+    cfg.server_certificate = other_id.certificate;
+    const auto [client, err] = connect(cfg, security(), "test");
+    ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
+    ASSERT_EQ(err.data, mismatch_message(forged.certificate, other_id.certificate));
+    ASSERT_FALSE(activated(client.get()));
+}
+
 /// @brief it should reject every server certificate when it trusts none and does not
 /// trust the first one.
 TEST_F(SecurityTest, NoTrustedCertificate) {
@@ -225,6 +241,27 @@ TEST_F(SecurityTest, ValidationDisabled) {
     const auto client = ASSERT_NIL_P(connect(cfg, security(), "test"));
     ASSERT_TRUE(activated(client.get()));
     ASSERT_EQ(server_certificate(client.get()), server_id.certificate);
+}
+
+/// @brief it should accept a server certificate with a name that Go refuses when
+/// validation is disabled.
+TEST_F(SecurityTest, ValidationDisabledNameGoRefuses) {
+    // The DER of a PrintableString CN=PLC_01, which Go refuses for its underscore.
+    const auto id = ASSERT_NIL_P(
+        certificate::create(
+            testutil::SERVER_APPLICATION_URI,
+            "#1306504C435F3031",
+            "localhost",
+            x::telem::DAY
+        )
+    );
+    ASSERT_EQ(id.certificate.subject(), "CN=PLC_01");
+    this->start_server(id);
+    auto cfg = config();
+    cfg.certificate_validation_disabled = true;
+    const auto client = ASSERT_NIL_P(connect(cfg, security(), "test"));
+    ASSERT_TRUE(activated(client.get()));
+    ASSERT_EQ(server_certificate(client.get()), id.certificate);
 }
 
 /// @brief it should reject a trusted server certificate that is not valid at the
@@ -275,17 +312,14 @@ TEST_F(SecurityTest, ServerTrustsClient) {
     ASSERT_TRUE(activated(client.get()));
 }
 
-/// @brief it should present the certificate files that the configuration names
+/// @brief it should present the client certificate that the configuration names
 /// instead of a Driver certificate.
-TEST_F(SecurityTest, CertificateFiles) {
+TEST_F(SecurityTest, ClientCertificate) {
     this->start_server(server_id, {client_id.certificate});
-    std::filesystem::create_directories(this->dir);
-    write_file(this->dir / "cert.pem", client_id.certificate.pem());
-    write_file(this->dir / "key.pem", client_id.private_key);
     auto cfg = config();
     cfg.server_certificate = server_id.certificate;
-    cfg.client_cert = (this->dir / "cert.pem").string();
-    cfg.client_private_key = (this->dir / "key.pem").string();
+    cfg.client_certificate_item = x::uuid::create();
+    cfg.client_identity = client_id;
     const auto pki = this->dir / "pki";
     certificate::Store store(certificate::StoreConfig{.dir = pki});
     const auto sec = ASSERT_NIL_P(resolve_security(cfg, store));

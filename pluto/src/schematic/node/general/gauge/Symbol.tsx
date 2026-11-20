@@ -9,15 +9,19 @@
 
 import "@/schematic/node/common/primitive/primitive.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { box, dimensions, type text, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/spec";
+import { Stale } from "@/schematic/node/common/stale";
+import { Gauge } from "@/schematic/node/general/gauge/Primitive";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
+import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
 const GAUGE_DIMENSIONS: Record<text.Level, dimensions.Dimensions> = {
@@ -53,13 +57,15 @@ export const Symbol = ({
     stalenessTimeout,
   },
 }: NodeProps<schematic.GaugeNodeConfig>): ReactElement => {
+  const badged = Staleness.useBadged();
+  const resolve = Color.useResolve();
   const dims = GAUGE_DIMENSIONS[level] ?? DEFAULT_DIMENSIONS;
   const telem = Value.stringSource({ channel, rollingAverage, precision, notation });
-  BaseGauge.use({
+  const { stale } = BaseGauge.use({
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
     telem,
-    color: strokeColor,
+    color: resolve(strokeColor),
     level,
     units,
     bounds,
@@ -67,11 +73,22 @@ export const Symbol = ({
     barWidth,
     stalenessColor,
     stalenessTimeout,
+    staleColorHidden: badged,
   });
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
+      {stale && badged && <Stale.Indicator />}
       <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );
+};
+
+/** Renders the gauge in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  ...rest
+}: schematic.GaugeNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return <Gauge {...rest} strokeColor={resolve(strokeColor)} />;
 };

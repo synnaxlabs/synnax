@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { errors } from "@/errors";
 import { primitive } from "@/primitive";
@@ -127,22 +127,19 @@ const flattenIssues = (
   const out: z.core.$ZodIssue[] = [];
   for (const issue of issues) {
     const fullPath = [...basePath, ...issue.path];
-    if (
-      issue.code === "invalid_union" &&
-      "errors" in issue &&
-      issue.errors.length > 0
-    ) {
-      let best = issue.errors[0];
-      let bestDepth = branchDepth(best);
-      for (let i = 1; i < issue.errors.length; i++) {
-        const d = branchDepth(issue.errors[i]);
-        if (d > bestDepth) {
-          best = issue.errors[i];
-          bestDepth = d;
-        }
+    if (issue.code === "invalid_union" && "errors" in issue) {
+      let best: z.core.$ZodIssue[] | undefined;
+      let bestDepth = 0;
+      for (const branch of issue.errors) {
+        const d = branchDepth(branch);
+        if (best != null && d <= bestDepth) continue;
+        best = branch;
+        bestDepth = d;
       }
-      out.push(...flattenIssues(best, fullPath));
-      continue;
+      if (best != null) {
+        out.push(...flattenIssues(best, fullPath));
+        continue;
+      }
     }
     if (
       issue.code === "invalid_element" &&
@@ -322,7 +319,8 @@ const renderIssues = (
       continue;
     }
 
-    const parentArr = parentPath(group[0].path);
+    // Every group holds the issue that created it.
+    const parentArr = parentPath(group[0]!.path);
     const { present, value: parent } = atKeys(root, parentArr);
 
     // If the union flattener picked a branch whose parent doesn't exist in the

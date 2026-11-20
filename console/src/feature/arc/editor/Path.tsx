@@ -9,10 +9,10 @@
 
 import "@/feature/arc/editor/Path.css";
 
-import { type arc } from "@synnaxlabs/client";
+import type { arc } from "@synnaxlabs/client";
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Arc } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";

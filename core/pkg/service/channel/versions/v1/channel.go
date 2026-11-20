@@ -141,6 +141,7 @@ func (c Channel) ToPayload() map[string]any {
 		"data_type":   c.DataType,
 		"internal":    c.Internal,
 		"virtual":     c.Virtual,
+		"concurrency": c.Concurrency,
 		"expression":  c.Expression,
 	}
 	if len(c.Operations) > 0 {

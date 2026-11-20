@@ -11,7 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { Node } from "@/schematic/node";
@@ -103,8 +103,8 @@ describe("tank colors", () => {
         values={{
           ...Node.createConfig({ variant: "tank" }),
           channel: 1,
-          strokeColor: color.construct("#ff0000"),
-          axisColor: color.construct("#00ff00"),
+          strokeColor: { type: "fixed", value: color.construct("#ff0000") },
+          axisColor: { type: "fixed", value: color.construct("#00ff00") },
         }}
       >
         <TankForm showFillTab />

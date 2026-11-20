@@ -14,7 +14,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type border, box, type scale, scheduler, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
@@ -32,7 +32,11 @@ const SURFACE_HEIGHT = 600;
 const COL_SIZE = 72;
 const ROW_SIZE = 36;
 // A value cell that draws its text in a fixed color.
-const VALUE_CONFIG = { variant: "value", level: "h5", textColor: "#000000" } as const;
+const VALUE_CONFIG = {
+  variant: "value",
+  level: "h5",
+  textColor: { type: "fixed", value: "#000000" },
+} as const;
 
 const expectedOffset = (contentWidth: number, contentHeight: number) => ({
   x: Math.floor((SURFACE_WIDTH - contentWidth - INDICATOR_SIZE) / 2),
@@ -40,6 +44,14 @@ const expectedOffset = (contentWidth: number, contentHeight: number) => ({
 });
 
 const RECT = mockBoundingClientRect(0, 0, SURFACE_WIDTH, SURFACE_HEIGHT)();
+
+// A browser can omit a zero y from `translate()`, so specs compare offsets.
+const TRANSLATE = /translate\((-?[\d.]+)px(?:, (-?[\d.]+)px)?\)/;
+
+const offsetOf = (transform: string | undefined): xy.XY => {
+  const m = TRANSLATE.exec(transform ?? "");
+  return m == null ? xy.ZERO : { x: Number(m[1]), y: Number(m[2] ?? 0) };
+};
 
 const THEME = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxLight);
 const RADIUS = THEME.sizes.border.radius.small * THEME.sizes.base;
@@ -177,10 +189,7 @@ describe("Table", () => {
     rowSize: number = ROW_SIZE,
   ) =>
     await waitFor(() => {
-      const transform = xy.equals(offset, xy.ZERO)
-        ? ""
-        : `translate(${offset.x}px, ${offset.y}px)`;
-      expect(frame().style.transform).toEqual(transform);
+      expect(offsetOf(frame().style.transform)).toEqual(offset);
       pumpRender();
       const b = lastCellBox();
       expect(box.topLeft(b)).toEqual(
@@ -223,9 +232,7 @@ describe("Table", () => {
       await expectPlacement(frame, settled);
       fireEvent.pointerDown(frame());
       await resizeRow(200);
-      expect(frame().style.transform).toEqual(
-        `translate(${settled.x}px, ${settled.y}px)`,
-      );
+      expect(offsetOf(frame().style.transform)).toEqual(settled);
       // The cell grew but its origin must stay held with the frame.
       await expectPlacement(frame, settled, 200);
       fireEvent.pointerUp(window);
@@ -475,14 +482,10 @@ describe("Table", () => {
   });
 
   describe("moving rows and columns", () => {
-    const TRANSLATE = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/;
-
-    const translation = (el: HTMLElement | null): xy.XY => {
-      if (el == null) return xy.ZERO;
-      const m = TRANSLATE.exec(el.style.transform);
-      const own = m == null ? xy.ZERO : { x: Number(m[1]), y: Number(m[2]) };
-      return xy.translate(own, translation(el.parentElement));
-    };
+    const translation = (el: HTMLElement | null): xy.XY =>
+      el == null
+        ? xy.ZERO
+        : xy.translate(offsetOf(el.style.transform), translation(el.parentElement));
 
     // Every element measures at the surface's top left, moved by the translate
     // transforms on it and its ancestors, as a browser measures it.
@@ -629,14 +632,15 @@ describe("Table", () => {
       press(c.getByText("A"), { x: 200, y: 5 });
       await frame();
       expect(frameEl()?.classList).toContain("pluto-table-frame--moving");
-      expect(transformOf("[id='00']")).toEqual("translate(144px, 0px)");
-      expect(transformOf("[id='21']")).toEqual("translate(-72px, 0px)");
-      expect(transformOf("#resizer-x-c0")).toEqual("translate(144px, 0px)");
-      expect(transformOf("#resizer-x-c2")).toEqual("translate(-72px, 0px)");
+      expect(offsetOf(transformOf("[id='00']"))).toEqual({ x: 144, y: 0 });
+      expect(offsetOf(transformOf("[id='21']"))).toEqual({ x: -72, y: 0 });
+      expect(offsetOf(transformOf("#resizer-x-c0"))).toEqual({ x: 144, y: 0 });
+      expect(offsetOf(transformOf("#resizer-x-c2"))).toEqual({ x: -72, y: 0 });
       expect(transformOf("#resizer-y-r0")).toEqual("");
-      expect(transformOf(".pluto-table-frame__move-source")).toEqual(
-        "translate(144px, 0px)",
-      );
+      expect(offsetOf(transformOf(".pluto-table-frame__move-source"))).toEqual({
+        x: 144,
+        y: 0,
+      });
       release({ x: 200, y: 5 });
       expect(frameEl()?.classList).not.toContain("pluto-table-frame--moving");
       expect(transformOf("[id='00']")).toEqual("");
@@ -650,10 +654,10 @@ describe("Table", () => {
         c.container.querySelector<HTMLElement>("[id='00']")?.style.transform;
       press(c.getByText("A"), { x: 200, y: 5 });
       await frame();
-      expect(transform()).toEqual("translate(144px, 0px)");
+      expect(offsetOf(transform())).toEqual({ x: 144, y: 0 });
       fireEvent.pointerMove(window, at({ x: 201, y: 5 }));
       await frame();
-      expect(transform()).toEqual("translate(144px, 0px)");
+      expect(offsetOf(transform())).toEqual({ x: 144, y: 0 });
       release({ x: 201, y: 5 });
       await expectStored(tableKey, [
         ["01", "02", "00"],
@@ -701,9 +705,9 @@ describe("Table", () => {
         c.container.querySelector<HTMLElement>(selector)?.style.transform;
       press(c.getByText("1"), { x: 5, y: 30 });
       await frame();
-      expect(transform("[id='00']")).toEqual("translate(0px, 36px)");
-      expect(transform("[id='12']")).toEqual("translate(0px, 36px)");
-      expect(transform("[id='20']")).toEqual("translate(0px, -72px)");
+      expect(offsetOf(transform("[id='00']"))).toEqual({ x: 0, y: 36 });
+      expect(offsetOf(transform("[id='12']"))).toEqual({ x: 0, y: 36 });
+      expect(offsetOf(transform("[id='20']"))).toEqual({ x: 0, y: -72 });
       expect(
         c.container.querySelectorAll(".pluto-table-frame__move-source"),
       ).toHaveLength(2);

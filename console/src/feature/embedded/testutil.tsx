@@ -11,14 +11,14 @@ import { Synnax as Client } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
 } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { scheduler } from "@synnaxlabs/x";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { expect, type Mock, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -61,7 +61,7 @@ export interface DesktopUser {
 export const createDesktopUser = async (): Promise<DesktopUser> => {
   const client = await createTestClientWithRole(createTestClient(), "Owner");
   const { username = "", password = "" } = client.params;
-  const { host, port } = TEST_CLIENT_PARAMS;
+  const { host, port } = testClientParams();
   return {
     client,
     live: {
@@ -88,7 +88,7 @@ export const retrieveKeyIDs = async (client: Client): Promise<string[]> =>
 
 /** Creates a client of the test Core that logs in with an API key, as a script does. */
 export const createScriptClient = (apiKey: string): Client => {
-  const { host, port } = TEST_CLIENT_PARAMS;
+  const { host, port } = testClientParams();
   const script = new Client({ host, port: Number(port), apiKey });
   onTestFinished(() => script.close());
   return script;

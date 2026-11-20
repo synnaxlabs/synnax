@@ -8,11 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { box } from "@synnaxlabs/x";
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { aether } from "@/aether/aether";
 import { renderHook } from "@/testutil/render";
 import { Gauge } from "@/vis/gauge";
 import { gauge } from "@/vis/gauge/aether";
+
+// Stands in for the worker component and reports its source as stale.
+class StaleGauge extends aether.Leaf<typeof gauge.Gauge.z> {
+  static readonly TYPE = gauge.Gauge.TYPE;
+  override schema = gauge.Gauge.z;
+
+  override afterUpdate(): void {
+    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
+  }
+}
 
 describe("Gauge.use", () => {
   it("should render once for each prop change", () => {
@@ -31,5 +43,15 @@ describe("Gauge.use", () => {
     expect(renders).toBe(1);
     rerender({ precision: 3 });
     expect(renders).toBe(2);
+  });
+
+  it("should return the staleness the worker reports", async () => {
+    const { result } = renderHook(
+      () => Gauge.use({ aetherKey: "gauge", box: box.ZERO }),
+      {
+        registry: { [StaleGauge.TYPE]: StaleGauge },
+      },
+    );
+    await waitFor(() => expect(result.current.stale).toBe(true));
   });
 });

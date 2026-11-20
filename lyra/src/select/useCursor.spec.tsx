@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 import {
@@ -490,6 +490,52 @@ describe("Select.useCursor", () => {
     expect(result.current.hover).toBe("alpha");
     fireEvent.keyDown(window, { code: "Enter" });
     expect(click).toHaveBeenCalledExactlyOnceWith("alpha");
+  });
+
+  it("should not re-render when the options change around its target", () => {
+    let notify = (): void => {};
+    const listen = (listener: () => void) => {
+      notify = listener;
+      return () => {};
+    };
+    let renders = 0;
+    renderHook(
+      () => {
+        renders++;
+        return Select.useCursor({
+          order: { getOrder, subscribe: listen, scrollTo: vi.fn(), click: vi.fn() },
+          initialHover: 0,
+        });
+      },
+      { wrapper: Triggers.Provider },
+    );
+    const mounted = renders;
+    act(() => notify());
+    expect(renders).toBe(mounted);
+  });
+
+  it("should subscribe a selection to its order once across renders", () => {
+    const onSubscribe = vi.fn(() => () => {});
+    const { rerender } = renderHook(
+      () =>
+        Select.useCursor({
+          cursor: "selection",
+          order: {
+            getOrder,
+            subscribe: onSubscribe,
+            scrollTo: vi.fn(),
+            click: vi.fn(),
+            doubleClick: vi.fn(),
+            contextMenu: vi.fn(),
+          },
+          selected: ["alpha"],
+          select: vi.fn(),
+        }),
+      { wrapper: Triggers.Provider },
+    );
+    rerender();
+    rerender();
+    expect(onSubscribe).toHaveBeenCalledOnce();
   });
 });
 

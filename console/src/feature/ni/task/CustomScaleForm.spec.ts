@@ -18,7 +18,7 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({
   engine: "tauri",
 }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -36,7 +36,7 @@ vi.mock("@tauri-apps/plugin-fs", async () => {
   };
 });
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -96,7 +96,7 @@ const renderWithScale = async (customScale: NI.Task.Scale) => {
     { ...ZERO_DRAFT, config },
     NI.Task.ANALOG_READ_SCHEMAS,
   );
-  return await renderNITaskForm(NI.Task.AnalogRead, {
+  return await renderNITaskForm(NI.Task.FORMS[NI.Task.ANALOG_READ_TYPE], {
     client,
     taskKey: draft.key,
   });

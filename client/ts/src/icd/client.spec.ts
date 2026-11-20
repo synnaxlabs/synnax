@@ -9,7 +9,7 @@
 
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { NotFoundError, PathError } from "@/errors";
 import { icd } from "@/icd";

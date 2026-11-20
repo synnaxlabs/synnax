@@ -11,7 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { unique, uuid } from "@synnaxlabs/x";
 
 import { Node } from "@/schematic/node";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 
 const { PADDING, TOP_PADDING } = Node.GroupBox;
 

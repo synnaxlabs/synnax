@@ -13,6 +13,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
@@ -338,6 +340,43 @@ var _ = Describe("AlertTask", func() {
 					Should(Equal(1))
 				Expect(sender.getEvents()[0].RoutingKey).
 					To(Equal(strings.Repeat("b", 32)))
+			},
+		)
+
+		It("Should send an alert with a routing key from a file on the Core's rack",
+			func(ctx context.Context) {
+				routingKey = createFileRoutingKey(ctx, secrettestutil.CoreRack)
+				tsk := configureAndStart(ctx, validConfig(pd.Alert{Status: "file-key"}))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				setStatus(ctx, "file-key", status.VariantError, "Trigger", nil)
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(1))
+				Expect(sender.getEvents()[0].RoutingKey).To(Equal(fileRoutingKey))
+			},
+		)
+
+		It("Should refuse a routing key from a file on another rack",
+			func(ctx context.Context) {
+				routingKey = createFileRoutingKey(ctx, otherRack)
+				t := createTask(ctx, task.Task{
+					Key:  uuid.New(),
+					Name: "PagerDuty Test",
+					Type: pd.AlertTaskType,
+				})
+				rec := MustSucceed(alertSvc.Alert.Prepare(
+					ctx,
+					db,
+					t.Key,
+					t.Name,
+					encodeConfig(validConfig()),
+				))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rec.Write(ctx, tx)
+				})).To(MatchError(
+					`routing_key: secret "Routing key file" is a file of rack 2, ` +
+						"not of rack 1: validation error",
+				))
 			},
 		)
 

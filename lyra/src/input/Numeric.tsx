@@ -14,7 +14,7 @@ import { CSS } from "@/css";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text, type TextProps } from "@/input/Text";
-import { type Control } from "@/input/types";
+import type { Control } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 const parseNumber = (raw: string): number | null => {

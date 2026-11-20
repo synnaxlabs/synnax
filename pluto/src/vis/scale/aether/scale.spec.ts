@@ -26,7 +26,11 @@ const GUTTER = scale.gutter({ showScale: true });
 
 const ACCENT = color.construct("#00ff00");
 
-const setup = (state: Record<string, unknown> = {}, value = 50) => {
+const setup = (
+  state: Record<string, unknown> = {},
+  value = 50,
+  seriesColors: color.Color[] = [],
+) => {
   const source = telemTest.source<number>(value);
   const recorder = canvasTest.record();
   const h = renderAether(scale.Scale, {
@@ -36,6 +40,7 @@ const setup = (state: Record<string, unknown> = {}, value = 50) => {
       ...state,
     }),
     theming: { theme: THEME, fontURLs: [] },
+    series: { colors: seriesColors },
     render: recorder,
   });
   return { component: h.component, recorder, source };
@@ -194,6 +199,18 @@ describe("scale/aether/Scale", () => {
 
     const STALE = color.hex(THEME.colors.warning.m1);
 
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
+      source.setValue(50);
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      source.setValue(60);
+      expect(component.state.stale).toBe(false);
+    });
+
     it("should recolor the fill once the source stops sending", () => {
       const { recorder, source } = setup({
         color: ACCENT,
@@ -205,6 +222,20 @@ describe("scale/aether/Scale", () => {
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
       vi.advanceTimersByTime(2000);
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).toContain(STALE);
+    });
+
+    it("should keep its own colors while the stale color is hidden", () => {
+      const { component, recorder, source } = setup({
+        color: ACCENT,
+        showCaret: false,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+        staleColorHidden: true,
+      });
+      source.setValue(50);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
+      expect(canvasStyles(recorder, "upper2d", "fillStyle")).not.toContain(STALE);
     });
 
     it("should stay live while samples keep arriving", () => {
@@ -272,6 +303,16 @@ describe("scale/aether/Scale", () => {
   });
 
   describe("color", () => {
+    it("should fill the level with the first series color while its color is absent", () => {
+      const { recorder } = setup({ showScale: false, showCaret: false }, 50, [
+        ACCENT,
+        color.construct("#0000ff"),
+      ]);
+      expect(canvasStyles(recorder, "lower2d", "fillStyle")).toContain(
+        color.hex(ACCENT),
+      );
+    });
+
     it("should stroke the ticks and the outline with the axis color", () => {
       const { recorder } = setup({ showCaret: false, axisColor: ACCENT });
       expect(styles(recorder, "strokeStyle")).toContain(color.hex(ACCENT));

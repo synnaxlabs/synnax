@@ -12,10 +12,10 @@ import "@/vis/legend/Container.css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { state } from "@synnaxlabs/lyra/state";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useRef } from "react";
+import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
 
@@ -34,96 +34,94 @@ const DEFAULT_INITIAL: sticky.XY = {
   units: { x: "decimal", y: "decimal" },
 };
 
-export const Container = memo(
-  ({
-    className,
+export const Container = ({
+  className,
+  value,
+  onChange,
+  style,
+  draggable = true,
+  initial = DEFAULT_INITIAL,
+  ...rest
+}: ContainerProps): ReactElement | null => {
+  const [position, setPosition] = state.usePurePassthrough<sticky.XY>({
     value,
     onChange,
-    style,
-    draggable = true,
-    initial = DEFAULT_INITIAL,
-    ...rest
-  }: ContainerProps): ReactElement | null => {
-    const [position, setPosition] = state.usePurePassthrough<sticky.XY>({
-      value,
-      onChange,
-      initialValue: initial,
-    });
-    const positionRef = useRef<sticky.XY>(position);
-    const disabledRef = useSyncedRef(draggable === false);
-    const ref = useRef<HTMLDivElement | null>(null);
+    initialValue: initial,
+  });
+  const positionRef = useRef<sticky.XY>(position);
+  const disabledRef = useSyncedRef(draggable === false);
+  const ref = useRef<HTMLDivElement | null>(null);
 
-    const mergedStyle =
-      position !== null ? { ...style, ...sticky.toCSS(position) } : style;
+  const mergedStyle =
+    position !== null ? { ...style, ...sticky.toCSS(position) } : style;
 
-    const calculatePosition = (drag: box.Box): sticky.XY | null => {
-      if (ref.current?.parentElement == null) return positionRef.current;
-      const bounds = box.construct(ref.current.parentElement);
-      const decimalScale = scale.XY.scale(bounds).scale(TOP_LEFT_DECIMAL);
-      const elDecimal = decimalScale.box(box.construct(ref.current));
-      // Clamp the position to the bounds of the parent --along-- with the dimensions
-      // of the element being dragged. This prevents the right and bottom edges from
-      // going outside the parent.
-      const clampScale = scale.XY.clamp(
-        box.construct(box.topLeft(TOP_LEFT_DECIMAL), {
-          width: 1 - box.width(elDecimal),
-          height: 1 - box.height(elDecimal),
-        }),
-      );
-      const newDecimalPos = xy.translate(
-        xy.construct(positionRef.current),
-        box.signedDims(decimalScale.box(drag)),
-      );
-      const clamped = clampScale.pos(newDecimalPos);
-      if (ref.current == null || ref.current.parentElement == null)
-        return positionRef.current;
-      return sticky.calculate({
-        position: clamped,
-        element: box.construct(ref.current),
-        container: bounds,
-      });
-    };
-
-    const handleCursorDragStart = Cursor.useDrag({
-      onStart: () => {
-        // When we start dragging, we need to re-calculate the sticky position of the
-        // element based on the new dimensions of the parent. This removes strange
-        // 'jumping' behavior when starting to drag.
-        if (ref.current == null || ref.current.parentElement == null) return;
-        positionRef.current = {
-          ...sticky.toDecimal({
-            position: positionRef.current,
-            element: box.construct(ref.current),
-            container: box.construct(ref.current.parentElement),
-          }),
-          root: location.TOP_LEFT,
-          units: { x: "decimal", y: "decimal" },
-        };
-      },
-      onMove: (box: box.Box) => {
-        if (disabledRef.current) return;
-        const pos = calculatePosition(box);
-        if (pos !== null) setPosition(pos);
-      },
-      onEnd: (box: box.Box) => {
-        if (disabledRef.current) return;
-        const pos = calculatePosition(box);
-        if (pos !== null) positionRef.current = pos;
-      },
-    });
-
-    return (
-      <Flex.Box
-        className={CSS.cls(className, CSS.B("legend"), Cursor.DRAG_CLASS)}
-        bordered
-        style={mergedStyle}
-        onPointerDown={draggable ? handleCursorDragStart : undefined}
-        borderColor={5}
-        ref={ref}
-        background={1}
-        {...rest}
-      />
+  const calculatePosition = (drag: box.Box): sticky.XY | null => {
+    if (ref.current?.parentElement == null) return positionRef.current;
+    const bounds = box.construct(ref.current.parentElement);
+    const decimalScale = scale.XY.scale(bounds).scale(TOP_LEFT_DECIMAL);
+    const elDecimal = decimalScale.box(box.construct(ref.current));
+    // Clamp the position to the bounds of the parent --along-- with the dimensions
+    // of the element being dragged. This prevents the right and bottom edges from
+    // going outside the parent.
+    const clampScale = scale.XY.clamp(
+      box.construct(box.topLeft(TOP_LEFT_DECIMAL), {
+        width: 1 - box.width(elDecimal),
+        height: 1 - box.height(elDecimal),
+      }),
     );
-  },
-);
+    const newDecimalPos = xy.translate(
+      xy.construct(positionRef.current),
+      box.signedDims(decimalScale.box(drag)),
+    );
+    const clamped = clampScale.pos(newDecimalPos);
+    if (ref.current == null || ref.current.parentElement == null)
+      return positionRef.current;
+    return sticky.calculate({
+      position: clamped,
+      element: box.construct(ref.current),
+      container: bounds,
+    });
+  };
+
+  const handleCursorDragStart = Cursor.useDrag({
+    onStart: () => {
+      // When we start dragging, we need to re-calculate the sticky position of the
+      // element based on the new dimensions of the parent. This removes strange
+      // 'jumping' behavior when starting to drag.
+      if (ref.current == null || ref.current.parentElement == null) return;
+      positionRef.current = {
+        ...sticky.toDecimal({
+          position: positionRef.current,
+          element: box.construct(ref.current),
+          container: box.construct(ref.current.parentElement),
+        }),
+        root: location.TOP_LEFT,
+        units: { x: "decimal", y: "decimal" },
+      };
+    },
+    onMove: (box: box.Box) => {
+      if (disabledRef.current) return;
+      const pos = calculatePosition(box);
+      if (pos !== null) setPosition(pos);
+    },
+    onEnd: (box: box.Box) => {
+      if (disabledRef.current) return;
+      const pos = calculatePosition(box);
+      if (pos !== null) positionRef.current = pos;
+    },
+  });
+
+  return (
+    <Flex.Box
+      className={CSS.cls(className, CSS.B("legend"), Cursor.DRAG_CLASS)}
+      bordered
+      style={mergedStyle}
+      onPointerDown={draggable ? handleCursorDragStart : undefined}
+      borderColor={5}
+      ref={ref}
+      background={1}
+      {...rest}
+    />
+  );
+};
 Container.displayName = "Legend.Container";

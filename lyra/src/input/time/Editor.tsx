@@ -13,16 +13,16 @@ import { state } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import { type Icon } from "@/icon";
+import type { Icon } from "@/icon";
 import { ItemBoundary, useItemStatus } from "@/input/Item";
 import { Text } from "@/input/Text";
 import { Effect } from "@/input/time/Effect";
-import { type Suggestion } from "@/input/time/suggest";
-import { type Variant } from "@/input/types";
+import type { Suggestion } from "@/input/time/suggest";
+import type { Variant } from "@/input/types";
 import { Menu } from "@/menu";
 import { Text as BaseText } from "@/text";
 
@@ -195,8 +195,11 @@ export const Editor = <V,>({
       // An Enter that closes the editor must not also press the trigger it focuses.
       e.preventDefault();
       if (!unread && problem == null) finish();
-    } else if (e.key === "Escape") close();
-    else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    } else if (e.key === "Escape") {
+      // An Escape that closes the editor ends here, so a modal around it stays open.
+      if (draftRef.current != null) e.stopPropagation();
+      close();
+    } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
       const up = e.key === "ArrowUp";
       const field = e.currentTarget;

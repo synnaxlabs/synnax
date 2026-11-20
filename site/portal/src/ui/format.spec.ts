@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Event, type License } from "@/server/db/schema";
+import type { Event, License } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import { clock, describeEvent, expiry, standing } from "@/ui/format";
 

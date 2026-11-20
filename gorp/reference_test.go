@@ -140,6 +140,17 @@ func newDeviceRefs() deviceRefs {
 				OnDelete: gorp.Detach,
 				Kind:     gorp.Use,
 				Targets:  func(d *refDevice) []string { return d.Labels },
+				// Only a device on rack 2 may hold the label "r2".
+				Check: func(_ context.Context, _ gorp.Tx, d *refDevice, l string) error {
+					if l == "r2" && d.Rack != 2 {
+						return errors.Wrapf(
+							validate.ErrValidation,
+							"%s needs rack 2",
+							l,
+						)
+					}
+					return nil
+				},
 				Detach: func(d *refDevice, l string) {
 					d.Labels = slices.DeleteFunc(
 						slices.Clone(d.Labels),
@@ -387,6 +398,73 @@ var _ = Describe("Reference", func() {
 				Exec(ctx, db)).To(MatchError(ContainSubstring(
 				"rack: rack 2 does not exist",
 			)))
+		})
+
+		Describe("Check", func() {
+			BeforeEach(func(ctx SpecContext) {
+				createRack(ctx, 1)
+				createRack(ctx, 2)
+				createLabels(ctx, "r2")
+			})
+
+			It("Should accept a target that the check allows", func(ctx SpecContext) {
+				Expect(
+					createDevice(
+						ctx,
+						refDevice{Key: "d1", Rack: 2, Labels: []string{"r2"}},
+					),
+				).
+					To(Succeed())
+			})
+
+			It("Should reject a create that the check refuses", func(ctx SpecContext) {
+				Expect(
+					createDevice(
+						ctx,
+						refDevice{Key: "d1", Rack: 1, Labels: []string{"r2"}},
+					),
+				).
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError("labels: r2 needs rack 2: validation error"),
+					))
+				Expect(deviceExists(ctx, "d1")).To(BeFalse())
+			})
+
+			It(
+				"Should check a target that an update keeps",
+				func(ctx SpecContext) {
+					Expect(createDevice(ctx, refDevice{
+						Key:    "d1",
+						Rack:   2,
+						Labels: []string{"r2"},
+					})).To(Succeed())
+					Expect(devices.NewUpdate().
+						Where(gorp.MatchKeys[string, refDevice]("d1")).
+						Change(func(_ gorp.Context, d refDevice) refDevice {
+							d.Rack = 1
+							return d
+						}).
+						Exec(ctx, db)).To(MatchError(
+						"labels: r2 needs rack 2: validation error",
+					))
+				},
+			)
+
+			It("Should roll back the transaction it fails", func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := racks.NewCreate().
+						Entry(&refRack{Key: 3}).
+						Exec(ctx, tx); err != nil {
+						return err
+					}
+					return devices.NewCreate().
+						Entry(&refDevice{Key: "d1", Rack: 3, Labels: []string{"r2"}}).
+						Exec(ctx, tx)
+				})).To(MatchError("labels: r2 needs rack 2: validation error"))
+				Expect(rackExists(ctx, 3)).To(BeFalse())
+				Expect(deviceExists(ctx, "d1")).To(BeFalse())
+			})
 		})
 
 		It(
@@ -708,6 +786,42 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("RestrictChange", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It(
+			"Should name an entry that holds the target through a restrict reference",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(racks.RestrictChange(ctx, db, 1, "name")).To(SatisfyAll(
+					BeAssignableToTypeOf(gorp.RestrictError{}),
+					MatchError("cannot change the name of rack 1 because device a "+
+						"references it through rack: validation error"),
+				))
+			},
+		)
+
+		It(
+			"Should return nil when only other references hold the target",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				createLabels(ctx, "l1")
+				Expect(createDevice(ctx, refDevice{
+					Key:    "a",
+					Rack:   1,
+					Labels: []string{"l1"},
+				})).To(Succeed())
+				Expect(labels.RestrictChange(ctx, db, "l1", "name")).To(Succeed())
+			},
+		)
+
+		It("Should return nil for a target no entry holds", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(racks.RestrictChange(ctx, db, 1, "name")).To(Succeed())
+		})
+	})
+
 	Describe("Dependents", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 
@@ -756,6 +870,126 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("Uses", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list the entries that hold a target through a use reference", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(
+				createDevice(ctx, refDevice{Key: "a", Rack: 1, Labels: []string{"l1"}}),
+			).
+				To(Succeed())
+			Expect(labels.Uses(ctx, db, "l1")).
+				To(Equal([]gorp.Target{{Table: "device", Key: "a"}}))
+		})
+
+		It("Should leave out the entries that hold a target through a place reference",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(statuses.NewCreate().
+					Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+					Exec(ctx, db)).To(Succeed())
+				Expect(racks.Uses(ctx, db, 1)).To(BeEmpty())
+			},
+		)
+	})
+
+	Describe("PlacedIn", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list the records placed in a target", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(statuses.NewCreate().
+				Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(gorp.PlacedIn(ctx, db, gorp.Target{Table: "rack", Key: "1"})).
+				To(ConsistOf(
+					gorp.Target{Table: "device", Key: "a"},
+					gorp.Target{Table: "status", Key: "s"},
+				))
+		})
+
+		It("Should leave out the records that only use a target", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(createDevice(ctx, refDevice{
+				Key:    "a",
+				Rack:   1,
+				Labels: []string{"l1"},
+			})).To(Succeed())
+			Expect(
+				gorp.PlacedIn(ctx, db, gorp.Target{Table: "label", Key: "l1"}),
+			).To(BeEmpty())
+		})
+	})
+
+	Describe("PlacedIn and LinksOf in a transaction", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "a", Rack: 1}).
+				Exec(ctx, tx)).To(Succeed())
+			rack := gorp.Target{Table: "rack", Key: "1"}
+			device := gorp.Target{Table: "device", Key: "a"}
+			Expect(gorp.PlacedIn(ctx, tx, rack)).To(Equal([]gorp.Target{device}))
+			Expect(gorp.LinksOf(ctx, tx, device)).To(Equal([]gorp.Link{
+				{Target: rack, Kind: gorp.Place},
+			}))
+			Expect(gorp.PlacedIn(ctx, db, rack)).To(BeEmpty())
+			Expect(gorp.LinksOf(ctx, db, device)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("LinksOf", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should return the links that a stored record holds", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(createDevice(ctx, refDevice{
+				Key:    "a",
+				Rack:   1,
+				Labels: []string{"l1"},
+			})).To(Succeed())
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "device", Key: "a"})).
+				To(ConsistOf(
+					gorp.Link{
+						Target: gorp.Target{Table: "rack", Key: "1"},
+						Kind:   gorp.Place,
+					},
+					gorp.Link{
+						Target: gorp.Target{Table: "label", Key: "l1"},
+						Kind:   gorp.Use,
+					},
+				))
+		})
+
+		It("Should return a not found error for a missing record", func(
+			ctx SpecContext,
+		) {
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "device", Key: "z"})).
+				Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return an error for a table that is not open", func(
+			ctx SpecContext,
+		) {
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "pump", Key: "a"})).
+				Error().To(MatchError(`[gorp] - no open table is named "pump"`))
+		})
+	})
+
 	Describe("Delete", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 
@@ -772,9 +1006,9 @@ var _ = Describe("Reference", func() {
 					"cannot delete rack 1 because device d1 references it through rack: " +
 						"validation error",
 				))
-				var restrict gorp.RestrictError
-				Expect(errors.As(err, &restrict)).To(BeTrue())
-				Expect(restrict).To(Equal(gorp.RestrictError{
+				Expect(
+					MustBeOk(errors.AsType[gorp.RestrictError](err)),
+				).To(Equal(gorp.RestrictError{
 					Target:    gorp.NewTarget("rack", uint32(1)),
 					Holder:    gorp.NewTarget("device", "d1"),
 					Reference: "rack",

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -59,7 +59,7 @@ const renderDigitalRead = async (
   config: task.Payload<NI.Task.DigitalReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.DigitalRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.DIGITAL_READ_TYPE], {
     client,
     taskKey: draft.key,
   });

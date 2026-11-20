@@ -16,7 +16,7 @@ import { aether } from "@/aether/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { theming } from "@/theming/aether";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -30,9 +30,9 @@ const TOOLTIP_KEY = "tooltip";
 class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   static readonly TYPE = "tooltip-test-requestor";
   static readonly stateZ = z.object({});
-  schema = Requestor.stateZ;
+  override schema = Requestor.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     render.control(ctx, () => {});
   }
 }
@@ -100,6 +100,25 @@ describe("Tooltip", () => {
     const finiteOnly = mount();
     finiteOnly.component.render({ findByXDecimal: () => [results[0]], region: REGION });
     expect(arcs(recorder)).toBe(arcs(finiteOnly.recorder));
+  });
+
+  it("should list every line when all of them fit in the plot", () => {
+    const { recorder, component } = mount();
+    const results = ["a", "b", "c"].map((k) => found(k, 1));
+    component.render({ findByXDecimal: () => results, region: REGION });
+    expect(texts(recorder)).toEqual(expect.arrayContaining(["a", "b", "c"]));
+    expect(texts(recorder).some((t) => t.endsWith("more"))).toBe(false);
+  });
+
+  it("should end with the count of lines that do not fit in the plot", () => {
+    const { recorder, component } = mount();
+    const results = Array.from({ length: 12 }, (_, i) => found(`line-${i}`, i));
+    // 100 px holds 5 items: the time, 3 lines, and "and 9 more".
+    const region = box.construct(0, 0, 400, 100);
+    component.render({ findByXDecimal: () => results, region });
+    const labels = texts(recorder).filter((t) => t.startsWith("line-"));
+    expect(labels).toHaveLength(3);
+    expect(texts(recorder)).toContain("and 9 more");
   });
 
   it("should leave out a line with no sample under the cursor", () => {

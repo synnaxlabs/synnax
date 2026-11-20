@@ -9,14 +9,22 @@
 
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
-import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
-import path from "path";
 
 export default defineConfig({
-  integrations: [integration(), react()],
+  integrations: [integration(), react(), jitless()],
   adapter: vercel(),
+  security: {
+    csp: policy({
+      sources: {
+        "connect-src": ["'self'", "https://formspree.io"],
+        "img-src": ["'self'", "data:"],
+      },
+      vercelEnv: process.env.VERCEL_ENV,
+    }),
+  },
   vite: {
     // Prebundle the island's linked workspace modules so their icon dependencies
     // are ready before the browser hydrates it.
@@ -26,19 +34,6 @@ export default defineConfig({
         "@synnaxlabs/lyra/icon",
         "@synnaxlabs/lyra/logo",
       ],
-    },
-    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
-    // SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
-    css: {
-      postcss: {
-        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
-      },
-    },
-    // An inlined font ships in the render-blocking stylesheet whether or not a page
-    // needs its characters.
-    build: {
-      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
     },
   },
   site: "https://foundation.synnaxlabs.com",

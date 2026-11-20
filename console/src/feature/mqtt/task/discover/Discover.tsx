@@ -17,10 +17,10 @@ import { math } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { useState } from "react";
 
-import { type Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device/types";
 import { TagPicker, type TagPicks } from "@/feature/mqtt/task/discover/Tags";
 import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topics";
-import { type HeldEntry } from "@/feature/mqtt/task/types";
+import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
@@ -37,8 +37,10 @@ export interface Picks {
 export interface Kind<E extends HeldEntry> {
   /** Names the dialog. */
   title: string;
-  /** Says what a pick becomes. It shows while nothing is picked. */
+  /** Says what a picked value of a topic becomes, under the title of each pane. */
   hint: string;
+  /** Says what a picked tag becomes. Defaults to hint. */
+  tagHint?: string;
   /** Names what one picked value of a topic adds, such as "field". */
   noun: string;
   /** Names what one picked tag adds. Defaults to noun. */
@@ -69,7 +71,7 @@ const Discover = <E extends HeldEntry>({
   close,
   kind,
 }: DiscoverProps<E>) => {
-  const { createTag, noun, tagNoun = noun } = kind;
+  const { createTag, noun, tagNoun = noun, hint, tagHint = hint } = kind;
   const [mode, setMode] = useState<Mode>("topics");
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
@@ -78,14 +80,13 @@ const Discover = <E extends HeldEntry>({
     kind.create({ topics: topicPicks, tags: tagPicks }, entries);
 
   const values = math.sum([...topicPicks.values()].map((p) => p.pointers.size));
-  const count = values + tagPicks.size;
   const parts: string[] = [];
   if (values > 0) {
     const topics = pluralize("topic", topicPicks.size, true);
     parts.push(`${pluralize("value", values, true)} from ${topics}`);
   }
   if (tagPicks.size > 0) parts.push(pluralize("Sparkplug B tag", tagPicks.size, true));
-  const summary = parts.length === 0 ? kind.hint : `${parts.join(" and ")} selected`;
+  const summary = parts.length === 0 ? null : `${parts.join(" and ")} selected`;
 
   return (
     <ICD.Picker.Root value={mode} className={CSS.B("mqtt-discover")}>
@@ -98,7 +99,7 @@ const Discover = <E extends HeldEntry>({
           </Select.Buttons>
         )}
       </ICD.Picker.Bar>
-      <ICD.Picker.Frame itemKey="topics">
+      <ICD.Picker.Frame itemKey="topics" hint={hint}>
         <TopicPicker
           device={device}
           entries={entries}
@@ -109,7 +110,7 @@ const Discover = <E extends HeldEntry>({
         />
       </ICD.Picker.Frame>
       {createTag != null && (
-        <ICD.Picker.Frame itemKey="sparkplug">
+        <ICD.Picker.Frame itemKey="sparkplug" hint={tagHint}>
           <TagPicker
             device={device}
             entries={entries}
@@ -128,9 +129,11 @@ const Discover = <E extends HeldEntry>({
         onAdd={() => close(picked())}
         onCancel={() => close()}
       >
-        <Text.Text level="small" color={count > 0 ? 10 : 9}>
-          {summary}
-        </Text.Text>
+        {summary != null && (
+          <Text.Text level="small" color={10}>
+            {summary}
+          </Text.Text>
+        )}
       </ICD.Picker.Footer>
     </ICD.Picker.Root>
   );

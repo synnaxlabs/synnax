@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type MiddlewareAPI } from "@reduxjs/toolkit";
+import type { MiddlewareAPI } from "@reduxjs/toolkit";
 import { sleep, TimeSpan, unique } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -17,7 +17,7 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri"; label: string } => ({
   label: "main",
 }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });

@@ -2,7 +2,7 @@
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "types": ["html-escaper", "offscreencanvas", "react", "react-dom"],
+    "types": ["html-escaper", "react", "react-dom"],
     "paths": {
       "@/*": ["./src/*"]
     }

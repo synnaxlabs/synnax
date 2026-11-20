@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { useEnsure } from "@/schematic/queries";
 import { Scope } from "@/schematic/scope";

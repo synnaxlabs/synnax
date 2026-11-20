@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Tabs } from "@/components/tabs";
+import type { Tabs } from "@/components/tabs";
 
 export const CLIENTS = ["console", "python", "typescript", "arc"] as const;
 
@@ -31,6 +31,8 @@ const getStored = (): Client | null => {
 };
 
 const store = (client: string): void => {
+  // A link can name any value, and storing one that is no client forgets the choice.
+  if (!isClient(client)) return;
   try {
     localStorage.setItem(STORAGE_KEY, client);
   } catch {

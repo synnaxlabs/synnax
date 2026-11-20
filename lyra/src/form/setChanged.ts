@@ -9,9 +9,9 @@
 
 import { array, deep, narrow } from "@synnaxlabs/x";
 
-import { type ContextValue } from "@/form/Context";
+import type { ContextValue } from "@/form/Context";
 
-type Writer = Pick<ContextValue, "batch" | "set">;
+type Writer = Pick<ContextValue, "batch" | "set" | "remove">;
 
 const write = (
   ctx: Writer,
@@ -33,21 +33,21 @@ const write = (
     }
   }
   if (narrow.isPlainObject(prev) && narrow.isPlainObject(next)) {
-    const keys = Object.keys(next);
-    if (array.equal(Object.keys(prev).sort(), [...keys].sort())) {
-      keys.forEach((key) => write(ctx, path[key], prev[key], next[key]));
-      return;
-    }
+    Object.keys(next).forEach((key) => write(ctx, path[key], prev[key], next[key]));
+    Object.keys(prev).forEach((key) => {
+      if (!(key in next)) ctx.remove(path[key]);
+    });
+    return;
   }
   if (!deep.equal(prev, next)) ctx.set(path, next);
 };
 
 /**
- * Sets at the path, as one batch, only the values in next that differ from base. A form
- * value that changed after base was read keeps its change unless next changes it too.
- * Lists of keyed entries with the same keys in the same order compare entry by entry,
- * and objects with the same fields compare field by field. Other values that differ are
- * set whole.
+ * Sets at the path, as one batch, only the values in next that differ from base, and
+ * removes the fields of base that next lacks. A form value that changed after base was
+ * read keeps its change unless next changes it too. Lists of keyed entries with the
+ * same keys in the same order compare entry by entry, and objects compare field by
+ * field. Other values that differ are set whole.
  */
 export const setChanged = (
   ctx: Writer,

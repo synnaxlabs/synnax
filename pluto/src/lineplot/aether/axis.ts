@@ -22,9 +22,9 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import { type TickType } from "@/vis/axis/ticks";
+import type { TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
-import { type line } from "@/vis/line/aether";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const baseAxisStateZ = axis.axisStateZ
@@ -129,7 +129,7 @@ export abstract class BaseAxis<
   S extends typeof baseAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
@@ -151,7 +151,7 @@ export abstract class BaseAxis<
     );
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 

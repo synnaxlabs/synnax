@@ -48,7 +48,7 @@ const rolling = (span: TimeSpan): ranger.Ref => ({
 
 const label = (span: TimeSpan): string => span.toString();
 
-const SEARCH_PLACEHOLDER = "Search ranges or type a duration";
+const SEARCH_PLACEHOLDER = "Search ranges or type a duration or time";
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
@@ -72,6 +72,26 @@ const clickPreset = (span: TimeSpan): void => {
   assertDefined(preset);
   fireEvent.click(preset);
 };
+
+// Creates a range that starts the given hours before the end of time, so only a planned
+// range sorts ahead of it in the newest-first list. It leads the lists of other specs
+// too, so it is deleted once the test finishes.
+const createLeadingRange = async (hours: number): Promise<ranger.Range> => {
+  const start = TimeStamp.MAX.sub(TimeSpan.hours(hours));
+  return await createTestRange(client, {
+    timeRange: start.spanRange(TimeSpan.hours(1)),
+  });
+};
+
+// Reads the option texts once they show every given range. The ranges of other specs
+// can move the list only before the read.
+const optionsShowing = async (...ranges: ranger.Range[]): Promise<string[]> =>
+  await waitFor(() => {
+    const texts = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+    for (const { name } of ranges)
+      expect(texts.some((t) => t.includes(name))).toBe(true);
+    return texts;
+  });
 
 const expectRanges = async (key: string, ranges: ranger.Ref[]): Promise<void> =>
   await waitFor(async () =>
@@ -147,7 +167,7 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("keeps Enter on a typed duration from selecting a range", async () => {
-      const range = await client.ranges.create({
+      const range = await createTestRange(client, {
         name: uniqueName("45m burn"),
         timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
       });
@@ -168,6 +188,15 @@ describe("lineplot/toolbar/Data", () => {
       expect(first).toBe(liveOption());
       expect(within(first).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
       expect(screen.queryByText("No ranges found")).toBeNull();
+    });
+
+    it("lists a live option for a span after last or past", async () => {
+      await renderData([]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: "last 2 hours" } });
+      expect(within(liveOption()).getByText(label(TimeSpan.hours(2)))).toBeDefined();
+      fireEvent.change(input, { target: { value: "the past hour" } });
+      expect(within(liveOption()).getByText(label(TimeSpan.HOUR))).toBeDefined();
     });
 
     it("says no ranges match a search that finds none", async () => {
@@ -239,47 +268,59 @@ describe("lineplot/toolbar/Data", () => {
       const created = await createTestRange(client);
       const { key } = await renderData([]);
       search(created.name);
-      fireEvent.click(await screen.findByText(created.name));
+      // Before the search answers, the ranges of other specs can move the option out of
+      // the list. The spec clicks it once the list holds only the answer.
+      const option = await waitFor(() => {
+        const [only, ...rest] = screen.getAllByRole("option");
+        expect(rest).toHaveLength(0);
+        expect(only.textContent).toContain(created.name);
+        return only;
+      });
+      fireEvent.click(option);
       await expectRanges(key, [{ variant: "key", key: created.key }]);
     });
 
     it("lists the ranges newest first", async () => {
-      // Far in the future, so the ranges that other specs create now sort after them.
-      const start = TimeStamp.now().add(TimeSpan.days(365 * 100));
-      const create = async (offset: TimeSpan): Promise<ranger.Range> =>
-        await client.ranges.create({
-          name: uniqueName("range"),
-          timeRange: start.add(offset).spanRange(TimeSpan.hours(1)),
-        });
-      const older = await create(TimeSpan.ZERO);
-      const newer = await create(TimeSpan.hours(1));
+      // The picker lists the ranges of other specs too, so the spec checks its rows
+      // against the Core's own newest-first answer. Its own two ranges make sure there
+      // are at least two rows.
+      await createTestRange(client);
+      await createTestRange(client);
       await renderData([]);
       openSearch();
-      await screen.findByText(older.name);
-      await screen.findByText(newer.name);
-      const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
-      const at = (name: string) => names.findIndex((n) => n.includes(name));
-      expect(at(newer.name)).toBeLessThan(at(older.name));
+      await waitFor(async () => {
+        const keys = screen.getAllByRole("option").map((o) => o.id);
+        expect(keys.length).toBeGreaterThanOrEqual(2);
+        const listed = await reader.ranges.retrieve({ where: { key: { in: keys } } });
+        const newest = await reader.ranges.retrieve({
+          order: { field: "time_range_start", descending: true },
+          limit: keys.length,
+        });
+        // Ranges with one start can come in any order, so the spec compares starts.
+        const startOf = (key: string) =>
+          listed.find((r) => r.key === key)?.timeRange.start.valueOf();
+        expect(keys.map(startOf)).toEqual(
+          newest.map((r) => r.timeRange.start.valueOf()),
+        );
+      });
     });
 
     it("lists the plotted ranges first", async () => {
       const plotted = await createTestRange(client);
-      // A newer range would lead the list if the plotted one did not go first.
-      await createTestRange(client);
+      // It sorts ahead of the plotted range, which leads only because it is plotted.
+      const newer = await createLeadingRange(2);
       await renderData([{ variant: "key", key: plotted.key }]);
       // The tag reads the range, so the picker can put it first when it opens.
       await screen.findByText(plotted.name);
       openSearch();
-      await waitFor(() =>
-        expect(screen.getAllByRole("option").length).toBeGreaterThan(2),
-      );
-      expect(screen.getAllByRole("option")[0].textContent).toContain(plotted.name);
+      const [first] = await optionsShowing(plotted, newer);
+      expect(first).toContain(plotted.name);
     });
 
     it("marks each key reference's tag with the stage of its range", async () => {
       const now = TimeStamp.now();
       const create = async (start: TimeSpan, end: TimeSpan): Promise<ranger.Ref> => {
-        const { key } = await client.ranges.create({
+        const { key } = await createTestRange(client, {
           name: uniqueName("range"),
           timeRange: new TimeRange(now.add(start), now.add(end)),
         });
@@ -311,6 +352,102 @@ describe("lineplot/toolbar/Data", () => {
     await expectRanges(key, []);
   });
 
+  describe("typed time range", () => {
+    // The day words depend on today, so the clock is fixed.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
+      vi.setSystemTime(new Date(2026, 10, 3, 15, 0));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const YESTERDAY_ONE_TO_TWO = "Yesterday from 1pm to 2pm";
+
+    const fixedOption = (): Promise<HTMLElement> =>
+      screen.findByRole("option", { name: /Fixed window/ });
+
+    it("lists a fixed option labeled with the times it reads", async () => {
+      await renderData([]);
+      search(YESTERDAY_ONE_TO_TWO);
+      const option = await fixedOption();
+      expect(within(option).getByText("Yesterday 13:00 → 14:00")).toBeDefined();
+      expect(screen.getAllByRole("option")[0]).toBe(option);
+    });
+
+    it("adds the fixed window beside the live one on Enter", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
+      await fixedOption();
+      fireEvent.keyDown(input, { key: "Enter" });
+      const start = new TimeStamp(new Date(2026, 10, 2, 13, 0));
+      await expectRanges(key, [
+        rolling(FIVE_MIN),
+        {
+          variant: "window",
+          window: staticWindow(new TimeRange(start, start.add(TimeSpan.HOUR))),
+        },
+      ]);
+      expect(screen.queryByPlaceholderText(SEARCH_PLACEHOLDER)).toBeNull();
+    });
+
+    it("adds the fixed window picked from the list", async () => {
+      const { key } = await renderData([]);
+      search(YESTERDAY_ONE_TO_TWO);
+      fireEvent.click(await fixedOption());
+      const start = new TimeStamp(new Date(2026, 10, 2, 13, 0));
+      await expectRanges(key, [
+        {
+          variant: "window",
+          window: staticWindow(new TimeRange(start, start.add(TimeSpan.HOUR))),
+        },
+      ]);
+    });
+
+    it("adds the hovered range on Enter instead of the fixed window", async () => {
+      const range = await createTestRange(client, {
+        name: uniqueName(YESTERDAY_ONE_TO_TWO),
+        timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
+      });
+      // The unsearched list shows this newer range above the hovered one, and the
+      // search leaves it out, so the options are these two only once the search lands.
+      await createTestRange(client);
+      const { key } = await renderData([]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
+      const rangeOption = await waitFor(() => {
+        const options = screen.getAllByRole("option");
+        expect(options.map((o) => o.textContent)).toEqual([
+          expect.stringContaining("Fixed window"),
+          expect.stringContaining(range.name),
+        ]);
+        return options[1];
+      });
+      fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 1 });
+      fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 2 });
+      act(() => {
+        fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      });
+      await expectRanges(key, [{ variant: "key", key: range.key }]);
+    });
+
+    it("keeps last week a fixed calendar week", async () => {
+      await renderData([]);
+      search("last week");
+      await fixedOption();
+      expect(screen.queryByRole("option", { name: /Live window/ })).toBeNull();
+    });
+
+    it("lists no fixed option when other words name a range", async () => {
+      await renderData([]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
+      await fixedOption();
+      fireEvent.change(input, { target: { value: `monday ${uniqueToken()}` } });
+      await screen.findByText("No ranges found");
+      expect(screen.queryByRole("option", { name: /Fixed window/ })).toBeNull();
+    });
+  });
+
   describe("static window", () => {
     it("marks each tag with the stage of its window", async () => {
       const now = TimeStamp.now();
@@ -331,7 +468,7 @@ describe("lineplot/toolbar/Data", () => {
     describe("label", () => {
       // The day names depend on today, so the clock is fixed.
       beforeEach(() => {
-        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
         vi.setSystemTime(new Date(2026, 10, 3, 15, 0));
       });
       afterEach(() => vi.useRealTimers());

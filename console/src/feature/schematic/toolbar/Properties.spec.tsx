@@ -7,23 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { color as clientColor, schematic } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, location, uuid } from "@synnaxlabs/x";
-import { assertDefined } from "@synnaxlabs/x/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { client, renderSchematic } from "@/feature/schematic/testutil";
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
+import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -86,22 +87,13 @@ const RED = "#ff0000";
 const GREEN = "#00ff00";
 const BLUE = "#0000ff";
 
-// The role control's hex box, labeled with the role name.
-const roleInput = (label: string): HTMLInputElement => {
-  const input = screen
-    .getAllByLabelText(label)
-    .find((el): el is HTMLInputElement => el instanceof HTMLInputElement);
-  assertDefined(input);
-  return input;
-};
-
 const setRoleColor = (label: string, hex: string): void => {
-  fireEvent.change(roleInput(label), { target: { value: hex.slice(1) } });
+  fireEvent.change(getHexInput(label), { target: { value: hex.slice(1) } });
 };
 
 // Picks Auto in the role control's picker.
 const clearRoleColor = (label: string): void => {
-  const swatch = roleInput(label)
+  const swatch = getHexInput(label)
     .closest(".lyra-color-input")
     ?.querySelector<HTMLElement>(".lyra-color-swatch");
   assertDefined(swatch);
@@ -109,14 +101,21 @@ const clearRoleColor = (label: string): void => {
   fireEvent.click(screen.getByLabelText("Auto"));
 };
 
-const selectionSwatches = (): HTMLElement[] => {
-  const item = screen.getByText("Selection").closest(".lyra-input__item");
-  assertDefined(item);
-  return Array.from(item.querySelectorAll<HTMLElement>(".lyra-color-swatch"));
+const hexOf = (value: unknown): string | undefined =>
+  value == null ? undefined : color.hex(color.colorZ.parse(value));
+
+// fixedHexOf reads a color that a reference field stores as a fixed reference.
+const fixedHexOf = (value: unknown): string | undefined => {
+  if (value == null) return undefined;
+  const ref = clientColor.refZ.parse(value);
+  if (ref.type !== "fixed") throw new Error("expected a fixed color");
+  return color.hex(ref.value);
 };
 
-const hexOf = (value: unknown): string | undefined =>
-  value == null ? undefined : color.hex(value as color.Crude);
+const fixed = (hex: string): clientColor.Ref => ({
+  type: "fixed",
+  value: color.construct(hex),
+});
 
 const retrieveConfig = async (
   key: string,
@@ -345,7 +344,7 @@ describe("Schematic toolbar Properties", () => {
     it("sets a stroke on every selected symbol whose stroke is auto", async () => {
       const { key } = await renderProperties({ nodeKeys: ["n1", "n2"] });
       await screen.findByText("Colors");
-      expect(roleInput("Stroke").placeholder).toBe("Auto");
+      expect(getHexInput("Stroke").placeholder).toBe("Auto");
       setRoleColor("Stroke", RED);
       await expect
         .poll(async () =>
@@ -382,8 +381,8 @@ describe("Schematic toolbar Properties", () => {
             : createValveConfig(),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Stroke").placeholder).toBe("Mixed");
-      expect(roleInput("Stroke").value).toBe("");
+      expect(getHexInput("Stroke").placeholder).toBe("Mixed");
+      expect(getHexInput("Stroke").value).toBe("");
     });
 
     it("shows the shared stroke when every selected symbol has it", async () => {
@@ -392,7 +391,7 @@ describe("Schematic toolbar Properties", () => {
         createConfig: () => ({ ...createValveConfig(), strokeColor: RED }),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Stroke").value).toBe("ff0000");
+      expect(getHexInput("Stroke").value).toBe("ff0000");
     });
 
     it("clears the stroke on every selected symbol with Auto", async () => {
@@ -420,13 +419,30 @@ describe("Schematic toolbar Properties", () => {
         createConfig: () => PSchematic.Node.createConfig({ variant: "button" }),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Fill").placeholder).toBe("Auto");
-      const swatch = roleInput("Fill")
+      expect(getHexInput("Fill").placeholder).toBe("Auto");
+      const swatch = getHexInput("Fill")
         .closest(".lyra-color-input")
         ?.querySelector<HTMLElement>(".lyra-color-swatch");
       assertDefined(swatch);
       expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
         "#00000000",
+      );
+    });
+
+    it("shows the first series color as the stroke of auto-stroked gauges", async () => {
+      const [first] = (
+        await client.colors.retrieve({ groups: [clientColor.SERIES_PALETTE] })
+      ).sort(clientColor.compare);
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "gauge" }),
+      });
+      await screen.findByText("Colors");
+      const swatch = getSwatches("Stroke")[0];
+      await waitFor(() =>
+        expect(swatch.style.getPropertyValue("--pluto-swatch-color")).toBe(
+          color.hex(first.light),
+        ),
       );
     });
 
@@ -439,7 +455,7 @@ describe("Schematic toolbar Properties", () => {
             : createBoxConfig(),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Fill").placeholder).toBe("Mixed");
+      expect(getHexInput("Fill").placeholder).toBe("Mixed");
     });
 
     it("writes a fill only to the symbols that have one", async () => {
@@ -450,9 +466,56 @@ describe("Schematic toolbar Properties", () => {
       await screen.findByText("Colors");
       setRoleColor("Fill", BLUE);
       await expect
-        .poll(async () => hexOf((await retrieveConfig(key, "n1")).fillColor))
+        .poll(async () => fixedHexOf((await retrieveConfig(key, "n1")).fillColor))
         .toBe(BLUE);
       expect((await retrieveConfig(key, "n2")).fillColor).toBeUndefined();
+    });
+
+    it("stores a named fill picked from a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: uniqueName("palette"),
+      });
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: GREEN,
+        group: palette.key,
+      });
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: createBoxConfig,
+      });
+      await screen.findByText("Colors");
+      fireEvent.click(getSwatches("Fill")[0]);
+      fireEvent.click(await screen.findByRole("button", { name: named.name }));
+      await expect
+        .poll(
+          async () =>
+            await Promise.all(
+              ["n1", "n2"].map(async (k) => (await retrieveConfig(key, k)).fillColor),
+            ),
+        )
+        .toEqual([
+          { type: "named", key: named.key },
+          { type: "named", key: named.key },
+        ]);
+    });
+
+    it("stores a stroke as each symbol stores it", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) => (key === "n1" ? createBoxConfig() : createValveConfig()),
+      });
+      await screen.findByText("Colors");
+      setRoleColor("Stroke", BLUE);
+      await expect
+        .poll(async () => {
+          const [box, valve] = await Promise.all(
+            ["n1", "n2"].map(async (k) => await retrieveConfig(key, k)),
+          );
+          return [fixedHexOf(box.strokeColor), hexOf(valve.strokeColor)];
+        })
+        .toEqual([BLUE, BLUE]);
     });
 
     it("hides the roles that no selected symbol has", async () => {
@@ -472,14 +535,14 @@ describe("Schematic toolbar Properties", () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2", "n3"],
         createConfig: (key) => {
-          if (key === "n1") return { ...createBoxConfig(), strokeColor: RED };
+          if (key === "n1") return { ...createBoxConfig(), strokeColor: fixed(RED) };
           if (key === "n2") return { ...createValveConfig(), stalenessColor: RED };
-          return { ...createBoxConfig(), fillColor: GREEN };
+          return { ...createBoxConfig(), fillColor: fixed(GREEN) };
         },
       });
       await screen.findByText("Selection");
-      const [red] = selectionSwatches();
-      expect(selectionSwatches()).toHaveLength(2);
+      const [red] = getSwatches("Selection");
+      expect(getSwatches("Selection")).toHaveLength(2);
       fireEvent.click(red);
       fireEvent.change(screen.getByLabelText("Hex"), {
         target: { value: BLUE.slice(1) },
@@ -490,7 +553,11 @@ describe("Schematic toolbar Properties", () => {
           const [n1, n2, n3] = await Promise.all(
             ["n1", "n2", "n3"].map(async (k) => await retrieveConfig(key, k)),
           );
-          return [hexOf(n1.strokeColor), hexOf(n2.stalenessColor), hexOf(n3.fillColor)];
+          return [
+            fixedHexOf(n1.strokeColor),
+            hexOf(n2.stalenessColor),
+            fixedHexOf(n3.fillColor),
+          ];
         })
         .toEqual([BLUE, BLUE, GREEN]);
     });
@@ -500,15 +567,15 @@ describe("Schematic toolbar Properties", () => {
         nodeKeys: ["n1", "n2"],
         createConfig: (key) =>
           key === "n1"
-            ? { ...createBoxConfig(), strokeColor: RED }
-            : { ...createBoxConfig(), strokeColor: GREEN },
+            ? { ...createBoxConfig(), strokeColor: fixed(RED) }
+            : { ...createBoxConfig(), strokeColor: fixed(GREEN) },
       });
       await screen.findByText("Selection");
-      const [red] = selectionSwatches();
+      const [red] = getSwatches("Selection");
       const strokes = async (): Promise<Array<string | undefined>> =>
         await Promise.all(
           ["n1", "n2"].map(async (k) =>
-            hexOf((await retrieveConfig(key, k)).strokeColor),
+            fixedHexOf((await retrieveConfig(key, k)).strokeColor),
           ),
         );
       fireEvent.click(red);
@@ -531,7 +598,7 @@ describe("Schematic toolbar Properties", () => {
             : createValveConfig(),
       });
       await screen.findByText("Selection");
-      const [red] = selectionSwatches();
+      const [red] = getSwatches("Selection");
       fireEvent.click(red);
       fireEvent.change(screen.getByLabelText("Hex"), {
         target: { value: BLUE.slice(1) },

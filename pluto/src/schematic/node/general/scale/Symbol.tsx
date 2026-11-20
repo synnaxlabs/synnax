@@ -9,16 +9,20 @@
 
 import "@/schematic/node/common/primitive/primitive.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { box, dimensions, location, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale as BaseScale } from "@/schematic/node/common/scale";
-import { type NodeProps } from "@/schematic/node/spec";
+import { Stale } from "@/schematic/node/common/stale";
+import { Scale } from "@/schematic/node/general/scale/Primitive";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Scale as VisScale } from "@/vis/scale";
+import { Staleness } from "@/vis/staleness";
 
 export const Symbol = ({
   nodeKey,
@@ -28,22 +32,24 @@ export const Symbol = ({
   config,
 }: NodeProps<schematic.ScaleNodeConfig>): ReactElement => {
   const { label, dimensions: dims, orientation, channel, rollingAverage } = config;
+  const badged = Staleness.useBadged();
   const dir = location.direction(orientation);
   // The configured dimensions are the bar's own. The ticks live beside it, so the
   // symbol takes the gutter on top of them.
-  const vis = BaseScale.visProps(config);
+  const vis = BaseScale.useVisProps(config);
   const gutter = VisScale.gutter(vis);
   const outer: dimensions.Dimensions =
     dir === "y"
       ? { width: dims.width + gutter, height: dims.height }
       : { width: dims.width, height: dims.height + gutter };
   const telem = BaseScale.source({ channel, rollingAverage });
-  VisScale.use({
+  const { stale } = VisScale.use({
     ...vis,
     telem,
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, outer),
     direction: dir,
+    staleColorHidden: badged,
   });
   // The bar has one orientation per axis, so rotating it toggles between them.
   const handleRotate = (): void =>
@@ -68,7 +74,20 @@ export const Symbol = ({
       onResize={handleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
+      {stale && badged && <Stale.Indicator />}
       <div style={outer} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
+  );
+};
+
+/** Renders the scale in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  levelColor,
+  axisColor,
+  ...rest
+}: schematic.ScaleNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Scale {...rest} levelColor={resolve(levelColor)} axisColor={resolve(axisColor)} />
   );
 };

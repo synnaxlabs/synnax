@@ -9,16 +9,16 @@
 
 import "@/feature/panel/MovePicker.css";
 
-import { type panel } from "@synnaxlabs/client";
+import type { panel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type List } from "@synnaxlabs/lyra/list";
+import type { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Errors, Panel } from "@synnaxlabs/pluto";
+import { Color, Errors, Panel } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import {
   type TabOrigin,
@@ -41,7 +41,9 @@ const RowFallback = (): null => null;
 const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const name = Panel.useName({ key: props.itemKey });
   const icon = Panel.useIcon({ key: props.itemKey });
-  const color = Panel.useColor({ key: props.itemKey });
+  const resolve = Color.useResolve();
+  const ref = Panel.useColor({ key: props.itemKey });
+  const color = resolve(ref);
   return (
     <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
       {Appearance.renderIcon({ icon, color, fallback: Icon.Panel })}

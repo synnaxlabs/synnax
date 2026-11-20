@@ -202,6 +202,7 @@ var _ = Describe("Task", Ordered, func() {
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 			DB:     db,
 			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
 		}))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
@@ -320,7 +321,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   namedType,
 				Rack:   testRack.Key,
 				Name:   "Created",
-				Config: msgpack.EncodedJSON{"topic": "pumps"},
+				Config: msgpack.EncodedJSON{"group": "pumps"},
 			})).To(Succeed())
 			Expect(names).To(Equal([]string{"Created"}))
 		})
@@ -809,13 +810,13 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   namedType,
 				Rack:   testRack.Key,
 				Name:   "Before",
-				Config: msgpack.EncodedJSON{"topic": "pumps"},
+				Config: msgpack.EncodedJSON{"group": "pumps"},
 			}
 			createCommitted(ctx, named)
 			names = nil
 			MustSucceed(dispatch(ctx, named.Key, "dk", []task.Action{
 				set([]string{"name"}, "After"),
-				set([]string{"config", "topic"}, "valves"),
+				set([]string{"config", "group"}, "valves"),
 			}))
 			Expect(names).To(Equal([]string{"After"}))
 		})
@@ -2127,7 +2128,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 })
 
-var _ = Describe("OpenService with a store that hashes used records", func() {
+var _ = Describe("SyncHashes", func() {
 	It("Should store the current config hash of each task", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
@@ -2166,6 +2167,7 @@ var _ = Describe("OpenService with a store that hashes used records", func() {
 			To(Succeed())
 		Expect(first.Close()).To(Succeed())
 		second := MustOpen(open())
+		Expect(second.SyncHashes(ctx)).To(Succeed())
 		var res task.Task
 		Expect(second.NewRetrieve().
 			Where(task.MatchKeys(t.Key)).
@@ -2185,6 +2187,7 @@ var _ = Describe("MatchArcs", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
+				Rack:   secrettestutil.CoreRack,
 			}))
 			var (
 				want  task.Key
@@ -2259,6 +2262,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 			DB:     db,
 			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
 		}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,

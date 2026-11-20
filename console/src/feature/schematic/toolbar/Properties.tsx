@@ -19,6 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import {
+  Color,
   Diagram,
   Direction,
   type Properties as PProperties,
@@ -27,7 +28,6 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   box,
-  color,
   deep,
   type dimensions,
   type direction,
@@ -35,10 +35,14 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement, type ReactNode } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
+import {
+  COLOR_FIELDS,
+  VALUE_COLOR_FIELDS,
+} from "@/feature/schematic/toolbar/colorFields";
 import { CSS } from "@/platform/css";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
@@ -48,7 +52,7 @@ const path = deep.path<{
   specKey?: schematic.symbol.Key;
 }>();
 
-export const Properties = memo((): ReactElement => {
+export const Properties = (): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
   const configByKey = Schematic.useConfigs({ keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
@@ -66,7 +70,7 @@ export const Properties = memo((): ReactElement => {
       : "";
   // A symbol's form holds that symbol's config, so a change remounts it.
   return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
-});
+};
 Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
@@ -142,26 +146,25 @@ const CustomVariantForm = ({
 
 const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
 
-// Every stored color field, role or not, that Selection lists.
-const COLOR_FIELDS = [
-  "strokeColor",
-  "fillColor",
-  "textColor",
-  "levelColor",
-  "axisColor",
-  "onColor",
-  "stalenessColor",
-] as const;
-
 const selectionColorRefs = (
   key: string,
   cfg: Schematic.ElementConfig,
 ): MultiEdit.ColorRef[] => {
-  const refs = MultiEdit.colorRefs(key, cfg, COLOR_FIELDS);
+  const refs = MultiEdit.colorRefs(
+    key,
+    cfg,
+    COLOR_FIELDS,
+    VALUE_COLOR_FIELDS[cfg.variant],
+  );
   if (cfg.variant === "state_indicator")
     cfg.options.forEach((o, i) => {
       if (o.color != null)
-        refs.push({ key, path: `options.${i}.color`, value: color.construct(o.color) });
+        refs.push({
+          key,
+          path: `options.${i}.color`,
+          value: MultiEdit.fixedRef(o.color),
+          valueOnly: true,
+        });
     });
   return refs;
 };
@@ -196,6 +199,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const getViewport = Session.Schematic.useGetViewport();
   const parentOf = Schematic.useParentOf();
   const theme = Theming.use();
+  const seriesColors = Color.useSeriesValues();
   // Grouped symbols never move alone: boxes align, the dispatch fans out to members.
   const movable = selected.filter((k) => !parentOf.has(k));
   // The selection closure includes group configs, so shielding sees locked flags.
@@ -212,6 +216,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selection = MultiEdit.selection({
     configs: editableByKey,
     fields: FIELDS,
+    valueColorFields: VALUE_COLOR_FIELDS,
     onChange: (updates) => dispatch(updates.flatMap(schematic.setChanged)),
   });
 
@@ -498,27 +503,30 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             <MultiEdit.ColorField
               label="Stroke"
               values={selection.colors("strokeColor", (c) =>
-                Schematic.colorFallback("strokeColor", c.variant, theme),
+                Schematic.colorFallback("strokeColor", c.variant, theme, seriesColors),
               )}
-              onChange={(c) => selection.set("strokeColor", c)}
+              onChange={(c) => selection.setColor("strokeColor", c)}
+              palettesHidden={selection.valueOnly("strokeColor")}
             />
           )}
           {hasFill && (
             <MultiEdit.ColorField
               label="Fill"
               values={selection.colors("fillColor", (c) =>
-                Schematic.colorFallback("fillColor", c.variant, theme),
+                Schematic.colorFallback("fillColor", c.variant, theme, seriesColors),
               )}
-              onChange={(c) => selection.set("fillColor", c)}
+              onChange={(c) => selection.setColor("fillColor", c)}
+              palettesHidden={selection.valueOnly("fillColor")}
             />
           )}
           {hasText && (
             <MultiEdit.ColorField
               label="Text"
               values={selection.colors("textColor", (c) =>
-                Schematic.colorFallback("textColor", c.variant, theme),
+                Schematic.colorFallback("textColor", c.variant, theme, seriesColors),
               )}
-              onChange={(c) => selection.set("textColor", c)}
+              onChange={(c) => selection.setColor("textColor", c)}
+              palettesHidden={selection.valueOnly("textColor")}
             />
           )}
           <MultiEdit.SelectionColors
@@ -587,8 +595,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             Staleness.resolveColor(undefined, theme),
           )}
           timeout={selection.first("stalenessTimeout")}
-          onColorChange={(c) => selection.set("stalenessColor", c)}
+          onColorChange={(c) => selection.setColor("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
+          palettesHidden={selection.valueOnly("stalenessColor")}
         />
       )}
       {selection.has("precision") && (

@@ -78,7 +78,6 @@ telem::SampleValue parse_rfc3339(const std::string &input) {
     if (!y_ok || !mo_ok || !d_ok || !h_ok || !mi_ok || !s_ok)
         iso_err("non-digit character in date or time fields");
     if (month < 1 || month > 12) iso_err("month must be between 1 and 12");
-    if (day < 1 || day > 31) iso_err("day must be between 1 and 31");
     if (hour > 23) iso_err("hour must be between 0 and 23");
     if (minute > 59) iso_err("minute must be between 0 and 59");
     if (second > 59) iso_err("second must be between 0 and 59");
@@ -117,11 +116,15 @@ telem::SampleValue parse_rfc3339(const std::string &input) {
         );
     }
 
-    const int32_t days = date::days_from_civil(
-        {static_cast<uint16_t>(year),
-         static_cast<uint8_t>(month),
-         static_cast<uint8_t>(day)}
-    );
+    const date::Date civil{
+        static_cast<uint16_t>(year),
+        static_cast<uint8_t>(month),
+        static_cast<uint8_t>(day)
+    };
+    const int32_t days = date::days_from_civil(civil);
+    if (const auto [_, m, d] = date::civil_from_days(days);
+        m != civil.month || d != civil.day)
+        iso_err("day must be a day of the month");
     const int64_t total_seconds = static_cast<int64_t>(days) * 86400 +
                                   static_cast<int64_t>(hour * 3600) +
                                   static_cast<int64_t>(minute * 60) + second -

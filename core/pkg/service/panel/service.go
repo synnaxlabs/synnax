@@ -77,11 +77,18 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Panel]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
-		Migrations:      versions.Migrations,
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
+		Migrations: versions.Migrations,
+		// A named color delete rewrites the panel outside any panel write, so the
+		// service sends the panel as a create.
+		OnDetach: func(_ context.Context, tx gorp.Tx, p Panel) error {
+			s.state.Dispatcher().
+				Attach(tx, p.Key, NewCreateAction(CreatePayload{Panel: p}))
+			return nil
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -123,6 +130,13 @@ func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
+}
+
+// DropDangling removes each reference of p whose target the Core does not hold, such as
+// a named color of the Core that exported p.
+func (s *Service) DropDangling(ctx context.Context, tx gorp.Tx, p *Panel) error {
+	_, err := s.table.DropDangling(ctx, tx, p)
+	return err
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

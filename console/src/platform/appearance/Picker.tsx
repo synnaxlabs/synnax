@@ -10,11 +10,11 @@
 import { Color } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { color } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -22,6 +22,8 @@ import { CSS } from "@/platform/css";
 export interface PickerProps {
   icon?: string;
   color?: color.Crude;
+  /** Named colors that the custom swatch offers. */
+  library?: Color.Library;
   /** The icon drawn while the icon is absent. */
   fallback: Icon.FC;
   onIconChange: (next?: string) => void;
@@ -35,6 +37,7 @@ export interface PickerProps {
 export const Picker = ({
   icon,
   color,
+  library,
   fallback,
   onIconChange,
   onColorChange,
@@ -63,6 +66,7 @@ export const Picker = ({
           value={color}
           fallback={colors.gray.l10}
           onChange={onColorChange}
+          library={library}
           onlyChangeOnBlur
           size="tiny"
         />

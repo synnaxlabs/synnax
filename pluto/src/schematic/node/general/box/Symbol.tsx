@@ -9,14 +9,16 @@
 
 import "@/schematic/node/general/box/box.css";
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/spec";
+import { Box } from "@/schematic/node/general/box/Primitive";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 export const Symbol = ({
@@ -31,25 +33,41 @@ export const Symbol = ({
     dimensions,
     strokeWidth,
   },
-}: NodeProps<schematic.BoxNodeConfig>): ReactElement => (
-  <Grid.Grid
-    allowCenter
-    allowRotate={false}
-    editable={selected}
-    nodeKey={nodeKey}
-    onResize={(dimensions) => onConfigChange({ dimensions })}
-  >
-    <Label.Label config={label} onChange={onConfigChange} />
-    <TankPrimitive
-      className={CSS.B("box")}
-      strokeColor={strokeColor}
-      dimensions={dimensions}
-      boxBorderRadius={borderRadius}
-      fillColor={fillColor}
-      strokeWidth={strokeWidth}
-    />
-    <svg className={CSS.B("box-frame")}>
-      <rect width="100%" height="100%" rx={borderRadius} />
-    </svg>
-  </Grid.Grid>
-);
+}: NodeProps<schematic.BoxNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Grid.Grid
+      allowCenter
+      allowRotate={false}
+      editable={selected}
+      nodeKey={nodeKey}
+      onResize={(dimensions) => onConfigChange({ dimensions })}
+    >
+      <Label.Label config={label} onChange={onConfigChange} />
+      <TankPrimitive
+        className={CSS.B("box")}
+        strokeColor={resolve(strokeColor)}
+        dimensions={dimensions}
+        boxBorderRadius={borderRadius}
+        fillColor={resolve(fillColor)}
+        strokeWidth={strokeWidth}
+      />
+      <svg className={CSS.B("box-frame")}>
+        <rect width="100%" height="100%" rx={borderRadius} />
+      </svg>
+    </Grid.Grid>
+  );
+};
+
+/** Renders the box in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  fillColor,
+  dimensions: _dimensions,
+  ...rest
+}: schematic.BoxNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Box {...rest} strokeColor={resolve(strokeColor)} fillColor={resolve(fillColor)} />
+  );
+};

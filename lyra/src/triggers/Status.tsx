@@ -11,7 +11,7 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { Text } from "@/text";
 import { useContext } from "@/triggers/Provider";
-import { type Trigger } from "@/triggers/triggers";
+import type { Trigger } from "@/triggers/triggers";
 
 /** Props for {@link Status}. */
 export interface StatusProps extends Text.TextProps {}

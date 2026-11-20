@@ -47,7 +47,7 @@ var _ = Describe("Mapper", func() {
 			TargetType: "uuid.UUID",
 			ZeroValue:  "uuid.Nil()",
 			Imports: []primitives.Import{
-				{Category: "external", Path: "github.com/google/uuid"},
+				{Category: "external", Path: "uuid"},
 			},
 		},
 		"string": {TargetType: "string", ZeroValue: `""`},
@@ -58,7 +58,7 @@ var _ = Describe("Mapper", func() {
 		Expect(mapping.TargetType).To(Equal("uuid.UUID"))
 		Expect(mapping.ZeroValue).To(Equal("uuid.Nil()"))
 		Expect(mapping.Imports).To(HaveLen(1))
-		Expect(mapping.Imports[0].Path).To(Equal("github.com/google/uuid"))
+		Expect(mapping.Imports[0].Path).To(Equal("uuid"))
 	})
 
 	It("should fall back to the fallback type for unknown names", func() {
