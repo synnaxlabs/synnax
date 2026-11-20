@@ -10,6 +10,7 @@
 package gorp_test
 
 import (
+	"fmt"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -151,6 +152,8 @@ var _ = Describe("PlanDelete", func() {
 					Expect(widgets.NewCreate().Entry(&e).Exec(ctx, tx)).To(Succeed())
 				case pdHolder:
 					Expect(holders.NewCreate().Entry(&e).Exec(ctx, tx)).To(Succeed())
+				default:
+					Fail(fmt.Sprintf("no table holds %T", e))
 				}
 			}
 		}
@@ -160,12 +163,10 @@ var _ = Describe("PlanDelete", func() {
 			target gorp.Target,
 		) gorp.DeleteEffect {
 			return gorp.DeleteEffect{
-				Dependent: gorp.Dependent{
-					Holder:    gorp.Target{Table: table, Key: key},
-					Reference: reference,
-					Kind:      kind,
-				},
-				Target: target,
+				Holder:    gorp.Target{Table: table, Key: key},
+				Reference: reference,
+				Kind:      kind,
+				Target:    target,
 			}
 		}
 		channel = func(k uint32) gorp.Target { return gorp.NewTarget("channel", k) }
@@ -291,8 +292,8 @@ var _ = Describe("PlanDelete", func() {
 	})
 
 	It(
-		"Should fail with the size error when more holders restrict the delete than the "+
-			"limit",
+		"Should fail with a validation error when more holders refuse the delete than "+
+			"the limit",
 		func(ctx SpecContext) {
 			open(ctx, gorp.WithMaxDeleteSize(2))
 			create(
@@ -304,7 +305,7 @@ var _ = Describe("PlanDelete", func() {
 			)
 			Expect(channels.PlanDelete(ctx, db, []uint32{1})).Error().
 				To(MatchError(ContainSubstring(
-					"deleting channel 1 would change more than 2 entries",
+					"more than 2 entries refuse deleting channel 1",
 				)))
 		},
 	)

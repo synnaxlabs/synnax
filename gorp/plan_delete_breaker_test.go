@@ -357,9 +357,11 @@ var _ = Describe("PlanDelete breaker", func() {
 			open(ctx, gorp.WithMaxDeleteSize(1))
 			create(ctx, db, pdCalc{Key: "c", Output: 1})
 			deleteErr := deleteChannels(ctx, db, 1, 1)
-			Expect(deleteErr).To(HaveOccurred())
-			_, planErr := channels.PlanDelete(ctx, db, []uint32{1, 1})
-			Expect(planErr).To(MatchError(deleteErr.Error()))
+			Expect(deleteErr).To(MatchError(ContainSubstring(
+				"deleting channel 1 would change more than 1 entries",
+			)))
+			Expect(channels.PlanDelete(ctx, db, []uint32{1, 1})).Error().
+				To(MatchError(deleteErr.Error()))
 		})
 
 		It("Should give the same first cause to each plan of one state", func(
@@ -419,10 +421,9 @@ var _ = Describe("PlanDelete breaker", func() {
 				committed <- tx.Commit(hookkv.WithHook(ctx, hook))
 			}()
 			Eventually(held).Should(BeClosed())
-			effects, err := channels.PlanDelete(ctx, db, []uint32{1})
+			effects := MustSucceed(channels.PlanDelete(ctx, db, []uint32{1}))
 			close(release)
 			Expect(<-committed).To(MatchError(ContainSubstring("disk full")))
-			Expect(err).ToNot(HaveOccurred())
 			Expect(calcs.NewRetrieve().
 				Where(gorp.MatchKeys[string, pdCalc]("phantom")).
 				Exists(ctx, db)).To(BeFalse())
@@ -614,7 +615,7 @@ var _ = Describe("PlanDelete breaker", func() {
 				effects, err := channels.PlanDelete(ctx, db, []uint32{1})
 				if tooLarge {
 					Expect(err).To(MatchError(ContainSubstring(
-						"deleting channel 1 would change more than 3 entries",
+						"more than 3 entries refuse deleting channel 1",
 					)))
 				} else {
 					Expect(err).ToNot(HaveOccurred())

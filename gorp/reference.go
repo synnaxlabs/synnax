@@ -639,12 +639,21 @@ func (r *reference[K, E, T]) dependentsOf(
 	ctx context.Context,
 	snap Snapshot,
 	target Target,
+	inFlight bool,
 ) ([]string, error) {
 	t, ok := r.parse(target)
 	if !ok {
 		return nil, nil
 	}
-	keys, err := probeEach(ctx, r.store, snap, []T{t})
+	var (
+		keys [][]K
+		err  error
+	)
+	if inFlight {
+		keys, err = probeEach(ctx, r.store, snap, []T{t})
+	} else if err = r.store.Wait(ctx); err == nil {
+		keys, err = r.store.GetEach(scopeOf(snap), []T{t})
+	}
 	if err != nil || keys == nil {
 		return nil, err
 	}

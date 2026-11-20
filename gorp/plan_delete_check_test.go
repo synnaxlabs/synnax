@@ -76,12 +76,10 @@ var _ = Describe("PlanDelete checks", func() {
 			To(Succeed())
 		effects := MustSucceed(channels.PlanDelete(ctx, db, []uint32{1}))
 		Expect(effects.Detaches).To(Equal([]gorp.DeleteEffect{{
-			Dependent: gorp.Dependent{
-				Holder:    gorp.Target{Table: "copy", Key: "c"},
-				Reference: "channel",
-				Kind:      gorp.Use,
-			},
-			Target: gorp.NewTarget("channel", uint32(1)),
+			Holder:    gorp.Target{Table: "copy", Key: "c"},
+			Reference: "channel",
+			Kind:      gorp.Use,
+			Target:    gorp.NewTarget("channel", uint32(1)),
 		}}))
 		Expect(effects.Cascades).To(BeEmpty())
 		Expect(effects.Restricts).To(BeEmpty())

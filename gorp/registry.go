@@ -63,8 +63,14 @@ type registeredReference interface {
 		targets []Target,
 		keys any,
 	) ([][]string, error)
-	// dependentsOf returns the text keys of the entries that hold target.
-	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
+	// dependentsOf returns the text keys of the entries that hold target. When inFlight
+	// is true, they include the entries of a commit in flight, which can fail.
+	dependentsOf(
+		ctx context.Context,
+		snap Snapshot,
+		target Target,
+		inFlight bool,
+	) ([]string, error)
 }
 
 // detachOp removes or inlines target in the reference at index ref of an entry.
@@ -316,7 +322,7 @@ func (r *registry) targetSet(
 		if err != nil {
 			return err
 		}
-		keys, err := ref.dependentsOf(ctx, tx, target)
+		keys, err := ref.dependentsOf(ctx, tx, target, true)
 		if err != nil {
 			return err
 		}
@@ -347,8 +353,13 @@ type deletePlan struct {
 // changes returns the number of entries the plan deletes or rewrites.
 func (p *deletePlan) changes() int { return p.size + len(p.detaches) }
 
+// isRequested reports whether the caller asked to delete t.
+func (p *deletePlan) isRequested(t Target) bool {
+	return t.Table == p.table && p.requested.Contains(t.Key)
+}
+
 func (p *deletePlan) contains(t Target) bool {
-	if t.Table == p.table && p.requested.Contains(t.Key) {
+	if p.isRequested(t) {
 		return true
 	}
 	keys, ok := p.cascades[t.Table]
@@ -416,7 +427,8 @@ func (r *registry) walk(ctx context.Context, snap Snapshot, w *planWalk) error {
 		target := w.queue[0]
 		w.queue = w.queue[1:]
 		for _, ref := range r.referencesTo(target.Table) {
-			deps, err := ref.dependentsOf(ctx, snap, target)
+			// A plan reads what snap holds; a delete also counts a commit in flight.
+			deps, err := ref.dependentsOf(ctx, snap, target, w.effects == nil)
 			if err != nil {
 				return err
 			}
@@ -488,16 +500,29 @@ func newPlanWalk(table string, keys []string, limit int) *planWalk {
 	return w
 }
 
-func (w *planWalk) tooLarge() error {
-	named := w.plan.table + " " + w.keys[0]
+// named returns the entries that the caller asked to delete, in words.
+func (w *planWalk) named() string {
 	if len(w.keys) > 1 {
-		named = strconv.Itoa(len(w.keys)) + " entries of " + w.plan.table
+		return strconv.Itoa(len(w.keys)) + " entries of " + w.plan.table
 	}
+	return w.plan.table + " " + w.keys[0]
+}
+
+func (w *planWalk) tooLarge() error {
 	return errors.Wrapf(
 		validate.ErrValidation,
 		"deleting %s would change more than %d entries",
-		named,
+		w.named(),
 		w.limit,
+	)
+}
+
+func (w *planWalk) tooManyRestricts() error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"more than %d entries refuse deleting %s",
+		w.limit,
+		w.named(),
 	)
 }
 
@@ -506,13 +531,19 @@ func (w *planWalk) tooLarge() error {
 func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 	switch ref.onDeletePolicy() {
 	case Cascade:
+		if !w.plan.isRequested(dep) {
+			w.record(ref, dep, target)
+		}
 		if !w.plan.cascade(dep) {
 			return nil
 		}
-		w.record(ref, dep, target)
 		w.queue = append(w.queue, dep)
 	case Restrict:
-		if w.plan.contains(dep) || w.restricted.Contains(dep) {
+		if w.plan.contains(dep) {
+			return nil
+		}
+		w.record(ref, dep, target)
+		if w.restricted.Contains(dep) {
 			return nil
 		}
 		w.restricted.Add(dep)
@@ -525,7 +556,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		if len(w.restrictions) > w.limit {
 			if err := w.checkRestrictions(); err != nil {
 				if w.effects != nil {
-					return w.tooLarge()
+					return w.tooManyRestricts()
 				}
 				return err
 			}
