@@ -209,6 +209,36 @@ func (t *Table[K, E]) Dependents(
 	return t.db.registry.dependents(ctx, snap, Target{Table: t.name, Key: FormatKey(k)})
 }
 
+// RestrictChange returns a RestrictError for a change to field of the entry with key k
+// when an entry holds it through a Restrict reference, as seen by snap. It returns nil
+// when no entry does.
+func (t *Table[K, E]) RestrictChange(
+	ctx context.Context,
+	snap Snapshot,
+	k K,
+	field string,
+) error {
+	target := Target{Table: t.name, Key: FormatKey(k)}
+	for _, ref := range t.db.registry.referencesTo(t.name) {
+		if ref.onDeletePolicy() != Restrict {
+			continue
+		}
+		keys, err := ref.dependents(ctx, snap, target)
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			return RestrictError{
+				Target:    target,
+				Holder:    Target{Table: ref.ownerTable(), Key: keys[0]},
+				Reference: ref.referenceName(),
+				Field:     field,
+			}
+		}
+	}
+	return nil
+}
+
 // check validates the references e holds against tx.
 func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) error {
 	for _, r := range t.references {
