@@ -1811,6 +1811,19 @@ var _ = Describe("Range compare", func() {
 			Entry(&r).Exec(ctx, db)).To(Succeed())
 		return ranger.Ref{Variant: ranger.KeyRef{Key: r.Key}}
 	}
+	colored := func(r ranger.Ref, c *color.Ref) ranger.Ref {
+		GinkgoHelper()
+		k, ok := r.Variant.(ranger.KeyRef)
+		Expect(ok).To(BeTrue())
+		k.Color = c
+		return ranger.Ref{Variant: k}
+	}
+	t0Of := func(r ranger.Ref) *telem.TimeStamp {
+		GinkgoHelper()
+		k, ok := r.Variant.(ranger.KeyRef)
+		Expect(ok).To(BeTrue())
+		return k.T0
+	}
 	refColors := func(p lineplot.LinePlot) []*color.Ref {
 		return lo.Map(p.Ranges, func(r ranger.Ref, _ int) *color.Ref {
 			switch v := r.Variant.(type) {
@@ -1918,6 +1931,36 @@ var _ = Describe("Range compare", func() {
 				}))
 			})
 
+		It("Should give a series color to a range near the dark value of another",
+			func(ctx SpecContext) {
+				blue := xcolor.Color{B: 255, A: 255}
+				dark := color.Named{Name: "Signal", Light: blue, Dark: &orange}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &dark)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						colored(createRange(ctx, nil), named(dark.Key)),
+						createRange(ctx, &orange),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(dark.Key), named(series[0]),
+				}))
+			})
+
+		It("Should set the color of a window", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{Ranges: []ranger.Ref{recentRef}})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetRangeColorAction(lineplot.SetRangeColorPayload{
+					Range: recentRef, Color: *fixed(orange),
+				}),
+			})).To(Succeed())
+			Expect(
+				refColors(retrieve(ctx, p.Key)),
+			).To(Equal([]*color.Ref{fixed(orange)}))
+		})
+
 		It("Should set the color of a range by its key", func(ctx SpecContext) {
 			p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1)})
 			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
@@ -1946,6 +1989,48 @@ var _ = Describe("Range compare", func() {
 				Expect(uncolored(retrieve(ctx, p.Key).Ranges)).To(Equal(refs(rk1)))
 			})
 
+		It("Should drop a repeated range reference from SetRanges",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{})
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						Ranges: []ranger.Ref{
+							keyRef(rk1), recentRef, keyRef(rk1), recentRef,
+						},
+					}),
+				})).To(Succeed())
+				Expect(uncolored(retrieve(ctx, p.Key).Ranges)).To(Equal(
+					[]ranger.Ref{keyRef(rk1), recentRef},
+				))
+			})
+
+		It("Should drop a repeated range reference when it creates a plot",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2, rk1)})
+				Expect(uncolored(retrieve(ctx, p.Key).Ranges)).To(Equal(refs(rk1, rk2)))
+			})
+
+		It("Should keep the T0 and color of a range that SetRanges keeps",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2)})
+				t0 := telem.TimeStamp(5)
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangeT0Action(lineplot.SetRangeT0Payload{
+						Range: uuid.MustParse(rk1), T0: &t0,
+					}),
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						Ranges: []ranger.Ref{
+							keyRef(rk1), colored(keyRef(rk2), fixed(orange)),
+						},
+					}),
+				})).To(Succeed())
+				res := retrieve(ctx, p.Key)
+				Expect(t0Of(res.Ranges[0])).To(HaveValue(Equal(t0)))
+				Expect(refColors(res)).To(Equal([]*color.Ref{
+					named(series[0]), fixed(orange),
+				}))
+			})
+
 		It("Should remove a range by its key whatever its color",
 			func(ctx SpecContext) {
 				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2)})
@@ -1964,6 +2049,18 @@ var _ = Describe("Range compare", func() {
 			Expect(ok).To(BeTrue())
 			return k
 		}
+
+		It("Should leave the plot alone on a T0 for a range it does not show",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1)})
+				t0 := telem.TimeStamp(5)
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangeT0Action(lineplot.SetRangeT0Payload{
+						Range: uuid.MustParse(rk2), T0: &t0,
+					}),
+				})).To(Succeed())
+				Expect(retrieve(ctx, p.Key).Ranges).To(Equal(p.Ranges))
+			})
 
 		It("Should set and reset the T0 of a saved range", func(ctx SpecContext) {
 			p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2)})

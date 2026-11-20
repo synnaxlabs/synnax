@@ -429,6 +429,15 @@ describe("lineplot reducer", () => {
       expect(out.ranges).toEqual([keyRef(r2), keyRef(r3)]);
     });
 
+    it("should drop a reference to a range that an earlier one names", () => {
+      const state = createEmpty({ ranges: [keyRef(r1)] });
+      const { next, inverse } = lineplot.reduceAll(state, [
+        lineplot.setRanges({ ranges: [keyRef(r2), keyRef(r1), keyRef(r2)] }),
+      ]);
+      expect(next.ranges).toEqual([keyRef(r2), keyRef(r1)]);
+      expect(inverse).toEqual([lineplot.removeRange({ range: keyRef(r2) })]);
+    });
+
     it("should be a no-op when the set is unchanged", () => {
       const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
       const { next, inverse, targets } = lineplot.reduceAll(state, [

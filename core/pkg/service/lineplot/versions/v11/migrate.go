@@ -16,8 +16,14 @@ import (
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 )
 
+// MigrateLinePlot migrates old to v11 and drops each repeated range reference.
 func MigrateLinePlot(ctx context.Context, old v10.LinePlot) (LinePlot, error) {
-	return autoMigrateLinePlot(ctx, old)
+	lp, err := autoMigrateLinePlot(ctx, old)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	lp.Ranges = UniqueRanges(lp.Ranges)
+	return lp, nil
 }
 
 func MigrateAxes(ctx context.Context, old v10.Axes) (Axes, error) {

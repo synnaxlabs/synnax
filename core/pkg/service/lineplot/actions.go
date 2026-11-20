@@ -10,7 +10,6 @@
 package lineplot
 
 import (
-	"reflect"
 	"slices"
 
 	"github.com/samber/lo"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
+	v11 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v11"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
@@ -184,7 +184,7 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 // the same range or window is already present.
 func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if slices.ContainsFunc(state.Ranges, func(r ranger.Ref) bool {
-		return sameRange(r, p.Range)
+		return v11.SameRange(r, p.Range)
 	}) {
 		return state, nil
 	}
@@ -197,19 +197,20 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	state.Ranges = slices.DeleteFunc(
 		slices.Clone(state.Ranges),
-		func(r ranger.Ref) bool { return sameRange(r, p.Range) },
+		func(r ranger.Ref) bool { return v11.SameRange(r, p.Range) },
 	)
 	return state, nil
 }
 
-// Handle replaces the plot's range references. A reference to a range or window the
-// plot already shows keeps its T0 and color unless the new reference sets them. Lines
-// style channels, so they are unaffected.
+// Handle replaces the plot's range references, dropping each reference to a range or
+// window that an earlier one names. A reference to a range or window the plot already
+// shows keeps its T0 and color unless the new reference sets them. Lines style
+// channels, so they are unaffected.
 func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
-	next := slices.Clone(p.Ranges)
+	next := v11.UniqueRanges(p.Ranges)
 	for i, r := range next {
 		idx := slices.IndexFunc(state.Ranges, func(o ranger.Ref) bool {
-			return sameRange(o, r)
+			return v11.SameRange(o, r)
 		})
 		if idx != -1 {
 			next[i] = keepSettings(state.Ranges[idx], r)
@@ -263,7 +264,7 @@ func (p SetRangeT0Payload) Handle(state LinePlot) (LinePlot, error) {
 func (p SetRangeColorPayload) Handle(state LinePlot) (LinePlot, error) {
 	state.Ranges = slices.Clone(state.Ranges)
 	for i, r := range state.Ranges {
-		if !sameRange(r, p.Range) {
+		if !v11.SameRange(r, p.Range) {
 			continue
 		}
 		switch v := r.Variant.(type) {
@@ -276,20 +277,6 @@ func (p SetRangeColorPayload) Handle(state LinePlot) (LinePlot, error) {
 		}
 	}
 	return state, nil
-}
-
-// sameRange reports whether a and b refer to the same saved range or the same window,
-// ignoring the T0 and color of each.
-func sameRange(a, b ranger.Ref) bool {
-	switch av := a.Variant.(type) {
-	case ranger.KeyRef:
-		bv, ok := b.Variant.(ranger.KeyRef)
-		return ok && av.Key == bv.Key
-	case ranger.WindowRef:
-		bv, ok := b.Variant.(ranger.WindowRef)
-		return ok && reflect.DeepEqual(av.Window, bv.Window)
-	}
-	return false
 }
 
 // Handle sets the label rendered along the axis named by key.

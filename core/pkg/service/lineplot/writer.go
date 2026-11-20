@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
+	v11 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v11"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -41,7 +42,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. Each
-// line and rule with no color gets a series color. The line plot must belong to a
+// line and rule with no color gets a series color, and a repeated range reference is
+// dropped. The line plot must belong to a
 // project. A line plot in a group belongs to the project that holds the group. Create
 // returns an error wrapping validate.ErrValidation when a line plot with lp.Key exists.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
@@ -58,6 +60,7 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
 	lp.Lines = v10.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
+	lp.Ranges = v11.UniqueRanges(lp.Ranges)
 	colored, err := w.fillColors(ctx, *lp)
 	if err != nil {
 		return err

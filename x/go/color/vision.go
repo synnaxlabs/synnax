@@ -15,30 +15,31 @@ import "math"
 type Deficiency uint8
 
 const (
-	// Protanopia is the absence of red cones.
-	Protanopia Deficiency = iota
-	// Deuteranopia is the absence of green cones.
-	Deuteranopia
-	// Tritanopia is the absence of blue cones.
-	Tritanopia
+	// protanopia is the absence of red cones.
+	protanopia Deficiency = iota
+	// deuteranopia is the absence of green cones.
+	deuteranopia
+	// tritanopia is the absence of blue cones.
+	tritanopia
 )
 
-// Deficiencies holds each Deficiency that Simulate can simulate.
-var Deficiencies = [...]Deficiency{Protanopia, Deuteranopia, Tritanopia}
+// Deficiencies holds each Deficiency that Simulate can simulate: protanopia,
+// deuteranopia, and tritanopia, in that order.
+var Deficiencies = [...]Deficiency{protanopia, deuteranopia, tritanopia}
 
 // Machado, Oliveira, and Fernandes (2009), Table 1, severity 1.0, for linear RGB.
 var deficiencyMatrices = [...][3][3]float64{
-	Protanopia: {
+	protanopia: {
 		{0.152286, 1.052583, -0.204868},
 		{0.114503, 0.786281, 0.099216},
 		{-0.003882, -0.048116, 1.051998},
 	},
-	Deuteranopia: {
+	deuteranopia: {
 		{0.367322, 0.860646, -0.227968},
 		{0.280085, 0.672501, 0.047413},
 		{-0.01182, 0.04294, 0.968881},
 	},
-	Tritanopia: {
+	tritanopia: {
 		{1.255528, -0.076749, -0.178779},
 		{-0.078411, 0.930809, 0.147602},
 		{0.004733, 0.691367, 0.3039},

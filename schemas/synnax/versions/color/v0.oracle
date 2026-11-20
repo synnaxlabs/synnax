@@ -20,7 +20,8 @@ Named struct {
         @key
     }
     name     string       {
-        @doc value "is the name of the color."
+        @doc value           "is the name of the color."
+        @validate min_length 1
     }
     light    color.Color  {
         @doc value "is the color in the light theme."

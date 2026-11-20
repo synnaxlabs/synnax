@@ -238,21 +238,21 @@ const handlers: Handlers = {
   },
 
   // setRanges replaces the whole set of range references in one edit, such as when
-  // the user edits a window. A reference to a range or window the plot already shows
-  // keeps its T0 and color unless the new reference sets them. The inverse and the
-  // targets cover only the references that changed, so undo leaves another user's
-  // later edits in place. Undo appends a restored reference at the end of the set.
+  // the user edits a window. It drops each reference to a range or window that an
+  // earlier one names. A reference to a range or window the plot already shows keeps
+  // its T0 and color unless the new reference sets them. The inverse and the targets
+  // cover only the references that changed, so undo leaves another user's later edits
+  // in place. Undo appends a restored reference at the end of the set.
   setRanges: (state, payload) => {
-    const removed = state.ranges.filter(
-      (r) => !payload.ranges.some((n) => sameRange(n, r)),
+    const ranges = payload.ranges.filter(
+      (n, i) => payload.ranges.findIndex((o) => sameRange(o, n)) === i,
     );
-    const added = payload.ranges.filter(
-      (n) => !state.ranges.some((r) => sameRange(n, r)),
-    );
+    const removed = state.ranges.filter((r) => !ranges.some((n) => sameRange(n, r)));
+    const added = ranges.filter((n) => !state.ranges.some((r) => sameRange(n, r)));
     if (removed.length === 0 && added.length === 0) return actions.NO_OP_RESULT;
     const restored = removed.map(plainRef);
     const prev = state.ranges.map(plainRef);
-    state.ranges = payload.ranges.map((n) => {
+    state.ranges = ranges.map((n) => {
       const p = prev.find((r) => sameRange(r, n));
       return p == null ? n : keepSettings(p, n);
     });

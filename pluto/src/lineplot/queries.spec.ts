@@ -581,7 +581,9 @@ describe("lineplot queries", () => {
           actions: [lineplotClient.addRange({ range: ref })],
         });
       });
-      await waitFor(() => expect(result.current.ranges).toEqual([ref]));
+      await waitFor(() =>
+        expect(result.current.ranges).toEqual([expect.objectContaining(ref)]),
+      );
     });
 
     it("useRangeColors resolves the stored color of each range", async () => {
@@ -661,7 +663,9 @@ describe("lineplot queries", () => {
           actions: [lineplotClient.setRanges({ ranges: [ref] })],
         });
       });
-      await waitFor(() => expect(result.current.ranges).toEqual([ref]));
+      await waitFor(() =>
+        expect(result.current.ranges).toEqual([expect.objectContaining(ref)]),
+      );
     });
 
     it("useAxisKeys returns displayed axes and updates as channels appear", async () => {
