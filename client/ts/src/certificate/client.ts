@@ -42,7 +42,7 @@ import {
   shortcutZ,
 } from "@/certificate/where.gen";
 import { query } from "@/query";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 export const ACTION_CHANNEL_NAME = "sy_certificate_action_set";
 export const DELETE_CHANNEL_NAME = "sy_certificate_delete";
