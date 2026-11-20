@@ -122,7 +122,6 @@ const FOOTER_COLUMNS = [
         import { start as startTabs } from "@/components/tabs/sync";
         import { startPinningHashTarget } from "@/util/hash";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        import { onDemand } from "@/util/island";
 
         startSidebar();
         startCollapse();
@@ -131,15 +130,6 @@ const FOOTER_COLUMNS = [
         // Before the tabs, so the outline hears the first tab change.
         startOnThisPage();
         startTabs({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
-        onDemand({
-            selector: '[data-island="search"]',
-            load: () => import("@/components/search/mount"),
-            hotkey: (e) => (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k",
-        });
-        onDemand({
-            selector: '[data-island="feedback"]',
-            load: () => import("@/components/feedback/mount"),
-        });
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors =
                 document.querySelectorAll<HTMLAnchorElement>(".heading-anchor");

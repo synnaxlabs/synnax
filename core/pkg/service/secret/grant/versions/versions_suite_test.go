@@ -7,13 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createRoot } from "react-dom/client";
+package versions_test
 
-import { Search } from "@/components/search/Search";
-import { type Mount } from "@/util/island";
+import (
+	"testing"
 
-export const mount: Mount = (el) => {
-  const root = createRoot(el);
-  root.render(<Search initialVisible />);
-  return () => root.unmount();
-};
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestGrantVersions(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Secret Grant Versions Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

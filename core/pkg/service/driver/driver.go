@@ -89,21 +89,28 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		integrations[i] = f.Name()
 	}
 
-	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
-		ctx,
-		fmt.Sprintf("Node %d", cfg.HostKey),
-		rack.NewSetAction(rack.SetPayload{
-			Path:  []string{"integrations"},
-			Value: integrations,
-		}),
-		rack.NewSetAction(rack.SetPayload{
-			Path:  []string{"version"},
-			Value: version.Get(),
-		}),
-	); !ok(err, nil) {
+	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := cfg.Rack.NewWriter(tx).Apply(
+			ctx,
+			cfg.RackKey,
+			rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"integrations"},
+				Value: integrations,
+			}),
+			rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"version"},
+				Value: version.Get(),
+			}),
+		); err != nil {
+			return err
+		}
+		return cfg.Rack.NewRetrieve().
+			Where(rack.MatchKeys(cfg.RackKey)).
+			Entry(&d.rack).
+			Exec(ctx, tx)
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
 	if err = d.createInitialTasks(ctx); !ok(err, nil) {
 		return nil, err

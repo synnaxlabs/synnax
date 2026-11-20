@@ -12,17 +12,12 @@ const extremumBy = <T>(
   key: (value: T) => number,
   beats: (candidate: number, best: number) => boolean,
 ): T | undefined => {
-  if (values.length === 0) return undefined;
-  let best = values[0];
-  let bestKey = key(best);
-  for (let i = 1; i < values.length; i++) {
-    const k = key(values[i]);
-    if (beats(k, bestKey)) {
-      best = values[i];
-      bestKey = k;
-    }
+  let best: { value: T; key: number } | undefined;
+  for (const value of values) {
+    const k = key(value);
+    if (best == null || beats(k, best.key)) best = { value, key: k };
   }
-  return best;
+  return best?.value;
 };
 
 /**

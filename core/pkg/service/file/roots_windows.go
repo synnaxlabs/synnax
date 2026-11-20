@@ -7,11 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package task
+package file
 
-import "fmt"
+import "golang.org/x/sys/windows"
 
-// String returns the command's type together with its key and target task.
-func (c Command) String() string {
-	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
+// roots returns the root folder of each drive, such as C:\.
+func roots() ([]string, error) {
+	drives, err := windows.GetLogicalDrives()
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for i := range 26 {
+		if drives&(1<<i) != 0 {
+			out = append(out, string(rune('A'+i))+`:\`)
+		}
+	}
+	return out, nil
 }
