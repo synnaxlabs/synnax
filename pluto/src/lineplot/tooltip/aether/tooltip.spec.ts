@@ -102,6 +102,25 @@ describe("Tooltip", () => {
     expect(arcs(recorder)).toBe(arcs(finiteOnly.recorder));
   });
 
+  it("should list every line when all of them fit in the plot", () => {
+    const { recorder, component } = mount();
+    const results = ["a", "b", "c"].map((k) => found(k, 1));
+    component.render({ findByXDecimal: () => results, region: REGION });
+    expect(texts(recorder)).toEqual(expect.arrayContaining(["a", "b", "c"]));
+    expect(texts(recorder).some((t) => t.endsWith("more"))).toBe(false);
+  });
+
+  it("should end with the count of lines that do not fit in the plot", () => {
+    const { recorder, component } = mount();
+    const results = Array.from({ length: 12 }, (_, i) => found(`line-${i}`, i));
+    // 100 px holds 5 items: the time, 3 lines, and "and 9 more".
+    const region = box.construct(0, 0, 400, 100);
+    component.render({ findByXDecimal: () => results, region });
+    const labels = texts(recorder).filter((t) => t.startsWith("line-"));
+    expect(labels).toHaveLength(3);
+    expect(texts(recorder)).toContain("and 9 more");
+  });
+
   it("should leave out a line with no sample under the cursor", () => {
     const { recorder, component } = mount();
     const missing = { ...found("missing", NaN), value: { x: NaN, y: NaN } };

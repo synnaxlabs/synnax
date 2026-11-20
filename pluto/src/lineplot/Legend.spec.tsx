@@ -42,13 +42,13 @@ const renderLegend = (lines: LegendLineProps[]): HTMLElement =>
       {lines.map((l): ReactElement => (
         <LegendLine key={l.lineKey} {...l} />
       ))}
-      <LinePlot.Legend variant="fixed" />
+      <LinePlot.Legend />
     </LinePlot.Frame>,
     { render: true, registry: lineplot.REGISTRY },
   ).container;
 
 describe("Legend", () => {
-  describe("fixed", () => {
+  describe("groups", () => {
     it("should name each group by its axis", async () => {
       const container = renderLegend([
         { lineKey: "a", legendGroup: "Y2" },
