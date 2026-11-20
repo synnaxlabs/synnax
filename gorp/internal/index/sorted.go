@@ -129,7 +129,7 @@ func (s *Sorted[S, K, V]) Stage(scope S, key K, value V) {
 		s.Set(key, value)
 		return
 	}
-	s.overlay.load(scope).set(key, []V{value})
+	s.overlay.load(scope).setOne(key, value)
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed

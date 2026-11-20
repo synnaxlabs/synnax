@@ -269,7 +269,7 @@ func benchUniqueCreate(b *testing.B, unique bool, size int) {
 		idx = gorp.NewUniqueIndex(
 			"name",
 			"name",
-			func(e *indexBenchEntry) (string, bool) { return e.Name, true },
+			func(e indexBenchEntry) (string, bool) { return e.Name, true },
 		)
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[int32, indexBenchEntry]{

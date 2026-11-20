@@ -136,7 +136,7 @@ var _ = Describe("UniqueIndex breaker", func() {
 						gorp.NewUniqueIndex(
 							"sibling",
 							uniqueSpaceName,
-							func(i *breakerItem) (uniqueSibling, bool) {
+							func(i breakerItem) (uniqueSibling, bool) {
 								return uniqueSibling{
 									Parent: i.Folder,
 									Name:   i.Name,
@@ -204,7 +204,7 @@ var _ = Describe("UniqueIndex breaker", func() {
 					gorp.NewUniqueIndex(
 						"name",
 						uniqueSpaceName,
-						func(i *uniqueItem) (string, bool) { return i.Name, true },
+						func(i uniqueItem) (string, bool) { return i.Name, true },
 					),
 				},
 			}))
@@ -223,7 +223,7 @@ var _ = Describe("UniqueIndex breaker", func() {
 			}
 			openDB(gated)
 			openFolders(ctx)
-			sibling := func(f *breakerFailing) (uniqueSibling, bool) {
+			sibling := func(f breakerFailing) (uniqueSibling, bool) {
 				return uniqueSibling{Name: f.Name}, true
 			}
 			opened := make(chan error, 1)
