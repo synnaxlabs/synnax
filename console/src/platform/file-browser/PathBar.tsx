@@ -23,7 +23,7 @@ import {
 
 import { CSS } from "@/platform/css";
 import { sortEntries } from "@/platform/file-browser/Entries";
-import { type Entry, type Listing } from "@/platform/file-browser/list";
+import type { Entry, Listing } from "@/platform/file-browser/list";
 import {
   dirnameOf,
   expandHome,
