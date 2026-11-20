@@ -95,6 +95,7 @@
     "cov:www": "turbo cov --filter @synnaxlabs/www",
     "cov:x": "turbo cov --filter @synnaxlabs/x",
     "install-browsers:client": "pnpm --filter @synnaxlabs/client install-browsers",
+    "install-browsers:console": "pnpm --filter @synnaxlabs/console install-browsers",
     "install-browsers:docs": "pnpm --filter @synnaxlabs/docs install-browsers",
     "install-browsers:lyra": "pnpm --filter @synnaxlabs/lyra install-browsers",
     "install-browsers:pluto": "pnpm --filter @synnaxlabs/pluto install-browsers",
