@@ -13,10 +13,10 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp/internal/index"
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -28,14 +28,17 @@ type UniqueError struct {
 	Space string
 	// Holder is the entry that holds the value.
 	Holder Target
+	// Value is the value that clashed.
+	Value any
 }
 
 // Error implements error.
 func (e UniqueError) Error() string {
 	return fmt.Sprintf(
-		"[gorp] - %s %s already holds the value in %s",
+		"[gorp] - %s %s already holds %v in %s",
 		e.Holder.Table,
 		e.Holder.Key,
+		e.Value,
 		e.Space,
 	)
 }
@@ -59,10 +62,12 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 	// value returns the value of an entry, and false when the entry holds none.
 	value func(e *E) (V, bool)
 	store *index.Lookup[*txState, K, V]
-	// members is the space of the index on the DB of its table, and table is the name
-	// of that table. Both are set when the table opens.
-	members *uniqueSpace[V]
-	table   string
+	// members is the space of the index on the DB of its table, registry is the
+	// registry of that DB, and table is the name of that table. All are set when the
+	// index joins its space.
+	members  *uniqueSpace[V]
+	registry *registry
+	table    string
 }
 
 // NewUniqueIndex constructs a UniqueIndex named name in the space named space. value
@@ -133,25 +138,38 @@ func (u *UniqueIndex[K, E, V]) check(ctx context.Context, tx Tx, e *E) error {
 		return err
 	}
 	if other, found, err := u.store.Holder(scope, v, &k); err != nil || found {
-		return u.clash(NewTarget(u.table, other), err)
+		return u.clash(NewTarget(u.table, other), v, err)
 	}
-	for _, m := range *u.members.load() {
+	for _, m := range *u.members.members.Load() {
 		if m == uniqueMember[V](u) {
 			continue
 		}
 		if holder, found, err := m.holder(ctx, scope, v); err != nil || found {
-			return u.clash(holder, err)
+			return u.clash(holder, v, err)
 		}
 	}
 	return nil
 }
 
-// clash returns err, or else the UniqueError for holder.
-func (u *UniqueIndex[K, E, V]) clash(holder Target, err error) error {
+// clash returns err, or else the UniqueError for holder and v.
+func (u *UniqueIndex[K, E, V]) clash(holder Target, v V, err error) error {
 	if err != nil {
 		return err
 	}
-	return UniqueError{Space: u.space, Holder: holder}
+	return UniqueError{Space: u.space, Holder: holder, Value: v}
+}
+
+// release stages, in tx, the removal of the values of the entries with the text keys
+// keys.
+func (u *UniqueIndex[K, E, V]) release(tx Tx, keys []string) error {
+	for _, text := range keys {
+		k, err := key.Parse[K](text)
+		if err != nil {
+			return err
+		}
+		u.store.StageDelete(tx.txIdentity(), k)
+	}
+	return nil
 }
 
 // holder implements uniqueMember.
@@ -170,35 +188,73 @@ func (u *UniqueIndex[K, E, V]) holder(
 	return NewTarget(u.table, k), true, nil
 }
 
-// tableName implements uniqueMember.
-func (u *UniqueIndex[K, E, V]) tableName() string { return u.table }
+// spaceName implements checkedIndex.
+func (u *UniqueIndex[K, E, V]) spaceName() string { return u.space }
 
-// join implements uniqueIndex.
-func (u *UniqueIndex[K, E, V]) join(r *registry, table string) error {
-	u.table = table
-	members, err := joinSpace[V](r, u.space, u)
-	if err != nil {
-		return err
+// canJoin implements checkedIndex.
+func (u *UniqueIndex[K, E, V]) canJoin(r *registry) error {
+	if found, ok := r.spaces[u.space]; ok {
+		if _, ok = found.(*uniqueSpace[V]); !ok {
+			return errors.Newf(
+				"[gorp] - space %q holds values of another type than %T",
+				u.space,
+				*new(V),
+			)
+		}
 	}
-	u.members = members
 	return nil
 }
 
-// leave implements uniqueIndex.
-func (u *UniqueIndex[K, E, V]) leave() {
-	if u.members != nil {
-		u.members.remove(u)
+// join implements checkedIndex.
+func (u *UniqueIndex[K, E, V]) join(r *registry, table string) {
+	space, ok := r.spaces[u.space].(*uniqueSpace[V])
+	if !ok {
+		space = &uniqueSpace[V]{}
+		space.members.Store(&[]uniqueMember[V]{})
+		r.spaces[u.space] = space
 	}
+	joined := append(slices.Clone(*space.members.Load()), uniqueMember[V](u))
+	space.members.Store(&joined)
+	u.members, u.registry, u.table = space, r, table
 }
 
-// uniqueIndex is the part of a UniqueIndex that its Table reaches.
-type uniqueIndex[K Key, E Entry[K]] interface {
+// leave implements checkedIndex.
+func (u *UniqueIndex[K, E, V]) leave() {
+	r := u.registry
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	kept := slices.DeleteFunc(
+		slices.Clone(*u.members.members.Load()),
+		func(o uniqueMember[V]) bool { return o == uniqueMember[V](u) },
+	)
+	if len(kept) == 0 {
+		delete(r.spaces, u.space)
+	}
+	u.members.members.Store(&kept)
+	u.registry = nil
+}
+
+// checkedIndex is an index whose value a write of its Table checks.
+type checkedIndex[K Key, E Entry[K]] interface {
 	Index[K, E]
 	// check returns a UniqueError when another entry holds the value of e in tx.
 	check(ctx context.Context, tx Tx, e *E) error
-	// join adds the index, on the table named table, to its space in r.
-	join(r *registry, table string) error
-	// leave removes the index from its space.
+	// release stages, in tx, the removal of the values of the entries with the text
+	// keys keys.
+	release(tx Tx, keys []string) error
+	// spaceName returns the name of the space of the index.
+	spaceName() string
+	// canJoin reports why the index cannot join its space in r. Call it with the lock
+	// of r held.
+	canJoin(r *registry) error
+	// join adds the index, on the table named table, to its space in r. Call it with
+	// the lock of r held, after canJoin.
+	join(r *registry, table string)
+	// leave removes the index from its space, and drops the space when the index was
+	// its last member.
 	leave()
 }
 
@@ -206,67 +262,11 @@ type uniqueIndex[K Key, E Entry[K]] interface {
 type uniqueMember[V comparable] interface {
 	// holder returns an entry that holds v, with the changes of scope applied.
 	holder(ctx context.Context, scope *txState, v V) (Target, bool, error)
-	// tableName returns the name of the table of the index.
-	tableName() string
 }
 
 // uniqueSpace is the set of UniqueIndexes of one space on a DB.
 type uniqueSpace[V comparable] struct {
-	// mu orders changes to members.
-	mu sync.Mutex
-	// members holds the indexes of the space. A change replaces the slice, so a check
-	// reads it with no lock.
+	// members holds the indexes of the space. A change replaces the slice under the
+	// lock of the registry, so a check reads it with no lock.
 	members atomic.Pointer[[]uniqueMember[V]]
-}
-
-func (s *uniqueSpace[V]) load() *[]uniqueMember[V] { return s.members.Load() }
-
-func (s *uniqueSpace[V]) remove(m uniqueMember[V]) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	kept := slices.DeleteFunc(
-		slices.Clone(*s.members.Load()),
-		func(o uniqueMember[V]) bool { return o == m },
-	)
-	s.members.Store(&kept)
-}
-
-// joinSpace adds m to the space named name in r, creating the space on first use. It
-// fails when the space holds values of another type, or an index of the table of m.
-func joinSpace[V comparable](
-	r *registry,
-	name string,
-	m uniqueMember[V],
-) (*uniqueSpace[V], error) {
-	r.mu.Lock()
-	found, ok := r.spaces[name]
-	if !ok {
-		space := &uniqueSpace[V]{}
-		space.members.Store(&[]uniqueMember[V]{})
-		r.spaces[name], found = space, space
-	}
-	r.mu.Unlock()
-	space, ok := found.(*uniqueSpace[V])
-	if !ok {
-		return nil, errors.Newf(
-			"[gorp] - space %q holds values of another type than %T",
-			name,
-			*new(V),
-		)
-	}
-	space.mu.Lock()
-	defer space.mu.Unlock()
-	members := *space.members.Load()
-	if slices.ContainsFunc(members, func(o uniqueMember[V]) bool {
-		return o.tableName() == m.tableName()
-	}) {
-		return nil, errors.Newf(
-			"[gorp] - table %s already has an index in space %q",
-			m.tableName(),
-			name,
-		)
-	}
-	joined := append(slices.Clone(members), m)
-	space.members.Store(&joined)
-	return space, nil
 }

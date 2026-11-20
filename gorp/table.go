@@ -70,7 +70,7 @@ type Table[K Key, E Entry[K]] struct {
 	// references are the references registered on the Table.
 	references []Reference[K, E]
 	// uniques are the unique indexes of the Table, which its checked writes check.
-	uniques []uniqueIndex[K, E]
+	uniques []checkedIndex[K, E]
 	// registered is true when the table is in the DB's registry.
 	registered bool
 	// closing closes when Close starts, to stop the populate of the indexes. Nil when
@@ -133,7 +133,7 @@ func OpenTable[K Key, E Entry[K]](
 		t.name = types.Name[E]()
 	}
 	for _, idx := range cfg.Indexes {
-		if u, ok := idx.(uniqueIndex[K, E]); ok {
+		if u, ok := idx.(checkedIndex[K, E]); ok {
 			t.uniques = append(t.uniques, u)
 		}
 	}
@@ -250,8 +250,7 @@ func (t *Table[K, E]) NewCreate() Create[K, E] {
 // its reference checks, unique checks, and delete plans. Use it only in a migration
 // that writes before a target of the table's references opens.
 func (t *Table[K, E]) NewUncheckedWriter(tx Tx) *Writer[K, E] {
-	w := t.writer(tx, false)
-	w.uniques = nil
+	w := t.writer(tx, 0)
 	return &w
 }
 

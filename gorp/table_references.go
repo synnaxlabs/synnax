@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -51,10 +52,31 @@ func (t *Table[K, E]) registerIndexes() error {
 	if err := t.db.registry.addReferences(refs); err != nil {
 		return err
 	}
+	return t.joinSpaces()
+}
+
+// joinSpaces adds the table's unique indexes to their spaces, all of them or none, so
+// that no check waits for the index of a table that failed to open.
+func (t *Table[K, E]) joinSpaces() error {
+	r := t.db.registry
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	spaces := make(set.Set[string], len(t.uniques))
 	for _, u := range t.uniques {
-		if err := u.join(t.db.registry, t.name); err != nil {
+		if spaces.Contains(u.spaceName()) {
+			return errors.Newf(
+				"[gorp] - table %s already has an index in space %q",
+				t.name,
+				u.spaceName(),
+			)
+		}
+		spaces.Add(u.spaceName())
+		if err := u.canJoin(r); err != nil {
 			return err
 		}
+	}
+	for _, u := range t.uniques {
+		u.join(r, t.name)
 	}
 	return nil
 }
@@ -71,20 +93,33 @@ func (t *Table[K, E]) unregister() {
 	t.registered = false
 }
 
+// writerChecks are the checks that a Writer of a Table runs on each entry it sets.
+type writerChecks uint8
+
+const (
+	// checkReferences checks the references of each entry.
+	checkReferences writerChecks = 1 << iota
+	// checkUnique checks the values of the unique indexes of the table.
+	checkUnique
+	// checkAll runs every check.
+	checkAll = checkReferences | checkUnique
+)
+
 // writer returns a Writer that stages against the indexes of every open table of E on
-// the table's key prefix, checks the values of its unique indexes, and checks the
-// table's references when checked is true. A table outside the registry writes as a
-// Writer with no table does.
-func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
+// the table's key prefix and runs checks on each entry it sets. A table outside the
+// registry writes as a Writer with no table does.
+func (t *Table[K, E]) writer(tx Tx, checks writerChecks) Writer[K, E] {
 	if !t.registered {
 		return wrapWriter[K, E](tx, "", t.keyPrefix, nil)
 	}
 	w := wrapWriter[K, E](tx, t.name, t.keyPrefix, nil)
 	w.references = t.references
-	if checked && len(t.references) > 0 {
+	if checks&checkReferences != 0 && len(t.references) > 0 {
 		w.table = t
 	}
-	w.uniques = t.uniques
+	if checks&checkUnique != 0 {
+		w.uniques = t.uniques
+	}
 	return w
 }
 
@@ -124,9 +159,19 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 	if err != nil {
 		return err
 	}
-	w := t.writer(tx, false)
+	w := t.writer(tx, 0)
 	w.derived = true
 	return w.Delete(ctx, pks...)
+}
+
+// release implements registeredTable.
+func (t *Table[K, E]) release(tx Tx, keys []string) error {
+	for _, u := range t.uniques {
+		if err := u.release(tx, keys); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // issues implements registeredTable.
@@ -169,7 +214,8 @@ func (t *Table[K, E]) detach(
 			return err
 		}
 	}
-	w := t.writer(tx, false)
+	// A detach moves the values of e, so it checks them.
+	w := t.writer(tx, checkUnique)
 	w.derived = true
 	if err = w.Set(ctx, e); err != nil || t.onDetach == nil {
 		return err
@@ -193,7 +239,7 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 			return err
 		}
 	}
-	w := t.writer(tx, false)
+	w := t.writer(tx, 0)
 	return w.Delete(ctx, keys...)
 }
 

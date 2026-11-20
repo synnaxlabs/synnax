@@ -32,7 +32,7 @@ type Writer[K Key, E Entry[K]] struct {
 	// table checks the references of each entry Set writes. Nil means no checks.
 	table *Table[K, E]
 	// uniques are the unique indexes whose values Set checks.
-	uniques []uniqueIndex[K, E]
+	uniques []checkedIndex[K, E]
 	// tableName names the table of each record in the change list of tx.
 	tableName string
 	// references are the references whose links the change list of tx records.

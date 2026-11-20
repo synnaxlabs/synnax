@@ -81,12 +81,15 @@ func newItemFolderRef() *gorp.KeyReference[uint32, uniqueItem, string] {
 	})
 }
 
+// expectClash expects err to be a UniqueError of the item space that holder holds.
 func expectClash(err error, holder gorp.Target) {
 	GinkgoHelper()
 	Expect(err).To(MatchError(query.ErrUniqueViolation))
 	var clash gorp.UniqueError
 	Expect(errors.As(err, &clash)).To(BeTrue())
-	Expect(clash).To(Equal(gorp.UniqueError{Space: uniqueSpaceName, Holder: holder}))
+	Expect(clash.Space).To(Equal(uniqueSpaceName))
+	Expect(clash.Holder).To(Equal(holder))
+	Expect(clash.Value).To(BeAssignableToTypeOf(uniqueSibling{}))
 }
 
 var _ = Describe("UniqueIndex", func() {
