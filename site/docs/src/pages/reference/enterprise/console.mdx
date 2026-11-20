@@ -92,3 +92,20 @@ frame.
 The browser Console connects to the Core that serves it. For a Core with a self-signed
 certificate, the browser warns about the certificate until you
 [install the certificate](/reference/enterprise/certificates) on your computer.
+
+On macOS, the Console app runs on Apple silicon only. On an Intel Mac, use the browser
+Console.
+
+### Differences from the Console app
+
+The browser Console does not do these things that the Console app does:
+
+- Connect to a Core other than the Core that serves it.
+- Keep the session in the operating system keychain.
+- Open a panel in a new window, or move a tab out of its window.
+- Update itself. When the Core changes to a different minor version, the page loads
+  again to match the Core.
+- Open `synnax://` links.
+- Write a large download directly to a file in Firefox or Safari. These browsers keep
+  the full file in memory until the download completes. Chrome and Edge write it
+  directly to a file.
