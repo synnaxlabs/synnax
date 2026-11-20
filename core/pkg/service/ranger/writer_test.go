@@ -478,7 +478,7 @@ var _ = Describe("Writer broadcasts", func() {
 	})
 
 	It(
-		"Should broadcast the labels a range keeps when a label delete detaches one",
+		"Should broadcast the range as written when a label delete detaches a label",
 		func(ctx SpecContext) {
 			openTx()
 			deleted := label.Label{Key: uuid.New(), Name: "Deleted"}
@@ -501,12 +501,13 @@ var _ = Describe("Writer broadcasts", func() {
 			})).To(Succeed())
 			frames := framesOf(rec, r.Key)
 			Expect(frames).To(HaveLen(1))
-			Expect(frames[0].Actions).To(Equal([]ranger.Action{
-				ranger.NewSetAction(ranger.SetPayload{
-					Path:  []string{"labels"},
-					Value: []label.Key{kept.Key},
-				}),
-			}))
+			Expect(frames[0].Actions).To(HaveLen(2))
+			Expect(frames[0].Actions[0].Create.Range.Labels).
+				To(Equal([]label.Key{kept.Key}))
+			Expect(frames[0].Actions[1]).To(Equal(ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"labels"},
+				Value: []label.Key{kept.Key},
+			})))
 		},
 	)
 

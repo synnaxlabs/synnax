@@ -63,6 +63,15 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Retarget: func(e *Secret, from, to rack.Key) {
+				switch v2 := e.Variant.(type) {
+				case FileSecret:
+					if v2.Rack == from {
+						v2.Rack = to
+					}
+					e.Variant = v2
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Secret](
 			"search",

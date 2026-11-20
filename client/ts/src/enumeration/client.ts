@@ -51,6 +51,7 @@ const createReqZ = z.object({
 });
 const createResZ = z.object({ enumerations: enumerationZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
+const replaceReqZ = z.object({ from: keyZ, to: keyZ });
 const retrieveBuiltinsResZ = z.object({ enumerations: enumerationZ.array() });
 const retrieveDependentsReqZ = z.object({ key: keyZ });
 const retrieveDependentsResZ = z.object({
@@ -192,6 +193,29 @@ export class Client extends query.Retriever<
           "/enumeration/delete",
           { keys: keysArr },
           deleteReqZ,
+          emptyZ,
+        ),
+    });
+    drop();
+  }
+
+  /**
+   * Moves each record that uses the enumeration from to the enumeration to, then
+   * deletes from.
+   * @throws {Error} if from is built in or equals to, if from or to does not exist, or
+   * if the caller cannot delete from, retrieve to, or update a record that uses from.
+   * The Core then changes nothing.
+   */
+  async replace(from: Key, to: Key, opts: query.WriteOptions = {}): Promise<void> {
+    const drop = () => [this.store.delete([from])];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.unary.send(
+          "/enumeration/replace",
+          { from, to },
+          replaceReqZ,
           emptyZ,
         ),
     });

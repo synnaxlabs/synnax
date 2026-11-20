@@ -209,6 +209,8 @@ type Transport struct {
 		enumeration.RetrieveResponse,
 	]
 	EnumerationDelete freighter.UnaryServer[enumeration.DeleteRequest, struct{}]
+	// EnumerationReplace moves the users of an enumeration to another, then deletes it.
+	EnumerationReplace freighter.UnaryServer[enumeration.ReplaceRequest, struct{}]
 	// EnumerationDispatch applies path actions to an enumeration.
 	EnumerationDispatch freighter.UnaryServer[enumeration.DispatchRequest, struct{}]
 	// EnumerationRetrieveBuiltins returns the shipped values of the built-in
@@ -529,6 +531,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.EnumerationCreate,
 		t.EnumerationRetrieve,
 		t.EnumerationDelete,
+		t.EnumerationReplace,
 		t.EnumerationDispatch,
 		t.EnumerationRetrieveBuiltins,
 		t.EnumerationRetrieveDependents,
@@ -796,6 +799,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.EnumerationCreate.BindHandler(bind.Write(l.binder, l.Enumeration.Create))
 	t.EnumerationRetrieve.BindHandler(bind.Read(l.binder, l.Enumeration.Retrieve))
 	t.EnumerationDelete.BindHandler(bind.Write(l.binder, l.Enumeration.Delete))
+	t.EnumerationReplace.BindHandler(bind.Write(l.binder, l.Enumeration.Replace))
 	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
 	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
 	t.EnumerationRetrieveDependents.BindHandler(

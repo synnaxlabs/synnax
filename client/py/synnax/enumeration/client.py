@@ -9,7 +9,7 @@
 
 from typing import Any, Literal, overload
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from freighter import Empty, UnaryClient
 from synnax.enumeration import actions_gen
@@ -45,6 +45,13 @@ class _DispatchRequest(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
+
+
+class _ReplaceRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: Key = Field(alias="from")
+    to: Key
 
 
 class Client:
@@ -246,3 +253,18 @@ class Client:
         """
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/enumeration/delete", req, Empty)
+
+    def replace(self, from_: Key, to: Key) -> None:
+        """Moves each record that uses the enumeration from_ to the enumeration to,
+        then deletes from_.
+
+        :param from_: The key of the enumeration to delete.
+        :param to: The key of the enumeration that each user moves to.
+        :raises ValidationError: If from_ is built in or equals to, or if a record
+            that uses it cannot move. The Core then changes nothing.
+        :raises NotFoundError: If from_ or to does not exist.
+        :raises AccessDenied: If the caller cannot delete from_, retrieve to, or
+            update a record that uses from_.
+        """
+        req = _ReplaceRequest(from_=from_, to=to)
+        self._client.send("/enumeration/replace", req, Empty)

@@ -284,48 +284,146 @@ func (h *holder) DecodeOrc(r *orc.Reader) (err error) {
 	return err
 }
 
-var _ = Describe("RetrieveDependents", func() {
-	var (
-		holders *gorp.Table[string, holder]
-		e       enumeration.Enumeration
-	)
-	BeforeEach(func(ctx SpecContext) {
-		holders = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, holder]{
-			DB:   db,
-			Name: string(resource.TypeModbusServer),
-			References: []gorp.Reference[string, holder]{gorp.NewKeyReference(
-				gorp.KeyReferenceConfig[string, holder, enumeration.Key]{
-					Name:     "enumeration",
-					Table:    "enumeration",
-					OnDelete: gorp.Restrict,
-					Kind:     gorp.Use,
-					Targets: func(h *holder) []enumeration.Key {
-						return []enumeration.Key{h.Enumeration}
-					},
+// createHolders creates a holder of the enumeration for each key, and deletes them
+// after the spec.
+func createHolders(ctx SpecContext, e enumeration.Key, keys ...string) {
+	GinkgoHelper()
+	holders := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, holder]{
+		DB:   db,
+		Name: string(resource.TypeModbusServer),
+		References: []gorp.Reference[string, holder]{gorp.NewKeyReference(
+			gorp.KeyReferenceConfig[string, holder, enumeration.Key]{
+				Name:     "enumeration",
+				Table:    "enumeration",
+				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
+				Targets: func(h *holder) []enumeration.Key {
+					return []enumeration.Key{h.Enumeration}
 				},
-			)},
-		}))
-		e = createEnumeration(ctx, "Breaker")
+				Retarget: func(h *holder, _, to enumeration.Key) { h.Enumeration = to },
+			},
+		)},
+	}))
+	entries := make([]holder, len(keys))
+	for i, k := range keys {
+		entries[i] = holder{Key: k, Enumeration: e}
+	}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return holders.NewCreate().Entries(&entries).Exec(ctx, tx)
+	})).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return holders.NewCreate().Entries(&[]holder{
-				{Key: "a", Enumeration: e.Key},
-				{Key: "b", Enumeration: e.Key},
-			}).Exec(ctx, tx)
+			return holders.NewDelete().
+				Where(gorp.MatchKeys[string, holder](keys...)).
+				Exec(ctx, tx)
 		})).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return holders.NewDelete().
-					Where(gorp.MatchKeys[string, holder]("a", "b")).
-					Exec(ctx, tx)
-			})).To(Succeed())
-		})
+	})
+}
+
+// holderID returns the resource ID of the holder with the given key.
+func holderID(key string) resource.ID {
+	return resource.ID{Type: resource.TypeModbusServer, Key: key}
+}
+
+// retrieveHolder returns the enumeration that the holder with the given key uses.
+func retrieveHolder(ctx SpecContext, key string) enumeration.Key {
+	GinkgoHelper()
+	var h holder
+	Expect(gorp.NewRetrieve[string, holder]().
+		Where(gorp.MatchKeys[string, holder](key)).
+		Entry(&h).
+		Exec(ctx, db)).To(Succeed())
+	return h.Enumeration
+}
+
+var _ = Describe("Replace", func() {
+	var from, to enumeration.Enumeration
+	BeforeEach(func(ctx SpecContext) {
+		from = createEnumeration(ctx, "Breaker")
+		to = createEnumeration(ctx, "Valve")
+		createHolders(ctx, from.Key, "a", "b")
+	})
+
+	It("Should move each user to the other enumeration and delete the first", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionDelete, u.ResourceID(), from.ResourceID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), to.ResourceID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), holderID("a"), holderID("b"))
+		MustSucceed(replace(AuthedCtx(ctx, u), apienumeration.ReplaceRequest{
+			From: from.Key,
+			To:   to.Key,
+		}))
+		Expect(retrieveHolder(ctx, "a")).To(Equal(to.Key))
+		Expect(retrieveHolder(ctx, "b")).To(Equal(to.Key))
+		Expect(enumerationExists(ctx, from.Key)).To(BeFalse())
+	})
+
+	DescribeTable("Should refuse the replace without each grant", func(
+		ctx SpecContext,
+		missing access.Action,
+		missingID func() resource.ID,
+	) {
+		u := createUser(ctx)
+		grants := []struct {
+			action access.Action
+			id     resource.ID
+		}{
+			{access.ActionDelete, from.ResourceID()},
+			{access.ActionRetrieve, to.ResourceID()},
+			{access.ActionUpdate, holderID("a")},
+			{access.ActionUpdate, holderID("b")},
+		}
+		for _, g := range grants {
+			if g.action != missing || g.id != missingID() {
+				grant(ctx, g.action, u.ResourceID(), g.id)
+			}
+		}
+		Expect(replace(AuthedCtx(ctx, u), apienumeration.ReplaceRequest{
+			From: from.Key,
+			To:   to.Key,
+		})).Error().To(denied(u, missing, missingID()))
+		Expect(retrieveHolder(ctx, "a")).To(Equal(from.Key))
+		Expect(enumerationExists(ctx, from.Key)).To(BeTrue())
+	},
+		Entry("update on a user", access.ActionUpdate, func() resource.ID {
+			return holderID("b")
+		}),
+		Entry("retrieve on the replacement", access.ActionRetrieve, func() resource.ID {
+			return to.ResourceID()
+		}),
+		Entry("delete on the enumeration", access.ActionDelete, func() resource.ID {
+			return from.ResourceID()
+		}),
+	)
+
+	It("Should check retrieve on the replacement of an unused enumeration", func(
+		ctx SpecContext,
+	) {
+		unused := createEnumeration(ctx, "Pump")
+		u := createUser(ctx)
+		grant(ctx, access.ActionDelete, u.ResourceID(), unused.ResourceID())
+		Expect(replace(AuthedCtx(ctx, u), apienumeration.ReplaceRequest{
+			From: unused.Key,
+			To:   to.Key,
+		})).Error().To(denied(u, access.ActionRetrieve, to.ResourceID()))
+		Expect(enumerationExists(ctx, unused.Key)).To(BeTrue())
+	})
+})
+
+var _ = Describe("RetrieveDependents", func() {
+	var e enumeration.Enumeration
+	BeforeEach(func(ctx SpecContext) {
+		e = createEnumeration(ctx, "Breaker")
+		createHolders(ctx, e.Key, "a", "b")
 	})
 
 	It("Should return the users that the subject can retrieve", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		a := resource.ID{Type: resource.TypeModbusServer, Key: "a"}
+		a := holderID("a")
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), e.ResourceID(), a)
 		res := MustSucceed(dependents(
 			AuthedCtx(ctx, u),

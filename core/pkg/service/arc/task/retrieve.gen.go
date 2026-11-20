@@ -39,6 +39,11 @@ func newIndexes() indexes {
 			Targets: func(e *Config) []arc.Key {
 				return []arc.Key{e.ArcKey}
 			},
+			Retarget: func(e *Config, from, to arc.Key) {
+				if e.ArcKey == from {
+					e.ArcKey = to
+				}
+			},
 		}),
 	}
 }

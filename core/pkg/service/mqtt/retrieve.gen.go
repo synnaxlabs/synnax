@@ -41,6 +41,11 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
 			Name:     "entries.icd",
@@ -67,6 +72,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 					return false
 				})
+			},
+			Retarget: func(e *ReadConfig, from, to icd.Key) {
+				for i5 := range e.Entries {
+					switch v6 := e.Entries[i5].Variant.(type) {
+					case PlainReadEntry:
+						if v6.ICD == from {
+							v6.ICD = to
+						}
+						e.Entries[i5].Variant = v6
+					}
+				}
 			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
@@ -105,6 +121,21 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				for i9 := range e.Entries {
+					switch v10 := e.Entries[i9].Variant.(type) {
+					case PlainReadEntry:
+						for i11 := range v10.Messages {
+							for i12 := range v10.Messages[i11].Bindings {
+								if v10.Messages[i11].Bindings[i12].Channel == from {
+									v10.Messages[i11].Bindings[i12].Channel = to
+								}
+							}
+						}
+						e.Entries[i9].Variant = v10
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "entries.channel",
@@ -134,6 +165,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				for i5 := range e.Entries {
+					switch v6 := e.Entries[i5].Variant.(type) {
+					case SparkplugReadEntry:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Entries[i5].Variant = v6
+					}
+				}
+			},
 		}),
 	}
 }
@@ -156,6 +198,11 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Detach: func(e *WriteConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
 				}
 			},
 		}),
@@ -184,6 +231,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 							v4.Channel.Channel = 0
 						}
 						e.Targets[i3].Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i5 := range e.Targets {
+					switch v6 := e.Targets[i5].Variant.(type) {
+					case PlainWriteTarget:
+						if v6.Channel.Channel == from {
+							v6.Channel.Channel = to
+						}
+						e.Targets[i5].Variant = v6
 					}
 				}
 			},
@@ -216,6 +274,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i5 := range e.Targets {
+					switch v6 := e.Targets[i5].Variant.(type) {
+					case SparkplugWriteTarget:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Targets[i5].Variant = v6
+					}
+				}
+			},
 		}),
 	}
 }
@@ -240,6 +309,11 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *EdgeConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, EdgeConfig, channel.Key]{
 			Name:     "tags.channel",
@@ -262,6 +336,13 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 					}
 				}
 			},
+			Retarget: func(e *EdgeConfig, from, to channel.Key) {
+				for i3 := range e.Tags {
+					if e.Tags[i3].Channel == from {
+						e.Tags[i3].Channel = to
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, EdgeConfig, channel.Key]{
 			Name:     "tags.command_channel",
@@ -281,6 +362,13 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 				for i2 := range e.Tags {
 					if e.Tags[i2].CommandChannel == t {
 						e.Tags[i2].CommandChannel = 0
+					}
+				}
+			},
+			Retarget: func(e *EdgeConfig, from, to channel.Key) {
+				for i3 := range e.Tags {
+					if e.Tags[i3].CommandChannel == from {
+						e.Tags[i3].CommandChannel = to
 					}
 				}
 			},
