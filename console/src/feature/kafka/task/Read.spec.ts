@@ -19,12 +19,12 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import {
   array,
   DataType,
   deep,
-  type payload,
+  payload,
   TimeSpan,
   TimeStamp,
   uuid,
@@ -310,7 +310,16 @@ const createInferredField = (
   dataType: string,
   type: "number" | "boolean" | "string",
   timeFormat?: payload.TimeFormat,
-) => ({ pointer, dataType, type, timeFormat, enum: [], count: 2, mismatched: 0 });
+) => ({
+  pointer,
+  dataType,
+  kind: payload.kindOf(dataType),
+  type,
+  timeFormat,
+  enum: [],
+  count: 2,
+  mismatched: 0,
+});
 
 /** Two keys of values that hold a time, a temperature, and a state. */
 const OVEN_SHAPE = {
@@ -637,6 +646,33 @@ describe("Kafka read form", () => {
       expect((await second.answered)[0].args.topics).toEqual([TOPIC]);
       await dialog.findByRole("checkbox", { name: "Record /temperature" });
       expect(dialog.queryByText(/^Not listed/)).toBeNull();
+    });
+
+    it("should keep a picked topic in the list when Listen again fails", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const dialog = await openAddData(
+        dev,
+        { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        "plant",
+        browseOf(listTopic("plant")),
+      );
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Record /temperature" }),
+      );
+      const scan = await client.tasks.retrieve({
+        type: Kafka.Task.SCAN_TYPE,
+        rack: dev.rack,
+        one: true,
+      });
+      const again = await answerCommandsUntil(client, [scan], "browse", {
+        browse: { variant: "error", message: "Failed to reach the cluster" },
+      });
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      await again.answered;
+      await dialog.findByText(/Failed to reach the cluster/);
+      dialog.getByText("plant");
+      dialog.getByText("1 selected");
     });
 
     it("should read a topic with partitions the browse did not measure", async () => {

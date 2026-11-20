@@ -25,7 +25,7 @@ import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
-import { type Leaf } from "@/feature/mqtt/task/leaves";
+import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   fromSparkplugDataType,

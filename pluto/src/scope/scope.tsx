@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { type optional, type record } from "@synnaxlabs/x";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { optional, record } from "@synnaxlabs/x";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 
 export interface ProviderProps<K extends record.Key> extends PropsWithChildren {
   value: K;

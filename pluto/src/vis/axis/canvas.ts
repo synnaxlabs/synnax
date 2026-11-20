@@ -18,8 +18,8 @@ import {
   type RenderResult,
 } from "@/vis/axis/axis";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
-import { type render } from "@/vis/render";
+import type { FillTextOptions } from "@/vis/draw2d/canvas";
+import type { render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 5;
 const TICK_PADDING = 6;

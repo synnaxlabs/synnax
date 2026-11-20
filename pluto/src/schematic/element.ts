@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type theme } from "@synnaxlabs/lyra/theme";
-import { type color } from "@synnaxlabs/x";
+import type { theme } from "@synnaxlabs/lyra/theme";
+import type { color } from "@synnaxlabs/x";
 
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";

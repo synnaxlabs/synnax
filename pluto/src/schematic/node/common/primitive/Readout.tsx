@@ -9,8 +9,8 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type color, type text } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, type Ref } from "react";
+import type { color, text } from "@synnaxlabs/x";
+import type { ReactElement, ReactNode, Ref } from "react";
 
 import { CSS } from "@/css";
 

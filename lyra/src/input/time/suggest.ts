@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errors, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type DurationJSON } from "compromise-dates";
+import type { DurationJSON } from "compromise-dates";
 
 import {
   type Anchors,

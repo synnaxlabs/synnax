@@ -10,7 +10,7 @@
 import { kafka, type Synnax } from "@synnaxlabs/client";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 
-import { type Device } from "@/feature/kafka/device/types";
+import type { Device } from "@/feature/kafka/device/types";
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/kafka/task/types";
 
 const TIMEOUT = TimeSpan.seconds(25);
