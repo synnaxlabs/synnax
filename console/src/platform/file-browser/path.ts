@@ -59,7 +59,9 @@ export const dirnameOf = (path: string): string => {
     return i < 0 ? "" : path.slice(0, i);
   }
   const [root, rest] = split;
-  return join(root, partsOf(root, rest).slice(0, -1));
+  // A trailing separator ends the path with an empty name, so the folder is the path.
+  const names = rest.split(root === "/" ? "/" : /[\\/]/).slice(0, -1);
+  return join(root, names.filter(Boolean));
 };
 
 /** @returns whether the path is the folder or inside it. */
