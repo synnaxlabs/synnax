@@ -53,7 +53,7 @@ export const ChipName = ({
   icon: PropertyIcon,
   children,
 }: ChipNameProps): ReactElement => (
-  <Text.Text gap="small" align="center" className={SEGMENT_CLASS}>
+  <Text.Text gap="small" align="center" overflow="fade" className={SEGMENT_CLASS}>
     <PropertyIcon color={9} />
     {children}
   </Text.Text>
@@ -63,7 +63,7 @@ export interface ChipOperatorProps extends PropsWithChildren {}
 
 /** How a {@link Chip} compares the property to its value, such as "is". */
 export const ChipOperator = ({ children }: ChipOperatorProps): ReactElement => (
-  <Text.Text color={9} align="center" className={SEGMENT_CLASS}>
+  <Text.Text color={9} align="center" overflow="fade" className={SEGMENT_CLASS}>
     {children}
   </Text.Text>
 );
@@ -76,6 +76,7 @@ export const ChipValue = ({ children }: ChipValueProps): ReactElement => (
     el="div"
     gap="small"
     align="center"
+    overflow="fade"
     className={CSS.cls(SEGMENT_CLASS, VALUE_CLASS)}
   >
     {children}
@@ -101,6 +102,7 @@ export const ChipTrigger = ({ className, ...rest }: ChipTriggerProps): ReactElem
       gap="small"
       hideCaret
       sharp
+      overflow="fade"
       preview={!editable}
       className={CSS.cls(SEGMENT_CLASS, CSS.BE("view", "filter-trigger"), className)}
       {...rest}

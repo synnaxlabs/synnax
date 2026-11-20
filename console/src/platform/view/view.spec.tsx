@@ -339,7 +339,7 @@ describe("View", () => {
     expect(input.value).toBe("");
   });
 
-  it("shows a clear button only while the search holds a term", async () => {
+  it("clears the term from the clear button and keeps the focus", async () => {
     await renderHarness();
     const input =
       await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
@@ -348,6 +348,7 @@ describe("View", () => {
     fireEvent.change(input, { target: { value: "alpha" } });
     fireEvent.click(await waitFor(() => getIconButton(search, "close")));
     expect(input.value).toBe("");
+    expect(document.activeElement).toBe(input);
     expect(queryIconButton(search, "close")).toBeNull();
   });
 

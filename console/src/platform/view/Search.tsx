@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
-import { type ReactElement } from "react";
+import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { useContext, useSearchContext } from "@/platform/view/context";
@@ -23,6 +23,7 @@ import { useContext, useSearchContext } from "@/platform/view/context";
 export const Search = (): ReactElement => {
   const { resourceType } = useContext("View.Search");
   const { term, setTerm } = useSearchContext("View.Search");
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div
       className={CSS.cls(
@@ -44,12 +45,16 @@ export const Search = (): ReactElement => {
               textColor={9}
               tooltip="Clear search"
               tooltipLocation="bottom"
-              onClick={() => setTerm("")}
+              onClick={() => {
+                setTerm("");
+                inputRef.current?.focus();
+              }}
             >
               <Icon.Close />
             </Button.Button>
           )
         }
+        ref={inputRef}
         variant="text"
         grow
         value={term}

@@ -10,8 +10,8 @@
  */
 
 /* One fill with a light border, and a line between its parts. A chip wider than its
-   line shrinks its value first, then its other parts, and each fades the text it
-   cuts. The remove button never shrinks. */
+   line shrinks its value first, then its other parts. The remove button never
+   shrinks. */
 .console-view__filter-chip {
     flex-shrink: 0;
     max-width: 100%;
@@ -40,25 +40,6 @@
 .console-view__filter-segment {
     min-height: var(--pluto-height-small);
     padding: 0 1.75rem;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
-/* The self scroll timeline is inactive until the part overflows, so a part that fits
-   never fades. Engines without scroll timelines clip instead. */
-@supports (animation-timeline: scroll(self x)) {
-    .console-view__filter-segment {
-        animation-name: console-view-filter-fade;
-        animation-timing-function: linear;
-        animation-timeline: scroll(self x);
-    }
-}
-
-@keyframes console-view-filter-fade {
-    0%,
-    100% {
-        mask-image: linear-gradient(to right, black calc(100% - 4rem), transparent);
-    }
 }
 
 /* A dialog frame around a trigger shrinks, and the trigger with it. */
