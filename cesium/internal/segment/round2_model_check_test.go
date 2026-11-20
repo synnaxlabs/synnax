@@ -48,8 +48,7 @@ var _ = Describe("Round 2 check, random handles", func() {
 			ts := make([]*tracked, 4)
 			for i := range ts {
 				name := fmt.Sprintf("%d.seg", i)
-				h, err := b.Create(fs, name)
-				Expect(err).ToNot(HaveOccurred())
+				h := MustSucceed(b.Create(fs, name))
 				ts[i] = &tracked{h: h, name: name}
 			}
 			// syncOne syncs t, and acks the bytes written before the call when the
@@ -61,8 +60,9 @@ var _ = Describe("Round 2 check, random handles", func() {
 				t.mu.Unlock()
 				err := b.Sync([]*segment.Handle{t.h})
 				if failedBefore {
-					Expect(err).To(HaveOccurred(), "a sync after a failed sync of %s",
-						t.name)
+					Expect(err).To(MatchError(ContainSubstring(
+						"is never synced or written again",
+					)), "a sync after a failed sync of %s", t.name)
 				}
 				if err != nil {
 					t.failed.Store(true)
@@ -88,8 +88,9 @@ var _ = Describe("Round 2 check, random handles", func() {
 						t.mu.Unlock()
 						_, err := t.h.WriteAt(chunk, off)
 						if failedBefore {
-							Expect(err).To(HaveOccurred(), "a write after a failed "+
-								"sync of %s", t.name)
+							Expect(err).To(MatchError(ContainSubstring(
+								"is never synced or written again",
+							)), "a write after a failed sync of %s", t.name)
 						}
 						if err != nil {
 							t.failed.Store(true)
@@ -127,7 +128,7 @@ var _ = Describe("Round 2 check, random handles", func() {
 				Expect(got[:t.acked]).To(Equal(t.data[:t.acked]), t.name)
 			}
 			for _, t := range ts {
-				fmt.Fprintf(GinkgoWriter, "key %d %s: %d bytes, %d acked, failed %v\n",
+				GinkgoWriter.Printf("key %d %s: %d bytes, %d acked, failed %v\n",
 					k, t.name, len(t.data), t.acked, t.failed.Load())
 			}
 		})
