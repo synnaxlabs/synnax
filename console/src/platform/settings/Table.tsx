@@ -80,12 +80,9 @@ export const CreateProvider = ({
   <CreateContext value={{ close, created }}>{children}</CreateContext>
 );
 
-const NO_COLUMNS: List.Column[] = [];
-
 export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
   list: TableData<K, E>;
-  /** The columns of the items, each under a heading. Omit when items lay out alone. */
-  columns?: List.Column[];
+  columns: List.Column[];
   /** The plural name of the items, such as "labels". */
   noun: string;
   menu: Menu.ContextMenuProps["menu"];
@@ -300,8 +297,8 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
         <Card flush>
           <div className={CSS.BE("settings-table", "scroll")}>
             <div className={CSS.BE("settings-table", "columns")}>
-              <List.Columns columns={columns ?? NO_COLUMNS}>
-                {columns != null && <List.Headings checkable />}
+              <List.Columns columns={columns}>
+                <List.Headings checkable />
                 {creating != null && create != null && (
                   <div
                     className={CSS.cls(
