@@ -154,6 +154,10 @@ const CompareMenuItems = ({
     range.window.variant === "static"
       ? TimeRange.z.parse(range.window.timeRange)
       : TimeRange.ZERO;
+  // A running range ends at TimeStamp.MAX, so the zoom stops at now.
+  const shown = timeRange.boundBy(new TimeRange(TimeStamp.ZERO, TimeStamp.now()));
+  const zoomable = !shown.span.isZero;
+  const t0Editable = editable && isKey;
   const handleSetT0 = () =>
     handleError(async () => {
       const t0 = await setT0Modal({
@@ -169,8 +173,8 @@ const CompareMenuItems = ({
       if (bounds == null) return;
       const s = scale.Scale.scale<number>(bounds.x1).scale(1);
       linePlotRef.current?.toggleZoom(range.key, {
-        lower: s.pos(Number(timeRange.start.valueOf() - zero.valueOf())),
-        upper: s.pos(Number(timeRange.end.valueOf() - zero.valueOf())),
+        lower: s.pos(Number(shown.start.valueOf() - zero.valueOf())),
+        upper: s.pos(Number(shown.end.valueOf() - zero.valueOf())),
       });
     }, "Failed to zoom to range");
   return (
@@ -209,14 +213,16 @@ const CompareMenuItems = ({
           <Icon.Visible /> Show all
         </Menu.Item>
       )}
-      {heading != null && (
+      {heading != null && (zoomable || t0Editable) && (
         <>
           <Menu.Divider />
-          <Menu.Item itemKey="zoomToRange" onClick={handleZoom}>
-            {zoomed === range.key ? <Icon.Expand /> : <Icon.Zoom />}
-            {zoomed === range.key ? "Zoom out" : "Zoom to range"}
-          </Menu.Item>
-          {editable && isKey && (
+          {zoomable && (
+            <Menu.Item itemKey="zoomToRange" onClick={handleZoom}>
+              {zoomed === range.key ? <Icon.Expand /> : <Icon.Zoom />}
+              {zoomed === range.key ? "Zoom out" : "Zoom to range"}
+            </Menu.Item>
+          )}
+          {t0Editable && (
             <>
               <Menu.Item itemKey="setT0" onClick={handleSetT0}>
                 <Icon.Time /> Set T0...
