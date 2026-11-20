@@ -40,20 +40,20 @@ type region struct{ key channel.Key }
 // Key implements control.Resource.
 func (r *region) Key() channel.Key { return r.key }
 
-// controls holds the controller of each channel that a session writes, and notifies
-// handlers of every control transfer.
+// controls holds the controller of each channel that a session has written, for the
+// life of the service, and notifies handlers of every control transfer. A delete of a
+// channel drops its controller.
 type controls struct {
 	updates observe.Observer[ControlUpdate]
 	byKey   map[channel.Key]*controlled
 	mu      sync.Mutex
 }
 
-// controlled is the controller of one channel, with the number of gates on it.
+// controlled is the controller of one channel.
 type controlled struct {
 	c *control.Controller[channel.Key, *region]
 	// index is the index of the channel, or zero.
 	index channel.Key
-	gates int
 }
 
 func newControls() *controls {
@@ -69,7 +69,6 @@ func (cs *controls) acquire(ch cesium.Channel) (*controlled, error) {
 	defer cs.mu.Unlock()
 	key := channel.Key(ch.Key)
 	if c, ok := cs.byKey[key]; ok {
-		c.gates++
 		return c, nil
 	}
 	concurrency := ch.Concurrency
@@ -82,20 +81,17 @@ func (cs *controls) acquire(ch cesium.Channel) (*controlled, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctl := &controlled{c: c, index: channel.Key(ch.Index), gates: 1}
+	ctl := &controlled{c: c, index: channel.Key(ch.Index)}
 	cs.byKey[key] = ctl
 	return ctl, nil
 }
 
-// release drops one gate from the controller of key, and the controller with its last
-// gate.
-func (cs *controls) release(key channel.Key) {
+// forget drops the controllers of keys, which no gate holds.
+func (cs *controls) forget(keys channel.Keys) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
-	if c, ok := cs.byKey[key]; ok {
-		if c.gates--; c.gates == 0 {
-			delete(cs.byKey, key)
-		}
+	for _, k := range keys {
+		delete(cs.byKey, k)
 	}
 }
 
@@ -258,7 +254,6 @@ func (g *gates) open(
 		OpenResource:          func() (*region, error) { return &region{key: key}, nil },
 	})
 	if err != nil {
-		g.controls.release(key)
 		return transfers, cesium.ChannelError{Key: ch.Key, Err: err}
 	}
 	g.byKey[key] = gt
@@ -289,6 +284,14 @@ func (g *gates) refused() set.Set[cesium.ChannelKey] {
 	return refused
 }
 
+// lacks reports whether the session lacks control of key. It takes only the locks of
+// the channel's controller, which no caller holds while it calls Cesium, so Cesium can
+// call it under a claim lock.
+func (g *gates) lacks(key cesium.ChannelKey) bool {
+	gt, ok := g.byKey[channel.Key(key)]
+	return ok && g.authorize(gt) != nil
+}
+
 func (g *gates) authorize(gt *gate) error {
 	return gt.Authorize(func(*region) error { return nil })
 }
@@ -317,8 +320,7 @@ func (g *gates) setAuthority(cfg Config) ([]transfer, error) {
 	return transfers, nil
 }
 
-// authorities returns the authority that cfg sets on each channel, with the authority
-// it
+// authorities returns the authority that cfg sets on each channel, and the authority it
 // moves each written index to.
 func (g *gates) authorities(cfg Config) map[channel.Key]control.Authority {
 	auths := make(map[channel.Key]control.Authority, len(g.byKey))
@@ -412,8 +414,7 @@ func (g *gates) endDomain(
 }
 
 // authorizeGroup returns the refusal of the first channel of the group of index that
-// the
-// session does not control.
+// the session does not control.
 func (g *gates) authorizeGroup(index channel.Key) error {
 	if err := g.authorizeKey(index); err != nil {
 		return err
@@ -453,10 +454,9 @@ func (g *gates) indexOf(key channel.Key) channel.Key {
 // release releases every gate of the session and returns the transfers.
 func (g *gates) release() []transfer {
 	transfers := make([]transfer, 0, len(g.byKey))
-	for key, gt := range g.byKey {
+	for _, gt := range g.byKey {
 		_, t := gt.Release()
 		transfers = append(transfers, t)
-		g.controls.release(key)
 	}
 	g.byKey = nil
 	return transfers

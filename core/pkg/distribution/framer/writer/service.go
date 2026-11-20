@@ -295,7 +295,10 @@ func (s *Service) OnControlUpdate(
 // claim. While the claim is held, a writer on one of keys fails to open. ClaimDelete
 // fails with ErrChannelInUse when a writer holds one of keys.
 func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
-	return s.claims.claim(keys)
+	if release, err = s.claims.claim(keys); err == nil {
+		s.controls.forget(keys)
+	}
+	return release, err
 }
 
 // SetChannelResolver injects the resolver used to look up the records of free and

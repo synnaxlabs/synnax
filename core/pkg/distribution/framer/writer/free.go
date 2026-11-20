@@ -202,11 +202,9 @@ func (w *freeWriter) transform(
 		res.Authorized = !w.writeRefused
 		w.writeRefused = false
 	case CommandSetAuthority:
-		transfers, err := w.gates.setAuthority(req.Config)
-		if err != nil {
-			res.Authorized, res.Err = false, err
-			return res, true, nil
-		}
+		var transfers []transfer
+		transfers, res.Err = w.gates.setAuthority(req.Config)
+		res.Authorized = res.Err == nil
 		w.controls.notify(transfers)
 	case CommandOpen, CommandEndDomain:
 	}

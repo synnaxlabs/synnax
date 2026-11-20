@@ -2203,7 +2203,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify(
-						"Alignment holds across a rollover and a control handoff",
+						"Alignment holds across a rollover and a second writer of the claim",
 						func(ctx SpecContext) {
 							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
@@ -2257,7 +2257,7 @@ var _ = Describe("Writer Behavior", func() {
 							write(low)
 
 							By(
-								"Handing control to a higher-authority writer mid-domain",
+								"Opening a second writer of the claim mid-domain",
 							)
 							high := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{index, basic},
@@ -3446,7 +3446,7 @@ var _ = Describe("Writer Behavior", func() {
 					},
 				)
 				It(
-					"Should start a new domain for a writer that takes control back",
+					"Should start a new domain for the first writer after a second one ends a domain",
 					func(ctx SpecContext) {
 						low := openLive(ctx)
 						MustSucceed(low.Write(ctx, frame(10, 11)))
@@ -4705,7 +4705,7 @@ var _ = Describe("Writer commit order", func() {
 			Expect(count(ctx, dataKey)).To(Equal(int64(3)))
 		})
 
-		It("Should show the index and data together across a control handoff",
+		It("Should show the index and data together across two writers of one claim",
 			func(ctx SpecContext) {
 				var counts [][2]int64
 				onPersist = func() {

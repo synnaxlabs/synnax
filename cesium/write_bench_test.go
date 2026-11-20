@@ -238,7 +238,7 @@ func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func(
 				return
 			default:
 			}
-			if _, _, err := w.WriteExcept(b.Context(), f, skip); err != nil {
+			if _, _, err := w.WriteExcept(b.Context(), f, skip.Contains); err != nil {
 				b.Error(err)
 				return
 			}
