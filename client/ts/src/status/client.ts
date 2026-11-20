@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   type destructor,
@@ -19,8 +19,8 @@ import {
 } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type batch } from "@/batch";
-import { type label } from "@/label";
+import type { batch } from "@/batch";
+import type { label } from "@/label";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { DELETE_CHANNEL_NAME, SET_CHANNEL_NAME } from "@/status/payload";
@@ -102,7 +102,9 @@ export class Client extends query.Retriever<
   readonly store: query.Table<Key, Status>;
   private readonly cfg: ClientConfig;
   private readonly owners: query.LookupIndex<Key, Status, string>;
-  private readonly writeHandlers = new Set<(status: Status) => void>();
+  private readonly writeHandlers = new Set<
+    (status: Status, origin: WriteOrigin) => void
+  >();
   private readonly ownedFetches = new scheduler.Batcher<resource.ID[], Status[]>({
     interval: OWNED_FETCH_DEBOUNCE,
     exec: async (requests) =>
@@ -147,7 +149,9 @@ export class Client extends query.Retriever<
       channel: SET_CHANNEL_NAME,
       schema: statusZ(),
       onChange: (written) =>
-        written.forEach((status) => this.writeHandlers.forEach((h) => h(status))),
+        written.forEach((status) =>
+          this.writeHandlers.forEach((h) => h(status, CORE_WRITE)),
+        ),
     });
   }
 
@@ -315,9 +319,12 @@ export class Client extends query.Retriever<
   /**
    * Subscribes to each status write that the Core streams to this client, from any
    * writer, and to each {@link setLocal} status. Unlike {@link onSet}, it skips a
-   * status that reaches the cache another way, such as through a retrieve.
+   * status that reaches the cache another way, such as through a retrieve. The origin
+   * that the handler gets tells a {@link setLocal} status from a write of the Core.
    */
-  onWrite(handler: (status: Status) => void): destructor.Destructor {
+  onWrite(
+    handler: (status: Status, origin: WriteOrigin) => void,
+  ): destructor.Destructor {
     this.writeHandlers.add(handler);
     return () => this.writeHandlers.delete(handler);
   }
@@ -328,7 +335,7 @@ export class Client extends query.Retriever<
    */
   setLocal(status: Status): void {
     this.store.set(status);
-    this.writeHandlers.forEach((h) => h(status));
+    this.writeHandlers.forEach((h) => h(status, LOCAL_WRITE));
   }
 
   /** Subscribes to every status delete delivered to the cache. */
@@ -420,3 +427,13 @@ export class Client extends query.Retriever<
 }
 
 export interface SetOptions extends query.WriteOptions {}
+
+/** Where a status that reaches the {@link Client.onWrite} handlers comes from. */
+export interface WriteOrigin {
+  /** Whether this client set the status with {@link Client.setLocal}. */
+  local: boolean;
+}
+
+const CORE_WRITE: WriteOrigin = { local: false };
+
+const LOCAL_WRITE: WriteOrigin = { local: true };

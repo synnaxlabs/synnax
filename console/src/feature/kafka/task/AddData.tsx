@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type kafka } from "@synnaxlabs/client";
+import type { kafka } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -16,7 +16,7 @@ import { json } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
-import { type Device } from "@/feature/kafka/device/types";
+import type { Device } from "@/feature/kafka/device/types";
 import {
   defaultPicks,
   isExtendable,

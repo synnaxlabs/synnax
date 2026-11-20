@@ -9,10 +9,10 @@
 
 import "@/platform/task/views/ListAndDetailsChannelItem.css";
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type List } from "@synnaxlabs/lyra/list";
+import type { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
@@ -24,7 +24,7 @@ import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName"
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { TareButton } from "@/platform/task/TareButton";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { WriteChannelNames } from "@/platform/task/WriteChannelNames";
 
 /** A read channel carries a name. A write channel carries two names. */

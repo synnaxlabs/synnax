@@ -12,7 +12,7 @@ import { parseArgs } from "node:util";
 
 import { run } from "@/cli/common";
 import { loadTimeline, runCapture, runRender } from "@/cli/pipeline";
-import { type Timeline } from "@/timeline";
+import type { Timeline } from "@/timeline";
 
 const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --script <path>   video script module (default export: async (session) => {})

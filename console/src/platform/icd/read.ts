@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type icd, type Synnax } from "@synnaxlabs/client";
+import type { channel, icd, Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload, unique } from "@synnaxlabs/x";
 

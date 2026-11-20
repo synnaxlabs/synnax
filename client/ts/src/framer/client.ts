@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type FileTransport,
-  type UnaryClient,
-  type WebSocketClient,
+import type {
+  FileTransport,
+  UnaryClient,
+  WebSocketClient,
 } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
@@ -22,7 +22,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";

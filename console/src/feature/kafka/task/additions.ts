@@ -10,7 +10,7 @@
 import { icd, kafka } from "@synnaxlabs/client";
 import { DataType, type json, uuid } from "@synnaxlabs/x";
 
-import { type ReadRecord } from "@/feature/kafka/task/types";
+import type { ReadRecord } from "@/feature/kafka/task/types";
 import { ICD } from "@/platform/icd";
 
 /** The pointers of the fields picked from each shape of a sample, by shape key. */

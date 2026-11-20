@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { type SynnaxParams } from "@synnaxlabs/client";
+import type { SynnaxParams } from "@synnaxlabs/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 

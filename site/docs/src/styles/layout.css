@@ -574,12 +574,6 @@ article {
         }
     }
 
-    .yt-video {
-        aspect-ratio: 3456 / 2240;
-        border-radius: 1rem;
-        border: var(--pluto-border);
-    }
-
     :is(h1, h2, h3, h4).lyra-text {
         display: flex;
         align-items: center;

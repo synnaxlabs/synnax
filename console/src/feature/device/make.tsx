@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useConfigureModal as useConfigureHardwareModal } from "@/feature/device/Configure";
 import { useEditConnectionModal } from "@/feature/device/Connect";
@@ -18,7 +18,7 @@ import {
   type Integration,
   INTEGRATIONS,
 } from "@/feature/device/integrations";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 const BY_MAKE = new Map(INTEGRATIONS.map((i) => [i.make, i]));
 

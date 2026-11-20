@@ -114,6 +114,8 @@ var _ = Describe("ServiceConfig", func() {
 			Secret: &secret.Service{},
 			RBAC:   &rbac.Service{},
 			Task:   &task.Service{},
+			Rack:   &rack.Service{},
+			DB:     &gorp.DB{},
 		}
 	}
 	DescribeTable("Should fail when a service is missing",
@@ -128,6 +130,10 @@ var _ = Describe("ServiceConfig", func() {
 			"rbac: must be non-nil"),
 		Entry("task", func(c *apisecret.ServiceConfig) { c.Task = nil },
 			"task: must be non-nil"),
+		Entry("rack", func(c *apisecret.ServiceConfig) { c.Rack = nil },
+			"rack: must be non-nil"),
+		Entry("db", func(c *apisecret.ServiceConfig) { c.DB = nil },
+			"db: must be non-nil"),
 	)
 	It("Should take the other config's services when set", func() {
 		cfg := full()
@@ -136,6 +142,8 @@ var _ = Describe("ServiceConfig", func() {
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
+		Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
+		Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 	})
 })
 
@@ -677,6 +685,7 @@ var _ = Describe("Service", func() {
 					apisecret.ResolveRequest{Grant: g, Task: t.Key},
 				))
 				Expect(res.Command).To(Equal(cmd))
+				Expect(res.Secrets).To(Equal([]secret.Key{a.Base().Key, b.Base().Key}))
 				Expect(res.Values).To(ConsistOf(
 					apisecret.Value{Key: a.Base().Key, Value: "first"},
 					apisecret.Value{Key: b.Base().Key, Value: "second"},
@@ -801,13 +810,108 @@ var _ = Describe("Service", func() {
 				))
 			},
 		)
-		It("Should deny resolve without a grant", func(ctx SpecContext) {
-			Expect(resolve(SubjectCtx(ctx, rk.ResourceID()),
-				apisecret.ResolveRequest{Task: t.Key},
-			)).Error().To(SatisfyAll(
-				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring("has ended or does not exist")),
-			))
+		DescribeTable("Should refuse a wrong mix of grant, task, and secrets",
+			func(ctx SpecContext, req apisecret.ResolveRequest, msg string) {
+				Expect(resolve(SubjectCtx(ctx, rk.ResourceID()), req)).Error().
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError(ContainSubstring(msg)),
+					))
+			},
+			Entry("a grant without a task",
+				apisecret.ResolveRequest{Grant: uuid.New()},
+				"task: required with a grant",
+			),
+			Entry("a grant with secrets",
+				apisecret.ResolveRequest{
+					Grant:   uuid.New(),
+					Task:    uuid.New(),
+					Secrets: []secret.Key{uuid.New()},
+				},
+				"secrets: must be empty with a grant",
+			),
+			Entry("no grant and no secrets",
+				apisecret.ResolveRequest{},
+				"secrets: required without a grant",
+			),
+			Entry("a task without a grant",
+				apisecret.ResolveRequest{
+					Task:    uuid.New(),
+					Secrets: []secret.Key{uuid.New()},
+				},
+				"task: must be empty without a grant",
+			),
+		)
+	})
+
+	Describe("Resolve without a grant", func() {
+		var routingKey secret.Secret
+		BeforeEach(func(ctx SpecContext) {
+			routingKey = createSecret(ctx, "Routing key", "rk")
+			t := task.Task{
+				Type: pagerduty.AlertTaskType,
+				Rack: svc.Rack.EmbeddedKey,
+				Name: "Alerts",
+				Config: msgpack.EncodedJSON{
+					"routing_key": routingKey.Base().Key.String(),
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Task.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 		})
+		It("Should return the value of a secret that a task on the rack uses",
+			func(ctx SpecContext) {
+				rk := svc.Rack.EmbeddedKey
+				res := MustSucceed(resolve(
+					SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{
+						Secrets: []secret.Key{routingKey.Base().Key},
+					},
+				))
+				Expect(res.Command).To(Equal(task.Command{}))
+				Expect(res.Values).To(Equal([]apisecret.Value{
+					{Key: routingKey.Base().Key, Value: "rk"},
+				}))
+			},
+		)
+		It("Should deny a secret that only a task on another rack uses",
+			func(ctx SpecContext) {
+				other := rack.Rack{Name: "Other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				Expect(resolve(
+					SubjectCtx(ctx, other.Key.ResourceID()),
+					apisecret.ResolveRequest{
+						Secrets: []secret.Key{routingKey.Base().Key},
+					},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"no device or task on "+other.Key.ResourceID().String()+
+							" uses secret "+routingKey.Base().Key.String(),
+					)),
+				))
+			},
+		)
+		It("Should deny a secret that nothing uses, with the used one",
+			func(ctx SpecContext) {
+				rk := svc.Rack.EmbeddedKey
+				unused := createSecret(ctx, "Unused", "u")
+				Expect(resolve(
+					SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{Secrets: []secret.Key{
+						routingKey.Base().Key,
+						unused.Base().Key,
+					}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"uses secret "+unused.Base().Key.String(),
+					)),
+				))
+			},
+		)
 	})
 })

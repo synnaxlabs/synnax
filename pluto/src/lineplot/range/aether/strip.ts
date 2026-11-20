@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import {
   type bounds,
@@ -19,7 +19,7 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type Draw2D } from "@/vis/draw2d";
+import type { Draw2D } from "@/vis/draw2d";
 
 /** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
 const withLightness = (c: color.Color, l: number, alpha = 255): color.Color => {

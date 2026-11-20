@@ -11,10 +11,10 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Invited } from "@/server/invitation";
-import { type Machine } from "@/server/license/desktop";
+import type { Invited } from "@/server/invitation";
+import type { Machine } from "@/server/license/desktop";
 import { statusOf } from "@/server/license/status";
 import { Devices } from "@/ui/devices";
 import { Enterprise } from "@/ui/Enterprise";

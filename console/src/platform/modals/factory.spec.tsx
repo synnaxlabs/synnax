@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Modals } from "@/platform/modals";

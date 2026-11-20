@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { Status } from "@/status";
-import { type NotificationSpec } from "@/status/Aggregator";
+import type { NotificationSpec } from "@/status/Aggregator";
 import {
   stubClipboardUnavailable,
   stubClipboardWriteText,

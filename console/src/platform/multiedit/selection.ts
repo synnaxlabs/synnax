@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, deep, type record } from "@synnaxlabs/x";
+import type { color } from "@synnaxlabs/client";
+import { type color as xcolor, deep, type record } from "@synnaxlabs/x";
 
-import { type ColorRef } from "@/platform/multiedit/config";
+import type { ColorRef } from "@/platform/multiedit/config";
 
 /**
  * @returns a copy of the config with each path set to its value. An undefined value
@@ -34,15 +35,15 @@ export type Value<C, F extends string> = C extends unknown
     : never
   : never;
 
-/** A field whose value is a color on every variant that declares it. */
+/** A field that holds a color or a color reference on each variant that declares it. */
 export type ColorKey<C> = {
-  [F in Field<C>]: Value<C, F> extends color.Color | undefined ? F : never;
+  [F in Field<C>]: Value<C, F> extends xcolor.Color | color.Ref | undefined ? F : never;
 }[Field<C>];
 
-/** One element's color, and the color it paints while the value is absent. */
-export interface ColorValue {
-  value?: color.Color;
-  fallback: color.Crude;
+/** One element's stored color, and the color it paints while the value is absent. */
+export interface ColorValue<V = color.Ref> {
+  value?: V;
+  fallback: xcolor.Crude;
 }
 
 /** One element's config before and after an edit. */
@@ -67,8 +68,11 @@ export interface Selection<C> {
   has: (field: Field<C>) => boolean;
   /** @returns the value of the field on the first element that declares it. */
   first: <F extends Field<C>>(field: F) => Value<C, F> | undefined;
-  /** @returns the color of each element that declares the field. */
-  colors: (field: ColorKey<C>, fallback: (config: C) => color.Crude) => ColorValue[];
+  /** @returns the stored color of each element that declares the field. */
+  colors: <F extends ColorKey<C>>(
+    field: F,
+    fallback: (config: C) => xcolor.Crude,
+  ) => Array<ColorValue<NonNullable<Value<C, F>>>>;
   /** Sets the field on every element that declares it. Undefined removes it. */
   set: <F extends Field<C>>(field: F, value: Value<C, F> | undefined) => void;
   /** Sets the field on every element that declares it to fn of its current value. */
@@ -80,7 +84,7 @@ export interface Selection<C> {
    * Sets every referenced color to the value.
    * @throws if a reference names an element outside the selection.
    */
-  setColors: (refs: ColorRef[], value: color.Color) => void;
+  setColors: (refs: ColorRef[], value: color.Ref | xcolor.Color) => void;
 }
 
 /**

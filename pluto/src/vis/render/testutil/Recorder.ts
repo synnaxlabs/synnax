@@ -16,7 +16,7 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 
 /** A single recorded canvas method call or property assignment. */
 export interface Call {
