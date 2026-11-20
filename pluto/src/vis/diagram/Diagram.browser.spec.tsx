@@ -15,10 +15,10 @@ import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
 
-const renderDiagram = async (): Promise<HTMLElement> => {
+const renderDiagram = async (colorMode: "light" | "dark"): Promise<HTMLElement> => {
   const { container } = await renderThemed(
     <div className={CSS.BE("diagram", "container")}>
-      <div className={CSS.cls("react-flow", CSS.B("diagram"))} />
+      <div className={CSS.cls("react-flow", colorMode, CSS.B("diagram"))} />
     </div>,
   );
   const diagram = container.querySelector<HTMLElement>(".react-flow");
@@ -27,7 +27,11 @@ const renderDiagram = async (): Promise<HTMLElement> => {
 };
 
 describe("Diagram style", () => {
-  it("should not follow the OS color scheme", async () => {
-    expect(getComputedStyle(await renderDiagram()).colorScheme).toBe("normal");
-  });
+  it.each(["light", "dark"] as const)(
+    "should show the theme through the background in the %s color mode",
+    async (colorMode) => {
+      const diagram = await renderDiagram(colorMode);
+      expect(getComputedStyle(diagram).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    },
+  );
 });
