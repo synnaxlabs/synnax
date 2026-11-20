@@ -14,7 +14,7 @@ import {
   TimeStamp,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Flex } from "@/flex";
 import { useNow } from "@/hooks";

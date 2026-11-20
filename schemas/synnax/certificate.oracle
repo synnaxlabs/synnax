@@ -13,9 +13,11 @@ import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/telem"
 
-@go output "core/pkg/service/certificate"
-@py output "client/py/synnax/certificate"
-@ts output "client/ts/src/certificate"
+@cpp output "client/cpp/certificate"
+@go output  "core/pkg/service/certificate"
+@pb
+@py output  "client/py/synnax/certificate"
+@ts output  "client/ts/src/certificate"
 
 Key = uuid {
     @doc value "is a unique identifier for a certificate."

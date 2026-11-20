@@ -14,7 +14,7 @@ import { type Connector, DEFAULT_CONNECTOR, type Socket } from "@/connector";
 import { EOF, ReceiveOverflow, StreamClosed, Unreachable } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
-import { type Stream, type StreamClient } from "@/stream";
+import type { Stream, StreamClient } from "@/stream";
 
 const controlMessageZ = z.object({
   type: z.enum(["close", "open"]),

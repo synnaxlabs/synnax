@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CDN } from "@/components/media/cdn";
-import { type Check } from "@/util/checks/check";
+import type { Check } from "@/util/checks/check";
 import { locate } from "@/util/checks/crawl";
 import { attrOf, attrValues } from "@/util/checks/html";
 

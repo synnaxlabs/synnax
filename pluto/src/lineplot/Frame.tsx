@@ -9,7 +9,7 @@
 
 import "@/lineplot/Frame.css";
 
-import { type lineplot as client } from "@synnaxlabs/client";
+import type { lineplot as client } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { useEffectCompare, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
@@ -38,12 +38,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";
 

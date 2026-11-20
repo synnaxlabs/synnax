@@ -26,15 +26,15 @@ import {
   Table,
 } from "@synnaxlabs/pluto";
 import { deep, type text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { type z } from "zod";
+import type { ReactElement } from "react";
+import type { z } from "zod";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { MultiEdit } from "@/platform/multiedit";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 

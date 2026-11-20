@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@synnaxlabs/client";
-import { type Flux } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { Flux } from "@synnaxlabs/pluto";
+import type { record } from "@synnaxlabs/x";
 
 import { toResource } from "@/platform/tree/children";
-import { type Hit, type Placement, type UsePlacement } from "@/platform/tree/search";
-import { type Resource } from "@/platform/tree/types";
+import type { Hit, Placement, UsePlacement } from "@/platform/tree/search";
+import type { Resource } from "@/platform/tree/types";
 
 export interface CreateUsePlacementParams<F extends record.KeyedNamed<string>> {
   /** The type of the folders that hold the matches. */

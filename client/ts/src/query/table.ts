@@ -29,8 +29,8 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { type LookupIndex } from "@/query/indexes";
-import { type Listener } from "@/query/streamer";
+import type { LookupIndex } from "@/query/indexes";
+import type { Listener } from "@/query/streamer";
 
 /**
  * Presence of a key in a table: "present" when a live entry exists, "tombstoned" when

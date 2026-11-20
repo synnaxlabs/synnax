@@ -10,11 +10,11 @@
 import { Color } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { color } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

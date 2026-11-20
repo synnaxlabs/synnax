@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type secret } from "@synnaxlabs/client";
+import type { secret } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";

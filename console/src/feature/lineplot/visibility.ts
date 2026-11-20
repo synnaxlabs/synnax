@@ -9,7 +9,7 @@
 
 import { LinePlot } from "@synnaxlabs/pluto";
 
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 type Hidden = Session.LinePlot.Hidden;
 

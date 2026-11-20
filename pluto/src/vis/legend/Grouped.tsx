@@ -16,7 +16,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { type color } from "@synnaxlabs/x";
+import type { color } from "@synnaxlabs/x";
 import { Fragment, type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/css";

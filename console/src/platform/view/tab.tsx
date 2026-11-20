@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Panel as PPanel, Synnax, View as PView } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Panel } from "@/platform/panel";
 

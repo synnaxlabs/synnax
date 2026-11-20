@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Theming } from "@synnaxlabs/lyra/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type color, compare, type optional, type state } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";

@@ -10,12 +10,12 @@
 import "@/schematic/node/common/primitive/primitive.css";
 
 import { useHold } from "@synnaxlabs/lyra/hooks";
-import { type CrudeTimeSpan } from "@synnaxlabs/x";
-import { type ComponentPropsWithRef, type ReactElement } from "react";
+import type { CrudeTimeSpan } from "@synnaxlabs/x";
+import type { ComponentPropsWithRef, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
+import type { OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface ButtonBaseProps extends Omit<
   ComponentPropsWithRef<"button">,

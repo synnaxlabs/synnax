@@ -12,7 +12,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { state } from "@synnaxlabs/lyra/state";
 import { binary, type deep, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
 import { FS } from "@/platform/fs";

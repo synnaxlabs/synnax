@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { type Telem } from "@/telem/aether/telem";
+import type { Telem } from "@/telem/aether/telem";
 import { registerInstance, TestFactory } from "@/telem/aether/testutil/factory";
 
 const createMockTelem = (): Telem => ({

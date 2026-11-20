@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { edgeChangesToActions, nodeChangesToActions } from "@/schematic/Diagram";
 import { Edge } from "@/schematic/edge";
-import { type Diagram as Base } from "@/vis/diagram";
+import type { Diagram as Base } from "@/vis/diagram";
 
 describe("nodeChangesToActions", () => {
   it("returns an empty array for empty input", () => {
