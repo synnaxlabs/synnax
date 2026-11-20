@@ -239,7 +239,7 @@ export const average = (...coordinates: Crude[]): XY => {
  * @param path - The path to calculate the miters for.
  * @param offset - The magnitude of the miter vectors.
  * @returns The miter vectors for the given path.
- * @throws if the path has fewer than two points.
+ * @throws if the path has exactly one point.
  */
 export const calculateMiters = (path: XY[], offset: number): XY[] => {
   const miters: XY[] = [];
