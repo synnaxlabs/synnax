@@ -1206,6 +1206,16 @@ describe("Input.Table", () => {
       expect(marked(cell("Raw", "1"))).toBe(false);
     });
 
+    it("should move the mark of a row that a paste added with its row", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "3"), "3\t30\nx\t40");
+      expect(marked(cell("Raw", "4"))).toBe(true);
+      fireEvent.keyDown(handle("4"), { key: "ArrowUp" });
+      expect(cell("Scaled", "3").value).toBe("40");
+      expect(marked(cell("Raw", "3"))).toBe(true);
+      expect(marked(cell("Raw", "4"))).toBe(false);
+    });
+
     it("should show no gutter in preview", () => {
       renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
       expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
