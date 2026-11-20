@@ -93,7 +93,7 @@ describe("set", () => {
       },
     };
     deep.set(data, "config.channels.tMnAnJeQmn6.type", "ai_force_bridge_table");
-    expect(data.config.channels[0].type).toEqual("ai_force_bridge_table");
+    expect(data.config.channels[0]?.type).toEqual("ai_force_bridge_table");
   });
 
   it("should set an entire item in the array by its key", () => {
@@ -295,8 +295,8 @@ describe("set", () => {
       ],
     };
     deep.set(obj, "items.duplicate.value", 99);
-    expect(obj.items[0].value).toBe(99);
-    expect(obj.items[1].value).toBe(2);
+    expect(obj.items[0]?.value).toBe(99);
+    expect(obj.items[1]?.value).toBe(2);
   });
 
   it("should throw for a key on an empty list instead of writing it onto the array", () => {
@@ -374,7 +374,7 @@ describe("set", () => {
       sections: [{ key: "user.profile", settings: { theme: "light" } }],
     };
     deep.set(obj, "sections.user.profile.settings.theme", "dark");
-    expect(obj.sections[0].settings.theme).toBe("dark");
+    expect(obj.sections[0]?.settings.theme).toBe("dark");
   });
 
   it("should handle setting on Map-like objects", () => {
@@ -444,7 +444,7 @@ describe("set", () => {
     it("should write into an entry with a dot in its key", () => {
       const obj = { items: [{ key: "ns=1;s=a.b", port: 1 }] };
       deep.set(obj, "items.ns=1;s=a.b.port", 2);
-      expect(obj.items[0].port).toBe(2);
+      expect(obj.items[0]?.port).toBe(2);
     });
 
     it("should add a field that an entry does not hold yet", () => {

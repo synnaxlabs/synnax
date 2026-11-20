@@ -11,11 +11,11 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v1"
 
 // Key is a unique identifier for a grant.
-type Key = v0.Key
+type Key = v1.Key
 
 // Grant lets a subject read secrets once, such as for a rack to test a connection
 // before the device that uses them is saved.
-type Grant = v0.Grant
+type Grant = v1.Grant

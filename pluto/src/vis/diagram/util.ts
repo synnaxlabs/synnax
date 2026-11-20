@@ -12,7 +12,7 @@ import {
   type InternalNode,
   type NodeChange as RFNodeChange,
   type ReactFlowInstance,
-  type ReactFlowState,
+  type ViewportStore,
 } from "@xyflow/react";
 
 import { type diagram } from "@/vis/diagram/aether";
@@ -36,7 +36,7 @@ export const selectNodesScreenBounds = (root: HTMLElement): box.Box | null => {
 };
 
 /// @returns the viewport zoom held in React Flow's store.
-export const selectZoom = ({ transform }: ReactFlowState): number => transform[2];
+export const selectZoom = ({ transform }: ViewportStore): number => transform[2];
 
 /// @returns the box, in flow coordinates, occupied by the given react-flow internal
 /// node. Returns box.ZERO when the node is null or has not been measured yet, which is
@@ -185,7 +185,7 @@ export interface PartitionedNodeChanges {
 /// still resizing or report a zero width or height are dropped, since react-flow emits
 /// those before a node has settled into its final layout.
 export const partitionNodeChanges = (
-  changes: RFNodeChange[],
+  changes: Iterable<RFNodeChange>,
 ): PartitionedNodeChanges => {
   const passthrough: RFNodeChange[] = [];
   const sizes: [string, dimensions.Dimensions][] = [];

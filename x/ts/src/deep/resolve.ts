@@ -58,7 +58,8 @@ export const step = (value: unknown, parts: string[], start: number): Step | nul
   for (let end = parts.length; end > start; end--) {
     const found = child(value, name);
     if (found != null) return { key: found[0], value: found[1], end };
-    name = name.slice(0, name.length - parts[end - 1].length - SEPARATOR.length);
+    // end > start >= 0, so parts[end - 1] exists.
+    name = name.slice(0, name.length - parts[end - 1]!.length - SEPARATOR.length);
   }
   return null;
 };

@@ -20,6 +20,7 @@ import {
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs, useResize } from "@/hooks";
@@ -69,7 +70,8 @@ export interface TextProps
  * @param props.flush - Marks the input as its surface's sole keystroke target,
  * removing the focus ring and widening the content inset.
  * @param props.onKeyDown - Called before the input handles Escape, which blurs the
- * input and stops there unless `onKeyDown` prevents the default.
+ * input and stops there unless `onKeyDown` prevents the default. In a modal, Escape
+ * goes on to close the modal.
  */
 export const Text = ({
   size = "medium",
@@ -192,7 +194,7 @@ export const Text = ({
     }
     if (e.defaultPrevented) return;
     e.currentTarget.blur();
-    e.stopPropagation();
+    if (!Dialog.inTopModal(e.currentTarget)) e.stopPropagation();
   };
 
   // An input's text is no scroll container a CSS scroll timeline can watch, so the
