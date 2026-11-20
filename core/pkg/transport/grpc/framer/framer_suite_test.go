@@ -48,10 +48,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc = svc.Channel
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
-		DB:      db,
-		RBAC:    svc.RBAC,
-		Channel: svc.Channel,
-		Status:  svc.Status,
+		DB:          db,
+		RBAC:        svc.RBAC,
+		Channel:     svc.Channel,
+		Status:      svc.Status,
+		Calculation: svc.Calculation,
 	}))
 	var pool *fgrpc.Pool
 	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {

@@ -45,10 +45,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelSvc, framerSvc = svc.Channel, svc.Framer
 	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
-		DB:      db,
-		RBAC:    svc.RBAC,
-		Channel: svc.Channel,
-		Status:  svc.Status,
+		DB:          db,
+		RBAC:        svc.RBAC,
+		Channel:     svc.Channel,
+		Status:      svc.Status,
+		Calculation: svc.Calculation,
 	}))
 })
 
