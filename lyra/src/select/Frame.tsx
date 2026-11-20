@@ -11,11 +11,13 @@ import { array, type destructor, type optional, type record } from "@synnaxlabs/
 import {
   type PropsWithChildren,
   type ReactElement,
+  useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
 
 import { Dialog } from "@/dialog";
+import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
 import { Context } from "@/select/Context";
 import { type Registry, RegistryContext, useRegistry } from "@/select/registry";
@@ -123,19 +125,39 @@ const useSelectedFirst = <K extends record.Key, E extends record.Keyed<K> | unde
   registry: Registry,
   data: K[],
   getItem: List.GetItem<K, E> | undefined,
+  subscribe: List.FrameProps<K, E>["subscribe"],
   value: K[] | null,
 ): K[] => {
   const { visible } = Dialog.useContext();
   const [opened, setOpened] = useState(false);
   const [front, setFront] = useState<K[]>(EMPTY);
+  const [pending, setPending] = useState<K[]>(EMPTY);
   if (opened !== visible) {
     setOpened(visible);
     // Only a readable entry goes first. A fixed item keeps its own place, and a deleted
     // entry stays out of the list.
     const readable = (key: K): boolean =>
       getItem == null ? data.includes(key) : getItem(key) != null;
-    setFront(visible && value != null ? value.filter(readable) : EMPTY);
+    const selected = visible && value != null ? value : EMPTY;
+    setFront(selected.filter(readable));
+    const loading = (key: K): boolean => !registry.hasItem(key) && !readable(key);
+    setPending(getItem == null ? EMPTY : selected.filter(loading));
   }
+  // An entry still loading when the dialog opens goes first once it loads, after the
+  // entries already there. A subscription can fetch, so it runs only as keys load.
+  const readRef = useSyncedRef({ getItem, subscribe });
+  useEffect(() => {
+    const { subscribe } = readRef.current;
+    if (subscribe == null || pending.length === 0) return;
+    const stops = pending.map((key) =>
+      subscribe(() => {
+        if (readRef.current.getItem?.(key) == null) return;
+        setPending((keys) => keys.filter((k) => k !== key));
+        setFront((keys) => (keys.includes(key) ? keys : [...keys, key]));
+      }, key),
+    );
+    return () => stops.forEach((stop) => stop());
+  }, [pending, readRef]);
   const isSearching = (): boolean => registry.getTerm() !== "";
   const searching = useSyncExternalStore(
     value == null ? NOOP_SUBSCRIBE : registry.subscribe,
@@ -178,6 +200,7 @@ export const Frame = <
     registry,
     data,
     getItem,
+    subscribe,
     selectedFirst ? array.toArray<K>(value) : null,
   );
   return (

@@ -464,7 +464,8 @@ bound, a log precision, or the line plot X channel.
   of several values marks where they end. `Select.Single`, `Select.Multiple`, the line
   plot's Ranges select, and the range Labels menu do this. The order is set when the
   select opens and holds while it stays open, so an item never moves under the pointer.
-  A search lists its matches in their own order. GitHub and GitLab do the same.
+  A current value that loads after the select opens joins the values listed first. A
+  search lists its matches in their own order. GitHub and GitLab do the same.
 - A select of fixed options, such as `Select.Simple`, keeps its order and opens scrolled
   to its current value. A filter menu keeps its own order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A

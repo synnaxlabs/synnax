@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -130,10 +130,28 @@ const Ordered = ({
   </Triggers.Provider>
 );
 
-const OrderedSingle = ({ value }: { value: string }): ReactElement => (
+interface OrderedSingleProps extends Pick<
+  List.FrameProps<string, record.Keyed<string>>,
+  "getItem" | "subscribe"
+> {
+  value: string;
+}
+
+const OrderedSingle = ({
+  value,
+  getItem,
+  subscribe,
+}: OrderedSingleProps): ReactElement => (
   <Triggers.Provider>
     <Dialog.Frame visible onVisibleChange={vi.fn()}>
-      <Select.Frame data={["a", "b"]} value={value} onChange={vi.fn()} selectedFirst>
+      <Select.Frame
+        data={["a", "b"]}
+        value={value}
+        onChange={vi.fn()}
+        getItem={getItem}
+        subscribe={subscribe}
+        selectedFirst
+      >
         <Select.List>
           <Select.Item itemKey="none">None</Select.Item>
           <Select.Items<string>>{row}</Select.Items>
@@ -173,6 +191,30 @@ describe("Select.Frame selectedFirst", () => {
 
   it("should list the selected entry of a single selection first", () => {
     expect(options(render(<OrderedSingle value="b" />))).toEqual(["None", "b", "a"]);
+  });
+
+  it("should list a selected entry first once it loads", () => {
+    const loaded = new Set(["a"]);
+    const listeners = new Map<string, () => void>();
+    const getOne = (key: string): record.Keyed<string> | undefined =>
+      loaded.has(key) ? { key } : undefined;
+    const getItem = ((keys: string | string[]) =>
+      Array.isArray(keys)
+        ? keys.flatMap((key) => getOne(key) ?? [])
+        : getOne(keys)) as List.GetItem<string, record.Keyed<string>>;
+    const subscribe = (callback: () => void, key: string): (() => void) => {
+      listeners.set(key, callback);
+      return () => listeners.delete(key);
+    };
+    const c = render(
+      <OrderedSingle value="b" getItem={getItem} subscribe={subscribe} />,
+    );
+    expect(options(c)).toEqual(["None", "a", "b"]);
+    expect([...listeners.keys()]).toEqual(["b"]);
+    loaded.add("b");
+    act(() => listeners.get("b")?.());
+    expect(options(c)).toEqual(["None", "b", "a"]);
+    expect(listeners.size).toBe(0);
   });
 
   it("should keep a selected fixed item of a single selection in its place", () => {
