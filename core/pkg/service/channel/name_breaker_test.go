@@ -200,6 +200,12 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 			Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
 		})
 
+	It("Should refuse a name that shows as nothing", func(ctx SpecContext) {
+		ch := virtual("\u2800")
+		Expect(create(ctx, &ch)).
+			To(MatchError(ContainSubstring("must hold a visible character")))
+	})
+
 	// The cases below pass. They pin what the breaker checked.
 
 	It("Should refuse two names in one request that are equal after NFC",

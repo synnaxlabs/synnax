@@ -40,11 +40,17 @@ func IsPathSegment(s string) bool {
 // are stored and compared.
 func NormalizeName(s string) string { return norm.NFC.String(s) }
 
+// brailleBlank is U+2800, a symbol (So) that shows as nothing.
+const brailleBlank = '\u2800'
+
 // isInvisible reports whether r shows as nothing or as a space other than U+0020: the
-// categories Cc, Cf, Zl, Zp, and Zs, and the default ignorable code points.
+// categories Cc, Cf, Zl, Zp, and Zs, the default ignorable code points, and U+2800.
 func isInvisible(r rune) bool {
 	if r == ' ' {
 		return false
+	}
+	if r == brailleBlank {
+		return true
 	}
 	return unicode.In(
 		r,

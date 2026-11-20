@@ -44,6 +44,7 @@ var _ = Describe("Path segments", func() {
 		Entry("a Hangul jungseong filler (default ignorable)", "\u1160", false),
 		Entry("a Hangul filler (default ignorable)", "\u3164", false),
 		Entry("a halfwidth Hangul filler (default ignorable)", "\uFFA0", false),
+		Entry("a Braille pattern blank, which shows as nothing", "a\u2800b", false),
 		Entry("a combining grapheme joiner (default ignorable)", "a\u034Fb", false),
 		Entry("a variation selector (default ignorable)", "❤\uFE0F", false),
 		Entry("an invalid byte", "a\xffb", false),
