@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -33,6 +34,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db         *gorp.DB
+	colorSvc   *color.Service
 	groupSvc   *group.Service
 	proj       project.Project
 	projectSvc *project.Service
@@ -46,6 +48,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	StartRun(db.Run)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
+	}))
+	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
 	}))
 	imexSvc = imex.NewService()
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{

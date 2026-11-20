@@ -54,11 +54,11 @@ const inGroup = (n: schematic.Node, parent: string): schematic.Node => ({
   parent,
 });
 
-const tank = (label: string, strokeColor?: unknown): schematic.NodeConfig =>
+const tank = (label: string, strokeHex?: string): schematic.NodeConfig =>
   nodeCfg({
     variant: "tank",
     label: { label },
-    ...(strokeColor != null && { strokeColor }),
+    ...(strokeHex != null && { strokeColor: { type: "fixed", value: strokeHex } }),
   });
 
 const apply = (
@@ -146,7 +146,7 @@ describe("schematic reducer", () => {
             config: {
               variant: "tank",
               label: { label: "Pump" },
-              strokeColor: "#ff0000",
+              strokeColor: { type: "fixed", value: "#ff0000" },
             },
           },
         }),
@@ -960,7 +960,11 @@ describe("schematic reducer inverses", () => {
   describe("coalesced config edit undo (regression)", () => {
     it("should restore the original config after two rapid config edits", () => {
       const level = (l: string) =>
-        nodeCfg({ variant: "tank", label: { level: l }, strokeColor: "#ff0000" });
+        nodeCfg({
+          variant: "tank",
+          label: { level: l },
+          strokeColor: { type: "fixed", value: "#ff0000" },
+        });
       const initial = empty({ nodes: [node("n1", 0, 0, level("p"))] });
       const edit = (state: schematic.Schematic, from: string, to: string) =>
         schematic.reduceAll(

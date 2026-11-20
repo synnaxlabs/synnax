@@ -57,6 +57,7 @@ var (
 	resourceSvc *resource.Service
 	svc         *bundle.Service
 	groupSvc    *group.Service
+	colorSvc    *color.Service
 	panelSvc    *panel.Service
 	logSvc      *log.Service
 	// lineplotSvc registers its exporter in a registry the bundle service never sees,
@@ -80,6 +81,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	imexSvc = imex.NewService()
+	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+	}))
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB: db,
 	}))
@@ -88,12 +93,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx: imexSvc,
 	}))
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:   db,
-		ImEx: imex.NewService(),
-		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
-		})),
+		DB:    db,
+		ImEx:  imex.NewService(),
+		Color: colorSvc,
 		Ranger: MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:    db,
 			Group: groupSvc,

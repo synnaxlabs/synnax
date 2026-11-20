@@ -51,7 +51,10 @@ type ValueNode = Node<{ units: string }, "custom">;
 const ValueNodeRenderer = ({ data }: NodeProps<ValueNode>): ReactElement => (
   <div className={Grid.DRAG_HANDLE_CLASS}>
     <Value.spec.Preview
-      {...schematic.valueNodeConfigZ.parse({ variant: "value", strokeColor: COLOR })}
+      {...schematic.valueNodeConfigZ.parse({
+        variant: "value",
+        strokeColor: { type: "fixed", value: COLOR },
+      })}
       units={data.units}
     />
   </div>

@@ -7,22 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Color } from "@synnaxlabs/lyra/color";
+import type { color } from "@synnaxlabs/client";
+import { Color as Base } from "@synnaxlabs/lyra/color";
 import type { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, deep } from "@synnaxlabs/x";
+import { color as xcolor, deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import type { ColorFallback } from "@/schematic/node/spec";
 
-const path = deep.path<{ fillColor?: color.Color }>();
+const path = deep.path<{ fillColor?: color.Ref }>();
 
 /** @returns the theme color a symbol paints while one of its colors is absent. */
-export const defaultFallback = (theme: theme.Theme): color.Color =>
+export const defaultFallback = (theme: theme.Theme): xcolor.Color =>
   theme.colors.gray.l11;
 
 /** @returns the fill interactive symbols paint while their fill color is absent. */
-export const primaryFallback = (theme: theme.Theme): color.Color =>
+export const primaryFallback = (theme: theme.Theme): xcolor.Color =>
   theme.colors.primary.z;
 
 export interface ColorFieldProps extends Omit<Color.FieldProps, "fallback"> {
@@ -30,17 +32,33 @@ export interface ColorFieldProps extends Omit<Color.FieldProps, "fallback"> {
   fallback?: ColorFallback;
 }
 
-/** Edits an optional symbol color. */
+/** Edits an optional symbol color that may name a color from the library. */
 export const ColorField = ({
   fallback = defaultFallback,
   ...rest
 }: ColorFieldProps): ReactElement => {
   const theme = Theming.use();
-  return <Color.Field fallback={fallback(theme)} {...rest} />;
+  const series = Color.useSeriesValues();
+  return <Color.Field fallback={fallback(theme, series)} {...rest} />;
+};
+
+export interface ColorValueFieldProps extends Omit<Base.FieldProps, "fallback"> {
+  /** The color the symbol paints while the field is absent. */
+  fallback?: ColorFallback;
+}
+
+/** Edits an optional symbol color that stores a color value. */
+export const ColorValueField = ({
+  fallback = defaultFallback,
+  ...rest
+}: ColorValueFieldProps): ReactElement => {
+  const theme = Theming.use();
+  const series = Color.useSeriesValues();
+  return <Base.Field fallback={fallback(theme, series)} {...rest} />;
 };
 
 /** @returns no fill, the fill most symbols paint while their fill color is absent. */
-export const noFillFallback: ColorFallback = () => color.TRANSPARENT;
+export const noFillFallback: ColorFallback = () => xcolor.TRANSPARENT;
 
 export interface FillFieldProps extends Omit<ColorFieldProps, "path"> {}
 

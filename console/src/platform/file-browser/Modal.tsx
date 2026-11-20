@@ -21,11 +21,12 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
-import { Rack, Synnax } from "@synnaxlabs/pluto";
+import { Rack } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Entry, list, type Listing } from "@/platform/file-browser/list";
+import type { Entry, Listing } from "@/platform/file-browser/list";
+import { useSession } from "@/platform/file-browser/Provider";
 import { Modals } from "@/platform/modals";
 import { Validity } from "@/platform/secret/validity";
 import { Triggers } from "@/platform/triggers";
@@ -106,7 +107,7 @@ const Content = ({
   close,
   rack,
 }: Modals.ContentProps<ModalParams, Entry>): ReactElement => {
-  const client = Synnax.use();
+  const session = useSession(rack);
   const rackResult = Rack.useResult({ key: rack });
   const now = useNow(nextMinute);
   // A new object for each request, so a request for the same folder lists it again.
@@ -117,19 +118,24 @@ const Content = ({
   // Not a Flux query: its error holds no data, and a failed folder keeps the listing.
   useAsyncEffect(
     async (signal) => {
-      if (client == null) return;
+      if (session == null) return;
       setFailure(null);
+      const cached = session.cached(target.path);
+      if (cached != null) {
+        setLoaded({ target, listing: cached });
+        setSelected(null);
+      }
       try {
-        const listing = await list(client, rack, target.path);
+        const listing = await session.list(target.path);
         if (signal.aborted) return;
         setLoaded({ target, listing });
-        setSelected(null);
+        if (cached == null) setSelected(null);
       } catch (e) {
         if (signal.aborted) return;
         setFailure(status.fromException(e, "Failed to list files"));
       }
     },
-    [client, rack, target],
+    [session, target],
   );
   const listing = loaded?.listing ?? null;
   const entries: KeyedEntry[] =

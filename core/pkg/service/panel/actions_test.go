@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -184,14 +183,13 @@ var _ = Describe("Actions", func() {
 	Describe("SetColor", func() {
 		It("Should set the color of the panel's icon", func() {
 			p := panel.Panel{Root: leafNode()}
-			c := MustSucceed(color.Parse("#dc136c"))
-			next := MustSucceed(panel.SetColorPayload{Color: &c}.Handle(p))
-			Expect(next.Color).To(HaveValue(Equal(c)))
+			c := fixedColor("#dc136c")
+			next := MustSucceed(panel.SetColorPayload{Color: c}.Handle(p))
+			Expect(next.Color).To(Equal(c))
 		})
 
 		It("Should reset the color when the payload holds none", func() {
-			c := MustSucceed(color.Parse("#dc136c"))
-			p := panel.Panel{Root: leafNode(), Color: &c}
+			p := panel.Panel{Root: leafNode(), Color: fixedColor("#dc136c")}
 			next := MustSucceed(panel.SetColorPayload{}.Handle(p))
 			Expect(next.Color).To(BeNil())
 		})
