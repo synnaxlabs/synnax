@@ -70,24 +70,23 @@ describe("detectConnection", () => {
 });
 
 describe("servesPage", () => {
+  const ORIGIN = "http://example.com:9090";
+
   beforeEach(() => {
     mocks.engine = "web";
   });
 
   it("should return true when the page came from the Core", () => {
-    pinLocationOrigin("http://example.com:9090");
-    expect(Core.servesPage({ host: "example.com", port: 9090 })).toBe(true);
+    expect(Core.servesPage({ host: "example.com", port: 9090 }, ORIGIN)).toBe(true);
   });
 
   it("should return false when another Core served the page", () => {
-    pinLocationOrigin("http://example.com:9090");
-    expect(Core.servesPage({ host: "example.com", port: 9091 })).toBe(false);
-    expect(Core.servesPage({ host: "other.com", port: 9090 })).toBe(false);
+    expect(Core.servesPage({ host: "example.com", port: 9091 }, ORIGIN)).toBe(false);
+    expect(Core.servesPage({ host: "other.com", port: 9090 }, ORIGIN)).toBe(false);
   });
 
   it("should return false in the tauri engine", () => {
     mocks.engine = "tauri";
-    pinLocationOrigin("http://example.com:9090");
-    expect(Core.servesPage({ host: "example.com", port: 9090 })).toBe(false);
+    expect(Core.servesPage({ host: "example.com", port: 9090 }, ORIGIN)).toBe(false);
   });
 });
