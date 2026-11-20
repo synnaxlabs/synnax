@@ -73,11 +73,9 @@ describe("csp", () => {
       ]);
     });
 
-    it("should allow PostHog and the blob URLs its recorder reads", () => {
+    it("should allow PostHog", () => {
       const p = policy({ sources: { "connect-src": ["'self'"] }, posthog: true });
-      expect(p.directives).toContain(
-        "connect-src 'self' https://t.synnaxlabs.com blob:",
-      );
+      expect(p.directives).toContain("connect-src 'self' https://t.synnaxlabs.com");
       expect(p.scriptDirective?.resources).toEqual([
         "'self'",
         "https://t.synnaxlabs.com",
