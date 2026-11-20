@@ -174,11 +174,6 @@ func OpenService(
 			return s.NewWriter(tx).syncHash(ctx, key)
 		})
 	}
-	// A hash stored before its type hashed referenced records, or under an older
-	// encoding of them, catches up before the Driver configures the tasks.
-	if err = s.syncHashes(ctx); !ok(err, nil) {
-		return nil, err
-	}
 	if cfg.Signals != nil {
 		if err = s.publishSignals(ctx); !ok(err, nil) {
 			return nil, err
@@ -187,9 +182,10 @@ func OpenService(
 	return s, nil
 }
 
-// syncHashes stores the current config hash of each task whose type hashes referenced
-// records.
-func (s *Service) syncHashes(ctx context.Context) error {
+// SyncHashes stores the current config hash of each task whose type hashes referenced
+// records. Call it after every migration that can change a config or a record that it
+// hashes, and before the Driver configures the tasks.
+func (s *Service) SyncHashes(ctx context.Context) error {
 	var types []string
 	for _, t := range s.cfg.Configs.Types() {
 		if store, _ := s.cfg.Configs.Store(t); len(store.HashedTables()) > 0 {
