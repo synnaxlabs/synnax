@@ -20,7 +20,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	"github.com/synnaxlabs/x/payload"
+	xpayload "github.com/synnaxlabs/x/payload"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -183,7 +184,7 @@ func liftField(
 		note("data type %s became %s, the data type of its channel", dt, ch.DataType)
 		dt = ch.DataType
 	}
-	kind, known := payload.KindOf(dt)
+	kind, known := xpayload.KindOf(dt)
 	if !known {
 		kind = payload.KindFloat
 		note("unknown data type %q became the float kind", dt)

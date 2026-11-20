@@ -178,6 +178,22 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
+	It("Should lift the name, pointer, and time format of a disabled field",
+		func(ctx SpecContext) {
+			f := storedField(telem.TimestampT)
+			f.Name, f.Pointer, f.Disabled = "stamp", "/meta/stamp", true
+			f.TimeFormat = new(payload.TimeFormatUnixMs)
+			cfg := inlineConfig(inlineEntry(0, "plant/a", f))
+			ic := resolve(ctx, &cfg)
+			lifted := fields(ic.Messages[0])[0]
+			Expect(lifted.Base().Name).To(Equal("stamp"))
+			Expect(lifted.Base().Pointer).To(Equal("/meta/stamp"))
+			ts, ok := lifted.Variant.(icd.TimestampJSONField)
+			Expect(MustBeOk(ts, ok).TimeFormat).To(Equal(payload.TimeFormatUnixMs))
+			Expect(plainEntry(cfg.Entries[0]).Messages[0].Bindings).To(BeEmpty())
+		},
+	)
+
 	It("Should keep the base and the subscription of an inline entry",
 		func(ctx SpecContext) {
 			e := inlineEntry(0, "plant/a", storedField(telem.Float64T))
