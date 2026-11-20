@@ -16,11 +16,11 @@ A channel name does four jobs today: hardware address, place, label, and referen
 Arc text. Names are identifiers, unique across the Core, and nothing shows what uses a
 channel. This RFC makes a channel name free text that is unique in its folder, with a
 full path computed on read. Every stored channel key becomes a tracked link, so clients
-can ask what uses a channel. Arc programs and calculations keep names in text, pin each
-name to a key, and follow renames. A calculation becomes its own record. The channel
-record shrinks to six fields, and Gorp is the only proof that a channel exists. RFC 0117
-owns clocks, the wire, and the key counter. RFC 0118 owns the Cesium formats and the
-storage half of a delete.
+can ask what uses a channel. Arc programs and calculations keep paths in text, look each
+one up again at each compile, and follow renames. A calculation becomes its own record.
+The channel record shrinks to six fields, and Gorp is the only proof that a channel
+exists. RFC 0117 owns clocks, the wire, and the key counter. RFC 0118 owns the Cesium
+formats and the storage half of a delete.
 
 ## 1 Motivation
 
@@ -42,14 +42,16 @@ storage half of a delete.
 - **Name**: The local name of a channel or folder. It never holds `.`.
 - **Path**: Folder names from the top down, then the name, joined by `.`. Computed.
 - **Link**: A stored key that Gorp tracks. A weak link survives its target's delete.
-- **Binding**: A channel name as text writes it, and the key it stands for.
+- **Binding**: A channel name as text writes it, and the key that the last compile of
+  the text found for it.
 
 ## 3 Principles
 
 1. **Gorp is the only channel registry**: Storage with no channel record is waste.
 2. **One copy of each link**: The holder stores it. The channel holds no link back.
-3. **Text keeps names, fields keep keys**: A person types text, so text holds names and
-   a binding pins each one. A field that a picker sets holds a key.
+3. **Text keeps names, fields keep keys**: A person types text, so text holds paths, and
+   each compile looks each one up again: a path names a measurement, and the port, the
+   sensor, and the key are details under it. A field that a picker sets holds a key.
 4. **Nothing is derived twice**: A path, a use list, and a status are filled on read.
 5. **A lower layer learns a rule, never a type**: Gorp learns "unique in a space" and
    "weak", and the group service learns "sibling names are unique". Not "channel".
@@ -303,7 +305,6 @@ Calculation struct {
     bindings   channel.Binding[] = []      { @ref direction read }
     status     status.Status<nil>?         { @go marshal omit  @include }
     action Create { calculation Calculation }
-    action Rebind { names string[] }
     // Also the four patch actions, and @create, @go imex, @go marshal, @go migrate,
     // @resource type "calculation", @retrieve.
 }
@@ -371,40 +372,25 @@ The example value is 104 B. The Pebble key is `gorp.Calculation` and the 16 key 
   targets of the two references are the entry keys plus the keys from a walk of the node
   configs, which reads the param types of `graph.functions` too (precedent:
   `core/pkg/service/lineplot/reference.go:26-57`).
-
-The table lives in `core/pkg/service/channel/resolver` (NEW), for both services:
-
-| Binding      | The name resolves to | Compile                                                | `Rebind`                       |
-| ------------ | -------------------- | ------------------------------------------------------ | ------------------------------ |
-| Alive, key K | K                    | Runs                                                   | No change                      |
-| Alive, key K | Nothing              | Runs on K; a rewrite did not apply                     | Fails: no channel has the name |
-| Alive, key K | Another key          | Fails: "pt_01 now names another channel"               | Binds the other key            |
-| Dead         | Nothing              | Fails: "pt_01 was deleted"                             | Fails: no channel has the name |
-| Dead         | Another key          | Fails: "pt_01 was deleted. A new channel has the name" | Binds the other key            |
-| None         | Nothing              | Fails: "pt_01 does not exist"                          | -                              |
-| None         | Key K                | Runs after the bind                                    | -                              |
-
-- **Clean analysis**: The text parses and no name is in a line that fails. Each analysis
-  first runs a pending rewrite, then reads the table. A clean one adds an entry for each
-  new name and drops every unused entry that is alive. An unused dead entry stays, so
-  its name cannot bind a recreated channel later; a rewrite onto that name drops it,
-  because a rename is an explicit act. The Core announces a list with a computed `Set`,
-  as for `data_type` (`writer.go:172-175`).
-- **Saves**: A calculation save whose analysis is not clean fails, as today
+- **Lookup**: Each compile, at a save, a deploy, an import, or a Core start, looks each
+  path up in the channel table at that moment, through
+  `core/pkg/service/channel/resolver` (NEW). A path that matches nothing fails compile
+  with "pt_01 does not exist"; several matches fail and name each. A channel deleted and
+  made again under the same path binds at the next compile, as an import into another
+  Core does. A running program changes only at its next deploy.
+- **The record of a compile**: Each compile that succeeds writes the lists in full: one
+  entry for each path in the text, with the key that it found. No compile reads them.
+  They feed `uses` and find the records that a rename touches. The Core announces a list
+  with a computed `Set`, as for `data_type` (`writer.go:172-175`).
+- **Saves**: A calculation save whose compile fails, fails, as today
   (`core/pkg/service/channel/calculation_analyzer.go:137-141`). An Arc saves on each
-  keystroke and never fails; its lists wait for the next clean analysis.
-- **`Rebind`**: The only way a dead or changed entry gets a new key, sent from the
-  fix-it of the error. For a name that the text no longer uses, it drops the entry.
-- **Start order**: Migrations, the bind pass, `Declare`, rewrites, then the API. The
-  bind pass binds every Arc and calculation by the rule of the release and writes a
-  status for each record that cannot bind (text that does not parse, a name with no
-  match or several).
+  keystroke and never fails; its lists wait for the next compile that succeeds.
+- **Start order**: Migrations, `Declare`, rewrites, then the API.
 - **The flip**: Phase 6 ships one migration step with a durable done marker. Before the
-  Core-wide index goes, it binds every name that has no entry by the Core-wide rule,
-  rewrites bare names to paths, and sets the marker after the last record. After it,
-  "does not exist" for a bare name lists the matches in folders as fix-its. Core code
-  that writes Arc or calculation text writes paths
-  (`core/pkg/service/metrics/metrics.go:80-93`).
+  Core-wide index goes, it rewrites bare names to paths by the Core-wide rule, and sets
+  the marker after the last record. After it, "does not exist" for a bare name lists the
+  matches in folders as fix-its. Core code that writes Arc or calculation text writes
+  paths (`core/pkg/service/metrics/metrics.go:80-93`).
 - **Rewrite**: The Arc service and the calculation service each observe the channel and
   group tables (precedent: `core/pkg/service/arc/service.go:267-275`). After a rename or
   a move commits, each finds its records through the reverse index. For each binding
@@ -433,7 +419,7 @@ holds, and a string is a path. A JSON object key that the schema types as a chan
 is a key. A file's shape does not change, so no exported type mints a version for the
 switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once and
 fails, with every path that matches nothing, unless the file makes that channel. Arc and
-calculation text binds on the new Core.
+calculation text looks its paths up on the new Core at each compile, as on any Core.
 
 ### 4.7 Package boundaries
 
@@ -442,7 +428,7 @@ calculation text binds on the new Core.
 | `gorp`                                    | Unique index and spaces, weak policy, dependents with their reference                           | `x`                                                                                                            | Any Core package; the meaning of a tag      |
 | `core/pkg/service/group`                  | Folders, the generated sibling index, naming rules                                              | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`            |
 | `core/pkg/service/channel`                | The record, the name rule, paths, the built-in set, the `Binding` shape, the meaning of the tag | `service/group`, `service/status`, `distribution/channel`                                                      | `arc`, `service/arc`, `service/calculation` |
-| `core/pkg/service/channel/resolver` (NEW) | Channels as Arc symbols, consistent lookups for one compile, the binding state table            | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`        |
+| `core/pkg/service/channel/resolver` (NEW) | Channels as Arc symbols, consistent lookups for one compile                                     | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`        |
 | `core/pkg/service/calculation`            | The record, analyzer, compiler, graph, status, its bindings and rewrite                         | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                               |
 | `core/pkg/service/arc`                    | Arc records, `reads` and `writes`, its rewrite, the remap of graph inputs                       | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                       |
 | `arc/go`                                  | Grammar, quoted paths, the rewrite helper                                                       | `x`                                                                                                            | Any Core package                            |
@@ -504,7 +490,7 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
   and each copy, and parses no Arc. A crash between the chains leaves the copies for the
   next start (precedent: `core/pkg/service/panel/versions/v0/composition.go:137`).
 - **Phases 5 to 7: Bindings, the flip, rules.** Arc v5 adds empty `reads` and `writes`,
-  and the bind pass of Phase 5 fills them. Phase 6 runs the step of §4.5 once. Group v2
+  and each compile from Phase 5 fills them. Phase 6 runs the step of §4.5 once. Group v2
   adds `name_rule`.
 
 Compatibility is owed to `core/v0.62.0`. Every stored channel, folder, Arc text, and
@@ -532,7 +518,7 @@ Each phase is one PR of about 2,000 hand-written lines, the size the plan owner 
 this program. Phases 6 and 8 are small switches.
 
 - **Phase 2: Quoted names.** Arc gets the quoted token here, with the path filter. Phase
-  5 adds bare paths, the two lists, `Rebind`, the bind pass, the rewrite, the key
+  5 adds bare paths, the two lists, the lookup at each compile, the rewrite, the key
   lookup, and files by path. Phase 2's specs pin both halves of the number rule: a
   stored config that holds a key as a numeric string parses to the key, and a lookup by
   a digit-only string resolves as a name or a path.
@@ -589,10 +575,14 @@ keys makes every list, search, codec error, and Arc lookup a join. Key tokens in
 text need a name overlay in the editor and a translation on export. A rewrite inside the
 rename transaction lets a failed parse fail a rename (RFC 0082 §5.6).
 
-**6.5 Only `Rebind` moves a dead or changed entry.** If any save rebound, a script that
-sends the same text again would bind a recreated channel in silence. One edge stays: a
-set of new text is an edit, so a name with no entry binds by name. A compare-and-set on
-the text would fail every declarative script after any rewrite.
+**6.5 A compile looks each path up again, and nothing pins it.** A path names a
+measurement on a stand, so a sensor moved to another port is a rename of the channel
+that it feeds, and a channel made again at a path is that measurement. An import into
+another Core binds by path, so a remade channel binds the same way. Rejected: an entry
+that pins a name to its first key and fails compile after a delete and a remake, with
+"Save to accept" or a `Rebind` action to move it: it makes text mean a key that the user
+cannot see, and a script that sends the same text again fails on every Core but the
+first.
 
 **6.6 Two lists on an Arc, one quoted token per path.** One list with a direction
 computed from the compiled program makes where-used compile programs at the API layer. A
