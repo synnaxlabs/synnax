@@ -348,11 +348,7 @@ describe("ICD editor", () => {
     const input = await screen.findByLabelText("Cycle time");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "3000000h" } });
-    expect(
-      await screen.findByText(
-        "Cycle time must be 106751d 23h 47min 16s 854ms 775μs 807ns or less",
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText("Cycle time is too long")).toBeTruthy();
     fireEvent.blur(input);
     expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
       TimeSpan.milliseconds(250),

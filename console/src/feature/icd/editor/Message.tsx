@@ -33,8 +33,7 @@ const createPayload = (format: payload.Format): icd.Payload => {
 
 const checkCycleTime = (span: TimeSpan): string | null => {
   if (span.lessThan(TimeSpan.NANOSECOND)) return "Cycle time must be 1ns or more";
-  if (span.greaterThan(TimeSpan.MAX))
-    return `Cycle time must be ${Input.formatTimeSpan(TimeSpan.MAX)} or less`;
+  if (span.greaterThan(TimeSpan.MAX)) return "Cycle time is too long";
   return null;
 };
 
