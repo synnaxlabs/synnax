@@ -9,7 +9,7 @@
 
 import json
 from collections.abc import Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -22,6 +22,11 @@ class _Request(Protocol):
 
     @property
     def where(self) -> BaseModel | None: ...
+
+
+@runtime_checkable
+class _Searched(Protocol):
+    """A retrieve request that also matches a search term."""
 
     @property
     def search_term(self) -> str: ...
@@ -63,7 +68,7 @@ def sole_or_none[T](name: str, req: _Request, results: Sequence[T]) -> T | None:
 def _clause(req: _Request) -> str:
     description = filter.describe(req.where)
     clause = "" if description == "" else f" where {description}"
-    if req.search_term == "":
+    if not isinstance(req, _Searched) or req.search_term == "":
         return clause
     return f" matching {json.dumps(req.search_term, ensure_ascii=False)}{clause}"
 
