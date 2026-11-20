@@ -12,9 +12,6 @@
 // IT IS ABSOLUTELY MISSION CRITICAL THAT THIS BLOCK IS THE FIRST INCLUDE IN THIS FILE.
 // Otherwise, you will see a bunch of linker errors.
 #ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <winsock2.h>
 #endif
 // END OF MISSION CRITICAL CODE BLOCK.

@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -33,13 +34,16 @@ never in plain text.
 <Client.Tabs exclude={["typescript"]}>
   <Fragment slot="console">
 
-1. Run the "Connect Sift" command from the
-   [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+1. In the [devices toolbar](/reference/hardware/devices#devices-toolbar), click
+   <Icon.Add /> (**Connect device**), then select **Sift**. You can also run the
+   "Connect Sift" command.
 2. Enter a **Name** and the **URI** of the Sift gRPC API.
 3. Under **API key**, select the secret that holds the key. To add one, select **New
    secret** and paste the key.
 4. Leave **Connect from** set to the Core.
 5. Click **Connect**. The Console tests the connection before it saves it.
+
+<Video id="ranges/sift/connect" label="Connect Sift from the devices toolbar" />
 
   </Fragment>
   <Fragment slot="python">
@@ -74,7 +78,8 @@ Every other URI uses TLS.
 <Client.Tabs exclude={["typescript"]}>
   <Fragment slot="console">
 
-Open the upload dialog from one of these places:
+Open the upload dialog from one of these places. The Sift items show in these menus only
+while the Core has a Sift connection.
 
 - **A range** -> right-click the range in the ranges toolbar or in a range list, and
   select <Icon.Logo.Sift /> **Upload to Sift**.
@@ -93,6 +98,12 @@ Then:
    asset** and enter its name.
 3. Select the **Channels** to upload.
 4. Click **Upload**.
+
+<Video id="ranges/sift/upload" label="Upload a range to a Sift asset" />
+
+To upload part of a test, select a region of a line plot and upload the selection:
+
+<Video id="ranges/sift/upload-region" label="Upload a region of a line plot to Sift" />
 
   </Fragment>
   <Fragment slot="python">
@@ -148,6 +159,8 @@ An upload of a range that has not ended sends the data up to the current time.
 4. Optional: under **Runs**, select **Labels**. A range with one of these labels becomes
    a Sift run.
 5. Click <Icon.Play /> (**Start**).
+
+<Video id="ranges/sift/stream-task" label="Create and start a Sift stream task" />
 
   </Fragment>
   <Fragment slot="python">

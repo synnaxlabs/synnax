@@ -784,7 +784,6 @@ impl Drop for Prober {
 mod tests {
     use super::*;
     use std::future::Future;
-    use std::os::unix::fs::PermissionsExt;
     use std::pin::Pin;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -894,8 +893,16 @@ while true; do sleep 1; done
         fn new(script: &str, probe: probe::Probe) -> Self {
             let dir = tempfile::tempdir().unwrap();
             let program = dir.path().join("core");
-            std::fs::write(&program, script).unwrap();
-            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+            // On Linux, a fork on another test thread can inherit a write fd on the
+            // script until it execs, and then running the script fails with ETXTBSY. A
+            // child writes it, so this process never holds that fd.
+            let written = std::process::Command::new("/bin/sh")
+                .args(["-c", r#"printf '%s' "$1" > "$0" && chmod 755 "$0""#])
+                .arg(&program)
+                .arg(script)
+                .status()
+                .unwrap();
+            assert!(written.success());
             let cfg = Config {
                 start_timeout: Duration::from_secs(5),
                 stop_timeout: Duration::from_millis(300),
@@ -1135,10 +1142,16 @@ while true; do sleep 1; done
         assert_eq!(first.starts, 0);
         assert_eq!(first.failures, 1);
         assert_eq!(first.last_exit.unwrap().reason, Reason::FailedToStart);
+        // Starting can pass before a status read, so wait on the count instead.
+        let mut history = sup.history.clone();
         sup.restart().await;
-        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
-        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
-        assert_eq!(sup.history().failures, 2);
+        tokio::time::timeout(
+            Duration::from_secs(10),
+            history.wait_for(|h| h.failures == 2),
+        )
+        .await
+        .expect("timed out waiting for the second failure")
+        .unwrap();
     }
 
     #[tokio::test]
@@ -1337,7 +1350,7 @@ while true; do sleep 1; done
     async fn gives_up_on_a_core_that_hangs_after_each_start_despite_a_long_stop() {
         let calls = Arc::new(AtomicUsize::new(0));
         let probe: probe::Probe = Arc::new(move |_| {
-            let ok = calls.fetch_add(1, Ordering::SeqCst) % 4 == 0;
+            let ok = calls.fetch_add(1, Ordering::SeqCst).is_multiple_of(4);
             Box::pin(async move { ok })
         });
         let mut f = Fixture::new(STUBBORN, probe);

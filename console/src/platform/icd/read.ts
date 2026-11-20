@@ -11,29 +11,13 @@ import { type channel, type icd, type Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload, unique } from "@synnaxlabs/x";
 
-import { converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
-
-/** Writes the value of one message field to a channel. */
-export interface ReadBinding {
-  field: icd.FieldKey;
-  channel: channel.Key;
-  /** The data type of the channel that deploying creates. Empty takes the default. */
-  dataType: string;
-}
-
-/** Reads the values of one ICD message. */
-export interface ReadMessage {
-  message: icd.MessageKey;
-  /** The field whose channel indexes the others. Absent when the source stamps it. */
-  index?: icd.FieldKey;
-  bindings: ReadBinding[];
-}
+import { converts } from "@/platform/icd/dataType";
 
 /** A source of a read task, such as a topic or a record, that reads ICD messages. */
 export interface ReadSource {
   icd: icd.Key;
   disabled: boolean;
-  messages: ReadMessage[];
+  messages: icd.ReadMessage[];
 }
 
 /** The messages of each ICD, by ICD key. */
@@ -57,27 +41,32 @@ export const retrieveMessages = async (
 /** @returns the fields that a read gives channels: the bound ones and the index. */
 export const readFields = (
   fields: icd.JSONField[],
-  { index, bindings }: Pick<ReadMessage, "index" | "bindings">,
+  { index, bindings }: Pick<icd.ReadMessage, "index" | "bindings">,
 ): icd.JSONField[] =>
   fields.filter(
     ({ key }) => key === index || bindings.some(({ field }) => field === key),
   );
 
-const isVariable = ({ type }: icd.JSONField): boolean =>
-  new DataType(DEFAULT_DATA_TYPES[type]).isVariable;
-
 /**
- * The fields of a message share one index, which a variable-length channel cannot have.
- * @returns the variable-length fields among fields that also hold fixed ones.
+ * What a read tree shows of a field. It holds only JSON values, so a tree can compare
+ * its structure as a string, and an edit to the rest of the field keeps the structure.
  */
-export const variableAmongFixed = (fields: icd.JSONField[]): icd.JSONField[] =>
-  fields.every(isVariable) ? [] : fields.filter(isVariable);
+export type TreeField = Pick<icd.JSONField, "key" | "name" | "type" | "pointer">;
 
-export const mixMessage = (fields: icd.JSONField[]): string =>
-  `${fields.map(({ name }) => name).join(", ")}: a string, JSON, or bytes field cannot share a message with number, boolean, or timestamp fields.`;
+export const treeFieldOf = ({
+  key,
+  name,
+  type,
+  pointer,
+}: icd.JSONField): TreeField => ({
+  key,
+  name,
+  type,
+  pointer,
+});
 
 /** @returns whether the Core can read the field: a bytes field needs a pointer. */
-export const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
+export const isReadable = ({ type, pointer }: TreeField): boolean =>
   type !== "bytes" || pointer !== "";
 
 export const isIndexable = (field?: icd.JSONField): boolean =>
@@ -93,7 +82,10 @@ export const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
  * and no index that is not a timestamp field. An index field with a default stays, for
  * its error to show.
  */
-export const suit = (read: ReadMessage, fields: icd.JSONField[]): ReadMessage => {
+export const suit = (
+  read: icd.ReadMessage,
+  fields: icd.JSONField[],
+): icd.ReadMessage => {
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const indexField = read.index == null ? undefined : byKey.get(read.index);
   const index = indexField?.type === "timestamp" ? read.index : undefined;
@@ -117,10 +109,10 @@ export const suit = (read: ReadMessage, fields: icd.JSONField[]): ReadMessage =>
  * into indexChannel.
  */
 export const reindex = (
-  read: ReadMessage,
+  read: icd.ReadMessage,
   next: icd.FieldKey | undefined,
   indexChannel: channel.Key,
-): ReadMessage => {
+): icd.ReadMessage => {
   const bindings = read.bindings.filter(
     ({ field }) => field !== read.index && field !== next,
   );

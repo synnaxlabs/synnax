@@ -78,6 +78,15 @@ GENERATOR_TYPE_TIMESTAMP: Literal["timestamp"] = "timestamp"
 
 GeneratorType = Literal["uuid", "timestamp"]
 
+FORMAT_JSON: Literal["json"] = "json"
+
+FORMAT_TEXT: Literal["text"] = "text"
+
+FORMAT_BINARY: Literal["binary"] = "binary"
+
+
+Format = Literal["json", "text", "binary"]
+
 
 class FloatEntry(BaseModel):
     """Maps a payload label to a float channel value.

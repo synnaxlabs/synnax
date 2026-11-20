@@ -10,8 +10,8 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type optional } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { compare, type optional } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/Frame";
 import { Legend as Base } from "@/vis/legend";
@@ -49,29 +49,27 @@ const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
     name: key,
     data,
   }));
-  groups.sort((a, b) => a.name.localeCompare(b.name));
+  groups.sort(compare.by((g) => g.name));
   return groups;
 };
 
-const Floating = memo(
-  ({
-    onLineColorChange,
-    onLineLabelChange,
-    onLineVisibleChange,
-    ...rest
-  }: FloatingProps): ReactElement => {
-    const { lines } = useContext("LinePlot.Legend");
-    const groups = groupLines(lines);
-    const handlers: LineHandlers = {
-      onColorChange: onLineColorChange,
-      onLabelChange: onLineLabelChange,
-      onVisibleChange: onLineVisibleChange,
-    };
-    if (groups.length === 1)
-      return <Base.Simple data={groups[0].data} {...handlers} {...rest} />;
-    return <Base.Grouped data={groups} {...handlers} {...rest} />;
-  },
-);
+const Floating = ({
+  onLineColorChange,
+  onLineLabelChange,
+  onLineVisibleChange,
+  ...rest
+}: FloatingProps): ReactElement => {
+  const { lines } = useContext("LinePlot.Legend");
+  const groups = groupLines(lines);
+  const handlers: LineHandlers = {
+    onColorChange: onLineColorChange,
+    onLabelChange: onLineLabelChange,
+    onVisibleChange: onLineVisibleChange,
+  };
+  if (groups.length === 1)
+    return <Base.Simple data={groups[0].data} {...handlers} {...rest} />;
+  return <Base.Grouped data={groups} {...handlers} {...rest} />;
+};
 Floating.displayName = "LinePlot.FloatingLegend";
 
 interface FixedProps extends Pick<
@@ -105,8 +103,9 @@ const Fixed = ({
     );
   return (
     <Flex.Box align="center" justify="start" x style={gridStyle} gap="huge">
-      <FocusedGroup name="Y1" data={groups[0].data} {...handlers} />
-      <FocusedGroup name="Y2" data={groups[1].data} {...handlers} />
+      {groups.map(({ key: groupKey, name, data }) => (
+        <FocusedGroup key={groupKey} name={name} data={data} {...handlers} />
+      ))}
     </Flex.Box>
   );
 };

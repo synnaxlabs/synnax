@@ -27,7 +27,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color as PColor, Flux, Group } from "@synnaxlabs/pluto";
-import { array, color as xcolor, type record, uuid } from "@synnaxlabs/x";
+import { array, color as xcolor, compare, type record, uuid } from "@synnaxlabs/x";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import pluralize from "pluralize";
 import {
@@ -45,9 +45,9 @@ import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "2fr" },
-  { name: "Light", width: "1fr" },
-  { name: "Dark", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 2fr)" },
+  { name: "Light", width: "minmax(16rem, 1fr)" },
+  { name: "Dark", width: "minmax(16rem, 1fr)" },
 ];
 
 const PALETTE_PREFIX = "palette:";
@@ -671,24 +671,27 @@ export const Settings = (): ReactElement => {
   );
   const paletteName = (c: color.Named): string | undefined =>
     c.group == null ? undefined : palettes.get(c.group);
-  const compare = (a: color.Named, b: color.Named): number => {
+  const byPalette = (a: color.Named, b: color.Named): number => {
     const pa = paletteName(a);
     const pb = paletteName(b);
-    if (pa !== pb) {
-      if (pa == null) return 1;
-      if (pb == null) return -1;
-      return pa.localeCompare(pb);
-    }
-    return comparePositions(a.position, b.position) || a.name.localeCompare(b.name);
+    if (pa === pb) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return compare.text(pa, pb);
   };
+  const inOrder = compare.chain(
+    byPalette,
+    (a, b) => comparePositions(a.position, b.position),
+    compare.by((c) => c.name),
+  );
   const sorted = list.data
     .flatMap((k) => {
       const c = byKey.get(k);
       return c == null ? [] : [c];
     })
-    .sort(compare);
+    .sort(inOrder);
   // Every color of each palette, whatever the search shows.
-  const members = Map.groupBy([...all].sort(compare), (c) => c.group ?? "");
+  const members = Map.groupBy([...all].sort(inOrder), (c) => c.group ?? "");
   const move = (dragged: color.Key, target: color.Key): void => {
     const d = byKey.get(dragged);
     const t = byKey.get(target);
@@ -701,7 +704,7 @@ export const Settings = (): ReactElement => {
     .map((c) => c.light);
   const byGroup = Map.groupBy(sorted, (c) => c.group ?? "");
   const order = [...palettes.entries()]
-    .sort(([, a], [, b]) => a.localeCompare(b))
+    .sort(compare.by(([, name]) => name))
     .map(([key]) => key);
   if (byGroup.has("")) order.push("");
   const headings = new Map<string, PaletteHeadingProps>();

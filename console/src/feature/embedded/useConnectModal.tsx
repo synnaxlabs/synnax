@@ -16,10 +16,12 @@ import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Credential, Synnax } from "@synnaxlabs/pluto";
+import { strings } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { countSessions, ensure, replace } from "@/feature/embedded/apiKey";
@@ -65,15 +67,31 @@ const typeScriptInstall = (release: string | null): Code.Lines => [
   ],
 ];
 
-const typeScriptCode = (host: string, port: number, apiKey: string): Code.Lines => [
+const TYPESCRIPT_IMPORT: Code.Token[] = [
+  Code.keyword("import"),
+  " { Synnax } ",
+  Code.keyword("from"),
+  " ",
+  Code.quoted("@synnaxlabs/client"),
+  ";",
+];
+
+const NODE_CODE: Code.Lines = [
+  TYPESCRIPT_IMPORT,
+  [],
+  [Code.comment("// Finds Synnax Desktop on this computer.")],
   [
-    Code.keyword("import"),
-    " { Synnax } ",
-    Code.keyword("from"),
+    Code.keyword("const"),
+    " client = ",
+    Code.keyword("new"),
     " ",
-    Code.quoted("@synnaxlabs/client"),
-    ";",
+    Code.call("Synnax"),
+    "();",
   ],
+];
+
+const browserCode = (host: string, port: number, apiKey: string): Code.Lines => [
+  TYPESCRIPT_IMPORT,
   [],
   [
     Code.keyword("const"),
@@ -124,34 +142,52 @@ interface TypeScriptTabProps extends TabProps {
   apiKey: string;
 }
 
+type Runtime = "node" | "browser";
+
 const TypeScriptTab = ({
   release,
   host,
   port,
   apiKey,
-}: TypeScriptTabProps): ReactElement => (
-  <Flex.Box y gap="large">
-    <Step title="Install">
-      <Code.Snippet
-        label="TypeScript install command"
-        code={typeScriptInstall(release)}
-      />
-    </Step>
-    <Step title="Connect">
-      <Code.Snippet
-        label="TypeScript code"
-        code={typeScriptCode(host, port, `${apiKey.slice(0, 4)}${MASK}`)}
-        copy={typeScriptCode(host, port, apiKey)}
-      />
-      <Text.Text level="small" color={9}>
-        The code holds the API key, so keep it private.
-      </Text.Text>
-    </Step>
-  </Flex.Box>
-);
-
-const formatSessions = (count: number): string =>
-  `${count} ${count === 1 ? "session" : "sessions"}`;
+}: TypeScriptTabProps): ReactElement => {
+  const [runtime, setRuntime] = useState<Runtime>("node");
+  return (
+    <Flex.Box y gap="large">
+      <Step title="Install">
+        <Code.Snippet
+          label="TypeScript install command"
+          code={typeScriptInstall(release)}
+        />
+      </Step>
+      <Step title="Connect">
+        <Select.Buttons<Runtime> value={runtime} onChange={setRuntime}>
+          <Select.Item<Runtime> itemKey="node">
+            <Icon.NodeJS />
+            Node.js
+          </Select.Item>
+          <Select.Item<Runtime> itemKey="browser">
+            <Icon.Browser />
+            Browser
+          </Select.Item>
+        </Select.Buttons>
+        {runtime === "node" ? (
+          <Code.Snippet label="TypeScript Node.js code" code={NODE_CODE} />
+        ) : (
+          <>
+            <Code.Snippet
+              label="TypeScript browser code"
+              code={browserCode(host, port, `${apiKey.slice(0, 4)}${MASK}`)}
+              copy={browserCode(host, port, apiKey)}
+            />
+            <Text.Text level="small" color={9}>
+              The code holds the API key, so keep it private.
+            </Text.Text>
+          </>
+        )}
+      </Step>
+    </Flex.Box>
+  );
+};
 
 interface SessionCountProps {
   apiKey: string;
@@ -165,7 +201,7 @@ const SessionCount = ({ apiKey, subject }: SessionCountProps): ReactElement | nu
   return (
     <Text.Text color={9}>
       {sessions.variant === "success"
-        ? formatSessions(countSessions(sessions.data, apiKey))
+        ? strings.count(countSessions(sessions.data, apiKey), "session")
         : "Sessions unknown"}
     </Text.Text>
   );
@@ -204,7 +240,7 @@ const ConnectModal = (): ReactElement => {
       const confirmed = await confirm({
         message: "Are you sure you want to reset the API key?",
         description:
-          "Every script that uses the current key disconnects. Python scripts that call sy.Synnax() use the new key the next time they start. Code that holds the key needs the new one.",
+          "Every script that uses the current key disconnects. Scripts that call sy.Synnax() or new Synnax() with no arguments use the new key the next time they start. Code that holds the key needs the new one.",
         confirm: { label: "Reset key" },
       });
       if (confirmed !== true) return;

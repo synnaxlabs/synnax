@@ -10,6 +10,7 @@
 import "@/platform/device/Select.css";
 
 import { device } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
@@ -17,7 +18,6 @@ import { Access, Device } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { useHandleChange } from "@/platform/device/useHandleChange";
 
@@ -52,6 +52,8 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   onConfigure: (deviceKey: device.Key) => void;
   emptyContent?: string;
   label?: string;
+  /** What the select calls a device, such as "connection". */
+  resourceName?: string;
   make: string;
   model?: string;
   path?: deep.Target<device.Key>;
@@ -69,6 +71,7 @@ export const Select = ({
   emptyContent = "No devices connected",
   filter: filterProp,
   label = "Device",
+  resourceName,
   make,
   model,
   path = root.config.device,
@@ -103,6 +106,7 @@ export const Select = ({
           query={{ where: { make: { eq: make } } }}
           filter={filter}
           emptyContent={emptyContent}
+          resourceName={resourceName}
           grow
           icon={icon}
           locationFormat={locationFormat}

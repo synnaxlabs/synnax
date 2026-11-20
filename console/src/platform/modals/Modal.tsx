@@ -9,7 +9,9 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { memo, type ReactElement, useLayoutEffect } from "react";
+import { Modal as Base } from "@synnaxlabs/lyra/modal";
+import { Errors as PErrors } from "@synnaxlabs/pluto";
+import { type ReactElement, useLayoutEffect } from "react";
 
 import { Errors } from "@/platform/errors";
 import { type Session } from "@/session";
@@ -34,9 +36,16 @@ export const useBusy = (busy: boolean): void => {
   }, [busy, setBusy]);
 };
 
+// The content draws its own surface, so a fallback in its place needs one too.
+const Fallback = (props: PErrors.FallbackProps): ReactElement => (
+  <Base.Frame>
+    <Errors.Diagnostics {...props} />
+  </Base.Frame>
+);
+
 interface ModalProps extends Session.Modals.Entry {}
 
-export const Modal = memo(({ dismiss, render, setBusy }: ModalProps): ReactElement => {
+export const Modal = ({ dismiss, render, setBusy }: ModalProps): ReactElement => {
   const handleDismiss = () => dismiss();
   return (
     <Dialog.Frame
@@ -46,9 +55,11 @@ export const Modal = memo(({ dismiss, render, setBusy }: ModalProps): ReactEleme
       background={0}
     >
       <BusyContext value={setBusy}>
-        <Errors.SuspenseBoundary>{render()}</Errors.SuspenseBoundary>
+        <PErrors.SuspenseBoundary FallbackComponent={Fallback}>
+          {render()}
+        </PErrors.SuspenseBoundary>
       </BusyContext>
     </Dialog.Frame>
   );
-});
+};
 Modal.displayName = "Modal";

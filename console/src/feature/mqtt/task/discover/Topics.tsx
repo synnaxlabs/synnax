@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { id, search, unique } from "@synnaxlabs/x";
+import { compare, id, math, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
@@ -89,7 +89,7 @@ const buildFolders = (topics: ListedTopic[]): Folder[] => {
     node.topic = t;
   }
   const finish = (nodes: Folder[]) => {
-    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.sort(compare.by((n) => n.name));
     for (const n of nodes) {
       finish(n.children);
       n.topics = [
@@ -126,8 +126,8 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
   );
 
 /**
- * The values a click on a topic picks: its numbers and booleans, or all of them. A
- * single pick takes the first.
+ * The values a click on a topic picks: each free one. A single pick takes the first
+ * number or boolean, or else the first string.
  */
 const defaultPointers = (
   leaves: Leaf[],
@@ -135,9 +135,9 @@ const defaultPointers = (
   single: boolean,
 ): Set<string> => {
   const free = leaves.filter((l) => taken?.has(l.pointer) !== true);
-  const scalars = free.filter((l) => !l.disabled);
-  const picked = scalars.length > 0 ? scalars : free;
-  return new Set((single ? picked.slice(0, 1) : picked).map((l) => l.pointer));
+  if (!single) return new Set(free.map((l) => l.pointer));
+  const first = free.find((l) => l.type !== "string") ?? free.at(0);
+  return new Set(first == null ? [] : [first.pointer]);
 };
 
 /** The values picked from one topic, with the fields they came from. */
@@ -180,10 +180,7 @@ const toItem = (
 ): ICD.Picker.TreeItem => {
   const pickable = topics.filter((t) => freeCount(t, taken) > 0);
   const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
-  const values = topics.reduce(
-    (sum, t) => sum + (picks.get(t.topic)?.pointers.size ?? 0),
-    0,
-  );
+  const values = math.sum(topics.map((t) => picks.get(t.topic)?.pointers.size ?? 0));
   let meta = "";
   if (values > 0) meta = `${values} selected`;
   else if (topic != null && taken.has(topic.topic)) meta = "In task";

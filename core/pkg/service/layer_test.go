@@ -13,6 +13,8 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"time"
 	"uuid"
@@ -26,9 +28,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
+	sectestutil "github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -42,6 +48,7 @@ import (
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
+	svcnode "github.com/synnaxlabs/synnax/pkg/service/node"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pagerdutyv1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
@@ -51,10 +58,13 @@ import (
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -67,6 +77,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/spatial"
@@ -76,6 +87,37 @@ import (
 )
 
 var _ = Describe("Layer", func() {
+	It("Should report the expiry of the Core's CA and listener certificates",
+		func(ctx SpecContext) {
+			certFS := xfs.NewMem()
+			sectestutil.GenerateCerts(certFS)
+			certsDir := MustSucceed(certFS.Sub(cert.DefaultLoaderConfig.CertsDir))
+			n := testutil.NewNode(ctx)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, n, service.LayerConfig{
+				CA: MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: certFS})),
+				Listeners: []certificate.Listener{{
+					Address: "localhost:9090",
+					Source: MustSucceed(
+						file.NewSource(certsDir, "node.crt", "node.key"),
+					),
+				}},
+			}))
+			prefix := svcnode.ResourceID(n.Identity.HostKey).String() + ":certificate:"
+			Eventually(func(g Gomega) {
+				var found []status.Status[any]
+				g.Expect(layer.Status.NewRetrieve[any]().
+					WherePrefix(prefix).
+					Entries(&found).
+					Exec(ctx, n.DB)).To(Succeed())
+				g.Expect(lo.Map(found, func(s status.Status[any], _ int) string {
+					return s.Name
+				})).To(ConsistOf(
+					HavePrefix("CA certificate "),
+					Equal("Certificate of localhost:9090"),
+				))
+			}).Should(Succeed())
+		})
+
 	It("Should cap external channels at the license's limit", func(ctx SpecContext) {
 		signer := svctestutil.NewSigner()
 		lic := svctestutil.NewLicense()
@@ -694,6 +736,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Channel", resource.TypeChannel),
 		Entry("Color", resource.TypeColor),
 		Entry("Device", resource.TypeDevice),
+		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),
@@ -850,6 +893,70 @@ var _ = Describe("Group moves", Ordered, func() {
 })
 
 var _ = Describe("LayerConfig", func() {
+	It("Should read a file secret of the Core's rack from its secrets folder", func(
+		ctx SpecContext,
+	) {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "token"), []byte("t"), 0o600)).
+			To(Succeed())
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(
+			ctx,
+			node,
+			service.LayerConfig{SecretsDir: dir},
+		))
+		// The Core's rack runs the integrations of the Core, such as Sift.
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration(sift.Make)).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		s := secret.Secret{Variant: secret.FileSecret{
+			Base:     secret.Base{Name: "Token"},
+			FileName: "token",
+			Rack:     coreRack.Key,
+		}}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Secret.NewWriter(tx).Set(ctx, &s, nil)
+		})).To(Succeed())
+		key := s.Base().Key
+		Expect(layer.Secret.Reveal(ctx, node.DB, key)).
+			To(Equal(map[secret.Key][]byte{key: []byte("t")}))
+	})
+
+	It("Should give the Core's rack a file browser task", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration("file")).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		var browser task.Task
+		Expect(layer.Task.NewRetrieve().
+			Where(task.And(
+				task.MatchRacks(coreRack.Key),
+				task.MatchTypes("file_browser"),
+			)).
+			Entry(&browser).
+			Exec(ctx, node.DB)).To(Succeed())
+		Expect(browser.Name).To(Equal("File Browser"))
+		Expect(browser.Internal).To(BeTrue())
+	})
+
+	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {
+		dir := filepath.Join(GinkgoT().TempDir(), "missing")
+		Expect(svctestutil.OpenLayer(
+			ctx,
+			testutil.NewNode(ctx),
+			service.LayerConfig{SecretsDir: dir},
+		)).Error().To(SatisfyAll(
+			MatchError(os.ErrNotExist),
+			MatchError(HavePrefix("secrets folder: ")),
+			MatchError(ContainSubstring(dir)),
+		))
+	})
+
 	It("Should require a secrets key", func() {
 		cfg := service.LayerConfig{
 			Distribution: &distribution.Layer{},

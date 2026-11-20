@@ -64,9 +64,32 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: scripts
+          persist-credentials: false
 
       - name: Check the oldest supported TypeScript
         run: scripts/check_declarations_ts.sh --window
+
+  # Outside CI, so a new Deno or Bun release fails neither PRs nor a Release that reuses
+  # this run.
+  latest-runtimes:
+    name: Smoke-test the client on the latest Deno and Bun
+    needs: ci
+    if: ${{ !cancelled() && needs.ci.outputs.core_image != '' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      core_image: ${{ needs.ci.outputs.core_image }}
+      directory: client/ts
+      latest_runtimes: true
+      lint: false
+      package: client
+      runtimes: true
+      test: false
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   # Only this run saves the Go caches of most modules, and a failed run saves some.
   prune:
@@ -91,6 +114,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -129,3 +153,46 @@ jobs:
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  triage-report:
+    name: Post the triage
+    needs: triage
+    if: always() && needs.triage.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Post the triage to Slack
+        env:
+          PR_URL: ${{ needs.triage.outputs.pr-url }}
+          RESULT: ${{ needs.triage.result }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+        run: |
+          if [ -n "$PR_URL" ]; then
+            REPORT="Opened <$PR_URL|a fix> for the failed run."
+          else
+            REPORT="Opened no fix ($RESULT)."
+          fi
+          printf '*Nightly triage*\n%s\n<%s|Run>\n' "$REPORT" \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" |
+            jq --raw-input --slurp '{text: .}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" \
+              --data @- "$SLACK_WEBHOOK_URL"
+
+  relay-failure:
+    name: Relay the failure
+    needs:
+      - ci
+      - typescript-window
+      - latest-runtimes
+      - prune
+      - triage-prompt
+      - triage
+      - triage-report
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true
+      report: true

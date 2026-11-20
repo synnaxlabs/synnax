@@ -61,11 +61,10 @@ Run each script with `npx tsx <file>`.
 
 </Client.Tabs>
 
-The scripts connect to Synnax Desktop on the same computer. In Python, `sy.Synnax()`
-with no arguments finds it, unless `sy login` saved a Core, which it then uses. In
-TypeScript, copy the host, the port, and the API key from the **Connect from code**
-dialog of Synnax Desktop. To connect to a Synnax Core instead, pass its address and a
-login. See [Connect to a Core](/reference/client/connect).
+The scripts connect to Synnax Desktop on the same computer. The clients find it when you
+give no arguments, but in Python, a Core that `sy login` saved comes first. To connect
+to a Synnax Core instead, pass its address and a login. See
+[Connect to a Core](/reference/client/connect).
 
 Set `PORT` to the serial port of your Arduino, which the Arduino IDE shows.
 
@@ -146,12 +145,7 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
-// Copy these values from the Connect from code dialog of Synnax Desktop.
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "<API key>",
-});
+const client = new Synnax();
 
 const time = await client.channels.create(
   { name: "arduino_time", isIndex: true, dataType: DataType.TIMESTAMP },
@@ -191,7 +185,10 @@ script uses the existing channels when you run it again. For more about writers,
 
 While the script runs, open a line plot in the Console and add `arduino_value`:
 
-<Video id="client/resources/build-device-driver/line-plot" />
+<Video
+  id="client/resources/build-device-driver/line-plot"
+  label="A line plot shows the live value from the Arduino"
+/>
 
 <Divider.Divider x />
 
@@ -264,12 +261,7 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
-// Copy these values from the Connect from code dialog of Synnax Desktop.
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "<API key>",
-});
+const client = new Synnax();
 
 await client.channels.create(
   { name: "arduino_command", dataType: DataType.UINT8, virtual: true },
@@ -300,7 +292,10 @@ While the script runs, add a switch to a [schematic](/reference/visualize/schema
 and set its command channel and its state channel to `arduino_command`. Then take
 control of the schematic, and click the switch:
 
-<Video id="client/resources/build-device-driver/schematic" />
+<Video
+  id="client/resources/build-device-driver/schematic"
+  label="Click a schematic switch that writes a command to the Arduino"
+/>
 
 The switch changes when you click it, even when the script does not run. Five seconds
 after each click, it shows the stale color. The next section fixes this.
@@ -419,12 +414,7 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
-// Copy these values from the Connect from code dialog of Synnax Desktop.
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "<API key>",
-});
+const client = new Synnax();
 
 await client.channels.create(
   { name: "arduino_command", dataType: DataType.UINT8, virtual: true },
@@ -487,6 +477,9 @@ While the script runs, set the command channel of the switch to `arduino_command
 its state channel to `arduino_state`. Then take control, and click the switch. It turns
 on when the Arduino reports the new state:
 
-<Video id="client/resources/build-device-driver/console-setup" />
+<Video
+  id="client/resources/build-device-driver/console-setup"
+  label="A schematic switch shows the state that the Arduino reports"
+/>
 
 To plot `arduino_value`, add it to a line plot, as in the first section.

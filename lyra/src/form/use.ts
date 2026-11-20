@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type destructor, errors } from "@synnaxlabs/x";
+import { deep, type destructor, errors, map } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
 import { type z } from "zod";
 
@@ -78,11 +78,7 @@ export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
 export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => {
   const { schema, mode = "normal", onChange, onHasTouched, store } = params;
   const ref = useInitializerRef<State<Z>>(
-    () =>
-      new State<Z>(
-        params.store !== undefined ? params.store : createLocalStore(params.values),
-        schema,
-      ),
+    () => new State<Z>(params.store ?? createLocalStore(params.values), schema),
   );
   const onChangeRef = useSyncedRef(onChange);
   const handleError = Status.useErrorHandler();
@@ -116,7 +112,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
   const commit = (path: string, write: () => void, silent = false) => {
     const change = {
       path,
-      prev: deep.get(ref.current.values, path, { optional: true }),
+      prev: deep.get(ref.current.values, path),
       silent,
     };
     const pending = batchRef.current;
@@ -263,7 +259,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
   const addStatusDisplay: ContextValue["addStatusDisplay"] = (target) => {
     const path = String(target);
     const displays = statusDisplaysRef.current;
-    displays.set(path, (displays.get(path) ?? 0) + 1);
+    map.increment(displays, path);
     return () => {
       const count = (displays.get(path) ?? 1) - 1;
       if (count === 0) displays.delete(path);

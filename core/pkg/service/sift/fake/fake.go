@@ -39,6 +39,9 @@ import (
 
 // Config configures a Server.
 type Config struct {
+	// Address is the host and port the Server listens on. An empty Address picks a free
+	// local port.
+	Address string
 	// APIKey is the bearer token every call must carry. An empty APIKey accepts every
 	// call.
 	APIKey string
@@ -102,9 +105,13 @@ var (
 	_ runsv2.RunServiceServer                         = (*Server)(nil)
 )
 
-// Open starts a Server on a free local port. The caller must Close it.
+// Open starts a Server. The caller must Close it.
 func Open(cfg Config) (*Server, error) {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	address := cfg.Address
+	if address == "" {
+		address = "127.0.0.1:0"
+	}
+	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}

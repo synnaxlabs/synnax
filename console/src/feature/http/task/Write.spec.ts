@@ -9,6 +9,7 @@
 
 import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -31,13 +32,12 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getHeaderIconButton,
-  uniqueName,
 } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(HTTP.Task.Write, {
+  const rendered = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE], {
     task: ZERO_DRAFT,
     ...options,
   });

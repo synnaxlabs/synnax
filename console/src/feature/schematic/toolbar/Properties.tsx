@@ -35,7 +35,7 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement, type ReactNode } from "react";
+import { type FC, type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
@@ -48,7 +48,7 @@ const path = deep.path<{
   specKey?: schematic.symbol.Key;
 }>();
 
-export const Properties = memo((): ReactElement => {
+export const Properties = (): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
   const configByKey = Schematic.useConfigs({ keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
@@ -66,7 +66,7 @@ export const Properties = memo((): ReactElement => {
       : "";
   // A symbol's form holds that symbol's config, so a change remounts it.
   return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
-});
+};
 Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
@@ -227,7 +227,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
     return Array.from(handleEls).map((el) => {
       const pos = box.center(box.construct(el));
-      const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
+      const dist = xy.scale(xy.sub(pos, box.topLeft(nodeElBox)), 1 / zoom);
       const match = el.className.match(/react-flow__handle-(\w+)/);
       if (match == null) throw new Error("Cannot find the handle orientation.");
       const orientation = location.outerZ.parse(match[1]);

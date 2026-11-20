@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"uuid"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -1242,18 +1243,6 @@ func (u *JSONMatch) SetBase(base JSONBaseMatch) {
 	}
 }
 
-// PayloadType is the "format" value that selects a variant of Payload.
-type PayloadType string
-
-const (
-	// BinaryPayloadType is a payload of raw bytes.
-	BinaryPayloadType PayloadType = "binary"
-	// TextPayloadType is a payload of one text line.
-	TextPayloadType PayloadType = "text"
-	// JSONPayloadType is a payload of one JSON document.
-	JSONPayloadType PayloadType = "json"
-)
-
 // PayloadVariant is implemented by every Payload variant.
 type PayloadVariant interface {
 	isPayloadVariant()
@@ -1350,19 +1339,19 @@ func (u Payload) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 	case BinaryPayload:
 		return json.MarshalEncode(enc, struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			BinaryPayload
-		}{Type: BinaryPayloadType, BinaryPayload: v})
+		}{Type: payload.FormatBinary, BinaryPayload: v})
 	case TextPayload:
 		return json.MarshalEncode(enc, struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			TextPayload
-		}{Type: TextPayloadType, TextPayload: v})
+		}{Type: payload.FormatText, TextPayload: v})
 	case JSONPayload:
 		return json.MarshalEncode(enc, struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			JSONPayload
-		}{Type: JSONPayloadType, JSONPayload: v})
+		}{Type: payload.FormatJSON, JSONPayload: v})
 	default:
 		return errors.Newf("Payload: unknown variant %T", v)
 	}
@@ -1380,7 +1369,7 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type PayloadType `json:"format"`
+		Type payload.Format `json:"format"`
 	}
 	if err := json.Unmarshal(
 		data, &disc, opts, json.RejectUnknownMembers(false),
@@ -1388,18 +1377,18 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case BinaryPayloadType:
+	case payload.FormatBinary:
 		var v struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			BinaryPayload
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v.BinaryPayload
-	case TextPayloadType:
+	case payload.FormatText:
 		var v struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			TextPayload
 		}
 		v.TextPayload.SetDefaults()
@@ -1407,9 +1396,9 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.TextPayload
-	case JSONPayloadType:
+	case payload.FormatJSON:
 		var v struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			JSONPayload
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
@@ -1428,14 +1417,14 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 // Format returns the format of the active variant, or an empty format when there is
 // none.
-func (u Payload) Format() PayloadType {
+func (u Payload) Format() payload.Format {
 	switch u.Variant.(type) {
 	case BinaryPayload:
-		return BinaryPayloadType
+		return payload.FormatBinary
 	case TextPayload:
-		return TextPayloadType
+		return payload.FormatText
 	case JSONPayload:
-		return JSONPayloadType
+		return payload.FormatJSON
 	}
 	return ""
 }
@@ -1495,4 +1484,27 @@ func (ic ICD) Validate() error {
 		v.Exec(func() error { return validate.PathedError(ic.Messages[i].Validate(), "messages", strconv.Itoa(i)) })
 	}
 	return v.Error()
+}
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding struct {
+	// Field is the key of the message field to read.
+	Field FieldKey `json:"field" msgpack:"field"`
+	// Channel is the channel the value of the field is written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// DataType is the data type of the channel that a client creates for the field.
+	// Empty takes the default of the field's kind. The Core ignores it once the channel
+	// exists.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+}
+
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage struct {
+	// Message is the key of the ICD message to read.
+	Message MessageKey `json:"message" msgpack:"message"`
+	// Index is the key of the field whose channel indexes the others. Absent when the
+	// task stamps samples on arrival.
+	Index *FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Bindings are the fields the task reads. A field with no binding is not read.
+	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
 }

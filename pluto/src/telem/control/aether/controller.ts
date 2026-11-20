@@ -22,13 +22,7 @@ import {
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
 import { type theme } from "@synnaxlabs/lyra/theme";
-import {
-  color,
-  compare,
-  type CrudeSeries,
-  type destructor,
-  errors,
-} from "@synnaxlabs/x";
+import { array, color, type CrudeSeries, type destructor, errors } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -162,10 +156,7 @@ export class Controller
         missing.push(errors.fromUnknown(e));
       }
     const nextKeys = Array.from(keys);
-    if (
-      compare.unorderedPrimitiveArrays(this.state.needsControlOf, nextKeys) !==
-      compare.EQUAL
-    )
+    if (!array.equalUnordered(this.state.needsControlOf, nextKeys))
       this.setState((p) => ({ ...p, needsControlOf: nextKeys }));
     return missing;
   }
@@ -502,10 +493,10 @@ export class AuthoritySource
     this.controller = controller;
     this.retrieve = new flux.Retrieve({
       definition: retrieveDefinition,
-      onChange: () => this.notify?.(),
+      onChange: () => this.observer.notify(),
       onError: (error) => runAsync(error, "Failed to retrieve control state"),
     });
-    this.stopListening = colors.onChange(() => this.notify?.());
+    this.stopListening = colors.onChange(() => this.observer.notify());
   }
 
   async needsControlOf(): Promise<channel.Key[]> {

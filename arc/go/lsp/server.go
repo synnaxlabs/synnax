@@ -497,12 +497,15 @@ func (s *Server) analyze(
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		t, err := parser.ParseBlock(wrappedContent, cfg)
 		if err != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*err, translateSource)
+			pDiagnostics = lsp.TranslateDiagnostics(
+				unwrapDiagnostics(*err),
+				translateSource,
+			)
 		} else {
 			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
-			docDiag = *aCtx.Diagnostics
+			docDiag = unwrapDiagnostics(*aCtx.Diagnostics)
 			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 		}
 	} else {

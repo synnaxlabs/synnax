@@ -23,6 +23,7 @@ import {
   newIndexedPair,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -32,7 +33,7 @@ import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
-import { CaptureStatuses, findDialogTriggerByText, uniqueName } from "@/testutil";
+import { CaptureStatuses, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -44,8 +45,8 @@ const createRange = async () =>
 
 // The device list pages, so a search finds the device however many the Core holds.
 const selectDevice = async (name: string) => {
-  fireEvent.click(await findDialogTriggerByText("Select device"));
-  fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+  fireEvent.click(await findDialogTriggerByText("Select connection"));
+  fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
     target: { value: name },
   });
   fireEvent.click(await screen.findByText(name));
@@ -182,7 +183,7 @@ describe("Sift.Range.useUploadModal", () => {
       data: { assets: ["pad"], last: "pad" },
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+    fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
       target: { value: second.name },
     });
     fireEvent.click(await screen.findByText(second.name));
@@ -218,7 +219,7 @@ describe("Sift.Range.useUploadModal", () => {
       message: "Sift is unreachable",
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+    fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
       target: { value: second.name },
     });
     fireEvent.click(await screen.findByText(second.name));

@@ -11,7 +11,6 @@ package time
 
 import (
 	"context"
-	"reflect"
 	stdtime "time"
 
 	acodes "github.com/synnaxlabs/arc/analyzer/codes"
@@ -310,8 +309,8 @@ func validateSpan(inputs types.Params, name string) error {
 		return validate.PathedError(
 			errors.Wrapf(
 				validate.ErrInvalidType,
-				"expected type telem.TimeSpan, received %s",
-				reflect.TypeOf(p.Value).Name(),
+				"expected type telem.TimeSpan, received %T",
+				p.Value,
 			),
 			p.Name,
 		)

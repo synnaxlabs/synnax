@@ -14,10 +14,12 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import {
+  array,
   bounds,
   type breaker,
-  compare,
   DataType,
+  map,
+  math,
   type Series,
   staticWindow,
   sync,
@@ -210,7 +212,7 @@ export class StreamMultiChannelLog
    * show twice. A log that is not live returns to the newest samples.
    */
   setChannels(channels: channel.Key[]): void {
-    if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
+    if (array.equal(this._channels, channels)) return;
     this._channels = channels;
     this.start = null;
     this.startRead++;
@@ -228,7 +230,7 @@ export class StreamMultiChannelLog
       this.resume();
       if (this.valid) void this.resolve();
     }
-    this.notify();
+    this.observer.notify();
   }
 
   /** The times the channels store, or null until the oldest is known. */
@@ -257,7 +259,7 @@ export class StreamMultiChannelLog
   resume(): void {
     // A late older page could evict the newest entries of a live log.
     this.cancelPage();
-    if (this.live) return this.notify();
+    if (this.live) return this.observer.notify();
     this.unread = [];
     this.skipped = [];
     this.skippedLines = 0;
@@ -273,7 +275,7 @@ export class StreamMultiChannelLog
       });
     });
     if (this.subscription != null) this.pull(this.subscription);
-    this.notify();
+    this.observer.notify();
   }
 
   /**
@@ -311,7 +313,7 @@ export class StreamMultiChannelLog
   ): Promise<Page[] | null> {
     const abort = new AbortController();
     [this.abort, this.paging, this.reading] = [abort, true, true];
-    this.notify();
+    this.observer.notify();
     const { signal } = abort;
     const pages = await Promise.all(read(signal));
     if (signal.aborted) return null;
@@ -321,8 +323,11 @@ export class StreamMultiChannelLog
         this.onStatusChange?.(failed);
       this.pageFailure = failed;
       this.reading = false;
-      this.notify();
-      if ((await this.pageBreaker.wait()) && !signal.aborted) this.paging = false;
+      this.observer.notify();
+      if ((await this.pageBreaker.wait()) && !signal.aborted) {
+        this.paging = false;
+        this.observer.notify();
+      }
       return null;
     }
     [this.paging, this.reading, this.pageFailure] = [false, false, undefined];
@@ -344,7 +349,7 @@ export class StreamMultiChannelLog
           span.counts.get(key) ?? 0,
         ) + 1,
       ]);
-    const size = (): number => [...span.counts.values()].reduce((a, b) => a + b, 0);
+    const size = (): number => math.sum(span.counts.values());
     const before = size();
     const range = new TimeRange(
       new TimeStamp(span.start + 1n),
@@ -375,7 +380,7 @@ export class StreamMultiChannelLog
       (missed && span.missed !== true)
     ) {
       if (this.unread[0] === span) span.missed = missed;
-      this.notify();
+      this.observer.notify();
       return;
     }
     const split = (): void => {
@@ -387,7 +392,7 @@ export class StreamMultiChannelLog
       if (middle > span.start)
         this.unread.splice(0, 1, half(span.start, middle), half(middle, span.end));
       else counts.forEach(([key, count]) => span.counts.set(key, count * 2));
-      this.notify();
+      this.observer.notify();
     };
     if (read.some(({ full }) => full)) return split();
     const groups = counts.flatMap(([key], i) =>
@@ -399,7 +404,7 @@ export class StreamMultiChannelLog
     const { skipped } = this;
     // A pull adds its groups one channel at a time.
     skipped.sort((a, b) => compareTimes(a[0], b[0]));
-    let lines = groups.reduce((total, group) => total + group.length, 0);
+    let lines = math.sum(groups.map((group) => group.length));
     let joined = 0;
     while (
       joined < skipped.length &&
@@ -437,7 +442,7 @@ export class StreamMultiChannelLog
     if (groups.length > 0) this.insert(groups);
     this.evict();
     if (live) this.rejoin(tail);
-    this.notify();
+    this.observer.notify();
   }
 
   // The lines the entries keep after an eviction.
@@ -525,7 +530,7 @@ export class StreamMultiChannelLog
         true,
       );
     this.evictNewest();
-    this.notify();
+    this.observer.notify();
   }
 
   private cancelPage(): void {
@@ -595,7 +600,7 @@ export class StreamMultiChannelLog
         if (read !== this.startRead) return;
         this.start = start;
         this.startPending = false;
-        return this.notify();
+        return this.observer.notify();
       } catch (e) {
         if (framer.retry.isDefinitive(e)) return;
         if (!(await this.startBreaker.wait())) {
@@ -617,11 +622,11 @@ export class StreamMultiChannelLog
       this.subscription = subscription;
       const sub = subscription;
       subscription.onChange(() => {
-        if (this.pull(sub)) this.notify();
+        if (this.pull(sub)) this.observer.notify();
       });
     }
     this.pull(subscription);
-    this.notify();
+    this.observer.notify();
   }
 
   // Adds the samples each channel received since the last pull, and returns whether
@@ -688,7 +693,7 @@ export class StreamMultiChannelLog
       const span =
         time > last.start ? last : this.unread.find(({ end }) => time <= end)!;
       if (time > span.end) span.end = time;
-      span.counts.set(channelKey, (span.counts.get(channelKey) ?? 0) + 1);
+      map.increment(span.counts, channelKey);
       span.lines = (span.lines ?? 0) + group.length;
     }
     let excess = 0;
@@ -705,7 +710,7 @@ export class StreamMultiChannelLog
     if (this.recheck != null) return;
     this.recheck = setTimeout(() => {
       this.recheck = null;
-      if (this.pull(subscription)) this.notify();
+      if (this.pull(subscription)) this.observer.notify();
     }, this.recheckInterval.milliseconds);
   }
 
@@ -826,7 +831,7 @@ export class StreamMultiChannelLog
     const counts = new Map<channel.Key, number>();
     for (const { channelKey, continuation } of evicted)
       if (continuation !== true && this.metas.get(channelKey)?.stored === true)
-        counts.set(channelKey, (counts.get(channelKey) ?? 0) + 1);
+        map.increment(counts, channelKey);
     const start = time(at - 1);
     // A channel with no entries left reads older samples from below the unread span.
     this.metas.forEach((m) => {
@@ -1077,16 +1082,11 @@ const compareTimes = (a: LogEntry, b: LogEntry): number => {
 
 // Returns the position after the last entry before time, or at or before it unless
 // prepended.
-const bound = (entries: LogEntry[], time: bigint, prepended: boolean): number => {
-  let [lo, hi] = [0, entries.length];
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    const t = entries[mid].timestamp.valueOf();
-    if (t < time || (!prepended && t === time)) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-};
+const bound = (entries: LogEntry[], time: bigint, prepended: boolean): number =>
+  array.partitionPoint(entries.length, (i) => {
+    const t = entries[i].timestamp.valueOf();
+    return prepended ? t >= time : t > time;
+  });
 
 export const streamMultiChannelLog = (
   props: StreamMultiChannelLogProps,

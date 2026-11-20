@@ -105,3 +105,15 @@ const (
 	// GeneratorTypeTimestamp produces the time of the payload.
 	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
 )
+
+// Format is the encoding of a whole payload.
+type Format = versions.Format
+
+const (
+	// FormatJSON is one JSON value.
+	FormatJSON Format = versions.FormatJSON
+	// FormatText is UTF-8 text.
+	FormatText Format = versions.FormatText
+	// FormatBinary is raw bytes.
+	FormatBinary Format = versions.FormatBinary
+)

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,7 +18,7 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -78,10 +79,7 @@ describe("Sift.Device.useConnectModal", () => {
     pressSaveTrigger();
     const cmd = await answered;
     expect(cmd.type).toBe(Sift.Task.TEST_CONNECTION_COMMAND_TYPE);
-    expect(cmd.args).toMatchObject({
-      connection: { uri: "localhost:50051", apiKey: apiKey.key },
-      grant: expect.any(String),
-    });
+    expect(cmd.args).toEqual({ grant: expect.any(String) });
     await waitFor(async () =>
       expect((await client.devices.retrieve({ key: dev.key })).location).toBe(
         "localhost:50051",
