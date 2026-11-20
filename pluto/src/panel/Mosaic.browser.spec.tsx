@@ -15,7 +15,6 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { map, TimeSpan, uuid } from "@synnaxlabs/x";
@@ -28,6 +27,7 @@ import {
 } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { Errors } from "@/errors";
 import { Panel } from "@/panel";
@@ -390,10 +390,7 @@ describe("Panel.Mosaic", () => {
     // The mosaic binds neither shortcut; the embedding app does. A hint that drifts
     // from the exported constant therefore advertises a key that does nothing.
     const hoverTooltip = async (el: HTMLElement): Promise<HTMLElement> => {
-      // jsdom lays every element out at zero size, and the tooltip closes itself
-      // against a zero-area anchor, so the anchor is given a real box first.
-      el.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
-      fireEvent.pointerEnter(el);
+      await userEvent.hover(el);
       let tip!: HTMLElement;
       await waitFor(() => {
         const found = document.querySelector<HTMLElement>(".lyra-tooltip");
@@ -424,8 +421,7 @@ describe("Panel.Mosaic", () => {
       // The right leaf's selected tab is not the selection head, so create would put
       // the new tab in the left leaf. Hinting the key here would point at the wrong
       // leaf, so the unfocused button opens no tooltip at all.
-      right.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
-      fireEvent.pointerEnter(right);
+      await userEvent.hover(right);
       await expect(
         waitFor(
           () => {
@@ -435,7 +431,7 @@ describe("Panel.Mosaic", () => {
           { timeout: 500 },
         ),
       ).rejects.toThrow();
-      fireEvent.pointerLeave(right);
+      await userEvent.unhover(right);
 
       const tip = await hoverTooltip(left);
       expect(tip.textContent?.toLowerCase()).toContain("t");
@@ -451,8 +447,7 @@ describe("Panel.Mosaic", () => {
       });
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
       const [create] = createButtons(utils);
-      create.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
-      fireEvent.pointerEnter(create);
+      await userEvent.hover(create);
       await expect(
         waitFor(
           () => {
@@ -685,9 +680,7 @@ describe("Panel.Mosaic", () => {
       );
 
     const openMenuOn = async (utils: RenderResult, target: HTMLElement) => {
-      await act(async () => {
-        fireEvent.contextMenu(target);
-      });
+      await userEvent.click(target, { button: "right" });
       await waitFor(() => expect(utils.getByText("Close")).toBeTruthy());
     };
 
@@ -723,9 +716,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await openMenuOn(utils, utils.getByText(`name:${b.key}`));
-      await act(async () => {
-        fireEvent.click(utils.getByText("Close"));
-      });
+      await userEvent.click(utils.getByText("Close"));
 
       await waitFor(async () => {
         const fetched = await client.panels.retrieve(p.key);
@@ -748,9 +739,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await openMenuOn(utils, utils.getByText(`name:${b.key}`));
-      await act(async () => {
-        fireEvent.click(utils.getByText("Split horizontally"));
-      });
+      await userEvent.click(utils.getByText("Split horizontally"));
 
       await waitFor(async () => {
         const fetched = await client.panels.retrieve(p.key);
@@ -780,8 +769,14 @@ describe("Panel.Mosaic", () => {
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
-      await act(async () => {
-        fireEvent.contextMenu(utils.getByRole("tablist"));
+      // Right-click the tab bar past its last tab.
+      const tablist = utils.getByRole("tablist");
+      const tabs = utils.getAllByRole("tab");
+      const last = tabs[tabs.length - 1].getBoundingClientRect();
+      const bar = tablist.getBoundingClientRect();
+      await userEvent.click(tablist, {
+        button: "right",
+        position: { x: last.right - bar.left + 10, y: bar.height / 2 },
       });
 
       await waitFor(() => expect(utils.getByText("extra:none")).toBeTruthy());
@@ -1153,9 +1148,7 @@ describe("Panel.Mosaic", () => {
         ),
       });
       await waitFor(() => expect(utils.getByText(`name:${a.key}`)).toBeTruthy());
-      await act(async () => {
-        fireEvent.contextMenu(utils.getByText(`name:${a.key}`));
-      });
+      await userEvent.click(utils.getByText(`name:${a.key}`), { button: "right" });
       await waitFor(() =>
         expect(document.querySelector(".lyra-menu-context")).toBeTruthy(),
       );
