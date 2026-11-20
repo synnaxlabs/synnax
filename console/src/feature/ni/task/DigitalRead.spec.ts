@@ -59,7 +59,7 @@ const renderDigitalRead = async (
   config: task.Payload<NI.Task.DigitalReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.DigitalRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.DIGITAL_READ_TYPE], {
     client,
     taskKey: draft.key,
   });

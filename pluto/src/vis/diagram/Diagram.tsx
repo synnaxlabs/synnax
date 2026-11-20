@@ -575,5 +575,5 @@ export const create = ({
     </ReactFlowProvider>
   );
 
-  return memo(Diagram);
+  return Diagram;
 };
