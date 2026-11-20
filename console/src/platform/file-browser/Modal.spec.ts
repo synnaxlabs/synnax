@@ -189,11 +189,11 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("secrets", true)).toBeDefined();
     });
 
-    it("should find the file browser again once the rack gains it", async () => {
+    it("should find the file browser and places once the rack gains it", async () => {
       const r = await createRunningRack(client, "file");
       const { result, reopen } = await renderModalOpener(
         FileBrowser.useModal,
-        [{ rack: r.key }],
+        [{ rack: r.key, path: "/etc/client.crt" }],
         { client },
       );
       await screen.findByText("Failed to list files");
@@ -204,9 +204,10 @@ describe("FileBrowser.useModal", () => {
         type: FileBrowser.TASK_TYPE,
         config: {},
       });
-      await serveListings(client, { rack: r, browser }, [TOP]);
+      await serveListings(client, { rack: r, browser }, LISTINGS);
       reopen();
-      expect(await findEntry("secrets")).toBeDefined();
+      expect(await findEntry("hosts")).toBeDefined();
+      expect(await screen.findByText("Secrets folder")).toBeDefined();
     });
 
     it("should list one folder at a time in the background, then the last", async () => {
@@ -345,11 +346,19 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("hosts")).toBeDefined();
     });
 
-    it("should go back on Alt+Left", async () => {
+    it.each([
+      ["Alt", { altKey: true }, "ArrowLeft", "ArrowRight"],
+      ["Cmd", { metaKey: true }, "[", "]"],
+    ])("should go up, back, and forward on %s keys", async (_, mod, back, forward) => {
       await openBrowser(LISTINGS);
       await openEtc();
-      fireEvent.keyDown(findFiles(), { key: "ArrowLeft", altKey: true });
-      expect(await findEntry("etc", true)).toBeDefined();
+      fireEvent.keyDown(findFiles(), { key: "ArrowUp", ...mod });
+      await findEntry("etc", true);
+      fireEvent.keyDown(findFiles(), { key: back, ...mod });
+      await findEntry("hosts");
+      fireEvent.keyDown(findFiles(), { key: forward, ...mod });
+      expect(await findEntry("etc")).toBeDefined();
+      expect(screen.queryByRole("option", { name: /^hosts/ })).toBeNull();
     });
   });
 
@@ -460,6 +469,43 @@ describe("FileBrowser.useModal", () => {
         ]),
       );
     });
+
+    it.each(["Size", "Modified", "Expires"])(
+      "should sort by %s, with ties in the order of their names",
+      async (heading) => {
+        const start = TimeStamp.now();
+        const file = (name: string, value: number): FileBrowser.Entry => ({
+          name,
+          path: `/${name}`,
+          kind: "file",
+          size: value,
+          modified: start.add(TimeSpan.days(value)),
+          certificate: {
+            ...DETAILS,
+            notAfter: start.add(TimeSpan.days(value)),
+          },
+        });
+        await openBrowser([
+          TOP,
+          createListing({
+            path: "/",
+            entries: [file("a", 3), file("c", 1), file("b", 1)],
+          }),
+        ]);
+        await openFolder("/");
+        await findEntry("c");
+        fireEvent.click(
+          screen.getByRole("button", { name: new RegExp(`^${heading}`) }),
+        );
+        await waitFor(() =>
+          expect(entryNames()).toEqual([
+            expect.stringMatching(/^b/),
+            expect.stringMatching(/^c/),
+            expect.stringMatching(/^a/),
+          ]),
+        );
+      },
+    );
 
     it("should say that it lists files before the first listing comes", async () => {
       const files = await createFileRack(client);

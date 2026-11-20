@@ -10,6 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -54,7 +55,9 @@ export const PathBar = ({ path, onGo }: PathBarProps): ReactElement => {
             className={CSS.BE("file-browser", "segment-button")}
             onClick={() => onGo(s.path)}
           >
-            {s.label}
+            <Text.Text el="span" overflow="fade">
+              {s.label}
+            </Text.Text>
           </Button.Button>
         </Flex.Box>
       ))}
