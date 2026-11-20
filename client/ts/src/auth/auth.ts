@@ -556,10 +556,10 @@ export class Client {
   }
 
   /**
-   * Gives the caller, or another user when the caller may create that user, its first
+   * Gives the caller, or another user when the caller may update that user, its first
    * password.
    * @throws {AuthError} when another user holds the username.
-   * @throws {AccessDeniedError} when the caller may not create the user.
+   * @throws {AccessDeniedError} when the caller may not update the user.
    * @throws {NotFoundError} when the user does not exist.
    * @throws {ValidationError} when the username or password is empty, or the user
    * already has a password.
