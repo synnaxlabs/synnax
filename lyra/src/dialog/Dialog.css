@@ -101,38 +101,47 @@
     display: contents;
 }
 
+/* The native modal dialog. It fills the window, and its surface is the modal. */
 .lyra-dialog__bg {
+    -webkit-user-select: none;
+    user-select: none;
+    position: fixed;
+    inset: 0;
     width: 100%;
     height: 100%;
-    background: transparent;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: none;
+    padding: 3rem 5rem;
+    overflow: visible;
+    color: inherit;
+    outline: none;
+    transition: background 0.15s ease-in-out;
+    background: var(--pluto-gray-l8-40);
 
-    &.lyra--visible {
-        -webkit-user-select: none;
-        user-select: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 4;
-        padding: 3rem 5rem;
-        transition: background 0.15s ease-in-out;
-        background: var(--pluto-gray-l8-40);
+    /* Flex sets a display, which would show the dialog before showModal(). */
+    &:not([open]) {
+        display: none;
+    }
 
-        @media (height <= 800px) {
-            .lyra-dialog__dialog {
-                top: 10%;
-            }
+    &::backdrop {
+        background: transparent;
+    }
+
+    @media (height <= 800px) {
+        .lyra-dialog__dialog {
+            top: 10%;
         }
     }
 }
 
-.lyra-theme-synnax-dark .lyra-dialog__bg.lyra--visible {
+.lyra-theme-synnax-dark .lyra-dialog__bg {
     background: var(--pluto-gray-l1-60);
 }
 
 @media (prefers-color-scheme: dark) {
-    .lyra-dialog__bg.lyra--visible {
+    .lyra-dialog__bg {
         background: var(--pluto-gray-l1-60);
     }
 }

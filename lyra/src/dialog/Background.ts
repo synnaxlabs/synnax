@@ -7,15 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ReactElement } from "react";
-
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
 
-export interface BackgroundProps extends Flex.BoxProps {
-  visible: boolean;
-}
-
+/** The class of the native modal dialog around a modal surface. */
 export const BACKGROUND_CLASS = CSS.BE("dialog", "bg");
 
 /** Whether the element sits in the modal on top, the last one opened. */
@@ -23,19 +17,3 @@ export const inTopModal = (el: Element): boolean => {
   const backgrounds = document.getElementsByClassName(BACKGROUND_CLASS);
   return backgrounds[backgrounds.length - 1]?.contains(el) === true;
 };
-
-/** The backdrop behind a modal {@link Dialog}. It closes the dialog when clicked. */
-export const Background = ({
-  children,
-  visible,
-  ...rest
-}: BackgroundProps): ReactElement => (
-  <Flex.Box
-    className={CSS.cls(BACKGROUND_CLASS, CSS.visible(visible))}
-    empty
-    align="center"
-    {...rest}
-  >
-    {children}
-  </Flex.Box>
-);

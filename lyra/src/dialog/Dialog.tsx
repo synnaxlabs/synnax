@@ -9,28 +9,81 @@
 
 import "@/dialog/Dialog.css";
 
-import { type KeyboardEvent, useRef } from "react";
+import {
+  type KeyboardEvent,
+  type PropsWithChildren,
+  type ReactElement,
+  type SyntheticEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
-import { Background } from "@/dialog/Background";
-import { useContext, useInternalContext } from "@/dialog/Frame";
+import { BACKGROUND_CLASS } from "@/dialog/Background";
+import { SURFACE_CLASS, useContext, useInternalContext } from "@/dialog/Frame";
+import { trapTab } from "@/dialog/tabOrder";
 import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { useDropdownFocus } from "@/dialog/useDropdownFocus";
-import { useFocusTrap } from "@/dialog/useFocusTrap";
 import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
 import { Portal } from "@/portal";
 import { getRootElement } from "@/util/rootElement";
+
+/** Whether the nearest dialog around the element is a modal. */
+export const inModal = (el: Element): boolean =>
+  el.closest(`.${SURFACE_CLASS}`)?.classList.contains(CSS.M("modal")) === true;
+
+interface ModalProps extends PropsWithChildren {
+  /** The id of the frame, so a click or focus in the modal counts as inside it. */
+  owner: string;
+  onCancel: (e: SyntheticEvent<HTMLDialogElement>) => void;
+  onClose: () => void;
+  onKeyDown: (e: KeyboardEvent<HTMLDialogElement>) => void;
+}
+
+/**
+ * The native modal dialog, which overlays in it portal into. Its children mount only
+ * after `showModal()`, so the browser keeps the opener to give the focus back to, and
+ * a field with autoFocus can take the focus.
+ */
+const Modal = ({ children, owner, ...rest }: ModalProps): ReactElement => {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [shown, setShown] = useState<HTMLDialogElement | null>(null);
+  // React runs this cleanup before it removes the dialog, so close() gives the focus
+  // back to the opener.
+  useLayoutEffect(() => {
+    const dialog = ref.current;
+    if (dialog == null) return;
+    dialog.showModal();
+    setShown(dialog);
+    return () => dialog.close();
+  }, []);
+  return (
+    <Flex.Box<"dialog">
+      el="dialog"
+      ref={ref}
+      className={BACKGROUND_CLASS}
+      empty
+      align="center"
+      tabIndex={-1}
+      {...rest}
+      {...{ [PORTAL_OWNER_ATTR]: owner }}
+    >
+      {shown != null && <Portal.Target element={shown}>{children}</Portal.Target>}
+    </Flex.Box>
+  );
+};
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends Flex.BoxProps<"div"> {}
 
 /**
  * The floating surface of a {@link Frame}. It mounts only while open and portals itself
- * into the nearest `Portal.Target`, or the document root outside one. A modal holds the
- * focus while open and gives it back on close. Any other dialog takes the place right
- * after its trigger in the tab order.
+ * into the nearest `Portal.Target`, or the document root outside one. A modal renders
+ * in a native modal `<dialog>`, which overlays in it portal into. Any other dialog
+ * takes the place right after its trigger in the tab order.
  */
 export const Dialog = ({
   ref: propsRef,
@@ -50,27 +103,30 @@ export const Dialog = ({
     style: ctxStyle,
     modalPosition,
     trigger,
+    cancel,
   } = useInternalContext("Dialog.Dialog");
   const { visible, placed, variant, close } = useContext();
   const modal = variant === "modal";
   const surfaceRef = useRef<HTMLDivElement>(null);
   const portalTarget = Portal.useTarget();
-  const trap = useFocusTrap(surfaceRef, modal && visible);
   const dropdown = useDropdownFocus(!modal, trigger, close);
   const combinedRef = useCombinedRefs(propsRef, ref, surfaceRef, dropdown.ref);
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     onKeyDown?.(e);
     dropdown.onKeyDown(e);
   };
+  const handleModalKeyDown = (e: KeyboardEvent<HTMLDialogElement>): void => {
+    if (surfaceRef.current != null) trapTab(e, surfaceRef.current);
+  };
   const dialogStyle = { ...ctxStyle, ...style };
   if (!visible) return null;
-  let dialog = (
+  const dialog = (
     <Flex.Box
       pack
       ref={combinedRef}
       y
       className={CSS.cls(
-        CSS.BE("dialog", "dialog"),
+        SURFACE_CLASS,
         CSS.loc(targetCorner.x),
         CSS.loc(targetCorner.y),
         CSS.BEM("dialog", "dialog", dialogCorner.x),
@@ -81,8 +137,8 @@ export const Dialog = ({
         className,
       )}
       rounded={rounded}
-      role="dialog"
-      tabIndex={-1}
+      role={modal ? undefined : "dialog"}
+      tabIndex={modal ? undefined : -1}
       empty
       bordered={bordered}
       align="stretch"
@@ -94,11 +150,12 @@ export const Dialog = ({
       {children}
     </Flex.Box>
   );
-  if (modal)
-    dialog = (
-      <Background empty align="center" visible={visible} {...trap}>
-        {dialog}
-      </Background>
-    );
-  return createPortal(dialog, portalTarget ?? getRootElement());
+  const target = portalTarget ?? getRootElement();
+  if (!modal) return createPortal(dialog, target);
+  return createPortal(
+    <Modal onCancel={cancel} onClose={close} onKeyDown={handleModalKeyDown} owner={id}>
+      {dialog}
+    </Modal>,
+    target,
+  );
 };
