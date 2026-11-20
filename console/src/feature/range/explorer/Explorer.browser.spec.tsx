@@ -81,7 +81,15 @@ const renderExplorer = async (
   });
   await renderSuspended(
     <>
-      <div style={{ width }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 0,
+          width,
+        }}
+      >
         <Explorer />
       </div>
       <Modals.Stack />
@@ -915,6 +923,8 @@ describe("range/explorer/Explorer", () => {
       const { left, width } = axis.getBoundingClientRect();
       const clientX = left + width / 2;
       fireEvent.wheel(axis, { deltaY: 30, clientX });
+      // Wait a frame so that a wrong pan would have rendered Fit all.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
       expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
       fireEvent.wheel(axis, { deltaX: 30, clientX });
       expect(await screen.findByRole("button", { name: "Fit all" })).toBeTruthy();
