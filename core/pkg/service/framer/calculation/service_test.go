@@ -256,6 +256,64 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 	})
 
+	Describe("Requests", func() {
+		It("Should start a requested channel once a calculation writes it", func(
+			ctx SpecContext,
+		) {
+			base := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			output := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				if err := w.Create(ctx, &base); err != nil {
+					return err
+				}
+				return w.Create(ctx, &output)
+			})).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.Keys{output.Key()})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { Expect(rm.Close(ctx)).To(Succeed()) })
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: 1 * telem.SecondTS,
+				Keys:  channel.Keys{base.Key()},
+			}))
+			DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+			streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        channel.Keys{output.Key()},
+				SendOpenAck: new(true),
+			}))
+			_, sOutlet := confluence.Attach(streamer, 1, 1)
+			streamer.Flow(sCtx)
+			Eventually(sOutlet.Outlet()).Should(Receive())
+			record := calcsvc.Calculation{
+				Output:     output.Key(),
+				Expression: fmt.Sprintf("return %s * 2", base.Name),
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return calcSvc.NewWriter(tx).Create(ctx, &record)
+			})).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(
+					w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](3))),
+				).To(BeTrue())
+				var res framer.StreamerResponse
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(output.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[int64](6))
+			}, 5*time.Second, 10*time.Millisecond).Should(Succeed())
+		})
+	})
+
 	Describe("Calculation Patterns", func() {
 		Specify("Single Virtual Channel as Base", func(ctx SpecContext) {
 			bases := []channel.Channel{{

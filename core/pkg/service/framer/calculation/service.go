@@ -262,20 +262,42 @@ func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 		s.cfg.L.Error("failed to retrieve changed calculations", zap.Error(err))
 		return
 	}
-	for _, ch := range changed {
-		if _, ok := calcs[ch.Key()]; ok {
-			s.update(ctx, ch)
-		}
-	}
-}
-
-// update compiles ch again when the service calculates it. When the channels that ch
-// reads changed during each compile, update keeps the running calculation and
-// schedules a retry.
-func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.updateLocked(ctx, ch)
+	running := s.mu.graph.CalculatedKeys()
+	rebuild := false
+	for _, ch := range changed {
+		_, calculated := calcs[ch.Key()]
+		switch {
+		case calculated && s.mu.graph.Contains(ch.Key()):
+			s.updateLocked(ctx, ch)
+		case calculated && s.mu.pending[ch.Key()] > 0:
+			// A calculation now writes a channel that requests wait on.
+			n := s.mu.pending[ch.Key()]
+			delete(s.mu.pending, ch.Key())
+			for range n {
+				s.request(ctx, ch)
+			}
+			rebuild = true
+		case !calculated && s.mu.graph.Contains(ch.Key()):
+			// The calculation was deleted, so its requests wait for a new one.
+			n := s.mu.graph.Requests(ch.Key())
+			for range n {
+				if _, err := s.mu.graph.Remove(ch.Key()); err != nil {
+					s.cfg.L.Error("failed to remove a deleted calculation",
+						zap.Error(err), zap.Stringer("channel", ch.Key()))
+				}
+			}
+			s.mu.pending[ch.Key()] += n
+			rebuild = true
+		}
+	}
+	if !rebuild {
+		return
+	}
+	if err = s.start(ctx, running); err != nil {
+		s.cfg.L.Error("failed to start calculations", zap.Error(err))
+	}
 }
 
 func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
@@ -549,6 +571,9 @@ func (s *Service) updateRequests(
 	for _, ch := range channels {
 		if _, ok := calcs[ch.Key()]; ok {
 			s.request(ctx, ch)
+		} else {
+			// The request waits for a calculation to write the channel.
+			s.mu.pending[ch.Key()]++
 		}
 	}
 	if err := s.start(ctx, running); err != nil {
