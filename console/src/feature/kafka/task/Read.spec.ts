@@ -1132,8 +1132,7 @@ describe("Kafka read form", () => {
       await screen.findByRole("treeitem", { name: /^temperature/ });
       const oven = { ...OVEN_SHAPE, sources: ["oven-1"] };
       const dialog = await openAddData(dev, { data: sampleOf(oven) });
-      const pick = await dialog.findByRole("checkbox", { name: "Pick oven-1" });
-      expect(pick).toHaveProperty("disabled", true);
+      await dialog.findByText("oven-1 · 2 records");
       const field = dialog.getByRole("checkbox", { name: "Record /temperature" });
       expect(field).toHaveProperty("disabled", true);
       expect(field).toHaveProperty("checked", true);
@@ -1181,15 +1180,15 @@ describe("Kafka read form", () => {
       const dialog = await openAddData(dev, {
         data: { topics: [topic], truncated: false },
       });
-      await dialog.findByText("1 record, some unread");
-      dialog.getByRole("checkbox", { name: "Pick oven-1, oven-2" });
+      await dialog.findByText("Could not read every record. A record is not JSON.");
+      dialog.getByRole("checkbox", { name: "Record /temperature" });
     });
 
     it("should name the message of keyless records Any key and read the empty key", async () => {
       const { draft, dev } = await renderRead();
       const keyless = { ...OVEN_SHAPE, sources: [""] };
       const dialog = await openAddData(dev, { data: sampleOf(keyless) });
-      await dialog.findByRole("checkbox", { name: "Pick Any key" });
+      await dialog.findByText("Any key · 2 records");
       fireEvent.click(dialog.getByRole("checkbox", { name: "Record /temperature" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       const [rec] = await waitFor(async () => {
