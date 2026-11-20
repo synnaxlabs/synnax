@@ -20,7 +20,6 @@ import { Layout, spans, type Trace } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { axis } from "@/vis/axis";
-import { Draw2D } from "@/vis/draw2d";
 import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
@@ -154,8 +153,8 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   // strip, so a line stops short of the seam on each side.
   private renderBreaks({ plot, canvases }: AxisRenderProps, layout: Layout): void {
     if (!canvases.includes("upper2d") || layout.segments.length < 2) return;
-    const { render, theme } = this.internal;
-    const draw = new Draw2D(render.upper2d, theme);
+    const { draw } = this.internal;
+    const { theme } = draw;
     const strip = Math.max(
       0,
       ...this.ranges.filter((r) => r.state.visible).map((r) => r.state.height),

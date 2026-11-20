@@ -153,8 +153,8 @@ export class Layout {
   }
 }
 
-// A relative line spans its window and a margin on each side: a share of the window's
-// span, and at least the floor.
+// The margin on each side of a window is a share of the window's span, and at least the
+// floor.
 const MARGIN_SHARE = 0.05;
 const MARGIN_FLOOR = Number(TimeSpan.SECOND.valueOf());
 
@@ -171,7 +171,7 @@ const EMPTY: bounds.Bounds = { lower: 0, upper: 0 };
  * window.
  * @param traces - the traces, with their edges aligned.
  */
-export const segments = (
+export const collapse = (
   traces: line.DataBounds[],
   padding: number,
 ): bounds.Bounds[] => {

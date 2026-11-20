@@ -112,12 +112,23 @@ export class Base {
     );
   }
 
-  // labels returns the label that each tick draws. With no seams every tick draws its
-  // label. Else the first tick of each segment whose anchor label is clear of the seams
-  // and of the anchors before it draws its anchor label. Any other tick after the
-  // anchor of its segment draws its label when it is clear of the seams and anchors.
-  protected labels(ticks: Tick[], seams: number[]): Map<Tick, string> {
-    if (seams.length === 0) return new Map(ticks.map((t) => [t, t.label]));
+  // xTicks returns the ticks of an x axis of size and the positions of the seams it
+  // shows. With seams, each tick holds the label it draws, which is empty for a tick
+  // that draws none. It measures labels, so it runs after setColor sets the font.
+  protected xTicks(props: AxisProps, size: number): { ticks: Tick[]; seams: number[] } {
+    const ticks = this.tickFactory.create({ ...props, size });
+    const seams = seamPositions(props.segments, size);
+    if (seams.length === 0) return { ticks, seams };
+    const kept = ticks.filter((t) => !nearSeam(seams, t.position));
+    const labels = this.labels(kept, seams);
+    return { ticks: kept.map((t) => ({ ...t, label: labels.get(t) ?? "" })), seams };
+  }
+
+  // labels returns the label that each tick draws. The first tick of each segment whose
+  // anchor label is clear of the seams and of the anchors before it draws its anchor
+  // label. Any other tick after the anchor of its segment draws its label when it is
+  // clear of the seams and anchors.
+  private labels(ticks: Tick[], seams: number[]): Map<Tick, string> {
     const { lower2d: canvas } = this.renderCtx;
     const extent = (position: number, label: string): bounds.Bounds => {
       const half = canvas.textDimensions(label, FILL_TEXT_OPTIONS).width / 2;
@@ -203,18 +214,12 @@ export class Bottom extends Base implements Axis {
     const { plot: plottingRegion, position: pos } = props;
     const { width: size, height: gridSize } = box.dims(plottingRegion);
 
-    const seams = seamPositions(props.segments, size);
-    const ticks = this.tickFactory
-      .create({ ...props, size })
-      .filter((tick) => !nearSeam(seams, tick.position));
-    const labels = this.labels(ticks, seams);
-    const shown = ticks.map((t) => ({ ...t, label: labels.get(t) ?? "" }));
-
     canvas.beginPath();
     this.setColor(this.state.color);
+    const { ticks, seams } = this.xTicks(props, size);
     this.drawBreakAxis(pos, size, seams);
 
-    const maxTickDims = this.drawTicks(shown, (d, tick) => {
+    const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       this.drawLine(
         xy.translateX(pos, tick.position),
         xy.translate(pos, { x: tick.position, y: TICK_LINE_SIZE }),
@@ -245,18 +250,12 @@ export class Top extends Base implements Axis {
     const { width: size, height: gridSize } = box.dims(plottingRegion);
 
     const p = xy.translate(props.position, "y", props.size);
-    const seams = seamPositions(props.segments, size);
-    const ticks = this.tickFactory
-      .create({ ...props, size })
-      .filter((tick) => !nearSeam(seams, tick.position));
-    const labels = this.labels(ticks, seams);
-    const shown = ticks.map((t) => ({ ...t, label: labels.get(t) ?? "" }));
-
     canvas.beginPath();
     this.setColor(this.state.color);
+    const { ticks, seams } = this.xTicks(props, size);
     this.drawBreakAxis(p, size, seams);
 
-    const maxTickDims = this.drawTicks(shown, (d, tick) => {
+    const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       this.drawLine(
         xy.translateX(p, tick.position),
         xy.translate(p, { x: tick.position, y: -TICK_LINE_SIZE }),
