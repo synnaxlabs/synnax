@@ -46,39 +46,44 @@ type intents struct {
 }
 
 // openIntents opens the intents file in fs, creating it if it is missing. A record
-// whose checksum fails ends the file: it is the torn tail of an append that never
-// returned, and openIntents truncates it.
-func openIntents(fs xfs.FS) (*intents, error) {
+// whose checksum fails holds no intent. The records after the last good one are the
+// torn tail of an append that never returned, and openIntents truncates them. It also
+// returns the number of bad records before the last good one, which a torn append
+// cannot leave.
+func openIntents(fs xfs.FS) (*intents, int, error) {
 	file, err := fs.Open(intentsFile, os.O_CREATE|os.O_RDWR)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	// A created file is durable only once its entry in the root is.
 	if err = fs.SyncDir(""); err != nil {
-		return nil, joinClose(err, file)
+		return nil, 0, joinClose(err, file)
 	}
 	in := &intents{fs: fs, file: file, keys: set.New[ChannelKey]()}
 	data, err := io.ReadAll(io.NewSectionReader(file, 0, 1<<62))
 	if err != nil {
-		return nil, joinClose(err, file)
+		return nil, 0, joinClose(err, file)
 	}
+	var bad, corrupt int
 	for off := 0; off+intentRecordSize <= len(data); off += intentRecordSize {
 		key := binary.LittleEndian.Uint32(data[off:])
 		if binary.LittleEndian.Uint32(data[off+4:]) != recordCRC(int64(off), key) {
-			break
+			bad++
+			continue
 		}
 		in.keys.Add(key)
 		in.size = int64(off + intentRecordSize)
+		corrupt = bad
 	}
 	if in.size < int64(len(data)) {
 		if err = file.Truncate(in.size); err == nil {
 			err = file.Sync()
 		}
 		if err != nil {
-			return nil, joinClose(err, file)
+			return nil, 0, joinClose(err, file)
 		}
 	}
-	return in, nil
+	return in, corrupt, nil
 }
 
 func joinClose(err error, c io.Closer) error {

@@ -88,7 +88,10 @@ func (db *DB) Sweep(ctx context.Context, keys []ChannelKey) ([]KeptChannel, erro
 // is not in hidden, and has no open channel: files that a crash left, or none. Removing
 // them clears the intent. The caller must hold db.mu.
 func (db *DB) removeOrphanIntents(records, hidden set.Set[ChannelKey]) error {
-	var err error
+	var (
+		err error
+		rm  = &removals{}
+	)
 	for _, k := range db.intents.all() {
 		if records.Contains(k) || hidden.Contains(k) {
 			continue
@@ -99,9 +102,9 @@ func (db *DB) removeOrphanIntents(records, hidden set.Set[ChannelKey]) error {
 		if _, open := db.mu.dbs.virtual[k]; open {
 			continue
 		}
-		err = errors.Join(err, db.removeDir(k))
+		err = errors.Join(err, rm.remove(db, k))
 	}
-	return err
+	return errors.Join(err, rm.close(db))
 }
 
 // reopenFailedDeletes clears the intent of each key in records and opens its channel if
