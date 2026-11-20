@@ -159,11 +159,10 @@ const Content = ({
   }, [session]);
 
   // Each visit lists the folder again. The snapshot shows the result or the failure. A
-  // recent folder that fails leaves Recent. As the start folder, it gives way to home.
+  // start folder from Recent that fails gives way to the home folder.
   const relist = (): void => {
     session?.list(path).catch(() => {
-      if (!recent.includes(path)) return;
-      dispatch(FileBrowser.removeRecent({ rack, folder: path }));
+      if (startFile !== "" || path === "" || path === home) return;
       setHistory((h) =>
         h.stack.length === 1 && h.stack[0] === path ? { stack: [""], index: 0 } : h,
       );
@@ -216,7 +215,8 @@ const Content = ({
   const back = (): void => {
     if (history.index === 0) return;
     countNavigation();
-    select(path);
+    // The folder left is selected only in its parent.
+    select(dirnameOf(path) === history.stack[history.index - 1] ? path : null);
     setHistory((h) => ({ ...h, index: h.index - 1 }));
   };
   const forward = (): void => {

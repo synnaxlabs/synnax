@@ -292,7 +292,7 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("hosts")).toBeDefined();
     });
 
-    it("should open the home folder when the last picked folder is gone", async () => {
+    it("should open the home folder when the last picked folder fails", async () => {
       const listings = [HOME_TOP, HOME, ROOT, ETC];
       const { result, reopen } = await openBrowser(listings);
       await findEntry("notes.txt");
@@ -306,8 +306,9 @@ describe("FileBrowser.useModal", () => {
       listings.pop();
       reopen();
       expect(await findEntry("notes.txt")).toBeDefined();
+      // A failure can be a Driver that is down, so the folder stays in Recent.
       const reopened = screen.getByRole("navigation", { name: "Places" });
-      expect(within(reopened).queryByText("Recent")).toBeNull();
+      expect(within(reopened).getByText("Recent")).toBeDefined();
     });
 
     it("should open the home folder first", async () => {
@@ -854,6 +855,21 @@ describe("FileBrowser.useModal", () => {
       await findEntry("key.pem", true);
       fireEvent.click(screen.getByRole("button", { name: "Up" }));
       expect(await findEntry(".ssh", true)).toBeDefined();
+    });
+
+    it("should not show hidden entries on Back to a folder without them", async () => {
+      await openBrowser([TOP, ROOT, HIDDEN_ETC, SSH]);
+      await openFolder("/");
+      await findEntry("etc");
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      const field = screen.getByRole("textbox", { name: "Path" });
+      fireEvent.change(field, { target: { value: "/etc/.ssh" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      await findEntry("key.pem");
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      await findEntry("etc");
+      const toggle = screen.getByRole("button", { name: "Hidden files" });
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
     });
 
     it("should show hidden entries when the start file is hidden", async () => {

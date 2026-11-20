@@ -28,15 +28,4 @@ describe("FileBrowser slice", () => {
     for (const f of ["/1", "/2", "/3", "/4", "/5", "/6"]) state = add(state, f);
     expect(state.recent[1]).toEqual(["/6", "/5", "/4", "/3", "/2"]);
   });
-
-  it("should remove a folder from its rack only", () => {
-    let state = add(FileBrowser.ZERO_SLICE_STATE, "/a");
-    state = add(state, "/b");
-    state = add(state, "/a", 2);
-    state = FileBrowser.reducer(
-      state,
-      FileBrowser.removeRecent({ rack: 1, folder: "/a" }),
-    );
-    expect(state.recent).toEqual({ 1: ["/b"], 2: ["/a"] });
-  });
 });
