@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
-import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
-import { Text } from "@synnaxlabs/lyra/text";
-import { compare, type optional } from "@synnaxlabs/x";
+import { compare } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type LineSpec, useContext, useGridEntry } from "@/lineplot/Frame";
+import { type LineSpec, useContext } from "@/lineplot/Frame";
 import { Legend as Base } from "@/vis/legend";
-import { Entries, type EntriesProps, type EntryData } from "@/vis/legend/Entries";
+import { type EntriesProps } from "@/vis/legend/Entries";
 
 type LineHandlers = Pick<
   EntriesProps,
@@ -26,16 +23,10 @@ export interface LegendProps extends Omit<
   Base.SimpleProps,
   "data" | "onColorChange" | "onLabelChange" | "onVisibleChange"
 > {
-  variant?: "floating" | "fixed";
   onLineColorChange?: EntriesProps["onColorChange"];
   onLineLabelChange?: EntriesProps["onLabelChange"];
   onLineVisibleChange?: EntriesProps["onVisibleChange"];
 }
-
-export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactElement =>
-  variant === "floating" ? <Floating {...rest} /> : <Fixed {...rest} />;
-
-interface FloatingProps extends Omit<LegendProps, "variant"> {}
 
 const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
   const groupInfo: Record<string, LineSpec[]> = {};
@@ -53,12 +44,12 @@ const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
   return groups;
 };
 
-const Floating = ({
+export const Legend = ({
   onLineColorChange,
   onLineLabelChange,
   onLineVisibleChange,
   ...rest
-}: FloatingProps): ReactElement => {
+}: LegendProps): ReactElement => {
   const { lines } = useContext("LinePlot.Legend");
   const groups = groupLines(lines);
   const handlers: LineHandlers = {
@@ -70,55 +61,4 @@ const Floating = ({
     return <Base.Simple data={groups[0].data} {...handlers} {...rest} />;
   return <Base.Grouped data={groups} {...handlers} {...rest} />;
 };
-Floating.displayName = "LinePlot.FloatingLegend";
-
-interface FixedProps extends Pick<
-  LegendProps,
-  "onLineColorChange" | "onLineLabelChange" | "onLineVisibleChange"
-> {}
-
-const Fixed = ({
-  onLineColorChange,
-  onLineLabelChange,
-  onLineVisibleChange,
-}: FixedProps): ReactElement | null => {
-  const { lines } = useContext("LinePlot.Legend");
-  const groups = groupLines(lines);
-  const key = useUniqueKey();
-  const gridStyle = useGridEntry(
-    { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
-    "LinePlot.Legend",
-  );
-  const handlers: LineHandlers = {
-    onColorChange: onLineColorChange,
-    onLabelChange: onLineLabelChange,
-    onVisibleChange: onLineVisibleChange,
-  };
-  if (groups.length === 0) return null;
-  if (groups.length === 1)
-    return (
-      <Flex.Box align="center" justify="start" x style={gridStyle}>
-        <Entries data={groups[0].data} {...handlers} background={0} />
-      </Flex.Box>
-    );
-  return (
-    <Flex.Box align="center" justify="start" x style={gridStyle} gap="huge">
-      {groups.map(({ key: groupKey, name, data }) => (
-        <FocusedGroup key={groupKey} name={name} data={data} {...handlers} />
-      ))}
-    </Flex.Box>
-  );
-};
-Fixed.displayName = "LinePlot.FixedLegend";
-
-interface FocusedGroupProps extends LineHandlers {
-  name: string;
-  data: optional.Optional<EntryData, "visible">[];
-}
-
-const FocusedGroup = ({ name, data, ...handlers }: FocusedGroupProps): ReactElement => (
-  <Flex.Box x>
-    <Text.Text level="small">{name}</Text.Text>
-    <Entries data={data} {...handlers} background={0} />
-  </Flex.Box>
-);
+Legend.displayName = "LinePlot.Legend";

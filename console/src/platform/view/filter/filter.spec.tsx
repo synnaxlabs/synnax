@@ -141,6 +141,24 @@ describe("View.Filter", () => {
     expect(await screen.findByText(filter.describe(node))).toBeTruthy();
   });
 
+  it("should fade the cut text of each part of a chip", async () => {
+    await renderFixture({ variant: { in: ["error", "warning"] } });
+    const value = await screen.findByRole("button", { name: "Error, Warning" });
+    for (const part of [
+      screen.getByText("Variants"),
+      screen.getByText("is any of"),
+      value,
+    ])
+      expect(part.className).toContain("lyra-text--overflow-fade");
+  });
+
+  it("should fade the cut text of a node that no property reads", async () => {
+    const node: status.Where = { key: { in: [uuid.create()] } };
+    await renderFixture(node);
+    const text = await screen.findByText(filter.describe(node));
+    expect(text.className).toContain("lyra-text--overflow-fade");
+  });
+
   it("should drop a node that no property reads with its chip", async () => {
     await renderFixture({
       and: [{ variant: { in: ["error"] } }, { key: { in: [uuid.create()] } }],
