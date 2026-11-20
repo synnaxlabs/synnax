@@ -289,6 +289,53 @@ TEST(BusTest, PublishAlignmentUnregisteredChannelLeftAtZero) {
     EXPECT_EQ(r.series->at(0).alignment.uint64(), 0);
 }
 
+/// @brief it should give each series the clock of its channel, and zero to a channel
+/// that was not registered.
+TEST(BusTest, PublishStampsTheClockOfEachChannel) {
+    Bus bus;
+    synnax::channel::Channel index;
+    index.key = 1;
+    index.is_index = true;
+    synnax::channel::Channel data;
+    data.key = 2;
+    data.index = 1;
+    bus.register_channels({index, data});
+    auto sub = bus.subscribe({1, 2, 3});
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(1.0f));
+    frame.emplace(2, x::telem::Series(1.0f));
+    frame.emplace(3, x::telem::Series(1.0f));
+    bus.publish(frame);
+    x::telem::Frame r;
+    ASSERT_TRUE(sub->try_pop(r));
+    EXPECT_EQ(r.series->at(0).clock, 1);
+    EXPECT_EQ(r.series->at(1).clock, 1);
+    EXPECT_EQ(r.series->at(2).clock, 0);
+}
+
+/// @brief it should keep a channel's alignment and take its new clock when the channel
+/// registers again.
+TEST(BusTest, RegisterAgainKeepsAlignmentAndTakesTheNewClock) {
+    Bus bus;
+    synnax::channel::Channel data;
+    data.key = 2;
+    data.index = 1;
+    bus.register_channels({data});
+    auto sub = bus.subscribe({2});
+    x::telem::Frame frame;
+    frame.emplace(2, x::telem::Series(1.0f));
+    bus.publish(frame);
+    data.index = 5;
+    bus.register_channels({data});
+    bus.publish(frame);
+    x::telem::Frame r;
+    ASSERT_TRUE(sub->try_pop(r));
+    EXPECT_EQ(r.series->at(0).clock, 1);
+    ASSERT_TRUE(sub->try_pop(r));
+    EXPECT_EQ(r.series->at(0).alignment.uint64(), 1);
+    EXPECT_EQ(r.series->at(0).clock, 5);
+}
+
 TEST(BusTest, ConcurrentPublishAndSubscribeLifecycle) {
     Bus bus;
     bus.register_channels(unindexed({1, 2, 3}));

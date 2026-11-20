@@ -512,9 +512,9 @@ export class MultiplexedStreamer {
   private async run(streamer: Streamer): Promise<void> {
     const { joins, onWait, instrumentation: ins } = this.props;
     const failed = new Set<channel.Key>();
-    const fail = (k: channel.Key, err: Error): void => {
+    const fail = (k: channel.Key, failure: status.Status): void => {
       failed.add(k);
-      this.setStatus(k, status.fromException(err, "Failed to stream channel"));
+      this.setStatus(k, failure);
     };
     try {
       for await (const frame of streamer) {

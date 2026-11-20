@@ -365,12 +365,11 @@ func (c *column) skip(k int) {
 // of index, so its samples cannot pair with the samples of index. Only valid when the
 // column has a sample.
 func (c *column) clockError(index *column) error {
-	if clock := c.pending[0].Clock; clock != uint32(index.key) {
+	if c.pending[0].Clock != uint32(index.key) {
 		return errors.Newf(
-			"[api.Read] channel %s has samples on clock %d, not on clock %d of %s",
+			"[api.Read] channel %s has samples that do not pair with the time of its "+
+				"index channel %s",
 			c.name,
-			clock,
-			index.key,
 			index.name,
 		)
 	}

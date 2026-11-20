@@ -219,8 +219,10 @@ describe("MultiplexedStreamer", () => {
       expect(sub.status(1).variant).toEqual("success");
       expect(sub.status(2)).toMatchObject({
         variant: "error",
-        message: "Failed to stream channel",
-        description: "channel 2 has samples on clock 9, not on clock 1 of its index",
+        name: "2",
+        message: "Samples do not pair with time",
+        description:
+          "Channel 2 has samples that do not pair with the time of its index channel.",
       });
       await streamer.close();
     });
