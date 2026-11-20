@@ -459,7 +459,8 @@ bound, a log precision, or the line plot X channel.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
-- An open select marks the current value and opens scrolled to it.
+- An open select marks the current value and opens scrolled to it. The first arrow key
+  moves on from the current value, as in a native dropdown.
 - An open `Select.Multiple` and the line plot's Ranges select list their selected values
   first, with no divider: their joined tint marks where they end. The order is set when
   the select opens and holds while it stays open, so an item never moves under the

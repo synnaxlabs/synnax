@@ -115,11 +115,17 @@ export interface UseReturn<K extends record.Key> extends Omit<
   clear: () => void;
 }
 
-// The registry holds keys of every selection's type, so the order narrows them to K.
-const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
+interface UseOrderReturn<K extends record.Key> extends SelectionOrder<K> {
+  /** Reads the element of the option with the given key, while it renders. */
+  getElement: (key: K) => HTMLElement | null | undefined;
+}
+
+/** Reads and acts on the options of the enclosing select by key. */
+export const useOrder = <K extends record.Key>(): UseOrderReturn<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { scrollToIndex, getData, subscribeData } = List.useUtilContext<K>();
   const getRowElement = List.useGetElement();
+  // The registry holds keys of every selection's type, so the order narrows them to K.
   const getOrder = () => registry.getOrder(getData()) as K[];
   const getElement = (key: K) =>
     registry.hasItem(key) ? registry.getElement(key) : getRowElement(key);
@@ -148,6 +154,7 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   };
   return {
     getOrder,
+    getElement,
     scrollTo,
     click,
     doubleClick,

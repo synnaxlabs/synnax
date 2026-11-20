@@ -23,6 +23,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
+import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
@@ -1113,7 +1114,14 @@ describe("Select", () => {
       await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
     });
 
-    it("should not scroll to a late choice once the user scrolls", async () => {
+    it.each([
+      [
+        "scrolls",
+        (scroll: Element) =>
+          scroll.dispatchEvent(new WheelEvent("wheel", { bubbles: true })),
+      ],
+      ["moves the cursor", async () => await userEvent.keyboard("{ArrowDown}")],
+    ])("should not scroll to a late choice once the user %s", async (_, act) => {
       const early = MANY_KEYS.filter((key) => key !== CHOICE);
       const { container, rerender } = await renderThemed(
         <Triggers.Provider>{listSelect(true, early)}</Triggers.Provider>,
@@ -1124,7 +1132,7 @@ describe("Select", () => {
       const scroll = dialog.querySelector(".lyra-list__scroll") as Element;
       // The reveal waits for the choice once the dialog shows.
       await scheduler.nextFrame();
-      scroll.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+      await act(scroll);
       await rerender(<Triggers.Provider>{listSelect(true)}</Triggers.Provider>);
       await scheduler.nextFrame();
       await scheduler.nextFrame();
@@ -1163,7 +1171,7 @@ describe("Select", () => {
         .toHaveBeenCalledWith("key-51", expect.anything());
     });
 
-    it("should not scroll to the choice of a list in a modal", async () => {
+    it("should not scroll to the choice of a list outside a select dialog", async () => {
       const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
       onTestFinished(() => scroll.mockRestore());
       await renderThemed(
@@ -1192,6 +1200,24 @@ describe("Select", () => {
       await scheduler.nextFrame();
       await scheduler.nextFrame();
       expect(scroll).not.toHaveBeenCalled();
+    });
+
+    it("should show the dialog already scrolled to the choice", async () => {
+      const trigger = await renderChoice(listSelect(false));
+      const shown: boolean[] = [];
+      const observer = new MutationObserver(() => {
+        const dialog = document.querySelector("[role='dialog']");
+        if (shown.length > 0 || !dialog?.classList.contains(CSS.visible(true))) return;
+        shown.push(isInView(dialog, CHOICE));
+      });
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributeFilter: ["class"],
+      });
+      onTestFinished(() => observer.disconnect());
+      await openDialog(trigger);
+      expect(shown).toEqual([true]);
     });
 
     it("should scroll a virtual list to the choice when it opens again", async () => {

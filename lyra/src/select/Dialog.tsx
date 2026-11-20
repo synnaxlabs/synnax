@@ -9,11 +9,11 @@
 
 import "@/select/Dialog.css";
 
-import { array, destructor, type record } from "@synnaxlabs/x";
+import { array, destructor } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactNode,
-  useEffect,
+  useLayoutEffect,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -29,6 +29,7 @@ import { usePath } from "@/menu/filter";
 import { useContext } from "@/select/Context";
 import { useRegistryContext } from "@/select/registry";
 import { ClosedContext, InlineContext } from "@/select/scope";
+import { useOrder } from "@/select/use";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends BaseDialog.DialogProps {
@@ -57,8 +58,8 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
 
 // Inputs that scroll the list or move its cursor. The first one ends a reveal that
 // still waits, so the list never moves under the user.
-const SCROLL_EVENTS = ["wheel", "touchmove", "pointerdown"] as const;
-const SCROLL_KEYS: ReadonlySet<string> = new Set([
+const STOP_EVENTS = ["wheel", "touchmove", "pointerdown"] as const;
+const STOP_KEYS: ReadonlySet<string> = new Set([
   "ArrowUp",
   "ArrowDown",
   "PageUp",
@@ -69,65 +70,40 @@ const SCROLL_KEYS: ReadonlySet<string> = new Set([
 
 // The dialog opens on its first choice, as a native dropdown does. A fetched list can
 // load the choice after the dialog is placed, so the reveal waits for it once, until
-// the user scrolls or searches. A virtual list adopts the scroll container of a dialog
-// that opens again one render later, so the scroll waits a frame.
-const useRevealChoice = (): void => {
-  const { placed } = BaseDialog.useContext();
+// the user scrolls or searches.
+const useRevealChoice = (placed: boolean): void => {
   const registry = useRegistryContext("Select.Dialog");
-  const { scrollToIndex, getData, subscribeData } = List.useUtilContext();
-  const getRowElement = List.useGetElement();
+  const order = useOrder();
+  const { scrollToIndex, getData } = List.useUtilContext();
   const { getState } = useContext();
   // Read through a ref, so the reveal runs once per open as these change identity.
-  const readRef = useSyncedRef({
-    scrollToIndex,
-    getData,
-    subscribeData,
-    getRowElement,
-    getState,
-  });
-  useEffect(() => {
+  const readRef = useSyncedRef({ order, scrollToIndex, getData, getState });
+  useLayoutEffect(() => {
     if (!placed) return;
-    const { scrollToIndex, getData, subscribeData, getRowElement, getState } =
-      readRef.current;
+    const { order, scrollToIndex, getData, getState } = readRef.current;
     const selected = array.toArray(getState().value);
-    let frame: number | undefined;
     const stops: destructor.Destructor[] = [];
-    const stop = (): void => {
-      stops.splice(0).forEach((s) => s());
-      if (frame != null) cancelAnimationFrame(frame);
-    };
-    const reveal = (key: record.Key): void => {
-      const element = registry.hasItem(key)
-        ? registry.getElement(key)
-        : getRowElement(key);
-      if (element != null) element.scrollIntoView({ block: "nearest" });
-      else scrollToIndex(getData().indexOf(key));
-    };
+    const stop = (): void => stops.splice(0).forEach((s) => s());
     const tryReveal = (): void => {
       // A search lists its matches in their own order.
       if (registry.getTerm() !== "") return stop();
-      if (frame != null) return;
-      const key = registry.getOrder(getData()).find((k) => selected.includes(k));
+      const key = order.getOrder().find((k) => selected.includes(k));
       if (key == null) return;
-      frame = requestAnimationFrame(() => {
-        frame = undefined;
-        stop();
-        reveal(key);
-      });
+      stop();
+      const element = order.getElement(key);
+      if (element != null) element.scrollIntoView({ block: "nearest" });
+      else scrollToIndex(getData().indexOf(key));
     };
     const handleKey = (e: KeyboardEvent): void => {
-      if (SCROLL_KEYS.has(e.key)) stop();
+      if (STOP_KEYS.has(e.key)) stop();
     };
-    const options = { capture: true, passive: true };
-    SCROLL_EVENTS.forEach((type) => window.addEventListener(type, stop, options));
+    const controller = new AbortController();
+    const options = { capture: true, passive: true, signal: controller.signal };
+    STOP_EVENTS.forEach((type) => window.addEventListener(type, stop, options));
     window.addEventListener("keydown", handleKey, options);
-    stops.push(registry.subscribe(tryReveal), subscribeData(tryReveal));
+    stops.push(() => controller.abort(), order.subscribe(tryReveal));
     tryReveal();
-    return () => {
-      stop();
-      SCROLL_EVENTS.forEach((type) => window.removeEventListener(type, stop, options));
-      window.removeEventListener("keydown", handleKey, options);
-    };
+    return stop;
   }, [placed, registry, readRef]);
 };
 
@@ -144,8 +120,8 @@ export const Dialog = ({
   filtered = false,
   ...rest
 }: DialogProps): ReactNode => {
-  const { visible } = BaseDialog.useContext();
-  useRevealChoice();
+  const { visible, placed } = BaseDialog.useContext();
+  useRevealChoice(placed);
   // Under a submenu that the menu filter passes, a selection shows its options in the
   // menu or nothing.
   const nested = usePath().length > 0;
