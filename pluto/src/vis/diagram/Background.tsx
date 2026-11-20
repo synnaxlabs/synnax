@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Background as Base } from "@xyflow/react";
-import { memo, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { useContext } from "@/vis/diagram/Context";
 
-export const Background = memo((): ReactElement | null => {
+export const Background = (): ReactElement | null => {
   const { editable } = useContext();
   return editable ? <Base /> : null;
-});
+};
 Background.displayName = "Diagram.Background";
