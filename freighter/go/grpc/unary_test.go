@@ -84,4 +84,20 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			}))
 		}
 	})
+
+	It("Should return context.Canceled when the caller cancels the context", func(
+		ctx SpecContext,
+	) {
+		server.BindHandler(func(
+			ctx context.Context,
+			req testutil.Request,
+		) (testutil.Response, error) {
+			return testutil.Response{}, nil
+		})
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(client.Send(cancelCtx, addr, testutil.Request{})).
+			Error().
+			To(MatchError(context.Canceled))
+	})
 })
