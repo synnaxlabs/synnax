@@ -254,7 +254,7 @@ Each message of a record has these settings:
 | Setting                            | Default         | Notes                                                    |
 | ---------------------------------- | --------------- | -------------------------------------------------------- |
 | Message <small>`message`</small>   |                 | The key of the message in the ICD.                       |
-| Source <small>`index`</small>      | Kafka timestamp | The key of the timestamp field. Empty is Kafka time.     |
+| Source <small>`index`</small>      | Kafka timestamp | The key of the timestamp field. Absent is Kafka time.    |
 | Bindings <small>`bindings`</small> |                 | The fields to read. A field with no binding is not read. |
 
 A binding has a `field`, the key of a field of the message, and a `channel`, the channel
