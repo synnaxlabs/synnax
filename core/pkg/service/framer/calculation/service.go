@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
-	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -68,7 +68,7 @@ type ServiceConfig struct {
 	// it for channel changes and reports calculation statuses through it.
 	//
 	// [REQUIRED]
-	ChannelGraph *channelgraph.Graph
+	ChannelGraph *calcgraph.Graph
 	// RetryDelay is the wait before the service compiles a changed calculation again
 	// when the channels it reads changed during each compile.
 	//
@@ -236,7 +236,7 @@ func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
+func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 	for cg := range reader {
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.

@@ -126,7 +126,7 @@ var _ = Describe("Actions", Ordered, func() {
 		Expect(apply(ctx, ch.Key(), rename)).To(BeEmpty())
 		Expect(retrieve(ctx, ch.Key()).Name).To(Equal(name))
 		stored := MustSucceed(
-			dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 		)
 		Expect(stored.Name).To(Equal(name))
 		frames := rec.Snapshot()

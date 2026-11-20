@@ -80,8 +80,7 @@ type Layer struct {
 	Identity cluster.Identity
 	// Host is the host node of the Core.
 	Host node.Node
-	// Channel is the distribution-layer channel allocator: it assigns local keys and
-	// creates, renames, and deletes storage channels.
+	// Channel is the distribution-layer channel allocator: it assigns local keys.
 	Channel *channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry.
 	Framer *framer.Service
@@ -121,7 +120,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("channel"),
 		HostKey:         l.Identity.HostKey,
 		KV:              cfg.Storage.KV,
-		TS:              cfg.Storage.TS,
 	}); !ok(err, nil) {
 		return nil, err
 	}

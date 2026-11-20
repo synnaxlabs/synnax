@@ -32,7 +32,7 @@ import {
   rawKey,
   split,
 } from "@/framer/cache/block";
-import { indexes, tileRange } from "@/framer/cache/grid";
+import { tileRange, tiles } from "@/framer/cache/grid";
 import { type Store } from "@/framer/cache/store";
 import { type Frame } from "@/framer/frame";
 
@@ -135,7 +135,7 @@ export class Reader {
    */
   async fill(tr: TimeRange, ch: channel.Key): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const blocks = indexes(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
+    const blocks = tiles(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
@@ -287,7 +287,7 @@ export class Reader {
     // it ran, and null when every channel's did.
     const rewritten = new Set<channel.Key | null>();
     const span = new TimeRange(
-      tileRange({ level: RAW_LEVEL, index: first }).start,
+      tileRange({ level: RAW_LEVEL, tile: first }).start,
       tr.end,
     );
     const stopWatching = store.onInvalidate((ch, changed) => {
@@ -340,7 +340,7 @@ export class Reader {
           if (requested.has(key)) refetch.add(r);
           return;
         }
-        const from = block.index === first ? start : block.range.start;
+        const from = block.tile === first ? start : block.range.start;
         if (changed) {
           block.expire();
           if (!from.equals(block.range.start)) {
@@ -348,15 +348,15 @@ export class Reader {
             return;
           }
         }
-        const merged = block.index !== first;
+        const merged = block.tile !== first;
         if (!merged && !block.coveredEnd.equals(from)) {
           if (catchUp && requested.has(key)) refetch.add(r);
           return;
         }
-        const part = parts.get(block.index) ?? { timestamps: [], series: [] };
+        const part = parts.get(block.tile) ?? { timestamps: [], series: [] };
         const end = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
         const base = merged ? 0 : block.coveredCount;
-        const aligned = align(block.index, base, part.timestamps, part.series);
+        const aligned = align(block.tile, base, part.timestamps, part.series);
         // An older read can end inside the coverage of a newer one, which then keeps
         // its end, count, and seal.
         if (block.coveredEnd.after(end))
@@ -371,7 +371,7 @@ export class Reader {
           pinned.add(block);
           store.repin(new Set(), new Set([block]));
         });
-        store.set(rawKey(key, block.index), block);
+        store.set(rawKey(key, block.tile), block);
       });
     });
     return refetch;
@@ -416,23 +416,23 @@ const newestEnd = (parts: Part[], start: TimeStamp): TimeStamp => {
 // can fill: a run starts at the coverage end of its first block, and every later block
 // in it has no coverage.
 const runs = (entries: Array<scheduler.BatcherEntry<Request>>): Group[] => {
-  const sorted = [...entries].sort((a, b) => a.req.block.index - b.req.block.index);
+  const sorted = [...entries].sort((a, b) => a.req.block.tile - b.req.block.tile);
   const out: Group[] = [];
   for (const entry of sorted) {
-    const { index, coveredEnd, range } = entry.req.block;
+    const { tile, coveredEnd, range } = entry.req.block;
     const run = out.at(-1);
     const joins =
       run != null &&
-      index <= run.last + 1 &&
-      coveredEnd.equals(index === run.first ? run.start : range.start);
+      tile <= run.last + 1 &&
+      coveredEnd.equals(tile === run.first ? run.start : range.start);
     if (joins) {
-      run.last = Math.max(run.last, index);
+      run.last = Math.max(run.last, tile);
       run.end = TimeStamp.max(run.end, entry.req.end, range.end);
       run.entries.push(entry);
     } else
       out.push({
-        first: index,
-        last: index,
+        first: tile,
+        last: tile,
         start: coveredEnd,
         end: TimeStamp.max(entry.req.end, range.end),
         catchUp: entry.req.catchUp,

@@ -21,7 +21,7 @@ import {
  */
 export interface Position {
   level: number;
-  index: number;
+  tile: number;
 }
 
 /** A tile, optionally cut short at either end. */
@@ -37,9 +37,9 @@ export const tileSpan = (level: number): TimeSpan =>
   new TimeSpan(TimeSpan.MILLISECOND.valueOf() << BigInt(level));
 
 /** @returns the time range the tile covers, cut to its start and end. */
-export const tileRange = ({ level, index, start, end }: Bounds): TimeRange => {
+export const tileRange = ({ level, tile, start, end }: Bounds): TimeRange => {
   const span = tileSpan(level).valueOf();
-  let lower = BigInt(index) * span;
+  let lower = BigInt(tile) * span;
   let upper = lower + span;
   if (start != null && start.valueOf() > lower) lower = start.valueOf();
   if (end != null && end.valueOf() < upper) upper = end.valueOf();
@@ -60,12 +60,12 @@ const floorDiv = (a: bigint, b: bigint): bigint => {
   return a % b < 0n ? q - 1n : q;
 };
 
-/** @returns the index of the tile of the level that holds the timestamp. */
-export const index = (ts: TimeStamp, level: number): number =>
+/** @returns the number of the tile of the level that holds the timestamp. */
+export const tileAt = (ts: TimeStamp, level: number): number =>
   Number(floorDiv(ts.valueOf(), tileSpan(level).valueOf()));
 
-/** @returns the indexes of every tile of the level that overlaps the range. */
-export const indexes = (tr: TimeRange, level: number): number[] => {
+/** @returns the number of every tile of the level that overlaps the range. */
+export const tiles = (tr: TimeRange, level: number): number[] => {
   const span = tileSpan(level).valueOf();
   const first = floorDiv(tr.start.valueOf(), span);
   let last = -floorDiv(-tr.end.valueOf(), span);
@@ -89,10 +89,10 @@ export const cover = (p: Position, end: TimeStamp, floor: number): Bounds[] => {
   for (let l = p.level - 1; l >= floor; l--) {
     const next = from.add(tileSpan(l));
     if (next.after(end)) continue;
-    out.push({ level: l, index: index(from, l) });
+    out.push({ level: l, tile: tileAt(from, l) });
     from = next;
   }
-  if (from.before(end)) out.push({ level: floor, index: index(from, floor), end });
+  if (from.before(end)) out.push({ level: floor, tile: tileAt(from, floor), end });
   return out;
 };
 
@@ -127,7 +127,7 @@ export const pointLimit = ({
 };
 
 /** @returns a key that identifies the position. */
-export const positionKey = ({ level, index }: Position): string => `${level}/${index}`;
+export const positionKey = ({ level, tile }: Position): string => `${level}/${tile}`;
 
 /**
  * Chooses the tiles that draw the given slots, from the available ones. Each slot draws
@@ -146,15 +146,15 @@ export const choose = (slots: Position[], available: Position[]): Position[] => 
   // tile at or below it.
   const above = new Set<string>();
   for (const p of available)
-    for (let l = p.level, i = p.index; l <= top; l++, i = Math.floor(i / 2))
-      above.add(positionKey({ level: l, index: i }));
+    for (let l = p.level, i = p.tile; l <= top; l++, i = Math.floor(i / 2))
+      above.add(positionKey({ level: l, tile: i }));
   // finer returns the coarsest available tiles at or below p in time order, and
   // whether they cover p whole.
   const finer = (p: Position): [Position[], boolean] => {
     if (held.has(positionKey(p))) return [[p], true];
     if (p.level === 0 || !above.has(positionKey(p))) return [[], false];
-    const [first, firstWhole] = finer({ level: p.level - 1, index: 2 * p.index });
-    const [second, secondWhole] = finer({ level: p.level - 1, index: 2 * p.index + 1 });
+    const [first, firstWhole] = finer({ level: p.level - 1, tile: 2 * p.tile });
+    const [second, secondWhole] = finer({ level: p.level - 1, tile: 2 * p.tile + 1 });
     return [[...first, ...second], firstWhole && secondWhole];
   };
   // chosen and partial hold the tiles of each slot by its position in slots.
@@ -171,7 +171,7 @@ export const choose = (slots: Position[], available: Position[]): Position[] => 
   for (const ancestor of coarser) {
     const covered = slots.flatMap((s, i) =>
       s.level < ancestor.level &&
-      Math.floor(s.index / 2 ** (ancestor.level - s.level)) === ancestor.index
+      Math.floor(s.tile / 2 ** (ancestor.level - s.level)) === ancestor.tile
         ? [i]
         : [],
     );
