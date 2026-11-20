@@ -23,7 +23,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 import type { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -1546,9 +1546,15 @@ describe("Read", () => {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createReadChannel([])],
     });
+    // The channel list opens as a drawer only in a form narrower than 560px.
+    const box = container.firstElementChild;
+    assert(box instanceof HTMLElement);
+    box.style.width = "400px";
     const option = await screen.findByRole("option", { name: /No entry/ });
     expect(option.classList.contains("lyra--status-error")).toBe(false);
-    expect(screen.queryByRole("button", { expanded: true })).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { expanded: true })).toBeNull(),
+    );
     await clickDeploy(container);
     await waitFor(() =>
       expect(option.classList.contains("lyra--status-error")).toBe(true),
