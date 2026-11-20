@@ -866,6 +866,13 @@ says why in a sentence, then gives the raw error.
   anchor of its segment, and no label overlaps a seam or an anchor.
 - A range bar that crosses a seam draws on each side, cut at the seam with the fade of
   the plot edge. A range wholly inside a collapsed gap draws nothing.
+- A click on a band, or on its `//` on the axis, opens the break in every plot mode. An
+  open gap keeps a faint `//` at its middle, and a click on it closes the gap. A click
+  on the plot never closes a gap, so a click on data stays a click on data.
+- An open or a close keeps the times at the edges of the view in view. The zoom history
+  and the selection keep their times too.
+- The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
+  while one is open. Reset zoom closes all breaks. Open breaks are window state.
 
 ### Plot range select
 

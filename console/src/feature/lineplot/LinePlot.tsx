@@ -81,12 +81,14 @@ interface ContextMenuContentProps {
   csvLines: DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
   editable: boolean;
+  breaks: pLineplot.BreakCounts;
 }
 
 const ContextMenuContent = ({
   csvLines,
   linePlotRef,
   editable,
+  breaks,
 }: ContextMenuContentProps): ReactElement => {
   const name = Base.useName({});
   const { undo, canUndo } = Base.useUndo({});
@@ -126,6 +128,23 @@ const ContextMenuContent = ({
           <Menu.Divider />
         </>
       )}
+      {breaks.closed > 0 && (
+        <Menu.Item
+          itemKey="openBreaks"
+          onClick={() => linePlotRef.current?.setAllBreaks(true)}
+        >
+          <Icon.Expand /> Open all breaks
+        </Menu.Item>
+      )}
+      {breaks.open > 0 && (
+        <Menu.Item
+          itemKey="closeBreaks"
+          onClick={() => linePlotRef.current?.setAllBreaks(false)}
+        >
+          <Icon.Collapse /> Close all breaks
+        </Menu.Item>
+      )}
+      {breaks.open + breaks.closed > 0 && <Menu.Divider />}
       {!box.areaIsZero(selection) && (
         <>
           <Menu.CopyItem
@@ -248,11 +267,13 @@ const Internal = (): ReactElement => {
     ),
   };
 
+  const [breaks, setBreaks] = useState<pLineplot.BreakCounts>({ open: 0, closed: 0 });
   const menuRenderProp = () => (
     <ContextMenuContent
       csvLines={csvLines}
       linePlotRef={linePlotRef}
       editable={hasUpdatePermission}
+      breaks={breaks}
     />
   );
 
@@ -284,6 +305,7 @@ const Internal = (): ReactElement => {
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
           gapsCollapsed={FLAGS.breaks}
+          onBreaksChange={setBreaks}
         >
           <Controls hasAnnotations={hasAnnotations} />
         </Base.LinePlot>

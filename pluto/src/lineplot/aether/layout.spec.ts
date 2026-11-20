@@ -10,7 +10,7 @@
 import { bounds, box, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Layout, segments, spans, type Trace } from "@/lineplot/aether/layout";
+import { join, Layout, segments, spans, type Trace } from "@/lineplot/aether/layout";
 
 describe("Layout", () => {
   describe("one segment", () => {
@@ -293,5 +293,71 @@ describe("Layout.segment", () => {
   it("should extend the positions of the outer segments without end", () => {
     expect(layout.segments[0].position).toEqual({ lower: -Infinity, upper: 0.5 });
     expect(layout.segments[1].position).toEqual({ lower: 0.5, upper: Infinity });
+  });
+});
+
+describe("join", () => {
+  const PIECES = [
+    { lower: 0, upper: 10 },
+    { lower: 100, upper: 110 },
+    { lower: 200, upper: 210 },
+  ];
+
+  it("should list a closed gap between each two pieces", () => {
+    expect(join(PIECES, [])).toEqual({
+      segments: PIECES,
+      gaps: [
+        { bounds: { lower: 10, upper: 100 }, open: false },
+        { bounds: { lower: 110, upper: 200 }, open: false },
+      ],
+    });
+  });
+
+  it("should merge the pieces on each side of an open gap", () => {
+    const { segments: s, gaps } = join(PIECES, [110]);
+    expect(s).toEqual([
+      { lower: 0, upper: 10 },
+      { lower: 100, upper: 210 },
+    ]);
+    expect(gaps.map((g) => g.open)).toEqual([false, true]);
+  });
+
+  it("should give one segment when every gap is open", () => {
+    expect(join(PIECES, [10, 110]).segments).toEqual([{ lower: 0, upper: 210 }]);
+  });
+});
+
+describe("Layout.gapAt", () => {
+  const PIECES = [
+    { lower: 0, upper: 10 },
+    { lower: 100, upper: 110 },
+    { lower: 200, upper: 210 },
+  ];
+  const layout = (open: number[]) => {
+    const { segments: s, gaps } = join(PIECES, open);
+    return new Layout(s, box.DECIMAL, new Map(), gaps);
+  };
+
+  it("should find the closed gap whose seam is within tolerance", () => {
+    expect(layout([]).gapAt(1 / 3 + 0.01, 0.02)?.bounds).toEqual({
+      lower: 10,
+      upper: 100,
+    });
+  });
+
+  it("should find no gap outside the tolerance", () => {
+    expect(layout([]).gapAt(0.4, 0.02)).toBeNull();
+  });
+
+  it("should mark an open gap at its middle", () => {
+    const l = layout([110]);
+    const open = l.gaps[1];
+    expect(l.gapAt(l.mark(open), 0.01)).toBe(open);
+    expect(l.pos(155)).toBeCloseTo(l.mark(open));
+  });
+
+  it("should skip an open gap when it finds only closed gaps", () => {
+    const l = layout([110]);
+    expect(l.gapAt(l.mark(l.gaps[1]), 0.01, true)).toBeNull();
   });
 });

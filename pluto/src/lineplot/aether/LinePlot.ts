@@ -13,7 +13,14 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { XAxis } from "@/lineplot/aether/XAxis";
+import type { Layout } from "@/lineplot/aether/layout";
+import {
+  type BreaksChange,
+  breaksChangeZ,
+  type BreaksRequest,
+  breaksRequestZ,
+  XAxis,
+} from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { measure } from "@/lineplot/measure/aether";
 import { rule } from "@/lineplot/rule/aether";
@@ -25,19 +32,26 @@ import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
 
+const breakCountsZ = z.object({ open: z.number(), closed: z.number() });
+export type BreakCounts = z.infer<typeof breakCountsZ>;
+
+const numericBoundsZ = z.object({ lower: z.number(), upper: z.number() });
+
 export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().default(false),
   gapsCollapsed: z.boolean().default(false),
+  /** The lower bounds of the gaps of x1 that show in place of a break. */
+  openBreaks: z.array(z.number()).default([]),
+  /** The number of open and of closed breaks on x1, which the plot sets. */
+  breaks: breakCountsZ.default({ open: 0, closed: 0 }),
   grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().default(true),
   clearOverScan: xy.crudeZ.default(xy.ZERO),
   loading: z.boolean().default(false),
   fetching: z.boolean().default(false),
 });
-
-const numericBoundsZ = z.object({ lower: z.number(), upper: z.number() });
 
 const axesBoundsZ = z.record(z.string(), numericBoundsZ);
 
@@ -48,6 +62,15 @@ export const linePlotMethodsZ = {
    * home view holds.
    */
   getXBounds: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
+  /**
+   * Applies a break action to x1, and returns the open breaks and the boxes of the
+   * request mapped so each holds the same values, or null when the action changes
+   * nothing. The caller sets the open breaks and the boxes.
+   */
+  setBreaks: z.function({
+    input: z.tuple([breaksRequestZ]),
+    output: breaksChangeZ.nullable(),
+  }),
 };
 
 interface InternalState {
@@ -140,15 +163,31 @@ export class LinePlot
       this.setState((p) => ({ ...p, loading, fetching }));
   }
 
+  private syncBreaks(layout: Layout | null): void {
+    const gaps = layout?.gaps ?? [];
+    const open = gaps.filter((g) => g.open).length;
+    const breaks = { open, closed: gaps.length - open };
+    const prev = this.state.breaks;
+    if (prev.open !== breaks.open || prev.closed !== breaks.closed)
+      this.setState((p) => ({ ...p, breaks }));
+  }
+
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { ...this.state, plot, canvases };
     // Raised lines draw after the lines of every axis, so they draw over all of them.
     const raised: Array<() => void> = [];
     try {
-      this.axes.forEach((xAxis) => xAxis.render(p, raised));
+      const layouts = this.axes.map((xAxis) => xAxis.render(p, raised));
+      this.syncBreaks(layouts[0] ?? null);
     } finally {
       raised.forEach((draw) => draw());
     }
+  }
+
+  setBreaks(req: BreaksRequest): BreaksChange | null {
+    const x1 = this.axes.at(0);
+    if (x1 == null) return null;
+    return x1.breaks(this.state, req, this.calculatePlot());
   }
 
   private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {

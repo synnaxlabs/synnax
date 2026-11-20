@@ -31,10 +31,13 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport, setViewportElement } = useContext("LinePlot.Viewport");
+  const { setViewport, setViewportElement, closeBreaks } =
+    useContext("LinePlot.Viewport");
   const { loading, fetching, loadingMessage } = useFetchContext("LinePlot.Viewport");
 
+  // A new initial view is a reset, which closes every break.
   useLayoutEffect(() => {
+    closeBreaks();
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
   }, [setViewport, initial]);
 

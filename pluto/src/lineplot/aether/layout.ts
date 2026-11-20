@@ -35,6 +35,35 @@ export interface Segment {
   extent: bounds.Bounds;
 }
 
+/** A gap between two segments of windows, which collapses into a break when closed. */
+export interface Gap {
+  /** The values of the gap. Its lower bound keys it. */
+  bounds: bounds.Bounds;
+  /** Set when the gap shows its values in place of a break. */
+  open: boolean;
+}
+
+/**
+ * @returns the segments that pieces form when each gap whose lower bound is in open
+ * shows its values, with each gap between two pieces.
+ */
+export const join = (
+  pieces: bounds.Bounds[],
+  open: readonly number[],
+): { segments: bounds.Bounds[]; gaps: Gap[] } => {
+  const segments = pieces.slice(0, 1);
+  const gaps: Gap[] = [];
+  pieces.slice(1).forEach((piece, i) => {
+    const gap = { lower: pieces[i].upper, upper: piece.lower };
+    const isOpen = open.includes(gap.lower);
+    gaps.push({ bounds: gap, open: isOpen });
+    const last = segments.length - 1;
+    if (isOpen) segments[last] = { ...segments[last], upper: piece.upper };
+    else segments.push(piece);
+  });
+  return { segments, gaps };
+};
+
 /**
  * Layout maps the values of an x axis to decimal positions across its home view and
  * across its viewport. Its segments sit side by side in value order and share one
@@ -51,19 +80,24 @@ export class Layout {
   private readonly positions: readonly bounds.Bounds[];
   private readonly viewport: scale.Scale;
   private readonly spans: ReadonlyMap<string, bounds.Bounds>;
+  /** The gaps between the windows of the axis, in value order. */
+  readonly gaps: readonly Gap[];
 
   /**
    * @param segments - the value bounds of each segment, in value order. None may
    * overlap, and each must have a span above zero.
    * @param viewport - the viewport, in decimal space across the home view.
    * @param spans - the span of each line that has one, in axis values.
+   * @param gaps - the gaps between the windows of the axis, from join.
    */
   constructor(
     segments: bounds.Bounds[],
     viewport: box.Box,
     spans: ReadonlyMap<string, bounds.Bounds> = new Map(),
+    gaps: Gap[] = [],
   ) {
     this.spans = spans;
+    this.gaps = gaps;
     const total = segments.reduce((sum, b) => sum + bounds.span(b), 0);
     let before = 0;
     this.positions = segments.map((b) => {
@@ -120,6 +154,29 @@ export class Layout {
       value,
     );
     return this.segments[i];
+  }
+
+  /**
+   * @returns the gap whose mark is within tolerance of a decimal position across the
+   * viewport, or null. A closed gap marks its seam, and an open one its middle.
+   * @param closedOnly - set to find only the gaps that collapse into breaks.
+   */
+  gapAt(position: number, tolerance: number, closedOnly = false): Gap | null {
+    let found: Gap | null = null;
+    let distance = tolerance;
+    this.gaps.forEach((g) => {
+      if (closedOnly && g.open) return;
+      const d = Math.abs(this.mark(g) - position);
+      if (d > distance) return;
+      found = g;
+      distance = d;
+    });
+    return found;
+  }
+
+  /** @returns the decimal position across the viewport of the mark of a gap. */
+  mark({ bounds: b, open }: Gap): number {
+    return this.pos(open ? (b.lower + b.upper) / 2 : b.lower);
   }
 
   /** @returns the decimal position of value across the viewport. */

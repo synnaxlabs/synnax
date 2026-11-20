@@ -637,7 +637,6 @@ export interface LinePlotProps extends FrameProps {
   measureMode?: measure.Mode;
   onMeasureModeChange?: (mode: measure.Mode) => void;
   initialViewport?: Viewport.UseProps["initial"];
-  onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
   onSelectRule?: (key: string) => void;
@@ -782,6 +781,7 @@ export const LinePlot = ({
       ref={ref}
       viewportRef={viewportRef}
       loadingMessage={fetchingMessage(ranges)}
+      onViewportChange={onViewportChange}
       {...rest}
     >
       <HoverContext value={{ hover, hiddenRanges, hiddenTraces }}>
@@ -813,7 +813,6 @@ export const LinePlot = ({
       <Title pKey={key} editable={editable} />
       <BaseViewport
         initial={initialViewport}
-        onChange={onViewportChange}
         triggers={viewportTriggers}
         ref={viewportRef}
       >

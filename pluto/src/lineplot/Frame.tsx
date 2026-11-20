@@ -13,6 +13,7 @@ import type { lineplot as lineplotClient } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { useEffectCompare, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Status } from "@synnaxlabs/lyra/status";
 import {
   type bounds,
   box,
@@ -69,6 +70,13 @@ export interface ContextValue {
   toggleZoom: (key: string, x: bounds.Bounds) => void;
   /** The key of the last toggleZoom call that the view still shows, or null. */
   zoomedKey: string | null;
+  /**
+   * Opens or closes the break of x1 under a click at clientX, with the same times
+   * kept in view. A click on the plot finds only closed breaks.
+   */
+  toggleBreak: (clientX: number, source: lineplot.BreakSource) => void;
+  /** Closes every break of x1, with the view left as it is. */
+  closeBreaks: () => void;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -139,6 +147,8 @@ export interface FrameRef {
   getXBounds: (positions: bounds.Bounds) => Promise<lineplot.AxesBounds>;
   /** Zooms to x, in decimal space, like ContextValue.toggleZoom. */
   toggleZoom: ContextValue["toggleZoom"];
+  /** Opens or closes every break of x1, with the same times kept in view. */
+  setAllBreaks: (open: boolean) => void;
 }
 
 type LineState = LineSpec[];
@@ -148,6 +158,13 @@ interface SavedView {
   viewport: box.Box;
   hold: boolean;
 }
+
+// canvasX returns the x of a client x, from the left of the canvas the plot draws on.
+const canvasX = (clientX: number): number => {
+  const canvas = document.querySelector(".pluto-canvas-container");
+  if (canvas == null) throw new Error("The plot has no canvas");
+  return clientX - box.left(canvas);
+};
 
 const changesView = ({ mode, stage }: Viewport.UseEvent): boolean =>
   (mode === "pan" && stage !== "start") ||
@@ -176,6 +193,13 @@ export interface FrameProps
   viewportRef?: RefObject<Viewport.UseRefValue | null>;
   /** Called with the key that toggleZoom zoomed to, or null when the plot zooms out. */
   onZoomedChange?: (key: string | null) => void;
+  /**
+   * Called with each change of the view and the selection: those of the viewport, and
+   * those a break change makes as it maps them through time.
+   */
+  onViewportChange?: Viewport.UseHandler;
+  /** Called when the number of open or of closed breaks of x1 changes. */
+  onBreaksChange?: (breaks: lineplot.BreakCounts) => void;
 }
 
 export const Frame = ({
@@ -192,6 +216,8 @@ export const Frame = ({
   ref,
   viewportRef,
   onZoomedChange,
+  onViewportChange,
+  onBreaksChange,
   ...rest
 }: FrameProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
@@ -199,7 +225,7 @@ export const Frame = ({
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible, gapsCollapsed });
 
-  const [{ path }, { grid, loading, fetching }, setState, methods] = Aether.use({
+  const [{ path }, state, setState, methods] = Aether.use({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,
@@ -211,6 +237,7 @@ export const Frame = ({
     },
     methods: lineplot.linePlotMethodsZ,
   });
+  const { grid, loading, fetching, breaks, openBreaks } = state;
 
   // We use a single resize handler for both the container and plotting region because
   // the container is guaranteed to only resize if the plotting region does. This allows
@@ -257,12 +284,95 @@ export const Frame = ({
     viewportHandlers.current.forEach((_, handler) => handler(args));
   };
 
-  const setViewport: Viewport.UseHandler = (args) => {
+  const handleError = Status.useErrorHandler();
+  const breaksRef = useSyncedRef(breaks);
+  const openBreaksRef = useSyncedRef(openBreaks);
+  useEffect(() => onBreaksChange?.(breaks), [breaks.open, breaks.closed]);
+  // The selection the plot last reported, so a break change can map it.
+  const selectionRef = useRef<box.Box>(box.ZERO);
+
+  // applyBreaks applies a break action and maps the zoom history and the selection
+  // through time, and the view too when moveView is set. It resolves to false when the
+  // action changes nothing.
+  const applyBreaks = async (
+    action: lineplot.BreakAction,
+    moveView: boolean,
+  ): Promise<boolean> => {
+    const history = zoomHistory.current;
+    const change = await methods.setBreaks({
+      action,
+      viewport: appliedRef.current,
+      held: history.map((v) => v.viewport),
+      selection: selectionRef.current,
+    });
+    if (change == null) return false;
+    setState((prev) => ({ ...prev, openBreaks: change.openBreaks }));
+    if (zoomHistory.current === history)
+      zoomHistory.current = history.map((v, i) => ({ ...v, viewport: change.held[i] }));
+    if (moveView) {
+      viewportRef?.current?.sync(change.viewport);
+      applyViewport({
+        box: change.viewport,
+        mode: "zoom",
+        cursor: xy.ZERO,
+        stage: "end",
+      });
+    }
+    if (!box.areaIsZero(selectionRef.current)) {
+      selectionRef.current = change.selection;
+      onViewportChange?.({
+        box: change.selection,
+        mode: "select",
+        cursor: xy.ZERO,
+        stage: "end",
+      });
+    }
+    return true;
+  };
+
+  const breaksShown = () => breaksRef.current.open + breaksRef.current.closed > 0;
+
+  const toggleBreak: ContextValue["toggleBreak"] = (clientX, source) => {
+    if (!breaksShown()) return;
+    handleError(async () => {
+      await applyBreaks({ variant: "toggle", x: canvasX(clientX), source }, true);
+    }, "Failed to open or close a break");
+  };
+
+  const closeBreaks = () => {
+    if (openBreaksRef.current.length === 0) return;
+    handleError(async () => {
+      await applyBreaks({ variant: "all", open: false }, false);
+    }, "Failed to close breaks");
+  };
+
+  const setAllBreaks = (open: boolean) =>
+    handleError(
+      async () => {
+        await applyBreaks({ variant: "all", open }, true);
+      },
+      `Failed to ${open ? "open" : "close"} breaks`,
+    );
+
+  const dispatchViewport: Viewport.UseHandler = (args) => {
     if (changesView(args) && zoomHistory.current.length > 0) {
       zoomHistory.current = [];
       setZoomedKey(null);
     }
+    if (args.mode === "select" && args.stage === "end") selectionRef.current = args.box;
+    if (args.mode === "zoomReset") closeBreaks();
     applyViewport(args);
+    onViewportChange?.(args);
+  };
+
+  // A click on a break opens it and goes no further.
+  const setViewport: Viewport.UseHandler = (args) => {
+    if (args.mode !== "click" || !breaksShown()) return dispatchViewport(args);
+    handleError(async () => {
+      const x = canvasX(args.cursor.x);
+      const opened = await applyBreaks({ variant: "toggle", x, source: "plot" }, true);
+      if (!opened) dispatchViewport(args);
+    }, "Failed to open a break");
   };
 
   const setGridEntry = (meta: grid.Region) => {
@@ -313,12 +423,14 @@ export const Frame = ({
     setHold(back?.hold ?? true);
   };
   const toggleZoomRef = useSyncedRef(toggleZoom);
+  const setAllBreaksRef = useSyncedRef(setAllBreaks);
   useImperativeHandle(
     ref,
     () => ({
       getBounds: methods.getBounds,
       getXBounds: methods.getXBounds,
       toggleZoom: (key, x) => toggleZoomRef.current(key, x),
+      setAllBreaks: (open) => setAllBreaksRef.current(open),
     }),
     [methods.getBounds, methods.getXBounds],
   );
@@ -337,6 +449,8 @@ export const Frame = ({
     addViewportHandler,
     toggleZoom,
     zoomedKey,
+    toggleBreak,
+    closeBreaks,
     id,
   };
 

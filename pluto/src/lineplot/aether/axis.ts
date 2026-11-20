@@ -81,6 +81,8 @@ export interface AxisRenderProps {
   hold: boolean;
   /** Set when the gaps between the windows of a time axis collapse into breaks. */
   gapsCollapsed: boolean;
+  /** The lower bounds of the gaps that show their values in place of a break. */
+  openBreaks: number[];
 }
 
 /** @returns the newest sample of the bounds with an edge, or undefined if none. */
@@ -174,6 +176,7 @@ export abstract class BaseAxis<
     props: AxisRenderProps,
     decimalToDataScale: scale.Scale,
     segments?: TickSegment[],
+    openBreaks?: number[],
   ): void {
     if (!props.canvases.includes("lower2d")) return;
     const { base } = this.internal;
@@ -184,6 +187,7 @@ export abstract class BaseAxis<
       position,
       decimalToDataScale,
       segments,
+      openBreaks,
       size: this.state.size + this.state.labelSize,
     };
     const { size } = base.render(p);

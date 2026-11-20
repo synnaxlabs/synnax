@@ -39,6 +39,8 @@ export interface AxisProps extends Omit<TickFactoryRenderParams, "size"> {
   plot: box.Box;
   position: xy.XY;
   size: number;
+  /** The decimal positions across the axis of open breaks, which draw a faint mark. */
+  openBreaks?: number[];
 }
 
 export interface Axis {

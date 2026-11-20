@@ -17,6 +17,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { direction, type text } from "@synnaxlabs/x";
 import {
   type FC,
+  type MouseEvent,
   type PropsWithChildren,
   type ReactElement,
   useEffect,
@@ -28,7 +29,7 @@ import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
 import { baseAxisStateZ, withinSizeThreshold } from "@/lineplot/aether/axis";
-import { useGridEntry } from "@/lineplot/Frame";
+import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { text as aetherText } from "@/text/aether";
 
 export interface AxisProps
@@ -66,6 +67,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     axisKey,
     autoBoundUpdateInterval,
     style,
+    onClick,
     ...rest
   }: AxisProps): ReactElement => {
     const showLabel = (label?.length ?? 0) > 0;
@@ -93,10 +95,16 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
 
     useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
 
+    const component = `LinePlot.${dir.toUpperCase()}Axis`;
     const gridStyle = useGridEntry(
       { loc: location, key: `${aetherType}-${cKey}`, size: size + labelSize, order: 1 },
-      `LinePlot.${dir.toUpperCase()}Axis`,
+      component,
     );
+    const { toggleBreak } = useContext(component);
+    const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+      if (dir === "x") toggleBreak(e.clientX, "axis");
+      onClick?.(e);
+    };
 
     const font = Theming.useTypography(labelLevel).toString();
 
@@ -136,6 +144,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           align="center"
           justify={location !== "left" ? "end" : "start"}
           direction={direction.swap(dir)}
+          onClick={handleClick}
           {...rest}
         >
           {showLabel && (
