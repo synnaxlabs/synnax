@@ -35,8 +35,9 @@ func (*Service) Match(body map[string]any) bool {
 
 // Decode decodes env into a Schematic that its Write creates under opts.Parent, which
 // must be a project. A group must be in the parent project. The key on the wire is
-// discarded so every import mints a new resource. An unknown envelope version is a
-// path-scoped validation error.
+// discarded so every import mints a new resource. A select or state indicator keeps an
+// enumeration that the Core has and clears one that it lacks, so it draws its own
+// options. An unknown envelope version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -57,6 +58,9 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 			return resource.ID{}, err
 		}
 		sch.Group, sch.Project = opts.Group, &proj
+		if _, err = s.table.DropDangling(ctx, tx, &sch); err != nil {
+			return resource.ID{}, err
+		}
 		if err = s.NewWriter(tx).Create(ctx, &sch); err != nil {
 			return resource.ID{}, err
 		}

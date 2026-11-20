@@ -5323,7 +5323,6 @@ type Schematic struct {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for i := range s.Nodes {
 		v.Exec(func() error { return validate.PathedError(s.Nodes[i].Validate(), "nodes", strconv.Itoa(i)) })
 	}

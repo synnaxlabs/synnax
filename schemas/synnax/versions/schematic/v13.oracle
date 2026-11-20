@@ -45,7 +45,9 @@ Segment = v9.Segment
 
 SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {
     stroke_width uint8 = 2 {
-        @doc value "is the stroke width of the edge in pixels."
+        @doc value    "is the stroke width of the edge in pixels."
+        @validate max 20
+        @validate min 1
     }
 }
 

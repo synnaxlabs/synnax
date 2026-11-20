@@ -14,6 +14,7 @@ import { type ReactElement } from "react";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { Options } from "@/schematic/node/common/options";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { optionName, Select } from "@/schematic/node/general/select/Primitive";
@@ -35,7 +36,8 @@ export const Symbol = ({
     stateChannel,
     stalenessColor,
     stalenessTimeout,
-    options,
+    options: ownOptions,
+    enumeration,
     size,
     disabled,
     inlineSize,
@@ -44,6 +46,7 @@ export const Symbol = ({
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
   const theme = Theming.use();
   const badged = Staleness.useBadged();
+  const options = Options.use({ enumeration, options: ownOptions });
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
