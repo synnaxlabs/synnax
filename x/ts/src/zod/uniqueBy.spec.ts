@@ -68,6 +68,6 @@ describe("uniqueBy", () => {
         { name: "a", disabled: false },
       ],
     });
-    expect(result.error?.issues[0].path).toEqual(["items", 1, "name"]);
+    expect(result.error?.issues[0]?.path).toEqual(["items", 1, "name"]);
   });
 });

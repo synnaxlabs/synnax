@@ -16,6 +16,7 @@
 #endif
 #include "driver/arc/arc.h"
 #include "driver/ethercat/ethercat.h"
+#include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/modbus/names.h"
 #include "driver/rack/factories.h"
@@ -131,6 +132,16 @@ void configure_ethercat(
     );
 }
 
+void configure_file(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, file::INTEGRATION_NAME, [&config]() {
+        return std::make_unique<file::Factory>(file::Config{
+            .roots = file::roots(),
+            .home = file::home(),
+            .secrets_dir = config.secrets_dir,
+        });
+    });
+}
+
 void configure_http(const Config &config, FactoryList &factories) {
     configure_integration(config, factories, http::INTEGRATION_NAME, []() {
         return std::make_unique<http::Factory>();
@@ -149,6 +160,7 @@ std::unique_ptr<task::Factory> Config::new_factory(
     configure_arc(*this, factories, rt_manager);
     configure_ethercat(*this, factories, client, rt_manager);
     configure_http(*this, factories);
+    configure_file(*this, factories);
     configure_modbus(*this, factories);
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }

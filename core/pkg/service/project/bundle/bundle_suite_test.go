@@ -116,6 +116,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 		DB:     db,
 		Secret: secrettestutil.OpenService(ctx, db),
+		Rack:   secrettestutil.CoreRack,
 	}))
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))

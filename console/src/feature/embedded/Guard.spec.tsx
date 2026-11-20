@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { auth } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { testClientParams } from "@synnaxlabs/client/testutil";
 import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +26,7 @@ import {
 } from "@/feature/embedded/testutil";
 import { Session } from "@/session";
 
-const { port } = TEST_CLIENT_PARAMS;
+const { port } = testClientParams();
 
 const { client, live } = await createDesktopUser();
 
