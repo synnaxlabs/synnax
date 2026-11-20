@@ -509,7 +509,7 @@ func (s *Service) syncCalculations(
 		case ch.Expression == "":
 		case ok:
 			c.Expression = ch.Expression
-			c.Operations = calculationOperations(ch.Operations)
+			c.Operations = calculation.FromChannelOperations(ch.Operations)
 			if err := w.Update(ctx, c); err != nil {
 				return err
 			}
@@ -517,7 +517,7 @@ func (s *Service) syncCalculations(
 			c = calculation.Calculation{
 				Output:     ch.Key(),
 				Expression: ch.Expression,
-				Operations: calculationOperations(ch.Operations),
+				Operations: calculation.FromChannelOperations(ch.Operations),
 			}
 			if err := w.Create(ctx, &c); err != nil {
 				return err
@@ -525,31 +525,4 @@ func (s *Service) syncCalculations(
 		}
 	}
 	return nil
-}
-
-// calculationOperations returns the calculation form of the operations of the channel
-// API. A none operation has no calculation form, and a reset channel of 0 is absent.
-func calculationOperations(ops []channel.Operation) []calculation.Operation {
-	out := make([]calculation.Operation, 0, len(ops))
-	for _, op := range ops {
-		w := calculation.Window{Duration: op.Duration}
-		if op.ResetChannel != 0 {
-			w.Reset = new(op.ResetChannel)
-		}
-		var variant calculation.OperationVariant
-		switch op.Type {
-		case channel.OperationTypeMin:
-			variant = calculation.MinOperation{Window: w}
-		case channel.OperationTypeMax:
-			variant = calculation.MaxOperation{Window: w}
-		case channel.OperationTypeAvg:
-			variant = calculation.AvgOperation{Window: w}
-		case channel.OperationTypeDerivative:
-			variant = calculation.DerivativeOperation{}
-		case channel.OperationTypeNone:
-			continue
-		}
-		out = append(out, calculation.Operation{Variant: variant})
-	}
-	return out
 }

@@ -33,3 +33,30 @@ func Resets(c Calculation) []channel.Key {
 	}
 	return resets
 }
+
+// FromChannelOperations returns the calculation form of the operations of a channel. A
+// none operation has no calculation form, and a reset channel of 0 is absent.
+func FromChannelOperations(ops []channel.Operation) []Operation {
+	out := make([]Operation, 0, len(ops))
+	for _, op := range ops {
+		w := Window{Duration: op.Duration}
+		if op.ResetChannel != 0 {
+			w.Reset = new(op.ResetChannel)
+		}
+		var variant OperationVariant
+		switch op.Type {
+		case channel.OperationTypeMin:
+			variant = MinOperation{Window: w}
+		case channel.OperationTypeMax:
+			variant = MaxOperation{Window: w}
+		case channel.OperationTypeAvg:
+			variant = AvgOperation{Window: w}
+		case channel.OperationTypeDerivative:
+			variant = DerivativeOperation{}
+		case channel.OperationTypeNone:
+			continue
+		}
+		out = append(out, Operation{Variant: variant})
+	}
+	return out
+}
