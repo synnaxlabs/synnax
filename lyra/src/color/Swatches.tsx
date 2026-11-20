@@ -46,7 +46,6 @@ export const Swatches = ({
   children,
 }: SwatchesProps): ReactElement => {
   const { colors } = Theming.use();
-  const frequent = useFrequent();
   const provided = usePresets();
   const offered = [
     colors.primary.z,
@@ -55,7 +54,9 @@ export const Swatches = ({
     colors.error.z,
     ...provided,
   ];
-  const presets = [...new Map(offered.map((c) => [color.hex(c), c])).values()];
+  const byHex = new Map(offered.map((c) => [color.hex(c), c]));
+  const presets = [...byHex.values()];
+  const frequent = useFrequent().filter((c) => !byHex.has(color.hex(c)));
   return (
     <Flex.Box y gap="medium" className={CSS.B("color-swatches")}>
       <div className={CSS.BE("color-swatches", "grid")}>
