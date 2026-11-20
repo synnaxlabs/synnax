@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type AttributeValue,
+  type AnyValue,
   context,
   propagation,
   type Span as OtelSpan,
@@ -174,7 +174,7 @@ export interface Span {
    */
   recordError: (error?: Error | null) => void;
   /** Sets the given key-value pair as an attribute on the span. */
-  set: (key: string, value: AttributeValue) => void;
+  set: (key: string, value: AnyValue) => void;
 }
 
 export class _Span implements Span {
@@ -187,7 +187,7 @@ export class _Span implements Span {
     this.otel = span;
   }
 
-  set(key: string, value: AttributeValue): void {
+  set(key: string, value: AnyValue): void {
     this.otel.setAttribute(key, value);
   }
 

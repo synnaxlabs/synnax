@@ -14,6 +14,7 @@ import {
   array,
   binary,
   DataType,
+  disposable,
   errors,
   id,
   Series,
@@ -45,12 +46,11 @@ const quiet = (): void => {};
 const client = createTestClient();
 
 const write = async (ch: channel.Channel, values: number[]): Promise<void> => {
-  const writer = await client.openWriter({ start: TimeStamp.now(), channels: ch.key });
-  try {
-    await writer.write(ch.key, new Float64Array(values));
-  } finally {
-    await writer.close();
-  }
+  await using writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ch.key,
+  });
+  await writer.write(ch.key, new Float64Array(values));
 };
 
 describe("Streamer", () => {
@@ -69,6 +69,40 @@ describe("Streamer", () => {
       }
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+    });
+
+    describe("dispose", () => {
+      test("should close the streamer once at the end of a using block", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer(ch.key);
+        const close = vi.spyOn(streamer, "close");
+        {
+          using _ = streamer;
+        }
+        expect(close).toHaveBeenCalledTimes(1);
+        await expect(streamer.read()).rejects.toThrow(EOF);
+      });
+
+      test("should close the streamer once at the end of an await using block", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer(ch.key);
+        const close = vi.spyOn(streamer, "close");
+        {
+          await using _ = streamer;
+        }
+        expect(close).toHaveBeenCalledTimes(1);
+      });
+
+      test("should dispose a streamer that was closed explicitly", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer(ch.key);
+        const close = vi.spyOn(streamer, "close");
+        {
+          await using s = streamer;
+          s.close();
+        }
+        expect(close).toHaveBeenCalledTimes(2);
+      });
     });
 
     test("bool stream round-trip", async () => {
@@ -162,23 +196,19 @@ describe("Streamer", () => {
     describe("update acks", () => {
       it("should deliver a write issued right after an acked update", async () => {
         const ch = await newVirtualChannel(client);
-        const streamer = await client.openStreamer([]);
+        await using streamer = await client.openStreamer([]);
+        const frame = streamer.read();
+        await streamer.update(ch.key, { waitForAck: true });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
         try {
-          const frame = streamer.read();
-          await streamer.update(ch.key, { waitForAck: true });
-          const writer = await client.openWriter({
-            start: TimeStamp.now(),
-            channels: ch.key,
-          });
-          try {
-            await writer.write(ch.key, new Float64Array([1, 2, 3]));
-          } finally {
-            await writer.close();
-          }
-          expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
+          await writer.write(ch.key, new Float64Array([1, 2, 3]));
         } finally {
-          streamer.close();
+          await writer.close();
         }
+        expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
       });
 
       it("should ack an update that leaves the channels unchanged", async () => {
@@ -196,46 +226,34 @@ describe("Streamer", () => {
 
       it("should stream samples written after an unchanged acked update", async () => {
         const ch = await newVirtualChannel(client);
-        const streamer = await client.openStreamer(ch.key);
-        try {
-          const frame = streamer.read();
-          await streamer.update(ch.key, { waitForAck: true });
-          await write(ch, [1, 2, 3]);
-          expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
-        } finally {
-          streamer.close();
-        }
+        await using streamer = await client.openStreamer(ch.key);
+        const frame = streamer.read();
+        await streamer.update(ch.key, { waitForAck: true });
+        await write(ch, [1, 2, 3]);
+        expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
       });
 
       it("should stream samples after an update to no channels and back", async () => {
         const ch = await newVirtualChannel(client);
-        const streamer = await client.openStreamer(ch.key);
-        try {
-          await streamer.update([]);
-          const frame = streamer.read();
-          await streamer.update(ch.key, { waitForAck: true });
-          await write(ch, [1, 2, 3]);
-          expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
-        } finally {
-          streamer.close();
-        }
+        await using streamer = await client.openStreamer(ch.key);
+        await streamer.update([]);
+        const frame = streamer.read();
+        await streamer.update(ch.key, { waitForAck: true });
+        await write(ch, [1, 2, 3]);
+        expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
       });
 
       it("should resolve several acked updates that wait at once", async () => {
         const ch = await newVirtualChannel(client);
-        const streamer = await client.openStreamer(ch.key);
-        try {
-          const updates = [
-            streamer.update(ch.key, { waitForAck: true }),
-            streamer.update(ch.key, { waitForAck: true }),
-          ];
-          const pending = streamer.read().catch((e: unknown) => e);
-          await Promise.all(updates);
-          streamer.close();
-          expect(EOF.matches(await pending)).toBe(true);
-        } finally {
-          streamer.close();
-        }
+        await using streamer = await client.openStreamer(ch.key);
+        const updates = [
+          streamer.update(ch.key, { waitForAck: true }),
+          streamer.update(ch.key, { waitForAck: true }),
+        ];
+        const pending = streamer.read().catch((e: unknown) => e);
+        await Promise.all(updates);
+        streamer.close();
+        expect(EOF.matches(await pending)).toBe(true);
       });
 
       it("should reject a pending acked update when the streamer closes", async () => {
@@ -687,6 +705,12 @@ describe("Streamer", () => {
   });
 
   class MockStreamer implements framer.Streamer {
+    declare [Symbol.dispose]: () => void;
+    declare [Symbol.asyncDispose]: () => Promise<void>;
+    static {
+      disposable.implement(this);
+    }
+
     keys: channel.Key[] = [];
     updateMock = vi.fn();
     readMock = vi.fn();
@@ -747,19 +771,15 @@ describe("Streamer", () => {
 
     it("should keep keep-alives out of the frames a streamer serves", async () => {
       const ch = await newVirtualChannel(client);
-      const streamer = await client.openStreamer({
+      await using streamer = await client.openStreamer({
         channels: ch.key,
         keepAlive: KEEP_ALIVE,
       });
-      try {
-        // Let several keep-alives queue up so the read has to skip past them.
-        await sleep.sleep(KEEP_ALIVE.mult(2.5));
-        await write(ch, [1, 2, 3]);
-        const frame = await streamer.read();
-        expect(Array.from(frame.get(ch.key))).toEqual([1, 2, 3]);
-      } finally {
-        streamer.close();
-      }
+      // Let several keep-alives queue up so the read has to skip past them.
+      await sleep.sleep(KEEP_ALIVE.mult(2.5));
+      await write(ch, [1, 2, 3]);
+      const frame = await streamer.read();
+      expect(Array.from(frame.get(ch.key))).toEqual([1, 2, 3]);
     });
 
     it("should reject an interval below the Core's minimum", async () => {
@@ -819,27 +839,23 @@ describe("Streamer", () => {
       const ch = await newVirtualChannel(client);
       const onDrop = vi.fn();
       const onReopen = vi.fn();
-      const hardened = await framer.HardenedStreamer.open(
+      await using hardened = await framer.HardenedStreamer.open(
         async (cfg) => await proxied.openStreamer(cfg),
         { channels: ch.key, keepAlive: KEEP_ALIVE },
         { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
       );
-      try {
-        await write(ch, [1]);
-        expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
-        await sleep.sleep(ARMED);
-        expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-        // The proxy still forwards new connections, so the deadline trip inside this
-        // read reconnects and the read stays pending for the next frame.
-        const pending = hardened.read();
-        await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
-        expect(Unreachable.matches(onDrop.mock.calls[0][0])).toBe(true);
-        await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
-        await write(ch, [2]);
-        expect(Array.from((await pending).get(ch.key))).toEqual([2]);
-      } finally {
-        hardened.close();
-      }
+      await write(ch, [1]);
+      expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
+      await sleep.sleep(ARMED);
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      // The proxy still forwards new connections, so the deadline trip inside this
+      // read reconnects and the read stays pending for the next frame.
+      const pending = hardened.read();
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
+      expect(Unreachable.matches(onDrop.mock.calls[0][0])).toBe(true);
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
+      await write(ch, [2]);
+      expect(Array.from((await pending).get(ch.key))).toEqual([2]);
     }, 30_000);
 
     it("should reject a pending update ack when the read fails", async () => {
@@ -912,6 +928,28 @@ describe("Streamer", () => {
       expect(fr2).toEqual(fr);
       hardened.close();
       expect(streamer.closeMock).toHaveBeenCalled();
+    });
+
+    it("should close the wrapped streamer at the end of a using block", async () => {
+      const streamer = new MockStreamer();
+      {
+        using _ = await framer.HardenedStreamer.open(async () => streamer, {
+          channels: [1],
+        });
+      }
+      expect(streamer.closeMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should close the wrapped streamer once when closed before disposal", async () => {
+      const streamer = new MockStreamer();
+      {
+        await using hardened = await framer.HardenedStreamer.open(
+          async () => streamer,
+          { channels: [1] },
+        );
+        hardened.close();
+      }
+      expect(streamer.closeMock).toHaveBeenCalledTimes(1);
     });
 
     it("should correctly iterate over the streamer and end after close", async () => {
@@ -1456,6 +1494,14 @@ describe("Streamer", () => {
 
       await observable.close();
       expect(mockStreamer.closeMock).toHaveBeenCalled();
+    });
+
+    it("should close at the end of an await using block", async () => {
+      const mockStreamer = new MockStreamer();
+      {
+        await using _ = new framer.ObservableStreamer(mockStreamer);
+      }
+      expect(mockStreamer.closeMock).toHaveBeenCalledTimes(1);
     });
 
     test("should apply transform function to frames", async () => {

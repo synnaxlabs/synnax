@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { scheduler, type Size, type TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import {
+  disposable,
+  scheduler,
+  type Size,
+  type TimeRange,
+  TimeStamp,
+  unique,
+} from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
@@ -92,6 +99,11 @@ export interface FeedOptions extends Omit<
  * byte budget.
  */
 export class Feed {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
@@ -286,9 +298,10 @@ export class Feed {
 
   /**
    * Closes the feed and every open subscription, releasing the stream and all cached
-   * buffers.
+   * buffers. Closing a closed feed does nothing.
    */
   async close(): Promise<void> {
+    if (this.closed) return;
     this.closed = true;
     this.handles.forEach((h) => h.close());
     this.latest.close(new UnexpectedError("telemetry feed is closed"));
