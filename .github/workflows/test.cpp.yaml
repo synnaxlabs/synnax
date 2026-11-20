@@ -204,8 +204,8 @@ jobs:
             --test_output=all "${args[@]}"
 
       # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
-      # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
-      # the job and leaves its Core service container holding port 9090.
+      # 3.5 GB, the Bazel server up to 4 GB, and the Core service container holds more,
+      # so four compiles at once reach the OOM killer.
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
@@ -226,7 +226,7 @@ jobs:
             args+=(--combined_report=lcov --instrument_test_targets \
               "--instrumentation_filter=${filter%,}")
           fi
-          bazel "$verb" --jobs=4 \
+          bazel "$verb" --jobs=3 \
             ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
             --test_env=LSAN_OPTIONS=suppressions="$lsan" "${args[@]}"
 
