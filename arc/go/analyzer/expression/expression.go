@@ -570,9 +570,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	head, tail := parser.PrimaryNameParts(primary)
-	funcName := parser.PrimaryName(primary)
-	scope, err := ctx.ResolveQualified(head, tail)
+	name := parser.PrimaryNameParts(primary)
+	funcName := name.String()
+	scope, err := ctx.ResolveName(name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 		return
@@ -694,34 +694,42 @@ func inDeclaredFunction(scope *symbol.Symbol) bool {
 	return ok
 }
 
+func analyzeNamedPrimary(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	n parser.Name,
+) {
+	resolved, err := ctx.ResolveName(n)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
+		resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
+		*ctx.VarReads = append(
+			*ctx.VarReads,
+			context.VarRead{Var: resolved, Site: ctx.AST},
+		)
+	}
+	if !tracksChannelRead(resolved) {
+		return
+	}
+	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+		panic(fnErr)
+	}
+	if fn != nil {
+		// Use SourceID if available, otherwise use symbol's own ID
+		readID := uint32(resolved.ID)
+		if resolved.SourceID != nil {
+			readID = uint32(*resolved.SourceID)
+		}
+		fn.Channels.Read[readID] = resolved.Name
+	}
+}
+
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
-		resolved, err := ctx.ResolveQualified(head, tail)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return
-		}
-		if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
-			resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
-			*ctx.VarReads = append(
-				*ctx.VarReads,
-				context.VarRead{Var: resolved, Site: ctx.AST},
-			)
-		}
-		if tracksChannelRead(resolved) {
-			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				panic(fnErr)
-			}
-			if fn != nil {
-				// Use SourceID if available, otherwise use symbol's own ID
-				readID := uint32(resolved.ID)
-				if resolved.SourceID != nil {
-					readID = uint32(*resolved.SourceID)
-				}
-				fn.Channels.Read[readID] = resolved.Name
-			}
-		}
+	if n := parser.PrimaryNameParts(ctx.AST); n.Head != "" {
+		analyzeNamedPrimary(ctx, n)
 		return
 	}
 	if lit := ctx.AST.Literal(); lit != nil {
@@ -741,57 +749,68 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		return
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
-		if expr := typeCast.Expression(); expr != nil {
-			Analyze(ctx.Child(expr))
-			// Validate that the cast is allowed
-			sourceType := types.InferFromExpression(ctx.Child(expr)).Unwrap()
-			if typeCtx := typeCast.Type_(); typeCtx != nil {
-				// bool casting is not allowed. User should explicitly define their
-				// numeric comparison. E.g. `x != 0` or `y == 1.0001`
-				if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
-					ctx.Diagnostics.Add(codes.InvalidCast.Atf(ctx.AST,
-						"boolean conversions are not supported; define the "+
-							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
-					return
-				}
-				targetType, err := types.InferFromTypeContext(typeCtx)
-				if err != nil {
-					ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
-					return
-				}
-				if !isValidCast(sourceType, targetType) {
-					ctx.Diagnostics.Add(
-						codes.InvalidCast.Atf(
-							ctx.AST,
-							"cannot cast %s to %s",
-							sourceType,
-							targetType,
-						),
-					)
-					return
-				}
-				if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
-					ctx.Diagnostics.Add(codes.InvalidCast.Atf(
-						ctx.AST,
-						"cannot cast %s to %s: NaN and infinity have no integer value",
-						expr.GetText(),
-						targetType,
-					))
-					return
-				}
-				if sourceType.Kind == basetypes.KindBool &&
-					targetType.IsNumeric() &&
-					targetType.Kind != basetypes.KindU8 {
-					ctx.Diagnostics.Add(codes.BoolCast.Atf(
-						ctx.AST,
-						"bool to %s is experimental; a future release may only allow "+
-							"bool to u8",
-						targetType,
-					).
-						WithFix(expr, "u8("+sourceText(expr)+")"))
-				}
-			}
-		}
+		analyzeTypeCast(ctx, typeCast)
+	}
+}
+
+func analyzeTypeCast(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	typeCast parser.ITypeCastContext,
+) {
+	expr := typeCast.Expression()
+	if expr == nil {
+		return
+	}
+	Analyze(ctx.Child(expr))
+	// Validate that the cast is allowed
+	sourceType := types.InferFromExpression(ctx.Child(expr)).Unwrap()
+	typeCtx := typeCast.Type_()
+	if typeCtx == nil {
+		return
+	}
+	// bool casting is not allowed. User should explicitly define their
+	// numeric comparison. E.g. `x != 0` or `y == 1.0001`
+	if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+		ctx.Diagnostics.Add(codes.InvalidCast.Atf(ctx.AST,
+			"boolean conversions are not supported; define the "+
+				"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
+		return
+	}
+	targetType, err := types.InferFromTypeContext(typeCtx)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+		return
+	}
+	if !isValidCast(sourceType, targetType) {
+		ctx.Diagnostics.Add(
+			codes.InvalidCast.Atf(
+				ctx.AST,
+				"cannot cast %s to %s",
+				sourceType,
+				targetType,
+			),
+		)
+		return
+	}
+	if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
+		ctx.Diagnostics.Add(codes.InvalidCast.Atf(
+			ctx.AST,
+			"cannot cast %s to %s: NaN and infinity have no integer value",
+			expr.GetText(),
+			targetType,
+		))
+		return
+	}
+	if sourceType.Kind == basetypes.KindBool &&
+		targetType.IsNumeric() &&
+		targetType.Kind != basetypes.KindU8 {
+		ctx.Diagnostics.Add(codes.BoolCast.Atf(
+			ctx.AST,
+			"bool to %s is experimental; a future release may only allow "+
+				"bool to u8",
+			targetType,
+		).
+			WithFix(expr, "u8("+sourceText(expr)+")"))
 	}
 }
 
@@ -835,11 +854,11 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	n := parser.ExpressionNameParts(expr)
+	if n.Head == "" {
 		return 0, "", false
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	sym, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil || sym.Type.Kind != basetypes.KindChan {
 		return 0, "", false
 	}

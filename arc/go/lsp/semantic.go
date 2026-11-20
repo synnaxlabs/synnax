@@ -497,6 +497,9 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		tokenType = SemanticTokenTypeOperator
 	case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
 		tokenType = SemanticTokenTypeString
+	// A quoted name always means a channel.
+	case parser.ArcLexerCHANNEL_NAME:
+		tokenType = SemanticTokenTypeChannel
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
 	case parser.ArcLexerTRUE, parser.ArcLexerFALSE:

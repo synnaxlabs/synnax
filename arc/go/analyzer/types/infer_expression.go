@@ -348,9 +348,8 @@ func inferPrimaryType(
 		}
 		return resolved.Type
 	}
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		text := id.GetText()
-		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
+	if name := parser.PrimaryNameParts(ctx.AST); name.Head != "" {
+		if varScope, err := ctx.Scope.ResolveName(ctx, name); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
 				// A read gives an untyped variable one type, so `x := 10; x + 3.2`
 				// fails while `2 + 3.2` (both fresh literals) promotes to float.

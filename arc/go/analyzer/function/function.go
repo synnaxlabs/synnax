@@ -322,7 +322,7 @@ func checkOutputAssignedInBlock(block parser.IBlockContext, outputName string) b
 	}
 	for _, stmt := range block.AllStatement() {
 		if assignment := stmt.Assignment(); assignment != nil &&
-			assignment.IDENTIFIER().GetText() == outputName {
+			parser.AssignmentName(assignment) == (parser.Name{Head: outputName}) {
 			return true
 		}
 		if ifStmt := stmt.IfStatement(); ifStmt != nil &&

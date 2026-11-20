@@ -211,6 +211,15 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return tailSym, nil
 }
 
+// ResolveName resolves n: a quoted channel name through the global resolvers only, so
+// it never binds a variable, and any other name as ResolveQualified does.
+func (c Context[AST]) ResolveName(n parser.Name) (*symbol.Symbol, error) {
+	if n.Channel {
+		return c.Scope.Resolve(c, n.Head, symbol.ChannelOnly)
+	}
+	return c.ResolveQualified(n.Head, n.Tail)
+}
+
 // RejectTopLevel reports that name cannot be reassigned and returns true when sym is a
 // variable declared at the top level of its program or module.
 func (c Context[AST]) RejectTopLevel(sym *symbol.Symbol, name string) bool {

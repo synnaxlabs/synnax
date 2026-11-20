@@ -206,6 +206,7 @@ flowNode
 identifier
     : IDENTIFIER
     | qualifiedIdentifier
+    | CHANNEL_NAME
     ;
 
 function
@@ -284,6 +285,8 @@ assignment
     | IDENTIFIER indexOrSlice ASSIGN expression
     | IDENTIFIER compoundOp expression
     | IDENTIFIER indexOrSlice compoundOp expression
+    | CHANNEL_NAME ASSIGN expression
+    | CHANNEL_NAME compoundOp expression
     ;
 
 compoundOp
@@ -432,6 +435,7 @@ primaryExpression
     : literal
     | qualifiedIdentifier
     | IDENTIFIER
+    | CHANNEL_NAME
     | LPAREN expression RPAREN
     | typeCast
     ;

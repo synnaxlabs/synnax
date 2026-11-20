@@ -15,6 +15,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/set"
+	"golang.org/x/text/unicode/norm"
 )
 
 // IsLiteral checks if an expression is a single literal value (optionally negated)
@@ -224,13 +225,13 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 	return false
 }
 
-// ExpressionNameParts returns the head and tail of the name expr reads when expr is a
-// lone name, and ("", "") otherwise. A call or an index is not a lone name.
-func ExpressionNameParts(expr IExpressionContext) (head, tail string) {
+// ExpressionNameParts returns the name expr reads when expr is a lone name, and the
+// zero Name otherwise. A call or an index is not a lone name.
+func ExpressionNameParts(expr IExpressionContext) Name {
 	postfix := getPostfixExpression(expr)
 	if postfix == nil || len(postfix.AllFunctionCallSuffix()) > 0 ||
 		len(postfix.AllIndexOrSlice()) > 0 || postfix.PrimaryExpression() == nil {
-		return "", ""
+		return Name{}
 	}
 	return PrimaryNameParts(postfix.PrimaryExpression())
 }
@@ -244,7 +245,7 @@ func CollectNamedPrimaries(
 ) []IPrimaryExpressionContext {
 	var (
 		primaries []IPrimaryExpressionContext
-		seen      = make(set.Set[string])
+		seen      = make(set.Set[Name])
 		walk      func(t antlr.Tree)
 	)
 	walk = func(t antlr.Tree) {
@@ -257,7 +258,7 @@ func CollectNamedPrimaries(
 			return
 		}
 		if pe, ok := t.(IPrimaryExpressionContext); ok {
-			if name := PrimaryName(pe); name != "" && !seen.Contains(name) {
+			if name := PrimaryNameParts(pe); name.Head != "" && !seen.Contains(name) {
 				seen.Add(name)
 				primaries = append(primaries, pe)
 			}
@@ -398,49 +399,94 @@ func FunctionName(fn IFunctionContext) string {
 	return head + "." + tail
 }
 
-// IdentifierParts returns the head and tail of a flow identifier. A bare
-// identifier returns (name, ""); a qualified one (m.f) returns (head, tail).
-func IdentifierParts(id IIdentifierContext) (head, tail string) {
-	if qid := id.QualifiedIdentifier(); qid != nil {
-		return QualifiedNameParts(qid)
+// Name is the name that a flow identifier, a primary expression, or an assignment
+// holds.
+type Name struct {
+	// Head is the first segment, or the whole path of a channel name.
+	Head string
+	// Tail is the second segment of a qualified name, and empty otherwise.
+	Tail string
+	// Channel is true for a quoted channel name, which always means a channel.
+	Channel bool
+}
+
+// String returns the joined name: head and tail with a dot between, or the path of a
+// channel name. It returns "" for the zero Name.
+func (n Name) String() string {
+	if n.Tail == "" {
+		return n.Head
 	}
-	return id.IDENTIFIER().GetText(), ""
+	return n.Head + "." + n.Tail
+}
+
+// decodeChannelName returns the path that a quoted channel name token holds, with its
+// escapes decoded, in NFC.
+func decodeChannelName(token antlr.TerminalNode) string {
+	text := token.GetText()
+	text = text[1 : len(text)-1]
+	var b strings.Builder
+	b.Grow(len(text))
+	for i := 0; i < len(text); i++ {
+		// The lexer accepts a backslash only before a quote or a backslash.
+		if text[i] == '\\' {
+			i++
+		}
+		b.WriteByte(text[i])
+	}
+	return norm.NFC.String(b.String())
+}
+
+func channelName(token antlr.TerminalNode) Name {
+	return Name{Head: decodeChannelName(token), Channel: true}
+}
+
+// IdentifierParts returns the name of a flow identifier. A bare identifier returns
+// its name as the head; a qualified one (m.f) returns the head and the tail.
+func IdentifierParts(id IIdentifierContext) Name {
+	if qid := id.QualifiedIdentifier(); qid != nil {
+		head, tail := QualifiedNameParts(qid)
+		return Name{Head: head, Tail: tail}
+	}
+	if token := id.CHANNEL_NAME(); token != nil {
+		return channelName(token)
+	}
+	return Name{Head: id.IDENTIFIER().GetText()}
 }
 
 // IdentifierName extracts the joined name from a flow identifier.
 func IdentifierName(id IIdentifierContext) string {
-	head, tail := IdentifierParts(id)
-	if tail == "" {
-		return head
-	}
-	return head + "." + tail
+	return IdentifierParts(id).String()
 }
 
-// PrimaryNameParts returns the head and tail of a primary expression's
-// identifier. Bare (x) returns (name, ""); qualified (math.avg) returns
-// (head, tail). Returns ("", "") when the primary is not an identifier.
-func PrimaryNameParts(primary IPrimaryExpressionContext) (head, tail string) {
+// PrimaryNameParts returns the name of a primary expression. Bare (x) returns the name
+// as the head; qualified (math.avg) returns the head and the tail. It returns the zero
+// Name when the primary is not a name.
+func PrimaryNameParts(primary IPrimaryExpressionContext) Name {
 	if qid := primary.QualifiedIdentifier(); qid != nil {
-		return QualifiedNameParts(qid)
+		head, tail := QualifiedNameParts(qid)
+		return Name{Head: head, Tail: tail}
+	}
+	if token := primary.CHANNEL_NAME(); token != nil {
+		return channelName(token)
 	}
 	if id := primary.IDENTIFIER(); id != nil {
-		return id.GetText(), ""
+		return Name{Head: id.GetText()}
 	}
-	return "", ""
+	return Name{}
 }
 
-// PrimaryName extracts the joined name from a primary expression. For
-// resolution use PrimaryNameParts. Returns "" if the primary is not an
-// identifier.
+// PrimaryName extracts the joined name from a primary expression. For resolution use
+// PrimaryNameParts. Returns "" if the primary is not a name.
 func PrimaryName(primary IPrimaryExpressionContext) string {
-	head, tail := PrimaryNameParts(primary)
-	if head == "" {
-		return ""
+	return PrimaryNameParts(primary).String()
+}
+
+// AssignmentName returns the name of an assignment's target.
+func AssignmentName(a IAssignmentContext) Name {
+	if token := a.CHANNEL_NAME(); token != nil {
+		return channelName(token)
 	}
-	if tail == "" {
-		return head
-	}
-	return head + "." + tail
+	return Name{Head: a.IDENTIFIER().GetText()}
 }
 
 // ImportEntry is one collected import. Path is the dotted source path
