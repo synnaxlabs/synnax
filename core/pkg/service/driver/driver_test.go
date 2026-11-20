@@ -3188,6 +3188,7 @@ var _ = Describe("Driver", func() {
 					) (driver.Task, error) {
 						if t.Key == scanKey.Load() {
 							return driver.NewScanTask(driver.ScanTaskConfig{
+								Channel:            channelSvc,
 								Scanner:            scanner,
 								DB:                 db,
 								Status:             statusSvc,

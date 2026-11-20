@@ -121,16 +121,16 @@ func (db *testDB) CreateChannel(ctx context.Context, chs ...cesium.Channel) erro
 func (db *testDB) Resolve(
 	_ context.Context,
 	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
+) (map[channel.Key]writer.Facts, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	records := make(map[channel.Key]channel.Channel, len(keys))
+	facts := make(map[channel.Key]writer.Facts, len(keys))
 	for _, k := range keys {
 		if r, ok := db.virtual[k]; ok {
-			records[k] = r
+			facts[k] = writer.FactsOf(r)
 		}
 	}
-	return records, nil
+	return facts, nil
 }
 
 // OpenWriter opens a framer writer on the channels of cfg.

@@ -1307,18 +1307,14 @@ type indexResolver map[channel.Key]channel.Key
 func (r indexResolver) Resolve(
 	_ context.Context,
 	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
-	records := make(map[channel.Key]channel.Channel, len(keys))
+) (map[channel.Key]writer.Facts, error) {
+	facts := make(map[channel.Key]writer.Facts, len(keys))
 	for _, k := range keys {
 		if idx, ok := r[k]; ok {
-			records[k] = channel.Channel{
-				Leaseholder: k.Lease(),
-				LocalKey:    k.LocalKey(),
-				LocalIndex:  idx.LocalKey(),
-			}
+			facts[k] = writer.Facts{Index: idx}
 		}
 	}
-	return records, nil
+	return facts, nil
 }
 
 type scenario struct {

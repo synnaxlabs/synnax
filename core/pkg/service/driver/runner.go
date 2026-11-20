@@ -39,7 +39,7 @@ type RunnerConfig struct {
 	Status *status.Service
 	// Channel names the channels in the error of a failed run.
 	//
-	// [OPTIONAL] - Defaults to an error status that shows channel keys.
+	// [REQUIRED]
 	Channel *channel.Service
 	alamos.Instrumentation
 	// Task is the stored task this instance runs.
@@ -74,6 +74,7 @@ func (c RunnerConfig) Validate() error {
 	v := validate.New("driver.runner")
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
+	v.NotNil("channel", c.Channel)
 	v.NotNil("open", c.Open)
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	return v.Error()
@@ -171,9 +172,7 @@ func (r *Runner) end(active *activeRun, err error) bool {
 	active.cancel()
 	message, description := "Task stopped", ""
 	if err != nil {
-		if r.cfg.Channel != nil {
-			err = r.cfg.Channel.NameErrors(context.TODO(), err, nil)
-		}
+		err = r.cfg.Channel.NameErrors(context.TODO(), err, nil)
 		message, description = "Failed to run task", err.Error()
 	}
 	if sErr := r.status.Send(

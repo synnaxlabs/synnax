@@ -83,7 +83,7 @@ type ReadTaskConfig struct {
 	Framer *framer.Service
 	// Channel names the channels in the error of a failed run.
 	//
-	// [OPTIONAL] - Defaults to an error status that shows channel keys.
+	// [REQUIRED]
 	Channel *channel.Service
 	alamos.Instrumentation
 	// Channels are the keys of every channel the source writes to.
@@ -142,6 +142,7 @@ func (c ReadTaskConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("framer", c.Framer)
+	v.NotNil("channel", c.Channel)
 	v.NotEmptySlice("channels", c.Channels)
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Exec(c.Breaker.Validate)
