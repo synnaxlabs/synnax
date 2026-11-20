@@ -19,7 +19,7 @@ import { type KeyboardEvent, useEffect, useRef } from "react";
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
-import { useRegistryContext } from "@/select/registry";
+import { useRegistryContext, useSearching } from "@/select/registry";
 import {
   type Cursor,
   type SelectionOrder,
@@ -170,6 +170,16 @@ export const useOrder = <K extends record.Key>(): UseOrderReturn<K> => {
   };
 };
 
+// The keys a cursor starts from. A search lists its matches in their own order, so a
+// hover then starts at the first match.
+const useCursorStart = <K extends record.Key>(
+  selected: K[],
+  cursor: Cursor | undefined,
+): K[] => {
+  const searching = useSearching();
+  return searching && cursor !== "selection" ? [] : selected;
+};
+
 /**
  * Drives a single-entry selection over the options of the enclosing frame, adding a
  * keyboard cursor and, when allowed, clear-on-reclick.
@@ -190,9 +200,10 @@ export const useSingle = <K extends record.Key>({
   const order = useOrder<K>();
   const { getOrder, subscribe } = order;
   const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
+  const selected = useCursorStart(value == null ? [] : [value], cursor);
   const { setCursor, target, ...rest } = useCursor({
     order,
-    selected: value == null ? [] : [value],
+    selected,
     select: (key) => setSelected([key]),
     initialHover,
     cursor,
@@ -255,9 +266,10 @@ export const useMultiple = <K extends record.Key>({
     shiftValueRef.current = key;
     onChange([key], { clicked: null });
   };
+  const selected = useCursorStart(value, cursor);
   const { setCursor, target, ...rest } = useCursor({
     order,
-    selected: value,
+    selected,
     select,
     initialHover,
     cursor,

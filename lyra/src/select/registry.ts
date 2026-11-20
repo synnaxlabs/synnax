@@ -210,6 +210,8 @@ const countVisible = (registry: Registry): number => registry.countVisible();
 
 const getTerm = (registry: Registry): string => registry.getTerm();
 
+const isSearching = (registry: Registry): boolean => registry.getTerm() !== "";
+
 const isHiddenItem = (registry: Registry, key?: record.Key): boolean =>
   key != null && registry.isHidden(key);
 
@@ -230,6 +232,10 @@ export const useVisibleCount = (): number =>
 
 /** @returns the search term. It re-renders the caller whenever the term changes. */
 export const useTerm = (): string => useRegistryValue("Select.useTerm", getTerm);
+
+/** @returns whether a search term is set. It re-renders the caller as that changes. */
+export const useSearching = (): boolean =>
+  useRegistryValue("Select.useSearching", isSearching);
 
 /**
  * @returns whether an unpinned fixed item has the name as its text, in any case. It
