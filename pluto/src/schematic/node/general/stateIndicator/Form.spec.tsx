@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";

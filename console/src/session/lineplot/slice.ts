@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type lineplot } from "@synnaxlabs/client";
-import { type Drift } from "@synnaxlabs/drift";
+import type { lineplot } from "@synnaxlabs/client";
+import type { Drift } from "@synnaxlabs/drift";
 import { Viewport } from "@synnaxlabs/pluto";
 import { lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
 import { array, box, deep, dimensions, xy } from "@synnaxlabs/x";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { start } from "@/app/analytics/start";
 import { Analytics } from "@/platform/analytics";

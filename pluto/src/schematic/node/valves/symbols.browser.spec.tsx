@@ -12,7 +12,7 @@ import "@xyflow/react/dist/base.css";
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
-import { type location, type xy } from "@synnaxlabs/x";
+import type { location, xy } from "@synnaxlabs/x";
 import {
   type Edge,
   type EdgeProps,
@@ -23,7 +23,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";

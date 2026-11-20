@@ -14,7 +14,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type Notifications } from "@/platform/notifications";
+import type { Notifications } from "@/platform/notifications";
 import { renderForward, settleWrites } from "@/platform/notifications/testutil";
 
 const client = createTestClient();

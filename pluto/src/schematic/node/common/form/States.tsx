@@ -9,11 +9,11 @@
 
 import "@/schematic/node/common/form/States.css";
 
-import { type enumeration, type schematic } from "@synnaxlabs/client";
+import type { enumeration, schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Enumeration } from "@/enumeration";

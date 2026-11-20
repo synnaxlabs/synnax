@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { Edge } from "@/schematic/edge";
-import { type ElementConfig } from "@/schematic/element";
+import type { ElementConfig } from "@/schematic/element";
 import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 import {

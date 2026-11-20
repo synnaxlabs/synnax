@@ -9,10 +9,10 @@
 
 import "@/schematic/node/general/gauge/gauge.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";

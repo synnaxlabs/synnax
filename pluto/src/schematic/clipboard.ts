@@ -9,7 +9,7 @@
 
 import { query, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
-import { type RefObject } from "react";
+import type { RefObject } from "react";
 
 import { useSingleDispatch } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";

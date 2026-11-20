@@ -9,8 +9,8 @@
 
 import "@/divider/Divider.css";
 
-import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { location } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";

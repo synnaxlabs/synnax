@@ -10,4 +10,4 @@
 export * from "@/certificate/actions.gen";
 export * from "@/certificate/client";
 export * from "@/certificate/types.gen";
-export { type WhereInput } from "@/certificate/where.gen";
+export type { WhereInput } from "@/certificate/where.gen";

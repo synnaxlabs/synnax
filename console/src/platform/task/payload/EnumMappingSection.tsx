@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Form as PlatformForm } from "@/platform/form";
 

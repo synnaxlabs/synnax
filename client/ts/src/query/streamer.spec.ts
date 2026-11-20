@@ -12,7 +12,7 @@ import { DataType, disposable, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";

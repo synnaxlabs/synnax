@@ -21,7 +21,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 

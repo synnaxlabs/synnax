@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type enumeration, type schematic } from "@synnaxlabs/client";
+import type { enumeration, schematic } from "@synnaxlabs/client";
 
 import { Color } from "@/color";
 import { Enumeration } from "@/enumeration";
