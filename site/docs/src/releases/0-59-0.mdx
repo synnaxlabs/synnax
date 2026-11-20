@@ -1,20 +1,15 @@
 ---
-title: "Version 0.59 release notes"
+title: "Redline bands, symbol tooltips, and license keys"
+version: "0.59.0"
+breakingChanges: true
 ---
 
-import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
 import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
-
-<Releases.Release
-    version="0.59.0"
-    breakingChanges
-    title="Redline bands, symbol tooltips, and license keys"
->
 
 Synnax v0.59 redesigns redlines as threshold bands, adds hover tooltips to schematic
 symbols, improves multi-element editing, and gives ranges an editable timeline. Task
@@ -189,5 +184,3 @@ every value.
 Only `@synnaxlabs/client` and its dependencies are published to npm. The published
 versions of `@synnaxlabs/pluto`, `@synnaxlabs/drift`, and `@synnaxlabs/media` stay
 available but get no updates, and the Pluto components documentation is removed.
-
-</Releases.Release>

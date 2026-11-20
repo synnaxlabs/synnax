@@ -1,21 +1,16 @@
 ---
-title: "Version 0.45 release notes"
+title: "Custom schematic symbols"
+version: "0.45.0"
+date: "Aug 31, 2025"
 ---
 
 import { Hero } from "@/components/hero";
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.45.0"
-    date="Aug 31, 2025"
-    title="Custom schematic symbols"
->
 
 <Hero.Hero
   image="releases/0-45-0/thumbnail"
@@ -95,5 +90,3 @@ the value form.
 
 - Fixed a minor issue where series in encoded frames would be sorted incorrectly,
   causing rare decoding issues in JSON series.
-
-</Release>

@@ -1,21 +1,16 @@
 ---
-title: "Version 0.56 release notes"
+title: "Schematic, table, and Arc improvements"
+version: "0.56.0"
+date: "May 29, 2026"
 ---
 
 import { Fragment } from "react";
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.56.0"
-    date="May 29, 2026"
-    title="Schematic, table, and Arc improvements"
->
 
 <Hero.Hero
   video="releases/0-56-0/schematic-collaborative-editing"
@@ -221,5 +216,3 @@ try {
 
 - The TypeScript client now exposes strongly-typed `Schematic` and `Table` resources for
   building custom tooling.
-
-</Release>

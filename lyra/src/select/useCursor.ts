@@ -14,10 +14,10 @@ import {
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useSyncExternalStore } from "react";
 
 import { Dialog } from "@/dialog";
-import { useDestructors, useSyncedRef } from "@/hooks";
+import { useDestructors, useInitializerRef, useSyncedRef } from "@/hooks";
 import { menuKeyDown, menuKeyUp } from "@/menu/keyboard";
 import { Triggers } from "@/triggers";
 import { isInputOrContentEditable, moveIndex } from "@/util";
@@ -201,24 +201,35 @@ export const useCursor = <K extends record.Key>(
       return key;
     return startOf(order, initialHover, selection.selected);
   };
-  const [target, setTarget] = useState<K | undefined>(undefined);
-  useEffect(() => {
-    const update = (): void => setTarget(targetOf(getOrder()));
-    update();
-    return subscribe(update);
-  }, [subscribe, targetOf, getOrder]);
+  // A move changes the target but not the order, so it calls these itself.
+  const listenersRef = useInitializerRef(() => new Set<() => void>());
+  const subscribeTarget = (listener: () => void): destructor.Destructor => {
+    listenersRef.current.add(listener);
+    const stop = subscribe(listener);
+    return () => {
+      listenersRef.current.delete(listener);
+      stop();
+    };
+  };
+  const target = useSyncExternalStore(
+    subscribeTarget,
+    () => targetOf(getOrder()),
+    // The order reads the DOM, so the server has no target.
+    () => undefined,
+  );
+  const place = (key: K): void => {
+    movedRef.current = key;
+    listenersRef.current.forEach((listener) => listener());
+  };
   const { visible } = Dialog.useContext();
   const enabledRef = useSyncedRef<Triggers.Condition>(
     enableTriggers ?? (hovering ? visible : true),
   );
 
   const moveTo = (key: K, direction: location.Y): void => {
-    movedRef.current = key;
-    setTarget(key);
-    if (selection != null) {
-      movedFromRef.current = selection.selected;
-      selection.select(key);
-    }
+    if (selection != null) movedFromRef.current = selection.selected;
+    place(key);
+    selection?.select(key);
     scrollTo(key, direction);
   };
   const step = (key: Exclude<CursorKey, "Enter">, held: boolean): void => {
@@ -331,10 +342,6 @@ export const useCursor = <K extends record.Key>(
     return () =>
       window.removeEventListener("pointermove", handleMove, { capture: true });
   }, [tracking]);
-  const place = (key: K): void => {
-    movedRef.current = key;
-    setTarget(key);
-  };
   const setHover = (key: K): void => {
     if (
       movedRef.current === key ||
