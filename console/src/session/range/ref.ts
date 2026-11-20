@@ -8,8 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Ranger } from "@synnaxlabs/pluto";
-import { dynamicWindow, staticWindow, type Window } from "@synnaxlabs/x";
+import { type LinePlot, Ranger } from "@synnaxlabs/pluto";
+import {
+  type color,
+  dynamicWindow,
+  staticWindow,
+  TimeSpan,
+  TimeStamp,
+  type Window,
+} from "@synnaxlabs/x";
 
 import { BUILT_IN, type State } from "@/session/range/slice";
 
@@ -61,5 +68,63 @@ export const useResolveWindows = (refs: ranger.Ref[]): Window[] => {
     if (r.variant === "window") return [r.window];
     const timeRange = found.get(r.key);
     return timeRange == null ? [] : [staticWindow(timeRange)];
+  });
+};
+
+const windowKey = (w: Window): string =>
+  w.variant === "dynamic"
+    ? `window:${w.timeSpan}`
+    : `window:${w.timeRange.start}:${w.timeRange.end}`;
+
+/** @returns the key that identifies a reference among the ranges of a plot. */
+export const keyOf = (ref: ranger.Ref): string =>
+  ref.variant === "key" ? ref.key : windowKey(ref.window);
+
+const windowLabel = (w: Window): string =>
+  w.variant === "dynamic"
+    ? `Rolling ${new TimeSpan(w.timeSpan).toString("semantic")}`
+    : TimeStamp.z.parse(w.timeRange.start).toString("preciseDate", "local");
+
+/**
+ * @returns the range a line plot shows for each reference, in order. A key reference is
+ * left out until the Core answers. A range zeroes at its custom T0 or its start, and a
+ * rolling window has no zero. colors holds the color of each reference, in order.
+ */
+export const useResolveRanges = (
+  refs: ranger.Ref[],
+  colors: color.Color[],
+): LinePlot.RangeSpec[] => {
+  const keys = refs.filter((r) => r.variant === "key").map((r) => r.key);
+  const { data } = Ranger.useResultMultiple(keys.length === 0 ? null : { keys });
+  const found = new Map((data ?? []).map((r) => [r.key, r]));
+  return refs.flatMap((r, i): LinePlot.RangeSpec[] => {
+    if (r.variant === "window") {
+      const { window } = r;
+      return [
+        {
+          key: windowKey(window),
+          window,
+          label: windowLabel(window),
+          color: colors[i],
+          zero:
+            window.variant === "static"
+              ? TimeStamp.z.parse(window.timeRange.start)
+              : undefined,
+        },
+      ];
+    }
+    const range = found.get(r.key);
+    if (range == null) return [];
+    const t0 = r.t0 == null ? undefined : new TimeStamp(r.t0);
+    return [
+      {
+        key: r.key,
+        window: staticWindow(range.timeRange),
+        label: range.name,
+        color: colors[i],
+        zero: t0 ?? range.timeRange.start,
+        customZero: t0 != null,
+      },
+    ];
   });
 };

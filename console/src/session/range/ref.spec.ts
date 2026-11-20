@@ -9,7 +9,15 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { dynamicWindow, staticWindow, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
+import {
+  color,
+  dynamicWindow,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+} from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -115,6 +123,81 @@ describe("range ref", () => {
       const refs = [keyRef(uuid.create()), windowRef(1000)];
       const { result } = renderHook(() => Range.useResolveWindows(refs), { wrapper });
       await waitFor(() => expect(result.current).toEqual([dynamicWindow(1000)]));
+    });
+  });
+
+  describe("keyOf", () => {
+    it("should key a saved range by its key", () => {
+      expect(Range.keyOf(keyRef("a"))).toBe("a");
+    });
+
+    it("should key a window by its span or its bounds", () => {
+      expect(Range.keyOf(windowRef(1000))).toBe("window:1000");
+      expect(Range.keyOf(staticRef(0, 1000))).toBe("window:0:1000");
+    });
+  });
+
+  describe("useResolveRanges", () => {
+    const RED = color.construct("#ff0000");
+    const BLUE = color.construct("#0000ff");
+    const GREEN = color.construct("#00ff00");
+
+    it("should zero a saved range at its start, or at its T0", async () => {
+      const range = await createTestRange(client);
+      const t0 = range.timeRange.start.add(TimeSpan.seconds(2));
+      const { wrapper } = await createConsoleWrapper({ client });
+      const refs: ranger.Ref[] = [
+        keyRef(range.key),
+        { variant: "key", key: range.key, t0 },
+      ];
+      const { result } = renderHook(() => Range.useResolveRanges(refs, [RED, BLUE]), {
+        wrapper,
+      });
+      const spec = {
+        key: range.key,
+        window: staticWindow(range.timeRange),
+        label: range.name,
+      };
+      await waitFor(() =>
+        expect(result.current).toEqual([
+          { ...spec, color: RED, zero: range.timeRange.start, customZero: false },
+          { ...spec, color: BLUE, zero: t0, customZero: true },
+        ]),
+      );
+    });
+
+    it("should zero a fixed window at its start and give a rolling window no zero", async () => {
+      const { wrapper } = await createConsoleWrapper({ client });
+      const span = TimeSpan.minutes(5).valueOf();
+      const refs = [staticRef(1000, 2000), windowRef(Number(span))];
+      const { result } = renderHook(() => Range.useResolveRanges(refs, [RED, BLUE]), {
+        wrapper,
+      });
+      expect(result.current).toEqual([
+        expect.objectContaining({
+          key: "window:1000:2000",
+          color: RED,
+          zero: new TimeStamp(1000),
+        }),
+        {
+          key: `window:${span}`,
+          window: dynamicWindow(span),
+          label: "Rolling 5min",
+          color: BLUE,
+          zero: undefined,
+        },
+      ]);
+    });
+
+    it("should leave out a saved range the Core does not hold", async () => {
+      const { wrapper } = await createConsoleWrapper({ client });
+      const refs = [keyRef(uuid.create()), windowRef(1000)];
+      const { result } = renderHook(() => Range.useResolveRanges(refs, [RED, GREEN]), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current).toEqual([expect.objectContaining({ color: GREEN })]),
+      );
     });
   });
 });

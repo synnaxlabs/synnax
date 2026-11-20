@@ -68,6 +68,12 @@ contrast check, so lines past the eighth can look alike to a color-blind user.
 A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
 A new line takes the first series color in that order that no other line uses.
 
+On a plot in relative time, a range takes its own color when it is clearly apart from
+the other colors of the plot: an OKLab distance of 0.05 or more in normal vision and in
+three simulations of color blindness. Else it takes the series color that the fewest
+colors of the plot are close to. Rejected: an exact match only, which lets a range's red
+sit next to the series red.
+
 A user adds a series color in Settings, where they set its value. The Series palette in
 a color picker has no "+".
 
@@ -841,6 +847,13 @@ says why in a sentence, then gives the raw error.
   the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
   is open.
 
+### Plot controls
+
+- The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
+  tooltip, the range strip, measure, and hold. Each is state of the window, never saved
+  with the plot. A setting saved with the plot goes in the toolbar, even when it changes
+  what the plot shows, such as the time mode.
+
 ### Plot range select
 
 - The dialog opens above the field. The Live row holds one chip per preset and an Off
@@ -859,6 +872,12 @@ says why in a sentence, then gives the raw error.
 - The labels share one column as wide as the widest label, so every field starts at one
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
+- The time mode, "Absolute" and "Relative" at medium size, sits right of X1. It moves
+  down with X1 below 171rem. X1 then fills its row, and the time mode lines up with the
+  right edge of Y1 and Y2. Below 76rem it shows only its icons: a clock and a timeline.
+  A change of mode resets the zoom, because a zoom in one mode means nothing in the
+  other. Rejected: the plot controls (the mode is saved), and the toolbar header (it
+  holds actions and tabs).
 - The X1 dialog floats, so it can be wider than its trigger.
 
 ### Plot lines tab
@@ -875,6 +894,31 @@ says why in a sentence, then gives the raw error.
 
 - A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
   above and below. A 1 px line with no space was too heavy.
+- In relative time, each range name sits above its channels. The range name is weight
+  500 in gray l10, and a channel is weight 400 in gray l9. Only the range has a swatch.
+  Each channel starts with its axis ("Y1") under the swatch, in the style of the axis
+  names of the absolute legend and the Data tab: weight 500 in gray l9. Rejected: a
+  swatch on each channel (one color again and again), a guide or bar in the range color,
+  an axis at the end of the channel, and an axis icon (a small box at text size).
+- The eyes take no room at rest. On hover the legend grows to the right as they fade in,
+  so no text moves.
+- Option or Alt click on an eye shows only that item, and a second one restores what was
+  hidden before. A channel hidden in all ranges shows again only in the range whose eye
+  the user clicks. When an item is hidden, the legend ends with "Show all (N hidden)". A
+  rolling window is named as its saved range is, such as "Rolling 5min".
+
+### Plot hover and tooltip
+
+- The pointer on a legend entry draws its lines twice as wide and on top. The other
+  lines draw at 25 percent over the background: the other ranges in relative time, and
+  the other channels in absolute time. The pointer on a line of the plot only makes its
+  tooltip entry bold. Rejected: a dim from the plot, which flickers as the pointer
+  crosses lines to read values.
+- The tooltip groups by channel. Under each channel, each range shows its color, name,
+  and value, from high to low. Rejected: channels under each range, and one flat list.
+- The tooltip lists as many entries as fit inside the plot, and stays inside it. The
+  last entry then reads "and N more". Rejected: a fixed count, which cuts a compare of 2
+  channels and 8 ranges, and no limit, where entries past the plot edge do not show.
 
 ## Interaction
 

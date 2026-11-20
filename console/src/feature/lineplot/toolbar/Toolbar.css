@@ -54,8 +54,11 @@
     }
 
     .console-line-plot__toolbar-data-x {
-        width: 50rem;
         margin-left: 1rem;
+    }
+
+    .console-line-plot__toolbar-data-x-channel {
+        width: 50rem;
     }
 
     /* A shared row this narrow leaves Ranges too little room for its tags, so X1 takes
@@ -65,15 +68,61 @@
             grid-column: 2 / -1;
         }
 
-        .console-line-plot__toolbar-data-x {
+        .console-line-plot__toolbar-data-x,
+        .console-line-plot__toolbar-data-x-channel {
             display: contents;
+        }
 
-            > * {
+        .console-line-plot__toolbar-data-x-channel > * {
+            order: 1;
+        }
+
+        .console-line-plot__toolbar-data-x-channel > :last-child {
+            max-width: 50rem;
+        }
+    }
+
+    /* The time mode takes 27rem of the Ranges row, so X1 moves down sooner. X1 then
+       fills its row, and the time mode lines up with the right edge of Y1 and Y2. */
+    @container (width < 171rem) {
+        .console-line-plot__toolbar-data:has(.console-line-plot__toolbar-time-mode) {
+            .console-line-plot__toolbar-data-row > :last-child {
+                grid-column: 2 / -1;
+            }
+
+            .console-line-plot__toolbar-data-x,
+            .console-line-plot__toolbar-data-x-channel {
+                display: contents;
+            }
+
+            .console-line-plot__toolbar-data-x-channel > *,
+            .console-line-plot__toolbar-time-mode {
                 order: 1;
             }
 
-            > :last-child {
-                max-width: 50rem;
+            .console-line-plot__toolbar-data-x-channel > :last-child {
+                max-width: none;
+            }
+        }
+    }
+
+    /* The time mode shows its words. Below 76rem X1 needs the room, so the time mode
+       shows only its icons. */
+    .console-line-plot__toolbar-time-mode .lyra-select-btn svg {
+        display: none;
+    }
+
+    @container (width < 76rem) {
+        .console-line-plot__toolbar-time-mode .lyra-select-btn {
+            width: var(--pluto-height-medium);
+            justify-content: center;
+            padding: 0;
+            font-size: 0;
+            gap: 0;
+
+            & svg {
+                display: revert;
+                font-size: var(--pluto-p-size);
             }
         }
     }

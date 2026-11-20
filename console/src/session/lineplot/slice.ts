@@ -53,6 +53,14 @@ const measureZ = z.object({
 
 const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
+const hiddenZ = z.object({
+  lines: z.array(z.string()),
+  ranges: z.array(z.string()),
+  traces: z.array(z.string()),
+});
+/** The items of a plot that do not show. */
+export interface Hidden extends z.infer<typeof hiddenZ> {}
+
 const stateZ = z.object({
   viewport: viewportZ.prefault({}),
   selection: selectionZ.prefault({}),
@@ -63,6 +71,12 @@ const stateZ = z.object({
   annotations: annotationsZ.prefault({}),
   selectedRules: z.array(z.string()).default([]),
   hiddenLines: z.array(z.string()).default([]),
+  /** The keys of the ranges that do not show on a relative x axis. */
+  hiddenRanges: z.array(z.string()).default([]),
+  /** The keys of the lines of one range that do not show on a relative x axis. */
+  hiddenTraces: z.array(z.string()).default([]),
+  /** What was hidden before the user showed only one item. Solo again restores it. */
+  soloRestore: hiddenZ.nullable().default(null),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
@@ -132,9 +146,9 @@ export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
 
-export interface SetLineVisiblePayload extends KeyedPayload {
-  lineKey: string;
-  visible: boolean;
+export interface SetHiddenPayload extends KeyedPayload {
+  hidden: Hidden;
+  soloRestore: Hidden | null;
 }
 
 export interface RemovePayload {
@@ -217,12 +231,12 @@ export const { actions, reducer } = createSlice({
     >((state, { payload: { visible } }) => {
       state.annotations.visible = visible;
     }),
-    setLineVisible: withSelectedState<SetLineVisiblePayload, SliceState>(
-      (state, { payload: { lineKey, visible } }) => {
-        const hidden = new Set(state.hiddenLines);
-        if (visible) hidden.delete(lineKey);
-        else hidden.add(lineKey);
-        state.hiddenLines = Array.from(hidden);
+    setHidden: withSelectedState<SetHiddenPayload, SliceState>(
+      (state, { payload: { hidden, soloRestore } }) => {
+        state.hiddenLines = hidden.lines;
+        state.hiddenRanges = hidden.ranges;
+        state.hiddenTraces = hidden.traces;
+        state.soloRestore = soloRestore;
       },
     ),
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
@@ -245,7 +259,7 @@ export const {
   setSelectedRule,
   setMeasureMode,
   setRangeAnnotationsVisible,
-  setLineVisible,
+  setHidden,
   remove,
 } = actions;
 
@@ -277,6 +291,6 @@ export const MIDDLEWARE = [
     setSelectedRule,
     setMeasureMode,
     setRangeAnnotationsVisible,
-    setLineVisible,
+    setHidden,
   ]),
 ];

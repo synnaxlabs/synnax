@@ -92,6 +92,25 @@ describe("lineplot selector hooks", () => {
   });
 });
 
+describe("lineplot hidden items", () => {
+  it("should read the items and the solo restore point that setHidden sets", () => {
+    const store = storeWith({ version: 0, windows: inWindow({ [KEY]: ZERO }) });
+    const { result } = renderHook(
+      () => ({
+        hidden: LinePlot.useSelectHidden(),
+        soloRestore: LinePlot.useSelectSoloRestore(),
+      }),
+      { wrapper: wrapperFor(store, KEY) },
+    );
+    const hidden = { lines: ["l1"], ranges: ["r1"], traces: ["l2/r2"] };
+    const soloRestore = { lines: [], ranges: ["r3"], traces: [] };
+    act(
+      () => void store.dispatch(LinePlot.setHidden({ key: KEY, hidden, soloRestore })),
+    );
+    expect(result.current).toEqual({ hidden, soloRestore });
+  });
+});
+
 describe("lineplot selector stability under dispatch", () => {
   it("should keep a stable reference when an unrelated field changes", () => {
     const store = createCustomStore();

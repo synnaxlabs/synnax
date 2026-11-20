@@ -282,31 +282,6 @@ describe("LinePlot Slice", () => {
     });
   });
 
-  describe("setLineVisible", () => {
-    it("should hide a line by adding it to hiddenLines", () => {
-      act(() => {
-        store.dispatch(LinePlot.create({ key: KEY }));
-        store.dispatch(
-          LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: false }),
-        );
-      });
-      expect(docOf()?.hiddenLines).toEqual(["l1"]);
-    });
-
-    it("should show a hidden line by removing it from hiddenLines", () => {
-      act(() => {
-        store.dispatch(LinePlot.create({ key: KEY }));
-        store.dispatch(
-          LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: false }),
-        );
-        store.dispatch(
-          LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: true }),
-        );
-      });
-      expect(docOf()?.hiddenLines).toEqual([]);
-    });
-  });
-
   describe("remove", () => {
     it("should remove a plot by key", () => {
       act(() => {
