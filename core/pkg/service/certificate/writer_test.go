@@ -419,6 +419,42 @@ var _ = Describe("Writer", func() {
 					Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
 				},
 			)
+			It(
+				"Should refuse to add a private key file to a certificate saved without one",
+				func(ctx SpecContext) {
+					c := e.create(ctx, file("Plant", coreRack), nil)
+					keyed := fileOf(c)
+					keyed.PrivateKeyFile = new("client.pem")
+					c.Variant = keyed
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &c, nil)
+					})).To(MatchError(ContainSubstring(
+						"private_key_file: must be empty for a certificate saved " +
+							"without a private key file",
+					)))
+					Expect(
+						fileOf(e.retrieve(ctx, c.Base().Key)).PrivateKeyFile,
+					).To(BeNil())
+				},
+			)
+			It("Should let a file certificate change its private key file",
+				func(ctx SpecContext) {
+					keyed := file("Plant", coreRack)
+					variant := fileOf(keyed)
+					variant.PrivateKeyFile = new("client.pem")
+					keyed.Variant = variant
+					c := e.create(ctx, keyed, nil)
+					variant = fileOf(c)
+					variant.PrivateKeyFile = new("other.pem")
+					c.Variant = variant
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &c, nil)
+					})).To(Succeed())
+					Expect(
+						*fileOf(e.retrieve(ctx, c.Base().Key)).PrivateKeyFile,
+					).To(Equal("other.pem"))
+				},
+			)
 			It("Should refuse a replace of a file certificate with a stored one",
 				func(ctx SpecContext) {
 					c := e.create(ctx, file("Plant", coreRack), nil)

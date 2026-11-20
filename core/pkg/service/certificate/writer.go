@@ -85,11 +85,11 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		)
 		return v.Error()
 	}
+	// A rack may use a certificate that has no key, so a key added later would reach
+	// the rack through a use that no user vouched for.
 	switch variant := c.Variant.(type) {
 	case StoredCertificate:
 		prevStored, replaced := prev.Variant.(StoredCertificate)
-		// A rack may use a certificate that has no key, so a key added later would
-		// reach the rack through a use that no user vouched for.
 		if replaced && prevStored.PrivateKey == nil && len(privateKey) != 0 {
 			v := validate.New("certificate")
 			v.Ternary(
@@ -109,8 +109,8 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		}
 		c.Variant = variant
 	case FileCertificate:
-		prevFile, ok := prev.Variant.(FileCertificate)
-		if ok && prevFile.Rack != variant.Rack {
+		prevFile, replaced := prev.Variant.(FileCertificate)
+		if replaced && prevFile.Rack != variant.Rack {
 			if err = w.table.RestrictChange(ctx, w.tx, base.Key, "rack"); err != nil {
 				return err
 			}
@@ -120,6 +120,11 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		if variant.PrivateKeyFile != nil {
 			secret.ValidateFileName(v, "private_key_file", *variant.PrivateKeyFile)
 		}
+		v.Ternary(
+			"private_key_file",
+			replaced && prevFile.PrivateKeyFile == nil && variant.PrivateKeyFile != nil,
+			"must be empty for a certificate saved without a private key file",
+		)
 		v.Ternary(
 			"private_key_pem",
 			len(privateKey) != 0,
