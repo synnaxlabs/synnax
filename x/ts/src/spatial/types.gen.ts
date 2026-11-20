@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-import { type numeric } from "@/numeric";
+import type { numeric } from "@/numeric";
 
 export const X_LOCATIONS = ["left", "right"] as const;
 export const xLocationZ = z.enum(X_LOCATIONS);

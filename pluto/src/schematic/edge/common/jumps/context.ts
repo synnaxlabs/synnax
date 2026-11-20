@@ -10,8 +10,8 @@
 import { context } from "@synnaxlabs/lyra/context";
 import { useSyncExternalStore } from "react";
 
-import { type Store } from "@/schematic/edge/common/jumps/store";
-import { type Path } from "@/schematic/edge/common/path";
+import type { Store } from "@/schematic/edge/common/jumps/store";
+import type { Path } from "@/schematic/edge/common/path";
 
 const [Context, useStore] = context.create<Store>({
   displayName: "Jumps.Context",

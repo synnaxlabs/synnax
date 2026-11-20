@@ -18,14 +18,14 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
-import { type MessagePlan } from "@/platform/icd/configure";
+import type { MessagePlan } from "@/platform/icd/configure";
 import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
-import { type FormatForm } from "@/platform/icd/Formats";
+import type { FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
 import { usePlan } from "@/platform/icd/Plans";
 import {

@@ -9,18 +9,18 @@
 
 import "@/platform/tree/item.css";
 
-import { type resource, type Synnax } from "@synnaxlabs/client";
+import type { resource, Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { type FC, type ReactElement, type ReactNode } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Children } from "@/platform/tree/children";
+import type { Children } from "@/platform/tree/children";
 import { MatchGroup, useHighlight } from "@/platform/tree/search";
-import { type ContextMenu, type Resource } from "@/platform/tree/types";
+import type { ContextMenu, Resource } from "@/platform/tree/types";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
 // own icon and double-click behavior, so neither is threaded through here.

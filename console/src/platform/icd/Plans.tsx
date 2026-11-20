@@ -18,8 +18,8 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { type MessagePlan } from "@/platform/icd/configure";
-import { type ReadSource } from "@/platform/icd/read";
+import type { MessagePlan } from "@/platform/icd/configure";
+import type { ReadSource } from "@/platform/icd/read";
 
 /** The plan of a message that a source reads. */
 export interface PlannedRead {

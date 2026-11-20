@@ -11,11 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Progress } from "@synnaxlabs/lyra/progress";
-import {
-  type DetailedHTMLProps,
-  type ReactElement,
-  type VideoHTMLAttributes,
-} from "react";
+import type { DetailedHTMLProps, ReactElement, VideoHTMLAttributes } from "react";
 
 import { CDN } from "@/components/media/cdn";
 import { DARK } from "@/components/media/video";

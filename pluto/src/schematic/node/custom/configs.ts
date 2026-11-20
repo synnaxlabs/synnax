@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type z } from "zod";
+import type { schematic } from "@synnaxlabs/client";
+import type { z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Actuator } from "@/schematic/node/custom/Actuator";
 import { Static } from "@/schematic/node/custom/Static";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 export const CUSTOM_ACTUATOR_VARIANT = "custom_actuator";
 

@@ -9,8 +9,8 @@
 
 import { z } from "zod";
 
-import { type bounds } from "@/spatial/bounds";
-import { type dimensions } from "@/spatial/dimensions";
+import type { bounds } from "@/spatial/bounds";
+import type { dimensions } from "@/spatial/dimensions";
 import { direction } from "@/spatial/direction";
 import { location } from "@/spatial/location";
 import { xy } from "@/spatial/xy";

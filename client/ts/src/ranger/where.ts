@@ -9,7 +9,7 @@
 
 import { TimeRange } from "@synnaxlabs/x";
 
-import { type Lines } from "@/ranger/where.gen";
+import type { Lines } from "@/ranger/where.gen";
 
 /** The typed lines of a range Where. */
 export const LINES: Lines = {

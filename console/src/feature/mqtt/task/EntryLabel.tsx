@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 
-import { type SparkplugTagID } from "@/feature/mqtt/task/types";
+import type { SparkplugTagID } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 

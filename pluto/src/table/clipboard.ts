@@ -10,7 +10,7 @@
 import { query, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { strings, uuid } from "@synnaxlabs/x";
-import { type ClipboardEventHandler } from "react";
+import type { ClipboardEventHandler } from "react";
 
 import { Synnax } from "@/synnax";
 import { Cell } from "@/table/cells";
