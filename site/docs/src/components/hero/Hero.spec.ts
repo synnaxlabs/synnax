@@ -42,9 +42,7 @@ const images = (node: Root | Element): unknown[] =>
     .filter((child) => child.tagName === "img")
     .map((img) => {
       const src = String(img.properties.src);
-      return (
-        new URL(src, "https://docs.synnaxlabs.com").searchParams.get("href") ?? src
-      );
+      return new URL(src, "https://docs.synnaxlabs.com").searchParams.get("url") ?? src;
     });
 
 const alts = (node: Root | Element): unknown[] =>

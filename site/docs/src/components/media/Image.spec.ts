@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 
 import { CDN } from "@/components/media/cdn";
 import Image from "@/components/media/Image.astro";
+import { IMAGES } from "@/util/images";
 
 const render = async (props: ComponentProps<typeof Image>): Promise<Root> => {
   const container = await AstroContainer.create();
@@ -33,7 +34,7 @@ const all = (node: Root | Element, tag: string): Element[] =>
 
 const attr = (element: Element, name: string): unknown => element.properties[name];
 
-// The CDN URLs that a srcset transforms.
+// The CDN URLs that a srcset resizes.
 const hrefs = (element: Element): string[] => [
   ...new Set(
     String(attr(element, "srcSet"))
@@ -43,7 +44,7 @@ const hrefs = (element: Element): string[] => [
           new URL(
             entry.trim().split(" ")[0],
             "https://docs.synnaxlabs.com",
-          ).searchParams.get("href") ?? "",
+          ).searchParams.get("url") ?? "",
       ),
   ),
 ];
@@ -71,6 +72,23 @@ describe("Image", () => {
     const [img] = all(await render({ id: "shot", alt: "Shot" }), "img");
     expect(attr(img, "width")).toBe(1600);
     expect(attr(img, "height")).toBe(1000);
+  });
+
+  it("should request only the widths that Vercel resizes to", async () => {
+    stubImageSize(1600, 1000);
+    const root = await render({ id: "shot", alt: "Shot" });
+    const widths = [...all(root, "source"), ...all(root, "img")].flatMap((element) =>
+      String(attr(element, "srcSet"))
+        .split(",")
+        .map((entry) => {
+          const [url, descriptor] = entry.trim().split(" ");
+          const w = new URL(url, "https://docs.synnaxlabs.com").searchParams.get("w");
+          expect(`${w}w`).toBe(descriptor);
+          return Number(w);
+        }),
+    );
+    expect(new Set(widths)).toEqual(new Set([640, 960, 1280]));
+    for (const width of widths) expect(IMAGES.sizes).toContain(width);
   });
 
   it("should offer one version when not themed", async () => {

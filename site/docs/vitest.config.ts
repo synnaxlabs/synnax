@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import react from "@astrojs/react";
-import { CDN } from "@synnaxlabs/site-common/cdn";
 import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import { getViteConfig } from "astro/config";
 import path from "path";
 import { configDefaults, type ViteUserConfigFn } from "vitest/config";
+
+import { IMAGES, VERCEL_IMAGE_SERVICE } from "./src/util/images.ts";
 
 const BROWSER_SPECS = "src/**/*.browser.spec.tsx";
 
@@ -60,7 +61,8 @@ const config: ViteUserConfigFn = getViteConfig(
   {
     root: import.meta.dirname,
     configFile: false,
-    image: { domains: [new URL(CDN).hostname] },
+    // Specs see the image URLs of production.
+    image: { domains: IMAGES.domains, service: VERCEL_IMAGE_SERVICE },
     integrations: [react()],
   },
 );

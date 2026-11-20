@@ -9,7 +9,8 @@
 
 import { type AstroIntegration } from "astro";
 
-import config, { IMAGES } from "./astro.config.ts";
+import config from "./astro.config.ts";
+import { VERCEL_IMAGE_SERVICE } from "./src/util/images.ts";
 
 // The Vercel adapter cannot serve `astro preview`, so check-site builds and crawls the
 // site with no adapter. With no adapter, every route must prerender.
@@ -28,7 +29,7 @@ const checkConfig: typeof config = {
   // The pages reference images as the Vercel adapter does, so the build encodes none.
   image: {
     ...config.image,
-    service: { entrypoint: "@astrojs/vercel/build-image-service", config: IMAGES },
+    service: VERCEL_IMAGE_SERVICE,
   },
   integrations: [...(config.integrations ?? []), prerenderAll],
 };

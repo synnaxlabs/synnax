@@ -12,12 +12,12 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
-import { CDN } from "@synnaxlabs/site-common/cdn";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { defineConfig, envField } from "astro/config";
 
 import { tokenSource } from "./src/util/githubApp";
+import { IMAGES } from "./src/util/images";
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
@@ -60,23 +60,11 @@ const SECRET = envField.string({
   optional: true,
 });
 
-const CDN_DOMAIN = new URL(CDN).hostname;
-
-/**
- * Vercel resizes and encodes images when a reader requests them, so the build encodes
- * none. It serves AVIF or WebP by the browser's Accept header.
- */
-export const IMAGES = {
-  sizes: [640, 960, 1280, 1920, 2560],
-  domains: [CDN_DOMAIN],
-  formats: ["image/avif", "image/webp"],
-} satisfies NonNullable<Parameters<typeof vercel>[0]>["imagesConfig"];
-
 // https://astro.build/config
 export default defineConfig({
   integrations: [integration(), react(), mdx()],
   adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
-  image: { domains: [CDN_DOMAIN] },
+  image: { domains: IMAGES.domains },
   vite: {
     define: { __DOCS_VERSION__: JSON.stringify(version) },
   },
