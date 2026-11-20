@@ -51,9 +51,12 @@ export interface TopicPick {
   picks: Picks;
 }
 
-/** What the dialog adds: the fields picked from topics, or one record of a topic. */
-export type Result =
-  { variant: "picks"; topics: TopicPick[] } | { variant: "record"; topic: string };
+/** What the dialog adds: the fields picked from topics, and an empty record. */
+export interface Result {
+  topics: TopicPick[];
+  /** The topic that gets a record of any key with no fields, or null for none. */
+  record: string | null;
+}
 
 const FRAME = "records";
 
@@ -540,6 +543,11 @@ const Content = ({
 
   const count = [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
   const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
+  const finish = (record: string | null) =>
+    close({
+      topics: [...picks.values()].sort(compare.by(({ topic }) => topic)),
+      record,
+    });
 
   let sideAction: ReactNode = null;
   if (unknownTerm)
@@ -550,9 +558,7 @@ const Content = ({
     );
   else if (activeEntry != null && (activeTopic == null || activeTopic.readable))
     sideAction = (
-      <ICD.Picker.SideAction
-        onClick={() => close({ variant: "record", topic: activeEntry.name })}
-      >
+      <ICD.Picker.SideAction onClick={() => finish(activeEntry.name)}>
         Add an empty record
       </ICD.Picker.SideAction>
     );
@@ -581,12 +587,7 @@ const Content = ({
       <ICD.Picker.Footer
         counts={[["field", count]]}
         idle="field"
-        onAdd={() =>
-          close({
-            variant: "picks",
-            topics: [...picks.values()].sort(compare.by(({ topic }) => topic)),
-          })
-        }
+        onAdd={() => finish(null)}
         onCancel={() => close()}
       >
         {count > 0 && (
@@ -602,6 +603,6 @@ const Content = ({
 /**
  * Opens a dialog that lists the topics of a cluster and of the task, and reads records
  * of the one selected, so the user can pick the fields of each shape of their values.
- * It resolves with the picks, or null when the user closes it.
+ * It resolves with the picks and any empty record, or null when the user closes it.
  */
 export const useAddDataModal = Modals.createPrompt<Result, Params>(Content);
