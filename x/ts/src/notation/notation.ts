@@ -19,7 +19,10 @@ const decompose = (
   value: number | bigint,
 ): { sign: string; digits: string; exp: number } => {
   if (typeof value === "number") {
-    const [mantissa, exp] = value.toExponential().split("e");
+    const exponential = value.toExponential();
+    const e = exponential.indexOf("e");
+    const mantissa = exponential.slice(0, e);
+    const exp = exponential.slice(e + 1);
     const sign = mantissa.startsWith("-") ? "-" : "";
     return { sign, digits: mantissa.replace(/[-.]/g, ""), exp: Number(exp) };
   }

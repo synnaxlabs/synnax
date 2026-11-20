@@ -168,7 +168,7 @@ node --version
 The output should look something like
 
 ```text
-12.14.0
+12.21.0
 v26.13.1
 ```
 
