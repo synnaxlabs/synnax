@@ -185,12 +185,17 @@ describe("LinePlot", () => {
 
   describe("grid", () => {
     it("should put the outermost right axis in the last column", async () => {
+      const gridWrapper = await createAsyncSynnaxWrapper({
+        client: null,
+        additionalRegistry: { ...lineplot.REGISTRY, ...range.REGISTRY },
+        renderContext: canvasTest.record(),
+      });
       const { container } = render(
         <LinePlot.Frame>
           <LinePlot.YAxis aetherKey="outer" axisKey="y1" location="right" />
           <LinePlot.YAxis aetherKey="inner" axisKey="y2" location="right" />
         </LinePlot.Frame>,
-        { wrapper },
+        { wrapper: gridWrapper },
       );
       const frame = container.querySelector<HTMLElement>(".pluto-line-plot");
       await waitFor(() => {
