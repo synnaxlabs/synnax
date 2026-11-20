@@ -52,6 +52,10 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
+// ErrCycle is returned by Add when a calculated channel reads itself through other
+// calculated channels.
+var ErrCycle = errors.New("circular dependency detected")
+
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -294,91 +298,16 @@ func (g *Graph) updateSingle(
 	info.processing = true
 	defer func() { info.processing = false }()
 
-	dependencies := mod.Dependencies.Reads.Slice()
-
-	// Process new dependencies
-	var newCalcDeps []channel.Key
-	var depChannels []channel.Channel
-
-	if len(dependencies) > 0 {
-		var err error
-		depChannels, err = g.fetchChannels(ctx, dependencies)
-		if err != nil {
-			return errors.Wrap(err, "failed to retrieve dependency channels")
-		}
-
-		for _, depCh := range depChannels {
-			if depCh.IsCalculated() {
-				// Check for circular dependencies before adding
-				if err := g.checkCircularDependency(ch.Key(), depCh.Key()); err != nil {
-					return err
-				}
-				// Add dependency if not already in graph
-				if err := g.addInternal(ctx, depCh, false); err != nil {
-					return errors.Wrapf(
-						err,
-						"failed to add calculated dependency %v",
-						depCh.Key(),
-					)
-				}
-				newCalcDeps = append(newCalcDeps, depCh.Key())
-			}
-		}
+	depChannels, newCalcDeps, err := g.addCalcDeps(
+		ctx,
+		ch,
+		mod.Dependencies.Reads.Slice(),
+	)
+	if err != nil {
+		return err
 	}
-
-	// Update depCounts: increment for new dependencies, decrement for removed ones
-	oldDepsSet := make(set.Set[channel.Key])
-	for _, key := range oldCalcDeps {
-		oldDepsSet.Add(key)
-	}
-	newDepsSet := make(set.Set[channel.Key])
-	for _, key := range newCalcDeps {
-		newDepsSet.Add(key)
-	}
-
-	// Increment depCount for new dependencies
-	for key := range newDepsSet {
-		if !oldDepsSet.Contains(key) {
-			if depInfo := g.channels[key]; depInfo != nil {
-				oldDepCount := depInfo.depCount
-				depInfo.depCount++
-				g.L.Debug("dependency count incremented",
-					zap.String("channel", key.String()),
-					zap.Uint32("dependency_count", uint32(oldDepCount)),
-					zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
-					zap.String("depender", ch.Key().String()),
-				)
-			}
-		}
-	}
-
-	// Decrement depCount for removed dependencies
-	for key := range oldDepsSet {
-		if !newDepsSet.Contains(key) {
-			if depInfo := g.channels[key]; depInfo != nil {
-				oldDepCount := depInfo.depCount
-				depInfo.depCount--
-				g.L.Debug("dependency count decremented",
-					zap.String("channel", key.String()),
-					zap.Uint32("dependency_count", uint32(oldDepCount)),
-					zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
-					zap.String("former_depender", ch.Key().String()),
-				)
-				if depInfo.explicitCount == 0 && depInfo.depCount == 0 {
-					g.L.Debug(
-						"channel eligible for removal",
-						zap.String("channel", key.String()),
-						zap.String(
-							"reason",
-							"explicit and dependency counts reached zero",
-						),
-					)
-					if err := g.removeChannel(key); err != nil {
-						return err
-					}
-				}
-			}
-		}
+	if err = g.updateDepCounts(ch, oldCalcDeps, newCalcDeps); err != nil {
+		return err
 	}
 
 	// Resolve new base dependencies
@@ -399,37 +328,154 @@ func (g *Graph) updateSingle(
 	info.explicitCount = oldExplicitCount
 	info.depCount = oldDepCount
 
-	// Remove from old group if it changed
-	if oldGroupID != newGroupID {
-		g.L.Debug("channel moved to different group",
-			zap.String("channel", ch.Key().String()),
-			zap.Int("old_group_id", oldGroupID),
-			zap.Int("new_group_id", newGroupID),
-			zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
-		)
-		if oldGroup := g.groups[oldGroupID]; oldGroup != nil {
-			oldGroup.members.Remove(ch.Key())
-			if len(oldGroup.members) == 0 {
-				delete(g.groups, oldGroupID)
-			} else {
-				// Recalculate base dependencies for the old group
-				if err := g.recalculateGroupBaseDeps(ctx, oldGroupID); err != nil {
-					return err
-				}
-			}
+	if newGroupID, err = g.moveGroup(ctx, ch, oldGroupID, newGroupID); err != nil {
+		return err
+	}
+	return g.recalculateGroupBaseDeps(ctx, newGroupID)
+}
+
+// addCalcDeps fetches the channels in dependencies and adds each calculated one to
+// the graph as a dependency of ch. It returns the fetched channels and the keys of
+// the calculated ones.
+func (g *Graph) addCalcDeps(
+	ctx context.Context,
+	ch channel.Channel,
+	dependencies []channel.Key,
+) ([]channel.Channel, []channel.Key, error) {
+	if len(dependencies) == 0 {
+		return nil, nil, nil
+	}
+	depChannels, err := g.fetchChannels(ctx, dependencies)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to retrieve dependency channels")
+	}
+	var newCalcDeps []channel.Key
+	for _, depCh := range depChannels {
+		if !depCh.IsCalculated() {
+			continue
 		}
-		g.groups[newGroupID].members.Add(ch.Key())
-		newGroupID = g.mergeGroups(
-			append(g.collectDependentsTopological(ch.Key()), ch.Key()),
-		)
-	} else {
+		// Check for circular dependencies before adding
+		if err = g.checkCircularDependency(ch.Key(), depCh.Key()); err != nil {
+			return nil, nil, err
+		}
+		// Add dependency if not already in graph
+		if err = g.addInternal(ctx, depCh, false); err != nil {
+			return nil, nil, errors.Wrapf(
+				err,
+				"failed to add calculated dependency %v",
+				depCh.Key(),
+			)
+		}
+		newCalcDeps = append(newCalcDeps, depCh.Key())
+	}
+	return depChannels, newCalcDeps, nil
+}
+
+// updateDepCounts increments the dependency count of each calculated dependency that
+// ch gained and decrements it for each one that ch lost, removing a channel whose
+// counts reach zero.
+func (g *Graph) updateDepCounts(
+	ch channel.Channel,
+	oldCalcDeps, newCalcDeps []channel.Key,
+) error {
+	oldDepsSet := set.New(oldCalcDeps...)
+	newDepsSet := set.New(newCalcDeps...)
+	for key := range newDepsSet {
+		if oldDepsSet.Contains(key) {
+			continue
+		}
+		if depInfo := g.channels[key]; depInfo != nil {
+			g.incrementDepCount(key, depInfo, ch.Key())
+		}
+	}
+	for key := range oldDepsSet {
+		if newDepsSet.Contains(key) {
+			continue
+		}
+		if err := g.decrementDepCount(key, ch.Key()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// incrementDepCount increments the dependency count of info, the channel with key,
+// which depender now depends on.
+func (g *Graph) incrementDepCount(
+	key channel.Key,
+	info *channelInfo,
+	depender channel.Key,
+) {
+	oldDepCount := info.depCount
+	info.depCount++
+	g.L.Debug("dependency count incremented",
+		zap.String("channel", key.String()),
+		zap.Uint32("dependency_count", uint32(oldDepCount)),
+		zap.Uint32("new_dependency_count", uint32(info.depCount)),
+		zap.String("depender", depender.String()),
+	)
+}
+
+// decrementDepCount decrements the dependency count of the channel with key, which
+// formerDepender no longer depends on, and removes the channel when its counts reach
+// zero.
+func (g *Graph) decrementDepCount(key, formerDepender channel.Key) error {
+	depInfo := g.channels[key]
+	if depInfo == nil {
+		return nil
+	}
+	oldDepCount := depInfo.depCount
+	depInfo.depCount--
+	g.L.Debug("dependency count decremented",
+		zap.String("channel", key.String()),
+		zap.Uint32("dependency_count", uint32(oldDepCount)),
+		zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
+		zap.String("former_depender", formerDepender.String()),
+	)
+	if depInfo.explicitCount != 0 || depInfo.depCount != 0 {
+		return nil
+	}
+	g.L.Debug(
+		"channel eligible for removal",
+		zap.String("channel", key.String()),
+		zap.String("reason", "explicit and dependency counts reached zero"),
+	)
+	return g.removeChannel(key)
+}
+
+// moveGroup moves ch from the group oldGroupID to newGroupID when they differ, then
+// merges the groups of ch and its dependents. It returns the ID of the group of ch.
+func (g *Graph) moveGroup(
+	ctx context.Context,
+	ch channel.Channel,
+	oldGroupID, newGroupID int,
+) (int, error) {
+	if oldGroupID == newGroupID {
 		g.L.Debug("channel updated in same group",
 			zap.String("channel", ch.Key().String()),
 			zap.Int("group_id", newGroupID),
 			zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
 		)
+		return newGroupID, nil
 	}
-	return g.recalculateGroupBaseDeps(ctx, newGroupID)
+	g.L.Debug("channel moved to different group",
+		zap.String("channel", ch.Key().String()),
+		zap.Int("old_group_id", oldGroupID),
+		zap.Int("new_group_id", newGroupID),
+		zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
+	)
+	if oldGroup := g.groups[oldGroupID]; oldGroup != nil {
+		oldGroup.members.Remove(ch.Key())
+		if len(oldGroup.members) == 0 {
+			delete(g.groups, oldGroupID)
+		} else if err := g.recalculateGroupBaseDeps(ctx, oldGroupID); err != nil {
+			return 0, err
+		}
+	}
+	g.groups[newGroupID].members.Add(ch.Key())
+	return g.mergeGroups(
+		append(g.collectDependentsTopological(ch.Key()), ch.Key()),
+	), nil
 }
 
 // checkCircularDependency checks if adding a dependency would create a circular
@@ -546,10 +592,7 @@ func (g *Graph) addInternal(
 ) error {
 	if info := g.channels[ch.Key()]; info != nil {
 		if info.processing {
-			return errors.Newf(
-				"circular dependency detected involving channel %v",
-				ch.Key(),
-			)
+			return errors.Wrapf(ErrCycle, "channel %v", ch.Key())
 		}
 		return nil
 	}
@@ -563,41 +606,10 @@ func (g *Graph) addInternal(
 		g.logCompileError(ctx, err, ch)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
-	dependencies := mod.Dependencies.Reads.Slice()
-
-	var calcDeps []channel.Key
-	var depChannels []channel.Channel
-
-	if len(dependencies) > 0 {
-		var err error
-		depChannels, err = g.fetchChannels(ctx, dependencies)
-		if err != nil {
-			return errors.Wrap(err, "failed to retrieve dependency channels")
-		}
-
-		for _, depCh := range depChannels {
-			if depCh.IsCalculated() {
-				if err := g.addInternal(ctx, depCh, false); err != nil {
-					return errors.Wrapf(
-						err,
-						"failed to add calculated dependency %v",
-						depCh.Key(),
-					)
-				}
-				depInfo := g.channels[depCh.Key()]
-				oldDepCount := depInfo.depCount
-				depInfo.depCount++
-				g.L.Debug("dependency count incremented",
-					zap.String("channel", depCh.Key().String()),
-					zap.Uint32("dependency_count", uint32(oldDepCount)),
-					zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
-					zap.String("depender", ch.Key().String()),
-				)
-				calcDeps = append(calcDeps, depCh.Key())
-			}
-		}
+	depChannels, calcDeps, err := g.addDeps(ctx, ch, mod.Dependencies.Reads.Slice())
+	if err != nil {
+		return err
 	}
-
 	baseDeps, err := g.resolveBaseDependencies(ctx, depChannels)
 	if err != nil {
 		return err
@@ -625,6 +637,39 @@ func (g *Graph) addInternal(
 	)
 
 	return nil
+}
+
+// addDeps fetches the channels in dependencies, adds each calculated one to the graph,
+// and counts ch as its dependent. It returns the fetched channels and the keys of the
+// calculated ones.
+func (g *Graph) addDeps(
+	ctx context.Context,
+	ch channel.Channel,
+	dependencies []channel.Key,
+) ([]channel.Channel, []channel.Key, error) {
+	if len(dependencies) == 0 {
+		return nil, nil, nil
+	}
+	depChannels, err := g.fetchChannels(ctx, dependencies)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to retrieve dependency channels")
+	}
+	var calcDeps []channel.Key
+	for _, depCh := range depChannels {
+		if !depCh.IsCalculated() {
+			continue
+		}
+		if err = g.addInternal(ctx, depCh, false); err != nil {
+			return nil, nil, errors.Wrapf(
+				err,
+				"failed to add calculated dependency %v",
+				depCh.Key(),
+			)
+		}
+		g.incrementDepCount(depCh.Key(), g.channels[depCh.Key()], ch.Key())
+		calcDeps = append(calcDeps, depCh.Key())
+	}
+	return depChannels, calcDeps, nil
 }
 
 // fetchChannels retrieves channels by their keys.
@@ -668,47 +713,55 @@ func (g *Graph) resolveBaseDependencies(
 	}
 
 	for _, depCh := range depChannels {
-		if depCh.IsCalculated() {
-			info, err := g.getChannelInfo(depCh.Key())
-			if err != nil {
-				return nil, err
-			}
-			// Recursively resolve - fetch the dependency's dependencies
-			depDeps := info.module.Dependencies.Reads.Slice()
-			var depDepChannels []channel.Channel
-			if len(depDeps) > 0 {
-				depDepChannels, err = g.fetchChannels(ctx, depDeps)
-				if err != nil {
-					return nil, errors.Wrap(
-						err,
-						"failed to retrieve recursive dependency channels",
-					)
-				}
-			}
-			recursiveDeps, err := g.resolveBaseDependencies(ctx, depDepChannels)
-			if err != nil {
-				return nil, err
-			}
-			for dep := range recursiveDeps {
-				baseDeps.Add(dep)
-			}
-		} else {
-			// Check if this channel is an index of a calculated channel
-			isIndexOfCalculated := false
-			for _, info := range g.channels {
-				if info.module.Channel.Index() == depCh.Key() {
-					isIndexOfCalculated = true
-					break
-				}
-			}
-			// Only add if it's not an index of a calculated channel
-			if !isIndexOfCalculated {
+		if !depCh.IsCalculated() {
+			// An index of a calculated channel is not a base dependency.
+			if !g.isCalculatedIndex(depCh.Key()) {
 				baseDeps.Add(depCh.Key())
 			}
+			continue
 		}
+		recursiveDeps, err := g.resolveCalculatedBaseDeps(ctx, depCh.Key())
+		if err != nil {
+			return nil, err
+		}
+		baseDeps.Add(recursiveDeps.Slice()...)
 	}
 
 	return baseDeps, nil
+}
+
+// resolveCalculatedBaseDeps returns the base dependencies of the calculated channel
+// with key.
+func (g *Graph) resolveCalculatedBaseDeps(
+	ctx context.Context,
+	key channel.Key,
+) (set.Set[channel.Key], error) {
+	info, err := g.getChannelInfo(key)
+	if err != nil {
+		return nil, err
+	}
+	depDeps := info.module.Dependencies.Reads.Slice()
+	var depDepChannels []channel.Channel
+	if len(depDeps) > 0 {
+		if depDepChannels, err = g.fetchChannels(ctx, depDeps); err != nil {
+			return nil, errors.Wrap(
+				err,
+				"failed to retrieve recursive dependency channels",
+			)
+		}
+	}
+	return g.resolveBaseDependencies(ctx, depDepChannels)
+}
+
+// isCalculatedIndex reports whether the channel with key is the index of a calculated
+// channel in the graph.
+func (g *Graph) isCalculatedIndex(key channel.Key) bool {
+	for _, info := range g.channels {
+		if info.module.Channel.Index() == key {
+			return true
+		}
+	}
+	return false
 }
 
 // assignToGroup returns the group for a channel with the given dependencies. A channel
@@ -731,18 +784,14 @@ func (g *Graph) assignToGroup(
 		shouldExtendBest bool
 	)
 
-	// Format base deps for logging
-	baseDepStrs := make([]string, 0, len(baseDeps))
-	for key := range baseDeps {
-		baseDepStrs = append(baseDepStrs, key.String())
-	}
+	baseDepStr := formatKeys(baseDeps)
 
 	for groupID, group := range g.groups {
 		if group.baseDeps.Equal(baseDeps) {
 			g.L.Debug(
 				"channel assigned to existing group with exact base dependency match",
 				zap.Int("group_id", groupID),
-				zap.String("base_dependencies", strings.Join(baseDepStrs, ", ")),
+				zap.String("base_dependencies", baseDepStr),
 			)
 			return groupID
 		}
@@ -767,21 +816,39 @@ func (g *Graph) assignToGroup(
 	}
 
 	if bestGroupFound {
-		if shouldExtendBest {
-			g.L.Debug("extending existing group with new base dependencies",
-				zap.Int("group_id", bestGroup),
-				zap.String("new_base_dependencies", strings.Join(baseDepStrs, ", ")),
-			)
-			g.groups[bestGroup].baseDeps = baseDeps.Copy()
-		} else {
-			g.L.Debug("channel assigned to existing group as subset",
-				zap.Int("group_id", bestGroup),
-				zap.String("base_dependencies", strings.Join(baseDepStrs, ", ")),
-			)
-		}
+		g.joinGroup(bestGroup, shouldExtendBest, baseDeps, baseDepStr)
 		return bestGroup
 	}
 
+	return g.newGroup(baseDeps, baseDepStr)
+}
+
+// joinGroup assigns a channel with baseDeps to the group groupID, whose base
+// dependencies become baseDeps when extend is true. baseDepStr formats baseDeps for
+// logging.
+func (g *Graph) joinGroup(
+	groupID int,
+	extend bool,
+	baseDeps set.Set[channel.Key],
+	baseDepStr string,
+) {
+	if !extend {
+		g.L.Debug("channel assigned to existing group as subset",
+			zap.Int("group_id", groupID),
+			zap.String("base_dependencies", baseDepStr),
+		)
+		return
+	}
+	g.L.Debug("extending existing group with new base dependencies",
+		zap.Int("group_id", groupID),
+		zap.String("new_base_dependencies", baseDepStr),
+	)
+	g.groups[groupID].baseDeps = baseDeps.Copy()
+}
+
+// newGroup adds a new group with baseDeps and returns its ID. baseDepStr formats
+// baseDeps for logging.
+func (g *Graph) newGroup(baseDeps set.Set[channel.Key], baseDepStr string) int {
 	newGroupID := g.nextGroupID
 	g.nextGroupID++
 	g.groups[newGroupID] = &groupInfo{
@@ -790,10 +857,19 @@ func (g *Graph) assignToGroup(
 	}
 	g.L.Debug("new group created",
 		zap.Int("group_id", newGroupID),
-		zap.String("base_dependencies", strings.Join(baseDepStrs, ", ")),
+		zap.String("base_dependencies", baseDepStr),
 		zap.String("reason", "no suitable existing group found"),
 	)
 	return newGroupID
+}
+
+// formatKeys joins keys for logging.
+func formatKeys(keys set.Set[channel.Key]) string {
+	strs := make([]string, 0, len(keys))
+	for key := range keys {
+		strs = append(strs, key.String())
+	}
+	return strings.Join(strs, ", ")
 }
 
 // mergeGroups moves every member of the groups of the given channels into the

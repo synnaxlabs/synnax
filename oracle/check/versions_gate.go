@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -78,49 +79,17 @@ func checkChain(
 	// authority; a live edit to version-owned content is overwritten by sync, and a
 	// chain edit lands in the live file the same way.
 	if merged, ok := res.MergedSources[livePath+".oracle"]; ok {
-		filePath := livePath + ".oracle"
-		onDisk, err := os.ReadFile(filepath.Join(env.RepoRoot, filePath))
-		if err != nil && !os.IsNotExist(err) {
-			r.fail(Finding{
-				Path: filePath, Severity: SeverityError, Message: err.Error(),
-			})
-		} else if string(onDisk) != string(merged) {
-			finding := Finding{
-				Path:     filePath,
-				Severity: SeverityError,
-				Message:  livePath + " drifts from its version files",
-				FixHint: fmt.Sprintf(
-					"the version files under %s are the authority for "+
-						"version-owned content; run `oracle sync` to project them",
-					chain.Dir(),
-				),
-			}
-			if env.IncludeDiffs {
-				finding.Diff = unifiedDiff(
-					filePath, string(merged), string(onDisk), 200,
-				)
-			}
-			r.fail(finding)
-		}
+		checkLiveDrift(r, env, chain, merged)
 	}
 
 	// Import placement: every versioned dependency is pinned.
 	for _, k := range chain.Numbers {
 		fk, err := resolver.File(livePath, k)
-		if err != nil {
-			r.fail(Finding{
-				Path:     chain.FilePath(k) + ".oracle",
-				Severity: SeverityError,
-				Message:  err.Error(),
-			})
-			return
+		if err == nil {
+			err = checkImportPlacement(r, resolver, chain, fk)
 		}
-		if err := checkImportPlacement(r, resolver, chain, fk); err != nil {
-			r.fail(Finding{
-				Path:     chain.FilePath(k) + ".oracle",
-				Severity: SeverityError,
-				Message:  err.Error(),
-			})
+		if err != nil {
+			r.failVersion(chain, k, err)
 			return
 		}
 	}
@@ -140,86 +109,138 @@ func checkChain(
 		if i == 0 || k > current {
 			continue
 		}
-		fk, err := resolver.File(livePath, k)
-		if err != nil {
-			r.fail(Finding{
-				Path:     chain.FilePath(k) + ".oracle",
-				Severity: SeverityError,
-				Message:  err.Error(),
-			})
+		if err := checkMinimality(
+			r,
+			resolver,
+			chain,
+			k,
+			chain.Numbers[i-1],
+		); err != nil {
+			r.failVersion(chain, k, err)
 			return
-		}
-		surf, err := resolver.Surface(livePath, chain.Numbers[i-1])
-		if err != nil {
-			r.fail(Finding{
-				Path:     chain.FilePath(k) + ".oracle",
-				Severity: SeverityError,
-				Message:  err.Error(),
-			})
-			return
-		}
-		fkTransient := fk.Transient()
-		// A declaration changes when its own shape differs from its predecessor, or
-		// when it references a declaration that changes. An unchanged one must alias.
-		changed := make(set.Set[string], len(fk.Defined))
-		var unchanged []resolution.Type
-		for _, t := range fk.Defined {
-			if t.Synthetic {
-				continue
-			}
-			def, ok := surf[t.Name]
-			if !ok || fkTransient.Contains(t.Name) {
-				changed.Add(t.QualifiedName)
-				continue
-			}
-			definer, err := resolver.File(livePath, def.Version)
-			if err != nil {
-				r.fail(Finding{
-					Path:     chain.FilePath(k) + ".oracle",
-					Severity: SeverityError,
-					Message:  err.Error(),
-				})
-				return
-			}
-			if !types.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
-				changed.Add(t.QualifiedName)
-				continue
-			}
-			unchanged = append(unchanged, t)
-		}
-		for grew := true; grew; {
-			grew = false
-			for _, t := range unchanged {
-				if !changed.Contains(t.QualifiedName) &&
-					referencesAny(t, changed, fk.Table) {
-					changed.Add(t.QualifiedName)
-					grew = true
-				}
-			}
-		}
-		for _, t := range unchanged {
-			if changed.Contains(t.QualifiedName) {
-				continue
-			}
-			def := surf[t.Name]
-			r.fail(Finding{
-				Path:     chain.FilePath(k) + ".oracle",
-				Severity: SeverityError,
-				Message: fmt.Sprintf(
-					"%s v%d redeclares %s identically to v%d",
-					livePath, k, t.Name, def.Version,
-				),
-				FixHint: fmt.Sprintf(
-					"use an alias: %s = v%d.%s", t.Name, def.Version, t.Name,
-				),
-			})
 		}
 	}
 }
 
-// referencesAny reports whether t's fields, variants, or extended types name a type in
-// names. An inline variant's payload is part of its union, so its references count as
-// the union's.
+func checkLiveDrift(r *GateReport, env Env, chain versions.Chain, merged []byte) {
+	livePath := chain.LivePath()
+	filePath := livePath + ".oracle"
+	onDisk, err := paths.ReadFile(filePath, env.RepoRoot)
+	if err != nil && !os.IsNotExist(err) {
+		r.fail(Finding{
+			Path: filePath, Severity: SeverityError, Message: err.Error(),
+		})
+		return
+	}
+	if string(onDisk) == string(merged) {
+		return
+	}
+	finding := Finding{
+		Path:     filePath,
+		Severity: SeverityError,
+		Message:  livePath + " drifts from its version files",
+		FixHint: fmt.Sprintf(
+			"the version files under %s are the authority for "+
+				"version-owned content; run `oracle sync` to project them",
+			chain.Dir(),
+		),
+	}
+	if env.IncludeDiffs {
+		finding.Diff = unifiedDiff(filePath, string(merged), string(onDisk), 200)
+	}
+	r.fail(finding)
+}
+
+func (r *GateReport) failVersion(chain versions.Chain, k int, err error) {
+	r.fail(Finding{
+		Path:     chain.FilePath(k) + ".oracle",
+		Severity: SeverityError,
+		Message:  err.Error(),
+	})
+}
+
+func checkMinimality(
+	r *GateReport,
+	resolver *versions.Resolver,
+	chain versions.Chain,
+	k, prev int,
+) error {
+	livePath := chain.LivePath()
+	fk, err := resolver.File(livePath, k)
+	if err != nil {
+		return err
+	}
+	surf, err := resolver.Surface(livePath, prev)
+	if err != nil {
+		return err
+	}
+	fkTransient := fk.Transient()
+	// A declaration changes when its own shape differs from its predecessor, or when it
+	// references a declaration that changes. An unchanged one must alias.
+	changed := make(set.Set[string], len(fk.Defined))
+	var unchanged []resolution.Type
+	for _, t := range fk.Defined {
+		if t.Synthetic {
+			continue
+		}
+		def, ok := surf[t.Name]
+		if !ok || fkTransient.Contains(t.Name) {
+			changed.Add(t.QualifiedName)
+			continue
+		}
+		definer, err := resolver.File(livePath, def.Version)
+		if err != nil {
+			return err
+		}
+		if !types.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
+			changed.Add(t.QualifiedName)
+			continue
+		}
+		unchanged = append(unchanged, t)
+	}
+	propagateChanges(unchanged, changed, fk.Table)
+	for _, t := range unchanged {
+		if changed.Contains(t.QualifiedName) {
+			continue
+		}
+		def := surf[t.Name]
+		r.fail(Finding{
+			Path:     chain.FilePath(k) + ".oracle",
+			Severity: SeverityError,
+			Message: fmt.Sprintf(
+				"%s v%d redeclares %s identically to v%d",
+				livePath, k, t.Name, def.Version,
+			),
+			FixHint: fmt.Sprintf(
+				"use an alias: %s = v%d.%s", t.Name, def.Version, t.Name,
+			),
+		})
+	}
+	return nil
+}
+
+// propagateChanges adds to changed every type in unchanged that references a changed
+// type, directly or through other types in unchanged.
+func propagateChanges(
+	unchanged []resolution.Type,
+	changed set.Set[string],
+	table *resolution.Table,
+) {
+	for grew := true; grew; {
+		grew = false
+		for _, t := range unchanged {
+			if !changed.Contains(t.QualifiedName) &&
+				referencesAny(t, changed, table) {
+				changed.Add(t.QualifiedName)
+				grew = true
+			}
+		}
+	}
+}
+
+// referencesAny reports whether t's fields, variants, extended types, alias target, or
+// distinct base name a type in names. An inline variant's payload is part of its union,
+// so its references count as the union's.
 func referencesAny(
 	t resolution.Type,
 	names set.Set[string],
@@ -244,6 +265,10 @@ func referencesAny(
 				}
 			}
 			refs = append(refs, form.Extends...)
+		case resolution.AliasForm:
+			refs = append(refs, form.Target)
+		case resolution.DistinctForm:
+			refs = append(refs, form.Base)
 		}
 	}
 	collect(t.Form)
@@ -318,105 +343,12 @@ func checkImportPlacement(
 // persisted references; referenced holds every namespace the file's declarations name.
 func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 	stored, referenced = make(set.Set[string]), make(set.Set[string])
-	local := make(map[string]resolution.Type, len(f.Defined))
+	w := depWalker{local: make(map[string]resolution.Type, len(f.Defined))}
 	for _, t := range f.Defined {
-		local[t.Name] = t
+		w.local[t.Name] = t
 	}
-	foreign := func(ref resolution.TypeRef, into set.Set[string]) []string {
-		var locals []string
-		var walk func(ref resolution.TypeRef)
-		walk = func(ref resolution.TypeRef) {
-			if ref.TypeParam == nil {
-				if ns, name, found := strings.Cut(ref.Name, "."); found {
-					if versionNSRe.MatchString(ns) {
-						locals = append(locals, name)
-					} else {
-						into.Add(ns)
-					}
-				} else if _, isLocal := local[ref.Name]; isLocal {
-					locals = append(locals, ref.Name)
-				}
-			}
-			for _, a := range ref.TypeArgs {
-				walk(a)
-			}
-		}
-		walk(ref)
-		return locals
-	}
-	var walkValue func(v resolution.ExpressionValue, into set.Set[string])
-	walkValue = func(v resolution.ExpressionValue, into set.Set[string]) {
-		if v.Kind == resolution.ValueKindIdent {
-			if ns, _, found := strings.Cut(v.IdentValue, "."); found &&
-				!versionNSRe.MatchString(ns) {
-				into.Add(ns)
-			}
-		}
-		for _, e := range v.Elements {
-			walkValue(e, into)
-		}
-		for _, sf := range v.Fields {
-			walkValue(sf.Value, into)
-		}
-	}
-	// walkDecl visits one declaration's references. Omit fields never reach the stored
-	// bytes: their targets stay out of the stored set, and so do local types reached
-	// only through them.
-	walkDecl := func(t resolution.Type, into set.Set[string], skipOmit bool) []string {
-		var locals []string
-		visit := func(ref resolution.TypeRef) {
-			locals = append(locals, foreign(ref, into)...)
-		}
-		switch form := t.Form.(type) {
-		case resolution.StructForm:
-			for _, fd := range form.Fields {
-				if skipOmit &&
-					domain.GetStringFromField(fd, "go", "marshal") == "omit" {
-					continue
-				}
-				visit(fd.Type)
-				if fd.Default != nil {
-					walkValue(*fd.Default, into)
-				}
-			}
-			for _, e := range form.Extends {
-				visit(e)
-			}
-			for _, p := range form.TypeParams {
-				if p.Constraint != nil {
-					visit(*p.Constraint)
-				}
-				if p.Default != nil {
-					visit(*p.Default)
-				}
-			}
-		case resolution.EnumForm:
-			for _, e := range form.Extends {
-				visit(e)
-			}
-		case resolution.UnionForm:
-			for _, v := range form.Variants {
-				visit(v.Type)
-			}
-			for _, e := range form.Extends {
-				visit(e)
-			}
-			for _, e := range form.Included {
-				visit(e)
-			}
-			if form.BorrowsEnum() {
-				visit(form.Enum)
-			}
-		case resolution.DistinctForm:
-			visit(form.Base)
-		case resolution.AliasForm:
-			visit(form.Target)
-		}
-		return locals
-	}
-
 	for _, t := range f.Defined {
-		walkDecl(t, referenced, false)
+		w.decl(t, referenced, false)
 	}
 	visited := make(set.Set[string])
 	var visitStored func(name string)
@@ -425,11 +357,11 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			return
 		}
 		visited.Add(name)
-		t, ok := local[name]
+		t, ok := w.local[name]
 		if !ok {
 			return
 		}
-		for _, l := range walkDecl(t, stored, true) {
+		for _, l := range w.decl(t, stored, true) {
 			visitStored(l)
 		}
 	}
@@ -443,6 +375,106 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 		visitStored(t.Name)
 	}
 	return stored, referenced
+}
+
+type depWalker struct{ local map[string]resolution.Type }
+
+// foreign adds the foreign namespaces ref names to into and returns the local type
+// names it names.
+func (w depWalker) foreign(ref resolution.TypeRef, into set.Set[string]) []string {
+	var locals []string
+	if ref.TypeParam == nil {
+		if name, isLocal := w.localName(ref.Name, into); isLocal {
+			locals = append(locals, name)
+		}
+	}
+	for _, a := range ref.TypeArgs {
+		locals = append(locals, w.foreign(a, into)...)
+	}
+	return locals
+}
+
+// localName returns the local type name that name refers to. A foreign name adds its
+// namespace to into instead.
+func (w depWalker) localName(name string, into set.Set[string]) (string, bool) {
+	ns, member, qualified := strings.Cut(name, ".")
+	if !qualified {
+		_, isLocal := w.local[name]
+		return name, isLocal
+	}
+	if versionNSRe.MatchString(ns) {
+		return member, true
+	}
+	into.Add(ns)
+	return "", false
+}
+
+func walkValue(v resolution.ExpressionValue, into set.Set[string]) {
+	if v.Kind == resolution.ValueKindIdent {
+		if ns, _, found := strings.Cut(v.IdentValue, "."); found &&
+			!versionNSRe.MatchString(ns) {
+			into.Add(ns)
+		}
+	}
+	for _, e := range v.Elements {
+		walkValue(e, into)
+	}
+	for _, sf := range v.Fields {
+		walkValue(sf.Value, into)
+	}
+}
+
+// decl visits one declaration's references. Omit fields never reach the stored bytes:
+// their targets stay out of the stored set, and so do local types reached only through
+// them.
+func (w depWalker) decl(
+	t resolution.Type,
+	into set.Set[string],
+	skipOmit bool,
+) []string {
+	var locals []string
+	visit := func(refs ...resolution.TypeRef) {
+		for _, ref := range refs {
+			locals = append(locals, w.foreign(ref, into)...)
+		}
+	}
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		for _, fd := range form.Fields {
+			if skipOmit && domain.GetStringFromField(fd, "go", "marshal") == "omit" {
+				continue
+			}
+			visit(fd.Type)
+			if fd.Default != nil {
+				walkValue(*fd.Default, into)
+			}
+		}
+		visit(form.Extends...)
+		for _, p := range form.TypeParams {
+			if p.Constraint != nil {
+				visit(*p.Constraint)
+			}
+			if p.Default != nil {
+				visit(*p.Default)
+			}
+		}
+	case resolution.EnumForm:
+		visit(form.Extends...)
+	case resolution.UnionForm:
+		for _, v := range form.Variants {
+			visit(v.Type)
+		}
+		visit(form.Extends...)
+		visit(form.Included...)
+		if form.BorrowsEnum() {
+			visit(form.Enum)
+		}
+	case resolution.DistinctForm:
+		visit(form.Base)
+	case resolution.AliasForm:
+		visit(form.Target)
+	}
+	return locals
 }
 
 // versionNSRe matches a chain-sibling namespace qualifier ("v0", "v12").
@@ -459,102 +491,121 @@ func checkPinCurrency(
 	resolver *versions.Resolver,
 	chain versions.Chain,
 ) {
-	chains := resolver.Chains()
-	livePath := chain.LivePath()
-	surf, err := resolver.Surface(livePath, chain.Current())
+	surf, err := resolver.Surface(chain.LivePath(), chain.Current())
 	if err != nil {
-		r.fail(Finding{
-			Path:     chain.FilePath(chain.Current()) + ".oracle",
-			Severity: SeverityError,
-			Message:  err.Error(),
-		})
+		r.failVersion(chain, chain.Current(), err)
 		return
 	}
-	visited := make(set.Set[string])
-	var visit func(livePath string, n int, name string)
-	visit = func(livePath string, n int, name string) {
-		key := livePath + "@" + strconv.Itoa(n) + "." + name
-		if visited.Contains(key) {
-			return
-		}
-		visited.Add(key)
-		f, err := resolver.File(livePath, n)
-		if err != nil {
-			return
-		}
-		t, ok := versions.DefinedType(f, name)
-		if !ok {
-			return
-		}
-		stored := make(set.Set[string])
-		locals := storedRefs(f, t, stored)
-		for _, l := range locals {
-			depNS, depName, defined := resolver.Definer(livePath, n, l)
-			if !defined {
-				continue
-			}
-			if depLive, dv, ok := versions.ParseDepNS(depNS); ok {
-				visit(depLive, dv, depName)
-			}
-		}
-		for _, ns := range slices.Sorted(maps.Keys(stored)) {
-			for depLive, pv := range f.Pins {
-				if filepath.Base(depLive) != ns {
-					continue
-				}
-				depChain, ok := chains[depLive]
-				if !ok {
-					continue
-				}
-				if ended, err := resolver.Ended(depLive); err == nil && ended {
-					r.fail(Finding{
-						Path:     chain.FilePath(chain.Current()) + ".oracle",
-						Severity: SeverityError,
-						Message: fmt.Sprintf(
-							"%s's current surface stores %s, but %s's chain "+
-								"ended at v%d; nothing may persist an ended "+
-								"resource",
-							chain.LivePath(), ns, depLive, depChain.Current(),
-						),
-						FixHint: fmt.Sprintf(
-							"drop the stored reference, or revive %s by "+
-								"declaring members in a new version file",
-							depLive,
-						),
-					})
-					continue
-				}
-				if pv != depChain.Current() &&
-					!pinAliasCurrent(
-						resolver, depLive, pv, depChain.Current(),
-						membersOf(f, ns, false),
-					) {
-					r.fail(Finding{
-						Path:     chain.FilePath(chain.Current()) + ".oracle",
-						Severity: SeverityError,
-						Message: fmt.Sprintf(
-							"%s's current surface resolves %s at v%d, but "+
-								"%s's current version is v%d",
-							chain.LivePath(), ns, pv, depLive, depChain.Current(),
-						),
-						FixHint: fmt.Sprintf(
-							"redeclare the affected types with a fresh pin: "+
-								"`oracle migrate %s` to bump, or amend v%d in "+
-								"place if it has not shipped",
-							chain.Resource, chain.Current(),
-						),
-					})
-				}
-				for _, member := range membersOf(f, ns, false) {
-					visit(depLive, pv, member)
-				}
-			}
-		}
+	w := pinWalker{
+		r:        r,
+		resolver: resolver,
+		chain:    chain,
+		chains:   resolver.Chains(),
+		visited:  make(set.Set[string]),
 	}
 	for _, name := range slices.Sorted(maps.Keys(surf)) {
-		visit(livePath, surf[name].Version, name)
+		w.visit(chain.LivePath(), surf[name].Version, name)
 	}
 	checkOmittedPinCurrency(r, resolver, chain)
+}
+
+type pinWalker struct {
+	r        *GateReport
+	resolver *versions.Resolver
+	chain    versions.Chain
+	chains   map[string]versions.Chain
+	visited  set.Set[string]
+}
+
+func (w pinWalker) visit(livePath string, n int, name string) {
+	key := livePath + "@" + strconv.Itoa(n) + "." + name
+	if w.visited.Contains(key) {
+		return
+	}
+	w.visited.Add(key)
+	f, err := w.resolver.File(livePath, n)
+	if err != nil {
+		return
+	}
+	t, ok := versions.DefinedType(f, name)
+	if !ok {
+		return
+	}
+	stored := make(set.Set[string])
+	locals := storedRefs(f, t, stored)
+	for _, l := range locals {
+		depNS, depName, defined := w.resolver.Definer(livePath, n, l)
+		if !defined {
+			continue
+		}
+		if depLive, dv, ok := versions.ParseDepNS(depNS); ok {
+			w.visit(depLive, dv, depName)
+		}
+	}
+	for _, ns := range slices.Sorted(maps.Keys(stored)) {
+		for depLive, pv := range f.Pins {
+			if filepath.Base(depLive) != ns {
+				continue
+			}
+			depChain, ok := w.chains[depLive]
+			if !ok || !w.checkPin(f, ns, depLive, pv, depChain) {
+				continue
+			}
+			for _, member := range membersOf(f, ns, false) {
+				w.visit(depLive, pv, member)
+			}
+		}
+	}
+}
+
+// checkPin reports a stored pin of f on depLive at pv that targets an ended chain or
+// lags its current version. It returns false when the chain ended.
+func (w pinWalker) checkPin(
+	f *versions.File,
+	ns, depLive string,
+	pv int,
+	depChain versions.Chain,
+) bool {
+	chain := w.chain
+	if ended, err := w.resolver.Ended(depLive); err == nil && ended {
+		w.r.fail(Finding{
+			Path:     chain.FilePath(chain.Current()) + ".oracle",
+			Severity: SeverityError,
+			Message: fmt.Sprintf(
+				"%s's current surface stores %s, but %s's chain "+
+					"ended at v%d; nothing may persist an ended "+
+					"resource",
+				chain.LivePath(), ns, depLive, depChain.Current(),
+			),
+			FixHint: fmt.Sprintf(
+				"drop the stored reference, or revive %s by "+
+					"declaring members in a new version file",
+				depLive,
+			),
+		})
+		return false
+	}
+	if pv == depChain.Current() || pinAliasCurrent(
+		w.resolver, depLive, pv, depChain.Current(), membersOf(f, ns, false),
+	) {
+		return true
+	}
+	w.r.fail(Finding{
+		Path:     chain.FilePath(chain.Current()) + ".oracle",
+		Severity: SeverityError,
+		Message: fmt.Sprintf(
+			"%s's current surface resolves %s at v%d, but "+
+				"%s's current version is v%d",
+			chain.LivePath(), ns, pv, depLive, depChain.Current(),
+		),
+		FixHint: fmt.Sprintf(
+			"redeclare the affected types with a fresh pin: "+
+				"`oracle migrate %s` to bump, or amend v%d in "+
+				"place if it has not shipped",
+			chain.Resource, chain.Current(),
+		),
+	})
+	return true
 }
 
 // checkOmittedPinCurrency fails a pin that an omitted field of a current-surface member
@@ -582,36 +633,11 @@ func checkOmittedPinCurrency(
 			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 			return
 		}
-		members := &versions.File{Chain: f.Chain, N: f.N, Pins: f.Pins}
-		for _, name := range byVersion[n] {
-			t, ok := versions.DefinedType(f, name)
-			if !ok {
-				continue
-			}
-			members.Defined = append(members.Defined, t)
-			// An inline variant's payload is a synthetic declaration the surface leaves
-			// out, so its fields join through the union.
-			if u, isUnion := t.Form.(resolution.UnionForm); isUnion {
-				for _, v := range u.Variants {
-					name := v.Type.Name[strings.LastIndex(v.Type.Name, ".")+1:]
-					if p, ok := versions.DefinedType(f, name); ok && v.Inline {
-						members.Defined = append(members.Defined, p)
-					}
-				}
-			}
-		}
+		members := surfaceMembers(f, byVersion[n])
 		for _, depLive := range slices.Sorted(maps.Keys(f.Pins)) {
 			ns := filepath.Base(depLive)
 			depChain, ok := resolver.Chains()[depLive]
-			// The stored check covers stored members, so this one checks only the
-			// members that omitted fields alone reach.
-			stored := set.New(membersOf(members, ns, false)...)
-			var omitted []string
-			for _, m := range membersOf(members, ns, true) {
-				if !stored.Contains(m) {
-					omitted = append(omitted, m)
-				}
-			}
+			omitted := omittedOnlyMembers(members, ns)
 			if !ok || len(omitted) == 0 {
 				continue
 			}
@@ -637,6 +663,44 @@ func checkOmittedPinCurrency(
 			})
 		}
 	}
+}
+
+// surfaceMembers returns a file holding the declarations of f named by names.
+func surfaceMembers(f *versions.File, names []string) *versions.File {
+	members := &versions.File{Chain: f.Chain, N: f.N, Pins: f.Pins}
+	for _, name := range names {
+		t, ok := versions.DefinedType(f, name)
+		if !ok {
+			continue
+		}
+		members.Defined = append(members.Defined, t)
+		// An inline variant's payload is a synthetic declaration the surface leaves
+		// out, so its fields join through the union.
+		u, isUnion := t.Form.(resolution.UnionForm)
+		if !isUnion {
+			continue
+		}
+		for _, v := range u.Variants {
+			name := v.Type.Name[strings.LastIndex(v.Type.Name, ".")+1:]
+			if p, ok := versions.DefinedType(f, name); ok && v.Inline {
+				members.Defined = append(members.Defined, p)
+			}
+		}
+	}
+	return members
+}
+
+// omittedOnlyMembers lists the members of ns that only omitted fields reach. The stored
+// check covers stored members.
+func omittedOnlyMembers(members *versions.File, ns string) []string {
+	stored := set.New(membersOf(members, ns, false)...)
+	var omitted []string
+	for _, m := range membersOf(members, ns, true) {
+		if !stored.Contains(m) {
+			omitted = append(omitted, m)
+		}
+	}
+	return omitted
 }
 
 // storedRefs collects one declaration's stored foreign namespaces into stored and
@@ -702,7 +766,8 @@ func localRefNames(ref resolution.TypeRef) []string {
 // namespace. pinAliasCurrent reports whether every referenced member of a lagging pin
 // resolves to the same defining version at both the pinned and current versions of the
 // dependency chain. When it does, the pinned and current shapes are one declaration and
-// the lag is nominal.
+// the lag is nominal. It skips a member that the pinned version does not carry, since
+// another import of the namespace declares it.
 func pinAliasCurrent(
 	resolver *versions.Resolver,
 	depLive string,
@@ -710,15 +775,12 @@ func pinAliasCurrent(
 	members []string,
 ) bool {
 	for _, member := range members {
-		curNS, _, ok := resolver.Definer(depLive, current, member)
-		if !ok {
-			return false
-		}
 		pinNS, _, ok := resolver.Definer(depLive, pinned, member)
 		if !ok {
-			return false
+			continue
 		}
-		if curNS != pinNS {
+		curNS, _, ok := resolver.Definer(depLive, current, member)
+		if !ok || curNS != pinNS {
 			return false
 		}
 	}
@@ -730,15 +792,9 @@ func pinAliasCurrent(
 func membersOf(f *versions.File, ns string, omitted bool) []string {
 	found := make(set.Set[string])
 	for _, t := range f.Defined {
-		var walkRef func(ref resolution.TypeRef)
-		walkRef = func(ref resolution.TypeRef) {
-			if ref.TypeParam == nil {
-				if refNS, name, ok := strings.Cut(ref.Name, "."); ok && refNS == ns {
-					found.Add(name)
-				}
-			}
-			for _, a := range ref.TypeArgs {
-				walkRef(a)
+		walkRef := func(refs ...resolution.TypeRef) {
+			for _, ref := range refs {
+				addMembers(ref, ns, found)
 			}
 		}
 		switch form := t.Form.(type) {
@@ -750,9 +806,7 @@ func membersOf(f *versions.File, ns string, omitted bool) []string {
 				}
 				walkRef(fd.Type)
 			}
-			for _, e := range form.Extends {
-				walkRef(e)
-			}
+			walkRef(form.Extends...)
 		case resolution.UnionForm:
 			for _, v := range form.Variants {
 				walkRef(v.Type)
@@ -769,6 +823,17 @@ func membersOf(f *versions.File, ns string, omitted bool) []string {
 	names := found.Slice()
 	slices.Sort(names)
 	return names
+}
+
+func addMembers(ref resolution.TypeRef, ns string, found set.Set[string]) {
+	if ref.TypeParam == nil {
+		if refNS, name, ok := strings.Cut(ref.Name, "."); ok && refNS == ns {
+			found.Add(name)
+		}
+	}
+	for _, a := range ref.TypeArgs {
+		addMembers(a, ns, found)
+	}
 }
 
 // aliasedGoRules names the type-level @go expressions that generate Go methods or
@@ -828,17 +893,26 @@ func checkAliasedRules(
 			})
 		}
 	}
-	// A frozen definer's package calls every dependency its pins reach, directly or
-	// through the dependencies' own pins, by the dependency's version file, so a
-	// live-only rule on a dependency at its current version never runs.
-	type pin struct {
-		origin, version int
-		livePath        string
-	}
-	var queue []pin
+	checkReachedRules(r, res, resolver, chain, definers)
+}
+
+// checkReachedRules fails a live-only rule on a dependency that a frozen definer
+// reaches at the dependency's current version. A frozen definer's package calls every
+// dependency its pins reach, directly or through the dependencies' own pins, by the
+// dependency's version file, so a live-only rule there never runs.
+func checkReachedRules(
+	r *GateReport,
+	res *pipeline.Result,
+	resolver *versions.Resolver,
+	chain versions.Chain,
+	definers map[int]*versions.File,
+) {
+	livePath := chain.LivePath()
+	path := chain.FilePath(chain.Current()) + ".oracle"
+	var queue []reachedPin
 	for _, v := range slices.Sorted(maps.Keys(definers)) {
 		for _, depLive := range slices.Sorted(maps.Keys(definers[v].Pins)) {
-			queue = append(queue, pin{v, definers[v].Pins[depLive], depLive})
+			queue = append(queue, reachedPin{v, definers[v].Pins[depLive], depLive})
 		}
 	}
 	visited := make(set.Set[string])
@@ -857,7 +931,7 @@ func checkAliasedRules(
 			return
 		}
 		for _, next := range slices.Sorted(maps.Keys(depFile.Pins)) {
-			queue = append(queue, pin{p.origin, depFile.Pins[next], next})
+			queue = append(queue, reachedPin{p.origin, depFile.Pins[next], next})
 		}
 		ended, err := resolver.Ended(p.livePath)
 		if err != nil {
@@ -867,29 +941,46 @@ func checkAliasedRules(
 		if ended || p.version != depChain.Current() {
 			continue
 		}
-		for _, t := range depFile.Defined {
-			if t.Synthetic {
-				continue
-			}
-			for _, rule := range rulesDrift(
-				res, p.livePath, t, depFile.Table, false,
-			) {
-				r.fail(Finding{
-					Path:     depChain.FilePath(p.version) + ".oracle",
-					Severity: SeverityError,
-					Message: fmt.Sprintf(
-						"frozen %s v%d reaches %s v%d, but the live %s does not "+
-							"match v%d's",
-						livePath, p.origin, p.livePath, p.version, rule, p.version,
-					),
-					FixHint: fmt.Sprintf(
-						"frozen %s v%d calls %s's v%d rules: restate the rule in "+
-							"%s v%d",
-						livePath, p.origin, p.livePath, p.version, p.livePath,
-						p.version,
-					),
-				})
-			}
+		failReachedDrift(r, res, livePath, p, depChain, depFile)
+	}
+}
+
+// reachedPin is a pin that frozen version origin reaches.
+type reachedPin struct {
+	origin, version int
+	livePath        string
+}
+
+// failReachedDrift fails every live-only rule in depFile, which frozen livePath reaches
+// through p.
+func failReachedDrift(
+	r *GateReport,
+	res *pipeline.Result,
+	livePath string,
+	p reachedPin,
+	depChain versions.Chain,
+	depFile *versions.File,
+) {
+	origin, depLive, version := p.origin, p.livePath, p.version
+	for _, t := range depFile.Defined {
+		if t.Synthetic {
+			continue
+		}
+		for _, rule := range rulesDrift(res, depLive, t, depFile.Table, false) {
+			r.fail(Finding{
+				Path:     depChain.FilePath(version) + ".oracle",
+				Severity: SeverityError,
+				Message: fmt.Sprintf(
+					"frozen %s v%d reaches %s v%d, but the live %s does not "+
+						"match v%d's",
+					livePath, origin, depLive, version, rule, version,
+				),
+				FixHint: fmt.Sprintf(
+					"frozen %s v%d calls %s's v%d rules: restate the rule in "+
+						"%s v%d",
+					livePath, origin, depLive, version, depLive, version,
+				),
+			})
 		}
 	}
 }

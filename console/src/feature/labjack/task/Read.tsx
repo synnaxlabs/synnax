@@ -10,7 +10,6 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -22,7 +21,6 @@ import {
   type Device,
   DI_PORT_TYPE,
   type DIPort,
-  MAKE,
   type Model,
   negativeChannelOf,
   PORTS,
@@ -48,13 +46,11 @@ import {
   deployReadConfigZ,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
-  READ_TYPE,
   type ReadChannel,
   type ReadSchemas,
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -79,36 +75,22 @@ const channelName = (
 ): string => (primitive.isNonZero(name) ? name : `${identifier}_${port}`);
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
-  onTare: (channelKey: channel.Key) => void;
   model: Model;
   /** The device's identifier, escaped for channel names. */
   identifier: string;
 }
 
-const ChannelListItem = ({
-  onTare,
-  model,
-  identifier,
-  ...rest
-}: ChannelListItemProps) => {
+const ChannelListItem = ({ model, identifier, ...rest }: ChannelListItemProps) => {
   const entry = root.config.channels[rest.itemKey];
   const channel = PForm.useFieldValue(entry.channel);
   const name = PForm.useFieldValue(entry.name);
   const port = PForm.useFieldValue(entry.port);
-  const disabled = PForm.useFieldValue(entry.disabled);
-  const type = PForm.useFieldValue(entry.type);
-  const isRunning = Task.useIsRunning();
   const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
-  const hasTareButton = channel !== 0 && type === "analog";
-  const canTare = !disabled && isRunning;
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...rest}
       port={terminalOf(model, port)}
-      canTare={canTare}
-      onTare={onTare}
       path={entry}
-      hasTareButton={hasTareButton}
       channel={channel}
       defaultName={channelName({ name, port }, identifier)}
       skipped={skipped}
@@ -195,11 +177,6 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
   );
 };
 
-const createFirstChannel = (): ReadChannel => ({
-  ...createReadChannel("analog"),
-  key: id.create(),
-});
-
 /**
  * Creates a channel on the port. It copies the template when the template's type fits
  * the port, which keeps a thermocouple a thermocouple on an AI port.
@@ -250,10 +227,7 @@ interface ChannelsFormProps {
   device: Device;
 }
 
-const isChannelTareable = (channel: ReadChannel) => channel.type === "analog";
-
 const ChannelsForm = ({ device }: ChannelsFormProps) => {
-  const [tare, allowTare, handleTare] = Task.useTare({ isChannelTareable });
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
   PForm.useCheck(root.config, uniqueTerminalsZ(model));
@@ -261,13 +235,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const createChannel = (channels: ReadChannel[], copy?: string) =>
     createNextChannel(channels, model, copy);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
-    <ChannelListItem
-      key={key}
-      {...p}
-      onTare={tare}
-      model={model}
-      identifier={identifier}
-    />
+    <ChannelListItem key={key} {...p} model={model} identifier={identifier} />
   );
   const details = (p: Task.Views.DetailsProps<ReadChannel>) => (
     <ChannelDetails {...p} device={device} />
@@ -300,8 +268,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
       details={details}
       detailsTitle={detailsTitle}
       createChannel={createChannel}
-      onTare={handleTare}
-      allowTare={allowTare}
+      tareable
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
       ports={ports}
@@ -315,16 +282,6 @@ const Form: FC = PlatformDevice.wrapTaskForm({
   useNoneSelected,
   Content: ChannelsForm,
 });
-
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createFirstChannel()];
-  return { name: "LabJack read task", type: READ_TYPE, config: cfg };
-};
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
@@ -401,16 +358,3 @@ export const Read = Task.wrapForm({
   type: "labjack_read",
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: "LabJack read task",
-  label: "Read",
-  icon: <Icon.Logo.LabJack />,
-  useOnSelect: useCreateRead,
-};

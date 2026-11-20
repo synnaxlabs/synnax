@@ -24,6 +24,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id, uuid } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
   render,
@@ -35,7 +36,12 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useLayoutEffect,
+} from "react";
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
@@ -45,13 +51,6 @@ import {
   createSynnaxWrapper,
   disableActEnvironment,
 } from "@/testutil/Synnax";
-
-/**
- * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
- * prefixed so failures are traceable back to tests.
- */
-export const uniqueName = (prefix: string = "test"): string =>
-  `${prefix}_${id.create().replace(/-/g, "_")}`;
 
 /** Generates a unique search term that the Core search keeps as one word. */
 export const uniqueToken = (): string =>
@@ -64,18 +63,6 @@ export const uniqueToken = (): string =>
  */
 export const createKeyEndingIn = (nibble: string): string =>
   `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
-
-/**
- * Throws when value is null or undefined, narrowing it for subsequent use.
- * Excludes void as well as null and undefined: NonNullable leaves `void & {}`
- * behind, which drops every property off a `T | void` return.
- */
-export function assertDefined<T>(
-  value: T,
-  message = "expected value to be defined",
-): asserts value is Exclude<T, null | undefined | void> {
-  assert(value != null, message);
-}
 
 /**
  * Waits for and returns the trigger button of the (single) mounted pluto dialog-based
@@ -165,10 +152,12 @@ export interface CaptureStatusesProps {
 /**
  * Reports the current status notifications to onStatuses on every change. Mount
  * alongside the UI under test to observe statuses raised during a component render.
+ * The report lands in the commit that changed them, so it is current once a `findBy*`
+ * query sees that commit.
  */
 export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
   const { statuses } = Status.useNotifications();
-  useEffect(() => {
+  useLayoutEffect(() => {
     onStatuses(statuses);
   }, [onStatuses, statuses]);
   return null;

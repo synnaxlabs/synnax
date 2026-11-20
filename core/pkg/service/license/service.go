@@ -119,15 +119,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultServiceConfig is the default configuration for the license service.
-var DefaultServiceConfig = ServiceConfig{
-	Anchors:       anchors,
-	Now:           time.Now,
-	CheckInterval: time.Hour,
-	WarningTime:   7 * 24 * time.Hour,
-	Grace:         14 * 24 * time.Hour,
-	Rollback:      24 * time.Hour,
-	Loopback:      new(false),
+func defaultServiceConfig() ServiceConfig {
+	return ServiceConfig{
+		Anchors:       anchors,
+		Now:           time.Now,
+		CheckInterval: time.Hour,
+		WarningTime:   7 * 24 * time.Hour,
+		Grace:         14 * 24 * time.Hour,
+		Rollback:      24 * time.Hour,
+		Loopback:      new(false),
+	}
 }
 
 const (
@@ -177,7 +178,7 @@ var _ io.Closer = &Service{}
 // service opens under the stored keys. A Core with no license opens in StateMissing.
 // OpenService deletes the stored numeric license keys, which no Core accepts.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(defaultServiceConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -248,8 +249,11 @@ func (i Info) err() error {
 			return errors.Wrap(ErrExpired, i.Warning)
 		}
 		return ErrExpired
+	case StateOk:
+		return nil
+	default:
+		return errors.Newf("unknown license state %q", i.State)
 	}
-	return nil
 }
 
 // checkFit returns ErrFingerprint when lic is bound to other machines, and ErrEdition
@@ -546,7 +550,7 @@ func (s *Service) evaluate(lic License, version string) Info {
 // versionCovered reports whether version's major and minor are at most ceiling's. An
 // unparseable version, such as an empty one, passes every ceiling.
 func versionCovered(version, ceiling string) bool {
-	maj, min, ok := parseMinor(version)
+	maj, minor, ok := parseMinor(version)
 	if !ok {
 		return true
 	}
@@ -554,7 +558,7 @@ func versionCovered(version, ceiling string) bool {
 	if !ok {
 		return false
 	}
-	return maj < cMaj || (maj == cMaj && min <= cMin)
+	return maj < cMaj || (maj == cMaj && minor <= cMin)
 }
 
 // parseMinor reads the leading "major.minor" of a version string.
@@ -590,6 +594,7 @@ func (s *Service) logState() {
 		}
 	case StateExpired:
 		s.cfg.L.Error(info.err().Error())
+	case StateMissing:
 	}
 }
 

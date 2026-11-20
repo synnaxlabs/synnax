@@ -79,15 +79,15 @@ var (
 			B: 15,
 			A: 16,
 		}),
-		StateChannel:   new(channel.Key(17)),
-		CommandChannel: new(channel.Key(18)),
-		Control: new(v13.ControlStateConfig{
+		StateChannel:   channel.Key(17),
+		CommandChannel: channel.Key(18),
+		Control: v13.ControlStateConfig{
 			Authority:       new(uint8(20)),
 			Hidden:          false,
 			ChipHidden:      true,
 			IndicatorHidden: false,
 			Orientation:     spatial.Location("top"),
-		}),
+		},
 		OnClickDelay: telem.TimeSpan(25),
 		StrokeColor: new(color.Color{
 			R: 27,
@@ -108,7 +108,7 @@ var (
 		Orientation: spatial.OuterLocation("top"),
 	}
 	fullyPopulatedNumericTelemConfig = v13.NumericTelemConfig{
-		Channel:        new(channel.Key(2)),
+		Channel:        channel.Key(2),
 		RollingAverage: 3,
 		Precision:      new(uint8(4)),
 		Notation:       notation.Notation("standard"),
@@ -124,7 +124,7 @@ var (
 	}
 	fullyPopulatedScaledConfig         = v13.ScaledConfig{Scale: 1.5}
 	fullyPopulatedScaleIndicatorConfig = v13.ScaleIndicatorConfig{
-		Channel:          new(channel.Key(2)),
+		Channel:          channel.Key(2),
 		RollingAverage:   3,
 		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
@@ -200,15 +200,15 @@ var (
 			B: 15,
 			A: 16,
 		}),
-		StateChannel:   new(channel.Key(17)),
-		CommandChannel: new(channel.Key(18)),
-		Control: new(v13.ControlStateConfig{
+		StateChannel:   channel.Key(17),
+		CommandChannel: channel.Key(18),
+		Control: v13.ControlStateConfig{
 			Authority:       new(uint8(20)),
 			Hidden:          false,
 			ChipHidden:      true,
 			IndicatorHidden: false,
 			Orientation:     spatial.Location("top"),
-		}),
+		},
 		OnClickDelay: telem.TimeSpan(25),
 	}
 )
@@ -468,14 +468,14 @@ var _ = Describe("Codec", func() {
 					A: 11,
 				}),
 				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-				BorderRadius: 15,
-				StrokeWidth:  16,
+				BorderRadius: new(uint16(15)),
+				StrokeWidth:  new(uint8(16)),
 			}}),
 			Entry("button variant", v13.NodeConfig{Variant: v13.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
 				Size:           v13.ComponentSize("tiny"),
 				OnClickDelay:   telem.TimeSpan(3),
-				CommandChannel: new(channel.Key(4)),
+				CommandChannel: channel.Key(4),
 				Mode:           v13.ButtonMode("fire"),
 				FillColor: new(color.Color{
 					R: 7,
@@ -483,13 +483,13 @@ var _ = Describe("Codec", func() {
 					B: 9,
 					A: 10,
 				}),
-				Control: new(v13.ControlStateConfig{
+				Control: v13.ControlStateConfig{
 					Authority:       new(uint8(12)),
 					Hidden:          false,
 					ChipHidden:      true,
 					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("circle variant", v13.NodeConfig{Variant: v13.CircleNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -506,13 +506,13 @@ var _ = Describe("Codec", func() {
 					B: 11,
 					A: 12,
 				}),
-				StrokeWidth: 13,
+				StrokeWidth: new(uint8(13)),
 			}}),
 			Entry("gauge variant", v13.NodeConfig{Variant: v13.GaugeNodeConfig{
 				LabeledConfig:      fullyPopulatedLabeledConfig,
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
-				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+				Position:           spatial.XY{X: 2.5, Y: 3.5},
 				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
@@ -532,9 +532,9 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				CommandChannel:  channel.Key(3),
+				StateChannel:    channel.Key(4),
+				Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 				FillColor: new(color.Color{
 					R: 9,
 					G: 10,
@@ -544,19 +544,19 @@ var _ = Describe("Codec", func() {
 				Disabled:     false,
 				InlineSize:   14,
 				OnClickDelay: telem.TimeSpan(15),
-				Control: new(v13.ControlStateConfig{
+				Control: v13.ControlStateConfig{
 					Authority:       new(uint8(17)),
 					Hidden:          true,
 					ChipHidden:      false,
 					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("light variant", v13.NodeConfig{Variant: v13.LightNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				ScaledConfig:    fullyPopulatedScaledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
-				Channel:         new(channel.Key(2)),
+				Channel:         channel.Key(2),
 				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 				StrokeColor: new(color.Color{
 					R: 7,
@@ -590,7 +590,7 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 6,
 				}),
-				Page:                          new(v13.Page{Type: v13.PageType("schematic"), Key: "test_8"}),
+				Page:                          v13.Page{Type: v13.PageType("schematic"), Key: "test_8"},
 				DoubleClickNavigationDisabled: true,
 			}}),
 			Entry("polygon variant", v13.NodeConfig{Variant: v13.PolygonNodeConfig{
@@ -611,14 +611,14 @@ var _ = Describe("Codec", func() {
 					B: 14,
 					A: 15,
 				}),
-				StrokeWidth: 16,
+				StrokeWidth: new(uint8(16)),
 			}}),
 			Entry("select variant", v13.NodeConfig{Variant: v13.SelectNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
+				CommandChannel:  channel.Key(3),
+				StateChannel:    channel.Key(4),
 				FillColor: new(color.Color{
 					R: 6,
 					G: 7,
@@ -641,27 +641,27 @@ var _ = Describe("Codec", func() {
 				},
 				Disabled:     true,
 				OnClickDelay: telem.TimeSpan(21),
-				Control: new(v13.ControlStateConfig{
+				Control: v13.ControlStateConfig{
 					Authority:       new(uint8(23)),
 					Hidden:          true,
 					ChipHidden:      false,
 					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("scale variant", v13.NodeConfig{Variant: v13.ScaleNodeConfig{
 				LabeledConfig:        fullyPopulatedLabeledConfig,
 				ScaleIndicatorConfig: fullyPopulatedScaleIndicatorConfig,
-				Position:             new(spatial.XY{X: 2.5, Y: 3.5}),
+				Position:             spatial.XY{X: 2.5, Y: 3.5},
 				Dimensions:           spatial.Dimensions{Width: 5.5, Height: 6.5},
 			}}),
 			Entry("setpoint variant", v13.NodeConfig{Variant: v13.SetpointNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				CommandChannel:  channel.Key(3),
+				StateChannel:    channel.Key(4),
+				Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 				FillColor: new(color.Color{
 					R: 9,
 					G: 10,
@@ -672,18 +672,18 @@ var _ = Describe("Codec", func() {
 				Disabled:     true,
 				InlineSize:   15,
 				OnClickDelay: telem.TimeSpan(16),
-				Control: new(v13.ControlStateConfig{
+				Control: v13.ControlStateConfig{
 					Authority:       new(uint8(18)),
 					Hidden:          false,
 					ChipHidden:      true,
 					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("state_indicator variant", v13.NodeConfig{Variant: v13.StateIndicatorNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
-				Channel:         new(channel.Key(2)),
+				Channel:         channel.Key(2),
 				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
@@ -723,7 +723,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Tooltip:    []string{"test_11"},
 				InlineSize: 13,
-				Channel:    new(channel.Key(14)),
+				Channel:    channel.Key(14),
 				Level:      text.Level("h1"),
 			}}),
 			Entry("switch variant", v13.NodeConfig{Variant: v13.SwitchNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
@@ -745,7 +745,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:      fullyPopulatedLabeledConfig,
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
-				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+				Position:           spatial.XY{X: 2.5, Y: 3.5},
 				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
@@ -940,7 +940,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("tank variant", v13.NodeConfig{Variant: v13.TankNodeConfig{
 				LabeledConfig:    fullyPopulatedLabeledConfig,
-				Channel:          new(channel.Key(2)),
+				Channel:          channel.Key(2),
 				RollingAverage:   3,
 				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
@@ -974,7 +974,7 @@ var _ = Describe("Codec", func() {
 				LevelHidden: false,
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
-				Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
+				Position:    spatial.XY{X: 34.5, Y: 35.5},
 				StrokeColor: new(color.Color{
 					R: 38,
 					G: 39,
@@ -988,12 +988,12 @@ var _ = Describe("Codec", func() {
 					A: 46,
 				}),
 				Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
-				BorderRadius: border.Radius{
+				BorderRadius: new(border.Radius{
 					TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
 					TopRight:    spatial.XY{X: 54.5, Y: 55.5},
 					BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
 					BottomRight: spatial.XY{X: 60.5, Y: 61.5},
-				},
+				}),
 				CaretVisible: false,
 				ScaleVisible: true,
 				Side:         spatial.OuterLocation("top"),
@@ -1054,7 +1054,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedNumericTelemConfig),
 			Entry("zero values", v13.NumericTelemConfig{
-				Channel:        nil,
+				Channel:        channel.Key(0),
 				RollingAverage: 0,
 				Precision:      nil,
 				Notation:       notation.Notation(""),
@@ -1074,7 +1074,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedScaleIndicatorConfig),
 			Entry("zero values", v13.ScaleIndicatorConfig{
-				Channel:          nil,
+				Channel:          channel.Key(0),
 				RollingAverage:   0,
 				Precision:        nil,
 				Notation:         notation.Notation(""),
@@ -1272,10 +1272,16 @@ var _ = Describe("Codec", func() {
 				Scale:            0,
 				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
-				StateChannel:     nil,
-				CommandChannel:   nil,
-				Control:          nil,
-				OnClickDelay:     telem.TimeSpan(0),
+				StateChannel:     channel.Key(0),
+				CommandChannel:   channel.Key(0),
+				Control: v13.ControlStateConfig{
+					Authority:       nil,
+					Hidden:          false,
+					ChipHidden:      false,
+					IndicatorHidden: false,
+					Orientation:     spatial.Location(""),
+				},
+				OnClickDelay: telem.TimeSpan(0),
 			}),
 		)
 	})
@@ -1304,11 +1310,17 @@ var _ = Describe("Codec", func() {
 				Scale:            0,
 				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
-				StateChannel:     nil,
-				CommandChannel:   nil,
-				Control:          nil,
-				OnClickDelay:     telem.TimeSpan(0),
-				StrokeColor:      nil,
+				StateChannel:     channel.Key(0),
+				CommandChannel:   channel.Key(0),
+				Control: v13.ControlStateConfig{
+					Authority:       nil,
+					Hidden:          false,
+					ChipHidden:      false,
+					IndicatorHidden: false,
+					Orientation:     spatial.Location(""),
+				},
+				OnClickDelay: telem.TimeSpan(0),
+				StrokeColor:  nil,
 			}),
 		)
 	})
@@ -2235,8 +2247,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 11,
 			}),
 			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-			BorderRadius: 15,
-			StrokeWidth:  16,
+			BorderRadius: new(uint16(15)),
+			StrokeWidth:  new(uint8(16)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2249,7 +2261,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:  fullyPopulatedLabeledConfig,
 			Size:           v13.ComponentSize("tiny"),
 			OnClickDelay:   telem.TimeSpan(3),
-			CommandChannel: new(channel.Key(4)),
+			CommandChannel: channel.Key(4),
 			Mode:           v13.ButtonMode("fire"),
 			FillColor: new(color.Color{
 				R: 7,
@@ -2257,13 +2269,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 9,
 				A: 10,
 			}),
-			Control: new(v13.ControlStateConfig{
+			Control: v13.ControlStateConfig{
 				Authority:       new(uint8(12)),
 				Hidden:          false,
 				ChipHidden:      true,
 				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2287,7 +2299,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 11,
 				A: 12,
 			}),
-			StrokeWidth: 13,
+			StrokeWidth: new(uint8(13)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2300,7 +2312,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:      fullyPopulatedLabeledConfig,
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
-			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+			Position:           spatial.XY{X: 2.5, Y: 3.5},
 			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
@@ -2327,9 +2339,9 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			CommandChannel:  channel.Key(3),
+			StateChannel:    channel.Key(4),
+			Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 			FillColor: new(color.Color{
 				R: 9,
 				G: 10,
@@ -2339,13 +2351,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Disabled:     false,
 			InlineSize:   14,
 			OnClickDelay: telem.TimeSpan(15),
-			Control: new(v13.ControlStateConfig{
+			Control: v13.ControlStateConfig{
 				Authority:       new(uint8(17)),
 				Hidden:          true,
 				ChipHidden:      false,
 				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2358,7 +2370,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			ScaledConfig:    fullyPopulatedScaledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
-			Channel:         new(channel.Key(2)),
+			Channel:         channel.Key(2),
 			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 			StrokeColor: new(color.Color{
 				R: 7,
@@ -2406,7 +2418,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 5,
 				A: 6,
 			}),
-			Page:                          new(v13.Page{Type: v13.PageType("schematic"), Key: "test_8"}),
+			Page:                          v13.Page{Type: v13.PageType("schematic"), Key: "test_8"},
 			DoubleClickNavigationDisabled: true,
 		}}
 		w := orc.NewWriter(0)
@@ -2434,7 +2446,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 14,
 				A: 15,
 			}),
-			StrokeWidth: 16,
+			StrokeWidth: new(uint8(16)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2447,8 +2459,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
+			CommandChannel:  channel.Key(3),
+			StateChannel:    channel.Key(4),
 			FillColor: new(color.Color{
 				R: 6,
 				G: 7,
@@ -2471,13 +2483,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			},
 			Disabled:     true,
 			OnClickDelay: telem.TimeSpan(21),
-			Control: new(v13.ControlStateConfig{
+			Control: v13.ControlStateConfig{
 				Authority:       new(uint8(23)),
 				Hidden:          true,
 				ChipHidden:      false,
 				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2489,7 +2501,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v13.NodeConfig{Variant: v13.ScaleNodeConfig{
 			LabeledConfig:        fullyPopulatedLabeledConfig,
 			ScaleIndicatorConfig: fullyPopulatedScaleIndicatorConfig,
-			Position:             new(spatial.XY{X: 2.5, Y: 3.5}),
+			Position:             spatial.XY{X: 2.5, Y: 3.5},
 			Dimensions:           spatial.Dimensions{Width: 5.5, Height: 6.5},
 		}}
 		w := orc.NewWriter(0)
@@ -2503,9 +2515,9 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			CommandChannel:  channel.Key(3),
+			StateChannel:    channel.Key(4),
+			Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 			FillColor: new(color.Color{
 				R: 9,
 				G: 10,
@@ -2516,13 +2528,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Disabled:     true,
 			InlineSize:   15,
 			OnClickDelay: telem.TimeSpan(16),
-			Control: new(v13.ControlStateConfig{
+			Control: v13.ControlStateConfig{
 				Authority:       new(uint8(18)),
 				Hidden:          false,
 				ChipHidden:      true,
 				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2534,7 +2546,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v13.NodeConfig{Variant: v13.StateIndicatorNodeConfig{
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
-			Channel:         new(channel.Key(2)),
+			Channel:         channel.Key(2),
 			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
@@ -2581,7 +2593,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Tooltip:    []string{"test_11"},
 			InlineSize: 13,
-			Channel:    new(channel.Key(14)),
+			Channel:    channel.Key(14),
 			Level:      text.Level("h1"),
 		}}
 		w := orc.NewWriter(0)
@@ -2624,7 +2636,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:      fullyPopulatedLabeledConfig,
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
-			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+			Position:           spatial.XY{X: 2.5, Y: 3.5},
 			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
@@ -3225,7 +3237,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v13.NodeConfig{Variant: v13.TankNodeConfig{
 			LabeledConfig:    fullyPopulatedLabeledConfig,
-			Channel:          new(channel.Key(2)),
+			Channel:          channel.Key(2),
 			RollingAverage:   3,
 			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
@@ -3259,7 +3271,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LevelHidden: false,
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
-			Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
+			Position:    spatial.XY{X: 34.5, Y: 35.5},
 			StrokeColor: new(color.Color{
 				R: 38,
 				G: 39,
@@ -3273,12 +3285,12 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 46,
 			}),
 			Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
-			BorderRadius: border.Radius{
+			BorderRadius: new(border.Radius{
 				TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
 				TopRight:    spatial.XY{X: 54.5, Y: 55.5},
 				BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
 				BottomRight: spatial.XY{X: 60.5, Y: 61.5},
-			},
+			}),
 			CaretVisible: false,
 			ScaleVisible: true,
 			Side:         spatial.OuterLocation("top"),
@@ -3391,7 +3403,7 @@ func FuzzDecodeNumericTelemConfig(f *testing.F) {
 	}
 	{
 		seed := v13.NumericTelemConfig{
-			Channel:        nil,
+			Channel:        channel.Key(0),
 			RollingAverage: 0,
 			Precision:      nil,
 			Notation:       notation.Notation(""),
@@ -3435,7 +3447,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 	}
 	{
 		seed := v13.ScaleIndicatorConfig{
-			Channel:          nil,
+			Channel:          channel.Key(0),
 			RollingAverage:   0,
 			Precision:        nil,
 			Notation:         notation.Notation(""),
@@ -3791,10 +3803,16 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 			Scale:            0,
 			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
-			StateChannel:     nil,
-			CommandChannel:   nil,
-			Control:          nil,
-			OnClickDelay:     telem.TimeSpan(0),
+			StateChannel:     channel.Key(0),
+			CommandChannel:   channel.Key(0),
+			Control: v13.ControlStateConfig{
+				Authority:       nil,
+				Hidden:          false,
+				ChipHidden:      false,
+				IndicatorHidden: false,
+				Orientation:     spatial.Location(""),
+			},
+			OnClickDelay: telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3847,11 +3865,17 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 			Scale:            0,
 			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
-			StateChannel:     nil,
-			CommandChannel:   nil,
-			Control:          nil,
-			OnClickDelay:     telem.TimeSpan(0),
-			StrokeColor:      nil,
+			StateChannel:     channel.Key(0),
+			CommandChannel:   channel.Key(0),
+			Control: v13.ControlStateConfig{
+				Authority:       nil,
+				Hidden:          false,
+				ChipHidden:      false,
+				IndicatorHidden: false,
+				Orientation:     spatial.Location(""),
+			},
+			OnClickDelay: telem.TimeSpan(0),
+			StrokeColor:  nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

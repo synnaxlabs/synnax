@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -27,36 +28,43 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config sets where Download gets release files and the key that checks them.
+// Config sets where Download gets release files and the keys that check them.
 type Config struct {
 	// URL is the base URL of the release files: <URL>/<product>/v<version>/<name> holds
 	// a File, and the same URL plus .sig holds its signature.
 	URL string
-	// PublicKey is the minisign public key that checks each signature.
-	PublicKey string
+	// PublicKeys are the minisign public keys that check each signature. A signature
+	// passes when any one of them checks it.
+	PublicKeys []string
 	// StallTimeout is how long Download waits for data before it fails.
 	StallTimeout time.Duration
 }
 
-// DefaultConfig gets the files of the Synnax releases on GitHub. Its key is the one
-// that the desktop Console updater checks.
+// DefaultConfig gets the files of the Synnax releases on GitHub. Its keys are the
+// updater signing keys, 7B5E66A4F279E515 and C845FA55E317C720.
 var DefaultConfig = Config{
-	URL:          "https://github.com/synnaxlabs/synnax/releases/download",
-	PublicKey:    "RWQgxxfjVfpFyJKxsLvQ4hcTpvkSs4DJq0kIvcvdk49PTCCkovyHWZr1",
+	URL: "https://github.com/synnaxlabs/synnax/releases/download",
+	PublicKeys: []string{
+		"RWQV5XnypGZee6srtdT2W0j01RTgCv5QJtt1kpgMiwLJFuyO4f4ptFyf",
+		"RWQgxxfjVfpFyJKxsLvQ4hcTpvkSs4DJq0kIvcvdk49PTCCkovyHWZr1",
+	},
 	StallTimeout: time.Minute,
 }
 
-// Validate returns an error when c has no URL, a public key that does not parse, or a
-// stall timeout that is not positive.
+// Validate returns an error when c has no URL, no public keys, a public key that does
+// not parse, or a stall timeout that is not positive.
 func (c Config) Validate() error {
 	v := validate.New("release.Config")
 	v.NotEmptyString("url", c.URL)
-	var key minisign.PublicKey
-	v.Ternary(
-		"public_key",
-		key.UnmarshalText([]byte(c.PublicKey)) != nil,
-		"must be a minisign public key",
-	)
+	v.NotEmptySlice("public_keys", c.PublicKeys)
+	for i, text := range c.PublicKeys {
+		var key minisign.PublicKey
+		v.Ternary(
+			fmt.Sprintf("public_keys.%d", i),
+			key.UnmarshalText([]byte(text)) != nil,
+			"must be a minisign public key",
+		)
+	}
 	v.Positive("stall_timeout", c.StallTimeout)
 	return v.Error()
 }
@@ -119,17 +127,19 @@ var (
 // maxSignatureSize is far above the size of a signature file, about 500 bytes.
 const maxSignatureSize = 4096
 
-// Download downloads file to dst, with mode 0600, and checks it against its signature.
-// A signature file holds the base64 text of a minisign signature, as the Tauri signer
-// writes it, and its trusted comment must name the file. Download returns the error of
-// cfg.Validate first. On any error, Download removes dst.
+// Download downloads file to dst, with mode 0600, and checks it against its signature
+// with each key of cfg.PublicKeys. A signature file holds the base64 text of a minisign
+// signature, as the Tauri signer writes it, and its trusted comment must name the file.
+// Download returns the error of cfg.Validate first. On any error, Download removes dst.
 func Download(ctx context.Context, cfg Config, file File, dst string) (err error) {
 	if err = cfg.Validate(); err != nil {
 		return err
 	}
-	var key minisign.PublicKey
-	if err = key.UnmarshalText([]byte(cfg.PublicKey)); err != nil {
-		return err
+	keys := make([]minisign.PublicKey, len(cfg.PublicKeys))
+	for i, text := range cfg.PublicKeys {
+		if err = keys[i].UnmarshalText([]byte(text)); err != nil {
+			return err
+		}
 	}
 	name := file.Name()
 	url := fmt.Sprintf("%s/%s/v%s/%s", cfg.URL, file.Product, file.Version, name)
@@ -152,7 +162,11 @@ func Download(ctx context.Context, cfg Config, file File, dst string) (err error
 		return err
 	}
 	defer func() { err = errors.Combine(err, body.Close()) }()
-	f, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(
+		filepath.Clean(dst),
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0o600,
+	)
 	if err != nil {
 		return err
 	}
@@ -166,7 +180,9 @@ func Download(ctx context.Context, cfg Config, file File, dst string) (err error
 	if err = errors.Combine(err, f.Close()); err != nil {
 		return err
 	}
-	if !r.Verify(key, signature) {
+	if !slices.ContainsFunc(keys, func(key minisign.PublicKey) bool {
+		return r.Verify(key, signature)
+	}) {
 		return errors.Wrapf(ErrSignature, "%s", url)
 	}
 	return nil

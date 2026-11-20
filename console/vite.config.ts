@@ -113,7 +113,7 @@ export default defineConfig({
         }
       : {},
   },
-  envPrefix: ["VITE_", "TAURI_"],
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   // The Console's own CSS, left unlayered, overrides every layer.
   css: { postcss: { plugins: [layers(plutoLayers(repoRoot))] } },
   plugins: [
@@ -124,7 +124,7 @@ export default defineConfig({
     stripSourcesContent(),
   ],
   build: {
-    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome111" : "safari16.4",
+    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome125" : "safari17.4",
     minify: !isDev,
     // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
     // minified stack traces (see pluto/src/errors/resolveStack.ts).
@@ -139,7 +139,7 @@ export default defineConfig({
     IS_DEV: isDev,
     DESKTOP: desktop,
     RELEASE: release,
-    CORE_PORT: Number(process.env.SYNNAX_PORT ?? 9090),
+    CORE_PORT: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
   },
   worker: {
     format: "es",

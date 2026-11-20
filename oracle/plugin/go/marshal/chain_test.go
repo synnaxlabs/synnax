@@ -254,6 +254,121 @@ Log struct {
 	})
 })
 
+var _ = Describe("Stored reference to a struct that holds a struct", func() {
+	// log v0 pins color v0, and color v0's Color holds color v0's Shade. The codec and
+	// specs of the current log package take the Shade at v0 too, not at color's
+	// current version.
+	generate := func(color string) map[string]string {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		shade := `
+Shade struct {
+	r uint8
+
+	@go marshal
+}
+`
+		band := `
+Band struct {
+	color Color
+
+	@go marshal
+}
+`
+		write("schemas/x/versions/color/v0.oracle", shade+color)
+		write("schemas/x/versions/color/v1.oracle", `
+Shade = v0.Shade
+
+Color = v0.Color
+`+band)
+		write("schemas/x/color.oracle", `
+@go output "x/go/color"
+`+shade+color+band)
+		write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/x/versions/color/v0"
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/log.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/log"
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			[]string{"schemas/x/color", "schemas/synnax/log"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+		resp := MustSucceed(marshal.New(marshal.Options{
+			FileNamePattern:     "codec.gen.go",
+			TestFileNamePattern: "codec_gen_test.go",
+			GenerateTests:       true,
+			RequireVersioned:    true,
+		}).Generate(req))
+		files := make(map[string]string)
+		for _, f := range resp.Files {
+			files[f.Path] = string(f.Content)
+		}
+		return files
+	}
+
+	It("Should import the pinned version for the fields of a pinned struct", func() {
+		files := generate(`
+Color struct {
+	shade Shade
+
+	@go marshal
+}
+`)
+		specs := files["core/pkg/service/log/versions/v0/codec_gen_test.go"]
+		Expect(specs).To(ContainSubstring("Color: color.Color{Shade: color.Shade{"))
+		Expect(specs).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+		Expect(files["core/pkg/service/log/versions/v0/codec.gen.go"]).
+			ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+
+	It("Should import the pinned version for the fields of an inlined generic", func() {
+		files := generate(`
+Color struct<T = uint8> {
+	shades Shade[]
+	alpha  T
+
+	@go marshal
+}
+`)
+		codec := files["core/pkg/service/log/versions/v0/codec.gen.go"]
+		Expect(codec).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(codec).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+		Expect(files["core/pkg/service/log/versions/v0/codec_gen_test.go"]).
+			ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+})
+
 var _ = Describe("Stored reference in a generic declaration", func() {
 	// log v0's generic Wrapper pins color v0, which color v1 only aliases, so the
 	// generic fixture in the current package's specs imports v0 too.
@@ -460,25 +575,16 @@ Log struct {
 	)
 })
 
-// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
-// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
-// set, a log v2 aliases both, freezing v1.
-func writePinFixture(root string, frozen bool) {
-	GinkgoHelper()
-	write := func(rel, content string) {
-		GinkgoHelper()
-		full := filepath.Join(root, rel)
-		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
-		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
-	}
-	write("schemas/x/versions/color/v0.oracle", `
+// The schemas of the fixture that writePinFixture writes.
+const (
+	pinColorV0 = `
 Color struct {
 	r uint8
 
 	@go marshal
 }
-`)
-	write("schemas/x/versions/color/v1.oracle", `
+`
+	pinColorV1 = `
 Color = v0.Color
 
 Band struct {
@@ -486,8 +592,8 @@ Band struct {
 
 	@go marshal
 }
-`)
-	write("schemas/x/color.oracle", `
+`
+	pinColor = `
 @go output "x/go/color"
 
 Color struct {
@@ -501,8 +607,8 @@ Band struct {
 
 	@go marshal
 }
-`)
-	write("schemas/synnax/versions/log/v0.oracle", `
+`
+	pinLogV0 = `
 import "schemas/x/versions/color/v0"
 
 Note struct {
@@ -517,8 +623,8 @@ Log struct {
 
 	@go marshal
 }
-`)
-	write("schemas/synnax/versions/log/v1.oracle", `
+`
+	pinLogV1 = `
 import "schemas/x/versions/color/v1"
 
 Note = v0.Note
@@ -531,15 +637,13 @@ Log struct {
 
 	@go marshal
 }
-`)
-	if frozen {
-		write("schemas/synnax/versions/log/v2.oracle", `
+`
+	pinLogV2 = `
 Note = v0.Note
 
 Log = v1.Log
-`)
-	}
-	write("schemas/synnax/log.oracle", `
+`
+	pinLog = `
 import "schemas/x/color"
 
 @go output "core/pkg/service/log"
@@ -558,7 +662,29 @@ Log struct {
 
 	@go marshal
 }
-`)
+`
+)
+
+// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
+// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
+// set, a log v2 aliases both, freezing v1.
+func writePinFixture(root string, frozen bool) {
+	GinkgoHelper()
+	write := func(rel, content string) {
+		GinkgoHelper()
+		full := filepath.Join(root, rel)
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	write("schemas/x/versions/color/v0.oracle", pinColorV0)
+	write("schemas/x/versions/color/v1.oracle", pinColorV1)
+	write("schemas/x/color.oracle", pinColor)
+	write("schemas/synnax/versions/log/v0.oracle", pinLogV0)
+	write("schemas/synnax/versions/log/v1.oracle", pinLogV1)
+	if frozen {
+		write("schemas/synnax/versions/log/v2.oracle", pinLogV2)
+	}
+	write("schemas/synnax/log.oracle", pinLog)
 }
 
 // pinRequest analyzes the fixture writePinFixture writes.

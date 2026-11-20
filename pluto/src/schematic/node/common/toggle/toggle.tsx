@@ -53,6 +53,7 @@ export const createToggle = <C extends ToggleConfig>(
       ...rest
     } = config;
     const theme = Theming.use();
+    const badged = Staleness.useBadged();
     const source = Telem.booleanSource(stateChannel);
     const sink = Telem.booleanSink(commandChannel);
     const { enabled, toggle, stale } = Base.use({
@@ -76,14 +77,18 @@ export const createToggle = <C extends ToggleConfig>(
           config={control}
           channel={commandChannel}
           onChange={onConfigChange}
-        />
+        >
+          {stale && badged ? <Staleness.Badge /> : null}
+        </Control.State>
         <Sym
           enabled={enabled}
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
           strokeColor={
-            stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor
+            stale && !badged
+              ? Staleness.resolveColor(stalenessColor, theme)
+              : symbolColor
           }
           {...rest}
         />

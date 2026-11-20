@@ -85,6 +85,7 @@ describe("secret/validity", () => {
         name: "Client",
         source: "file",
         certificatePath: "/etc/ssl/client.pem",
+        rack: 1,
       };
       expect(Validity.describeCertificate(c, NOT_AFTER)).toEqual({
         text: "/etc/ssl/client.pem",
@@ -97,12 +98,51 @@ describe("secret/validity", () => {
         name: "Client",
         source: "file",
         certificatePath: "/etc/ssl/client.pem",
+        rack: 1,
         details: STORED.details,
       };
       expect(Validity.describeCertificate(c, NOT_AFTER.add(TimeSpan.days(1)))).toEqual({
         text: "Expired June 15, 2026",
         status: "error",
       });
+    });
+  });
+
+  describe("summarizeCertificate", () => {
+    it("shows the expiry date of a valid certificate with no status", () => {
+      expect(
+        Validity.summarizeCertificate(STORED, NOT_AFTER.sub(TimeSpan.days(31))),
+      ).toEqual({ text: "Expires June 15, 2026" });
+    });
+
+    it("warns with the expiry date inside the 30-day expiry window", () => {
+      expect(
+        Validity.summarizeCertificate(STORED, NOT_AFTER.sub(TimeSpan.days(10))),
+      ).toEqual({ text: "Expires June 15, 2026", status: "warning" });
+    });
+
+    it("warns with the start date before the certificate is valid", () => {
+      expect(
+        Validity.summarizeCertificate(STORED, NOT_BEFORE.sub(TimeSpan.SECOND)),
+      ).toEqual({ text: "Valid from January 15, 2026", status: "warning" });
+    });
+
+    it("says only that the certificate expired, from the expiry instant", () => {
+      expect(Validity.summarizeCertificate(STORED, NOT_AFTER)).toEqual({
+        text: "Expired",
+        status: "error",
+      });
+    });
+
+    it("has nothing to say about a file certificate with no details", () => {
+      const c: certificate.Certificate = {
+        key: "4b6a5c3d-2e1f-4a0b-9c8d-7e6f5a4b3c2e",
+        name: "Client",
+        source: "file",
+        certificatePath: "/etc/ssl/client.pem",
+        rack: 1,
+      };
+      expect(Validity.summarizeCertificate(c, NOT_AFTER)).toBeNull();
     });
   });
 
@@ -124,6 +164,7 @@ describe("secret/validity", () => {
         source: "file",
         updated: NOT_BEFORE,
         fileName: "token",
+        rack: 1,
       };
       expect(Validity.describeSecret(s)).toBe("Read from token");
     });

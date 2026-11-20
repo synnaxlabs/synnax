@@ -44,11 +44,6 @@ on:
         required: false
         type: boolean
         default: false
-      rust:
-        description: Whether the build needs a Rust toolchain
-        required: false
-        type: boolean
-        default: false
       sanitizers:
         description: Whether to build with the sanitizer configs
         required: false
@@ -86,7 +81,12 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
 env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
   BAZEL_REMOTE_CACHE_FLAGS:
     --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
     --remote_cache_compression=true
@@ -108,14 +108,16 @@ jobs:
           - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
           - os: ${{ !inputs.windows && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
-    # About 1.5x the slowest successful cold-cache job on each OS.
-    timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
+    # A cold-cache build passes 30 minutes on every OS.
+    timeout-minutes: 75
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != ''
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_LISTEN: localhost:9090
@@ -141,19 +143,12 @@ jobs:
           read -ra packages <<< "$PACKAGES"
           sudo apt-get install -y "${packages[@]}"
 
-      - name: Install Rust
-        if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
-
       - name: Update submodules
         shell: bash
         run: .github/scripts/update_submodules.sh
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
           bazelisk-cache: false
           disk-cache: false
@@ -161,7 +156,7 @@ jobs:
 
       - name: Set up uv
         if: runner.os == 'Linux' && inputs.directories != ''
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -184,7 +179,8 @@ jobs:
         shell: bash
         env:
           EXTRA: ${{ inputs.test_tags }}
-          CORE: ${{ runner.os == 'Linux' && inputs.core_image != '' }}
+          CORE:
+            ${{ runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true' }}
         run: |
           tags=()
           if [ "$RUNNER_OS" = macOS ]; then tags+=(-no-asan); fi
@@ -287,6 +283,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install packages
         timeout-minutes: 10
@@ -298,31 +296,25 @@ jobs:
           read -ra packages <<< "$PACKAGES"
           sudo apt-get install -y "${packages[@]}"
 
-      - name: Install Rust
-        if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
-
       - name: Update submodules
         shell: bash
         run: .github/scripts/update_submodules.sh
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
 
-      # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
+      # A clang-tidy action peaks near 2 GB, and so does the Bazel server. The build
+      # bots have 16 GB and no swap, so six jobs leave 2 GB free.
       - name: Lint
         env:
           TARGETS: ${{ inputs.targets }}
         run: |
           read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS"
-          bazel build --jobs=8 --config=clang-tidy --keep_going "${args[@]}"
+          bazel build --jobs=6 --config=clang-tidy --keep_going "${args[@]}"
 
       - name: Clean build caches
         if: always()

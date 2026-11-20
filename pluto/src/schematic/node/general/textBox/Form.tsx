@@ -25,7 +25,7 @@ import { Orientation } from "@/schematic/node/common/orientation";
 const path = deep.path<schematic.TextBoxNodeConfig>();
 
 const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
-  bounds: { lower: 0, upper: 2000 },
+  bounds: { lower: 1, upper: 2000 },
   dragScale: 5,
   endContent: "px",
   integer: true,

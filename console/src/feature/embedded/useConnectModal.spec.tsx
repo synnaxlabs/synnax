@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { InvalidCredentialsError } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { testClientParams } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -30,7 +30,7 @@ import {
 import { findDismissButton } from "@/platform/modals/testutil";
 import { CaptureStatuses, getIconButton } from "@/testutil";
 
-const { host, port } = TEST_CLIENT_PARAMS;
+const { host, port } = testClientParams();
 
 const { client, live } = await createDesktopUser();
 
@@ -70,6 +70,12 @@ const resetKey = async (): Promise<void> => {
   fireEvent.click(buttons[buttons.length - 1]);
 };
 
+/** Shows the TypeScript code for a browser. */
+const showBrowserCode = async (): Promise<void> => {
+  fireEvent.click(screen.getByRole("tab", { name: "TypeScript" }));
+  fireEvent.click(await screen.findByText("Browser"));
+};
+
 const savedKey = (file: DiscoveryFile): string => {
   if (file.apiKey == null) throw new Error("no API key saved");
   return file.apiKey;
@@ -96,24 +102,34 @@ describe("Embedded connect from code dialog", () => {
     expect(await screen.findByLabelText("Python code")).toBeTruthy();
   });
 
-  it("should fill the TypeScript code with the address and mask the key", async () => {
+  it("should show Node.js code that finds Synnax Desktop with no arguments", async () => {
     await deleteKeysCreatedByTest(client);
     const { file } = await openConnect();
     fireEvent.click(screen.getByRole("tab", { name: "TypeScript" }));
-    const code = (await screen.findByLabelText("TypeScript code")).textContent;
+    const code = (await screen.findByLabelText("TypeScript Node.js code")).textContent;
+    expect(code).toContain("new Synnax();");
+    expect(code).not.toContain(host);
+    expect(code).not.toContain(savedKey(file));
+  });
+
+  it("should fill the browser code with the address and mask the key", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { file } = await openConnect();
+    await showBrowserCode();
+    const code = (await screen.findByLabelText("TypeScript browser code")).textContent;
     expect(code).toContain(`host: "${host}"`);
     expect(code).toContain(`port: ${port}`);
     expect(code).toContain('apiKey: "syk_');
     expect(code).not.toContain(savedKey(file));
   });
 
-  it("should copy the TypeScript code with the API key", async () => {
+  it("should copy the browser code with the API key", async () => {
     await deleteKeysCreatedByTest(client);
     const writeText = stubClipboardWriteText();
     const { file } = await openConnect();
-    fireEvent.click(screen.getByRole("tab", { name: "TypeScript" }));
+    await showBrowserCode();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Copy TypeScript code" }),
+      await screen.findByRole("button", { name: "Copy TypeScript browser code" }),
     );
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(writeText.mock.calls[0][0]).toContain(`apiKey: "${savedKey(file)}"`);
@@ -154,9 +170,9 @@ describe("Embedded connect from code dialog", () => {
     await waitFor(() =>
       expect(statuses().map((s) => s.message)).toContain("Reset API key"),
     );
-    fireEvent.click(screen.getByRole("tab", { name: "TypeScript" }));
+    await showBrowserCode();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Copy TypeScript code" }),
+      await screen.findByRole("button", { name: "Copy TypeScript browser code" }),
     );
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(writeText.mock.calls[0][0]).toContain(`apiKey: "${other}"`);

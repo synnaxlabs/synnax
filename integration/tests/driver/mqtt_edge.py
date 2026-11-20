@@ -12,7 +12,12 @@ from examples.mqtt_sim import MQTTSim
 
 import synnax as sy
 from synnax import mqtt
-from tests.driver.mqtt_task import CORE_RACK_NAME, run_reader, write_until
+from tests.driver.mqtt_task import (
+    CORE_RACK_NAME,
+    create_plain_entry,
+    run_reader,
+    write_until,
+)
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import WriteTaskCase, create_channel, create_index
 
@@ -102,13 +107,13 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
                 name=f"{self.task_name} temperature Mirror",
                 channel="mqtt_edge_node_temperature_mirror",
                 data_type=sy.DataType.FLOAT64,
-                entry=lambda mirror: mqtt.PlainReadEntry(
+                entry=lambda mirror: create_plain_entry(
+                    self.client,
                     topic=f"{MIRROR}/temperature",
-                    fields=[
-                        mqtt.ReadField(
-                            pointer="/value",
-                            channel=mirror.key,
-                            data_type=sy.DataType.FLOAT64,
+                    bindings=[
+                        (
+                            sy.icd.FloatJSONField(name="value", pointer="/value"),
+                            mirror.key,
                         )
                     ],
                 ),

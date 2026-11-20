@@ -907,7 +907,7 @@ describe("queries", () => {
         });
         await act(async () => expect(await result.current.saveAsync()).toBe(false));
         expect(result.current.status.description).toEqual(
-          `rack: rack ${removed.key} does not exist: validation error`,
+          `rack: rack ${removed.key} does not exist`,
         );
         act(() => result.current.form.set(path.rack, rack.key));
         await act(async () => expect(await result.current.saveAsync()).toBe(true));

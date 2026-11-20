@@ -15,6 +15,7 @@ import pytest
 import synnax as sy
 import x.color
 from synnax import color
+from x.testutil import untyped
 
 
 def test_reexports_x_color() -> None:
@@ -123,9 +124,7 @@ class TestColorClient:
         """Should reject one beside a limit or a cursor, since a page could hide a
         match."""
         with pytest.raises(sy.ValidationError, match="cannot set a limit or a cursor"):
-            client.colors.retrieve(  # type: ignore[call-overload]
-                name={"starts_with": "a"}, one=True, **page
-            )
+            untyped(client.colors.retrieve)(name={"starts_with": "a"}, one=True, **page)
 
     def test_retrieve_name_multiple_found(self, client: sy.Synnax) -> None:
         """Should raise MultipleFoundError when several named colors share the
@@ -192,12 +191,12 @@ class TestColorClient:
         """Should reject a field set to None, since it would select every named
         color."""
         with pytest.raises(sy.ValidationError, match="name is None"):
-            client.colors.retrieve(name=None)  # type: ignore[call-overload]
+            untyped(client.colors.retrieve)(name=None)
 
     def test_retrieve_unknown_field(self, client: sy.Synnax) -> None:
         """Should reject a field that is not a named color filter line."""
         with pytest.raises(pydantic.ValidationError, match="nme"):
-            client.colors.retrieve(nme="a")  # type: ignore[call-overload]
+            untyped(client.colors.retrieve)(nme="a")
 
     def test_retrieve_name_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no named color has the name."""

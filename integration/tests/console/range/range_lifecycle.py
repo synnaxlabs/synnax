@@ -31,7 +31,6 @@ class RangeLifecycle(ConsoleCase):
     rand_suffix: int
     test_label_name: str
     second_label_name: str
-    local_range_name: str | None = None
     range_name: str | None = None
     staged_range_name: str | None = None
     child_range_name: str | None = None
@@ -50,7 +49,6 @@ class RangeLifecycle(ConsoleCase):
 
     def teardown(self) -> None:
         ranges_to_delete = [
-            self.local_range_name,
             self.labeled_range_name,
             self.new_child_range_name,
             self.child_range_name,
@@ -78,9 +76,7 @@ class RangeLifecycle(ConsoleCase):
         self.test_open_range_toolbar()
 
         # Range Creation
-        self.test_create_local_range()
-        self.test_save_local_range()
-        self.test_create_persisted_range()
+        self.test_create_range()
         self.test_create_range_with_stage()
         self.test_create_range_with_parent()
         self.test_create_range_with_labels()
@@ -88,13 +84,11 @@ class RangeLifecycle(ConsoleCase):
         # Range Explorer
         self.test_open_range_explorer()
         self.test_range_exists_in_explorer()
-        self.test_unfavorite_favorite_range()
-        self.test_set_active_range()
-        self.test_remove_active_range()
+        self.test_favorite_range()
 
         # Range Toolbar - Plot Operations
         self.test_add_to_new_plot()
-        self.test_add_to_active_plot()
+        self.test_drag_to_plot()
 
         # Range Details
         self.test_navigate_to_parent()
@@ -127,29 +121,17 @@ class RangeLifecycle(ConsoleCase):
         toolbar_title = self.page.get_by_text("Ranges", exact=True).first
         assert toolbar_title.is_visible(), "Ranges toolbar should be visible"
 
-    def test_create_local_range(self) -> None:
-        """Test creating a local (non-persisted) range."""
-        self.log("Testing: Create local range")
-        local_range_name = f"LocalRange_{self.rand_suffix}"
-        self.console.ranges.create(local_range_name, persisted=False)
-        assert self.console.ranges.toolbar.exists(local_range_name), (
-            "Local range should appear in toolbar"
-        )
-        self.local_range_name = local_range_name
-
-    def test_create_persisted_range(self) -> None:
-        """Test creating a persisted range."""
-        self.log("Testing: Create persisted range")
+    def test_create_range(self) -> None:
+        """Test creating a range."""
+        self.log("Testing: Create range")
         self.range_name = f"TestRange_{self.rand_suffix}"
-        self.console.ranges.create(self.range_name, persisted=True)
+        self.console.ranges.create(self.range_name)
 
     def test_create_range_with_stage(self) -> None:
         """Test creating a range with a specific stage."""
         self.log("Testing: Create range with stage")
         self.staged_range_name = f"CompletedRange_{self.rand_suffix}"
-        self.console.ranges.create(
-            self.staged_range_name, persisted=True, stage="Completed"
-        )
+        self.console.ranges.create(self.staged_range_name, stage="Completed")
         self.console.ranges.explorer.open()
         assert self.console.ranges.explorer.exists(self.staged_range_name), (
             "Staged range should exist in explorer"
@@ -160,9 +142,7 @@ class RangeLifecycle(ConsoleCase):
         assert self.staged_range_name is not None
         self.log("Testing: Create range with parent")
         self.child_range_name = f"ChildRange_{self.rand_suffix}"
-        self.console.ranges.create(
-            self.child_range_name, persisted=True, parent=self.staged_range_name
-        )
+        self.console.ranges.create(self.child_range_name, parent=self.staged_range_name)
         self.console.ranges.explorer.open()
         self.console.ranges.explorer.expand(self.staged_range_name)
         assert self.console.ranges.explorer.exists(self.child_range_name), (
@@ -188,7 +168,7 @@ class RangeLifecycle(ConsoleCase):
         self.log("Testing: Create range with labels")
         self.labeled_range_name = f"LabeledRange_{self.rand_suffix}"
         self.console.ranges.create(
-            self.labeled_range_name, persisted=True, labels=[self.test_label_name]
+            self.labeled_range_name, labels=[self.test_label_name]
         )
         self.console.ranges.explorer.open()
         assert self.console.ranges.explorer.exists(self.labeled_range_name), (
@@ -199,9 +179,11 @@ class RangeLifecycle(ConsoleCase):
         """Test opening the Range Explorer."""
         self.log("Testing: Open Range Explorer")
         self.console.ranges.explorer.open()
-        static_view_name = self.console.ranges.explorer.views.static_view_name
-        header = self.page.get_by_text(static_view_name)
-        assert header.is_visible(), f"Range Explorer should show '{static_view_name}'"
+        views = self.console.ranges.explorer.views
+        header = views.get_view_item(views.static_view_name)
+        assert header.is_visible(), (
+            f"Range Explorer should show '{views.static_view_name}'"
+        )
 
     def test_range_exists_in_explorer(self) -> None:
         """Test that created range exists in the explorer."""
@@ -211,69 +193,40 @@ class RangeLifecycle(ConsoleCase):
             f"Range '{self.range_name}' should exist in explorer"
         )
 
-    def test_unfavorite_favorite_range(self) -> None:
-        """Test unfavoriting and favoriting a range from the explorer."""
+    def test_favorite_range(self) -> None:
+        """Test that a new range is not a favorite until the user stars it."""
         assert self.range_name is not None
-        self.log("Testing: Unfavorite range")
-        self.console.ranges.explorer.unfavorite(self.range_name)
+        assert not self.console.ranges.toolbar.exists(
+            self.range_name, group="Favorites"
+        ), f"Range '{self.range_name}' should not be a favorite after creation"
 
         self.log("Testing: Favorite range")
         self.console.ranges.explorer.favorite(self.range_name)
-        assert self.console.ranges.toolbar.exists(self.range_name), (
-            f"Range '{self.range_name}' should appear in toolbar after favoriting"
+        assert self.console.ranges.toolbar.exists(self.range_name, group="Favorites"), (
+            f"Range '{self.range_name}' should appear in favorites after favoriting"
         )
 
-    def test_set_active_range(self) -> None:
-        """Test setting a range as active from the toolbar."""
-        assert self.range_name is not None
-        self.log("Testing: Set active range")
-        self.console.ranges.set_active(self.range_name)
-        item = self.console.ranges.toolbar.get_item(self.range_name)
-        class_attr = item.get_attribute("class") or ""
-        assert "lyra--selected" in class_attr, "Range should be marked as active"
-
-    def test_remove_active_range(self) -> None:
-        """Test removing an active range from the toolbar via context menu."""
-        assert self.range_name is not None
-        self.log("Testing: Remove active range from toolbar")
-        self.console.ranges.toolbar.unfavorite(self.range_name)
-
-        self.log("Re-favoriting and re-activating range for subsequent tests")
-        self.console.ranges.explorer.open()
-        self.console.ranges.explorer.favorite(self.range_name)
-        self.console.ranges.set_active(self.range_name)
-
     def test_add_to_new_plot(self) -> None:
-        """Test adding a range to a new line plot via toolbar context menu."""
+        """Test opening a new line plot of a range from the toolbar context menu."""
         assert self.range_name is not None
         self.log("Testing: Add range to new plot")
-        self.console.ranges.toolbar.add_to_new_plot(self.range_name)
+        self.console.ranges.toolbar.plot(self.range_name)
         expected_tab = f"Plot for {self.range_name}"
         self._cleanup_pages.append(expected_tab)
         self.console.layout.wait_for_tab(expected_tab)
         self.console.layout.close_tab(expected_tab)
 
-    def test_add_to_active_plot(self) -> None:
-        """Test adding a range to the active line plot via toolbar context menu."""
+    def test_drag_to_plot(self) -> None:
+        """Test dragging a range from the toolbar onto a line plot's range picker."""
         assert self.range_name is not None
-        self.log("Testing: Add range to active plot")
+        self.log("Testing: Drag range onto plot")
         plot_name = f"TestPlot_{self.rand_suffix}"
         plot = self.console.pages.create(Plot, plot_name)
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("y1", "sy_node_1_metrics_cpu_percentage")
-        self.console.layout.hide_visualization_toolbar()
-        self.console.ranges.toolbar.add_to_active_plot(self.range_name)
+        plot.drag_range_to_toolbar(self.range_name, ranges=self.console.ranges.toolbar)
+        expect(plot.get_range_tag(self.range_name)).to_be_visible(timeout=5000)
         self.console.layout.close_tab(plot_name)
-
-    def test_save_local_range(self) -> None:
-        """Test saving a local range to Synnax via toolbar context menu."""
-        assert self.local_range_name is not None
-        self.log("Testing: Save local range to Synnax")
-        self.console.ranges.toolbar.save_to_synnax(self.local_range_name)
-        rng = self.client.ranges.retrieve(name=self.local_range_name)
-        assert rng.name == self.local_range_name, (
-            f"Range '{self.local_range_name}' should be persisted to Synnax"
-        )
 
     def test_change_times_in_overview(self) -> None:
         """Test changing start and end times in the range overview."""
@@ -310,7 +263,7 @@ class RangeLifecycle(ConsoleCase):
         self.log("Verifying time sync to Ranges Toolbar")
         self.console.ranges.favorite(self.labeled_range_name)
         toolbar_time = self.console.ranges.toolbar.get_item_time(
-            self.labeled_range_name
+            self.labeled_range_name, group="Favorites"
         )
         assert "Jan" in toolbar_time, (
             f"Toolbar should show Jan time, got '{toolbar_time}'"
@@ -391,7 +344,7 @@ class RangeLifecycle(ConsoleCase):
         """Test setting a planned end on a running range in the overview."""
         self.log("Testing: Set planned end in overview")
         self.timeline_range_name = f"TimelineRange_{self.rand_suffix}"
-        self.console.ranges.create(self.timeline_range_name, persisted=True)
+        self.console.ranges.create(self.timeline_range_name)
         self.console.ranges.explorer.open()
         self.console.ranges.overview.open(self.timeline_range_name)
         self.console.ranges.overview.wait_for(self.timeline_range_name)

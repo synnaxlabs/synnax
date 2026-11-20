@@ -112,6 +112,18 @@ struct StatusHandler {
         this->maybe_set_status();
     }
 
+    /// @brief shows warning while the task runs with no warning or error of its own. An
+    /// empty warning stops showing it. A warning or error of the task hides it, and
+    /// clear_warning does not clear it. The flusher thread sends the change, so the
+    /// caller never writes to the Core, but it can wait for a write in progress. Safe
+    /// to call from any thread.
+    void set_background_warning(const Warning &warning) {
+        std::lock_guard lock(this->mu);
+        if (this->closed || this->background == warning) return;
+        this->background = warning;
+        if (this->last.has_value()) this->defer(this->shown(*this->last));
+    }
+
     void clear_warning() {
         if (this->status.variant != synnax::status::VARIANT_WARNING) return;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
@@ -178,7 +190,8 @@ private:
     std::string accumulated_msg;
     /// @brief the shortest time between two statuses that answer no command.
     const std::chrono::nanoseconds window;
-    /// @brief guards pending, sent, sent_at, and closed, and orders writes to ctx.
+    /// @brief guards pending, sent, sent_at, closed, background, and last, and orders
+    /// writes to ctx.
     std::mutex mu;
     /// @brief wakes the flusher when a status starts to wait or the handler closes.
     std::condition_variable cv;
@@ -190,6 +203,10 @@ private:
     std::chrono::steady_clock::time_point sent_at;
     /// @brief true once close is called.
     bool closed = false;
+    /// @brief the warning that set_background_warning shows.
+    Warning background;
+    /// @brief the last status the task sent, before background is applied.
+    std::optional<synnax::task::Status> last;
     /// @brief sends the pending status when its window ends. Started on first use.
     std::thread flusher;
 
@@ -198,6 +215,36 @@ private:
     void set_text(const std::string &message, const std::string &description = "") {
         this->status.message = message;
         this->status.description = description;
+    }
+
+    [[nodiscard]] static bool
+    same(const synnax::task::Status &a, const synnax::task::Status &b) {
+        return a.variant == b.variant && a.message == b.message &&
+               a.description == b.description && a.details.running == b.details.running;
+    }
+
+    /// @brief returns status with background applied. Requires mu.
+    [[nodiscard]] synnax::task::Status shown(synnax::task::Status status) const {
+        if (this->background.empty() || !status.details.running ||
+            status.variant != synnax::status::VARIANT_SUCCESS)
+            return status;
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.message = this->background.message;
+        status.description = this->background.description;
+        return status;
+    }
+
+    /// @brief hands status to the flusher, unless it equals the last one sent.
+    /// Requires mu.
+    void defer(synnax::task::Status status) {
+        if (same(status, this->sent)) {
+            this->pending.reset();
+            return;
+        }
+        this->pending = std::move(status);
+        if (!this->flusher.joinable())
+            this->flusher = std::thread([this] { this->flush(); });
+        this->cv.notify_one();
     }
 
     /// @brief writes status to ctx. Requires mu.
@@ -215,6 +262,10 @@ private:
             std::lock_guard lock(this->mu);
             this->pending.reset();
             this->write(this->status);
+            this->last = this->status;
+            this->last->details.cmd = driver::task::NO_COMMAND;
+            // A command answer never shows background, so show it again after.
+            if (!this->closed) this->defer(this->shown(*this->last));
         }
         // The key answers one command. Later unsolicited updates reuse this status
         // object and must not claim it.
@@ -227,24 +278,16 @@ private:
     void maybe_set_status() {
         std::lock_guard lock(this->mu);
         if (this->closed) return;
-        if (this->status.variant == this->sent.variant &&
-            this->status.message == this->sent.message &&
-            this->status.description == this->sent.description &&
-            this->status.details.running == this->sent.details.running) {
-            this->pending.reset();
-            return;
-        }
+        this->last = this->status;
+        auto status = this->shown(this->status);
         const auto now = std::chrono::steady_clock::now();
-        if (now - this->sent_at >= this->window) {
-            this->pending.reset();
-            this->sent_at = now;
-            this->write(this->status);
+        if (same(status, this->sent) || now - this->sent_at < this->window) {
+            this->defer(std::move(status));
             return;
         }
-        this->pending = this->status;
-        if (!this->flusher.joinable())
-            this->flusher = std::thread([this] { this->flush(); });
-        this->cv.notify_one();
+        this->pending.reset();
+        this->sent_at = now;
+        this->write(std::move(status));
     }
 
     /// @brief sends each pending status when its window ends, until the handler closes.

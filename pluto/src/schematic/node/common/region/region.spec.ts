@@ -345,6 +345,17 @@ describe("Region.measure", () => {
   });
 
   it.each([
+    ["commas", "0,0,40,20"],
+    ["a comma and a space", "0, 0, 40, 20"],
+    ["repeated spaces", "0  0  40  20"],
+    ["padding", " 0 0 40 20 "],
+  ])("should read a view box separated by %s", (_, viewBox) => {
+    expect(
+      Region.measure(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}"/>`),
+    ).toEqual({ width: 40, height: 20 });
+  });
+
+  it.each([
     ["empty markup", ""],
     ["malformed markup", '<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>'],
     ["a root that is not an svg", '<div xmlns="http://www.w3.org/1999/xhtml"/>'],
@@ -539,6 +550,22 @@ describe("Region.normalizeSVG", () => {
     expect(out).not.toContain("onload");
     expect(out).not.toContain("onclick");
     expect(out).not.toContain("<script");
+  });
+});
+
+describe("Region.parseTrusted", () => {
+  it("should return the root without sanitizing the markup", () => {
+    const href = "https://example.com/a.svg#a";
+    const root = Region.parseTrusted(
+      `<svg xmlns="http://www.w3.org/2000/svg"><use href="${href}" /></svg>`,
+    );
+    expect(root?.querySelector("use")?.getAttribute("href")).toBe(href);
+  });
+
+  it("should return null for malformed markup", () => {
+    expect(
+      Region.parseTrusted('<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>'),
+    ).toBeNull();
   });
 });
 

@@ -160,17 +160,7 @@ func isRoutingKey(tokens []antlr.Token, i int) bool {
 // `import` from the first module name.
 func importContextIdents(tokens []antlr.Token) set.Set[int] {
 	out := make(set.Set[int])
-	type idxTok struct {
-		idx int
-		tt  int
-	}
-	visible := make([]idxTok, 0, len(tokens))
-	for i, t := range tokens {
-		if t.GetChannel() != antlr.TokenDefaultChannel {
-			continue
-		}
-		visible = append(visible, idxTok{i, t.GetTokenType()})
-	}
+	visible := defaultChannelTokens(tokens)
 	for vi := 0; vi < len(visible); vi++ {
 		if visible[vi].tt != parser.ArcLexerIMPORT {
 			continue
@@ -180,75 +170,92 @@ func importContextIdents(tokens []antlr.Token) set.Set[int] {
 			break
 		}
 		if visible[vi].tt == parser.ArcLexerLPAREN {
-			depth := 1
-			vi++
-			for vi < len(visible) && depth > 0 {
-				switch visible[vi].tt {
-				case parser.ArcLexerLPAREN:
-					depth++
-				case parser.ArcLexerRPAREN:
-					depth--
-				case parser.ArcLexerIDENTIFIER, parser.ArcLexerAUTHORITY:
-					out.Add(visible[vi].idx)
-				}
-				vi++
-			}
-			vi--
+			vi = addImportBlockIdents(visible, vi+1, out) - 1
 			continue
 		}
-		// Bare form: IDENT|AUTHORITY (DOT IDENT)* (AS IDENT)?
-		const (
-			expectHead = iota
-			afterHead
-			expectTail
-			expectAlias
-		)
-		state := expectHead
-		for vi < len(visible) {
-			tt := visible[vi].tt
-			done := false
-			switch state {
-			case expectHead:
-				if tt == parser.ArcLexerIDENTIFIER || tt == parser.ArcLexerAUTHORITY {
-					out.Add(visible[vi].idx)
-					state = afterHead
-					vi++
-				} else {
-					done = true
-				}
-			case afterHead:
-				switch tt {
-				case parser.ArcLexerDOT:
-					state = expectTail
-					vi++
-				case parser.ArcLexerAS:
-					state = expectAlias
-					vi++
-				default:
-					done = true
-				}
-			case expectTail:
-				if tt == parser.ArcLexerIDENTIFIER {
-					out.Add(visible[vi].idx)
-					state = afterHead
-					vi++
-				} else {
-					done = true
-				}
-			case expectAlias:
-				if tt == parser.ArcLexerIDENTIFIER {
-					out.Add(visible[vi].idx)
-					vi++
-				}
-				done = true
-			}
-			if done {
-				break
-			}
-		}
-		vi--
+		vi = addBareImportIdents(visible, vi, out) - 1
 	}
 	return out
+}
+
+// indexedToken is the type of a token and its index into the full token slice.
+type indexedToken struct {
+	idx int
+	tt  int
+}
+
+func defaultChannelTokens(tokens []antlr.Token) []indexedToken {
+	visible := make([]indexedToken, 0, len(tokens))
+	for i, t := range tokens {
+		if t.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		visible = append(visible, indexedToken{i, t.GetTokenType()})
+	}
+	return visible
+}
+
+// addImportBlockIdents adds the module names of the parenthesized import block whose
+// contents start at vi, and returns the index after its closing paren.
+func addImportBlockIdents(visible []indexedToken, vi int, out set.Set[int]) int {
+	depth := 1
+	for vi < len(visible) && depth > 0 {
+		switch visible[vi].tt {
+		case parser.ArcLexerLPAREN:
+			depth++
+		case parser.ArcLexerRPAREN:
+			depth--
+		case parser.ArcLexerIDENTIFIER, parser.ArcLexerAUTHORITY:
+			out.Add(visible[vi].idx)
+		}
+		vi++
+	}
+	return vi
+}
+
+// addBareImportIdents adds the module names of the bare import that starts at vi,
+// IDENT|AUTHORITY (DOT IDENT)* (AS IDENT)?, and returns the index after it.
+func addBareImportIdents(visible []indexedToken, vi int, out set.Set[int]) int {
+	const (
+		expectHead = iota
+		afterHead
+		expectTail
+		expectAlias
+	)
+	state := expectHead
+	for ; vi < len(visible); vi++ {
+		tt := visible[vi].tt
+		switch state {
+		case expectHead:
+			if tt != parser.ArcLexerIDENTIFIER && tt != parser.ArcLexerAUTHORITY {
+				return vi
+			}
+			out.Add(visible[vi].idx)
+			state = afterHead
+		case afterHead:
+			switch tt {
+			case parser.ArcLexerDOT:
+				state = expectTail
+			case parser.ArcLexerAS:
+				state = expectAlias
+			default:
+				return vi
+			}
+		case expectTail:
+			if tt != parser.ArcLexerIDENTIFIER {
+				return vi
+			}
+			out.Add(visible[vi].idx)
+			state = afterHead
+		case expectAlias:
+			if tt != parser.ArcLexerIDENTIFIER {
+				return vi
+			}
+			out.Add(visible[vi].idx)
+			return vi + 1
+		}
+	}
+	return vi
 }
 
 // isImportAlias reports whether name is bound as a module alias in the
@@ -453,9 +460,8 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = semanticTokenTypeBlock
-	case symbol.KindLoopVariable:
-		tokenType = SemanticTokenTypeVariable
-	default:
+	case symbol.KindLoopVariable, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
 		tokenType = SemanticTokenTypeVariable
 	}
 	return &tokenType
@@ -516,112 +522,136 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
 		prefixLen++
 	}
-	fallback := func() []lsp.Token {
-		var out []lsp.Token
-		line, col := uint32(t.GetLine()-1), uint32(t.GetColumn())
-		if prefixLen > 0 {
-			out = appendTextTokenPerLine(
-				out,
-				text[:prefixLen],
-				line,
-				col,
-				SemanticTokenTypeFunction,
-			)
-			col += uint32(prefixLen)
-		}
-		out = appendTextTokenPerLine(
-			out,
-			text[prefixLen:],
-			line,
-			col,
-			SemanticTokenTypeString,
-		)
-		return out
-	}
 	if !ok || !flags.Format {
-		return fallback()
+		return plainStringTokens(t, prefixLen)
 	}
 	segs, err := literal.FmtStrSplit(body, flags)
 	if err != nil || !literal.FmtStrHasPlaceholder(segs) {
-		return fallback()
+		return plainStringTokens(t, prefixLen)
 	}
 	const delimLen = 1
-	bodyOff := prefixLen + delimLen
-	at := textPositions(protocol.Position{
-		Line:      uint32(t.GetLine() - 1),
-		Character: uint32(t.GetColumn()),
-	}, text)
-	var tokens []lsp.Token
-	emit := func(a, b int, tt uint32) {
-		if a >= b {
-			return
-		}
-		tokens = appendTextTokenPerLine(
-			tokens,
-			text[a:b],
-			at[a].Line,
-			at[a].Character,
-			tt,
-		)
+	e := fmtStrEmitter{
+		ctx:     ctx,
+		docIR:   docIR,
+		text:    text,
+		bodyOff: prefixLen + delimLen,
+		at: textPositions(protocol.Position{
+			Line:      uint32(t.GetLine() - 1),
+			Character: uint32(t.GetColumn()),
+		}, text),
 	}
-	// The placeholder's text has its escapes applied, as the compiler parses it, and
-	// Offsets maps each of its bytes back to the source.
-	emitInner := func(seg literal.FmtStrSegment) {
-		inner := tokenizeContent(seg.Text)
-		runeStart := make([]int, 0, len(seg.Text)+1)
-		for i := range seg.Text {
-			runeStart = append(runeStart, i)
-		}
-		runeStart = append(runeStart, len(seg.Text))
-		for i, it := range inner {
-			if it.GetTokenType() == antlr.TokenEOF {
-				continue
-			}
-			var prev, next int
-			if i > 0 {
-				prev = inner[i-1].GetTokenType()
-			}
-			if i+1 < len(inner) {
-				next = inner[i+1].GetTokenType()
-			}
-			qualifier := ""
-			if prev == parser.ArcLexerDOT && i >= 2 {
-				qualifier = inner[i-2].GetText()
-			}
-			a := bodyOff + seg.Offsets[runeStart[it.GetStart()]]
-			b := bodyOff + seg.Offsets[runeStart[it.GetStop()+1]]
-			tt := classifyTokenAt(
-				ctx,
-				it,
-				prev,
-				next,
-				false,
-				docIR,
-				int(at[a].Line)+1,
-				int(at[a].Character),
-				qualifier,
-			)
-			if tt != nil {
-				emit(a, b, *tt)
-			}
-		}
-	}
-	emit(0, prefixLen, SemanticTokenTypeFunction)
-	emit(prefixLen, bodyOff, SemanticTokenTypeString)
+	e.emit(0, prefixLen, SemanticTokenTypeFunction)
+	e.emit(prefixLen, e.bodyOff, SemanticTokenTypeString)
 	for _, seg := range segs {
 		if !seg.IsPlaceholder {
-			emit(seg.Start+bodyOff, seg.End+bodyOff, SemanticTokenTypeString)
+			e.emit(seg.Start+e.bodyOff, seg.End+e.bodyOff, SemanticTokenTypeString)
 			continue
 		}
 		// A brace can be written as an escape, so the open brace runs up to the text,
 		// and the spec and close brace run from the end of the text.
 		textStart, textEnd := seg.Offsets[0], seg.Offsets[len(seg.Text)]
-		emit(seg.Start+bodyOff, textStart+bodyOff, semanticTokenTypeStringPlaceholder)
-		emitInner(seg)
-		emit(textEnd+bodyOff, seg.End+bodyOff, semanticTokenTypeStringPlaceholder)
+		e.emit(
+			seg.Start+e.bodyOff,
+			textStart+e.bodyOff,
+			semanticTokenTypeStringPlaceholder,
+		)
+		e.emitInner(seg)
+		e.emit(textEnd+e.bodyOff, seg.End+e.bodyOff, semanticTokenTypeStringPlaceholder)
 	}
-	emit(len(text)-delimLen, len(text), SemanticTokenTypeString)
-	return tokens
+	e.emit(len(text)-delimLen, len(text), SemanticTokenTypeString)
+	return e.tokens
+}
+
+// plainStringTokens colors the prefix of t as a function and the rest as a string.
+func plainStringTokens(t antlr.Token, prefixLen int) []lsp.Token {
+	text := t.GetText()
+	var out []lsp.Token
+	line, col := uint32(t.GetLine()-1), uint32(t.GetColumn())
+	if prefixLen > 0 {
+		out = appendTextTokenPerLine(
+			out,
+			text[:prefixLen],
+			line,
+			col,
+			SemanticTokenTypeFunction,
+		)
+		col += uint32(prefixLen)
+	}
+	return appendTextTokenPerLine(
+		out,
+		text[prefixLen:],
+		line,
+		col,
+		SemanticTokenTypeString,
+	)
+}
+
+// fmtStrEmitter emits the semantic tokens of a format string literal. at holds the
+// source position of each byte of text, and bodyOff is the offset of the body in text.
+type fmtStrEmitter struct {
+	ctx     context.Context
+	docIR   ir.IR
+	text    string
+	at      []protocol.Position
+	bodyOff int
+	tokens  []lsp.Token
+}
+
+func (e *fmtStrEmitter) emit(a, b int, tt uint32) {
+	if a >= b {
+		return
+	}
+	e.tokens = appendTextTokenPerLine(
+		e.tokens,
+		e.text[a:b],
+		e.at[a].Line,
+		e.at[a].Character,
+		tt,
+	)
+}
+
+// emitInner emits the classified tokens of a placeholder. The placeholder's text has
+// its escapes applied, as the compiler parses it, and Offsets maps each of its bytes
+// back to the source.
+func (e *fmtStrEmitter) emitInner(seg literal.FmtStrSegment) {
+	inner := tokenizeContent(seg.Text)
+	runeStart := make([]int, 0, len(seg.Text)+1)
+	for i := range seg.Text {
+		runeStart = append(runeStart, i)
+	}
+	runeStart = append(runeStart, len(seg.Text))
+	for i, it := range inner {
+		if it.GetTokenType() == antlr.TokenEOF {
+			continue
+		}
+		var prev, next int
+		if i > 0 {
+			prev = inner[i-1].GetTokenType()
+		}
+		if i+1 < len(inner) {
+			next = inner[i+1].GetTokenType()
+		}
+		qualifier := ""
+		if prev == parser.ArcLexerDOT && i >= 2 {
+			qualifier = inner[i-2].GetText()
+		}
+		a := e.bodyOff + seg.Offsets[runeStart[it.GetStart()]]
+		b := e.bodyOff + seg.Offsets[runeStart[it.GetStop()+1]]
+		tt := classifyTokenAt(
+			e.ctx,
+			it,
+			prev,
+			next,
+			false,
+			e.docIR,
+			int(e.at[a].Line)+1,
+			int(e.at[a].Character),
+			qualifier,
+		)
+		if tt != nil {
+			e.emit(a, b, *tt)
+		}
+	}
 }
 
 // textPositions returns the source position of each byte of text and of its end, with

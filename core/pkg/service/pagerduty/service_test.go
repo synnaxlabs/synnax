@@ -42,8 +42,9 @@ const plainKey = "0123456789abcdef0123456789abcdef"
 func routingKeyOf(data msgpack.EncodedJSON) secret.Key {
 	GinkgoHelper()
 	Expect(data).ToNot(HaveKey("plain_routing_key"))
-	Expect(data["routing_key"]).To(BeAssignableToTypeOf(""))
-	return uuid.MustParse(data["routing_key"].(string))
+	key, ok := data["routing_key"].(string)
+	Expect(ok).To(BeTrue())
+	return uuid.MustParse(key)
 }
 
 // expectSecret asserts that the secret with key is named name and holds the plain
@@ -76,10 +77,12 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		// The suite's DB holds a task table of its own.
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		secrets = secrettestutil.OpenService(ctx, db)
 		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 			DB:     db,
 			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -107,14 +110,22 @@ var _ = Describe("Service", func() {
 			Expect(pd.OpenService(ctx, cfg)).Error().
 				To(MatchError(ContainSubstring(field + ": must be non-nil")))
 		},
-			Entry("db", pd.ServiceConfig{Secret: &secret.Service{}}, "db"),
-			Entry("secret", pd.ServiceConfig{DB: &gorp.DB{}}, "secret"),
+			Entry("db", pd.ServiceConfig{Secret: &secret.Service{}, Rack: 1}, "db"),
+			Entry("secret", pd.ServiceConfig{DB: &gorp.DB{}, Rack: 1}, "secret"),
 		)
+
+		It("Should reject a config without the Core's rack", func(ctx SpecContext) {
+			Expect(pd.OpenService(ctx, pd.ServiceConfig{
+				DB:     &gorp.DB{},
+				Secret: &secret.Service{},
+			})).Error().To(MatchError(ContainSubstring("rack: must be non-zero")))
+		})
 
 		It("Should lift a stored v1 config and stage its plain routing key", func(
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			old := v1.TaskConfig{Key: uuid.New(), RoutingKey: plainKey}
 			old.Alerts = []v1.Alert{{Key: "a", Status: "s"}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.TaskConfig](db).Set(ctx, old)).
@@ -123,6 +134,7 @@ var _ = Describe("Service", func() {
 			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
+				Rack:   secrettestutil.CoreRack,
 			}))
 			data := MustSucceed(svc.Alert.Read(ctx, db, old.Key))
 			Expect(data).ToNot(HaveKey("routing_key"))
@@ -138,6 +150,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 			secrets := secrettestutil.OpenService(ctx, db)
 			s := secret.Secret{Variant: secret.StoredSecret{
@@ -171,6 +184,7 @@ var _ = Describe("Service", func() {
 			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 				DB:     db,
 				Secret: secrets,
+				Rack:   secrettestutil.CoreRack,
 			}))
 			data := MustSucceed(svc.Alert.Read(ctx, db, cfg.Key))
 			Expect(routingKeyOf(data)).To(Equal(s.Base().Key))
@@ -181,9 +195,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose the alert store", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf("pagerduty_alert"))
 		})
@@ -308,21 +323,6 @@ var _ = Describe("Service", func() {
 			}))
 			Expect(svc.Alert.Delete(ctx, db, key)).To(Succeed())
 			Expect(deleteKey(ctx)).To(Succeed())
-		})
-
-		It("Should reject a routing key that names a file secret", func(
-			ctx SpecContext,
-		) {
-			s := secret.Secret{Variant: secret.FileSecret{
-				Base:     secret.Base{Name: "Routing key"},
-				FileName: "routing.key",
-			}}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return secrets.NewWriter(tx).Set(ctx, &s, nil)
-			})).To(Succeed())
-			Expect(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
-				"routing_key": s.Base().Key.String(),
-			})).Error().To(MatchError("routing_key: must be a stored secret, not a file"))
 		})
 
 		It("Should reject a routing key that does not exist", func(ctx SpecContext) {

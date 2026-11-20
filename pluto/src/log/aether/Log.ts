@@ -10,6 +10,7 @@
 import { log, type status } from "@synnaxlabs/client";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import {
+  array,
   bounds,
   box,
   color,
@@ -190,7 +191,7 @@ const ZERO_SCROLLBACK: ScrollbackState = {
 };
 
 const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
-  const p = theme.key === "synnaxDark" ? DARK_PREFIX : LIGHT_PREFIX;
+  const p = theme.dark ? DARK_PREFIX : LIGHT_PREFIX;
   const [h, s, l, a] = color.hsla(c);
   return color.fromHSLA([
     Math.min(360, Math.round(h * p.hue)),
@@ -253,9 +254,6 @@ const formatNumber = (
   return notation.stringifyNumber(number, precision, valueNotation);
 };
 
-const sameEntries = (a: number[], b: number[]): boolean =>
-  a.length === b.length && a.every((entry, i) => entry === b[i]);
-
 // Moves a wrap point off the second half of a surrogate pair, so a row never splits an
 // emoji.
 const wrapPoint = (value: string, at: number): number => {
@@ -269,8 +267,8 @@ export class Log
 {
   static readonly TYPE = "log";
   static readonly z = logStateZ;
-  schema = Log.z;
-  methods = methodsZ;
+  override schema = Log.z;
+  override methods = methodsZ;
   entries: LogEntry[] = [];
   // Copied, not shared: the scrollback branch mutates this in place.
   scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
@@ -298,7 +296,7 @@ export class Log
     return this.calcVisibleLineCount(this.internal.lineHeight);
   }
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
@@ -453,7 +451,7 @@ export class Log
     this.setState((p) => ({ ...p, empty, loading, blank }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { telem, stopListeningRestore } = this.internal;
     stopListeningRestore?.();
     telem.cleanup?.();
@@ -650,7 +648,7 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
-      !sameEntries(this.state.rowEntries, rowEntries)
+      !array.equal(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
         ...s,
@@ -710,7 +708,7 @@ export class Log
     const upper = regHeight * SCROLLBAR_RENDER_THRESHOLD;
     if (proportionalHeight >= upper && top.tail === 0) return;
     const height = bounds.clamp(
-      { lower: SCROLLBAR_MIN_HEIGHT, upper },
+      { lower: Math.min(SCROLLBAR_MIN_HEIGHT, upper), upper },
       proportionalHeight,
     );
     // The thumb travels the track less its own height, over the entries that sit
@@ -761,12 +759,10 @@ export class Log
   // Returns the position of the entry, or -1 when it was evicted.
   private locate(entry: LogEntry): number {
     const time = entry.timestamp.valueOf();
-    let [lo, hi] = [0, this.entries.length];
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (this.entries[mid].timestamp.valueOf() < time) lo = mid + 1;
-      else hi = mid;
-    }
+    const lo = array.partitionPoint(
+      this.entries.length,
+      (i) => this.entries[i].timestamp.valueOf() >= time,
+    );
     for (let i = lo; i < this.entries.length; i++) {
       if (this.entries[i] === entry) return i;
       if (this.entries[i].timestamp.valueOf() !== time) break;
@@ -815,12 +811,10 @@ export class Log
     const reached = time >= this.entries[0].timestamp.valueOf();
     if (!reached && telem.wrapped.exhausted === false) return;
     if (reached) {
-      let [lo, hi] = [0, this.entries.length];
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (this.entries[mid].timestamp.valueOf() <= time) lo = mid + 1;
-        else hi = mid;
-      }
+      const lo = array.partitionPoint(
+        this.entries.length,
+        (i) => this.entries[i].timestamp.valueOf() > time,
+      );
       this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
       this.scrollState.tail = 0;
     }

@@ -91,6 +91,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Orientation:      "left",
 			Scale:            1,
 			StalenessTimeout: 5 * telem.Second,
+			Control:          versions.ControlStateConfig{Orientation: "bottom"},
 		}))
 	})
 
@@ -125,6 +126,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Orientation:      "left",
 			Scale:            1,
 			StalenessTimeout: 5 * telem.Second,
+			Control:          versions.ControlStateConfig{Orientation: "bottom"},
 		}))
 	})
 

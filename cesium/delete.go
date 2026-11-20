@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"time"
 
@@ -102,7 +103,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) error {
 		uDB, ok := db.mu.dbs.unary[ch]
 		return !ok || !uDB.Channel().IsIndex
 	})
-	chs = append(data, indexes...)
+	chs = slices.Concat(data, indexes)
 	deleting := set.New(chs...)
 	for i, ch := range chs {
 		if err := db.markClosed(ch, deleting); err != nil {

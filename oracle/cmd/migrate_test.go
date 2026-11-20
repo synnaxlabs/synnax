@@ -10,11 +10,11 @@
 package cmd_test
 
 import (
-	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/paths"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -47,7 +47,7 @@ var _ = Describe("migrate command", func() {
 			next := filepath.Join(
 				repoDir, "schemas", "synnax", "versions", "channel", "v1.oracle",
 			)
-			content := string(MustSucceed(os.ReadFile(next)))
+			content := string(MustSucceed(paths.ReadFile(next, repoDir)))
 			Expect(content).NotTo(BeEmpty())
 		})
 

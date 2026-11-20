@@ -10,6 +10,8 @@
 package table_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -68,11 +70,11 @@ func keysOf(r table.Row) []string {
 
 // allKeys returns the keys of every cell in the table, in row-major order.
 func allKeys(t table.Table) []string {
-	var keys []string
-	for _, r := range t.Rows {
-		keys = append(keys, keysOf(r)...)
+	rows := make([][]string, len(t.Rows))
+	for i, r := range t.Rows {
+		rows[i] = keysOf(r)
 	}
-	return keys
+	return slices.Concat(rows...)
 }
 
 // configOf returns the config of the cell with the given key.

@@ -1133,6 +1133,261 @@ var _ = Describe("Go PB Plugin", func() {
 			)
 		})
 
+		Context("slice translator name collisions", func() {
+			It("Should use List suffix when the plural names another struct", func() {
+				source := `
+					@go output "core/pkg/service/ni/device"
+					@pb
+
+					AnalogInputPorts struct {
+						index uint32
+					}
+
+					AnalogInputPort struct {
+						port uint16
+					}
+
+					Device struct {
+						analog_input  AnalogInputPorts
+						analog_inputs AnalogInputPort[]
+					}
+				`
+				resp := MustGenerate(source, "device", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func AnalogInputPortsToPB(r device.AnalogInputPorts)",
+						"func AnalogInputPortListToPB(rs []device.AnalogInputPort)",
+						"func AnalogInputPortListFromPB(pbs []*AnalogInputPort)",
+						"AnalogInputPortListToPB(r.AnalogInputs)",
+						"AnalogInputPortListFromPB(pb.AnalogInputs)",
+					).
+					ToNotContain("func AnalogInputPortsToPB(rs []")
+			})
+
+			It("Should use List suffix for an array of a union", func() {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Sources struct {
+						count int32
+					}
+
+					Config struct {
+						all     Sources
+						sources Source[]
+					}
+				`
+				resp := MustGenerate(source, "schematic", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func SourceListToPB(rs []schematic.Source) ([]*Source, error)",
+						"SourceListToPB(r.Sources)",
+						"SourceListFromPB(pb.Sources)",
+					).
+					ToNotContain("func SourcesToPB(rs []")
+			})
+
+			It("Should use List suffix for an array of a generic struct", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Bound struct<T extends numeric = float64> {
+						lower T
+					}
+
+					Bounds struct {
+						count int32
+					}
+
+					Axis struct {
+						all    Bounds
+						bounds Bound[]
+					}
+				`
+				resp := MustGenerate(source, "test", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func BoundListToPB(",
+						"BoundListToPB(r.Bounds)",
+						"BoundListFromPB(pb.Bounds)",
+					).
+					ToNotContain("func BoundsToPB(rs []", "func BoundsToPB[")
+			})
+
+			It("Should use List suffix for a nested array of a struct", func() {
+				source := `
+					@go output "arc/go/ir"
+					@pb
+
+					Member struct {
+						key string
+					}
+
+					Members struct {
+						count int32
+					}
+
+					Row = Member[]
+
+					Strata Row[]
+
+					Stage struct {
+						all    Members
+						strata Strata
+					}
+				`
+				resp := MustGenerate(source, "ir", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func MemberListToPB(rs []ir.Member)",
+						"vals, err := MemberListToPB(inner)",
+					).
+					ToNotContain("func MembersToPB(rs []")
+			})
+
+			It("Should use List suffix when the plural names a struct typedef", func() {
+				source := `
+					@go output "core/pkg/service/user"
+					@pb
+
+					User struct {
+						key uuid
+					}
+
+					Users User
+
+					Group struct {
+						users User[]
+					}
+				`
+				resp := MustGenerate(source, "user", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func UsersToPB(",
+						"func UserListToPB(rs []user.User)",
+						"UserListToPB(r.Users)",
+					).
+					ToNotContain("func UsersToPB(rs []")
+			})
+
+			It("Should use List suffix for an array of a generic use", func() {
+				AddFilterSchema(loader)
+				resp := MustGenerate(`
+					import "schemas/x/filter"
+
+					@go output "core/pkg/service/thing"
+					@pb
+
+					UuidSets struct {
+						count int32
+					}
+
+					Thing struct {
+						all  UuidSets
+						sets filter.Set<uuid>[]
+					}
+				`, "thing", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func UuidSetListToPB(rs []filter.Set[uuid.UUID])",
+						"UuidSetListToPB(r.Sets)",
+						"UuidSetListFromPB(pb.Sets)",
+					).
+					ToNotContain("func UuidSetsToPB(rs []")
+			})
+
+			It(
+				"Should ignore a type of another output with the same namespace",
+				func() {
+					loader.Add("schemas/x/color", `
+					@go output "x/go/color"
+					@pb
+
+					Stops struct {
+						count int32
+					}
+				`)
+					loader.Add("schemas/synnax/color", `
+					@go output "core/pkg/service/color"
+					@pb
+
+					Stop struct {
+						position float64
+					}
+
+					Gradient struct {
+						stops Stop[]
+					}
+				`)
+					resp := MustGenerateMulti(loader, pbPlugin)
+
+					ExpectContent(resp, "core/pkg/service/color/pb/translator.gen.go").
+						ToContain(
+							"func StopsToPB(rs []color.Stop)",
+							"StopsToPB(r.Stops)",
+						).
+						ToNotContain("StopList")
+				},
+			)
+
+			It(
+				"Should name an ancestor's slice translators by the ancestor's output",
+				func() {
+					loader.Add("schemas/base", `
+					@go output "core/pkg/service/base"
+					@pb
+
+					Item struct {
+						key string
+					}
+
+					Items struct {
+						count int32
+					}
+				`)
+					loader.Add("schemas/derived", `
+					import "schemas/base"
+
+					@go output "core/pkg/service/derived"
+
+					Special struct extends base.Item {
+						extra string
+					}
+				`)
+					loader.Add("schemas/holder", `
+					import "schemas/derived"
+
+					@go output "core/pkg/service/holder"
+					@pb
+
+					Holder struct {
+						items derived.Special[]
+					}
+				`)
+					resp := MustGenerateMulti(loader, pbPlugin)
+
+					ExpectContent(resp, "core/pkg/service/holder/pb/translator.gen.go").
+						ToContain("basepb.ItemListToPB(")
+				},
+			)
+		})
+
 		Context("nested array of struct", func() {
 			It(
 				"Should delegate to generated helpers via IIFE when inner element is a struct",
@@ -2827,7 +3082,7 @@ var _ = Describe("Go PB Plugin", func() {
 				`)
 					resp := MustGenerateMulti(loader, pbPlugin)
 
-					var translatorFiles []string
+					translatorFiles := make([]string, 0, len(resp.Files))
 					for _, f := range resp.Files {
 						translatorFiles = append(translatorFiles, f.Path)
 						if strings.HasSuffix(f.Path, "/translator.gen.go") {

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // StreamIterator provides a streaming interface for iterating over a DB's segments in
@@ -78,14 +77,9 @@ const (
 	IteratorCommandSetBounds
 )
 
-var validateIteratorCommand = validate.NewInclusiveBoundsChecker(
-	IteratorCommandNext,
-	IteratorCommandSetBounds,
-)
-
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
 //
-//go:generate stringer -type=IteratorCommand
+//go:generate go tool stringer -type=IteratorCommand
 type IteratorRequest struct {
 	// Command is the command to execute.
 	Command IteratorCommand
@@ -126,7 +120,8 @@ type IteratorResponse struct {
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	internal []*unary.Iterator
+	internal        []*unary.Iterator
+	validateCommand func(IteratorCommand) error
 	// cache is shared by every iterator in internal, so channels on one index resolve
 	// each index lookup once. It is reset before each command and each chunk, because
 	// writes can change the index between them.
@@ -187,7 +182,7 @@ func (s *streamIterator) exec(
 	ctx context.Context,
 	req IteratorRequest,
 ) (ok bool, err error) {
-	if err := validateIteratorCommand(req.Command); err != nil {
+	if err := s.validateCommand(req.Command); err != nil {
 		return false, err
 	}
 	s.cache.Reset()

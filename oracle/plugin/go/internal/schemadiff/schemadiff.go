@@ -31,7 +31,7 @@ func SchemasEqual(
 }
 
 func typesEqual(
-	old, new resolution.Type,
+	old, next resolution.Type,
 	oldTable, newTable *resolution.Table,
 	visiting set.Set[string],
 ) bool {
@@ -43,7 +43,7 @@ func typesEqual(
 
 	switch oldForm := old.Form.(type) {
 	case resolution.StructForm:
-		newForm, ok := new.Form.(resolution.StructForm)
+		newForm, ok := next.Form.(resolution.StructForm)
 		if !ok {
 			return false
 		}
@@ -85,7 +85,7 @@ func typesEqual(
 		}
 		return true
 	case resolution.EnumForm:
-		newForm, ok := new.Form.(resolution.EnumForm)
+		newForm, ok := next.Form.(resolution.EnumForm)
 		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum {
 			return false
 		}
@@ -111,14 +111,14 @@ func typesEqual(
 		}
 		return true
 	case resolution.AliasForm:
-		newForm, ok := new.Form.(resolution.AliasForm)
+		newForm, ok := next.Form.(resolution.AliasForm)
 		return ok &&
 			refsEqual(oldForm.Target, newForm.Target, oldTable, newTable, visiting)
 	case resolution.DistinctForm:
-		newForm, ok := new.Form.(resolution.DistinctForm)
+		newForm, ok := next.Form.(resolution.DistinctForm)
 		return ok && refsEqual(oldForm.Base, newForm.Base, oldTable, newTable, visiting)
 	case resolution.UnionForm:
-		newForm, ok := new.Form.(resolution.UnionForm)
+		newForm, ok := next.Form.(resolution.UnionForm)
 		if !ok || oldForm.Discriminator != newForm.Discriminator ||
 			len(oldForm.Variants) != len(newForm.Variants) ||
 			len(oldForm.Extends) != len(newForm.Extends) ||
@@ -151,10 +151,10 @@ func typesEqual(
 		}
 		return true
 	case resolution.PrimitiveForm:
-		newForm, ok := new.Form.(resolution.PrimitiveForm)
+		newForm, ok := next.Form.(resolution.PrimitiveForm)
 		return ok && oldForm.Name == newForm.Name
 	case resolution.BuiltinGenericForm:
-		newForm, ok := new.Form.(resolution.BuiltinGenericForm)
+		newForm, ok := next.Form.(resolution.BuiltinGenericForm)
 		return ok && oldForm.Name == newForm.Name
 	default:
 		return false
@@ -175,29 +175,29 @@ func PersistedFields(fields []resolution.Field) []resolution.Field {
 }
 
 func refsEqual(
-	old, new resolution.TypeRef,
+	old, next resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
 	visiting set.Set[string],
 ) bool {
-	if len(old.TypeArgs) != len(new.TypeArgs) {
+	if len(old.TypeArgs) != len(next.TypeArgs) {
 		return false
 	}
 	for i := range old.TypeArgs {
-		if !refsEqual(old.TypeArgs[i], new.TypeArgs[i], oldTable, newTable, visiting) {
+		if !refsEqual(old.TypeArgs[i], next.TypeArgs[i], oldTable, newTable, visiting) {
 			return false
 		}
 	}
-	oldHasSize, newHasSize := old.ArraySize != nil, new.ArraySize != nil
-	if oldHasSize != newHasSize || (oldHasSize && *old.ArraySize != *new.ArraySize) {
+	oldHasSize, newHasSize := old.ArraySize != nil, next.ArraySize != nil
+	if oldHasSize != newHasSize || (oldHasSize && *old.ArraySize != *next.ArraySize) {
 		return false
 	}
 	oldResolved, oldOk := old.Resolve(oldTable)
-	newResolved, newOk := new.Resolve(newTable)
+	newResolved, newOk := next.Resolve(newTable)
 	if oldOk != newOk {
 		return false
 	}
 	if !oldOk {
-		return old.Name == new.Name
+		return old.Name == next.Name
 	}
 	return typesEqual(oldResolved, newResolved, oldTable, newTable, visiting)
 }
@@ -235,7 +235,7 @@ func SchemaDiff(
 }
 
 func diffWalk(
-	old, new resolution.Type,
+	old, next resolution.Type,
 	oldTable, newTable *resolution.Table,
 	counterpart func(string) string,
 	result map[string]TypeDiff,
@@ -284,17 +284,17 @@ func diffWalk(
 		}
 		return TypeUnchanged
 	case resolution.UnionForm:
-		if _, ok := new.Form.(resolution.UnionForm); ok {
+		if _, ok := next.Form.(resolution.UnionForm); ok {
 			return diffUnion(
-				old, new, oldForm, oldTable, newTable, counterpart, result, visiting,
+				old, next, oldForm, oldTable, newTable, counterpart, result, visiting,
 			)
 		}
 	}
 
 	oldStruct, oldOk := old.Form.(resolution.StructForm)
-	newStruct, newOk := new.Form.(resolution.StructForm)
+	newStruct, newOk := next.Form.(resolution.StructForm)
 	if !oldOk || !newOk {
-		if !typesEqual(old, new, oldTable, newTable, make(set.Set[string])) {
+		if !typesEqual(old, next, oldTable, newTable, make(set.Set[string])) {
 			result[old.QualifiedName] = TypeDiff{
 				QualifiedName: old.QualifiedName,
 				Kind:          TypeChanged,
@@ -344,7 +344,7 @@ func diffWalk(
 // diffUnion walks a union's bases and variant payloads, so a type that changed inside
 // a variant gets its own diff entry.
 func diffUnion(
-	old, new resolution.Type,
+	old, next resolution.Type,
 	form resolution.UnionForm,
 	oldTable, newTable *resolution.Table,
 	counterpart func(string) string,
@@ -364,7 +364,7 @@ func diffUnion(
 		}
 	}
 	kind := TypeUnchanged
-	if unionShapeChanged(form, new, oldTable, newTable, counterpart) {
+	if unionShapeChanged(form, next, oldTable, newTable, counterpart) {
 		kind = TypeChanged
 	} else if hasDescendantChange {
 		kind = TypeDescendantChanged
@@ -388,12 +388,12 @@ func unionShapeChanged(
 	oldTable, newTable *resolution.Table,
 	counterpart func(string) string,
 ) bool {
-	new, ok := newType.Form.(resolution.UnionForm)
-	if !ok || old.Discriminator != new.Discriminator ||
-		len(old.Variants) != len(new.Variants) ||
+	next, ok := newType.Form.(resolution.UnionForm)
+	if !ok || old.Discriminator != next.Discriminator ||
+		len(old.Variants) != len(next.Variants) ||
 		!refsListIdentityEqual(
 			old.Extends,
-			new.Extends,
+			next.Extends,
 			oldTable,
 			newTable,
 			counterpart,
@@ -401,7 +401,7 @@ func unionShapeChanged(
 		return true
 	}
 	for i, ov := range old.Variants {
-		nv := new.Variants[i]
+		nv := next.Variants[i]
 		if ov.Name != nv.Name || ov.Inline != nv.Inline {
 			return true
 		}
@@ -435,15 +435,15 @@ func unionShapeChanged(
 }
 
 func refsListIdentityEqual(
-	old, new []resolution.TypeRef,
+	old, next []resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
 	counterpart func(string) string,
 ) bool {
-	if len(old) != len(new) {
+	if len(old) != len(next) {
 		return false
 	}
 	for i := range old {
-		if !refsIdentityEqual(old[i], new[i], oldTable, newTable, counterpart) {
+		if !refsIdentityEqual(old[i], next[i], oldTable, newTable, counterpart) {
 			return false
 		}
 	}
@@ -451,11 +451,11 @@ func refsListIdentityEqual(
 }
 
 func structFieldsChanged(
-	old, new resolution.StructForm,
+	old, next resolution.StructForm,
 	oldTable, newTable *resolution.Table,
 	counterpart func(string) string,
 ) bool {
-	oldFields, newFields := PersistedFields(old.Fields), PersistedFields(new.Fields)
+	oldFields, newFields := PersistedFields(old.Fields), PersistedFields(next.Fields)
 	if len(oldFields) != len(newFields) {
 		return true
 	}
@@ -485,31 +485,31 @@ func structFieldsChanged(
 // name (not deep structural comparison). A new type matches an old one when it is the
 // same type or the old type's counterpart.
 func refsIdentityEqual(
-	old, new resolution.TypeRef,
+	old, next resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
 	counterpart func(string) string,
 ) bool {
-	if len(old.TypeArgs) != len(new.TypeArgs) {
+	if len(old.TypeArgs) != len(next.TypeArgs) {
 		return false
 	}
 	for i := range old.TypeArgs {
 		if !refsIdentityEqual(
-			old.TypeArgs[i], new.TypeArgs[i], oldTable, newTable, counterpart,
+			old.TypeArgs[i], next.TypeArgs[i], oldTable, newTable, counterpart,
 		) {
 			return false
 		}
 	}
-	oldHasSize, newHasSize := old.ArraySize != nil, new.ArraySize != nil
-	if oldHasSize != newHasSize || (oldHasSize && *old.ArraySize != *new.ArraySize) {
+	oldHasSize, newHasSize := old.ArraySize != nil, next.ArraySize != nil
+	if oldHasSize != newHasSize || (oldHasSize && *old.ArraySize != *next.ArraySize) {
 		return false
 	}
 	oldResolved, oldOk := old.Resolve(oldTable)
-	newResolved, newOk := new.Resolve(newTable)
+	newResolved, newOk := next.Resolve(newTable)
 	if oldOk != newOk {
 		return false
 	}
 	if !oldOk {
-		return old.Name == new.Name
+		return old.Name == next.Name
 	}
 	return newResolved.QualifiedName == oldResolved.QualifiedName ||
 		newResolved.QualifiedName == counterpart(oldResolved.QualifiedName)

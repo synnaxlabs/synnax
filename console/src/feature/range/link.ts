@@ -11,15 +11,11 @@ import { ranger } from "@synnaxlabs/client";
 
 import { type Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
-import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const dispatch = Session.useDispatch();
   const openTab = Panel.useOpenTab();
   return async ({ client, key }) => {
     const range = await client.ranges.retrieve(key);
-    Session.Range.fromClient(range).forEach((r) => dispatch(Session.Range.add(r)));
-    dispatch(Session.Range.select(range.key));
     openTab({ variant: "resource", resource: ranger.resourceID(range.key) });
   };
 };

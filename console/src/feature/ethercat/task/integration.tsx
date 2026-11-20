@@ -9,14 +9,17 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ReadSelectable } from "@/feature/ethercat/task/Read";
-import { PREFIX } from "@/feature/ethercat/task/types";
-import { WriteSelectable } from "@/feature/ethercat/task/Write";
-import { type Task } from "@/platform/task";
+import { ReadSelectable, WriteSelectable } from "@/feature/ethercat/task/create";
+import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/ethercat/task/types";
+import { Task } from "@/platform/task";
+
+const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(READ_SCHEMAS.config.parse(config).channels);
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "EtherCAT",
   icon: <Icon.Logo.EtherCAT />,
   selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };

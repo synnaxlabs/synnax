@@ -138,6 +138,21 @@ Framing struct {
 		Expect(fields[1].Default.StringValue).To(Equal("\r\n"))
 	})
 
+	It("Should keep an integral float default a float", func() {
+		table := analyzeFixture(`
+Scale struct {
+	slope float64 = 1.0
+}
+`)
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
+		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
+		form, ok := MustBeOk(again.Get("test.Scale")).Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		fields := form.Fields
+		Expect(fields[0].Default.Kind).To(Equal(resolution.ValueKindFloat))
+		Expect(fields[0].Default.FloatValue).To(Equal(1.0))
+	})
+
 	It("Should preserve unknown expressions and @doc through a round trip", func() {
 		table := analyzeFixture(renderFixture)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
@@ -215,9 +230,10 @@ Chan union on type extends Base {
 		chanType := MustBeOk(again.Get("test.Chan"))
 		form, ok := chanType.Form.(resolution.UnionForm)
 		Expect(ok).To(BeTrue())
-		names := make([]string, 0)
-		for _, f := range resolution.UnifiedVariantFields(chanType, form.Variants[1], again) {
-			names = append(names, f.Name)
+		fields := resolution.UnifiedVariantFields(chanType, form.Variants[1], again)
+		names := make([]string, len(fields))
+		for i, f := range fields {
+			names[i] = f.Name
 		}
 		Expect(names).To(Equal([]string{"enabled", "units"}))
 	})

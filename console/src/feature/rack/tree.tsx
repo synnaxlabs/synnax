@@ -9,7 +9,15 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, device, group, rack, type resource } from "@synnaxlabs/client";
+import {
+  arc,
+  device,
+  group,
+  rack,
+  type resource,
+  status,
+  task,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -18,8 +26,8 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Rack } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Arc } from "@/feature/arc";
 import { Device } from "@/feature/device";
+import { Arc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
@@ -71,6 +79,13 @@ const useDelete = Tree.createUseDelete({
   convertKey: Number,
 });
 
+/** Creating an automation on a Driver creates an Arc, a task, and a status. */
+const BOUND_ARC_TYPES = [
+  arc.TYPE_RESOURCE_ID,
+  task.TYPE_RESOURCE_ID,
+  status.TYPE_RESOURCE_ID,
+];
+
 interface IntegrationItemsProps {
   rackKey: rack.Key;
 }
@@ -79,8 +94,16 @@ interface IntegrationItemsProps {
 const IntegrationItems = ({ rackKey }: IntegrationItemsProps): ReactElement => {
   Rack.useEnsure({ key: rackKey });
   const keys = Rack.useIntegrations({ key: rackKey });
+  const hasArcCreatePermission = Access.useCreateGranted(BOUND_ARC_TYPES);
+  const createArc = Arc.useCreate({ rack: rackKey });
   return (
     <>
+      {hasArcCreatePermission && keys.includes(Arc.INTEGRATION_KEY) && (
+        <Menu.Item itemKey="createArc" onClick={createArc}>
+          <CreateArcIcon />
+          Create Arc automation
+        </Menu.Item>
+      )}
       {Device.INTEGRATIONS.map(({ key, RackMenuItems }) =>
         RackMenuItems != null && keys.includes(key) ? (
           <RackMenuItems key={key} rackKey={rackKey} />
@@ -101,18 +124,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { ids, rootID, parentID } = selection;
   const resourceIDs = ids.map((id) => rack.resourceID(Number(id.key)));
   const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
-  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const groupFromSelection = Group.useCreateFromSelection();
-  const create = Arc.useCreate();
   const openConnectDevice = Device.useConnectModal();
   const openCredentials = Credential.useModal();
   const isSingle = ids.length === 1;
   const rackKey = Number(ids[0]?.key ?? 0);
-  const handleCreate = () => create();
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && isSingle && <ContextMenu.RenameItem onClick={rename} />}
@@ -137,12 +157,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       {hasUpdatePermission && isSingle && (
         <>
-          {hasArcCreatePermission && (
-            <Menu.Item itemKey="createArc" onClick={handleCreate}>
-              <CreateArcIcon />
-              Create Arc automation
-            </Menu.Item>
-          )}
           <IntegrationItems rackKey={rackKey} />
           <Menu.Item
             itemKey="signIn"
@@ -184,6 +198,7 @@ const DROPPABLE_TYPES = new Set<resource.Type>(["group", "device"]);
 
 const TreeItem = Tree.createItem({
   icon: <Icon.Rack />,
+  typeName: "Driver",
   children: ({ client, id }) => [
     Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
     Tree.createSource(

@@ -491,10 +491,10 @@ describe("Status", () => {
     });
 
     it("should search for statuses", async () => {
-      const uniqueName = `SearchableStatus_${Date.now()}`;
+      const uniqueName = `SearchableStatus_${id.create()}`;
       await client.statuses.set({
         name: uniqueName,
-        key: `searchable-${Date.now()}`,
+        key: `searchable-${id.create()}`,
         variant: "info",
         message: "Searchable status",
         time: TimeStamp.now(),
@@ -512,7 +512,7 @@ describe("Status", () => {
     it("should page with a limit and a cursor", async () => {
       const keys = [];
       for (let i = 0; i < 5; i++) {
-        const key = `paginate-${i}-${Date.now()}`;
+        const key = `paginate-${i}-${id.create()}`;
         keys.push(key);
         await client.statuses.set({
           name: `Paginate ${i}`,
@@ -744,7 +744,7 @@ describe("Status", () => {
 
   describe("retrieve with variants filter", () => {
     it("should filter statuses by a single variant", async () => {
-      const prefix = `variant-filter-${Date.now()}`;
+      const prefix = `variant-filter-${id.create()}`;
       await client.statuses.set([
         {
           name: "Success",
@@ -779,7 +779,7 @@ describe("Status", () => {
     });
 
     it("should filter statuses by multiple variants", async () => {
-      const prefix = `variant-multi-${Date.now()}`;
+      const prefix = `variant-multi-${id.create()}`;
       await client.statuses.set([
         {
           name: "Info",
@@ -817,7 +817,7 @@ describe("Status", () => {
     });
 
     it("should return empty when no statuses match variant", async () => {
-      const prefix = `variant-none-${Date.now()}`;
+      const prefix = `variant-none-${id.create()}`;
       await client.statuses.set({
         name: "Info Only",
         key: `${prefix}-info`,
@@ -835,7 +835,7 @@ describe("Status", () => {
     });
 
     it("should filter statuses by a flat filter", async () => {
-      const prefix = `variant-flat-${Date.now()}`;
+      const prefix = `variant-flat-${id.create()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`];
       await client.statuses.set(
         (["info", "error"] as const).map((variant, i) => ({
@@ -915,7 +915,7 @@ describe("Status", () => {
     });
 
     it("should filter statuses by a tree of filters", async () => {
-      const prefix = `variant-tree-${Date.now()}`;
+      const prefix = `variant-tree-${id.create()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];
       await client.statuses.set(
         (["info", "error", "success"] as const).map((variant, i) => ({
@@ -941,10 +941,11 @@ describe("Status", () => {
       onTestFinished(async () => await local.close());
       await local.connect();
       await waitForStreamLive(local.connection);
-      const handler = vi.fn<(written: status.Status) => void>();
+      const handler =
+        vi.fn<(written: status.Status, origin: status.WriteOrigin) => void>();
       onTestFinished(local.statuses.onWrite(handler));
       const keys = () => handler.mock.calls.map(([written]) => written.key);
-      return { local, keys };
+      return { local, handler, keys };
     };
 
     const createStatus = async (): Promise<status.Status> =>
@@ -957,9 +958,25 @@ describe("Status", () => {
       });
 
     it("should call the handler with a status another client writes", async () => {
-      const { keys } = await createListener();
+      const { handler, keys } = await createListener();
       const written = await createStatus();
       await expect.poll(keys).toContain(written.key);
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ key: written.key }),
+        { local: false },
+      );
+    });
+
+    it("should call the handler with a local status and mark it local", async () => {
+      const { local, handler } = await createListener();
+      const stat = status.create({
+        key: id.create(),
+        name: "onWrite",
+        variant: "info",
+        message: "Set here",
+      });
+      local.statuses.setLocal(stat);
+      expect(handler).toHaveBeenCalledWith(stat, { local: true });
     });
 
     it("should skip a status that a retrieve brings into the cache", async () => {
@@ -986,7 +1003,7 @@ describe("Status", () => {
       const statuses = await client.statuses.set(
         variants.map((variant) => ({
           name: `Variant ${variant}`,
-          key: `variant-${variant}-${Date.now()}`,
+          key: `variant-${variant}-${id.create()}`,
           variant,
           message: `Testing ${variant} variant`,
           time: TimeStamp.now(),
@@ -1041,6 +1058,30 @@ describe("fromException", () => {
     expect(s.message).toBe("Failed to load projects");
     expect(s.description).toBe(
       "failed to reconcile projects cache: projects not found: query",
+    );
+  });
+
+  it("should keep the description of a status in the cause chain", () => {
+    const cause = status.toError(
+      status.create({
+        variant: "error",
+        message: "Failed to list files",
+        description: "/etc/synnax/secrets does not exist.",
+      }),
+    );
+    const err = new Error("Failed to retrieve files", { cause });
+    const s = status.fromException(err, "Failed to load files");
+    expect(s.description).toBe(
+      "Failed to retrieve files: Failed to list files. /etc/synnax/secrets does not exist.",
+    );
+  });
+
+  it("should end the cause chain at a cause whose status has a description", () => {
+    const cause = new CustomError("boom", { cause: new Error("the raw issues") });
+    const err = new Error("Failed to retrieve task", { cause });
+    const s = status.fromException(err, HEADING);
+    expect(s.description).toBe(
+      "Failed to retrieve task: Failed to parse task config. the formatted breakdown",
     );
   });
 

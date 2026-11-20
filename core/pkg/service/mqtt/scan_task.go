@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -64,6 +65,11 @@ type browsedField struct {
 	Type string `json:"type"`
 	// Sample is the start of the JSON text of the scalar.
 	Sample string `json:"sample"`
+	// Kind is the kind of a payload field that holds most values heard at Pointer.
+	// Absent when the topic holds more fields than inference keeps.
+	Kind payload.Kind `json:"kind,omitempty"`
+	// TimeFormat is the format of a timestamp field. Nil for any other field.
+	TimeFormat *xjson.TimeFormat `json:"time_format,omitempty"`
 }
 
 // browsedTopic is one topic that a browse heard, with its last payload.
@@ -78,10 +84,13 @@ type browsedTopic struct {
 	// Payload is the start of the last payload. Empty when the payload is not text.
 	Payload string `json:"payload"`
 	// Format is the format of the whole last payload.
-	Format driver.Format `json:"format"`
+	Format payload.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
-	Fields   []browsedField `json:"fields"`
-	Retained bool           `json:"retained"`
+	Fields []browsedField `json:"fields"`
+	// Index is the pointer of the field in Fields that indexes the messages heard.
+	// Absent when no field can.
+	Index    string `json:"index,omitempty"`
+	Retained bool   `json:"retained"`
 }
 
 type browseResult struct {
@@ -190,6 +199,7 @@ func (s *scanner) browse(ctx context.Context, args browseArgs) (browseResult, er
 	topics := make([]browsedTopic, len(heard.topics))
 	for i, t := range heard.topics {
 		t.Rate = float64(t.Count-t.retained) / heard.duration.Seconds()
+		t.infer()
 		topics[i] = t.browsedTopic
 	}
 	kept, truncated, err := driver.Fit(browseResult{}, [][]browsedTopic{topics})
@@ -212,13 +222,13 @@ func browseDuration(ms int) time.Duration {
 	return min(duration, maxBrowseDuration)
 }
 
-// browseConfig returns the broker device of a browse, its properties, and the config
-// of its client. A browse has its own client and client ID. A wildcard subscription
+// browseConfig returns the properties of a browse's broker device and the config of
+// its client. A browse has its own client and client ID. A wildcard subscription
 // on the shared connection would overlap the subscriptions of the tasks.
 func (s *scanner) browseConfig(
 	ctx context.Context,
 	key device.Key,
-) (device.Device, properties, clientConfig, error) {
+) (properties, clientConfig, error) {
 	var dev device.Device
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return s.device.NewRetrieve().
@@ -226,22 +236,22 @@ func (s *scanner) browseConfig(
 			Entry(&dev).
 			Exec(ctx, snap)
 	}); err != nil {
-		return device.Device{}, properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, err
 	}
 	props, err := parseProperties(dev)
 	if err != nil {
-		return device.Device{}, properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, err
 	}
 	cfg, err := newClientConfigOf(dev, props)
 	if err != nil {
-		return device.Device{}, properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, err
 	}
 	// A broker drops the older of two sessions with one client ID, so each browse and
 	// sample derives an ID of its own.
 	cfg.clientID = deriveClientID(uuid.New().String())
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
-	return dev, props, cfg, nil
+	return props, cfg, nil
 }
 
 // payloadSample returns the start of a text payload.

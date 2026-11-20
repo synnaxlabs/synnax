@@ -10,6 +10,7 @@
 package types
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -40,7 +41,7 @@ func mergeByPath(existing, incoming []plugin.File) []plugin.File {
 func mergeGeneratedGo(a, b []byte) []byte {
 	headA, importsA, bodyA := splitGeneratedGo(string(a))
 	_, importsB, bodyB := splitGeneratedGo(string(b))
-	imports := append(importsA, importsB...)
+	imports := slices.Concat(importsA, importsB)
 	sort.Strings(imports)
 	imports = dedupe(imports)
 	var out strings.Builder

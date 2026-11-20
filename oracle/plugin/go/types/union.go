@@ -174,40 +174,11 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		return casing.VariantConstName(name, v.Name)
 	}
 	if form.BorrowsEnum() {
-		enumType, enumRef, ok := resolution.Dealias(form.Enum, data.table)
-		if !ok {
-			panic(fmt.Sprintf(
-				"union %s borrows unresolved enum %s as its discriminator",
-				name, form.Enum.Name,
-			))
-		}
 		ud.BorrowsEnum = true
 		ud.DiscType = data.resolver.ResolveTypeRef(form.Enum, data.ctx)
-		// An alias need not re-declare its enum's members, so name them through the
-		// package that declares the enum.
-		prefix, _, _ := strings.Cut(
-			data.resolver.ResolveTypeRef(enumRef, data.ctx), naming.GetGoName(enumType),
-		)
-		constName = func(v resolution.UnionVariant) string {
-			return prefix + enumConstName(enumType, v.Name)
-		}
+		constName = borrowedConstName(name, form, data)
 	}
-
-	embedBases := func(refs []resolution.TypeRef) []embeddedType {
-		var out []embeddedType
-		for _, ext := range refs {
-			parent, ok := ext.Resolve(data.table)
-			if !ok {
-				continue
-			}
-			out = append(
-				out,
-				embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
-			)
-		}
-		return out
-	}
-	baseEmbeds := embedBases(form.Extends)
+	baseEmbeds := embedBases(form.Extends, data)
 	if base, ok := resolver.SharedBase(form, "go", data.table); ok {
 		parent, resolved := base.Resolve(data.table)
 		if !resolved {
@@ -219,7 +190,70 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 	if method, ok := naming.UnionTagMethod(form); ok {
 		ud.TagMethod = method
 	}
-	// The tag getter shares a method set with the methods that every union declares.
+	if err := checkTagMethod(entry, form, ud); err != nil {
+		return unionData{}, err
+	}
+	for _, v := range form.Variants {
+		vd := unionVariantData{
+			TypeName:  casing.VariantTypeName(name, v.Name),
+			ConstName: constName(v),
+			Value:     v.Name,
+			Doc:       doc.Get(v.Domains),
+		}
+		vd.ConstDoc = constDoc(vd.Doc, vd.TypeName)
+		if err := processVariant(&vd, form, v, baseEmbeds, data); err != nil {
+			return unionData{}, err
+		}
+		ud.Variants = append(ud.Variants, vd)
+	}
+	return ud, nil
+}
+
+// borrowedConstName returns the Go name of a variant's constant when the union borrows
+// an enum as its discriminator. An alias need not re-declare its enum's members, so it
+// names them through the package that declares the enum.
+func borrowedConstName(
+	name string,
+	form resolution.UnionForm,
+	data *templateData,
+) func(resolution.UnionVariant) string {
+	enumType, enumRef, ok := resolution.Dealias(form.Enum, data.table)
+	if !ok {
+		panic(fmt.Sprintf(
+			"union %s borrows unresolved enum %s as its discriminator",
+			name, form.Enum.Name,
+		))
+	}
+	prefix, _, _ := strings.Cut(
+		data.resolver.ResolveTypeRef(enumRef, data.ctx), naming.GetGoName(enumType),
+	)
+	return func(v resolution.UnionVariant) string {
+		return prefix + enumConstName(enumType, v.Name)
+	}
+}
+
+func embedBases(refs []resolution.TypeRef, data *templateData) []embeddedType {
+	var out []embeddedType
+	for _, ext := range refs {
+		parent, ok := ext.Resolve(data.table)
+		if !ok {
+			continue
+		}
+		out = append(
+			out,
+			embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
+		)
+	}
+	return out
+}
+
+// checkTagMethod fails when the discriminator's getter has the name of a method that
+// every union declares.
+func checkTagMethod(
+	entry resolution.Type,
+	form resolution.UnionForm,
+	ud unionData,
+) error {
 	methods := set.New(
 		"MarshalJSONTo",
 		"UnmarshalJSONFrom",
@@ -230,90 +264,105 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		methods.Add("Base", "SetBase")
 	}
 	if methods.Contains(ud.TagMethod) {
-		return unionData{}, errors.Newf(
+		return errors.Newf(
 			"%s: the getter for the discriminator %s has the name of another union "+
 				"method; rename the discriminator",
 			entry.QualifiedName, form.Discriminator,
 		)
 	}
+	return nil
+}
 
-	for _, v := range form.Variants {
-		vd := unionVariantData{
-			TypeName:  casing.VariantTypeName(name, v.Name),
-			ConstName: constName(v),
-			Value:     v.Name,
-			Doc:       doc.Get(v.Domains),
-		}
-		vd.ConstDoc = constDoc(vd.Doc, vd.TypeName)
-		embeds := append([]embeddedType{}, baseEmbeds...)
-		var inlineFields []resolution.Field
-		if v.Inline {
-			if payload, ok := v.Type.Resolve(data.table); ok {
-				pform := resolution.MustForm[resolution.StructForm](payload)
-				inherited, declared := resolver.VariantBases(form, v, "go", data.table)
-				embeds = embedBases(inherited)
-				inlineFields = append(slices.Clone(declared), pform.Fields...)
-				// A field that only restates an inherited default keeps the
-				// embedded parent's declaration and contributes a fill alone.
-				defaultOnly := resolver.DefaultOnlyOverrides(
-					inherited, pform.Fields, data.table,
-				)
-				for _, f := range inlineFields {
-					if err := checkHeldEmbedded(vd.TypeName, f, data); err != nil {
-						return unionData{}, err
-					}
-					if !defaultOnly.Contains(f.Name) {
-						vd.Fields = append(vd.Fields, processField(f, data))
-					}
-					fd := data.forField(f)
-					if defaultGroupName(f) == "" {
-						fills := goDefaultFills(f, fd)
-						if defaultOnly.Contains(f.Name) {
-							fills = overrideFills(f, fd)
-						}
-						vd.SetFills = append(vd.SetFills, fills...)
-					}
-					if validateSkip(f, fd) {
-						continue
-					}
-					if chk, ok := goEnumCheck(f, fd); ok {
-						vd.EnumChecks = append(vd.EnumChecks, chk)
-					}
-					vd.ConstraintChecks = append(
-						vd.ConstraintChecks,
-						goConstraintChecks(f, defaultOnly.Contains(f.Name), fd)...,
-					)
-				}
-				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
+// processVariant fills the embeds, fields, defaults, and validation of the variant vd.
+func processVariant(
+	vd *unionVariantData,
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	baseEmbeds []embeddedType,
+	data *templateData,
+) error {
+	embeds := append([]embeddedType{}, baseEmbeds...)
+	var inlineFields []resolution.Field
+	if v.Inline {
+		if payload, ok := v.Type.Resolve(data.table); ok {
+			var err error
+			embeds, inlineFields, err = processInlineVariant(vd, form, v, payload, data)
+			if err != nil {
+				return err
 			}
-		} else {
-			embeds = append(
-				embeds,
-				embeddedType{
-					ref:      v.Type,
-					rendered: data.resolver.ResolveTypeRef(v.Type, data.ctx),
-				},
-			)
 		}
-		for _, e := range embeds {
-			vd.Embeds = append(vd.Embeds, e.rendered)
-		}
-		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
-		vd.ValidateRecurse = embedRecurseSteps(
+	} else {
+		embeds = append(
 			embeds,
-			inlineFields,
-			data,
-			validateRule,
+			embeddedType{
+				ref:      v.Type,
+				rendered: data.resolver.ResolveTypeRef(v.Type, data.ctx),
+			},
 		)
-		vd.Receiver = receiverName(vd.TypeName, hasSliceRecurse(vd.ValidateRecurse))
-		vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
-			len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
-		if hasSliceRecurse(vd.ValidateRecurse) {
-			data.AddExternal(strconvImportPath)
-		}
-		ud.Variants = append(ud.Variants, vd)
 	}
-	return ud, nil
+	for _, e := range embeds {
+		vd.Embeds = append(vd.Embeds, e.rendered)
+	}
+	vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
+	vd.ValidateRecurse = embedRecurseSteps(
+		embeds,
+		inlineFields,
+		data,
+		validateRule,
+	)
+	vd.Receiver = receiverName(vd.TypeName, hasSliceRecurse(vd.ValidateRecurse))
+	vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
+		len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
+	if hasSliceRecurse(vd.ValidateRecurse) {
+		data.AddExternal(strconvImportPath)
+	}
+	return nil
+}
+
+// processInlineVariant adds the fields of an inline variant's payload to vd. It returns
+// the variant's embedded bases and its inline fields.
+func processInlineVariant(
+	vd *unionVariantData,
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	payload resolution.Type,
+	data *templateData,
+) ([]embeddedType, []resolution.Field, error) {
+	pform := resolution.MustForm[resolution.StructForm](payload)
+	inherited, declared := resolver.VariantBases(form, v, "go", data.table)
+	embeds := embedBases(inherited, data)
+	inlineFields := append(slices.Clone(declared), pform.Fields...)
+	// A field that only restates an inherited default keeps the embedded parent's
+	// declaration and contributes a fill alone.
+	defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, data.table)
+	for _, f := range inlineFields {
+		if err := checkHeldEmbedded(vd.TypeName, f, data); err != nil {
+			return nil, nil, err
+		}
+		if !defaultOnly.Contains(f.Name) {
+			vd.Fields = append(vd.Fields, processField(f, data))
+		}
+		fd := data.forField(f)
+		if defaultGroupName(f) == "" {
+			fills := goDefaultFills(f, fd)
+			if defaultOnly.Contains(f.Name) {
+				fills = overrideFills(f, fd)
+			}
+			vd.SetFills = append(vd.SetFills, fills...)
+		}
+		if validateSkip(f, fd) {
+			continue
+		}
+		if chk, ok := goEnumCheck(f, fd); ok {
+			vd.EnumChecks = append(vd.EnumChecks, chk)
+		}
+		vd.ConstraintChecks = append(
+			vd.ConstraintChecks,
+			goConstraintChecks(f, defaultOnly.Contains(f.Name), fd)...,
+		)
+	}
+	vd.DefaultGroups = goDefaultGroups(inlineFields, data)
+	return embeds, inlineFields, nil
 }
 
 // embeddedType pairs an embedded type reference with its rendered Go type, so the

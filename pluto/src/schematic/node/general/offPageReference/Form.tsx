@@ -53,22 +53,22 @@ interface Sibling extends record.KeyedNamed {
   icon: Icon.ReactElement;
 }
 
-const selectKey = (page?: schematic.Page | null): string =>
-  page == null || page.key.length === 0 ? "" : resource.idToString(page);
+const selectKey = (page: schematic.Page): string =>
+  page.key.length === 0 ? "" : resource.idToString(page);
 
 const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return (v: string | null) => {
-    const prev = ctx.get(path.page, {
-      optional: true,
-    })?.value;
+    const prev = ctx.get(path.page).value;
     const cleared = v == null || v.length === 0;
     ctx.set(
       path.page,
-      cleared ? undefined : schematic.pageZ.parse(resource.stringIDZ.parse(v)),
+      cleared
+        ? { ...prev, key: "" }
+        : schematic.pageZ.parse(resource.stringIDZ.parse(v)),
     );
-    const hadPage = prev != null && prev.key.length > 0;
+    const hadPage = prev.key.length > 0;
     if (!hadPage && !cleared)
       ctx.set(path.fillColor, color.construct(theme.colors.primary.z));
   };
@@ -101,9 +101,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     }, "Failed to retrieve project pages");
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
-  const page = Base.useFieldValue(path.page, {
-    optional: true,
-  });
+  const page = Base.useFieldValue(path.page);
   return (
     <Base.Sections x>
       <Base.Section title="Label">

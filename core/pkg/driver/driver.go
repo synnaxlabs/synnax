@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -135,12 +136,15 @@ type Config struct {
 	KeyDirname string `json:"-"`
 	// RackKey is the key of the rack that the Driver logs in as.
 	RackKey rack.Key `json:"rack_key"`
+	// SecretsDir is the absolute path of the secrets folder of the rack, which the
+	// Driver reads file secrets from. Empty for none.
+	SecretsDir string `json:"secrets_dir"`
 	// TaskWorkerCount sets the number of worker threads for task operations.
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
 func (c Config) format(apiKey string) map[string]any {
-	return map[string]any{
+	formatted := map[string]any{
 		"connection": map[string]any{
 			"host":    c.Address.Host(),
 			"port":    c.Address.Port(),
@@ -161,6 +165,10 @@ func (c Config) format(apiKey string) map[string]any {
 		"integrations": c.Integrations,
 		"debug":        *c.Debug,
 	}
+	if c.SecretsDir != "" {
+		formatted["secrets_dir"] = c.SecretsDir
+	}
+	return formatted
 }
 
 // ErrNotLoaded marks the error of a Driver that exited before any of its processes
@@ -169,17 +177,22 @@ func (c Config) format(apiKey string) map[string]any {
 var ErrNotLoaded = errors.New("embedded Driver did not load")
 
 var (
-	_               config.Config[Config] = Config{}
-	AllIntegrations                       = []string{
+	_ config.Config[Config] = Config{}
+	// AllIntegrations are the integrations that the embedded Driver runs by default.
+	AllIntegrations = []string{
 		"arc",
 		"ethercat",
+		"file",
 		"http",
 		"labjack",
 		"modbus",
 		"ni",
 		"opc",
 	}
-	DefaultConfig = Config{
+)
+
+func defaultConfig() Config {
+	return Config{
 		Integrations:         []string{},
 		BinaryFS:             xfs.Default,
 		Enabled:              new(true),
@@ -194,7 +207,7 @@ var (
 		TaskShutdownTimeout:  time.Second * 30,
 		TaskWorkerCount:      4,
 	}
-)
+}
 
 // Override implements [config.Config.Override].
 func (c Config) Override(other Config) Config {
@@ -206,6 +219,7 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.License = override.Nil(c.License, other.License)
 	c.KeyDirname = override.String(c.KeyDirname, other.KeyDirname)
+	c.SecretsDir = override.String(c.SecretsDir, other.SecretsDir)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.TrustAnchorsPEM = override.Slice(c.TrustAnchorsPEM, other.TrustAnchorsPEM)
@@ -240,7 +254,7 @@ func (c Config) Validate() error {
 	if v.Error() != nil {
 		return v.Error()
 	}
-	if !*c.Enabled {
+	if !*c.Enabled || c.FS == nil {
 		return nil
 	}
 	v.NotEmptyString("address", c.Address)
@@ -253,6 +267,11 @@ func (c Config) Validate() error {
 	v.NotEmptyString("binary_dirname", c.BinaryDirname)
 	v.NotNil("binary_fs", c.BinaryFS)
 	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
+	v.Ternary(
+		"secrets_dir",
+		c.SecretsDir != "" && !filepath.IsAbs(c.SecretsDir),
+		"must be an absolute path",
+	)
 	return v.Error()
 }
 
@@ -322,7 +341,7 @@ type Driver struct {
 // subprocess. Otherwise, Open returns a [Driver] whose methods are no-ops. Open also
 // returns a no-op Driver when cfg.Enabled is false.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
-	cfg, err := config.New(Config{FS: defaultFS}.Override(DefaultConfig), cfgs...)
+	cfg, err := config.New(Config{FS: defaultFS}.Override(defaultConfig()), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -353,6 +372,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 // only launched when the configuration enables it AND a Driver binary is available via
 // the configured filesystem.
 func (d *Driver) enabled() bool { return *d.cfg.Enabled && d.cfg.FS != nil }
+
+// Bundled returns true when the Core holds a Driver binary, which needs the "driver"
+// build tag.
+func Bundled() bool { return defaultFS != nil }
 
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded Driver")
@@ -446,11 +469,13 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 			err = errors.Wrap(err, "embedded Driver exceeded restart limit")
 			d.cfg.L.Error("giving up on embedded Driver", zap.Error(err))
 			return err
-		default:
-			// restart.Stop: a launch failure or a Driver that never loaded (an expected
-			// exit was caught above).
+		case restart.Stop:
+			// A launch failure or a Driver that never loaded (an expected exit was
+			// caught above).
 			d.cfg.L.Error("stopped embedded Driver", zap.Error(err))
 			return err
+		default:
+			return errors.Newf("unknown restart action %d", action)
 		}
 	}
 }
@@ -500,29 +525,12 @@ func (d *Driver) runOnce(
 	runCtx, stopRun := context.WithCancel(ctx)
 	defer stopRun()
 	cmd, tempFiles, err := d.setupCmd(runCtx)
-	for _, f := range tempFiles {
-		defer func() {
-			if rmErr := os.Remove(f); rmErr != nil {
-				d.cfg.L.Error(
-					"failed to remove driver file",
-					zap.String("path", f),
-					zap.Error(rmErr),
-				)
-			}
-		}()
-	}
+	defer d.removeFiles(tempFiles)
 	if err != nil {
 		return restart.Stop, err
 	}
-	stdoutPipe, err := cmd.StdoutPipe()
+	stdoutPipe, stderrPipe, err := startCmd(cmd)
 	if err != nil {
-		return restart.Stop, err
-	}
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return restart.Stop, err
-	}
-	if err = cmd.Start(); err != nil {
 		return restart.Stop, err
 	}
 	startedAt := time.Now()
@@ -535,54 +543,105 @@ func (d *Driver) runOnce(
 	// Wait closes the pipes, so it runs only after both readers reach EOF, or a
 	// loader error written just before the exit can be lost. Cancel and the kill
 	// after WaitDelay do not depend on Wait.
-	var (
-		stdoutErr, stderrErr string
-		reads                sync.WaitGroup
-		// crashed is set when this run prints a crash dump before its first log line.
-		// The crash shows that it loaded, but an unlicensed Open must not return on it.
-		crashed atomic.Bool
-	)
+	out := d.pipeOutput(internalSCtx, stdoutPipe, stderrPipe, startedOnce)
+	exited := make(chan struct{})
+	restarted := d.watchRestart(internalSCtx, stopRun, exited)
+	internalSCtx.Go(func(context.Context) error {
+		defer close(exited)
+		out.reads.Wait()
+		return cmd.Wait()
+	},
+		signal.WithKey("wait"),
+		signal.RecoverWithErrOnPanic())
+	err = internalSCtx.Wait()
+	return d.exitAction(ctx, policy, exit{
+		err:       err,
+		output:    cmp.Or(out.stderrErr, out.stdoutErr),
+		startedAt: startedAt,
+		restarted: restarted.Load(),
+		crashed:   out.crashed.Load(),
+	})
+}
+
+// removeFiles removes the temp files of a run, last first, and logs the files it fails
+// to remove.
+func (d *Driver) removeFiles(files []string) {
+	for _, f := range slices.Backward(files) {
+		if err := os.Remove(f); err != nil {
+			d.cfg.L.Error(
+				"failed to remove driver file",
+				zap.String("path", f),
+				zap.Error(err),
+			)
+		}
+	}
+}
+
+// startCmd opens the output pipes of cmd and starts it.
+func startCmd(cmd *exec.Cmd) (stdout, stderr io.ReadCloser, err error) {
+	if stdout, err = cmd.StdoutPipe(); err != nil {
+		return nil, nil, err
+	}
+	if stderr, err = cmd.StderrPipe(); err != nil {
+		return nil, nil, err
+	}
+	if err = cmd.Start(); err != nil {
+		return nil, nil, err
+	}
+	return stdout, stderr, nil
+}
+
+// output is the state of the output pipes of one run of the Driver subprocess.
+type output struct {
+	// reads is done when both pipes reach EOF.
+	reads                sync.WaitGroup
+	stdoutErr, stderrErr string
+	// crashed is set when this run prints a crash dump before its first log line.
+	// The crash shows that it loaded, but an unlicensed Open must not return on it.
+	crashed atomic.Bool
+}
+
+// pipeOutput forwards stdout and stderr to the logger in goroutines of sCtx. The
+// fields of the returned output other than reads are valid once reads is done.
+func (d *Driver) pipeOutput(
+	sCtx signal.Context,
+	stdout, stderr io.ReadCloser,
+	startedOnce *sync.Once,
+) *output {
+	out := &output{}
 	onLoaded := func(crash bool) {
 		if crash {
-			crashed.Store(true)
+			out.crashed.Store(true)
 		} else {
 			d.markRunning()
 		}
 	}
-	reads.Add(2)
-	internalSCtx.Go(func(context.Context) error {
-		stdoutErr = log.PipeToLogger(
-			stdoutPipe,
-			d.cfg.L,
-			d.started,
-			startedOnce,
-			onLoaded,
+	pipe := func(key string, r io.ReadCloser, lastErr *string) {
+		sCtx.Go(func(context.Context) error {
+			*lastErr = log.PipeToLogger(r, d.cfg.L, d.started, startedOnce, onLoaded)
+			out.reads.Done()
+			return nil
+		},
+			signal.WithKey(key),
+			signal.RecoverWithErrOnPanic(),
+			signal.WithRetryOnPanic(),
 		)
-		reads.Done()
-		return nil
-	},
-		signal.WithKey("stdout_pipe"),
-		signal.RecoverWithErrOnPanic(),
-		signal.WithRetryOnPanic(),
-	)
-	internalSCtx.Go(func(context.Context) error {
-		stderrErr = log.PipeToLogger(
-			stderrPipe,
-			d.cfg.L,
-			d.started,
-			startedOnce,
-			onLoaded,
-		)
-		reads.Done()
-		return nil
-	},
-		signal.WithKey("stderr_pipe"),
-		signal.RecoverWithErrOnPanic(),
-		signal.WithRetryOnPanic(),
-	)
+	}
+	out.reads.Add(2)
+	pipe("stdout_pipe", stdout, &out.stdoutErr)
+	pipe("stderr_pipe", stderr, &out.stderrErr)
+	return out
+}
+
+// watchRestart calls stopRun in a goroutine of sCtx when a restart request arrives
+// before exited closes. It returns a flag that is set when that happens.
+func (d *Driver) watchRestart(
+	sCtx signal.Context,
+	stopRun context.CancelFunc,
+	exited <-chan struct{},
+) *atomic.Bool {
 	var restarted atomic.Bool
-	exited := make(chan struct{})
-	internalSCtx.Go(func(context.Context) error {
+	sCtx.Go(func(context.Context) error {
 		select {
 		case <-d.restart:
 			restarted.Store(true)
@@ -591,25 +650,40 @@ func (d *Driver) runOnce(
 		}
 		return nil
 	}, signal.WithKey("restart"))
-	internalSCtx.Go(func(context.Context) error {
-		defer close(exited)
-		reads.Wait()
-		return cmd.Wait()
-	},
-		signal.WithKey("wait"),
-		signal.RecoverWithErrOnPanic())
-	err = internalSCtx.Wait()
+	return &restarted
+}
+
+// exit is the outcome of one run of the Driver subprocess.
+type exit struct {
+	// err is the error the run exited with.
+	err error
+	// output is the last error the process printed, or "" if it printed none.
+	output    string
+	startedAt time.Time
+	// restarted is set when a restart request stopped the run.
+	restarted bool
+	// crashed is set when the run printed a crash dump before its first log line.
+	crashed bool
+}
+
+// exitAction returns the restart Action for e and the error to report for it.
+func (d *Driver) exitAction(
+	ctx context.Context,
+	policy *restart.Policy,
+	e exit,
+) (restart.Action, error) {
+	err := e.err
 	// A canceled context means Close stopped the process: the exit is expected, not a
 	// crash, so it must not count toward the restart policy.
 	expected := ctx.Err() != nil
-	if !expected && restarted.Load() {
-		return policy.Requested(time.Since(startedAt)), nil
+	if !expected && e.restarted {
+		return policy.Requested(time.Since(e.startedAt)), nil
 	}
-	if output := cmp.Or(stderrErr, stdoutErr); !expected && output != "" && err != nil {
-		d.lastErr.Store(&output)
-		err = errors.Wrap(err, output)
+	if !expected && e.output != "" && err != nil {
+		d.lastErr.Store(&e.output)
+		err = errors.Wrap(err, e.output)
 	}
-	if !expected && !d.loaded() && !crashed.Load() {
+	if !expected && !d.loaded() && !e.crashed {
 		if err == nil {
 			err = errors.New("exited")
 		}
@@ -619,7 +693,7 @@ func (d *Driver) runOnce(
 	if !expected {
 		d.cfg.L.Warn("embedded Driver process exited unexpectedly", zap.Error(err))
 	}
-	return policy.Decide(ctx, expected, time.Since(startedAt)), err
+	return policy.Decide(ctx, expected, time.Since(e.startedAt)), err
 }
 
 // resolveKey returns the API key saved by an earlier start when the Core still accepts

@@ -23,7 +23,7 @@ import { Access, Label, Status } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
-import { ContextMenu } from "@/feature/status/list/ContextMenu";
+import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -42,15 +42,6 @@ const NoStatuses = (): ReactElement => {
     />
   );
 };
-
-// The explorer renders the same statuses under List.itemNameID, and both lists can be
-// mounted at once, so the favorites rows carry their own edit-target ids.
-const favoriteNameID = (key: status.Key): string =>
-  BaseList.itemNameID(`favorite-${key}`);
-
-const contextMenu = Component.renderProp((props: Menu.ContextMenuMenuProps) => (
-  <ContextMenu {...props} nameID={favoriteNameID} />
-));
 
 const List = (): ReactElement => {
   const favorites = Session.Status.useSelectFavorites();
@@ -86,7 +77,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
         <Flex.Box x align="center" gap="small">
           <Base.Indicator variant={variant} />
           <Text.MaybeEditable
-            id={favoriteNameID(itemKey)}
+            id={BaseList.itemNameID(itemKey)}
             level="p"
             weight={450}
             status={variant}

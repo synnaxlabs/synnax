@@ -50,25 +50,24 @@ func (cfg Config) Validate() error {
 // Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)
-	cfg.EnableLogging = override.Nil(cfg.EnablePropagation, other.EnablePropagation)
+	cfg.EnablePropagation = override.Nil(cfg.EnablePropagation, other.EnablePropagation)
+	cfg.EnableLogging = override.Nil(cfg.EnableLogging, other.EnableLogging)
 	cfg.EnableTracing = override.Nil(cfg.EnableTracing, other.EnableTracing)
+	cfg.Level = override.Numeric(cfg.Level, other.Level)
 	return cfg
 }
 
 var _ config.Config[Config] = Config{}
 
-var defaultConfig = Config{
-	Level:             alamos.EnvironmentProd,
-	EnableTracing:     new(true),
-	EnablePropagation: new(true),
-	EnableLogging:     new(true),
-}
-
 // Middleware adds traces and logs to incoming and outgoing requests and ensures
 // that they are propagated across the network.
 func Middleware(configs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(Config{
+		Level:             alamos.EnvironmentProd,
+		EnableTracing:     new(true),
+		EnablePropagation: new(true),
+		EnableLogging:     new(true),
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -7,28 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type secret, status } from "@synnaxlabs/client";
+import { type rack, type secret, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Secret, Synnax } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
+import { FileBrowser } from "@/platform/file-browser";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const formZ = z.object({
+// The form holds the fields of both sources, so a switch keeps what was entered.
+const fieldsZ = z.object({
   name: z.string().trim().min(1, "Name is required"),
-  value: z.string().min(1, "Value is required"),
+  value: z.string(),
+  fileName: z.string(),
 });
 
-const valueFormZ = formZ.pick({ value: true });
+const formZ = z.discriminatedUnion("source", [
+  fieldsZ.extend({
+    source: z.literal("stored"),
+    value: z.string().min(1, "Value is required"),
+  }),
+  fieldsZ.extend({
+    source: z.literal("file"),
+    fileName: z.string().min(1, "File is required"),
+  }),
+]);
+
+const valueFormZ = z.object({ value: z.string().min(1, "Value is required") });
 
 const path = deep.path<z.infer<typeof formZ>>();
 
@@ -68,6 +83,8 @@ export interface CreateModalParams {
   replace?: secret.Key;
   /** The name a created secret starts with. */
   name?: string;
+  /** The rack whose secrets folder a created secret can read. Zero offers no file. */
+  rack?: rack.Key;
 }
 
 interface FooterProps {
@@ -79,12 +96,15 @@ interface FooterProps {
 
 const Footer = ({ label, variant, onCancel, onSave }: FooterProps): ReactElement => {
   const client = Synnax.use();
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   return (
     <Modal.Footer>
       <Nav.Bar.End x align="center">
         <Button.Button
           variant="outlined"
           onClick={onCancel}
+          disabled={busy}
           triggerIndicator={PTriggers.ESCAPE}
         >
           Cancel
@@ -110,17 +130,23 @@ interface BodyProps {
 
 interface CreateProps extends BodyProps {
   name: string;
+  rack: rack.Key;
 }
 
-const Create = ({ close, name: initialName }: CreateProps): ReactElement => {
-  const form = Form.use({ values: { name: initialName, value: "" }, schema: formZ });
+const Create = ({ close, name: initialName, rack }: CreateProps): ReactElement => {
+  const form = Form.use({
+    values: { name: initialName, source: "stored", value: "", fileName: "" },
+    schema: formZ,
+  });
+  const source = Form.useFieldValue<secret.Source>(path.source, { ctx: form });
   const { update, variant } = Secret.useCreate({
     afterSuccess: ({ data }) => close(data.key),
   });
   const handleSave = () => {
     if (!form.validate()) return;
-    const { name, value } = form.value();
-    update({ name: name.trim(), source: "stored", value });
+    const { name, source, value, fileName } = form.value();
+    if (source === "stored") update({ name: name.trim(), source, value });
+    else update({ name: name.trim(), source, fileName, rack });
   };
   // A given name moves focus to the value.
   const named = initialName.length > 0;
@@ -135,11 +161,39 @@ const Create = ({ close, name: initialName }: CreateProps): ReactElement => {
             padHelpText={false}
             inputProps={named ? NAME_INPUT_PROPS : FOCUSED_NAME_INPUT_PROPS}
           />
-          <Form.TextField
-            path={path.value}
-            label="Value"
-            inputProps={named ? FOCUSED_VALUE_INPUT_PROPS : VALUE_INPUT_PROPS}
-          />
+          {primitive.isNonZero(rack) && (
+            <Form.Field<secret.Source> path={path.source} label="Source">
+              {({ value, onChange }) => (
+                <Select.Buttons<secret.Source> value={value} onChange={onChange}>
+                  <Select.Item itemKey="stored">
+                    <Icon.Secret />
+                    Value
+                  </Select.Item>
+                  <Select.Item itemKey="file">
+                    <Icon.Rack />
+                    File on Driver
+                  </Select.Item>
+                </Select.Buttons>
+              )}
+            </Form.Field>
+          )}
+          {source === "file" ? (
+            <Form.Field<string> path={path.fileName} label="File" emptiable>
+              {({ value, onChange }) => (
+                <FileBrowser.SelectSecretFile
+                  rack={rack}
+                  value={value}
+                  onChange={onChange}
+                />
+              )}
+            </Form.Field>
+          ) : (
+            <Form.TextField
+              path={path.value}
+              label="Value"
+              inputProps={named ? FOCUSED_VALUE_INPUT_PROPS : VALUE_INPUT_PROPS}
+            />
+          )}
         </Form.Form>
       </Modal.Body>
       <Footer
@@ -193,9 +247,10 @@ const Content = ({
   close,
   replace,
   name = "",
+  rack = 0,
 }: Modals.ContentProps<CreateModalParams, secret.Key>): ReactElement =>
   replace == null ? (
-    <Create close={close} name={name} />
+    <Create close={close} name={name} rack={rack} />
   ) : (
     <Replace close={close} secretKey={replace} />
   );

@@ -10,12 +10,12 @@
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Flux } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { useState } from "react";
 
+import { TAB_TYPE } from "@/feature/status/explorer/external";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { Label } from "@/platform/label";
 import { type Panel } from "@/platform/panel";
@@ -30,7 +30,7 @@ const PROPERTIES: View.Filter.Properties<status.Where> = {
 };
 
 export const Explorer: Panel.Content = () => (
-  <View.Frame resourceType="status" icon="Status">
+  <View.Frame resourceType="status" icon="Status" tabType={TAB_TYPE}>
     <Internal />
   </View.Frame>
 );
@@ -46,11 +46,7 @@ const Internal = () => {
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_RESOURCE_ID);
   return (
     <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
-      <View.Toolbar>
-        <Flex.Box x align="center" gap="small" grow wrap>
-          <View.Filter.Menu properties={PROPERTIES} />
-          <View.Filter.Chips properties={PROPERTIES} />
-        </Flex.Box>
+      <View.Toolbar properties={PROPERTIES}>
         {hasCreatePermission && (
           <Button.Button
             variant="outlined"

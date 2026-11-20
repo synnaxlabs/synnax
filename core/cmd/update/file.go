@@ -159,6 +159,35 @@ func (c current) apply(
 				"update if it fails.",
 		)
 	}
+	if err := c.replaceService(w, staged, to, replaced); err != nil {
+		return err
+	}
+	state, err := waitForUpdate(ctx, c.backups, to, timeout)
+	if err != nil {
+		return err
+	}
+	switch state {
+	case storage.UpdateCommitted:
+		return printLines(w, fmt.Sprintf("Updated to Core %s.", to))
+	case storage.UpdateUndone:
+		return c.restore(w, to)
+	case storage.UpdateNotStarted, storage.UpdatePending:
+		return errors.Newf(
+			"Core %s did not finish the update within %s. Check the Core log. If the "+
+				"Core undoes the update, run `synnax update undo` to put back Core %s.",
+			to,
+			timeout,
+			c.version,
+		)
+	default:
+		return errors.Newf("unknown update state %d", state)
+	}
+}
+
+// replaceService stops the Core service, replaces its binary with the Core binary at
+// staged, which is Core to, and starts the service. It prints replaced once the binary
+// is in place.
+func (c current) replaceService(w io.Writer, staged, to, replaced string) error {
 	if err := printLines(w, "Stopping the Core service."); err != nil {
 		return err
 	}
@@ -176,50 +205,36 @@ func (c current) apply(
 	); err != nil {
 		return err
 	}
+	return service.Start()
+}
+
+// restore puts the old binary back after Core to undid the update, and starts the
+// Core service again. It returns an error that says the update failed.
+func (c current) restore(w io.Writer, to string) error {
+	if err := printLines(w, fmt.Sprintf(
+		"Core %s failed to update the data and put it back. Starting Core %s "+
+			"again.",
+		to,
+		c.version,
+	)); err != nil {
+		return err
+	}
+	if err := service.Stop(); err != nil {
+		return err
+	}
+	if err := os.Rename(c.binary+oldSuffix, c.binary); err != nil {
+		return err
+	}
 	if err := service.Start(); err != nil {
 		return err
 	}
-	state, err := waitForUpdate(ctx, c.backups, to, timeout)
-	if err != nil {
-		return err
-	}
-	switch state {
-	case storage.UpdateCommitted:
-		return printLines(w, fmt.Sprintf("Updated to Core %s.", to))
-	case storage.UpdateUndone:
-		if err = printLines(w, fmt.Sprintf(
-			"Core %s failed to update the data and put it back. Starting Core %s "+
-				"again.",
-			to,
-			c.version,
-		)); err != nil {
-			return err
-		}
-		if err = service.Stop(); err != nil {
-			return err
-		}
-		if err = os.Rename(c.binary+oldSuffix, c.binary); err != nil {
-			return err
-		}
-		if err = service.Start(); err != nil {
-			return err
-		}
-		return errors.Newf(
-			"Update to Core %s failed. Core %s runs again. Find the cause in the "+
-				"Core log, fix it, and run `synnax update retry` before you update "+
-				"again.",
-			to,
-			c.version,
-		)
-	default:
-		return errors.Newf(
-			"Core %s did not finish the update within %s. Check the Core log. If the "+
-				"Core undoes the update, run `synnax update undo` to put back Core %s.",
-			to,
-			timeout,
-			c.version,
-		)
-	}
+	return errors.Newf(
+		"Update to Core %s failed. Core %s runs again. Find the cause in the "+
+			"Core log, fix it, and run `synnax update retry` before you update "+
+			"again.",
+		to,
+		c.version,
+	)
 }
 
 // removeStaged removes the staged binary, if it exists.
@@ -247,12 +262,16 @@ func installation() (service.Installation, bool, error) {
 
 // copyBinary copies the binary at src to dst, which anyone can run.
 func copyBinary(src, dst string) (err error) {
-	in, err := os.Open(src)
+	in, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, in.Close()) }()
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	out, err := os.OpenFile(
+		filepath.Clean(dst),
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0o755,
+	)
 	if err != nil {
 		return err
 	}

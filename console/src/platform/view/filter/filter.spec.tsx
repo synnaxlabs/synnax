@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, type Synnax as Client, view } from "@synnaxlabs/client";
+import { panel, status, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, filter, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -19,15 +20,13 @@ import { z } from "zod";
 import { Label } from "@/platform/label";
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
-import { openFilterProperty } from "@/platform/view/testutil";
-import {
-  createConsoleWrapper,
-  createTestClientWithGrants,
-  renderSuspended,
-  uniqueName,
-} from "@/testutil";
+import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
+import { createTestClientWithGrants, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
+
+// A View.Frame reads its view from the tab it renders in.
+const TAB = { variant: "view", type: "explorer" } as const;
 
 const path = deep.path<z.infer<typeof schema>>();
 
@@ -41,7 +40,7 @@ const PROPERTIES: View.Filter.Properties<status.Where> = {
 const Fixture = ({ where }: { where?: status.Where }): ReactElement => {
   const methods = Form.use({ schema, values: { where } });
   return (
-    <View.Frame resourceType="status" icon="Status">
+    <View.Frame resourceType="status" icon="Status" tabType={TAB.type}>
       <Form.Form<typeof schema> {...methods}>
         <View.Filter.Menu properties={PROPERTIES} />
         <View.Filter.Chips properties={PROPERTIES} />
@@ -58,7 +57,7 @@ const renderFixture = async (
   where?: status.Where,
   as: Client = client,
 ): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+  const { wrapper } = await createTabWrapper({ client, as, tab: TAB });
   await renderSuspended(<Fixture where={where} />, { wrapper });
 };
 
@@ -142,6 +141,24 @@ describe("View.Filter", () => {
     expect(await screen.findByText(filter.describe(node))).toBeTruthy();
   });
 
+  it("should fade the cut text of each part of a chip", async () => {
+    await renderFixture({ variant: { in: ["error", "warning"] } });
+    const value = await screen.findByRole("button", { name: "Error, Warning" });
+    for (const part of [
+      screen.getByText("Variants"),
+      screen.getByText("is any of"),
+      value,
+    ])
+      expect(part.className).toContain("lyra-text--overflow-fade");
+  });
+
+  it("should fade the cut text of a node that no property reads", async () => {
+    const node: status.Where = { key: { in: [uuid.create()] } };
+    await renderFixture(node);
+    const text = await screen.findByText(filter.describe(node));
+    expect(text.className).toContain("lyra-text--overflow-fade");
+  });
+
   it("should drop a node that no property reads with its chip", async () => {
     await renderFixture({
       and: [{ variant: { in: ["error"] } }, { key: { in: [uuid.create()] } }],
@@ -189,7 +206,12 @@ describe("View.Filter", () => {
       type: "status",
     });
     const reader = await createTestClientWithGrants(client, {
-      retrieve: [status.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+      retrieve: [
+        status.TYPE_RESOURCE_ID,
+        view.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+      ],
+      update: [panel.TYPE_RESOURCE_ID],
     });
     await renderFixture({ variant: { in: ["error"] } }, reader);
     // A static view saves nothing, so a reader may change its filter.

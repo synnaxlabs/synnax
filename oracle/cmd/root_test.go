@@ -21,6 +21,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/cmd"
+	"github.com/synnaxlabs/oracle/paths"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -384,7 +385,9 @@ var _ = Describe("fmt command with file patterns", func() {
 
 	schema := func(name string) string {
 		GinkgoHelper()
-		return string(MustSucceed(os.ReadFile(filepath.Join(repoDir, "schemas", name))))
+		return string(
+			MustSucceed(paths.ReadFile(filepath.Join("schemas", name), repoDir)),
+		)
 	}
 
 	DescribeTable(
@@ -405,6 +408,13 @@ var _ = Describe("fmt command with file patterns", func() {
 	It("Should fail when no file matches a pattern", func() {
 		Expect(fail("fmt", "nonexistent/*.xyz")).
 			To(printOnce("no schema files found"))
+	})
+
+	It("Should not format a file outside the repository", func() {
+		outside := filepath.Join(GinkgoT().TempDir(), "c.oracle")
+		Expect(os.WriteFile(outside, []byte(unformatted), 0o644)).To(Succeed())
+		Expect(fail("fmt", outside)).To(ContainSubstring("escapes"))
+		Expect(os.ReadFile(filepath.Clean(outside))).To(BeEquivalentTo(unformatted))
 	})
 })
 

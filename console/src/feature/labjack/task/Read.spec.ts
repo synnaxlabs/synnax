@@ -9,6 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -22,21 +23,26 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, findIconButton } from "@/testutil";
 
 const client = createTestClient();
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(LabJack.Task.Read, options);
+  const rendered = await renderTaskFormTab(
+    LabJack.Task.FORMS[LabJack.Task.READ_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };
@@ -63,6 +69,25 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.READ_SCHEMAS);
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createLabJackDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0", { channel: float.key })]),
+    );
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should prompt for a selection when the form carries no device", async () => {
     await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig("", []));

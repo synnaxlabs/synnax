@@ -726,8 +726,9 @@ var _ = Describe("Service", func() {
 				Expect(env.Version).To(Equal(testVersion))
 				Expect(env.Type).To(Equal(string(resource.TypeChannel)))
 				Expect(env.Name).To(Equal("Round Trip"))
+				wire := WireRoundTrip(env)
 				roundTripped := MustSucceed(
-					WireRoundTrip(env).Decode[testResource](),
+					wire.Decode[testResource](),
 				)
 				Expect(roundTripped.FieldOne).To(Equal("value"))
 				Expect(roundTripped.FieldTwo).To(Equal(42))

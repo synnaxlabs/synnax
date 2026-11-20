@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type ethercat, query } from "@synnaxlabs/client";
+import { type channel, query } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Channel } from "@synnaxlabs/pluto";
 import { deep, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -21,6 +20,7 @@ import {
   useSlavesByKeys,
   useSlavesOnRack,
 } from "@/feature/ethercat/device/queries";
+import { needsSetup } from "@/feature/ethercat/device/SetupNote";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
@@ -32,24 +32,21 @@ import { slavesZ } from "@/feature/ethercat/task/checks";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
-  createSlaveChannels,
   fillStartupParameters,
   retrieveSlaves,
 } from "@/feature/ethercat/task/configure";
+import { createSlaveReadChannel } from "@/feature/ethercat/task/create";
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
   bindReadChannel,
-  createEntryReadChannel,
   createReadChannel,
   type DataTypes,
   deployReadConfigZ,
   entryAt,
   type EntryReadChannel,
   hasEntry,
-  isCalibrated,
   mappedChannels,
   READ_SCHEMAS,
-  READ_TYPE,
   type ReadChannel,
   readChannelName,
   readChannelOf,
@@ -58,7 +55,6 @@ import {
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
@@ -114,8 +110,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
       suffix={named ? readNameSuffix(slave, ch, dataTypes) : undefined}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
+      warned={!ch.disabled && slave != null && needsSetup(slave)}
       portMaxChars={20}
     />
   );
@@ -126,15 +121,6 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 const detailsTitle = Component.renderProp(ReadDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
-
-/** @returns a channel on the entry, calibrated when the Driver calibrates the entry. */
-const createSlaveReadChannel = (
-  { key, properties }: SlaveDevice,
-  entry: ethercat.PDOEntry,
-): EntryReadChannel => ({
-  ...createEntryReadChannel(key, entry),
-  calibrated: isCalibrated(properties, entry),
-});
 
 const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
   <>
@@ -170,6 +156,7 @@ const Form: FC = () => {
         createChannel={createReadChannel}
         contextMenuItems={contextMenuItems}
         resolve={resolve}
+        tareable
       />
       <ChannelUsage
         indexOptions={READ_INDEX_OPTIONS}
@@ -179,26 +166,6 @@ const Form: FC = () => {
       />
     </Flex.Box>
   );
-};
-
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
-  client,
-  deviceKey,
-  config,
-}) => {
-  const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (config == null)
-    cfg.channels =
-      deviceKey == null
-        ? [createReadChannel([])]
-        : await createSlaveChannels(
-            client,
-            deviceKey,
-            "inputs",
-            createSlaveReadChannel,
-            createReadChannel([]),
-          );
-  return { name: "EtherCAT read task", type: READ_TYPE, config: cfg };
 };
 
 const READ_INDEX_OPTIONS = {
@@ -292,15 +259,3 @@ export const Read = Task.wrapForm({
   type: "ethercat_read",
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: "EtherCAT read task",
-  label: "Read",
-  icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: useCreateRead,
-};

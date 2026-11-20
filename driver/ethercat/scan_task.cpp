@@ -78,22 +78,23 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
                              "of the device.";
         return;
     }
-    const auto state = slave::to_string(health.state);
+    const auto in_state = "The device is in " + slave::to_string(health.state) + ".";
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
-        status.message = "Error in " + state;
+        status.message = "Device reports an error";
         if (!health.startup_error.empty())
             status.description = errors::sentence(health.startup_error);
         else if (!health.al_status.empty())
-            status.description = health.al_status;
+            status.description = errors::sentence(health.al_status);
         else
-            status.description = "The device reports an error without an error "
-                                 "code. With IgH, the kernel log (dmesg) shows it.";
+            status.description = "The device gives no error code. With IgH, the "
+                                 "kernel log (dmesg) shows it.";
+        status.description.append(" ").append(in_state);
         return;
     }
     status.variant = synnax::status::VARIANT_WARNING;
-    status.message = "In " + state;
-    status.description = "The Driver is returning the device to OP.";
+    status.message = "Not operational";
+    status.description = in_state + " The Driver is returning it to OP.";
 }
 
 /// @brief sets status to the error of saved slave properties that do not parse.
@@ -306,9 +307,14 @@ Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::task::Task task,
     ScanTaskConfig cfg,
-    std::shared_ptr<engine::Pool> pool
+    std::shared_ptr<engine::Pool> pool,
+    DisableFilter disable_filter
 ):
-    ctx(std::move(ctx)), task(std::move(task)), cfg(cfg), pool(std::move(pool)) {}
+    ctx(std::move(ctx)),
+    task(std::move(task)),
+    cfg(cfg),
+    pool(std::move(pool)),
+    disable_filter(std::move(disable_filter)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -333,6 +339,23 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         }
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
+    // A scan that ends early finds no filter to report.
+    const auto fail = [this](const x::errors::Error &err)
+        -> std::pair<std::vector<synnax::device::Device>, x::errors::Error> {
+        std::lock_guard lock(this->mu);
+        this->filtered.clear();
+        return {{}, err};
+    };
+    std::vector<std::string> turned_off;
+    {
+        std::lock_guard lock(this->mu);
+        turned_off = std::exchange(this->turned_off, {});
+    }
+    // A full interval gives the user time to answer the Windows prompt.
+    for (const auto &key: turned_off)
+        this->next_probes[key] = {
+            .due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL
+        };
 
     for (const auto &master_info: masters) {
         const auto &key = master_info.key;
@@ -349,13 +372,18 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                                         : this->pool->discover(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
-        if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
+        if (err.matches(errors::PERMISSION_DENIED)) return fail(err);
         // The modules of a configured network can come back at any scan, as after a
         // power restart.
         if (err.matches(errors::NO_SLAVES_FOUND) &&
             holds_configured_devices_on(scan_ctx, key)) {
             this->next_probes.erase(key);
             if (err.matches(errors::REPLIES_BLOCKED)) {
+                blocked.emplace_back(key, err.data);
+                continue;
+            }
+            // The master tells how to fix a port with no link.
+            if (err.matches(errors::NO_LINK)) {
                 failures.insert(err.data);
                 continue;
             }
@@ -380,7 +408,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto [engine, acquire_err] = this->pool->acquire(key);
-        if (acquire_err) return {{}, acquire_err};
+        if (acquire_err) return fail(acquire_err);
         const auto health = this->pool->health(key);
         const auto keys = slave_keys(slaves, key, stored, kept);
         bool rediscovery_needed = false;
@@ -393,7 +421,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 rediscovery_needed = true;
                 unidentified.emplace(
                     slave.properties.position,
-                    "Slave " + std::to_string(slave.properties.position) + " on " +
+                    "Module " + std::to_string(slave.properties.position) + " on " +
                         engine->name() + " gives no identity. Restart its power."
                 );
                 continue;
@@ -413,7 +441,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                     if (!slave.status.starting)
                         unidentified.emplace(
                             slave.properties.position,
-                            "Slave " + std::to_string(slave.properties.position) +
+                            "Module " + std::to_string(slave.properties.position) +
                                 " on " + engine->name() + " gave no serial number (" +
                                 slave.status.serial_error + "). Restart its power."
                         );
@@ -457,9 +485,20 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     // A filter on an adapter with no devices can hide a bus only when no adapter shows
     // a device, or when the Core holds devices from the adapter.
-    for (const auto &[key, failure]: blocked)
-        if (devices.empty() || holds_devices_on(scan_ctx, key))
-            failures.insert(failure);
+    std::vector<std::string> filtered;
+    {
+        std::lock_guard lock(this->mu);
+        for (const auto &[key, failure]: blocked) {
+            // A command during this scan started to turn the filter off.
+            if (std::ranges::find(this->turned_off, key) != this->turned_off.end())
+                continue;
+            if (devices.empty() || holds_devices_on(scan_ctx, key)) {
+                failures.insert(failure);
+                filtered.push_back(key);
+            }
+        }
+        this->filtered = std::move(filtered);
+    }
     if (failures.empty()) return {devices, x::errors::NIL};
     std::string desc;
     for (const auto &failure: failures)
@@ -480,7 +519,60 @@ bool Scanner::exec(
         this->set_standalone(cmd);
         return true;
     }
+    if (cmd.type == DISABLE_DEWESOFT_FILTER_CMD_TYPE) {
+        this->disable_dewesoft_filter(cmd);
+        return true;
+    }
     return false;
+}
+
+std::optional<x::json::json::object_t> Scanner::status_data() const {
+    std::lock_guard lock(this->mu);
+    if (this->filtered.empty()) return std::nullopt;
+    return x::json::json::object_t{{"filtered", this->filtered}};
+}
+
+synnax::task::Status Scanner::command_status(const synnax::task::Command &cmd) const {
+    return synnax::task::Status{
+        .name = this->task.name,
+        .variant = synnax::status::VARIANT_ERROR,
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = this->task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
+    };
+}
+
+void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) {
+    auto task_status = this->command_status(cmd);
+    task_status.message = "Failed to turn off the DewesoftX filter";
+    std::vector<std::string> interfaces;
+    {
+        std::lock_guard lock(this->mu);
+        interfaces = this->filtered;
+    }
+    if (interfaces.empty())
+        task_status.description = "The DewesoftX filter blocks no adapter.";
+    else if (const auto err = this->disable_filter(interfaces)) {
+        task_status.description = err.data;
+        task_status.details.data = this->status_data();
+    } else {
+        {
+            std::lock_guard lock(this->mu);
+            this->filtered.clear();
+            this->turned_off = std::move(interfaces);
+        }
+        task_status.variant = synnax::status::VARIANT_SUCCESS;
+        task_status.message = "Started to turn off the DewesoftX filter";
+        task_status.description = "If Windows asks for administrator access on the "
+                                  "computer that runs the Driver, click Yes. Synnax "
+                                  "looks for modules on the adapter again within a "
+                                  "few scans.";
+    }
+    this->ctx->set_status(task_status);
 }
 
 std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
@@ -523,9 +615,9 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     }
     {
         std::lock_guard lock(this->switch_mu);
-        if (const auto it = this->switch_times.find(key);
-            it != this->switch_times.end())
-            json_props[SWITCHED_AT] = it->second.nanoseconds();
+        if (const auto it = this->switches.find(key);
+            it != this->switches.end() && it->second.of(props))
+            json_props[SWITCHED_AT] = it->second.at.nanoseconds();
     }
 
     const auto [saved, saved_err] = parse_properties(json_props);
@@ -533,7 +625,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
 
     synnax::device::Device dev;
     dev.key = key;
-    dev.name = props.name.empty() ? "EtherCAT Slave " + std::to_string(props.position)
+    dev.name = props.name.empty() ? "EtherCAT module " + std::to_string(props.position)
                                   : props.name;
     dev.make = DEVICE_MAKE;
     dev.model = SLAVE_DEVICE_MODEL;
@@ -709,17 +801,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     TestInterfaceArgs args(parser);
 
-    synnax::task::Status task_status{
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details =
-            synnax::task::StatusDetails{
-                .running = true,
-                .cmd = cmd.key,
-                .config_hash = this->task.config_hash,
-            },
-        .owner = synnax::task::resource_id(this->task.key),
-    };
+    auto task_status = this->command_status(cmd);
 
     if (!parser.ok()) {
         LOG(WARNING) << SCAN_LOG_PREFIX << "test_interface: failed to parse command";
@@ -746,7 +828,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     VLOG(1) << SCAN_LOG_PREFIX << "test_interface: found " << slaves.size()
             << " slaves on " << args.interface;
     task_status.variant = synnax::status::VARIANT_SUCCESS;
-    task_status.message = "Found " + std::to_string(slaves.size()) + " slaves on " +
+    task_status.message = "Found " + std::to_string(slaves.size()) + " modules on " +
                           engine->name();
     this->ctx->set_status(task_status);
 }
@@ -754,17 +836,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
 void Scanner::set_standalone(const synnax::task::Command &cmd) {
     x::json::Parser parser(cmd.args);
     const SetStandaloneArgs args(parser);
-    synnax::task::Status task_status{
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details =
-            synnax::task::StatusDetails{
-                .running = true,
-                .cmd = cmd.key,
-                .config_hash = this->task.config_hash,
-            },
-        .owner = synnax::task::resource_id(this->task.key),
-    };
+    auto task_status = this->command_status(cmd);
     const auto fail = [&](const std::string &description) {
         task_status.message = "Failed to switch the device";
         task_status.description = errors::sentence(description);
@@ -793,6 +865,8 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     saved.name = dev.name;
     std::vector<slave::StartupParameter> written;
     uint16_t position = 0;
+    uint64_t serial = 0;
+    std::string network;
     std::pair<uint16_t, uint8_t> mode_object;
     const auto err = engine->configure(
         saved,
@@ -800,6 +874,8 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
             -> std::pair<std::vector<slave::StartupParameter>, x::errors::Error> {
             const auto &props = found.properties;
             position = props.position;
+            serial = props.serial;
+            network = props.network;
             if (!props.settings || !props.settings->contains("mode"))
                 return {
                     {},
@@ -863,7 +939,12 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     }
     {
         std::lock_guard lock(this->switch_mu);
-        this->switch_times[dev.key] = x::telem::TimeStamp::now();
+        this->switches[dev.key] = {
+            .at = x::telem::TimeStamp::now(),
+            .serial = serial,
+            .network = network,
+            .position = position,
+        };
     }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_REJECTED)) {

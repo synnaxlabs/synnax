@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { scheduler, Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
@@ -76,8 +76,7 @@ const miss = (channels: number): (() => Promise<void>) => {
 };
 
 // A miss waits out one batch timer, which the baseline measures alone.
-const batchTimer = async (): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, 0));
+const batchTimer = async (): Promise<void> => await scheduler.nextTask();
 
 test("read", async ({ bench }) => {
   await bench.compare(

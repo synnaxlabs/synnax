@@ -36,9 +36,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -49,6 +53,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type (
@@ -60,7 +65,7 @@ type (
 	TSEngine uint8
 )
 
-//go:generate stringer -type=KVEngine
+//go:generate go tool stringer -type=KVEngine
 const (
 	// KVEnginePebble uses CockroachDB's pebble key-value store.
 	KVEnginePebble KVEngine = iota + 1
@@ -68,7 +73,7 @@ const (
 
 var kvEngines = []KVEngine{KVEnginePebble}
 
-//go:generate stringer -type=TSEngine
+//go:generate go tool stringer -type=TSEngine
 const (
 	// TSEngineCesium uses Synnax's Cesium time-series engine.
 	TSEngineCesium TSEngine = iota + 1
@@ -116,17 +121,17 @@ type LayerConfig struct {
 	UpdateBackupDisabled *bool
 }
 
-var (
-	_ config.Config[LayerConfig] = LayerConfig{}
-	// DefaultLayerConfig returns the default configuration for the storage layer.
-	DefaultLayerConfig = LayerConfig{
+var _ config.Config[LayerConfig] = LayerConfig{}
+
+func defaultLayerConfig() LayerConfig {
+	return LayerConfig{
 		Perm:                 xfs.UserRWX,
 		InMemory:             new(false),
 		KVEngine:             KVEnginePebble,
 		TSEngine:             TSEngineCesium,
 		UpdateBackupDisabled: new(false),
 	}
-)
+}
 
 // Override implements LayerConfig.
 func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
@@ -197,6 +202,8 @@ type Layer struct {
 	KV kv.DB
 	// TS is the time-series engine for the node.
 	TS *cesium.DB
+	// Gorp is the metadata DB of the node, stored in KV.
+	Gorp *gorp.DB
 	// Update is the update of the data that OpenLayer started, or nil when it started
 	// none. The caller commits it before the Core serves clients. If the Core fails
 	// before that, the caller closes the Layer, then undoes the update.
@@ -223,7 +230,7 @@ type Layer struct {
 // services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(DefaultLayerConfig, cfgs...)
+	cfg, err := config.New(defaultLayerConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +282,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.KV, err = openKV(cfg, kvFS, cache); !ok(err, l.KV) {
 		return nil, err
 	}
+	l.Gorp = gorp.Wrap(
+		l.KV,
+		gorp.WithCodec(encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec)),
+		gorp.WithInstrumentation(cfg.Child("gorp")),
+	)
 
 	// Open the time-series engine.
 	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
@@ -284,9 +296,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	return l, nil
 }
 
+// Run runs the time-series engine and the Gorp DB until ctx ends or one of them fails,
+// then waits for both to stop and returns the first error. Writes to the engine, its
+// streamers, and the opening of Gorp tables with indexes or references need Run to
+// run. Call Run once.
+func (s *Layer) Run(ctx context.Context) error {
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return s.TS.Run(ctx) })
+	g.Go(func() error { return s.Gorp.Run(ctx) })
+	return g.Wait()
+}
+
 // Close closes the Layer, releasing the lock on the storage directory. Close
-// must be called when the Layer is no longer in use. The caller must ensure that
-// all routines interacting with the Layer have finished before calling Close.
+// must be called when the Layer is no longer in use, and after Run returns. The caller
+// must ensure that all routines interacting with the Layer have finished before calling
+// Close.
 func (s *Layer) Close() error {
 	return s.closer.Close()
 }

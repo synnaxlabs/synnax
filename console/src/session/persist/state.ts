@@ -11,7 +11,8 @@ import { createAction, type Middleware, type PayloadAction } from "@reduxjs/tool
 import {
   type CrudeTimeSpan,
   deep,
-  type record,
+  map,
+  record,
   scheduler,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -118,7 +119,7 @@ export interface Scopes<S extends object> {
 }
 
 const scopeKeys = <S extends object>(scope: SliceSchemas<S>): Array<SliceKey<S>> =>
-  Object.keys(scope) as Array<SliceKey<S>>;
+  record.keys(scope);
 
 /**
  * @throws {Error} if a slice of S is in no scope and not declared transient, or is
@@ -352,7 +353,7 @@ class Partition<S extends object> {
   }
 
   private keys(): Array<SliceKey<S>> {
-    return Object.keys(this.schemas) as Array<SliceKey<S>>;
+    return record.keys(this.schemas);
   }
 
   /** Every key the partition occupies, for deleting it whole. */
@@ -684,12 +685,11 @@ class Engine<S extends object> {
     schemas: SliceSchemas<S>,
     transform: SliceTransform<S> | null = null,
   ): Partition<S> {
-    let partition = this.partitions.get(base);
-    if (partition == null) {
-      partition = new Partition(this.db, base, schemas, transform, this.onError);
-      this.partitions.set(base, partition);
-    }
-    return partition;
+    return map.getOrInsert(
+      this.partitions,
+      base,
+      () => new Partition(this.db, base, schemas, transform, this.onError),
+    );
   }
 
   /** The partitions the given context reaches: global, then Core, then project. */

@@ -26,6 +26,7 @@ var _ = Describe("Removal", func() {
 	It("Should stage a removal from each of two groups with the same name",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			member := resource.ID{Type: resource.TypeChannel, Key: "1"}
 			first := v1.Removal{
 				Group:     uuid.New(),

@@ -43,7 +43,8 @@ var _ = Describe("Codec", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("failed to decode")),
 		))
-		Expect(errors.Encode(err, false).Type).To(Equal("sy.validation"))
+		codec := errors.NewCodec(validate.ErrorProvider())
+		Expect(codec.Encode(err, false).Type).To(Equal("sy.validation"))
 	})
 
 	It("Should name the decoded type when a stream does not decode", func() {
@@ -297,8 +298,9 @@ var _ = Describe("EncodedJSON", func() {
 			type config struct {
 				Count int `json:"count"`
 			}
-			var semErr *json.SemanticError
-			Expect(errors.As(m.Unmarshal(&config{}), &semErr)).To(BeTrue())
+			semErr := MustBeOk(
+				errors.AsType[*json.SemanticError](m.Unmarshal(&config{})),
+			)
 			Expect(semErr.JSONPointer).To(Equal(jsontext.Pointer("/count")))
 			Expect(semErr.GoType).To(Equal(reflect.TypeFor[int]()))
 		})

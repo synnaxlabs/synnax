@@ -106,8 +106,12 @@ func NewKeyed[K comparable](
 		wake:    make(chan struct{}, 1),
 		pending: make(map[K]window),
 	}
-	ctx, k.cancel = context.WithCancel(ctx)
-	k.wg.Go(func() { pprof.Do(ctx, pprof.Labels("routine", "debounce.keyed"), k.run) })
+	ctx, cancel := context.WithCancel(ctx)
+	k.cancel = cancel
+	k.wg.Go(func() {
+		defer cancel()
+		pprof.Do(ctx, pprof.Labels("routine", "debounce.keyed"), k.run)
+	})
 	return k, nil
 }
 

@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,12 +69,15 @@ var _ = Describe("Released wire format", func() {
 			),
 			'\n',
 		)
-		p := filepath.Join("testdata", "v5_released.decoded.json")
+		const name = "v5_released.decoded.json"
+		p := filepath.Join("testdata", name)
 		if os.Getenv("UPDATE_DECODED") == "1" {
 			Expect(os.WriteFile(p, pretty, 0o644)).To(Succeed())
 			return
 		}
-		Expect(pretty).To(MatchJSON(MustSucceed(os.ReadFile(p))))
+		Expect(
+			pretty,
+		).To(MatchJSON(MustSucceed(fs.ReadFile(os.DirFS("testdata"), name))))
 	})
 
 	It("Should reject every truncation of the payload", func() {

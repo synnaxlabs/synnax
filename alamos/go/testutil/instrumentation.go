@@ -52,12 +52,6 @@ func (c InstrumentationConfig) Override(
 	return c
 }
 
-var defaultInstrumentationConfig = InstrumentationConfig{
-	Trace:  new(false),
-	Log:    new(false),
-	Report: new(false),
-}
-
 func serviceName() string { return lo.Must(os.Hostname()) }
 
 const devDSN = "http://synnax_dev@localhost:14317/2"
@@ -95,7 +89,11 @@ func newReports() *alamos.Reporter {
 // within a Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	ginkgo.GinkgoHelper()
-	cfg, err := config.New(defaultInstrumentationConfig, cfgs...)
+	cfg, err := config.New(InstrumentationConfig{
+		Trace:  new(false),
+		Log:    new(false),
+		Report: new(false),
+	}, cfgs...)
 	if err != nil {
 		zap.S().Fatal(err)
 	}

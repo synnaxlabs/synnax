@@ -9,7 +9,7 @@
 
 import { type resource, status } from "@synnaxlabs/client";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { migrate } from "@synnaxlabs/x";
+import { semver } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { check, Update } from "@tauri-apps/plugin-updater";
@@ -94,7 +94,7 @@ export const find = async (
   if (isDev(target.version)) return null;
   if (!target.secure) {
     const current = await getVersion();
-    if (migrate.semVerOlder(target.version, current, { checkPatch: false }))
+    if (semver.older(target.version, current, { patchIgnored: true }))
       return {
         variant: "blocked",
         status: status.create({
@@ -115,7 +115,7 @@ export const find = async (
     return null;
   }
   if (latest == null) return null;
-  if (migrate.semVerNewer(latest.version, target.version, { checkPatch: false }))
+  if (semver.newer(latest.version, target.version, { patchIgnored: true }))
     return { update: latest, variant: "breaking", coreVersion: target.version };
   await latest.close();
   return null;

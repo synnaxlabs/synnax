@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, rack as clientRack, task } from "@synnaxlabs/client";
+import { device, NotFoundError, rack as clientRack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Device as PDevice } from "@synnaxlabs/pluto";
 import { id, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -18,16 +19,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { EtherCAT } from "@/feature/ethercat";
 import {
   CONTROL_ENTRY,
+  createReachedStatus,
   createSlaveDevice as createSlave,
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
 import { Device } from "@/platform/device";
 import {
   answerCommand,
+  answerCommandsUntil,
   type CommandAnswer,
   reportTaskRunning,
 } from "@/platform/task/testutil";
-import { createAsyncSynnaxWrapper, uniqueName } from "@/testutil";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -424,48 +427,37 @@ describe("useToggleEnabled", () => {
   });
 });
 
-describe("useSetStandalone", () => {
-  const createReadTask = async (r: clientRack.Rack, device: string) =>
-    await r.createTask({
-      name: uniqueName("ecat_read"),
-      type: EtherCAT.Task.READ_TYPE,
-      config: EtherCAT.Task.READ_SCHEMAS.config.parse({
-        channels: [EtherCAT.Task.createEntryReadChannel(device, STATUS_ENTRY)],
-      }),
+const createReadTask = async (r: clientRack.Rack, device: string) =>
+  await r.createTask({
+    name: uniqueName("ecat_read"),
+    type: EtherCAT.Task.READ_TYPE,
+    config: EtherCAT.Task.READ_SCHEMAS.config.parse({
+      channels: [EtherCAT.Task.createEntryReadChannel(device, STATUS_ENTRY)],
+    }),
+  });
+
+describe("useRestartTasks", () => {
+  it("should succeed when a task fails to start", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const read = await createReadTask(r, slave.key);
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil(client, [read], "start", {
+      start: { variant: "error", message: "Failed to start task" },
     });
+    const { result } = renderHook(() => EtherCAT.Device.useRestartTasks(), {
+      wrapper,
+    });
+    await act(async () => {
+      expect(await result.current.updateAsync({ rack: r.key, network: "eth0" })).toBe(
+        true,
+      );
+    });
+    expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+  });
+});
 
-  /**
-   * Answers each command sent to the tasks as a Driver does, with the answer that
-   * answers holds for its type. Resolves with the commands once it answers one of the
-   * type last.
-   */
-  const answerCommandsUntil = async (
-    tasks: task.Task[],
-    last: string,
-    answers: Record<string, Omit<CommandAnswer, "type">> = {},
-  ): Promise<{ answered: Promise<task.Command[]> }> => {
-    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-    const answer = async (): Promise<task.Command[]> => {
-      const commands: task.Command[] = [];
-      try {
-        for (;;) {
-          const frame = await streamer.read();
-          for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
-            const cmd = task.commandZ.parse(sample);
-            const tsk = tasks.find((t) => t.key === cmd.task);
-            if (tsk == null) continue;
-            commands.push(cmd);
-            await answerCommand(client, tsk, cmd, answers[cmd.type]);
-            if (cmd.type === last) return commands;
-          }
-        }
-      } finally {
-        streamer.close();
-      }
-    };
-    return { answered: answer() };
-  };
-
+describe("useSetStandalone", () => {
   it("should stop the running tasks on the network of the slave, then switch it", async () => {
     const r = await client.racks.create({ name: uniqueName("ecat_rack") });
     const slave = await createSlaveDevice(r.key, { network: "eth0" });
@@ -489,6 +481,7 @@ describe("useSetStandalone", () => {
     for (const tsk of [readHere, writeHere, readElsewhere])
       await reportTaskRunning(client, tsk);
     const driver = await answerCommandsUntil(
+      client,
       [readHere, writeHere, readElsewhere, stoppedHere, scan],
       "set_standalone",
     );
@@ -525,7 +518,7 @@ describe("useSetStandalone", () => {
       config: {},
     });
     await reportTaskRunning(client, read);
-    const driver = await answerCommandsUntil([read, scan], "start", answers);
+    const driver = await answerCommandsUntil(client, [read, scan], "start", answers);
     const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
       wrapper,
     });
@@ -551,7 +544,7 @@ describe("useSetStandalone", () => {
       type: EtherCAT.Task.SCAN_TYPE,
       config: {},
     });
-    const driver = await answerCommandsUntil([scan], "scan");
+    const driver = await answerCommandsUntil(client, [scan], "scan");
     const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
       wrapper,
     });
@@ -572,7 +565,7 @@ describe("useSetStandalone", () => {
       config: {},
     });
     await reportTaskRunning(client, read);
-    const driver = await answerCommandsUntil([read, scan], "set_standalone", {
+    const driver = await answerCommandsUntil(client, [read, scan], "set_standalone", {
       set_standalone: {
         message: "Switched the card to Synnax only",
         description: "The device in slot 1 runs Synnax only now.",
@@ -663,5 +656,128 @@ describe("useSetStandalone", () => {
     await driver;
     expect(switched).toBe(false);
     expect(types).toEqual(["stop", "set_standalone", "end"]);
+  });
+});
+
+describe("useReplace", () => {
+  it("should give the old slave the module of the new slave, then delete the new slave", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const old = await createSlaveDevice(r.key, {
+      name: "Thermocouples",
+      identifier: "tc",
+      network: "eth0",
+      position: 3,
+      serial: 0,
+      switchedAt: 5,
+    });
+    const slave = await createSlave(
+      client,
+      r.key,
+      { network: "eth0", position: 5, serial: 77 },
+      false,
+    );
+    await createReachedStatus(client, slave);
+    const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
+    await act(async () => {
+      await result.current.updateAsync({ old: old.key, slave: slave.key });
+    });
+    const kept = await client.devices.retrieve({
+      key: old.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(kept.name).toEqual("Thermocouples");
+    expect(kept.properties).toMatchObject({
+      identifier: "tc",
+      network: "eth0",
+      position: 5,
+      serial: 77,
+    });
+    expect(kept.properties.switchedAt).toBeUndefined();
+    await expect(client.devices.retrieve({ key: slave.key })).rejects.toThrow(
+      NotFoundError,
+    );
+  });
+
+  it("should stop the running tasks on the network of the old slave and leave them stopped", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const old = await createSlaveDevice(r.key, { network: "eth0" });
+    const neighbor = await createSlaveDevice(r.key, { network: "eth0" });
+    const slave = await createSlave(client, r.key, { network: "eth0" }, false);
+    await createReachedStatus(client, slave);
+    const read = await createReadTask(r, neighbor.key);
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil(client, [read], "stop");
+    let stopped: task.Key[] = [];
+    const { result } = renderHook(
+      () =>
+        EtherCAT.Device.useReplace({
+          afterSuccess: ({ data }) => {
+            stopped = data.stopped.map((t) => t.key);
+          },
+        }),
+      { wrapper },
+    );
+    await act(async () => {
+      expect(await result.current.updateAsync({ old: old.key, slave: slave.key })).toBe(
+        true,
+      );
+    });
+    expect((await driver.answered).map((c) => c.type)).toEqual(["stop"]);
+    expect(stopped).toEqual([read.key]);
+  });
+
+  it("should change neither slave when a task fails to stop", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const old = await createSlaveDevice(r.key, { network: "eth0", position: 3 });
+    const slave = await createSlave(
+      client,
+      r.key,
+      { network: "eth0", position: 5 },
+      false,
+    );
+    await createReachedStatus(client, slave);
+    const read = await createReadTask(r, old.key);
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil(client, [read], "start", {
+      stop: { variant: "error", message: "Failed to stop" },
+    });
+    const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
+    await act(async () => {
+      expect(await result.current.updateAsync({ old: old.key, slave: slave.key })).toBe(
+        false,
+      );
+    });
+    expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+    const kept = await client.devices.retrieve({
+      key: old.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(kept.properties.position).toEqual(3);
+    expect((await client.devices.retrieve({ key: slave.key })).key).toEqual(slave.key);
+  });
+
+  it("should change neither slave when the old module is back on the bus", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const old = await createSlaveDevice(r.key, { network: "eth0", position: 3 });
+    const slave = await createSlave(
+      client,
+      r.key,
+      { network: "eth0", position: 5 },
+      false,
+    );
+    await createReachedStatus(client, slave);
+    await createReachedStatus(client, old);
+    const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
+    await act(async () => {
+      expect(await result.current.updateAsync({ old: old.key, slave: slave.key })).toBe(
+        false,
+      );
+    });
+    const kept = await client.devices.retrieve({
+      key: old.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(kept.properties.position).toEqual(3);
+    expect((await client.devices.retrieve({ key: slave.key })).key).toEqual(slave.key);
   });
 });

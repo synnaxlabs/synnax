@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -172,39 +174,57 @@ func (s *Service) NewStream(
 		return nil, err
 	}
 	p.SetSegment("distribution", dist)
-	var (
-		routeInletsTo   address.Address = "distribution"
-		routeOutletFrom address.Address = "distribution"
-	)
+	var routeInletsTo, routeOutletFrom address.Address = "distribution", "distribution"
 	if calcTransform != nil {
-		p.SetSegment(
-			"calculation",
+		routeInletsTo, routeOutletFrom = addCalculationSegments(
+			p,
+			cfg,
 			calcTransform,
-			confluence.DeferErr(calcTransform.close),
+			sizer,
+			sizes,
 		)
-		p.MustConnect[Response](routeOutletFrom, "calculation", 25)
-		routeOutletFrom = "calculation"
-		if stride, ok := cfg.Reduction.Variant.(telem.StrideReduction); ok &&
-			stride.Factor > 1 {
-			p.SetSegment("downsampler", newDownsampler(stride.Factor))
-			p.MustConnect[Response](routeOutletFrom, "downsampler", 25)
-			routeOutletFrom = "downsampler"
-		}
-		if sizer != nil {
-			r := newReducer(sizer.limit.Aggregation, sizes)
-			p.SetSegment("reducer", r)
-			p.MustConnect[Response](routeOutletFrom, "reducer", 25)
-			routeOutletFrom = "reducer"
-			p.SetSegment("planner", newRequestPlanner(sizer, r))
-			p.MustConnect[Request]("planner", routeInletsTo, 1)
-			routeInletsTo = "planner"
-		}
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
 		RouteInletsTo:    []address.Address{routeInletsTo},
 		RouteOutletsFrom: []address.Address{routeOutletFrom},
 	}, nil
+}
+
+// addCalculationSegments adds the calculation transform to p after the distribution
+// iterator, followed by a downsampler when cfg strides and a reducer when sizer is not
+// nil. It returns the addresses that requests enter and responses leave.
+func addCalculationSegments(
+	p *plumber.Pipeline,
+	cfg Config,
+	calcTransform *calculationTransform,
+	sizer *groupSizer,
+	sizes map[channel.Key]uint32,
+) (routeInletsTo, routeOutletFrom address.Address) {
+	routeInletsTo, routeOutletFrom = "distribution", "distribution"
+	p.SetSegment(
+		"calculation",
+		calcTransform,
+		confluence.DeferErr(calcTransform.close),
+	)
+	p.MustConnect[Response](routeOutletFrom, "calculation", 25)
+	routeOutletFrom = "calculation"
+	if stride, ok := cfg.Reduction.Variant.(telem.StrideReduction); ok &&
+		stride.Factor > 1 {
+		p.SetSegment("downsampler", newDownsampler(stride.Factor))
+		p.MustConnect[Response](routeOutletFrom, "downsampler", 25)
+		routeOutletFrom = "downsampler"
+	}
+	if sizer != nil {
+		r := newReducer(sizer.limit.Aggregation, sizes)
+		p.SetSegment("reducer", r)
+		p.MustConnect[Response](routeOutletFrom, "reducer", 25)
+		routeOutletFrom = "reducer"
+		p.SetSegment("planner", newRequestPlanner(sizer, r))
+		p.MustConnect[Request]("planner", routeInletsTo, 1)
+		routeInletsTo = "planner"
+	}
+	return routeInletsTo, routeOutletFrom
 }
 
 func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
@@ -239,97 +259,43 @@ func (s *Service) newCalculationTransform(
 	cfg *Config,
 ) (*calculationTransform, *groupSizer, error) {
 	originalKeys := slices.Clone(cfg.Keys)
-
-	// Fetch the requested channels
-	var channels []channel.Channel
-	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.cfg.Channel.NewRetrieve().
-			Where(channel.MatchKeys(cfg.Keys...)).
-			Entries(&channels).
-			Exec(ctx, snap)
-	}); err != nil {
-		return nil, nil, err
-	}
-
-	// Use allocator to resolve dependencies and get topological order
-	calcGraph, err := graph.New(graph.Config{
-		Instrumentation: s.cfg.Child("calculation.graph"),
-		Channel:         s.cfg.Channel,
-		DB:              s.cfg.DB,
-	})
+	channels, err := s.retrieveChannels(ctx, cfg.Keys)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	// A free index has no expression, so add the calculated channel that writes it.
-	freeIndexes := lo.FilterMap(
-		channels,
-		func(ch channel.Channel, _ int) (channel.Key, bool) {
-			return ch.Key(), ch.IsIndex && ch.Key().Free()
-		},
-	)
-	if len(freeIndexes) > 0 {
-		var owners []channel.Channel
-		if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-			return s.cfg.Channel.NewRetrieve().
-				Where(channel.MatchCalculated()).
-				Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
-				Entries(&owners).
-				Exec(ctx, snap)
-		}); err != nil {
-			return nil, nil, err
-		}
-		channels = append(channels, owners...)
+	owners, err := s.retrieveFreeIndexOwners(ctx, channels)
+	if err != nil {
+		return nil, nil, err
 	}
-
-	// Add all calculated channels to the allocator
-	for _, ch := range channels {
-		if ch.IsCalculated() {
-			if err := calcGraph.Add(ctx, ch); err != nil {
-				return nil, nil, err
-			}
-		}
+	channels = append(channels, owners...)
+	calcGraph, err := s.newCalculationGraph(ctx, channels)
+	if err != nil {
+		return nil, nil, err
 	}
-
 	// Get topologically sorted modules
 	modules := calcGraph.CalculateFlat()
-
 	// If no calculated channels, no transform needed
 	if len(modules) == 0 {
 		return nil, nil, nil
 	}
-
-	calculatedKeys := calcGraph.CalculatedKeys()
 	concreteBaseKeys := calcGraph.ConcreteBaseKeys()
-
 	// Fetch concrete base channel metadata to get their indices
 	var concreteBaseChannels []channel.Channel
 	if len(concreteBaseKeys) > 0 {
-		if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-			return s.cfg.Channel.NewRetrieve().
-				Entries(&concreteBaseChannels).
-				Where(channel.MatchKeys(concreteBaseKeys.Slice()...)).
-				Exec(ctx, snap)
-		}); err != nil {
+		if concreteBaseChannels, err = s.retrieveChannels(
+			ctx,
+			concreteBaseKeys.Slice(),
+		); err != nil {
 			return nil, nil, err
 		}
 	}
-
-	// Update cfg.Keys to include concrete base keys and their indices
-	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Slice()...))
-	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
+	cfg.Keys = concreteKeys(
+		cfg.Keys,
+		calcGraph.CalculatedKeys(),
+		concreteBaseKeys,
 		concreteBaseChannels,
-		func(item channel.Channel, index int) (channel.Key, bool) {
-			return item.Index(), !item.Virtual
-		},
-	)...,
-	))
-
-	// Remove ALL calculated keys (including nested ones) from cfg.Keys
-	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
-		return !calculatedKeys.Contains(item) && !item.Free()
-	})
-
+	)
 	var sizer *groupSizer
 	if limit, ok := cfg.Reduction.Variant.(telem.LimitReduction); ok {
 		if sizer, err = s.newGroupSizer(
@@ -341,9 +307,111 @@ func (s *Service) newCalculationTransform(
 			return nil, nil, err
 		}
 	}
-
 	// Calculators hold resources until they close, so they open after every other step
 	// that can fail.
+	transform, err := openCalculationTransform(ctx, originalKeys, modules)
+	if err != nil {
+		return nil, nil, err
+	}
+	return transform, sizer, nil
+}
+
+// retrieveChannels returns the channels with keys.
+func (s *Service) retrieveChannels(
+	ctx context.Context,
+	keys []channel.Key,
+) ([]channel.Channel, error) {
+	var channels []channel.Channel
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
+		return nil, err
+	}
+	return channels, nil
+}
+
+// retrieveFreeIndexOwners returns the calculated channels that write the free indexes
+// in channels.
+func (s *Service) retrieveFreeIndexOwners(
+	ctx context.Context,
+	channels []channel.Channel,
+) ([]channel.Channel, error) {
+	freeIndexes := lo.FilterMap(
+		channels,
+		func(ch channel.Channel, _ int) (channel.Key, bool) {
+			return ch.Key(), ch.IsIndex && ch.Key().Free()
+		},
+	)
+	if len(freeIndexes) == 0 {
+		return nil, nil
+	}
+	var owners []channel.Channel
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchCalculated()).
+			Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
+			Entries(&owners).
+			Exec(ctx, snap)
+	}); err != nil {
+		return nil, err
+	}
+	return owners, nil
+}
+
+// newCalculationGraph returns a graph that holds the calculated channels in channels
+// and their dependencies.
+func (s *Service) newCalculationGraph(
+	ctx context.Context,
+	channels []channel.Channel,
+) (*graph.Graph, error) {
+	calcGraph, err := graph.New(graph.Config{
+		Instrumentation: s.cfg.Child("calculation.graph"),
+		Channel:         s.cfg.Channel,
+		DB:              s.cfg.DB,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, ch := range channels {
+		if ch.IsCalculated() {
+			if err = calcGraph.Add(ctx, ch); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return calcGraph, nil
+}
+
+// concreteKeys returns keys with the concrete base keys and the indexes of the
+// concrete base channels added, and every calculated or free key removed.
+func concreteKeys(
+	keys []channel.Key,
+	calculatedKeys set.Set[channel.Key],
+	concreteBaseKeys set.Set[channel.Key],
+	concreteBaseChannels []channel.Channel,
+) []channel.Key {
+	keys = lo.Uniq(append(keys, concreteBaseKeys.Slice()...))
+	keys = lo.Uniq(append(keys, lo.FilterMap(
+		concreteBaseChannels,
+		func(item channel.Channel, _ int) (channel.Key, bool) {
+			return item.Index(), !item.Virtual
+		},
+	)...))
+	return lo.Filter(keys, func(item channel.Key, _ int) bool {
+		return !calculatedKeys.Contains(item) && !item.Free()
+	})
+}
+
+// openCalculationTransform opens a calculator for each of modules and returns the
+// transform that runs them. originalKeys are the keys that the caller requested.
+func openCalculationTransform(
+	ctx context.Context,
+	originalKeys []channel.Key,
+	modules []compiler.Module,
+) (*calculationTransform, error) {
 	transform := newCalculationTransform(
 		originalKeys,
 		make([]*calculator.Calculator, 0, len(modules)),
@@ -351,11 +419,11 @@ func (s *Service) newCalculationTransform(
 	for _, mod := range modules {
 		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
 		if err != nil {
-			return nil, nil, errors.Combine(err, transform.close())
+			return nil, errors.Combine(err, transform.close())
 		}
 		transform.calculators = append(transform.calculators, calc)
 	}
-	return transform, sizer, nil
+	return transform, nil
 }
 
 // newGroupSizer returns a group sizer for the requested channels. A concrete channel

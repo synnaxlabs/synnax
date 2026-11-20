@@ -84,6 +84,7 @@ Kind enum {
     }
 
     @doc value "is the kind of value a payload field holds."
+    @pb
 }
 
 TimeFormat enum {
@@ -104,6 +105,7 @@ TimeFormat enum {
     }
 
     @doc value "is the encoding of a timestamp value within a payload."
+    @pb
 }
 
 FloatEntry struct {
@@ -116,6 +118,7 @@ FloatEntry struct {
 
     @doc value  "maps a payload label to a float channel value."
     @go marshal
+    @pb
 }
 
 IntegerEntry struct {
@@ -128,6 +131,7 @@ IntegerEntry struct {
 
     @doc value  "maps a payload label to a signed integer channel value."
     @go marshal
+    @pb
 }
 
 UnsignedEntry struct {
@@ -140,6 +144,7 @@ UnsignedEntry struct {
 
     @doc value  "maps a payload label to an unsigned integer channel value."
     @go marshal
+    @pb
 }
 
 StringEntry struct {
@@ -152,6 +157,7 @@ StringEntry struct {
 
     @doc value  "maps a payload label to a string channel value."
     @go marshal
+    @pb
 }
 
 BooleanEntry struct {
@@ -164,6 +170,7 @@ BooleanEntry struct {
 
     @doc value  "maps a payload label to a boolean channel value."
     @go marshal
+    @pb
 }
 
 FloatRead struct {
@@ -285,4 +292,18 @@ GeneratorType enum {
     }
 
     @doc value "is the kind of value produced for a generated write field."
+}
+
+Format enum {
+    json   = "json" {
+        @doc value "is one JSON value."
+    }
+    text   = "text" {
+        @doc value "is UTF-8 text."
+    }
+    binary = "binary" {
+        @doc value "is raw bytes."
+    }
+
+    @doc value "is the encoding of a whole payload."
 }

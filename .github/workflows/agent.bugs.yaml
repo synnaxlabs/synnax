@@ -8,7 +8,8 @@
 # included in the file licenses/APL.txt.
 
 # Calls one agent per code area twice a week to find and fix real bugs. Each area holds
-# at most about 40,000 source lines, so one agent run can read all of it.
+# at most about 40,000 source lines, so one agent run can read all of it. Once every
+# area ends, the run posts the PRs it opened to Slack.
 
 name: Agent - Bug hunt
 
@@ -32,6 +33,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -115,12 +117,75 @@ jobs:
         ${{ needs.prompt.outputs.prompt }}
 
         Your area is `${{ matrix.area }}`: ${{ matrix.paths }}.
+
+        The reviewer for a `review/human` PR is
+        `${{ vars.AGENT_REVIEWER || 'pjdotson' }}`.
+        End each PR body with the line `Bug hunt run ${{ github.run_id }}`.
       agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
       output: report
       timeout-minutes: 240
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  slack:
+    name: Post to Slack
+    needs: agent
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: read
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+    steps:
+      # The agents open their own PRs, so the run finds them by the run ID each PR body
+      # ends with. Every attempt of the run lists them all.
+      - name: Post the PRs the run opened
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ needs.agent.result }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          gh pr list --repo "$GITHUB_REPOSITORY" --state all --limit 500 \
+            --search "\"Bug hunt run $GITHUB_RUN_ID\" in:body" \
+            --json number,title,url,labels > prs.json
+          jq -r --arg result "$RESULT" --arg run "$RUN_URL" '
+            def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
+            def line: "• <\(.url)|#\(.number)> \(.title | esc)";
+            def tier($t): map(select(any(.labels[]; .name == $t)));
+            (tier("review/human")) as $human
+            | (tier("review/bot")) as $bot
+            | (map(select(all(.labels[]; .name | startswith("review/") | not))))
+              as $none
+            | (if $result == "success" then "Every area finished."
+               else "Some areas did not finish (\($result))." end) as $areas
+            | ["*Bug hunt*: \(length) PRs opened. \($areas) <\($run)|Run>",
+               "Label - Classify can still raise a tier and request a review."]
+            + (if ($human | length) > 0
+               then ["", "*Needs your review*"] + ($human | map(line)) else [] end)
+            + (if ($none | length) > 0
+               then ["", "*No tier label*"] + ($none | map(line)) else [] end)
+            + (if ($bot | length) > 0
+               then ["", "*review/bot, merging on their own*"] + ($bot | map(line))
+               else [] end)
+            | join("\n")' prs.json |
+            jq --raw-input --slurp '{text: .}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" \
+              --data @- "$SLACK_WEBHOOK_URL"
+
+  relay-failure:
+    name: Relay the failure
+    needs: [prompt, agent, slack]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true
+      report: true

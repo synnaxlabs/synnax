@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { auth } from "@synnaxlabs/client";
+import { testClientParams } from "@synnaxlabs/client/testutil";
+import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Embedded } from "@/feature/embedded";
 import {
@@ -24,7 +26,7 @@ import {
 } from "@/feature/embedded/testutil";
 import { Session } from "@/session";
 
-const { port } = TEST_CLIENT_PARAMS;
+const { port } = testClientParams();
 
 const { client, live } = await createDesktopUser();
 
@@ -209,6 +211,45 @@ describe("Embedded.Guard API key for scripts", () => {
       return file.apiKey;
     });
     await createScriptClient(apiKey).auth.retrieveSessions();
+  });
+
+  it("should revoke a Desktop 1.1 key and save a new one in its place", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
+    const { file, handlers } = createDiscoveryFile();
+    file.legacy = token;
+    mockSupervisor(() => live, handlers);
+    await renderGuard();
+    const apiKey = await waitFor(() => {
+      if (file.apiKey == null) throw new Error("no key saved");
+      return file.apiKey;
+    });
+    expect(apiKey).not.toBe(token);
+    expect(file.legacy).toBeNull();
+    await expect.poll(async () => await retrieveKeyIDs(client)).not.toContain(key.key);
+    await createScriptClient(apiKey).auth.retrieveSessions();
+  });
+
+  it("should keep a Desktop 1.1 key in the file when its revoke fails", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
+    const { file, handlers } = createDiscoveryFile();
+    file.legacy = token;
+    const deleteKeys = vi
+      .spyOn(auth.Client.prototype, "deleteKeys")
+      .mockRejectedValueOnce(new Error("Core restarted"));
+    const { commands } = mockSupervisor(() => live, handlers);
+    await renderGuard();
+    await waitFor(() => expect(deleteKeys).toHaveBeenCalled());
+    const revoke = deleteKeys.mock.results[0].value;
+    deleteKeys.mockRestore();
+    // The forget would run right after the revoke settles, so wait for both to settle.
+    await expect(revoke).rejects.toThrow("Core restarted");
+    await scheduler.nextTask();
+    expect(commands).not.toHaveBeenCalledWith("supervisor_forget_legacy_api_key");
+    expect(commands).not.toHaveBeenCalledWith("supervisor_save_api_key");
+    expect(file.legacy).toBe(token);
+    await client.auth.deleteKeys(key.key);
   });
 
   it("should replace a saved key that is not an API key", async () => {

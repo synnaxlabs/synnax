@@ -211,7 +211,7 @@ func importsFilterSchema(ast parser.ISchemaContext) bool {
 // by their operator types, in declared line order.
 func expandFilters(c *analysisCtx) {
 	for i := range c.table.Types {
-		if typ := c.table.Types[i]; typ.Namespace == c.namespace && typ.Filter != nil {
+		if typ := c.table.Types[i]; c.owns(typ) && typ.Filter != nil {
 			c.table.Types[i] = expandFilter(c, typ)
 		}
 	}
@@ -444,7 +444,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		return
 	}
 	where, ok := lo.Find(
-		c.table.TypesInNamespace(c.namespace),
+		c.ownTypes(),
 		func(t resolution.Type) bool { return t.Filter != nil },
 	)
 	if !ok {
@@ -554,7 +554,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		}
 	}
 	// The request refers to the ordering types, so they resolve first.
-	created := append(ordering, resolution.Type{
+	created := append(slices.Clone(ordering), resolution.Type{
 		Name: "RetrieveRequest",
 		Form: resolution.StructForm{Fields: request},
 		Domains: withDoc(domains, fmt.Sprintf(
@@ -656,7 +656,7 @@ func orderingTypes(
 			),
 		))
 	}
-	types = []resolution.Type{{
+	cursorType := resolution.Type{
 		Name: "Cursor",
 		Form: resolution.StructForm{Fields: cursor},
 		Domains: withDoc(domains, fmt.Sprintf(
@@ -664,17 +664,17 @@ func orderingTypes(
 			words,
 			singular,
 		)),
-	}}
-	if len(sorts) == 0 {
-		return types, false, true
 	}
-	return append(types, resolution.Type{
+	if len(sorts) == 0 {
+		return []resolution.Type{cursorType}, false, true
+	}
+	return []resolution.Type{cursorType, {
 		Name: "OrderField",
 		Form: resolution.EnumForm{Values: values},
 		Domains: withDoc(domains, fmt.Sprintf(
 			"is a field that %s can be sorted by.", words,
 		)),
-	}, resolution.Type{
+	}, {
 		Name: "Order",
 		Form: resolution.StructForm{Fields: []resolution.Field{
 			requiredField(
@@ -690,7 +690,7 @@ func orderingTypes(
 			),
 		}},
 		Domains: withDoc(domains, fmt.Sprintf("is a sort of %s.", words)),
-	}), true, true
+	}}, true, true
 }
 
 // retrieveResponse derives the response and returns it with the fields of the records

@@ -155,7 +155,7 @@ var _ = Describe("Graph", func() {
 			setExpression(ctx, &calc1, "return circ2")
 			Expect(
 				g.Add(ctx, calc1),
-			).To(MatchError(ContainSubstring("circular dependency")))
+			).To(MatchError(graph.ErrCycle))
 		})
 
 		It("Should not re-add existing channel", func(ctx SpecContext) {

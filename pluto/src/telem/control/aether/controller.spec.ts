@@ -13,7 +13,7 @@ import {
   SessionEndedError,
   ValidationError,
 } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import { StreamClosed } from "@synnaxlabs/freighter";
 import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
@@ -100,7 +100,7 @@ const hold = async (key: channel.Key, subject: string): Promise<Holder> => {
 const setup = async (key: channel.Key, openWriter?: OpenWriter) => {
   const h = renderAether(Colors, {
     state: {},
-    synnax: { props: TEST_CLIENT_PARAMS },
+    synnax: { props: testClientParams() },
     registry:
       openWriter == null ? { [Controller.TYPE]: Controller } : registryWith(openWriter),
     children: {
@@ -195,8 +195,7 @@ const interceptWrites = (
  * in flight.
  */
 const gateWriter = () => {
-  let finishOpen!: () => void;
-  const gate = new Promise<void>((resolve) => (finishOpen = resolve));
+  const { promise: gate, resolve: finishOpen } = Promise.withResolvers<void>();
   let writes = 0;
   let closes = 0;
   const openWriter: OpenWriter = async (client, config) => {

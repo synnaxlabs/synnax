@@ -57,7 +57,7 @@ class Policy(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     objects: list[resource.ID] = Field(default_factory=list)
     actions: list[action.Action] = Field(default_factory=list)
     internal: bool = False

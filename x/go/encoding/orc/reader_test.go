@@ -218,9 +218,19 @@ var _ = Describe("Reader", func() {
 		It("Should read a valid collection length in direct mode", func() {
 			w := orc.NewWriter(0)
 			w.Uint32(50)
+			w.Write(make([]byte, 50))
 			r := orc.NewReader(nil)
 			r.ResetBytes(w.Bytes())
 			Expect(r.CollectionLen()).To(Equal(uint32(50)))
+		})
+
+		It("Should reject a length above the unread bytes in direct mode", func() {
+			w := orc.NewWriter(0)
+			w.Uint32(50)
+			w.Write(make([]byte, 49))
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			Expect(r.CollectionLen()).Error().To(MatchError(io.ErrUnexpectedEOF))
 		})
 
 		It(

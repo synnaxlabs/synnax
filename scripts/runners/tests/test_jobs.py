@@ -14,7 +14,7 @@ from typing import Any
 import synnax as sy
 
 from common import Channels
-from conftest import Client, core
+from conftest import Client
 from github import GitHub
 from jobs import Jobs, Queued, completed_line, ref, started_line, step_events, view
 from log import Log
@@ -40,7 +40,7 @@ class Responses(GitHub):
         super().__init__("1", "")
         self.responses = responses
 
-    def get(self, path: str) -> dict:
+    def call(self, path: str, *, method: str = "GET") -> dict:
         return self.responses[path]
 
 
@@ -77,11 +77,11 @@ class Held(Executor):
         self.immediate = immediate
         self.pending: list[tuple[Future[Any], Callable[[], Any]]] = []
 
-    def submit(  # type: ignore[override]
-        self, fn: Callable[[], Any], /, *args: Any, **kwargs: Any
-    ) -> Future[Any]:
-        future: Future[Any] = Future()
-        self.pending.append((future, fn))
+    def submit[**P, T](
+        self, fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs
+    ) -> Future[T]:
+        future: Future[T] = Future()
+        self.pending.append((future, lambda: fn(*args, **kwargs)))
         if self.immediate:
             self.release()
         return future
@@ -94,8 +94,8 @@ class Held(Executor):
 
 def jobs(github: GitHub, *, client: Client, pool: Executor | None = None) -> Jobs:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
     return Jobs(github=github, log=log, pool=pool or Held())
@@ -149,6 +149,27 @@ class TestJobs:
         j.resync(sy.TimeStamp.now())
         assert j.queued == {2: WAITING}
         assert j.counts() == {"ubuntu-test-bot": 1}
+
+    def test_should_count_as_stuck_only_long_waits_the_last_read_found(
+        self, client: Client
+    ) -> None:
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {
+                    "jobs": [job(2, status="queued")]
+                },
+            }
+        )
+        after = 5 * sy.TimeSpan.MINUTE
+        late = jobs(github, client=client)
+        late.resync(WAITING.since + after)
+        late.apply([queued(1, labels=["self-hosted", "seat-claude-1"])])
+        assert late.stuck(after=after) == [set(LABELS)]
+        early = jobs(github, client=client)
+        early.resync(WAITING.since + sy.TimeSpan.MINUTE)
+        assert early.stuck(after=after) == []
 
     def test_should_keep_the_queue_until_the_resync_finishes(
         self, client: Client

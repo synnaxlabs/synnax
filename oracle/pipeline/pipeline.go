@@ -22,7 +22,6 @@ package pipeline
 import (
 	"context"
 	"maps"
-	"os"
 	"runtime"
 	"sort"
 	"sync"
@@ -255,8 +254,7 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			abs := paths.Resolve(rel, opts.RepoRoot)
-			raw, err := os.ReadFile(abs)
+			raw, err := paths.ReadFile(rel, opts.RepoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read schema %s", rel)
 			}
@@ -318,32 +316,7 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) {
 				if err := gctx.Err(); err != nil {
 					return err
 				}
-				req := &plugin.Request{
-					Resolutions: r.Resolutions,
-					RepoRoot:    opts.RepoRoot,
-					Versions:    r.Versions,
-				}
-				for _, depName := range p.Requires() {
-					if opts.Plugins.Get(depName) == nil {
-						return errors.Newf(
-							"plugin %q requires unknown plugin %q",
-							p.Name(), depName,
-						)
-					}
-				}
-				resp, err := p.Generate(req)
-				if err != nil {
-					return errors.Wrapf(err, "plugin %s", p.Name())
-				}
-				if resp != nil {
-					mu.Lock()
-					r.Outputs[p.Name()] = resp.Files
-					if len(resp.Deletions) > 0 {
-						r.Deletions[p.Name()] = resp.Deletions
-					}
-					mu.Unlock()
-				}
-				return nil
+				return runPlugin(r, opts, p, &mu)
 			})
 		}
 		if err := eg.Wait(); err != nil {
@@ -351,4 +324,35 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) {
 			return
 		}
 	}
+}
+
+// runPlugin runs one plugin and stores its outputs in r under mu.
+func runPlugin(r *Result, opts Options, p plugin.Plugin, mu *sync.Mutex) error {
+	req := &plugin.Request{
+		Resolutions: r.Resolutions,
+		RepoRoot:    opts.RepoRoot,
+		Versions:    r.Versions,
+	}
+	for _, depName := range p.Requires() {
+		if opts.Plugins.Get(depName) == nil {
+			return errors.Newf(
+				"plugin %q requires unknown plugin %q",
+				p.Name(), depName,
+			)
+		}
+	}
+	resp, err := p.Generate(req)
+	if err != nil {
+		return errors.Wrapf(err, "plugin %s", p.Name())
+	}
+	if resp == nil {
+		return nil
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	r.Outputs[p.Name()] = resp.Files
+	if len(resp.Deletions) > 0 {
+		r.Deletions[p.Name()] = resp.Deletions
+	}
+	return nil
 }

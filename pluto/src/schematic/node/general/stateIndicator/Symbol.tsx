@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -35,6 +36,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const theme = Theming.use();
+  const badged = Staleness.useBadged();
   const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
@@ -51,13 +53,16 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
+      {stale && badged && <Stale.Indicator />}
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
         strokeColor={strokeColor}
         inlineSize={inlineSize}
         size={size}
-        staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
+        staleColor={
+          stale && !badged ? Staleness.resolveColor(stalenessColor, theme) : undefined
+        }
       />
     </Grid.Grid>
   );

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -71,6 +72,16 @@ class Master final : public master::Master {
     /// @brief the host time at which the distributed clock read master::DC_EPOCH.
     std::optional<x::telem::TimeStamp> host_dc_start;
     x::telem::TimeStamp last_sent;
+    /// @brief a frame that send() sent and no receive() took.
+    struct Frame {
+        x::telem::TimeStamp sent_at;
+        /// @brief whether the frame comes back a cycle late.
+        bool late = false;
+    };
+    /// @brief the frames in flight, oldest first.
+    std::deque<Frame> frames;
+    /// @brief whether the next frame sent comes back a cycle late.
+    bool hold_next{false};
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
     /// @brief the working counter share of each slave in the latest activation.
@@ -79,6 +90,10 @@ class Master final : public master::Master {
     std::optional<uint32_t> cycle_shortfall;
     /// @brief what shortfall() returns.
     std::optional<uint32_t> latest_shortfall;
+    /// @brief what the latest receive() returns.
+    x::errors::Error received;
+    /// @brief what inputless() returns.
+    std::vector<uint16_t> latest_inputless;
     bool initialized{false};
     bool activated{false};
     mutable std::mutex mu;
@@ -123,8 +138,12 @@ class Master final : public master::Master {
     bool blocked{false};
     /// @brief whether the next receive() stalls, set by step().
     bool stall_next{false};
+    /// @brief runs at the start of each scan(), set by on_scan().
+    std::function<void()> scan_hook;
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
+    /// @brief whether activate() reports each slave that reaches OP to its plan.
+    bool op_progress{false};
     /// @brief how many more frames record_dc() asked for.
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
@@ -142,8 +161,8 @@ class Master final : public master::Master {
     bool recover_held{false};
     /// @brief whether a recover() waits for release_recover().
     bool recovering{false};
-    /// @brief whether the latest check() reported a slave out of OP.
-    bool checked_out{false};
+    /// @brief the slaves that the latest check() reported out of OP.
+    std::set<uint16_t> checked_out;
     /// @brief whether an activate() is blocked now.
     bool activating{false};
 
@@ -261,6 +280,12 @@ public:
             if (slave.properties.position == position) slave.status.starting = starting;
     }
 
+    /// @brief runs fn at the start of each scan(), so a test can act during a scan.
+    void on_scan(std::function<void()> fn) {
+        std::lock_guard lock(this->mu);
+        this->scan_hook = std::move(fn);
+    }
+
     /// @brief injects an error to be returned by scan().
     void inject_scan_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
@@ -284,6 +309,12 @@ public:
     written() const {
         std::lock_guard lock(this->mu);
         return this->writes;
+    }
+
+    /// @brief makes activate() report each slave that reaches OP, one at a time.
+    void report_op_progress() {
+        std::lock_guard lock(this->mu);
+        this->op_progress = true;
     }
 
     /// @brief makes each call to activate() take span on the clock of the master.
@@ -314,7 +345,8 @@ public:
         this->recover_cv.notify_all();
     }
 
-    /// @brief makes activate() wait for release_activate(), which holds a bus start.
+    /// @brief makes activate() wait for release_activate() or the cancel of its plan,
+    /// which holds a bus start.
     void hold_activate() {
         std::lock_guard lock(this->activate_mu);
         this->activate_held = true;
@@ -392,6 +424,13 @@ public:
         this->stall_cv.wait(lock, [this] { return this->blocked; });
     }
 
+    /// @brief makes the next frame sent come back a cycle late: the first receive()
+    /// after its send keeps it in flight, and the next one takes it.
+    void hold_frame() {
+        std::lock_guard lock(this->mu);
+        this->hold_next = true;
+    }
+
     /// @brief unblocks receive() after stall().
     void resume() {
         {
@@ -443,6 +482,13 @@ public:
     void set_slave_state(const uint16_t position, const slave::State state) {
         std::lock_guard lock(this->mu);
         this->slave(position).status.state = state;
+    }
+
+    /// @brief sets the serial number that the next read of the slave at position
+    /// gives.
+    void set_slave_serial(const uint16_t position, const uint64_t serial) {
+        std::lock_guard lock(this->mu);
+        this->slave(position).properties.serial = serial;
     }
 
     /// @brief moves a slave to the state with the AL status error flag set and the
@@ -510,6 +556,12 @@ public:
     }
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override {
+        std::function<void()> hook;
+        {
+            std::lock_guard lock(this->mu);
+            hook = this->scan_hook;
+        }
+        if (hook) hook();
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
@@ -525,7 +577,19 @@ public:
                     slave.properties.serial = 0;
                 }
             this->next_serial_errors.clear();
-        }
+        } else
+            for (auto &slave: this->scanned) {
+                if (!slave.status.starting) continue;
+                const auto live = std::ranges::find(
+                    this->slave_list,
+                    slave.properties.position,
+                    [](const slave::DiscoveryResult &s) {
+                        return s.properties.position;
+                    }
+                );
+                if (live != this->slave_list.end() && !live->status.starting)
+                    slave = *live;
+            }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
     }
@@ -593,7 +657,18 @@ public:
             std::unique_lock lock(this->activate_mu);
             this->activating = this->activate_held;
             this->activate_cv.notify_all();
-            this->activate_cv.wait(lock, [this] { return !this->activate_held; });
+            while (this->activate_held) {
+                if (plan.cancel != nullptr && !plan.cancel->running()) {
+                    this->activating = false;
+                    return {
+                        .err = x::errors::Error(
+                            x::errors::CANCELLED,
+                            "activate canceled"
+                        )
+                    };
+                }
+                this->activate_cv.wait_for(lock, std::chrono::milliseconds(1));
+            }
             this->activating = false;
         }
         size_t sent = 0;
@@ -679,6 +754,18 @@ public:
                                    ? slave::State::SAFE_OP
                                    : slave::State::OP;
         }
+        size_t total = 0;
+        if (this->op_progress)
+            total = static_cast<size_t>(std::ranges::count_if(
+                this->slave_list,
+                [this](const slave::DiscoveryResult &slave) {
+                    return this->on_bus(slave.properties.position);
+                }
+            ));
+        lock.unlock();
+        if (plan.progress)
+            for (size_t operational = 1; operational <= total; ++operational)
+                plan.progress(operational, total);
         return {};
     }
 
@@ -686,6 +773,7 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("deactivate");
         this->activated = false;
+        this->frames.clear();
         this->initialized = false;
         this->pdo_offset_cache.clear();
         this->input_sz = 0;
@@ -697,7 +785,7 @@ public:
             slave.status.state = slave::State::INIT;
     }
 
-    x::errors::Error receive() override {
+    const x::errors::Error &receive() override {
         {
             std::unique_lock lock(this->stall_mu);
             if (std::exchange(this->stall_next, false)) this->stalled = true;
@@ -710,24 +798,48 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
         this->latest_shortfall.reset();
+        auto sent_at = this->last_sent;
+        if (!this->frames.empty()) {
+            if (this->frames.front().late && this->frames.size() == 1)
+                return this->received = x::errors::Error(
+                           errors::FRAME_IN_FLIGHT,
+                           "frame in flight"
+                       );
+            sent_at = this->frames.front().sent_at;
+            this->frames.pop_front();
+        }
+        this->latest_inputless.clear();
+        for (const auto &slave: this->slave_list) {
+            const auto pos = slave.properties.position;
+            const auto state = slave.status.state;
+            if (this->on_bus(pos) &&
+                (this->lost_slaves.contains(pos) ||
+                 (state != slave::State::SAFE_OP && state != slave::State::OP)))
+                this->latest_inputless.push_back(pos);
+        }
+        std::ranges::sort(this->latest_inputless);
         if (!this->activated)
-            return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "not activated"
+                   );
         const auto err = this->short_until_op ? x::errors::Error(
                                                     errors::WORKING_COUNTER_ERROR,
                                                     "expected 3, got 1"
                                                 )
                                               : this->inject_receive_err;
-        if (err && !err.matches(errors::WORKING_COUNTER_ERROR)) return err;
+        if (err && !err.matches(errors::WORKING_COUNTER_ERROR))
+            return this->received = err;
         if (this->dc_step) this->dc_now = this->dc_now + *this->dc_step;
         if (this->host_dc_rate && this->host_dc_start) {
-            const auto elapsed = this->last_sent - *this->host_dc_start;
+            const auto elapsed = sent_at - *this->host_dc_start;
             this->dc_now = master::DC_EPOCH + elapsed * *this->host_dc_rate;
         }
         if (this->frames_to_record > 0 && (this->dc_step || this->host_dc_rate)) {
             this->recorded.push_back(this->dc_now);
             if (--this->frames_to_record == 0) this->recorded_cv.notify_all();
         }
-        if (err) return err;
+        if (err) return this->received = err;
         std::memcpy(
             this->input_iomap.data(),
             this->pending_inputs.data(),
@@ -735,15 +847,21 @@ public:
         );
         if (!this->cycle_shortfall) return x::errors::NIL;
         this->latest_shortfall = this->cycle_shortfall;
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "short by " + std::to_string(*this->cycle_shortfall)
-        );
+        return this->received = x::errors::Error(
+                   errors::WORKING_COUNTER_ERROR,
+                   "short by " + std::to_string(*this->cycle_shortfall)
+               );
     }
 
     std::optional<uint32_t> shortfall() const override {
         std::lock_guard lock(this->mu);
         return this->latest_shortfall;
+    }
+
+    /// @brief returns the slaves on the bus that are lost or below SAFE-OP at the
+    /// latest receive(), as a master that reads their states in each cycle.
+    std::span<const uint16_t> inputless() const override {
+        return this->latest_inputless;
     }
 
     std::optional<x::telem::TimeStamp> dc_time() const override {
@@ -789,6 +907,10 @@ public:
         this->last_sent = this->clock.now();
         if (this->host_dc_rate && !this->host_dc_start)
             this->host_dc_start = this->last_sent;
+        this->frames.push_back({
+            .sent_at = this->last_sent,
+            .late = std::exchange(this->hold_next, false),
+        });
         this->sent_outputs = this->output_iomap;
         this->send_calls++;
         this->sent_cv.notify_all();
@@ -819,22 +941,22 @@ public:
                 .startup_error = startup_failed ? startup->second : "",
             });
         }
-        this->checked_out = std::ranges::any_of(health, [](const slave::Health &h) {
-            return !h.operational();
-        });
+        this->checked_out.clear();
+        for (const auto &h: health)
+            if (!h.operational()) this->checked_out.insert(h.position);
         return health;
     }
 
-    /// @brief brings each slave on the bus to OP, except a lost slave, a slave with a
-    /// failed clock restore or startup, and a slave that set_slave_transition_failure()
-    /// keeps from OP. After hold_recover(), waits for release_recover() first when the
-    /// latest check() reported a slave out of OP, as a recovery step acts on the states
-    /// that check() read.
+    /// @brief brings each slave that the latest check() reported out of OP to OP, as a
+    /// recovery step acts on the states that check() read. Skips a lost slave, a slave
+    /// with a failed clock restore or startup, and a slave that
+    /// set_slave_transition_failure() keeps from OP. After hold_recover(), waits for
+    /// release_recover() first when there is such a slave.
     void recover(const x::breaker::Breaker &breaker) override {
         bool out = false;
         {
             std::lock_guard lock(this->mu);
-            out = this->checked_out;
+            out = !this->checked_out.empty();
         }
         if (out) {
             std::unique_lock lock(this->recover_mu);
@@ -847,7 +969,8 @@ public:
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             const auto blocked = this->state_transition_failures.find(pos);
-            if (!this->on_bus(pos) || this->lost_slaves.contains(pos) ||
+            if (!this->checked_out.contains(pos) || !this->on_bus(pos) ||
+                this->lost_slaves.contains(pos) ||
                 this->dc_restore_errors.contains(pos) ||
                 this->startup_errors.contains(pos) || !breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
@@ -985,7 +1108,7 @@ private:
     slave::DiscoveryResult &slave(const uint16_t position) {
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position) return slave;
-        throw std::out_of_range("no slave at position " + std::to_string(position));
+        throw std::out_of_range("no module at position " + std::to_string(position));
     }
 
     void cache_pdo_offsets() {

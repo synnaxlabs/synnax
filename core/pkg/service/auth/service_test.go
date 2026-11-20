@@ -19,11 +19,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	xtime "github.com/synnaxlabs/x/time"
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -211,10 +214,70 @@ var _ = Describe("Service", func() {
 			})
 		})
 	})
+	Describe("Methods", func() {
+		BeforeEach(func() { authenticators[auth.MethodAPIKey] = pw })
+		It("Should list the accepted methods in order", func() {
+			Expect(svc.Methods()).To(Equal([]auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodPassword,
+			}))
+		})
+	})
+	Describe("Accepts", func() {
+		It("Should accept a method with an authenticator", func() {
+			Expect(svc.Accepts(auth.MethodPassword)).To(Succeed())
+		})
+		It("Should refuse a method with no authenticator", func() {
+			Expect(svc.Accepts(auth.MethodAPIKey)).
+				To(MatchError(validate.ErrValidation))
+		})
+	})
 	Describe("Authenticate", func() {
 		It("Should return the session a token belongs to", func(ctx SpecContext) {
 			session, token := login(ctx)
 			Expect(svc.Authenticate(ctx, token)).To(Equal(session))
+		})
+		It("Should end a session whose method is turned off", func(ctx SpecContext) {
+			other := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(other.Run)
+			otherUsers := MustOpen(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[user.Key, user.User]{
+					DB:   other,
+					Name: string(resource.TypeUser),
+				},
+			))
+			u := user.User{Key: uuid.New(), Name: "subject"}
+			Expect(otherUsers.NewCreate().Entry(&u).Exec(ctx, other)).To(Succeed())
+			otherPw := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+				DB: other,
+			}))
+			Expect(other.WithTx(ctx, func(tx gorp.Tx) error {
+				return otherPw.NewWriter(tx).
+					Set(ctx, u.ResourceID(), username, hash(otherPw, "secret"))
+			})).To(Succeed())
+			on := MustSucceed(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: other,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodPassword: otherPw,
+				},
+			}))
+			session, token := MustSucceed2(on.Login(ctx, proof(username, "secret")))
+			Expect(on.Close()).To(Succeed())
+			off := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: other,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodAPIKey: MustOpen(apikey.OpenService(
+						ctx,
+						apikey.ServiceConfig{DB: other},
+					)),
+				},
+			}))
+			Expect(off.Authenticate(ctx, token)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+			Expect(off.NewRetrieve().
+				Where(auth.MatchKeys(session.Key)).
+				Exec(ctx, other)).To(MatchError(query.ErrNotFound))
 		})
 		DescribeTable(
 			"Should reject a token that matches no session",

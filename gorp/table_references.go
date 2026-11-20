@@ -171,6 +171,33 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	return w.Delete(ctx, keys...)
 }
 
+// watches implements registeredTable.
+func (t *Table[K, E]) watches(table string) bool {
+	_, ok := t.onTargetSet[table]
+	return ok
+}
+
+// targetSet implements registeredTable.
+func (t *Table[K, E]) targetSet(
+	ctx context.Context,
+	tx Tx,
+	k string,
+	table string,
+) error {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return err
+	}
+	var e E
+	if err = t.NewRetrieve().
+		Where(MatchKeys[K, E](pk)).
+		Entry(&e).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	return t.onTargetSet[table](ctx, tx, e)
+}
+
 // Dependents returns the entries of every open table that hold a reference to the entry
 // with key k, as seen by snap. It waits for each reference's index to populate, or for
 // ctx to end, and returns ErrIndexInvalid if one failed to populate.
@@ -180,6 +207,36 @@ func (t *Table[K, E]) Dependents(
 	k K,
 ) ([]Target, error) {
 	return t.db.registry.dependents(ctx, snap, Target{Table: t.name, Key: FormatKey(k)})
+}
+
+// RestrictChange returns a RestrictError for a change to field of the entry with key k
+// when an entry holds it through a Restrict reference, as seen by snap. It returns nil
+// when no entry does.
+func (t *Table[K, E]) RestrictChange(
+	ctx context.Context,
+	snap Snapshot,
+	k K,
+	field string,
+) error {
+	target := Target{Table: t.name, Key: FormatKey(k)}
+	for _, ref := range t.db.registry.referencesTo(t.name) {
+		if ref.onDeletePolicy() != Restrict {
+			continue
+		}
+		keys, err := ref.dependents(ctx, snap, target)
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			return RestrictError{
+				Target:    target,
+				Holder:    Target{Table: ref.ownerTable(), Key: keys[0]},
+				Reference: ref.referenceName(),
+				Field:     field,
+			}
+		}
+	}
+	return nil
 }
 
 // check validates the references e holds against tx.

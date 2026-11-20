@@ -165,32 +165,48 @@ func (y *MemFS) Remove(fullName string) error {
 
 // Rename implements FS.Rename.
 func (y *MemFS) Rename(oldName, newName string) error {
-	var n *memNode
-	if err := y.walk(oldName, func(dir *memNode, frag string, final bool) error {
+	y.mu.Lock()
+	defer y.mu.Unlock()
+	var (
+		target     *memNode
+		targetFrag string
+		ancestors  []*memNode
+	)
+	if err := y.walkLocked(newName, func(dir *memNode, frag string, final bool) error {
+		ancestors = append(ancestors, dir)
 		if !final {
 			return nil
 		}
 		if frag == "" {
 			return errors.New("memfs: empty file name")
 		}
-		n = dir.children[frag]
-		delete(dir.children, frag)
+		target, targetFrag = dir, frag
 		return nil
 	}); err != nil {
 		return err
 	}
-	if n == nil {
-		return &os.PathError{Op: "open", Path: oldName, Err: os.ErrNotExist}
-	}
-	return y.walk(newName, func(dir *memNode, frag string, final bool) error {
+	return y.walkLocked(oldName, func(dir *memNode, frag string, final bool) error {
 		if !final {
 			return nil
 		}
 		if frag == "" {
 			return errors.New("memfs: empty file name")
 		}
-		dir.children[frag] = n
-		n.name = frag
+		n := dir.children[frag]
+		if n == nil {
+			return &os.PathError{Op: "open", Path: oldName, Err: os.ErrNotExist}
+		}
+		if slices.Contains(ancestors, n) {
+			return &os.LinkError{
+				Op:  "rename",
+				Old: oldName,
+				New: newName,
+				Err: errors.New("memfs: cannot move a directory into itself"),
+			}
+		}
+		delete(dir.children, frag)
+		target.children[targetFrag] = n
+		n.name = targetFrag
 		return nil
 	})
 }
@@ -224,8 +240,7 @@ func (y *MemFS) List(dirname string) ([]os.FileInfo, error) {
 func (y *MemFS) Stat(name string) (stats os.FileInfo, err error) {
 	f, err := y.Open(name, 0)
 	if err != nil {
-		var pe *os.PathError
-		if errors.As(err, &pe) {
+		if pe, ok := errors.AsType[*os.PathError](err); ok {
 			pe.Op = "stat"
 		}
 		return nil, err
@@ -319,7 +334,14 @@ func (f *memNode) Sys() any { return nil }
 func (y *MemFS) walk(fullname string, f func(*memNode, string, bool) error) error {
 	y.mu.Lock()
 	defer y.mu.Unlock()
+	return y.walkLocked(fullname, f)
+}
 
+// walkLocked is walk for a caller that holds y.mu.
+func (y *MemFS) walkLocked(
+	fullname string,
+	f func(*memNode, string, bool) error,
+) error {
 	// For memfs, the current working directory is the same as the root directory, so we
 	// strip off any leading "/"s to make fullname a relative path, and the walk starts
 	// at y.root.
@@ -425,15 +447,16 @@ func (f *memFile) Write(p []byte) (int, error) {
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
 	f.n.touch()
-	if f.wpos+len(p) <= len(f.n.mu.data) {
+	switch {
+	case f.wpos+len(p) <= len(f.n.mu.data):
 		n := copy(f.n.mu.data[f.wpos:f.wpos+len(p)], p)
 		if n != len(p) {
 			panic("stuff")
 		}
-	} else if f.wpos > len(f.n.mu.data) {
+	case f.wpos > len(f.n.mu.data):
 		zeros := make([]byte, f.wpos-len(f.n.mu.data))
 		f.n.mu.data = append(append(f.n.mu.data, zeros...), p...)
-	} else {
+	default:
 		f.n.mu.data = append(f.n.mu.data[:f.wpos], p...)
 	}
 	f.wpos += len(p)

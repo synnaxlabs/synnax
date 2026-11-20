@@ -459,6 +459,8 @@ func reducerFor(dt DataType) numericReducer {
 		return typedReducer[uint16]{}
 	case Uint8T, BooleanT:
 		return typedReducer[uint8]{}
+	case UnknownT, UUIDT, StringT, BytesT, JSONT:
+		fallthrough
 	default:
 		panic(fmt.Sprintf("telem: no reduction for data type %s", dt))
 	}
@@ -479,6 +481,8 @@ func Reducible(dt DataType) bool {
 	case Float64T, Float32T, Int64T, TimestampT, Int32T, Int16T, Int8T,
 		Uint64T, Uint32T, Uint16T, Uint8T, BooleanT:
 		return true
+	case UnknownT, UUIDT, StringT, BytesT, JSONT:
+		fallthrough
 	default:
 		return false
 	}

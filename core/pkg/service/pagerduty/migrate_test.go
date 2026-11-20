@@ -42,6 +42,7 @@ var _ = Describe("SecretMigration", func() {
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		names, asked = map[uuid.UUID]string{}, nil
 		lookup = func(
 			_ context.Context,
@@ -67,7 +68,11 @@ var _ = Describe("SecretMigration", func() {
 		GinkgoHelper()
 		MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		secrets = secrettestutil.OpenService(ctx, db)
-		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{DB: db, Secret: secrets}))
+		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
+			DB:     db,
+			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
+		}))
 	}
 	run := func(ctx SpecContext) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {

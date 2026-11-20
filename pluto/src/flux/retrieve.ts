@@ -16,11 +16,11 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import {
-  caseconv,
-  compare,
+  array,
   type destructor,
   sleep,
   type state,
+  strings,
   sync,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -104,7 +104,7 @@ export interface CreateRetrieveParams<
 // which would otherwise spin useSyncExternalStore forever.
 const answersEqual = <Data>(prev: Data, next: Data): boolean =>
   Array.isArray(prev) && Array.isArray(next)
-    ? compare.arraysEqual(prev, next)
+    ? array.equal(prev, next)
     : Object.is(prev, next);
 
 /**
@@ -377,7 +377,7 @@ const waitForCreation = async <Query extends query.Params, Data extends query.Da
     disconnect?.();
   }
   if (Deleted.matches<Data>(result))
-    throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse);
+    throw new DeletedError(`${strings.capitalize(name)} was deleted`, result.corpse);
   return result;
 };
 
@@ -488,7 +488,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   // find the end of the recorded hook list.
   if (pending.promise == null && cached !== undefined) {
     if (Deleted.matches<Data>(cached))
-      throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse);
+      throw new DeletedError(`${strings.capitalize(name)} was deleted`, cached.corpse);
     return use(pending.fulfill(cached));
   }
   return use(
@@ -536,7 +536,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
     if (cached !== undefined) {
       if (Deleted.matches<Data>(cached))
         throw new DeletedError(
-          `${caseconv.capitalize(name)} was deleted`,
+          `${strings.capitalize(name)} was deleted`,
           cached.corpse,
         );
       use(pending.fulfill(cached));
@@ -661,7 +661,7 @@ const createSelector = <
           `Cannot select ${name}: nothing cached. A parent must retrieve it first.`,
         );
       if (Deleted.matches<Data>(raw))
-        throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, raw.corpse);
+        throw new DeletedError(`${strings.capitalize(name)} was deleted`, raw.corpse);
       const cached = computed.current;
       if (isHeld(cached, memoQuery, client) && cached.value === raw) return cached.out;
       const out = select(raw, memoQuery, client);
@@ -777,7 +777,7 @@ const createResultSelector = <
     if (slice.kind === "deleted")
       return errorResult(
         `retrieve ${name}`,
-        new DeletedError(`${caseconv.capitalize(name)} was deleted`, slice.corpse),
+        new DeletedError(`${strings.capitalize(name)} was deleted`, slice.corpse),
       );
     if (settled != null)
       return "data" in settled

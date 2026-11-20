@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -18,6 +19,7 @@ import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { Menu } from "@/menu";
 import { type position } from "@/position";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -178,6 +180,66 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+interface PinnedOptions {
+  body: DOMRect;
+  border: number;
+  listed: DOMRect;
+  divider: DOMRect;
+  pinned: DOMRect;
+}
+
+const renderPinnedOptions = async (
+  surface: Select.DialogProps["surface"],
+): Promise<PinnedOptions> => {
+  await renderThemed(
+    <Triggers.Provider>
+      <Dialog.Frame variant="floating">
+        <Dialog.Trigger>Pick</Dialog.Trigger>
+        <Select.Frame<string, undefined> data={["alpha"]} onChange={() => {}}>
+          <Select.Dialog surface={surface} aria-label="Key">
+            <Select.Body<string>
+              resourceName="key"
+              footer={
+                <>
+                  <Menu.Divider />
+                  <Select.Item<string> itemKey="none" textValue="No key">
+                    No key
+                  </Select.Item>
+                </>
+              }
+            >
+              {({ key, ...p }) => (
+                <Select.Item key={key} {...p}>
+                  {p.itemKey}
+                </Select.Item>
+              )}
+            </Select.Body>
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </Triggers.Provider>,
+  );
+  await userEvent.click(page.getByText("Pick"));
+  const dialog = page.getByRole("dialog", { name: "Key" });
+  await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+  const body = document.querySelector(".lyra-select__body") as HTMLElement;
+  const rect = (selector: string): DOMRect =>
+    (document.querySelector(selector) as Element).getBoundingClientRect();
+  return {
+    body: body.getBoundingClientRect(),
+    border: body.clientLeft,
+    listed: page
+      .getByRole("option", { name: "alpha" })
+      .element()
+      .getBoundingClientRect(),
+    divider: rect(".lyra-select__body > .lyra-menu__divider"),
+    pinned: page
+      .getByRole("option", { name: "No key" })
+      .element()
+      .getBoundingClientRect(),
+  };
+};
+
 const DESCRIPTION = "Wider than the minimum width of a select dialog";
 const TRIGGER_WIDTH = 100;
 
@@ -319,7 +381,7 @@ interface ChipsOptions {
   preview?: boolean;
   haulType?: string;
   // A drag that runs while the trigger shows.
-  dragging?: Haul.DraggingState;
+  dragging?: Haul.State;
 }
 
 interface ChipsProps extends ChipsOptions {
@@ -821,6 +883,7 @@ describe("Select", () => {
         initial: ["Pass"],
         haulType: "label",
         dragging: {
+          key: "drag",
           source: { key: "list", type: "label" },
           items: [{ key: "New", type: "label" }],
         },
@@ -834,7 +897,7 @@ describe("Select", () => {
       const trigger = await renderChips("text", 200, { preview: true });
       // A preview reads as disabled, which a user can still click.
       chip(trigger, "Pass").click();
-      await new Promise(requestAnimationFrame);
+      await scheduler.nextFrame();
       expect(document.querySelector(".lyra-dialog__dialog")).toBeNull();
     });
 
@@ -935,6 +998,32 @@ describe("Select", () => {
       const footer = await renderFooter();
       expect(footer.getBoundingClientRect().height).toBe(FOOTER_HEIGHT);
     });
+
+    it("should line up its options and divider with the options of the list", async () => {
+      const { body, listed, divider, pinned } = await renderPinnedOptions("dialog");
+      expect(pinned.left).toBe(listed.left);
+      expect(pinned.right).toBe(listed.right);
+      expect(divider.left).toBe(listed.left);
+      expect(divider.right).toBe(listed.right);
+      expect(body.bottom - pinned.bottom).toBe(listed.left - body.left);
+    });
+
+    it("should leave its options in a menu where the panel puts them", async () => {
+      const { body, border, listed, divider, pinned } =
+        await renderPinnedOptions("menu");
+      expect(pinned.left).toBe(listed.left);
+      expect(pinned.right).toBe(listed.right);
+      expect(divider.left).toBe(listed.left);
+      expect(body.bottom - pinned.bottom).toBe(border);
+    });
+
+    it("should not inset a footer that pins no option", async () => {
+      const footer = await renderFooter();
+      const body = footer.parentElement as HTMLElement;
+      expect(footer.getBoundingClientRect().left).toBe(
+        body.getBoundingClientRect().left + body.clientLeft,
+      );
+    });
   });
 
   describe("fixed item label", () => {
@@ -944,6 +1033,52 @@ describe("Select", () => {
         label.getBoundingClientRect().width,
       );
       expect(computed(caret, "margin-left")).toBe("0px");
+    });
+  });
+
+  describe("clearable shadow single trigger", () => {
+    const renderClearable = async (
+      onChange: (key: string | null) => void,
+    ): Promise<HTMLElement> => {
+      const { container } = await renderThemed(
+        <Dialog.Frame>
+          <Select.Frame<string, undefined> value="time" onChange={onChange} allowNone>
+            <Select.SingleTrigger variant="shadow" placeholder="Pick" clearable />
+            <Select.Dialog>
+              <Select.Item itemKey="time">Time</Select.Item>
+            </Select.Dialog>
+          </Select.Frame>
+        </Dialog.Frame>,
+      );
+      const trigger = container.querySelector<HTMLElement>(".lyra-dialog__trigger");
+      assert(trigger != null);
+      return trigger;
+    };
+
+    const clearOf = (trigger: HTMLElement): HTMLElement => {
+      const clear = trigger.querySelector<HTMLElement>(
+        ".lyra-select-single-trigger__clear",
+      );
+      assert(clear != null);
+      return clear;
+    };
+
+    it("should show its clear button in place of its caret on hover", async () => {
+      const trigger = await renderClearable(vi.fn());
+      expect(computed(clearOf(trigger), "opacity")).toBe("0");
+      await userEvent.hover(trigger);
+      await expect.poll(() => computed(clearOf(trigger), "opacity")).toBe("1");
+      const caret = trigger.querySelector(".lyra-caret-animated");
+      assert(caret != null);
+      expect(computed(caret, "visibility")).toBe("hidden");
+    });
+
+    it("should clear the selection from the button on its caret", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderClearable(onChange);
+      await userEvent.hover(trigger);
+      await userEvent.click(clearOf(trigger));
+      expect(onChange).toHaveBeenLastCalledWith(null, expect.anything());
     });
   });
 

@@ -13,8 +13,11 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"io"
+	"net"
 	"net/http"
+	"time"
 
+	"github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -251,6 +254,15 @@ var _ = Describe("flakyUnavailable", func() {
 		Expect(post(app, message{Message: "flaky-a", ID: 1}).StatusCode).
 			To(Equal(http.StatusOK))
 	})
+
+	It("Should keep the first-seen state of each server apart", func() {
+		first, second := fiber.New(fiber.Config{}), fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(GinkgoT().Context(), first)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), second)).To(Succeed())
+		msg := message{Message: "flaky-per-server", ID: 1}
+		Expect(post(first, msg).StatusCode).To(Equal(http.StatusServiceUnavailable))
+		Expect(post(second, msg).StatusCode).To(Equal(http.StatusServiceUnavailable))
+	})
 })
 
 var _ = Describe("emptyResponse", func() {
@@ -277,13 +289,63 @@ var _ = Describe("emptyResponse", func() {
 })
 
 var _ = Describe("Test error", func() {
-	It(
-		"Should round-trip through the freighter errors registry",
-		func() {
-			payload := errors.Payload{Type: "integration.error", Data: "7,boom"}
-			decoded := errors.Decode(payload)
-			Expect(decoded).To(MatchError("boom"))
-			Expect(errors.Encode(decoded, false)).To(Equal(payload))
-		},
-	)
+	It("Should encode a test error returned by a middleware", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
+		body := MustSucceed(json.Marshal(message{Message: "hello", ID: 1}))
+		req := MustSucceed(http.NewRequest(
+			http.MethodPost,
+			"http://localhost/unary/middlewareCheck",
+			bytes.NewReader(body),
+		))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		var pld errors.Payload
+		Expect(json.UnmarshalRead(resp.Body, &pld)).To(Succeed())
+		Expect(pld).To(Equal(errors.Payload{
+			Type: "integration.error",
+			Data: "1,test param not found",
+		}))
+	})
+})
+
+type wsMessage struct {
+	Payload message        `json:"payload"`
+	Error   errors.Payload `json:"error"`
+	Type    string         `json:"type"`
+}
+
+var _ = Describe("Test error over a stream", func() {
+	It("Should decode the test error a client closes with", func(ctx SpecContext) {
+		app := fiber.New(fiber.Config{})
+		app.Server().MaxIdleWorkerDuration = 100 * time.Millisecond
+		Expect(ihttp.BindTo(ctx, app)).To(Succeed())
+		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+		DeferCleanup(func() {
+			Expect(app.Shutdown()).To(Succeed())
+			Expect(errors.Skip(lis.Close(), net.ErrClosed)).To(Succeed())
+		})
+		go func() {
+			defer GinkgoRecover()
+			err := app.Listener(lis, fiber.ListenConfig{DisableStartupMessage: true})
+			Expect(errors.Skip(err, net.ErrClosed)).To(Succeed())
+		}()
+		conn, res := MustSucceed2(websocket.DefaultDialer.DialContext(
+			ctx,
+			"ws://"+lis.Addr().String()+"/stream/echo",
+			http.Header{fiber.HeaderContentType: {fiber.MIMEApplicationJSON}},
+		))
+		Expect(res.Body.Close()).To(Succeed())
+		DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+		var open wsMessage
+		Expect(conn.ReadJSON(&open)).To(Succeed())
+		Expect(open.Type).To(Equal("open"))
+		pld := errors.Payload{Type: "integration.error", Data: "7,boom"}
+		Expect(conn.WriteJSON(wsMessage{Type: "close", Error: pld})).To(Succeed())
+		var closed wsMessage
+		Expect(conn.ReadJSON(&closed)).To(Succeed())
+		Expect(closed).To(Equal(wsMessage{Type: "close", Error: pld}))
+	})
 })

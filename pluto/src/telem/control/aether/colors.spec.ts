@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type framer } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
@@ -69,7 +69,7 @@ const hold = async (ch: channel.Channel): Promise<Holder> => {
 const setup = async (channels: channel.Channel[]): Promise<Colors> => {
   const h = renderAether(Colors, {
     state: {},
-    synnax: { props: TEST_CLIENT_PARAMS },
+    synnax: { props: testClientParams() },
     // Colors reads no telemetry, and the telem provider opens a frame feed this spec
     // does not use.
     telem: false,

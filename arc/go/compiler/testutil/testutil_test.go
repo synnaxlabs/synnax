@@ -87,6 +87,14 @@ var _ = Describe("MatchOpcodes", func() {
 			func(w *wasm.Writer) { w.WriteLoop(wasm.BlockTypeEmpty) },
 			wasm.OpLoop, wasm.BlockTypeEmpty,
 		),
+		Entry("block with an i32 block type byte",
+			func(w *wasm.Writer) { w.WriteBlock(wasm.BlockTypeI32) },
+			wasm.OpBlock, byte(wasm.I32),
+		),
+		Entry("loop with an i64 block type byte",
+			func(w *wasm.Writer) { w.WriteLoop(wasm.BlockTypeI64) },
+			wasm.OpLoop, byte(wasm.I64),
+		),
 		Entry("br", func(w *wasm.Writer) { w.WriteBr(1) }, wasm.OpBr, uint32(1)),
 		Entry("br_if", func(w *wasm.Writer) { w.WriteBrIf(0) }, wasm.OpBrIf, uint32(0)),
 		Entry("a sequence of simple opcodes",
@@ -108,6 +116,18 @@ var _ = Describe("MatchOpcodes", func() {
 			wasm.OpI32Add,
 		),
 	)
+
+	It("Should panic on an opcode with no writer", func() {
+		Expect(func() { MatchOpcodes(wasm.Opcode(0xfe), wasm.OpNop) }).To(
+			PanicWith(ContainSubstring("no operand writer for opcode")),
+		)
+	})
+
+	It("Should panic on a call index that is not an integer", func() {
+		Expect(func() { MatchOpcodes(wasm.OpCall, "x") }).To(
+			PanicWith("call index must be an integer, got string"),
+		)
+	})
 })
 
 var _ = Describe("NewContext", func() {

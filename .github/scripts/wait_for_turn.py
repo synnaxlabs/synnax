@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Holds a merge group's Windows test bot jobs until the groups ahead of it queued
+"""Holds a merge group's Ubuntu test bot jobs until the groups ahead of it queued
 theirs.
 
 A free self-hosted runner takes the oldest queued job, so without this gate a group
@@ -35,7 +35,7 @@ from typing import Any
 CI = "CI"
 INTEGRATION = "integration"
 GATE = "integration / Wait for turn"
-TEST_BOT_JOBS = "integration / Test (windows) / "
+TEST_BOT_JOBS = "integration / Test (ubuntu) / "
 POLL_SECONDS = 30
 MAX_BACKOFF_SECONDS = 300
 REQUEST_TIMEOUT_SECONDS = 30

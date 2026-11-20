@@ -52,7 +52,7 @@ func wrapReader[K Key, E Entry[K]](snap Snapshot, prefix []byte) Reader[K, E] {
 // query.ErrNotFound is returned.
 func (r *Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	var e E
-	_, closer, err := r.get(ctx, key, &e)
+	_, closer, err := r.get(key, &e)
 	if err != nil {
 		var zero E
 		return zero, err
@@ -61,7 +61,6 @@ func (r *Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 }
 
 func (r *Reader[K, E]) get(
-	ctx context.Context,
 	key K,
 	entry *E,
 ) ([]byte, io.Closer, error) {

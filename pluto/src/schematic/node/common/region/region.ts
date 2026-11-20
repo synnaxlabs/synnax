@@ -8,15 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic, ValidationError } from "@synnaxlabs/client";
-import { color, type dimensions, id } from "@synnaxlabs/x";
+import { color, type dimensions, id, map, unique } from "@synnaxlabs/x";
 import DOMPurify from "dompurify";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const LINK_ATTRIBUTES = new Set(["href", "xlink:href"]);
 
-// parseRoot returns the unsanitized root of svg in a detached document, or null when
-// the markup is empty, malformed, or not rooted in an svg element.
-const parseRoot = (svg: string): SVGSVGElement | null => {
+/**
+ * Parses svg without the sanitizer of {@link parseSVG}, at a small part of its cost.
+ * Use it only for markup that ships with Pluto.
+ * @returns the root svg element, or null when the markup is empty, malformed, or not
+ * rooted in an svg element.
+ */
+export const parseTrusted = (svg: string): SVGSVGElement | null => {
   if (svg.length === 0) return null;
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
   const root = doc.documentElement;
@@ -35,11 +39,14 @@ const parseRoot = (svg: string): SVGSVGElement | null => {
  * costs a small part of {@link parseSVG}.
  */
 export const measure = (svg: string): dimensions.Dimensions | null => {
-  const root = parseRoot(svg);
+  const root = parseTrusted(svg);
   if (root == null) return null;
   const viewBox = root.getAttribute("viewBox");
   if (viewBox) {
-    const [, , width, height] = viewBox.split(" ").map(Number);
+    const [, , width, height] = viewBox
+      .trim()
+      .split(/[\s,]+/)
+      .map(Number);
     return { width, height };
   }
   if (root.viewBox?.baseVal)
@@ -54,7 +61,7 @@ export const measure = (svg: string): dimensions.Dimensions | null => {
  * rooted in an svg element.
  */
 export const parseSVG = (svg: string): SVGSVGElement | null => {
-  const root = parseRoot(svg);
+  const root = parseTrusted(svg);
   if (root == null) return null;
   // A fresh instance keeps the hook off the shared default one.
   const purify = DOMPurify(window);
@@ -177,16 +184,13 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
   visualElements.forEach((element) => {
     const colorPair = getElementColors(element);
     const key = getColorPairKey(colorPair);
-    if (!groups.has(key))
-      groups.set(key, {
-        elements: [],
-        colorPair,
-      });
-    groups.get(key)!.elements.push(element);
+    map
+      .getOrInsert(groups, key, () => ({ elements: [], colorPair }))
+      .elements.push(element);
   });
   return Array.from(groups.values()).map((group, index) => {
     const selectors = group.elements.map(selector);
-    const uniqueSelectors = Array.from(new Set(selectors));
+    const uniqueSelectors = unique.unique(selectors);
     const regionIndex = index + 1;
     const region: schematic.symbol.Region = {
       key: `region-${regionIndex}`,

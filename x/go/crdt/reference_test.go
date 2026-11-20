@@ -259,13 +259,14 @@ func (t *refText) Insert(index int, text string) []crdt.Insert {
 	}
 	vis := t.visible()
 	var left *refElement
-	if index <= 0 {
+	switch {
+	case index <= 0:
 		left = t.root
-	} else if index-1 < len(vis) {
+	case index-1 < len(vis):
 		left = vis[index-1]
-	} else if len(vis) > 0 {
+	case len(vis) > 0:
 		left = vis[len(vis)-1]
-	} else {
+	default:
 		left = t.root
 	}
 	var right *refElement

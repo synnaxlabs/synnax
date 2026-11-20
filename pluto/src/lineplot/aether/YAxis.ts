@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
+import { type bounds, box, location, scale, xy } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { rule } from "@/lineplot/rule/aether";
@@ -36,14 +36,10 @@ const invalidArea = (region: box.Box): boolean =>
 
 export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
-  schema = baseAxisStateZ;
+  override schema = baseAxisStateZ;
 
-  xBounds(): line.DataBounds {
-    const all = this.visibleLines.map((el) => el.xBounds());
-    return {
-      bounds: bounds.max(all.map((b) => b.bounds).filter((b) => bounds.isFinite(b))),
-      loading: all.some((b) => b.loading),
-    };
+  xBounds(): line.DataBounds[] {
+    return this.visibleLines.map((el) => el.xBounds());
   }
 
   bounds(hold: boolean, xBounds: bounds.Bounds): bounds.Bounds {

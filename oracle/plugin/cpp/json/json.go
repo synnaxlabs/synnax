@@ -74,11 +74,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		unions := c.unions.Get(outputPath)
 
 		var filePath string
-		if len(structs) > 0 {
+		switch {
+		case len(structs) > 0:
 			filePath = structs[0].FilePath
-		} else if len(distinctTypes) > 0 {
+		case len(distinctTypes) > 0:
 			filePath = distinctTypes[0].FilePath
-		} else {
+		default:
 			filePath = unions[0].FilePath
 		}
 
@@ -311,60 +312,63 @@ func (p *Plugin) processStruct(
 	if !ok {
 		return nil, nil
 	}
-	for _, field := range resolution.UnifiedFields(s, data.table) {
+	fields := resolution.UnifiedFields(s, data.table)
+	for _, field := range fields {
 		if err := checkMapKey(s, field, data.table); err != nil {
 			return nil, err
 		}
 	}
-
-	cppName := domain.GetName(s, "cpp")
-
-	typeParams := make([]typeParamData, 0, len(form.TypeParams))
-	typeParamNames := make([]string, 0, len(form.TypeParams))
-	for _, tp := range form.TypeParams {
-		if tp.HasDefault() {
-			continue
-		}
-		typeParams = append(typeParams, typeParamData{Name: tp.Name})
-		typeParamNames = append(typeParamNames, tp.Name)
-	}
-
+	typeParams := serializerTypeParams(form)
+	typeParamNames := lo.Map(typeParams, func(tp typeParamData, _ int) string {
+		return tp.Name
+	})
 	serializer := &serializerData{
-		Name:           cppName,
+		Name:           domain.GetName(s, "cpp"),
 		IsGeneric:      len(typeParams) > 0,
 		TypeParams:     typeParams,
 		TypeParamNames: strings.Join(typeParamNames, ", "),
-		Fields:         make([]fieldData, 0),
 	}
-
 	if len(typeParams) > 0 {
 		data.AddSystem("type_traits")
 	}
-
 	if resolver.CanUseInheritance(form, "cpp", data.table) {
 		serializer.HasExtends = true
-		for _, extendsRef := range form.Extends {
-			parent, ok := extendsRef.Resolve(data.table)
-			if !ok {
-				continue
-			}
-			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
-			serializer.ParentTypes = append(serializer.ParentTypes, parentTypeData{
-				QualifiedName: qualifiedName,
-			})
-		}
-		for _, field := range form.Fields {
-			fieldData := p.processField(field, s, data)
-			serializer.Fields = append(serializer.Fields, fieldData)
-		}
-	} else {
-		for _, field := range resolution.UnifiedFields(s, data.table) {
-			fieldData := p.processField(field, s, data)
-			serializer.Fields = append(serializer.Fields, fieldData)
+		serializer.ParentTypes = p.parentTypes(form, data)
+		fields = form.Fields
+	}
+	serializer.Fields = make([]fieldData, 0, len(fields))
+	for _, field := range fields {
+		serializer.Fields = append(serializer.Fields, p.processField(field, s, data))
+	}
+	return serializer, nil
+}
+
+// serializerTypeParams returns the type parameters of form that have no default.
+func serializerTypeParams(form resolution.StructForm) []typeParamData {
+	typeParams := make([]typeParamData, 0, len(form.TypeParams))
+	for _, tp := range form.TypeParams {
+		if !tp.HasDefault() {
+			typeParams = append(typeParams, typeParamData{Name: tp.Name})
 		}
 	}
+	return typeParams
+}
 
-	return serializer, nil
+func (p *Plugin) parentTypes(
+	form resolution.StructForm,
+	data *templateData,
+) []parentTypeData {
+	var parents []parentTypeData
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(data.table)
+		if !ok {
+			continue
+		}
+		parents = append(parents, parentTypeData{
+			QualifiedName: p.resolveExtendsType(extendsRef, parent, data),
+		})
+	}
+	return parents
 }
 
 // objectMap returns the map type behind ref, whether its values are structs, and
@@ -386,7 +390,19 @@ func objectMap(
 	}
 	key := ref.TypeArgs[0]
 	return ref, isStruct, isStruct || key.IsTypeParam() ||
-		resolution.PrimitiveBase(key, table) != "string"
+		mapKeyBase(key, table) != "string"
+}
+
+// mapKeyBase returns the primitive that a map key is written as. C++ holds a string
+// enum as a std::string, so a string enum key is a string.
+func mapKeyBase(key resolution.TypeRef, table *resolution.Table) string {
+	if target, _, ok := resolution.Dealias(key, table); ok {
+		form, isEnum := target.Form.(resolution.EnumForm)
+		if isEnum && !form.IsIntEnum {
+			return "string"
+		}
+	}
+	return resolution.PrimitiveBase(key, table)
 }
 
 // checkMapKey rejects a map that to_json builds by hand when its key has no exact JSON
@@ -401,7 +417,7 @@ func checkMapKey(
 	if !ok || ref.TypeArgs[0].IsTypeParam() {
 		return nil
 	}
-	base := resolution.PrimitiveBase(ref.TypeArgs[0], table)
+	base := mapKeyBase(ref.TypeArgs[0], table)
 	if base == "string" || base == "uuid" || strings.HasPrefix(base, "int") ||
 		strings.HasPrefix(base, "uint") {
 		return nil
@@ -421,12 +437,6 @@ func (p *Plugin) processField(
 	data *templateData,
 ) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	cppFieldName := domain.GetFieldName(field, "cpp")
-	if cppFieldName == field.Name {
-		cppFieldName = casing.FieldSnake(field.Name)
-	}
-	cppFieldName = keywords.Escape(cppFieldName)
-
 	indirect := cpptypes.Indirect(field, parent, data.table)
 
 	// A string minted by the create sentinel needs the UUID header, which the
@@ -437,13 +447,22 @@ func (p *Plugin) processField(
 	}
 
 	parseExpr := p.parseExprForField(field, cppType, data, indirect)
-	toJSONExpr := p.toJSONExprForField(field, data, indirect)
+	toJSONExpr := toJSONExprForField(field, data, indirect)
 
 	return fieldData{
-		Name:       cppFieldName,
+		Name:       memberName(field),
 		ParseExpr:  parseExpr,
 		ToJSONExpr: toJSONExpr,
 	}
+}
+
+// memberName returns the name of the C++ struct member that holds field.
+func memberName(field resolution.Field) string {
+	name := domain.GetFieldName(field, "cpp")
+	if name == field.Name {
+		name = casing.FieldSnake(field.Name)
+	}
+	return keywords.Escape(name)
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
@@ -453,45 +472,21 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		}
 		return typeRef.TypeParam.Name
 	}
-
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		innerType := p.typeRefToCpp(typeRef.TypeArgs[0], data)
 		data.AddSystem("vector")
 		return fmt.Sprintf("std::vector<%s>", innerType)
 	}
-
 	if typeRef.Name == "Map" {
-		data.AddSystem("unordered_map")
-		keyType := "std::string"
-		valueType := "void"
-		if len(typeRef.TypeArgs) > 0 {
-			keyType = p.typeRefToCpp(typeRef.TypeArgs[0], data)
-		}
-		if len(typeRef.TypeArgs) > 1 {
-			valueType = p.typeRefToCpp(typeRef.TypeArgs[1], data)
-		}
-		return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
+		return p.mapToCpp(typeRef, data)
 	}
-
-	if mapping := primitiveMapper.Map(
-		typeRef.Name,
-	); mapping.TargetType != "" &&
-		mapping.TargetType != "void" {
-		for _, imp := range mapping.Imports {
-			if imp.Category == "system" {
-				data.AddSystem(imp.Path)
-			} else {
-				data.AddInternal(imp.Path)
-			}
-		}
-		return mapping.TargetType
+	if cppType, ok := primitiveToCpp(typeRef.Name, data); ok {
+		return cppType
 	}
-
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return typeRef.Name
 	}
-
 	if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 		if !enumForm.IsIntEnum {
 			data.AddSystem("string")
@@ -499,43 +494,14 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		}
 		return resolved.Name
 	}
-
 	if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		target, _, ok := resolution.Dealias(typeRef, data.table)
-		_, isStruct := target.Form.(resolution.StructForm)
-		if ok && isStruct && target.FilePath != data.filePath {
-			if path := output.GetPath(target, "cpp"); path != "" {
-				data.AddInternal(data.jsonInclude(path))
-			}
-		}
+		data.addAliasedStructInclude(typeRef)
 	}
-
 	name := domain.GetName(resolved, "cpp")
-
-	if resolved.FilePath != data.filePath {
-		targetOutputPath := output.GetPath(resolved, "cpp")
-		if targetOutputPath != "" {
-			var includePath string
-			if cppDomain, ok := resolved.Domains["cpp"]; ok {
-				if expr, found := cppDomain.Expressions.Find("include"); found &&
-					len(expr.Values) > 0 {
-					includePath = expr.Values[0].StringValue
-				}
-			}
-			if includePath == "" {
-				if isFixedSizeUint8ArrayType(resolved, data.table) {
-					headerName := lo.SnakeCase(resolved.Name)
-					includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
-				} else {
-					includePath = data.jsonInclude(targetOutputPath)
-				}
-			}
-			data.AddInternal(includePath)
-			ns := cppnaming.Namespace(targetOutputPath)
-			name = fmt.Sprintf("::%s::%s", ns, name)
-		}
+	if outputPath := data.foreignOutputPath(resolved); outputPath != "" {
+		data.AddInternal(foreignInclude(resolved, outputPath, data))
+		name = qualify(outputPath, name)
 	}
-
 	if len(typeRef.TypeArgs) > 0 {
 		args := make([]string, 0, len(typeRef.TypeArgs))
 		for _, arg := range typeRef.TypeArgs {
@@ -543,8 +509,67 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		}
 		name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
 	}
-
 	return name
+}
+
+func (p *Plugin) mapToCpp(typeRef resolution.TypeRef, data *templateData) string {
+	data.AddSystem("unordered_map")
+	keyType := "std::string"
+	valueType := "void"
+	if len(typeRef.TypeArgs) > 0 {
+		keyType = p.typeRefToCpp(typeRef.TypeArgs[0], data)
+	}
+	if len(typeRef.TypeArgs) > 1 {
+		valueType = p.typeRefToCpp(typeRef.TypeArgs[1], data)
+	}
+	return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
+}
+
+// primitiveToCpp returns the C++ type of the primitive name and adds its headers. It
+// returns false when name is not a primitive with a C++ type.
+func primitiveToCpp(name string, data *templateData) (string, bool) {
+	mapping := primitiveMapper.Map(name)
+	if mapping.TargetType == "" || mapping.TargetType == "void" {
+		return "", false
+	}
+	for _, imp := range mapping.Imports {
+		if imp.Category == "system" {
+			data.AddSystem(imp.Path)
+		} else {
+			data.AddInternal(imp.Path)
+		}
+	}
+	return mapping.TargetType, true
+}
+
+// addAliasedStructInclude adds the JSON include for the struct behind the alias ref
+// when that struct lives in another file.
+func (d *templateData) addAliasedStructInclude(ref resolution.TypeRef) {
+	target, _, ok := resolution.Dealias(ref, d.table)
+	if !ok {
+		return
+	}
+	if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
+		return
+	}
+	if outputPath := d.foreignOutputPath(target); outputPath != "" {
+		d.AddInternal(d.jsonInclude(outputPath))
+	}
+}
+
+// foreignInclude returns the header that declares t, which lives at outputPath in
+// another file. A cpp include expression on t takes precedence.
+func foreignInclude(t resolution.Type, outputPath string, data *templateData) string {
+	if cppDomain, ok := t.Domains["cpp"]; ok {
+		if expr, found := cppDomain.Expressions.Find("include"); found &&
+			len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
+			return expr.Values[0].StringValue
+		}
+	}
+	if isFixedSizeUint8ArrayType(t, data.table) {
+		return fmt.Sprintf("%s/%s.h", outputPath, lo.SnakeCase(t.Name))
+	}
+	return data.jsonInclude(outputPath)
 }
 
 // typeArgsToCpp returns args as a C++ template argument list, leaving out each argument
@@ -573,388 +598,304 @@ func (p *Plugin) parseExprForField(
 	data *templateData,
 	indirect bool,
 ) string {
+	f := fieldParser{
+		Plugin:     p,
+		field:      field,
+		cppType:    cppType,
+		data:       data,
+		indirect:   indirect,
+		jsonName:   casing.FieldSnake(field.Name),
+		hasDefault: field.Optional || hasRenderableDefault(field, data.table),
+	}
 	typeRef := field.Type
-	jsonName := casing.FieldSnake(field.Name)
-	hasDefault := field.Optional || hasRenderableDefault(field, data.table)
-
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
-		if field.Optional {
-			return fmt.Sprintf(
-				`parser.field<std::optional<%s>>("%s")`,
-				typeRef.TypeParam.Name,
-				jsonName,
-			)
-		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
+		return f.optionalOr(typeRef.TypeParam.Name)
 	}
-
-	if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
-		if form, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
-			if _, wraps := arrays.Wrapped(form, data.table); wraps {
-				resolved, _ := typeRef.Resolve(data.table)
-				wrapperType := domain.GetName(resolved, "cpp")
-				if resolved.FilePath != data.filePath {
-					targetOutputPath := output.GetPath(resolved, "cpp")
-					if targetOutputPath != "" {
-						ns := cppnaming.Namespace(targetOutputPath)
-						wrapperType = fmt.Sprintf("::%s::%s", ns, wrapperType)
-					}
-				}
-				if field.Optional {
-					wrapperType = fmt.Sprintf("std::optional<%s>", wrapperType)
-				} else if fallback := p.compositeFallback(
-					field,
-					wrapperType,
-					data,
-				); fallback != "" {
-					return fmt.Sprintf(
-						`parser.field<%s>("%s", %s)`,
-						wrapperType,
-						jsonName,
-						fallback,
-					)
-				}
-				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
-			}
-		}
+	if wrapperType, ok := f.arrayWrapperType(); ok {
+		return f.composite(wrapperType)
 	}
-
 	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
-		innerType := p.typeRefToCpp(elemType, data)
-
-		if elemType.TypeParam != nil {
-			if field.Optional {
-				return fmt.Sprintf(
-					`parser.field<std::optional<std::vector<%s>>>("%s")`,
-					elemType.TypeParam.Name,
-					jsonName,
-				)
-			}
-			return fmt.Sprintf(
-				`parser.field<std::vector<%s>>("%s", std::vector<%s>{})`,
-				elemType.TypeParam.Name,
-				jsonName,
-				elemType.TypeParam.Name,
-			)
+		return f.array(elemType)
+	}
+	if resolved, ok := typeRef.Resolve(data.table); ok {
+		if expr, ok := f.named(resolved); ok {
+			return expr
 		}
+	}
+	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" &&
+		mapping.TargetType != "void" {
+		return f.primitive()
+	}
+	return f.other()
+}
 
-		if elemResolved, ok := elemType.Resolve(data.table); ok {
-			if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
-				structType := domain.GetName(elemResolved, "cpp")
-				if elemResolved.FilePath != data.filePath {
-					targetOutputPath := output.GetPath(elemResolved, "cpp")
-					if targetOutputPath != "" {
-						ns := cppnaming.Namespace(targetOutputPath)
-						structType = fmt.Sprintf("::%s::%s", ns, structType)
-					}
-				}
-				if len(elemType.TypeArgs) > 0 {
-					var args []string
-					for i, arg := range elemType.TypeArgs {
-						if i < len(structForm.TypeParams) &&
-							structForm.TypeParams[i].HasDefault() {
-							continue
-						}
-						args = append(args, p.typeRefToCpp(arg, data))
-					}
-					if len(args) > 0 {
-						structType = fmt.Sprintf(
-							"%s<%s>",
-							structType,
-							strings.Join(args, ", "),
-						)
-					}
-				}
-				if field.Optional {
-					return fmt.Sprintf(
-						`parser.field<std::optional<std::vector<%s>>>("%s")`,
-						structType,
-						jsonName,
-					)
-				}
-				return fmt.Sprintf(
-					`parser.field<std::vector<%s>>("%s", std::vector<%s>{})`,
-					structType,
-					jsonName,
-					structType,
-				)
-			}
-			if union, ok := dealiasUnion(elemType, data.table); ok {
-				parseFn := "parse_" + lo.SnakeCase(domain.GetName(union, "cpp"))
-				if union.FilePath != data.filePath {
-					targetOutputPath := output.GetPath(union, "cpp")
-					if targetOutputPath != "" {
-						ns := cppnaming.Namespace(targetOutputPath)
-						parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
-						data.AddInternal(data.jsonInclude(targetOutputPath))
-					}
-				}
-				return fmt.Sprintf(
-					`[&] {
+// fieldParser renders the C++ expression that parses one field from a JSON parser.
+type fieldParser struct {
+	*Plugin
+	field      resolution.Field
+	cppType    string
+	data       *templateData
+	indirect   bool
+	jsonName   string
+	hasDefault bool
+}
+
+func (f fieldParser) plain(cppType string) string {
+	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, f.jsonName)
+}
+
+// required parses a field with no fallback. A required string or number field also
+// refuses its zero value, as Go and TypeScript do.
+func (f fieldParser) required() string {
+	return fmt.Sprintf(
+		`parser.%s<%s>("%s")`,
+		fieldFunc(f.field, f.data.table),
+		f.cppType,
+		f.jsonName,
+	)
+}
+
+// fieldFunc returns the parser method that reads field.
+func fieldFunc(field resolution.Field, table *resolution.Table) string {
+	// The Core mints a key, so a client sends its zero value on create.
+	_, isKey := field.Domains["key"]
+	if isKey || field.Optional ||
+		!validation.FieldRules(field, table).Required {
+		return "field"
+	}
+	base := resolution.PrimitiveBase(field.Type, table)
+	if resolution.IsPrimitive(base) &&
+		(resolution.IsStringPrimitive(base) || resolution.IsNumberPrimitive(base)) {
+		return "required_field"
+	}
+	return "field"
+}
+
+func (f fieldParser) withFallback(cppType, fallback string) string {
+	return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, f.jsonName, fallback)
+}
+
+func (f fieldParser) optionalOr(cppType string) string {
+	if f.field.Optional {
+		return f.plain(fmt.Sprintf("std::optional<%s>", cppType))
+	}
+	return f.plain(cppType)
+}
+
+// composite parses a struct-like field, falling back to its struct or array default.
+func (f fieldParser) composite(cppType string) string {
+	if f.field.Optional {
+		return f.plain(fmt.Sprintf("std::optional<%s>", cppType))
+	}
+	if fallback := f.compositeFallback(f.field, cppType, f.data); fallback != "" {
+		return f.withFallback(cppType, fallback)
+	}
+	return f.plain(cppType)
+}
+
+func (f fieldParser) vector(elemType string) string {
+	if f.field.Optional {
+		return f.plain(fmt.Sprintf("std::optional<std::vector<%s>>", elemType))
+	}
+	vec := fmt.Sprintf("std::vector<%s>", elemType)
+	return f.withFallback(vec, vec+"{}")
+}
+
+// arrayWrapperType returns the C++ name of the field's type when it is a distinct type
+// that wraps an array.
+func (f fieldParser) arrayWrapperType() (string, bool) {
+	target, _, ok := resolution.Dealias(f.field.Type, f.data.table)
+	if !ok {
+		return "", false
+	}
+	form, isDistinct := target.Form.(resolution.DistinctForm)
+	if !isDistinct {
+		return "", false
+	}
+	if _, wraps := arrays.Wrapped(form, f.data.table); !wraps {
+		return "", false
+	}
+	resolved, _ := f.field.Type.Resolve(f.data.table)
+	return f.data.qualifiedName(resolved), true
+}
+
+func (f fieldParser) array(elemType resolution.TypeRef) string {
+	innerType := f.typeRefToCpp(elemType, f.data)
+	if elemType.TypeParam != nil {
+		return f.vector(elemType.TypeParam.Name)
+	}
+	elemResolved, ok := elemType.Resolve(f.data.table)
+	if !ok {
+		return f.vector(innerType)
+	}
+	if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+		structType := f.data.qualifiedName(elemResolved) +
+			f.typeArgsToCpp(structForm.TypeParams, elemType.TypeArgs, f.data)
+		return f.vector(structType)
+	}
+	if union, ok := dealiasUnion(elemType, f.data.table); ok {
+		_, parseFn := f.unionNames(union)
+		return fmt.Sprintf(
+			`[&] {
         std::vector<%s> result;
         if (parser.has("%s"))
             parser.iter("%s", [&result](x::json::Parser& p) { result.push_back(%s(p)); });
         return result;
     }()`,
-					innerType, jsonName, jsonName, parseFn,
-				)
-			}
-		}
-
-		if field.Optional {
-			return fmt.Sprintf(
-				`parser.field<std::optional<std::vector<%s>>>("%s")`,
-				innerType,
-				jsonName,
-			)
-		}
-		return fmt.Sprintf(
-			`parser.field<std::vector<%s>>("%s", std::vector<%s>{})`,
-			innerType,
-			jsonName,
-			innerType,
+			innerType, f.jsonName, f.jsonName, parseFn,
 		)
 	}
+	return f.vector(innerType)
+}
 
-	resolved, resolvedOk := typeRef.Resolve(data.table)
-	if resolvedOk {
-		if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-			if !enumForm.IsIntEnum {
-				if field.Optional {
-					return fmt.Sprintf(
-						`parser.field<std::optional<std::string>>("%s")`,
-						jsonName,
-					)
-				}
-				if hasDefault {
-					defaultVal := jsonDefaultLiteral(field, data.table)
-					if defaultVal == "" {
-						defaultVal = `""`
-					}
-					return fmt.Sprintf(
-						`parser.field<std::string>("%s", %s)`,
-						jsonName,
-						defaultVal,
-					)
-				}
-				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
-			}
-			enumType := domain.GetName(resolved, "cpp")
-			if resolved.FilePath != data.filePath {
-				targetOutputPath := output.GetPath(resolved, "cpp")
-				if targetOutputPath != "" {
-					ns := cppnaming.Namespace(targetOutputPath)
-					enumType = fmt.Sprintf("::%s::%s", ns, enumType)
-				}
-			}
-			if field.Optional {
-				return fmt.Sprintf(
-					`parser.field<std::optional<%s>>("%s")`,
-					enumType,
-					jsonName,
-				)
-			}
-			if field.Default != nil {
-				if literal := p.defaultRenderer(data).Literal(
-					field.Type,
-					*field.Default,
-				); literal != "" {
-					return fmt.Sprintf(
-						`parser.field<%s>("%s", %s)`,
-						enumType,
-						jsonName,
-						literal,
-					)
-				}
-			}
-			return fmt.Sprintf(`parser.field<%s>("%s")`, enumType, jsonName)
+// named parses a field whose type resolves to an enum, struct, union, or struct alias.
+// It returns false for any other type.
+func (f fieldParser) named(resolved resolution.Type) (string, bool) {
+	if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		if !enumForm.IsIntEnum {
+			return f.stringEnum(), true
 		}
-		if structForm, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			structType := domain.GetName(resolved, "cpp")
-			if resolved.FilePath != data.filePath {
-				targetOutputPath := output.GetPath(resolved, "cpp")
-				if targetOutputPath != "" {
-					ns := cppnaming.Namespace(targetOutputPath)
-					structType = fmt.Sprintf("::%s::%s", ns, structType)
-				}
-			}
-			structType += p.typeArgsToCpp(structForm.TypeParams, typeRef.TypeArgs, data)
-			if field.Optional {
-				if indirect {
-					return fmt.Sprintf(
-						`parser.field<x::mem::indirect<%s>>("%s")`,
-						structType,
-						jsonName,
-					)
-				}
-				return fmt.Sprintf(
-					`parser.field<std::optional<%s>>("%s")`,
-					structType,
-					jsonName,
-				)
-			}
-			if fallback := p.compositeFallback(
-				field,
-				structType,
-				data,
-			); fallback != "" {
-				return fmt.Sprintf(
-					`parser.field<%s>("%s", %s)`,
-					structType,
-					jsonName,
-					fallback,
-				)
-			}
-			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
-		}
-		if union, ok := dealiasUnion(typeRef, data.table); ok {
-			unionType := domain.GetName(union, "cpp")
-			parseFn := "parse_" + lo.SnakeCase(unionType)
-			if union.FilePath != data.filePath {
-				targetOutputPath := output.GetPath(union, "cpp")
-				if targetOutputPath != "" {
-					ns := cppnaming.Namespace(targetOutputPath)
-					unionType = fmt.Sprintf("::%s::%s", ns, unionType)
-					parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
-					data.AddInternal(data.jsonInclude(targetOutputPath))
-				}
-			}
-			if field.Optional {
-				return fmt.Sprintf(
-					`parser.has("%s") ? std::optional<%s>(%s(parser.child("%s"))) : std::nullopt`,
-					jsonName,
-					cppType,
-					parseFn,
-					jsonName,
-				)
-			}
-			if hasDefault {
-				// std::variant default-constructs its first alternative, so a default
-				// naming any other variant must be written out.
-				fallback := cppType + "{}"
-				if uv, ok := validation.ResolveUnionVariant(
-					defaultIdent(field),
-					field.Type,
-					data.table,
-				); ok {
-					fallback = fmt.Sprintf(
-						"%s{%s{}}",
-						cppType,
-						cppnaming.QualifiedVariantTypeName(unionType, uv.Variant.Name),
-					)
-				}
-				return fmt.Sprintf(
-					`parser.has("%s") ? %s(parser.child("%s")) : %s`,
-					jsonName, parseFn, jsonName, fallback,
-				)
-			}
-			return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, jsonName)
-		}
-		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
-				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-					aliasType := domain.GetName(resolved, "cpp")
-					if resolved.FilePath != data.filePath {
-						targetOutputPath := output.GetPath(resolved, "cpp")
-						if targetOutputPath != "" {
-							ns := cppnaming.Namespace(targetOutputPath)
-							aliasType = fmt.Sprintf("::%s::%s", ns, aliasType)
-						}
-					}
-					aliasType += p.typeArgsToCpp(
-						aliasForm.TypeParams,
-						typeRef.TypeArgs,
-						data,
-					)
-					if field.Optional {
-						return fmt.Sprintf(
-							`parser.field<std::optional<%s>>("%s")`,
-							aliasType,
-							jsonName,
-						)
-					}
-					if fallback := p.compositeFallback(
-						field,
-						aliasType,
-						data,
-					); fallback != "" {
-						return fmt.Sprintf(
-							`parser.field<%s>("%s", %s)`,
-							aliasType,
-							jsonName,
-							fallback,
-						)
-					}
-					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
-				}
-			}
-		}
+		return f.intEnum(f.data.qualifiedName(resolved)), true
 	}
+	if structForm, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+		structType := f.data.qualifiedName(resolved) +
+			f.typeArgsToCpp(structForm.TypeParams, f.field.Type.TypeArgs, f.data)
+		if f.field.Optional && f.indirect {
+			return f.plain(fmt.Sprintf("x::mem::indirect<%s>", structType)), true
+		}
+		return f.composite(structType), true
+	}
+	if union, ok := dealiasUnion(f.field.Type, f.data.table); ok {
+		return f.union(union), true
+	}
+	aliasForm, isAlias := resolved.Form.(resolution.AliasForm)
+	if !isAlias {
+		return "", false
+	}
+	target, _, ok := resolution.Dealias(f.field.Type, f.data.table)
+	if !ok {
+		return "", false
+	}
+	if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
+		return "", false
+	}
+	aliasType := f.data.qualifiedName(resolved) +
+		f.typeArgsToCpp(aliasForm.TypeParams, f.field.Type.TypeArgs, f.data)
+	return f.composite(aliasType), true
+}
 
-	if mapping := primitiveMapper.Map(
-		typeRef.Name,
-	); mapping.TargetType != "" &&
-		mapping.TargetType != "void" {
-		if field.Optional {
-			return fmt.Sprintf(
-				`parser.field<std::optional<%s>>("%s")`,
-				cppType,
-				jsonName,
-			)
-		}
-		if hasDefault {
-			defaultVal := jsonDefaultLiteral(field, data.table)
-			if defaultVal == "" && field.Optional {
-				defaultVal = defaultValueForPrimitive(typeRef.Name)
-			}
-			if defaultVal != "" {
-				return fmt.Sprintf(
-					`parser.field<%s>("%s", %s)`,
-					cppType,
-					jsonName,
-					defaultVal,
-				)
-			}
-		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+func (f fieldParser) stringEnum() string {
+	if f.field.Optional {
+		return f.plain("std::optional<std::string>")
 	}
+	if !f.hasDefault {
+		return f.plain("std::string")
+	}
+	defaultVal := jsonDefaultLiteral(f.field, f.data.table)
+	if defaultVal == "" {
+		defaultVal = `""`
+	}
+	return f.withFallback("std::string", defaultVal)
+}
 
-	if field.Optional {
-		if indirect {
-			return fmt.Sprintf(
-				`parser.field<x::mem::indirect<%s>>("%s")`,
-				cppType,
-				jsonName,
-			)
-		}
-		return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
+func (f fieldParser) intEnum(enumType string) string {
+	if f.field.Optional {
+		return f.plain(fmt.Sprintf("std::optional<%s>", enumType))
 	}
-	if hasDefault {
-		if defaultVal := jsonDefaultLiteral(field, data.table); defaultVal != "" {
-			// Hand-written distinct types such as x::telem::Rate and
-			// x::telem::DataType expose only explicit constructors, so a bare
-			// literal fails to bind as the fallback value.
-			if isScalarDefault(field.Default) &&
-				resolution.IsDistinct(field.Type, data.table) {
-				defaultVal = fmt.Sprintf("%s(%s)", cppType, defaultVal)
-			}
-			return fmt.Sprintf(
-				`parser.field<%s>("%s", %s)`,
-				cppType,
-				jsonName,
-				defaultVal,
-			)
-		}
-		if fallback := p.compositeFallback(field, cppType, data); fallback != "" {
-			return fmt.Sprintf(
-				`parser.field<%s>("%s", %s)`,
-				cppType,
-				jsonName,
-				fallback,
-			)
+	if f.field.Default != nil {
+		if literal := f.defaultRenderer(f.data).Literal(
+			f.field.Type,
+			*f.field.Default,
+		); literal != "" {
+			return f.withFallback(enumType, literal)
 		}
 	}
-	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	return f.plain(enumType)
+}
+
+// unionNames returns the C++ type name of union and the name of its parse function,
+// adding the JSON include when union lives in another namespace.
+func (f fieldParser) unionNames(union resolution.Type) (string, string) {
+	unionType := domain.GetName(union, "cpp")
+	parseFn := "parse_" + lo.SnakeCase(unionType)
+	outputPath := f.data.foreignOutputPath(union)
+	if outputPath == "" {
+		return unionType, parseFn
+	}
+	f.data.AddInternal(f.data.jsonInclude(outputPath))
+	return qualify(outputPath, unionType), qualify(outputPath, parseFn)
+}
+
+func (f fieldParser) union(union resolution.Type) string {
+	unionType, parseFn := f.unionNames(union)
+	if f.field.Optional {
+		return fmt.Sprintf(
+			`parser.has("%s") ? std::optional<%s>(%s(parser.child("%s"))) : std::nullopt`,
+			f.jsonName,
+			f.cppType,
+			parseFn,
+			f.jsonName,
+		)
+	}
+	if !f.hasDefault {
+		return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, f.jsonName)
+	}
+	// std::variant default-constructs its first alternative, so a default naming any
+	// other variant must be written out.
+	fallback := f.cppType + "{}"
+	if uv, ok := validation.ResolveUnionVariant(
+		defaultIdent(f.field),
+		f.field.Type,
+		f.data.table,
+	); ok {
+		fallback = fmt.Sprintf(
+			"%s{%s{}}",
+			f.cppType,
+			cppnaming.QualifiedVariantTypeName(unionType, uv.Variant.Name),
+		)
+	}
+	return fmt.Sprintf(
+		`parser.has("%s") ? %s(parser.child("%s")) : %s`,
+		f.jsonName, parseFn, f.jsonName, fallback,
+	)
+}
+
+func (f fieldParser) primitive() string {
+	if f.field.Optional {
+		return f.plain(fmt.Sprintf("std::optional<%s>", f.cppType))
+	}
+	if f.hasDefault {
+		if defaultVal := jsonDefaultLiteral(f.field, f.data.table); defaultVal != "" {
+			return f.withFallback(f.cppType, defaultVal)
+		}
+	}
+	return f.required()
+}
+
+func (f fieldParser) other() string {
+	if f.field.Optional {
+		if f.indirect {
+			return f.plain(fmt.Sprintf("x::mem::indirect<%s>", f.cppType))
+		}
+		return f.plain(fmt.Sprintf("std::optional<%s>", f.cppType))
+	}
+	if !f.hasDefault {
+		return f.required()
+	}
+	if defaultVal := jsonDefaultLiteral(f.field, f.data.table); defaultVal != "" {
+		// Hand-written distinct types such as x::telem::Rate and x::telem::DataType
+		// expose only explicit constructors, so a bare literal fails to bind as the
+		// fallback value.
+		if isScalarDefault(f.field.Default) &&
+			resolution.IsDistinct(f.field.Type, f.data.table) {
+			defaultVal = fmt.Sprintf("%s(%s)", f.cppType, defaultVal)
+		}
+		return f.withFallback(f.cppType, defaultVal)
+	}
+	if fallback := f.compositeFallback(f.field, f.cppType, f.data); fallback != "" {
+		return f.withFallback(f.cppType, fallback)
+	}
+	return f.required()
 }
 
 // compositeFallback renders a struct or array default as a value of cppType. It returns
@@ -970,6 +911,11 @@ func (p *Plugin) compositeFallback(
 	switch field.Default.Kind {
 	case resolution.ValueKindStruct, resolution.ValueKindArray:
 		return cppType + p.defaultRenderer(data).Literal(field.Type, *field.Default)
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool,
+		resolution.ValueKindIdent:
 	}
 	return ""
 }
@@ -984,293 +930,218 @@ func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
 	}
 }
 
-func (p *Plugin) toJSONExprForField(
+func toJSONExprForField(
 	field resolution.Field,
 	data *templateData,
 	indirect bool,
 ) string {
+	w := fieldWriter{
+		field:    field,
+		data:     data,
+		member:   "this->" + memberName(field),
+		jsonName: casing.FieldSnake(field.Name),
+	}
 	typeRef := field.Type
-	jsonName := casing.FieldSnake(field.Name)
-
-	fieldName := domain.GetFieldName(field, "cpp")
-	if fieldName == field.Name {
-		fieldName = casing.FieldSnake(field.Name)
-	}
-	fieldName = keywords.Escape(fieldName)
-
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
-		if field.Optional {
-			return fmt.Sprintf(
-				`if (this->%s.has_value()) j["%s"] = x::json::to_json(*this->%s);`,
-				fieldName,
-				jsonName,
-				fieldName,
-			)
-		}
-		return fmt.Sprintf(`j["%s"] = x::json::to_json(this->%s);`, jsonName, fieldName)
+		return w.call("x::json::to_json")
 	}
-
 	// An indirect<T> has the same has_value() and -> interface as std::optional<T>,
 	// and its T (a struct, or a distinct or alias of one) always has to_json().
 	// Without this case, a cycle through a distinct falls through to the default
 	// assignment below, which is ill-typed against indirect<T>.
 	if indirect {
-		return fmt.Sprintf(
-			`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
-			fieldName,
-			jsonName,
-			fieldName,
-		)
+		return w.ifPresent(w.set(w.member + "->to_json()"))
 	}
-
-	if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
-		if form, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
-			if _, wraps := arrays.Wrapped(form, data.table); wraps {
-				if field.Optional {
-					return fmt.Sprintf(
-						`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
-						fieldName,
-						jsonName,
-						fieldName,
-					)
-				}
-				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
-			}
-		}
+	if wrapsArray(typeRef, data.table) {
+		return w.method("to_json")
 	}
-
 	if mapRef, isStruct, ok := objectMap(typeRef, data.table); ok {
-		src := "this->" + fieldName
-		if field.Optional {
-			src = "*" + src
+		return w.objectMap(mapRef, isStruct)
+	}
+	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
+		return w.array(elemType)
+	}
+	if resolved, ok := typeRef.Resolve(data.table); ok {
+		if expr, ok := w.named(resolved); ok {
+			return expr
 		}
-		// JSON object keys are strings, and obj[key] with an integer key indexes an
-		// array.
-		key := "key"
-		switch base := resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table); {
-		case mapRef.TypeArgs[0].IsTypeParam():
-			key = "x::json::map_key(key)"
-		case base == "string":
-		case base == "uuid":
-			key = "key.to_string()"
-		default:
-			data.AddSystem("string")
-			key = "std::to_string(key)"
-		}
-		value := "item"
-		if isStruct {
-			value = "item.to_json()"
-		}
-		body := fmt.Sprintf(`{
+	}
+	if telem.IsTimeStamp(typeRef, data.table, "cpp") ||
+		telem.IsTimeSpan(typeRef, data.table, "cpp") {
+		return w.method("nanoseconds")
+	}
+	if resolution.PrimitiveBase(typeRef, data.table) == "uuid" {
+		return w.method("to_json")
+	}
+	return w.value()
+}
+
+// fieldWriter renders the C++ statement that writes one field into the JSON object j.
+type fieldWriter struct {
+	field    resolution.Field
+	data     *templateData
+	member   string
+	jsonName string
+}
+
+func (w fieldWriter) set(value string) string {
+	return fmt.Sprintf(`j["%s"] = %s;`, w.jsonName, value)
+}
+
+func (w fieldWriter) ifPresent(stmt string) string {
+	return fmt.Sprintf(`if (%s.has_value()) %s`, w.member, stmt)
+}
+
+// source returns the expression for the field's value, dereferenced when the field is
+// optional.
+func (w fieldWriter) source() string {
+	if w.field.Optional {
+		return "*" + w.member
+	}
+	return w.member
+}
+
+// guard runs stmt only when an optional field holds a value.
+func (w fieldWriter) guard(stmt string) string {
+	if w.field.Optional {
+		return w.ifPresent(stmt)
+	}
+	return stmt
+}
+
+func (w fieldWriter) value() string { return w.guard(w.set(w.source())) }
+
+// call writes the result of the free function fn applied to the field's value.
+func (w fieldWriter) call(fn string) string {
+	return w.guard(w.set(fmt.Sprintf("%s(%s)", fn, w.source())))
+}
+
+// method writes the result of the member function name of the field's value.
+func (w fieldWriter) method(name string) string {
+	if w.field.Optional {
+		return w.ifPresent(w.set(fmt.Sprintf("%s->%s()", w.member, name)))
+	}
+	return w.set(fmt.Sprintf("%s.%s()", w.member, name))
+}
+
+func (w fieldWriter) objectMap(mapRef resolution.TypeRef, isStruct bool) string {
+	value := "item"
+	if isStruct {
+		value = "item.to_json()"
+	}
+	return w.guard(fmt.Sprintf(`{
         auto obj = x::json::json::object();
         for (const auto& [key, item] : %s) obj[%s] = %s;
         j["%s"] = obj;
-    }`, src, key, value, jsonName)
-		if field.Optional {
-			return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
-		}
-		return body
+    }`, w.source(), w.mapKey(mapRef.TypeArgs[0]), value, w.jsonName))
+}
+
+// mapKey returns the JSON object key for the map key named key. JSON object keys are
+// strings, and obj[key] with an integer key indexes an array.
+func (w fieldWriter) mapKey(key resolution.TypeRef) string {
+	switch base := mapKeyBase(key, w.data.table); {
+	case key.IsTypeParam():
+		return "x::json::map_key(key)"
+	case base == "string":
+		return "key"
+	case base == "uuid":
+		return "key.to_string()"
+	default:
+		w.data.AddSystem("string")
+		return "std::to_string(key)"
 	}
+}
 
-	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
-		if elemType.TypeParam != nil {
-			if field.Optional {
-				return fmt.Sprintf(
-					`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`,
-					fieldName,
-					jsonName,
-					fieldName,
-				)
-			}
-			return fmt.Sprintf(
-				`j["%s"] = x::json::to_array(this->%s);`,
-				jsonName,
-				fieldName,
-			)
-		}
-
-		// UUIDs serialize through their to_json member, which nlohmann_json cannot
-		// reach inside a vector.
-		if resolution.PrimitiveBase(elemType, data.table) == "uuid" {
-			src := "this->" + fieldName
-			if field.Optional {
-				src = "*" + src
-			}
-			body := fmt.Sprintf(`{
+func (w fieldWriter) array(elemType resolution.TypeRef) string {
+	if elemType.TypeParam != nil {
+		return w.call("x::json::to_array")
+	}
+	// UUIDs serialize through their to_json member, which nlohmann_json cannot reach
+	// inside a vector.
+	if resolution.PrimitiveBase(elemType, w.data.table) == "uuid" {
+		return w.guard(fmt.Sprintf(`{
         auto arr = x::json::json::array();
         for (const auto& item : %s) arr.push_back(item.to_json());
         j["%s"] = arr;
-    }`, src, jsonName)
-			if field.Optional {
-				return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
-			}
-			return body
-		}
-
-		if elem, _, ok := resolution.Dealias(elemType, data.table); ok {
-			if _, isStruct := elem.Form.(resolution.StructForm); isStruct {
-				if field.Optional {
-					return fmt.Sprintf(
-						`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`,
-						fieldName,
-						jsonName,
-						fieldName,
-					)
-				}
-				return fmt.Sprintf(
-					`j["%s"] = x::json::to_array(this->%s);`,
-					jsonName,
-					fieldName,
-				)
-			}
-			if _, isUnion := elem.Form.(resolution.UnionForm); isUnion {
-				// Qualify the free to_json: unqualified lookup inside a member
-				// to_json() finds the member and never reaches the overload.
-				qualifier := "::" + data.Namespace
-				if elem.FilePath != data.filePath {
-					targetOutputPath := output.GetPath(elem, "cpp")
-					if targetOutputPath != "" {
-						data.AddInternal(data.jsonInclude(targetOutputPath))
-						qualifier = "::" + cppnaming.Namespace(targetOutputPath)
-					}
-				}
-				return fmt.Sprintf(`{
+    }`, w.source(), w.jsonName))
+	}
+	elem, _, ok := resolution.Dealias(elemType, w.data.table)
+	if !ok {
+		return w.value()
+	}
+	if _, isStruct := elem.Form.(resolution.StructForm); isStruct {
+		return w.call("x::json::to_array")
+	}
+	if _, isUnion := elem.Form.(resolution.UnionForm); isUnion {
+		return fmt.Sprintf(`{
         auto arr = x::json::json::array();
-        for (const auto& item : this->%s) arr.push_back(%s::to_json(item));
+        for (const auto& item : %s) arr.push_back(%s::to_json(item));
         j["%s"] = arr;
-    }`, fieldName, qualifier, jsonName)
-			}
-			// Nested-array-of-struct case: outer element resolves to another array
-			// (e.g., Members = []Member) whose inner element is a struct. nlohmann_json
-			// can't serialize vector<vector<Struct>> directly — serialize each inner
-			// array via to_array and bundle them in a JSON array.
-			if innerElem, ok := arrays.ElementType(elemType, data.table); ok {
-				if inner, _, ok := resolution.Dealias(innerElem, data.table); ok {
-					if _, isStruct := inner.Form.(resolution.StructForm); isStruct {
-						return fmt.Sprintf(`{
+    }`, w.member, w.data.unionQualifier(elem), w.jsonName)
+	}
+	// nlohmann_json cannot serialize vector<vector<Struct>>, so write each inner array
+	// through to_array.
+	if innerElem, ok := arrays.ElementType(elemType, w.data.table); ok &&
+		isStructRef(innerElem, w.data.table) {
+		return fmt.Sprintf(`{
         auto arr = x::json::json::array();
-        for (const auto& inner : this->%s) arr.push_back(x::json::to_array(inner));
+        for (const auto& inner : %s) arr.push_back(x::json::to_array(inner));
         j["%s"] = arr;
-    }`, fieldName, jsonName)
-					}
-				}
-			}
-		}
-
-		if field.Optional {
-			return fmt.Sprintf(
-				`if (this->%s.has_value()) j["%s"] = *this->%s;`,
-				fieldName,
-				jsonName,
-				fieldName,
-			)
-		}
-		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+    }`, w.member, w.jsonName)
 	}
+	return w.value()
+}
 
-	resolved, resolvedOk := typeRef.Resolve(data.table)
-	if resolvedOk {
-		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			if indirect {
-				return fmt.Sprintf(
-					`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
-					fieldName,
-					jsonName,
-					fieldName,
-				)
-			}
-			if field.Optional {
-				return fmt.Sprintf(
-					`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
-					fieldName,
-					jsonName,
-					fieldName,
-				)
-			}
-			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
-		}
-		if union, ok := dealiasUnion(typeRef, data.table); ok {
-			// Qualify the free to_json: unqualified lookup inside a member to_json()
-			// finds the member and never reaches the overload.
-			qualifier := "::" + data.Namespace
-			if union.FilePath != data.filePath {
-				targetOutputPath := output.GetPath(union, "cpp")
-				if targetOutputPath != "" {
-					data.AddInternal(data.jsonInclude(targetOutputPath))
-					qualifier = "::" + cppnaming.Namespace(targetOutputPath)
-				}
-			}
-			if field.Optional {
-				return fmt.Sprintf(
-					`if (this->%s.has_value()) j["%s"] = %s::to_json(*this->%s);`,
-					fieldName,
-					jsonName,
-					qualifier,
-					fieldName,
-				)
-			}
-			return fmt.Sprintf(
-				`j["%s"] = %s::to_json(this->%s);`,
-				jsonName,
-				qualifier,
-				fieldName,
-			)
-		}
-		if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
-				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-					if field.Optional {
-						return fmt.Sprintf(
-							`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
-							fieldName,
-							jsonName,
-							fieldName,
-						)
-					}
-					return fmt.Sprintf(
-						`j["%s"] = this->%s.to_json();`,
-						jsonName,
-						fieldName,
-					)
-				}
-			}
-		}
+// named writes a field whose type resolves to a struct, union, or struct alias. It
+// returns false for any other type.
+func (w fieldWriter) named(resolved resolution.Type) (string, bool) {
+	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+		return w.method("to_json"), true
 	}
+	if union, ok := dealiasUnion(w.field.Type, w.data.table); ok {
+		return w.call(w.data.unionQualifier(union) + "::to_json"), true
+	}
+	if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias &&
+		isStructRef(w.field.Type, w.data.table) {
+		return w.method("to_json"), true
+	}
+	return "", false
+}
 
-	if telem.IsTimeStamp(typeRef, data.table, "cpp") ||
-		telem.IsTimeSpan(typeRef, data.table, "cpp") {
-		if field.Optional {
-			return fmt.Sprintf(
-				`if (this->%s.has_value()) j["%s"] = this->%s->nanoseconds();`,
-				fieldName,
-				jsonName,
-				fieldName,
-			)
-		}
-		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
+// unionQualifier returns the namespace that holds the free to_json of union, adding
+// its JSON include when union lives in another file. Unqualified lookup inside a
+// member to_json() finds the member and never reaches the free overload.
+func (d *templateData) unionQualifier(union resolution.Type) string {
+	outputPath := d.foreignOutputPath(union)
+	if outputPath == "" {
+		return "::" + d.Namespace
 	}
+	d.AddInternal(d.jsonInclude(outputPath))
+	return "::" + cppnaming.Namespace(outputPath)
+}
 
-	if resolution.PrimitiveBase(typeRef, data.table) == "uuid" {
-		if field.Optional {
-			return fmt.Sprintf(
-				`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
-				fieldName,
-				jsonName,
-				fieldName,
-			)
-		}
-		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+// wrapsArray reports whether ref stands for a distinct type that wraps an array.
+func wrapsArray(ref resolution.TypeRef, table *resolution.Table) bool {
+	target, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return false
 	}
+	form, isDistinct := target.Form.(resolution.DistinctForm)
+	if !isDistinct {
+		return false
+	}
+	_, wraps := arrays.Wrapped(form, table)
+	return wraps
+}
 
-	if field.Optional {
-		return fmt.Sprintf(
-			`if (this->%s.has_value()) j["%s"] = *this->%s;`,
-			fieldName,
-			jsonName,
-			fieldName,
-		)
+// isStructRef reports whether ref stands for a struct, following aliases.
+func isStructRef(ref resolution.TypeRef, table *resolution.Table) bool {
+	t, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return false
 	}
-	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+	_, isStruct := t.Form.(resolution.StructForm)
+	return isStruct
 }
 
 // dealiasUnion returns the union ref stands for, following aliases.
@@ -1320,6 +1191,10 @@ func isScalarDefault(val *resolution.ExpressionValue) bool {
 		resolution.ValueKindInt,
 		resolution.ValueKindFloat:
 		return true
+	case resolution.ValueKindBool,
+		resolution.ValueKindIdent,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return false
 }
@@ -1382,35 +1257,10 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		}
 		// Other unresolvable idents have no C++ rendering; the field stays required.
 		return ""
+	case resolution.ValueKindArray:
+		return ""
 	}
 	return ""
-}
-
-func defaultValueForPrimitive(primitive string) string {
-	switch primitive {
-	case "string":
-		return `""`
-	case "uuid":
-		return "x::uuid::UUID{}"
-	case "bool":
-		return "false"
-	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64":
-		return "0"
-	case "float32", "float64":
-		return "0.0"
-	case "timestamp":
-		return "x::telem::TimeStamp(0)"
-	case "timespan":
-		return "x::telem::TimeSpan(0)"
-	case "time_range", "time_range_bounded":
-		return "x::telem::TimeRange{}"
-	case "record":
-		return "x::json::json::object_t{}"
-	case "bytes":
-		return "{}"
-	default:
-		return "{}"
-	}
 }
 
 func isFixedSizeUint8ArrayType(resolved resolution.Type, table *resolution.Table) bool {
@@ -1473,4 +1323,27 @@ type fieldData struct {
 	Name       string
 	ParseExpr  string
 	ToJSONExpr string
+}
+
+// foreignOutputPath returns the C++ output path of t when t lives in another file, and
+// "" otherwise.
+func (d *templateData) foreignOutputPath(t resolution.Type) string {
+	if t.FilePath == d.filePath {
+		return ""
+	}
+	return output.GetPath(t, "cpp")
+}
+
+// qualifiedName returns the C++ name of t, qualified by its namespace when t lives in
+// another file.
+func (d *templateData) qualifiedName(t resolution.Type) string {
+	name := domain.GetName(t, "cpp")
+	if outputPath := d.foreignOutputPath(t); outputPath != "" {
+		return qualify(outputPath, name)
+	}
+	return name
+}
+
+func qualify(outputPath, name string) string {
+	return fmt.Sprintf("::%s::%s", cppnaming.Namespace(outputPath), name)
 }

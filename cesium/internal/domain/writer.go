@@ -71,10 +71,6 @@ var (
 	ErrStartAfterWrite = errors.New(
 		"cannot set the start of a domain writer after it writes",
 	)
-	defaultWriterConfig = WriterConfig{
-		EnableAutoCommit:         new(true),
-		AutoIndexPersistInterval: 1 * telem.Second,
-	}
 )
 
 // domain returns the time range of the domain the configuration forms. If End is not
@@ -172,7 +168,10 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		return nil, ErrDBClosed
 	}
 
-	cfg, err := config.New(defaultWriterConfig, cfg)
+	cfg, err := config.New(WriterConfig{
+		EnableAutoCommit:         new(true),
+		AutoIndexPersistInterval: 1 * telem.Second,
+	}, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +343,7 @@ func (w *Writer) commit(
 	}
 
 	commitEnd, switchingFile := w.resolveCommitEnd(end)
-	if err := w.validateCommitRange(commitEnd, switchingFile); err != nil {
+	if err := w.validateCommitRange(commitEnd); err != nil {
 		return span.Error(err)
 	}
 
@@ -358,35 +357,54 @@ func (w *Writer) commit(
 		size:    uint32(length),
 		fileKey: w.fileKey,
 	}
+	if err := w.index(ctx, ptr, shouldPersist, g); err != nil {
+		return span.Error(err)
+	}
+
+	if switchingFile {
+		if err := w.rollover(ctx, commitEnd); err != nil {
+			return span.Error(err)
+		}
+	}
+
+	return nil
+}
+
+// index inserts or updates ptr in the index, persisting it when shouldPersist is true.
+func (w *Writer) index(
+	ctx context.Context,
+	ptr pointer,
+	shouldPersist bool,
+	g *Group,
+) error {
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
 	write, err := f(ctx, ptr, shouldPersist, g)
 	if err != nil {
-		return span.Error(err)
+		return err
 	}
 	if w.staged && w.stagedStart != ptr.Start {
 		w.idx.reveal(w.stagedStart)
 	}
 	w.staged, w.stagedStart = g != nil, ptr.Start
 	// The index holds the pointer even when persisting it fails, so a retry updates it.
-	w.prevCommit = commitEnd
+	w.prevCommit = ptr.End
 	if shouldPersist {
-		if err := w.idx.run(write); err != nil {
-			return span.Error(err)
-		}
+		return w.idx.run(write)
 	}
+	return nil
+}
 
-	if switchingFile {
-		if err := w.switchFile(ctx); err != nil {
-			return span.Error(err)
-		}
-		w.Start = commitEnd
-		w.prevCommit = 0
-		if w.OnRollover != nil {
-			w.OnRollover(commitEnd)
-		}
+// rollover moves the writer to a new file whose first domain starts at end.
+func (w *Writer) rollover(ctx context.Context, end telem.TimeStamp) error {
+	if err := w.switchFile(ctx); err != nil {
+		return err
 	}
-
+	w.Start = end
+	w.prevCommit = 0
+	if w.OnRollover != nil {
+		w.OnRollover(end)
+	}
 	return nil
 }
 
@@ -428,8 +446,8 @@ func (w *Writer) release() error {
 	return nil
 }
 
-func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
-	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
+func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
+	if !w.prevCommit.IsZero() && !w.presetEnd && end.Before(w.prevCommit) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v",

@@ -15,8 +15,8 @@ in `tests/` (Python).
 ## Live-Core tests
 
 Client (TS/Python/C++) tests, Pluto and Console live-Core specs, and Driver tests
-connect to a Core (login `synnax`/`seldon`). They read `SYNNAX_HOST` and `SYNNAX_PORT`,
-and default to `localhost:9090`.
+connect to a Core (login `synnax`/`seldon`). They read `SYNNAX_TEST_HOST` and
+`SYNNAX_TEST_PORT`, and default to `localhost:9090`.
 
 Parallel sessions share this machine. Build a Core from your worktree and run it on a
 free port. Never use, stop, or replace a Core that you did not start.
@@ -27,32 +27,35 @@ lsof -nP -iTCP:9190 -sTCP:LISTEN          # no output means the port is free
 ./core/synnax start -mi -l localhost:9190 # -m in-memory storage, -i insecure
 ```
 
-Start it in the background; in-memory state is lost on restart. Then set `SYNNAX_PORT`
-on every test run, because a directory target can include live-Core specs:
+Start it in the background; in-memory state is lost on restart. Then set
+`SYNNAX_TEST_PORT` on every test run, because a directory target can include live-Core
+specs:
 
 ```bash
-SYNNAX_PORT=9190 pnpm test:console
-cd client/py && SYNNAX_PORT=9190 uv run pytest tests/test_channel.py
-SYNNAX_PORT=9190 bazel test //client/cpp/channel:all
+SYNNAX_TEST_PORT=9190 pnpm test:console
+cd client/py && SYNNAX_TEST_PORT=9190 uv run pytest tests/test_channel.py
+SYNNAX_TEST_PORT=9190 bazel test //client/cpp/channel:all
 ```
 
-- `SYNNAX_PORT` does not move a Core. A Core reads `-l` (`--listen`) or `SYNNAX_LISTEN`.
+- `SYNNAX_TEST_PORT` does not move a Core. A Core reads `-l` (`--listen`) or
+  `SYNNAX_LISTEN`.
 - A Core needs a license to answer API calls. It reads `SYNNAX_LICENSE_KEY`. Look for
   `license active` in its log.
 - A Core older than your branch fails specs in ways that look like regressions. Rebuild
   it after a merge.
 - `//driver/rack:config_test` and `channel/calc_type_cascade` need a Core on 9090. They
-  ignore `SYNNAX_PORT`.
+  ignore `SYNNAX_TEST_PORT`.
 
 ### Dev Console on a free port
 
 ```bash
-SYNNAX_PORT=9190 SYNNAX_CONSOLE_PORT=5190 pnpm dev:console-vite
+SYNNAX_TEST_PORT=9190 SYNNAX_CONSOLE_PORT=5190 pnpm dev:console-vite
 ```
 
-`SYNNAX_PORT` names the Core, and `SYNNAX_CONSOLE_PORT` names the Vite port (default
-5173). Vite exits if its port is taken. A Core that the browser already selected wins
-over `SYNNAX_PORT`, so a new `SYNNAX_CONSOLE_PORT` gives a clean start.
+`SYNNAX_TEST_PORT` names the Core, and `SYNNAX_CONSOLE_PORT` names the Vite port
+(default 5173). Vite exits if its port is taken. A Core that the browser already
+selected wins over `SYNNAX_TEST_PORT`, so a new `SYNNAX_CONSOLE_PORT` gives a clean
+start.
 
 `pnpm dev:console` stays on 5173, and its single-instance plugin blocks a second one.
 Use `pnpm dev:console-vite` for parallel work.
@@ -123,7 +126,7 @@ helpers), `case.py` (base `ConsoleCase` with Playwright setup).
 ### Debugging failures
 
 Every run writes a debug bundle to `integration/tests/results/run-<ts>[-<name>]/` (also
-via the `latest` symlink): `summary.json`, `server.log`, and per-test `tests/<name>/`
+via the `latest` symlink): `summary.json`, `server.log`, and per-test `tests/<case>/`
 dirs with `trace.zip` (on failure), a sliced `server.log`, and screenshots/exports. CI
 uploads the directory as a `test-results-<os>-<name>` artifact.
 

@@ -8,13 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Label } from "@/schematic/node/flowmeters/Label";
+import svg from "@/schematic/node/flowmeters/General.svg?raw";
 import { type Props } from "@/schematic/node/flowmeters/props";
 
-const DIMENSIONS = { width: 71, height: 36 };
-const LABELS = { x: 56, y: 25 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.04, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.98, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.06 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.91 }, orientation: "bottom" },
+  ],
+});
 
 export const General = ({
   id,
@@ -25,21 +32,12 @@ export const General = ({
   ...rest
 }: Props) => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-general"), className)}>
-    <Handle.Rectangle
-      orientation={orientation}
-      left={4}
-      top={6}
-      right={98}
-      bottom={91}
-    />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Label position={LABELS} strokeColor={strokeColor} />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

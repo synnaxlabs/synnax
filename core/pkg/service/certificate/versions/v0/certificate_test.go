@@ -55,7 +55,8 @@ var _ = Describe("Certificate", func() {
 			Expect(MustBeOk(stored.Details())).To(Equal(details))
 		})
 		It("Should return the details of a file certificate that has them", func() {
-			variant := file.Variant.(v0.FileCertificate)
+			variant, ok := file.Variant.(v0.FileCertificate)
+			Expect(ok).To(BeTrue())
 			variant.Details = &details
 			Expect(MustBeOk(v0.Certificate{Variant: variant}.Details())).
 				To(Equal(details))

@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 import synnax as sy
 
-from common import PUBLISH_AUTHORITY, close_quietly, warn
+from common import PUBLISH_AUTHORITY, Writer, Writes, close_quietly, warn
 
 # Callers stamp their samples just before the writer opens, so it starts far enough
 # back that those samples still land strictly after it.
@@ -45,7 +45,7 @@ class Publisher:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         name: str,
         channels: list[str],
         authority: sy.Authority = PUBLISH_AUTHORITY,
@@ -60,7 +60,7 @@ class Publisher:
         # With auto_index the Core stamps the index at write time, so the caller
         # writes values only and cannot land a sample before the writer's start.
         self.auto_index = auto_index
-        self.writer: sy.Writer | None = None
+        self.writer: Writer | None = None
 
     def retarget(self, channels: list[str]) -> None:
         """Moves to a different set of channels, reopening on the next write."""
@@ -92,8 +92,7 @@ class Publisher:
                 return True
             if authority is not None:
                 self.writer.set_authority(authority)
-            # CrudeFrame's annotation omits name-keyed dicts, which write accepts.
-            self.writer.write(frame)  # pyright: ignore[reportArgumentType]
+            self.writer.write(frame)
             if authority is not None:
                 self.writer.set_authority(self.authority)
             return True

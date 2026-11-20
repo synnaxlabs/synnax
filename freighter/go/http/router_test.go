@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -29,13 +30,15 @@ import (
 var _ = Describe("Router", func() {
 	Describe("Config", func() {
 		Describe("Validate", func() {
-			It("should accept the zero value", func() {
-				Expect(fhttp.RouterConfig{}.Validate()).To(Succeed())
+			It("should reject a config without an error codec", func() {
+				Expect(fhttp.RouterConfig{}.Validate()).
+					To(MatchError(ContainSubstring("errors")))
 			})
 
 			It("should accept a fully populated config", func() {
 				cfg := fhttp.RouterConfig{
 					Instrumentation:     alamos.New("test"),
+					Errors:              errorCodec(),
 					StreamWriteDeadline: 100 * time.Millisecond,
 				}
 				Expect(cfg.Validate()).To(Succeed())
@@ -46,6 +49,7 @@ var _ = Describe("Router", func() {
 			It("should return the configured limit", func() {
 				router := MustSucceed(
 					fhttp.NewRouter(GinkgoT().Context(), fhttp.RouterConfig{
+						Errors:                 errorCodec(),
 						StreamMessageSizeLimit: 64,
 					}),
 				)
@@ -53,7 +57,12 @@ var _ = Describe("Router", func() {
 			})
 
 			It("should default to 256 MiB", func() {
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 				Expect(router.StreamMessageSizeLimit()).To(Equal(int64(256 << 20)))
 			})
 		})
@@ -145,13 +154,19 @@ var _ = Describe("Router", func() {
 	})
 
 	Describe("New", func() {
-		It("should construct a router from the zero RouterConfig", func() {
-			r := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+		It("should construct a router with only an error codec", func() {
+			r := MustSucceed(
+				fhttp.NewRouter(
+					GinkgoT().Context(),
+					fhttp.RouterConfig{Errors: errorCodec()},
+				),
+			)
 			Expect(r).ToNot(BeNil())
 		})
 
 		It("should accept an explicit RouterConfig", func() {
 			Expect(fhttp.NewRouter(GinkgoT().Context(), fhttp.RouterConfig{
+				Errors:              errorCodec(),
 				StreamWriteDeadline: 25 * time.Millisecond,
 			})).ToNot(BeNil())
 		})
@@ -159,7 +174,10 @@ var _ = Describe("Router", func() {
 		It("should accept multiple RouterConfigs", func() {
 			Expect(fhttp.NewRouter(
 				GinkgoT().Context(),
-				fhttp.RouterConfig{StreamWriteDeadline: 5 * time.Millisecond},
+				fhttp.RouterConfig{
+					Errors:              errorCodec(),
+					StreamWriteDeadline: 5 * time.Millisecond,
+				},
 				fhttp.RouterConfig{StreamWriteDeadline: 50 * time.Millisecond},
 			)).ToNot(BeNil())
 		})
@@ -167,7 +185,12 @@ var _ = Describe("Router", func() {
 
 	Describe("Context", func() {
 		It("should end the context only after the bound app shuts down", func() {
-			router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+			router := MustSucceed(
+				fhttp.NewRouter(
+					GinkgoT().Context(),
+					fhttp.RouterConfig{Errors: errorCodec()},
+				),
+			)
 			app := newFiberApp(fiber.Config{})
 			router.BindTo(app)
 			ctx := router.Context()
@@ -180,7 +203,12 @@ var _ = Describe("Router", func() {
 	It(
 		"should report an empty Report — the router itself is a passive container",
 		func() {
-			r := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+			r := MustSucceed(
+				fhttp.NewRouter(
+					GinkgoT().Context(),
+					fhttp.RouterConfig{Errors: errorCodec()},
+				),
+			)
 			Expect(r.Report()).To(BeEmpty())
 		},
 	)
@@ -190,7 +218,12 @@ var _ = Describe("Router", func() {
 			"should register a unary route on the bound fiber app",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 				server := router.NewUnaryServer[testutil.Request, testutil.Response](
 					"/echo",
 				)
@@ -210,6 +243,7 @@ var _ = Describe("Router", func() {
 				client := MustSucceed(
 					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
 						fhttp.UnaryClientConfig{
+							Errors:   errorCodec(),
 							Encoder:  json.Codec,
 							Decoders: []xhttp.Decoder{json.Codec},
 						},
@@ -230,7 +264,12 @@ var _ = Describe("Router", func() {
 			"should cancel in-flight streams when the bound fiber app shuts down",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{})
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 
 				handlerEntered := make(chan struct{})
 				handlerCtxDone := make(chan struct{})
@@ -258,7 +297,10 @@ var _ = Describe("Router", func() {
 
 				client := MustSucceed(
 					fhttp.NewStreamClient[testutil.Request, testutil.Response](
-						fhttp.StreamClientConfig{Codec: json.Codec},
+						fhttp.StreamClientConfig{
+							Codec:  json.Codec,
+							Errors: errorCodec(),
+						},
 					),
 				)
 				stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
@@ -274,7 +316,12 @@ var _ = Describe("Router", func() {
 			"should deliver a handler's result when it returns normally",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{})
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 				server := router.NewStreamServer[testutil.Request, testutil.Response](
 					"/stream",
 				)
@@ -305,7 +352,10 @@ var _ = Describe("Router", func() {
 				}).WithPolling(time.Millisecond).Should(Succeed())
 				client := MustSucceed(
 					fhttp.NewStreamClient[testutil.Request, testutil.Response](
-						fhttp.StreamClientConfig{Codec: json.Codec},
+						fhttp.StreamClientConfig{
+							Codec:  json.Codec,
+							Errors: errorCodec(),
+						},
 					),
 				)
 				stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
@@ -314,7 +364,7 @@ var _ = Describe("Router", func() {
 				).To(Succeed())
 				Expect(MustSucceed(stream.Receive())).
 					To(Equal(testutil.Response{ID: 7, Message: "hello"}))
-				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+				Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 			},
 		)
 
@@ -322,7 +372,12 @@ var _ = Describe("Router", func() {
 			"should unblock a parked handler and tell the peer why when middleware cancels",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{})
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 				errEnded := errors.New("session ended")
 				endSession := make(chan struct{})
 				server := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -368,7 +423,10 @@ var _ = Describe("Router", func() {
 				}).WithPolling(time.Millisecond).Should(Succeed())
 				client := MustSucceed(
 					fhttp.NewStreamClient[testutil.Request, testutil.Response](
-						fhttp.StreamClientConfig{Codec: json.Codec},
+						fhttp.StreamClientConfig{
+							Codec:  json.Codec,
+							Errors: errorCodec(),
+						},
 					),
 				)
 				stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
@@ -386,7 +444,12 @@ var _ = Describe("Router", func() {
 			"should install middleware on every server registered before the call",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 
 				var calls int
 				server := router.NewUnaryServer[testutil.Request, testutil.Response](
@@ -416,6 +479,7 @@ var _ = Describe("Router", func() {
 				client := MustSucceed(
 					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
 						fhttp.UnaryClientConfig{
+							Errors:   errorCodec(),
 							Encoder:  json.Codec,
 							Decoders: []xhttp.Decoder{json.Codec},
 						},
@@ -436,7 +500,12 @@ var _ = Describe("Router", func() {
 			"should not install middleware on servers registered after the call",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 
 				var calls int
 				router.Use(freighter.MiddlewareFunc(func(
@@ -466,6 +535,7 @@ var _ = Describe("Router", func() {
 				client := MustSucceed(
 					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
 						fhttp.UnaryClientConfig{
+							Errors:   errorCodec(),
 							Encoder:  json.Codec,
 							Decoders: []xhttp.Decoder{json.Codec},
 						},
@@ -489,7 +559,12 @@ var _ = Describe("Router", func() {
 			"should chain multiple middlewares in registration order",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				router := MustSucceed(
+					fhttp.NewRouter(
+						GinkgoT().Context(),
+						fhttp.RouterConfig{Errors: errorCodec()},
+					),
+				)
 
 				var order []string
 				server := router.NewUnaryServer[testutil.Request, testutil.Response](
@@ -529,6 +604,7 @@ var _ = Describe("Router", func() {
 				client := MustSucceed(
 					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
 						fhttp.UnaryClientConfig{
+							Errors:   errorCodec(),
 							Encoder:  json.Codec,
 							Decoders: []xhttp.Decoder{json.Codec},
 						},

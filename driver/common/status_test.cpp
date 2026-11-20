@@ -394,6 +394,119 @@ TEST(TestStatusWindow, testSendsDifferentWarningDescriptions) {
     EXPECT_EQ(statuses[1].description, "The channel no longer exists.");
 }
 
+namespace {
+const Warning BACKGROUND{.message = "Falling behind the Core", .description = "Lag."};
+
+StatusHandler &start(StatusHandler &handler) {
+    handler.send_start("cmd");
+    return handler;
+}
+}
+
+/// @brief it should show a background warning while the task runs.
+TEST(TestBackgroundWarning, ShowsWhileRunning) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
+    start(handler).set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto shown = ctx->snapshot()[1];
+    EXPECT_EQ(shown.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(shown.message, BACKGROUND.message);
+    EXPECT_EQ(shown.description, BACKGROUND.description);
+    EXPECT_TRUE(shown.details.running);
+    EXPECT_EQ(shown.details.cmd, driver::task::NO_COMMAND);
+}
+
+/// @brief it should not show a background warning while the task is stopped.
+TEST(TestBackgroundWarning, HiddenWhileStopped) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 10 * x::telem::MILLISECOND;
+    StatusHandler handler(ctx, task, window);
+    handler.send_stop("cmd");
+    handler.set_background_warning(BACKGROUND);
+    std::this_thread::sleep_for((3 * window).chrono());
+    ASSERT_EQ(ctx->snapshot().size(), 1);
+}
+
+/// @brief it should show a warning of the task in place of the background warning,
+/// and show the background warning again once the task clears its own.
+TEST(TestBackgroundWarning, TaskWarningOverridesIt) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
+    start(handler).set_background_warning(BACKGROUND);
+    handler.send_warning("Falling behind hardware", "Skew.");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().back().message, "Falling behind hardware");
+    handler.clear_warning();
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().back().message, BACKGROUND.message);
+    EXPECT_EQ(ctx->snapshot().back().variant, synnax::status::VARIANT_WARNING);
+}
+
+/// @brief it should stop showing the background warning once it is cleared.
+TEST(TestBackgroundWarning, Clears) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
+    start(handler).set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    handler.set_background_warning({});
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 3);
+    const auto cleared = ctx->snapshot()[2];
+    EXPECT_EQ(cleared.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(cleared.description, "");
+    EXPECT_TRUE(cleared.details.running);
+}
+
+/// @brief it should hide a background warning behind an error of the task, and not
+/// show it again while the error stands.
+TEST(TestBackgroundWarning, ErrorHidesIt) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 10 * x::telem::MILLISECOND;
+    StatusHandler handler(ctx, task, window);
+    start(handler).set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    handler.send_error(x::errors::VALIDATION, "Failed to read data");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 3);
+    EXPECT_EQ(ctx->snapshot()[2].variant, synnax::status::VARIANT_ERROR);
+    handler.set_background_warning({.message = "Dropped frames"});
+    handler.clear_warning();
+    std::this_thread::sleep_for((3 * window).chrono());
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 3);
+    EXPECT_EQ(statuses[2].message, "Failed to read data");
+}
+
+/// @brief it should send nothing for a background warning after the handler closes.
+TEST(TestBackgroundWarning, SendsNothingAfterClose) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 10 * x::telem::MILLISECOND;
+    StatusHandler handler(ctx, task, window);
+    start(handler).close();
+    handler.set_background_warning(BACKGROUND);
+    std::this_thread::sleep_for((3 * window).chrono());
+    ASSERT_EQ(ctx->snapshot().size(), 1);
+}
+
+/// @brief it should send a repeated identical background warning only once.
+TEST(TestBackgroundWarning, SendsRepeatsOnce) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 10 * x::telem::MILLISECOND;
+    StatusHandler handler(ctx, task, window);
+    start(handler).set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    for (int i = 0; i < 2; i++) {
+        handler.set_background_warning(BACKGROUND);
+        handler.clear_warning();
+    }
+    std::this_thread::sleep_for((3 * window).chrono());
+    ASSERT_EQ(ctx->snapshot().size(), 2);
+}
+
 /// @brief clearing a warning should drop the description that explained it.
 TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);

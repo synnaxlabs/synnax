@@ -11,7 +11,6 @@ import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -24,7 +23,6 @@ import {
   type Device,
   DO_PORT_TYPE,
   type DOPort,
-  MAKE,
   type Model,
   PORTS,
   SCHEMAS,
@@ -42,14 +40,12 @@ import {
   createWriteChannel,
   deployWriteConfigZ,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteChannel,
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -155,11 +151,6 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
 
 const selectWriteChannelType = Component.renderProp(SelectWriteChannelType);
 
-const createFirstChannel = (): WriteChannel => ({
-  ...createWriteChannel("digital"),
-  key: id.create(),
-});
-
 /** Creates a channel on the port, of the type the port takes. */
 const createChannelOn = (port: AOPort | DOPort): WriteChannel => ({
   ...createWriteChannel(convertPortTypeToWriteChannelType(port.type)),
@@ -168,22 +159,23 @@ const createChannelOn = (port: AOPort | DOPort): WriteChannel => ({
 });
 
 /**
- * Creates a channel on the lowest free port of the last channel's type, then of the
- * other type. Null when every port is taken.
+ * Creates a copy of the channel with the key, else of the last channel, on the lowest
+ * free port of its type, then of the other type. Null when every port is taken.
  */
 const createNextChannel = (
   channels: WriteChannel[],
   model: Model,
+  copy?: string,
 ): WriteChannel | null => {
-  const last = channels.at(-1);
+  const template = Task.channelToCopy(channels, copy);
   const preferred =
-    last == null ? DO_PORT_TYPE : convertWriteChannelTypeToPortType(last.type);
+    template == null ? DO_PORT_TYPE : convertWriteChannelTypeToPortType(template.type);
   const backup = preferred === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
   const port = getOpenPort(channels, model, [preferred, backup]);
   if (port == null) return null;
-  if (last == null) return createChannelOn(port);
+  if (template == null) return createChannelOn(port);
   return {
-    ...deep.copy(last),
+    ...deep.copy(template),
     ...Task.WRITE_CHANNEL_OVERRIDE,
     type: convertPortTypeToWriteChannelType(port.type),
     key: id.create(),
@@ -199,8 +191,8 @@ const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
   PForm.useCheck(path.config, uniqueTerminalsZ(model));
-  const createChannel = (channels: WriteChannel[]) =>
-    createNextChannel(channels, model);
+  const createChannel = (channels: WriteChannel[], copy?: string) =>
+    createNextChannel(channels, model, copy);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} {...p} device={device} />
   );
@@ -241,16 +233,6 @@ const Form: FC = PlatformDevice.wrapTaskForm({
   useNoneSelected,
   Content: ChannelList,
 });
-
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createFirstChannel()];
-  return { name: "LabJack write task", type: WRITE_TYPE, config: cfg };
-};
 
 // Returns the index of a state channel the device maps that still exists, or 0 if there
 // is none. A client that maps channels without setting writeStateIndex, such as Python,
@@ -423,16 +405,3 @@ export const Write = Task.wrapForm({
   type: "labjack_write",
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "LabJack write task",
-  label: "Write",
-  icon: <Icon.Logo.LabJack />,
-  useOnSelect: useCreateWrite,
-};

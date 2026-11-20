@@ -15,8 +15,8 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { box, direction, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useRef } from "react";
+import { box, direction, math, xy } from "@synnaxlabs/x";
+import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
 import { type RowLayout } from "@/table/queries";
@@ -49,57 +49,55 @@ export interface ColumnIndicatorsProps extends Pick<IndicatorProps, "onMovePress
   shifts?: number[];
 }
 
-export const ColumnIndicators = memo(
-  ({
-    columns,
-    rows,
-    selected,
-    editable,
-    onSelect,
-    onSelectAll,
-    onResize,
-    onMovePress,
-    shifts,
-  }: ColumnIndicatorsProps): ReactElement => {
-    // cellToCol indexes the rows once per layout change so selectedCols can
-    // resolve each selected cell to its column in O(1).
-    const map = new Map<string, number>();
-    for (const row of rows) row.cells.forEach((k, i) => map.set(k, i));
-    const cellToCol = map;
-    const cols = new Set<number>();
-    for (const k of selected) {
-      const idx = cellToCol.get(k);
-      if (idx !== undefined) cols.add(idx);
-    }
-    const selectedCols = cols;
-    const totalCells = rows.reduce((n, r) => n + r.cells.length, 0);
-    const allSelected = totalCells > 0 && selected.length >= totalCells;
-    return (
-      <tr className={CSS.cls(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
-        <td
-          className={CSS.cls(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
-          onClick={onSelectAll}
-          onContextMenu={onSelectAll}
+export const ColumnIndicators = ({
+  columns,
+  rows,
+  selected,
+  editable,
+  onSelect,
+  onSelectAll,
+  onResize,
+  onMovePress,
+  shifts,
+}: ColumnIndicatorsProps): ReactElement => {
+  // cellToCol indexes the rows once per layout change so selectedCols can
+  // resolve each selected cell to its column in O(1).
+  const map = new Map<string, number>();
+  for (const row of rows) row.cells.forEach((k, i) => map.set(k, i));
+  const cellToCol = map;
+  const cols = new Set<number>();
+  for (const k of selected) {
+    const idx = cellToCol.get(k);
+    if (idx !== undefined) cols.add(idx);
+  }
+  const selectedCols = cols;
+  const totalCells = math.sum(rows.map((r) => r.cells.length));
+  const allSelected = totalCells > 0 && selected.length >= totalCells;
+  return (
+    <tr className={CSS.cls(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
+      <td
+        className={CSS.cls(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
+        onClick={onSelectAll}
+        onContextMenu={onSelectAll}
+      />
+      {columns.map((col, i) => (
+        <Indicator
+          key={col.key}
+          direction="x"
+          index={i}
+          itemKey={col.key}
+          value={col.size}
+          selected={selectedCols.has(i)}
+          editable={editable}
+          onChange={onResize}
+          onSelect={onSelect}
+          onMovePress={onMovePress}
+          shift={shifts?.[i]}
         />
-        {columns.map((col, i) => (
-          <Indicator
-            key={col.key}
-            direction="x"
-            index={i}
-            itemKey={col.key}
-            value={col.size}
-            selected={selectedCols.has(i)}
-            editable={editable}
-            onChange={onResize}
-            onSelect={onSelect}
-            onMovePress={onMovePress}
-            shift={shifts?.[i]}
-          />
-        ))}
-      </tr>
-    );
-  },
-);
+      ))}
+    </tr>
+  );
+};
 ColumnIndicators.displayName = "ColumnIndicators";
 
 export interface IndicatorProps {

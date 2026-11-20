@@ -9,7 +9,10 @@
 
 package v0
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Span returns the TimeSpan that the TimeRange occupies.
 func (tr TimeRange) Span() TimeSpan { return TimeSpan(tr.End - tr.Start) }
@@ -59,14 +62,14 @@ func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
 		return true
 	}
 
-	validTR := tr.MakeValid()
+	tr = tr.MakeValid()
 	rng = rng.MakeValid()
 
-	if rng.Start == validTR.Start {
+	if rng.Start == tr.Start {
 		return true
 	}
 
-	if rng.End == validTR.Start || rng.Start == validTR.End {
+	if rng.End == tr.Start || rng.Start == tr.End {
 		return false
 	}
 
@@ -97,29 +100,8 @@ func (tr TimeRange) String() string {
 	start := tr.Start.Time().UTC()
 	end := tr.End.Time().UTC()
 
-	startYear, startMonth, startDay := start.Date()
-	endYear, endMonth, endDay := end.Date()
-	startHour, startMin, startSec := start.Clock()
-	endHour, endMin, endSec := end.Clock()
 	startNano := start.Nanosecond()
-	endNano := end.Nanosecond()
-
-	var endStr string
-	if startYear != endYear {
-		endStr = end.Format("2006-01-02T15:04:05") + formatNanos(endNano)
-	} else if startMonth != endMonth || startDay != endDay {
-		endStr = end.Format("01-02T15:04:05") + formatNanos(endNano)
-	} else if startHour != endHour {
-		endStr = end.Format("15:04:05") + formatNanos(endNano)
-	} else if startMin != endMin {
-		endStr = end.Format("04:05") + formatNanos(endNano)
-	} else if startSec != endSec {
-		endStr = end.Format(":05") + formatNanos(endNano)
-	} else if startNano != endNano {
-		endStr = "." + formatSubsecond(endNano)
-	} else {
-		endStr = end.Format("15:04:05")
-	}
+	endStr := formatEnd(start, end)
 
 	startStr := start.Format("2006-01-02T15:04:05")
 	if startNano > 0 {
@@ -128,6 +110,32 @@ func (tr TimeRange) String() string {
 	startStr += "Z"
 
 	return startStr + " - " + endStr + " (" + tr.Span().String() + ")"
+}
+
+// formatEnd formats end without the date and time parts it shares with start.
+func formatEnd(start, end time.Time) string {
+	startYear, startMonth, startDay := start.Date()
+	endYear, endMonth, endDay := end.Date()
+	startHour, startMin, startSec := start.Clock()
+	endHour, endMin, endSec := end.Clock()
+	startNano := start.Nanosecond()
+	endNano := end.Nanosecond()
+	switch {
+	case startYear != endYear:
+		return end.Format("2006-01-02T15:04:05") + formatNanos(endNano)
+	case startMonth != endMonth || startDay != endDay:
+		return end.Format("01-02T15:04:05") + formatNanos(endNano)
+	case startHour != endHour:
+		return end.Format("15:04:05") + formatNanos(endNano)
+	case startMin != endMin:
+		return end.Format("04:05") + formatNanos(endNano)
+	case startSec != endSec:
+		return end.Format(":05") + formatNanos(endNano)
+	case startNano != endNano:
+		return "." + formatSubsecond(endNano)
+	default:
+		return end.Format("15:04:05")
+	}
 }
 
 func formatNanos(nanos int) string {

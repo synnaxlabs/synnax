@@ -12,12 +12,13 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
+import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const path = deep.path<{ config: { name: string }; name: string; channel: number }>();
 
@@ -56,6 +57,14 @@ describe("ChannelName", () => {
     expect(await hoverTip("pressure_0")).toBe(
       "New channelDeploying the task creates it.",
     );
+  });
+
+  it("should show the default name of a new channel that the form names nowhere", async () => {
+    await renderInTaskForm(<Task.ChannelName channel={0} defaultName="pressure_0" />, {
+      values: { config: { name: "" } },
+    });
+    await waitFor(() => expect(screen.getByText("pressure_0")).toBeTruthy());
+    expect(screen.getByRole("img", { name: "New channel" })).toBeTruthy();
   });
 
   it("should mark a named channel with no default as new", async () => {

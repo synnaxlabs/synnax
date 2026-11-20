@@ -39,36 +39,40 @@ var _ = Describe("ElementConfigFields", func() {
 
 var _ = Describe("DecodeWithDefaults", func() {
 	It("Should fill the schema defaults of every omitted field", func() {
-		cfg := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
+		cfg, ok := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
 			"variant": "switch",
 		})).Variant.(v9.SwitchElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Scale).To(BeEquivalentTo(1))
 		Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
 		Expect(cfg.Label.Level).To(BeEquivalentTo("h5"))
 	})
 
 	It("Should keep a carried value, zero included", func() {
-		cfg := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
+		cfg, ok := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
 			"variant": "line",
 			"end":     map[string]any{"x": 0.0, "y": 40.0},
 		})).Variant.(v9.LineElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
 
 	It("Should keep a carried empty string", func() {
-		cfg := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
+		cfg, ok := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
 			"variant": "value",
 			"units":   "",
 		})).Variant.(v9.ValueElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Units).To(Equal(""))
 	})
 
 	It("Should fill the control state defaults when the config carries one", func() {
-		cfg := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
+		cfg, ok := MustSucceed(v9.DecodeWithDefaults(msgpack.EncodedJSON{
 			"variant": "switch",
 			"control": map[string]any{"authority": 10.0},
 		})).Variant.(v9.SwitchElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Control).ToNot(BeNil())
 		Expect(cfg.Control.Authority).To(HaveValue(BeEquivalentTo(10)))
 		Expect(cfg.Control.Orientation).To(BeEquivalentTo("bottom"))

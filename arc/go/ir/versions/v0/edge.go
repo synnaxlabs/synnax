@@ -23,9 +23,9 @@ func (k EdgeKind) Arrow() string {
 		return "->"
 	case EdgeKindConditional:
 		return "=>"
-	default:
-		return "?>"
+	case EdgeKindUnspecified:
 	}
+	return "?>"
 }
 
 // String returns the string representation of the edge. Format: "source.param ->

@@ -32,7 +32,7 @@ const ButtonTelemForm = (): ReactElement => {
   const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
-      commandChannel: v ?? undefined,
+      commandChannel: v ?? 0,
     });
 
   return (
@@ -41,7 +41,7 @@ const ButtonTelemForm = (): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.commandChannel ?? 0}
+            value={value.commandChannel}
             onChange={handleSinkChange}
           />
         </Input.Item>

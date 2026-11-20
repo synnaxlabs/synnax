@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/channel/pb"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -172,21 +173,24 @@ func (deleteRequestTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &ChannelCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	r := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &ChannelRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &ChannelDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.ChannelCreate = c
 	t.ChannelRetrieve = r

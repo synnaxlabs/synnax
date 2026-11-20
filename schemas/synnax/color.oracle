@@ -21,31 +21,39 @@ Key = uuid {
 }
 
 Named struct {
-    key   Key = create {
+    key      Key = create {
         @doc value "is the key of the named color."
         @key
     }
-    name  string       {
+    name     string       {
         @doc value           "is the name of the color."
         @index sorted
         @patch
         @search
         @validate min_length 1
     }
-    light color.Color  {
+    light    color.Color  {
         @doc value "is the color in the light theme."
         @patch
     }
-    dark  color.Color? {
+    dark     color.Color? {
         @doc value "is the color in the dark theme. When absent, the theme derives it."
         @patch
     }
-    group group.Key?   {
+    group    group.Key?   {
         @doc value     "is the palette that holds the color, if any."
         @group scope   color
         @patch
         @ref kind      place
         @ref on_delete detach
+    }
+    position string?      {
+        @doc value """
+            is where the color sits in its palette, as a fractional index. A palette
+            sorts its colors by position, compared by code point, and a color with none
+            comes last.
+        """
+        @patch
     }
 
     action Create {
@@ -74,6 +82,7 @@ Named struct {
     @go migrate
     @resource type "color"
     @retrieve
+    @retrieve noun "color"
 }
 
 Where filter Named {

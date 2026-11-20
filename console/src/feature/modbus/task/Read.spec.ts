@@ -10,6 +10,7 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -17,6 +18,7 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
+  awaitTare,
   clickFailedDeploy,
   commitFieldInput,
   createTaskReadOnlyClient,
@@ -24,18 +26,22 @@ import {
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
   reportTaskStopped,
   selectFromDropdown,
   START_FAILURE,
 } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
+import { findIconButton, getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(Modbus.Task.Read, options);
+  const rendered = await renderTaskFormTab(
+    Modbus.Task.FORMS[Modbus.Task.READ_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };
@@ -60,6 +66,33 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createModbusDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const entry = Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+      type: "holding_register",
+      key: id.create(),
+      address: 0,
+      dataType: "float32",
+      channel: float.key,
+    });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [entry],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should build channels in the form and create them on the Core on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
@@ -394,7 +427,7 @@ describe("Read", () => {
 
     it("should not open the order options without permission to update the task", async () => {
       const { draft } = await createRegisterDraft("float32", true);
-      await renderTaskFormTab(Modbus.Task.Read, {
+      await renderTaskFormTab(Modbus.Task.FORMS[Modbus.Task.READ_TYPE], {
         client,
         taskKey: draft.key,
         as: await createTaskReadOnlyClient(client),
@@ -513,11 +546,14 @@ describe("Read", () => {
         device: dev.key,
         channels: [holding(0, "uint16"), holding(3, "uint16")],
       });
-      const { container } = await renderTaskFormTab(Modbus.Task.Read, {
-        client,
-        taskKey: draft.key,
-        as: await createTaskReadOnlyClient(client),
-      });
+      const { container } = await renderTaskFormTab(
+        Modbus.Task.FORMS[Modbus.Task.READ_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+          as: await createTaskReadOnlyClient(client),
+        },
+      );
       await waitFor(() => expect(getItems()).toHaveLength(2));
       const track = container.querySelector<HTMLElement>(".console-modbus__track");
       if (track == null) throw new Error("no track");

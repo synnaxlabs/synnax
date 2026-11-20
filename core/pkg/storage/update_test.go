@@ -11,6 +11,7 @@ package storage_test
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -181,7 +182,7 @@ var _ = Describe("Update", func() {
 			l = openLayer(ctx, dir, "0.59.0")
 			Expect(readValue(l)).To(Equal("before"))
 			Expect(l.Close()).To(Succeed())
-			Expect(MustSucceed(os.ReadFile(filepath.Join(dir, failedUpdateFile)))).
+			Expect(MustSucceed(fs.ReadFile(os.DirFS(dir), failedUpdateFile))).
 				To(BeEquivalentTo("0.60.0"))
 		},
 	)

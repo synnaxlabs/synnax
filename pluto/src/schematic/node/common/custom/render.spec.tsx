@@ -180,6 +180,16 @@ describe("Custom.useRender", () => {
       expect(drawing?.querySelector("script")).toBeNull();
     });
 
+    it("should mount built-in markup without the sanitizer", () => {
+      const container = document.createElement("div");
+      const href = "https://example.com/a.svg#a";
+      const spec = createMockSpec({
+        svg: `<svg xmlns="http://www.w3.org/2000/svg"><use class="main" href="${href}" /></svg>`,
+      });
+      renderAttached({ activeState: "inactive", spec, builtIn: true }, container);
+      expect(container.querySelector(".main")?.getAttribute("href")).toBe(href);
+    });
+
     it("should call onMount with the drawing", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();

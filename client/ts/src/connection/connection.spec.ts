@@ -13,7 +13,7 @@ import {
   type UnaryClient,
   Unreachable,
 } from "@synnaxlabs/freighter";
-import { type breaker, observe, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
+import { type breaker, observe, sleep, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -31,16 +31,16 @@ import {
 } from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
-import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
+import { TEST_CREDENTIALS, testClientParams } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
-  const transport = new Transport(
-    new url.URL({
-      host: TEST_CLIENT_PARAMS.host,
-      port: Number(TEST_CLIENT_PARAMS.port),
+  const transport = new Transport({
+    url: new url.URL({
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
     }),
-  );
+  });
   const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
   transport.use(client.middleware());
   return transport.unary;
@@ -162,6 +162,8 @@ const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient =>
   };
 };
 
+const POLL = { timeout: 10_000, interval: 1 };
+
 const FAST_RETRY: breaker.Config = { baseInterval: TimeSpan.milliseconds(1), scale: 1 };
 
 const createConfig = (
@@ -211,9 +213,6 @@ const createClient = (
     ...overrides,
   });
 
-const sleep = async (span: TimeSpan): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, span.milliseconds));
-
 describe("connection", () => {
   describe("version compatibility", () => {
     // A Core built without an injected version reports 0.0.0, which pairs with
@@ -256,8 +255,8 @@ describe("connection", () => {
   describe("check", () => {
     it("should return a success status against a live cluster", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
+        host: testClientParams().host,
+        port: testClientParams().port,
         name: "test-cluster",
       });
       expect(status.variant).toEqual("success");
@@ -267,8 +266,8 @@ describe("connection", () => {
 
     it("should include the client version in the check", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
+        host: testClientParams().host,
+        port: testClientParams().port,
       });
       expect(status.details.clientVersion).toBeDefined();
       expect(status.details.clientServerCompatible).toBe(true);
@@ -285,7 +284,7 @@ describe("connection", () => {
 
     it("should return an error status against a dead port", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
+        host: testClientParams().host,
         port: 9999,
       });
       expect(status.variant).toEqual("error");
@@ -478,6 +477,36 @@ describe("connection", () => {
       );
       expect(checked.variant).toEqual("warning");
       expect(checked.details.streamDenied).toBe(true);
+    });
+
+    it("should reconnect when the Core stops answering a denied connection", () => {
+      const config = createConfig({ requiresStream: true, escalateAfter: 2 });
+      const denied = apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "stream.denied" },
+      );
+      const error = new Unreachable({ message: "server down" });
+      const reconnecting = reduce(
+        denied,
+        { type: "check.failure", error, attempt: 1 },
+        config,
+      );
+      expect(reconnecting.variant).toEqual("loading");
+      expect(reconnecting.message).toEqual("Reconnecting");
+      const unreachable = reduce(
+        reconnecting,
+        { type: "check.failure", error, attempt: 2 },
+        config,
+      );
+      expect(unreachable.variant).toEqual("error");
+      const recovered = reduce(
+        unreachable,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(recovered.variant).toEqual("warning");
+      expect(recovered.details.streamDenied).toBe(true);
     });
 
     it("should clear a denial when the stream comes up or credentials change", () => {
@@ -982,10 +1011,10 @@ describe("connection", () => {
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBe(calls);
       client.retryNow();
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBeGreaterThan(calls);
       await client.close();
     });
@@ -1001,12 +1030,12 @@ describe("connection", () => {
       const send = unary.send as ReturnType<typeof vi.fn>;
       // the mode switch into heartbeat may fire one buffered check; settle
       // before measuring quiescence
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBe(calls);
       client.retryNow();
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBeGreaterThan(calls);
       await client.close();
     });
@@ -1023,7 +1052,7 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("disabled");
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBe(calls);
     });
 
@@ -1225,7 +1254,7 @@ describe("connection", () => {
       client.notify({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(60));
+      await sleep.sleep(TimeSpan.milliseconds(60));
       expect(send.mock.calls.length).toBe(calls);
       await client.close();
     });
@@ -1241,7 +1270,7 @@ describe("connection", () => {
       client.notify({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBe(calls);
       client.notify({ type: "credentials.replaced" });
       await observe.until(
@@ -1271,7 +1300,7 @@ describe("connection", () => {
         TimeSpan.seconds(60),
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThan(0);
       // the stream opens behind the auth middleware, so a login lands first
       client.notify({ type: "auth.success", session: "session" });
       client.notify({ type: "stream.live" });
@@ -1279,7 +1308,7 @@ describe("connection", () => {
       // the check issued before the stream came up fails late: it was aimed
       // at the old state and must not degrade the new one
       rejectCheck?.(new Unreachable({ message: "stale" }));
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(client.status.variant).toEqual("success");
       const closing = client.close();
       rejectCheck?.(new Unreachable({ message: "shutdown" }));
@@ -1315,7 +1344,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length < 2) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => calls.length, POLL).toBeGreaterThanOrEqual(2);
       expect(calls.slice(0, 2)).toEqual(["reset", "ensure"]);
       await client.close();
     });
@@ -1332,7 +1361,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.authenticated,
       );
-      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
@@ -1347,10 +1376,10 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
       });
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length < 3) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(3);
       expect(ensured).not.toHaveBeenCalled();
       unary.setLicense("ok");
-      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       await client.close();
     });
 
@@ -1383,7 +1412,7 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("warning");
       expect(probes).toEqual(1);
       const checksAtDenial = checks;
-      while (probes < 2) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => probes, POLL).toBeGreaterThanOrEqual(2);
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);
       expect(AccessDeniedError.matches(internal[0])).toBe(true);
@@ -1401,8 +1430,8 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
         onInternalError: (error) => internal.push(error),
       });
-      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
-      await sleep(TimeSpan.milliseconds(5));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
+      await sleep.sleep(TimeSpan.milliseconds(5));
       expect(internal).toEqual([]);
       await client.close();
     });
@@ -1477,7 +1506,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (internal.length === 0) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => internal.length, POLL).toBeGreaterThan(0);
       expect(internal[0].message).toEqual(
         "failed to reset cache after cluster replacement",
       );
@@ -1580,10 +1609,12 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => calls.length, POLL).toBeGreaterThan(0);
       const send = unary.send as ReturnType<typeof vi.fn>;
       const sent = send.mock.calls.length;
-      while (send.mock.calls.length < sent + 3) await sleep(TimeSpan.milliseconds(1));
+      await expect
+        .poll(() => send.mock.calls.length, POLL)
+        .toBeGreaterThanOrEqual(sent + 3);
       expect(calls).toEqual(["reset"]);
       await client.close();
     });

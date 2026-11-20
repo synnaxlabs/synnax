@@ -194,7 +194,7 @@ class Payload(BaseModel):
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
-    name: Name
+    name: Name = Field(min_length=1)
     leaseholder: node.Key = Field(default=node.Key(0), ge=0, le=4095)
     data_type: telem.DataType
     is_index: bool = False

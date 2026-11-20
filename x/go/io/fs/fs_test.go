@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -555,6 +556,25 @@ var _ = Describe("FS", func() {
 					Entry("missing file", "missing.json"),
 					Entry("missing parent directory", "missing/a.json"),
 				)
+				It("Should keep the source when the target is missing", func() {
+					f := MustSucceed(fs.Open("a.txt", os.O_CREATE))
+					Expect(f.Close()).To(Succeed())
+					Expect(fs.Rename("a.txt", "missing/b.txt")).
+						To(MatchError(os.ErrNotExist))
+					Expect(fs.Exists("a.txt")).To(BeTrue())
+				})
+				It("Should keep a directory moved into its own subtree", func() {
+					Expect(fs.Sub("a")).ToNot(BeNil())
+					Expect(fs.Rename("a", "a/b")).To(MatchError(
+						func(err error) bool {
+							_, ok := errors.AsType[*os.LinkError](err)
+							return ok
+						},
+						"be an *os.LinkError",
+					))
+					Expect(fs.Exists("a")).To(BeTrue())
+					Expect(fs.Exists("a/b")).To(BeFalse())
+				})
 			})
 			Describe("Truncate", func() {
 				It(

@@ -7,10 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import {
+  type channel,
+  DataType,
+  lineplot,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  dynamicWindow,
+  id,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+  type Window,
+} from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   client,
@@ -18,10 +34,15 @@ import {
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
-import { getSwitch } from "@/platform/modals/testutil";
+import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import {
+  captureBrowserDownloads,
+  getIconButton,
+  readBlob,
+  removeSaveFilePicker,
+} from "@/testutil";
 
 const roles = new RoleClients(client);
 
@@ -60,6 +81,116 @@ describe("lineplot/toolbar/Toolbar", () => {
     await screen.findByText("Data");
     fireEvent.click(getIconButton(result.container, "csv"));
     expect(await screen.findByText(`Download data for ${name} as CSV`)).toBeDefined();
+  });
+
+  describe("download CSV", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    // Creates a channel whose five samples stopped an hour ago, outside a 30 s window
+    // that ends at the clock. Each sample sits offset ns past a multiple of 256 ns, the
+    // float step near now. At 1 ns, an end 1 ns past the last sample rounds below it as
+    // a float. At 200 ns, a start at the first sample rounds above it.
+    const createStopped = async (
+      suffix: string,
+      offset = 1n,
+    ): Promise<{ data: channel.Channel; start: TimeStamp }> => {
+      const index = await client.channels.create({
+        name: `toolbar_csv_time_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `toolbar_csv_data_${suffix}`,
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const hourAgo = TimeStamp.now().sub(TimeSpan.hours(1)).valueOf();
+      const start = new TimeStamp(hourAgo - (hourAgo % 256n) + offset);
+      await client.write(start, {
+        [index.key]: Array.from({ length: 5 }, (_, i) =>
+          start.add(TimeSpan.seconds(i)),
+        ),
+        [data.key]: [1, 2, 3, 4, 5],
+      });
+      return { data, start };
+    };
+
+    // Opens the CSV download of a plot of the channels and returns its Download button
+    // once it is enabled.
+    const openDownload = async (
+      channels: channel.Key[],
+      window: Window = dynamicWindow(TimeSpan.seconds(30)),
+    ): Promise<HTMLElement> => {
+      const key = uuid.create();
+      const lines = channels.map((yChannel) => {
+        const line = { yAxis: "y1" as const, yChannel, xChannel: 0 };
+        return { key: lineplot.lineKey(key, line), ...line };
+      });
+      const { result } = await renderLinePlot(Toolbar, {
+        linePlot: {
+          key,
+          name: uniqueName("plot"),
+          channels: { y1: channels },
+          lines,
+          ranges: [{ variant: "window", window }],
+        },
+        preloadedState: (key) => createPreloadedState(key),
+      });
+      await screen.findByText("Data");
+      fireEvent.click(getIconButton(result.container, "csv"));
+      return await waitFor(() => {
+        const button = findButton("Download");
+        expect(button.className).not.toContain("lyra--disabled");
+        return button;
+      });
+    };
+
+    it("should end a live window at the newest sample of the plot's channels", async () => {
+      removeSaveFilePicker();
+      const downloads = captureBrowserDownloads();
+      const { data } = await createStopped(id.create().replace(/-/g, "_"));
+      const download = await openDownload([data.key]);
+      await act(async () => {
+        fireEvent.click(download);
+      });
+      await waitFor(() => expect(downloads.blobs).toHaveLength(1));
+      const rows = (await readBlob(downloads.blobs[0])).trim().split("\n").slice(1);
+      expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it("should read the first sample of a range that starts at it", async () => {
+      removeSaveFilePicker();
+      const downloads = captureBrowserDownloads();
+      const { data, start } = await createStopped(id.create().replace(/-/g, "_"), 200n);
+      const range = new TimeRange(start, start.add(TimeSpan.minutes(1)));
+      const download = await openDownload([data.key], staticWindow(range));
+      await act(async () => {
+        fireEvent.click(download);
+      });
+      await waitFor(() => expect(downloads.blobs).toHaveLength(1));
+      const rows = (await readBlob(downloads.blobs[0])).trim().split("\n").slice(1);
+      expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it("should open the download of a plot with a calculation over virtual channels", async () => {
+      const suffix = id.create().replace(/-/g, "_");
+      const { data } = await createStopped(suffix);
+      const source = await client.channels.create({
+        name: `toolbar_csv_virtual_${suffix}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const calculated = await client.channels.create({
+        name: `toolbar_csv_calculated_${suffix}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      const download = await openDownload([data.key, calculated.key]);
+      expect(download.className).not.toContain("lyra--disabled");
+    });
   });
 
   it("renames the plot from the properties tab", async () => {

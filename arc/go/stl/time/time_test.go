@@ -422,6 +422,8 @@ var _ = Describe("Time", func() {
 					sundays++
 				case stdtime.Monday:
 					mondays++
+				case stdtime.Tuesday, stdtime.Wednesday, stdtime.Thursday,
+					stdtime.Friday, stdtime.Saturday:
 				}
 				if !swept(day, n) {
 					continue
@@ -704,6 +706,21 @@ var _ = Describe("Time", func() {
 								Type:  types.String(),
 								Value: "not-a-timespan",
 							},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				Expect(factory.Create(cfg)).Error().To(BeAValidationPathError())
+			},
+		)
+		It(
+			"Should error at construction when the period has no value",
+			func() {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{Name: "period", Type: types.TimeSpan()},
 						},
 					},
 					State: s.Node("interval_1"),

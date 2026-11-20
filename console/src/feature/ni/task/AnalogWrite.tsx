@@ -11,13 +11,12 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { analogWriteHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
@@ -30,8 +29,7 @@ import {
 import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   ANALOG_WRITE_SCHEMAS,
-  ANALOG_WRITE_TYPE,
-  analogWriteConfigZ,
+  type analogWriteConfigZ,
   type AnalogWriteSchemas,
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
@@ -40,7 +38,6 @@ import {
   isGenerated,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<AnalogWriteSchemas>>();
@@ -86,10 +83,8 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       {...props}
       {...names}
       port={item.port}
-      hasTareButton={false}
       skipped={skipped}
       portMaxChars={2}
-      canTare={false}
       path={entry}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[item.type] }}
     />
@@ -170,16 +165,6 @@ const Form: FC = () => {
       ports={ports}
     />
   );
-};
-
-const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = analogWriteConfigZ.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createNextAOChannel([])];
-  return { name: "NI analog write task", type: ANALOG_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
@@ -299,16 +284,3 @@ export const AnalogWrite = Task.wrapForm({
   type: "ni_analog_write",
   onConfigure,
 });
-
-export const useCreateAnalogWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const AnalogWriteSelectable: Selector.Selectable = {
-  type: ANALOG_WRITE_TYPE,
-  title: "NI analog write task",
-  label: "Analog write",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: useCreateAnalogWrite,
-};

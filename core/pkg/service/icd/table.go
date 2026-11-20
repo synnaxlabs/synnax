@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -32,8 +33,7 @@ const (
 	columnStartBit  = "start_bit"
 	columnBitLength = "bit_length"
 	columnByteOrder = "byte_order"
-	columnSigned    = "signed"
-	columnFloat     = "float"
+	columnKind      = "kind"
 	columnScale     = "scale"
 	columnOffset    = "offset"
 	columnUnits     = "units"
@@ -52,8 +52,7 @@ func parseCSV(data []byte) ([]Message, error) {
 	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
 	if err != nil {
-		var perr *csv.ParseError
-		if errors.As(err, &perr) {
+		if perr, ok := errors.AsType[*csv.ParseError](err); ok {
 			return nil, dataErrorf("line %d: %s", perr.StartLine, perr.Err)
 		}
 		return nil, err
@@ -187,7 +186,7 @@ func parseTable(rows [][]string) ([]Message, error) {
 func (t *table) readHeader(cells []string) error {
 	known := []string{
 		columnMessage, columnID, columnExtended, columnLength, columnField,
-		columnStartBit, columnBitLength, columnByteOrder, columnSigned, columnFloat,
+		columnStartBit, columnBitLength, columnByteOrder, columnKind,
 		columnScale, columnOffset, columnUnits, columnMin, columnMax,
 	}
 	for i, cell := range cells {
@@ -286,49 +285,30 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 		Scale:     1,
 		Units:     t.cell(cells, columnUnits),
 		ByteOrder: ByteOrderLittleEndian,
+		Kind:      payload.KindUnsigned,
 	}
 	if f.Name == "" {
 		return BinaryField{}, rowErrorf(row, columnField, "is required")
 	}
-	startBit, err := t.uint(row, cells, columnStartBit, 16)
+	var err error
+	f.StartBit, f.BitLength, f.ByteOrder, err = t.readLayout(row, cells)
 	if err != nil {
 		return BinaryField{}, err
 	}
-	bitLength, err := t.uint(row, cells, columnBitLength, 8)
-	if err != nil {
-		return BinaryField{}, err
-	}
-	if bitLength < 1 || bitLength > maxBitLength {
-		return BinaryField{}, rowErrorf(
-			row,
-			columnBitLength,
-			"%d is not 1 to %d",
-			bitLength,
-			maxBitLength,
-		)
-	}
-	f.StartBit, f.BitLength = uint16(startBit), uint8(bitLength)
-	switch s := strings.ToLower(t.cell(cells, columnByteOrder)); s {
-	case "", "little_endian", "intel":
-	case "big_endian", "motorola":
-		f.ByteOrder = ByteOrderBigEndian
+	switch k := payload.Kind(strings.ToLower(t.cell(cells, columnKind))); k {
+	case "":
+	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
+		f.Kind = k
+	case payload.KindString, payload.KindBoolean, payload.KindTimestamp,
+		payload.KindJSON, payload.KindUUID, payload.KindBytes:
+		fallthrough
 	default:
 		return BinaryField{}, rowErrorf(
 			row,
-			columnByteOrder,
-			"invalid byte order %q",
-			s,
+			columnKind,
+			"invalid kind %q, not float, integer, or unsigned",
+			k,
 		)
-	}
-	if s := t.cell(cells, columnSigned); s != "" {
-		if f.Signed, err = parseBool(row, columnSigned, s); err != nil {
-			return BinaryField{}, err
-		}
-	}
-	if s := t.cell(cells, columnFloat); s != "" {
-		if f.Float, err = parseBool(row, columnFloat, s); err != nil {
-			return BinaryField{}, err
-		}
 	}
 	scale, err := t.number(row, cells, columnScale)
 	if err != nil {
@@ -351,6 +331,45 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 		return BinaryField{}, err
 	}
 	return f, nil
+}
+
+// readLayout returns the start bit, the bit length, and the byte order of the field
+// in a row.
+func (t *table) readLayout(
+	row int,
+	cells []string,
+) (startBit uint16, bitLength uint8, order ByteOrder, err error) {
+	start, err := t.uint(row, cells, columnStartBit, 16)
+	if err != nil {
+		return 0, 0, "", err
+	}
+	length, err := t.uint(row, cells, columnBitLength, 8)
+	if err != nil {
+		return 0, 0, "", err
+	}
+	if length < 1 || length > maxBitLength {
+		return 0, 0, "", rowErrorf(
+			row,
+			columnBitLength,
+			"%d is not 1 to %d",
+			length,
+			maxBitLength,
+		)
+	}
+	order = ByteOrderLittleEndian
+	switch s := strings.ToLower(t.cell(cells, columnByteOrder)); s {
+	case "", "little_endian", "intel":
+	case "big_endian", "motorola":
+		order = ByteOrderBigEndian
+	default:
+		return 0, 0, "", rowErrorf(
+			row,
+			columnByteOrder,
+			"invalid byte order %q",
+			s,
+		)
+	}
+	return uint16(start), uint8(length), order, nil
 }
 
 // number returns the finite number in the named column, or nil when the cell is empty.

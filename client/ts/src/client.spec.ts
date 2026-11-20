@@ -7,17 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
-import { afterEach, assert, describe, expect, it, vi } from "vitest";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer, type Server } from "node:https";
+import { type AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { trustCA } from "@synnaxlabs/freighter";
+import { TimeSpan, url } from "@synnaxlabs/x";
+import {
+  afterAll,
+  afterEach,
+  assert,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { WebSocketServer } from "ws";
+import { z } from "zod";
 
 import { type connection } from "@/connection";
-import { DisconnectedError, InvalidCredentialsError, type Synnax } from "@/index";
+import {
+  DisconnectedError,
+  InvalidCredentialsError,
+  Synnax,
+  ValidationError,
+} from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
   createTestClientWithPolicy,
   TEST_CREDENTIALS,
 } from "@/testutil";
+import { Transport } from "@/transport";
 
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
   status.variant === "error" ? status.details.reason : undefined;
@@ -30,6 +56,212 @@ const FAST_RETRY = {
   scale: 1,
   maxRetries: 2,
 };
+
+describe("constructor", () => {
+  beforeEach(() => {
+    vi.stubEnv("SYNNAX_HOST", "core.env");
+    vi.stubEnv("SYNNAX_PORT", "9091");
+    vi.stubEnv("SYNNAX_API_KEY", "syk_env");
+    vi.stubEnv("SYNNAX_SECURE", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("should fill the missing options from the variables", async () => {
+    const client = new Synnax();
+    expect(client.params).toMatchObject({
+      host: "core.env",
+      port: 9091,
+      apiKey: "syk_env",
+      secure: true,
+    });
+    await client.close();
+  });
+
+  it("should use an argument over its variable", async () => {
+    const client = new Synnax({ host: "rig", port: 1 });
+    expect(client.params).toMatchObject({
+      host: "rig",
+      port: 1,
+      apiKey: "syk_env",
+      secure: true,
+    });
+    await client.close();
+  });
+
+  it("should throw when no argument, variable, or Synnax Desktop gives a host", () => {
+    vi.stubEnv("SYNNAX_HOST", "");
+    const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("USERPROFILE", home);
+    try {
+      expect(() => new Synnax()).toThrow(ValidationError);
+      expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_HOST$/);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+});
+
+// Writes a test CA and a certificate for 127.0.0.1 that the CA signs.
+const createCertificates = (dir: string): void => {
+  const openssl = (args: string): void => {
+    execFileSync("openssl", args.split(" "), { cwd: dir, stdio: "ignore" });
+  };
+  const key = "-newkey rsa:2048 -nodes -days 1";
+  openssl(`req -x509 ${key} -keyout ca.key -out ca.crt -subj /CN=ca`);
+  openssl(`req ${key} -keyout server.key -out server.csr -subj /CN=127.0.0.1`);
+  writeFileSync(join(dir, "ext.cnf"), "subjectAltName=IP:127.0.0.1\n");
+  openssl(
+    "x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial " +
+      "-out server.crt -days 1 -extfile ext.cnf",
+  );
+};
+
+const PEM = "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n";
+
+describe("constructor with caCert", () => {
+  beforeEach(() => {
+    vi.stubEnv("SYNNAX_SECURE", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("should reject a CA certificate with secure false", () => {
+    expect(
+      () => new Synnax({ host: "localhost", port: 9090, secure: false, caCert: PEM }),
+    ).toThrow("caCert requires secure; leave secure out or set it to true");
+  });
+
+  it("should use TLS for a CA certificate with SYNNAX_SECURE false", async () => {
+    vi.stubEnv("SYNNAX_SECURE", "false");
+    const client = new Synnax({ host: "localhost", port: 9090, caCert: PEM });
+    expect(client.params.secure).toBe(true);
+    await client.close();
+  });
+
+  it("should reject a CA certificate that is not PEM text", () => {
+    expect(
+      () =>
+        new Synnax({ host: "localhost", port: 9090, secure: true, caCert: "ca.crt" }),
+    ).toThrow("The CA certificate must be PEM text");
+  });
+
+  it("should throw for a CA certificate in a browser", () => {
+    vi.stubGlobal("process", undefined);
+    expect(
+      () => new Synnax({ host: "localhost", port: 9090, secure: true, caCert: PEM }),
+    ).toThrow("browser");
+  });
+
+  it("should tell a Deno user to leave out caCert", () => {
+    vi.stubGlobal("Deno", {});
+    expect(
+      () => new Synnax({ host: "localhost", port: 9090, secure: true, caCert: PEM }),
+    ).toThrow("Deno cannot use caCert. Leave it out and start Deno with --cert");
+  });
+
+  it("should use TLS with no CA for SYNNAX_CA_CERT in Deno", async () => {
+    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+    vi.stubGlobal("Deno", {});
+    const client = new Synnax({ host: "localhost", port: 9090 });
+    expect(client.params.secure).toBe(true);
+    expect(client.params.caCert).toBeUndefined();
+    await client.close();
+  });
+
+  it("should reject SYNNAX_CA_CERT with SYNNAX_SECURE false in Deno", () => {
+    vi.stubEnv("SYNNAX_SECURE", "false");
+    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+    vi.stubGlobal("Deno", {});
+    expect(() => new Synnax({ host: "localhost", port: 9090 })).toThrow(
+      "SYNNAX_CA_CERT requires SYNNAX_SECURE",
+    );
+  });
+});
+
+describe("caCert", () => {
+  beforeEach(() => {
+    vi.stubEnv("SYNNAX_SECURE", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  let dir: string;
+  let caCert: string;
+  let server: Server;
+  let wss: WebSocketServer;
+  let port: number;
+  const requests: string[] = [];
+
+  beforeAll(async () => {
+    dir = mkdtempSync(join(tmpdir(), "client-ca-"));
+    createCertificates(dir);
+    caCert = readFileSync(join(dir, "ca.crt"), "utf8");
+    server = createServer(
+      {
+        key: readFileSync(join(dir, "server.key")),
+        cert: readFileSync(join(dir, "server.crt")),
+      },
+      (req, res) => {
+        requests.push(req.url ?? "");
+        res.statusCode = 500;
+        res.end();
+      },
+    );
+    wss = new WebSocketServer({ server });
+    wss.on("connection", (ws) =>
+      ws.send(Buffer.from(JSON.stringify({ type: "open" }))),
+    );
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    ({ port } = server.address() as AddressInfo);
+  });
+
+  afterAll(async () => {
+    wss.clients.forEach((ws) => ws.terminate());
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(dir, { recursive: true });
+  });
+
+  it.each([
+    ["no secure", {}],
+    ["secure true", { secure: true }],
+  ])("should connect with TLS and the CA certificate with %s", async (_, secure) => {
+    requests.length = 0;
+    const client = new Synnax({
+      host: "127.0.0.1",
+      port,
+      ...secure,
+      caCert,
+      ...TEST_CREDENTIALS,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    expect(client.params.secure).toBe(true);
+    await expect(client.connect()).rejects.toThrow("HTTP 500");
+    expect(requests).toContain("/api/v1/auth/session/create");
+    await client.close();
+  });
+
+  it("should open a transport stream through the CA certificate", async () => {
+    const transport = new Transport({
+      url: new url.URL({ host: "127.0.0.1", port }),
+      secure: true,
+      connector: trustCA(caCert),
+    });
+    const stream = await transport.stream.stream("/stream", z.unknown(), z.unknown());
+    stream.closeSend();
+  });
+});
 
 describe("connect", () => {
   it("should await the client's first success", async () => {
@@ -168,6 +400,14 @@ describe("close", () => {
     await client.close();
     expect(performance.now() - start).toBeLessThan(5000);
   }, 10_000);
+
+  it("should close the client at the end of an await using block", async () => {
+    const client = createTestClient();
+    {
+      await using _ = client;
+    }
+    expect(client.connection.status.variant).toEqual("disabled");
+  });
 
   it("should settle the connection status on disabled", async () => {
     const client = createTestClient();

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import {
   type bounds,
   box,
@@ -47,7 +47,7 @@ const stubLineStateZ = z.object({
 // Line needs a live GL context, so a stub with its TYPE stands in for the walk.
 class StubLine extends aether.Leaf<typeof stubLineStateZ> {
   static readonly TYPE = line.Line.TYPE;
-  schema = stubLineStateZ;
+  override schema = stubLineStateZ;
 
   get loading(): boolean {
     return this.state.loading;
@@ -323,7 +323,7 @@ describe("LinePlot against a Core", () => {
         [YAxis.TYPE]: YAxis,
         [line.Line.TYPE]: line.Line,
       },
-      synnax: { props: TEST_CLIENT_PARAMS },
+      synnax: { props: testClientParams() },
       render: true,
     });
     const gl = [...stack.basePath, "gl"];
@@ -344,7 +344,15 @@ describe("LinePlot against a Core", () => {
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return { plot: stack.driver.find<LinePlot>(base), setViewport };
+    const { recorder } = stack;
+    if (recorder == null) throw new Error("the stack has no render recorder");
+    const l1 = stack.driver.find<line.Line>([...base, "x1", "y1", "l1"]);
+    return {
+      plot: stack.driver.find<LinePlot>(base),
+      xBounds: () => l1.xBounds().bounds,
+      setViewport,
+      render: () => renderPlot(recorder),
+    };
   };
 
   // The distance from each target to the first drawn sample at or after it.
@@ -391,10 +399,22 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const { plot } = mount({
+    const { plot, render, xBounds } = mount({
       channel: data.key,
       window: dynamicWindow(TimeSpan.seconds(10)),
     });
+    // The render loop draws a plot at mount, which subscribes its lines to their
+    // channels. A write before the subscription streams reaches the plot only through
+    // a history read, which reduces the samples to the point budget.
+    await expect
+      .poll(
+        () => {
+          render();
+          return plot.state.loading;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(false);
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
@@ -414,8 +434,15 @@ describe("LinePlot against a Core", () => {
         last = new TimeStamp(times[99]);
         await sleep.sleep(TimeSpan.milliseconds(100));
       }
-      const target = Number(last.valueOf());
-      await expect.poll(() => gaps(plot, [target])[0], { timeout: 10_000 }).toBe(0);
+      // The plot reduces samples to its point budget, so its line can end a sample or
+      // so before the newest one.
+      const tolerance = Number(TimeSpan.milliseconds(10).valueOf());
+      const edge = Number(last.valueOf()) - tolerance;
+      await expect
+        .poll(() => gaps(plot, [edge])[0], { timeout: 10_000 })
+        .toBeLessThan(tolerance);
+      // The live window ends at the exclusive end of the newest sample.
+      expect(xBounds().upper).toBe(Number(last.valueOf() + 1n));
     } finally {
       await writer.close();
     }

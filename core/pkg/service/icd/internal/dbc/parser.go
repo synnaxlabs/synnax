@@ -94,47 +94,52 @@ func newParser(data []byte) *parser {
 
 func (p *parser) parse() {
 	for p.peekToken().typ != scanner.EOF {
-		var def Def
-		switch p.peekKeyword() {
-		case KeywordVersion:
-			def = &VersionDef{}
-		case KeywordBitTiming:
-			def = &BitTimingDef{}
-		case KeywordNewSymbols:
-			def = &NewSymbolsDef{}
-		case KeywordNodes:
-			def = &NodesDef{}
-		case KeywordMessage:
-			def = &MessageDef{}
-		case KeywordSignal:
-			def = &SignalDef{}
-		case KeywordEnvironmentVariable:
-			def = &EnvironmentVariableDef{}
-		case KeywordComment:
-			def = &CommentDef{}
-		case KeywordAttribute:
-			def = &AttributeDef{}
-		case KeywordAttributeDefault:
-			def = &AttributeDefaultValueDef{}
-		case KeywordAttributeValue:
-			def = &AttributeValueForObjectDef{}
-		case KeywordValueDescriptions:
-			def = &ValueDescriptionsDef{}
-		case KeywordValueTable:
-			def = &ValueTableDef{}
-		case KeywordSignalValueType:
-			def = &SignalValueTypeDef{}
-		case KeywordMessageTransmitters:
-			def = &MessageTransmittersDef{}
-		case KeywordEnvironmentVariableData:
-			def = &EnvironmentVariableDataDef{}
-		case KeywordMultiplexedValues:
-			def = &MultiplexedValuesDef{}
-		default:
-			def = &UnknownDef{}
-		}
+		def := newDef(p.peekKeyword())
 		def.parseFrom(p)
 		p.defs = append(p.defs, def)
+	}
+}
+
+// newDef returns an empty definition of the kind that keyword starts. An unknown
+// keyword starts an UnknownDef.
+func newDef(keyword Keyword) Def {
+	switch keyword {
+	case KeywordVersion:
+		return &VersionDef{}
+	case KeywordBitTiming:
+		return &BitTimingDef{}
+	case KeywordNewSymbols:
+		return &NewSymbolsDef{}
+	case KeywordNodes:
+		return &NodesDef{}
+	case KeywordMessage:
+		return &MessageDef{}
+	case KeywordSignal:
+		return &SignalDef{}
+	case KeywordEnvironmentVariable:
+		return &EnvironmentVariableDef{}
+	case KeywordComment:
+		return &CommentDef{}
+	case KeywordAttribute:
+		return &AttributeDef{}
+	case KeywordAttributeDefault:
+		return &AttributeDefaultValueDef{}
+	case KeywordAttributeValue:
+		return &AttributeValueForObjectDef{}
+	case KeywordValueDescriptions:
+		return &ValueDescriptionsDef{}
+	case KeywordValueTable:
+		return &ValueTableDef{}
+	case KeywordSignalValueType:
+		return &SignalValueTypeDef{}
+	case KeywordMessageTransmitters:
+		return &MessageTransmittersDef{}
+	case KeywordEnvironmentVariableData:
+		return &EnvironmentVariableDataDef{}
+	case KeywordMultiplexedValues:
+		return &MultiplexedValuesDef{}
+	default:
+		return &UnknownDef{}
 	}
 }
 

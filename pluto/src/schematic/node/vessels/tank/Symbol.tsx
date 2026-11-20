@@ -8,16 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { border, box, type dimensions, xy } from "@synnaxlabs/x";
+import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale } from "@/schematic/node/common/scale";
+import { Stale } from "@/schematic/node/common/stale";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Scale as VisScale } from "@/vis/scale";
+import { Staleness } from "@/vis/staleness";
 
 const STROKE_WIDTH = 2;
 // The canvas fill and the DOM wall round to device pixels independently, so the fill is
@@ -44,13 +46,47 @@ const cornerRadii = (
   };
 };
 
-interface FillProps {
-  nodeKey: string;
-  position?: xy.XY;
-  config: schematic.TankNodeConfig;
+interface BodyProps extends NodeProps<schematic.TankNodeConfig> {
+  staleIndicated: boolean;
 }
 
-const Fill = ({ nodeKey, position, config }: FillProps): null => {
+const Body = ({
+  nodeKey,
+  onConfigChange,
+  selected,
+  config,
+  staleIndicated,
+}: BodyProps): ReactElement => {
+  const {
+    label,
+    fillColor,
+    strokeColor,
+    dimensions = Border.DEFAULT_DIMENSIONS,
+    borderRadius,
+  } = config;
+  return (
+    <Grid.Grid
+      allowCenter
+      allowRotate={false}
+      editable={selected}
+      nodeKey={nodeKey}
+      onResize={(dimensions) => onConfigChange({ dimensions })}
+    >
+      <Label.Label config={label} onChange={onConfigChange} />
+      {staleIndicated && <Stale.Indicator />}
+      <Tank
+        strokeColor={strokeColor}
+        dimensions={dimensions}
+        borderRadius={borderRadius}
+        fillColor={fillColor}
+      />
+    </Grid.Grid>
+  );
+};
+
+// Filled draws the level of the tank's channel and reports when it goes stale.
+const Filled = (props: NodeProps<schematic.TankNodeConfig>): ReactElement => {
+  const { nodeKey, position, config } = props;
   const {
     channel,
     rollingAverage,
@@ -59,8 +95,9 @@ const Fill = ({ nodeKey, position, config }: FillProps): null => {
     scaleVisible,
     dimensions: dims = Border.DEFAULT_DIMENSIONS,
   } = config;
+  const badged = Staleness.useBadged();
   const telem = Scale.source({ channel, rollingAverage });
-  VisScale.use({
+  const { stale } = VisScale.use({
     ...Scale.visProps({
       ...config,
       caretHidden: !caretVisible,
@@ -75,43 +112,14 @@ const Fill = ({ nodeKey, position, config }: FillProps): null => {
     direction: "y",
     externalScale: true,
     cornerRadii: cornerRadii(borderRadius, dims),
+    staleColorHidden: badged,
   });
-  return null;
+  return <Body {...props} staleIndicated={stale && badged} />;
 };
 
-export const Symbol = ({
-  nodeKey,
-  position,
-  onConfigChange,
-  selected,
-  config,
-}: NodeProps<schematic.TankNodeConfig>): ReactElement => {
-  const {
-    label,
-    fillColor,
-    strokeColor,
-    dimensions = Border.DEFAULT_DIMENSIONS,
-    borderRadius,
-    channel,
-  } = config;
-  return (
-    <Grid.Grid
-      allowCenter
-      allowRotate={false}
-      editable={selected}
-      nodeKey={nodeKey}
-      onResize={(dimensions) => onConfigChange({ dimensions })}
-    >
-      <Label.Label config={label} onChange={onConfigChange} />
-      {channel != null && (
-        <Fill nodeKey={nodeKey} position={position} config={config} />
-      )}
-      <Tank
-        strokeColor={strokeColor}
-        dimensions={dimensions}
-        borderRadius={borderRadius}
-        fillColor={fillColor}
-      />
-    </Grid.Grid>
+export const Symbol = (props: NodeProps<schematic.TankNodeConfig>): ReactElement =>
+  primitive.isNonZero(props.config.channel) ? (
+    <Filled {...props} />
+  ) : (
+    <Body {...props} staleIndicated={false} />
   );
-};

@@ -13,10 +13,12 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -81,6 +83,7 @@ var _ = Describe("Infer", func() {
 		Expect(fieldAt(shapes[0], "/time")).To(Equal(xjson.InferredField{
 			Pointer:    xjson.Pointer{"time"},
 			DataType:   telem.TimestampT,
+			Kind:       payload.KindTimestamp,
 			Type:       xjson.String,
 			TimeFormat: new(xjson.ISO8601),
 			Count:      4,
@@ -118,7 +121,7 @@ var _ = Describe("Infer", func() {
 	})
 
 	It("Should give one shape to many sources of one value and one time", func() {
-		var docs []xjson.Document
+		docs := make([]xjson.Document, 0, 10)
 		for ch := range 5 {
 			docs = append(docs, documents(
 				fmt.Sprintf("sensor-%d", ch),
@@ -149,6 +152,7 @@ var _ = Describe("Infer", func() {
 		Expect(fieldAt(shapes[0], "/open")).To(Equal(xjson.InferredField{
 			Pointer:  xjson.Pointer{"open"},
 			DataType: telem.Uint8T,
+			Kind:     payload.KindBoolean,
 			Type:     xjson.Boolean,
 			Count:    3,
 		}))
@@ -201,6 +205,24 @@ var _ = Describe("Infer", func() {
 			return fmt.Sprintf(`{"name":"pump-%d"}`, i)
 		}))
 		Expect(fieldAt(shapes[0], "/name").Enum).To(BeNil())
+	})
+
+	It("Should give an enum label of 64 bytes", func() {
+		label := strings.Repeat("x", 64)
+		shapes := xjson.Infer(documents("a", 2, func(int) string {
+			return fmt.Sprintf(`{"state":%q}`, label)
+		}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(Equal([]string{label}))
+	})
+
+	It("Should not give an enum to a string field with a value over 64 bytes", func() {
+		shapes := xjson.Infer(documents("a", 3, func(i int) string {
+			if i == 2 {
+				return fmt.Sprintf(`{"state":%q}`, strings.Repeat("x", 65))
+			}
+			return `{"state":"open"}`
+		}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(BeNil())
 	})
 
 	It("Should pick the rising timestamp nearest the write time as the index", func() {
@@ -295,8 +317,9 @@ var _ = Describe("Infer", func() {
 		}))
 		text := MustSucceed(json.Marshal(shapes[0].Fields[0]))
 		Expect(string(text)).To(Equal(
-			`{"pointer":"/a~1b/ts","data_type":"timestamp","type":"number",` +
-				`"time_format":"unix_ns","enum":[],"count":2,"mismatched":0}`,
+			`{"pointer":"/a~1b/ts","data_type":"timestamp","kind":"timestamp",` +
+				`"type":"number","time_format":"unix_ns","enum":[],"count":2,` +
+				`"mismatched":0}`,
 		))
 		var decoded xjson.InferredField
 		Expect(json.Unmarshal(text, &decoded)).To(Succeed())
@@ -308,8 +331,79 @@ var _ = Describe("Infer", func() {
 	It("Should omit the time format of a field that is not a timestamp", func() {
 		shapes := xjson.Infer(documents("a", 1, func(int) string { return `{"v":1}` }))
 		Expect(string(MustSucceed(json.Marshal(shapes[0].Fields[0])))).To(Equal(
-			`{"pointer":"/v","data_type":"int64","type":"number","enum":[],` +
-				`"count":1,"mismatched":0}`,
+			`{"pointer":"/v","data_type":"int64","kind":"integer","type":"number",` +
+				`"enum":[],"count":1,"mismatched":0}`,
 		))
+	})
+
+	DescribeTable(
+		"Should give each field the kind of a payload field that holds its values",
+		func(values []string, dataType telem.DataType, kind payload.Kind) {
+			shapes := xjson.Infer(documents("a", len(values), func(i int) string {
+				return fmt.Sprintf(`{"v":%s}`, values[i])
+			}))
+			v := fieldAt(shapes[0], "/v")
+			Expect(v.DataType).To(Equal(dataType))
+			Expect(v.Kind).To(Equal(kind))
+		},
+		Entry(
+			"signed integers",
+			[]string{"1", "-2"},
+			telem.Int64T,
+			payload.KindInteger,
+		),
+		Entry(
+			"an integer above the int64 range",
+			[]string{"1", "18446744073709551615"},
+			telem.Uint64T,
+			payload.KindUnsigned,
+		),
+		Entry("a fraction", []string{"1", "2.5"}, telem.Float64T, payload.KindFloat),
+		Entry("booleans", []string{"true", "false"}, telem.Uint8T, payload.KindBoolean),
+		Entry("strings", []string{`"a"`, `"b"`}, telem.StringT, payload.KindString),
+	)
+})
+
+var _ = Describe("Inferrer", func() {
+	It("Should infer one shape from every document added", func() {
+		inf := xjson.NewInferrer()
+		for i := range 3 {
+			ts := t0 + telem.TimeStamp(i)*telem.SecondTS
+			inf.Add(
+				fmt.Appendf(nil, `{"ts":%d,"v":%d}`, int64(ts)/1e6, i),
+				ts,
+			)
+		}
+		inf.Add(
+			fmt.Appendf(nil, `{"ts":%d,"v":1.5}`, t0Milliseconds+3000),
+			t0+3*telem.SecondTS,
+		)
+		shape := inf.Shape()
+		Expect(shape.Sources).To(BeEmpty())
+		Expect(shape.Count).To(Equal(4))
+		Expect(indexPointer(shape)).To(Equal("/ts"))
+		ts := fieldAt(shape, "/ts")
+		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
+		Expect(ts.TimeFormat).To(HaveValue(Equal(xjson.UnixMillisecond)))
+		Expect(fieldAt(shape, "/v").Kind).To(Equal(payload.KindFloat))
+	})
+
+	It("Should add nothing for data that is not JSON", func() {
+		inf := xjson.NewInferrer()
+		inf.Add([]byte("not json"), t0)
+		inf.Add([]byte(`{"v":1} {"v":2}`), t0)
+		shape := inf.Shape()
+		Expect(shape.Count).To(BeZero())
+		Expect(shape.Fields).To(BeEmpty())
+		Expect(shape.Index).To(Equal(-1))
+	})
+
+	It("Should give no index when a timestamp falls", func() {
+		inf := xjson.NewInferrer()
+		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds+1000), t0)
+		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds), t0+telem.SecondTS)
+		shape := inf.Shape()
+		Expect(fieldAt(shape, "/ts").Kind).To(Equal(payload.KindTimestamp))
+		Expect(shape.Index).To(Equal(-1))
 	})
 })

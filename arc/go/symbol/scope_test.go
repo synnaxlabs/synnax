@@ -15,6 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -78,6 +79,27 @@ var _ = Describe("Scope", func() {
 				Kind: symbol.KindVariable,
 			})).Error().To(MatchError(context.Canceled))
 		})
+
+		It(
+			"Should stop a program at the limit of local channels",
+			func(bCtx SpecContext) {
+				rootScope := symbol.NewRoot(nil, nil)
+				var err error
+				for range 1<<20 + 1 {
+					_, err = rootScope.Add(
+						bCtx,
+						symbol.Symbol{Kind: symbol.KindVariable},
+					)
+					if err != nil {
+						break
+					}
+				}
+				Expect(err).To(MatchError(ContainSubstring("program-local channels")))
+				Expect(
+					diagnostics.Error(err, nil).Code,
+				).To(Equal(codes.ChannelLimit.Code))
+			},
+		)
 
 		It("Should add a new variable scope", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
@@ -641,8 +663,9 @@ var _ = Describe("Scope", func() {
 					symbol.Symbol{Name: "inner", Kind: symbol.KindBlock},
 				))
 				_, err := innerScope.Resolve(bCtx, "missing")
-				var undefinedErr *symbol.UndefinedSymbolError
-				Expect(errors.As(err, &undefinedErr)).To(BeTrue())
+				undefinedErr := MustBeOk(
+					errors.AsType[*symbol.UndefinedSymbolError](err),
+				)
 				Expect(undefinedErr.Name).To(Equal("missing"))
 			},
 		)
@@ -685,7 +708,7 @@ var _ = Describe("Scope", func() {
 			It("Should hide a member that is not exported", func(bCtx SpecContext) {
 				alias := buildAlias(bCtx, buildSourceModule())
 				Expect(alias.Resolve(bCtx, "h")).Error().
-					To(MatchError(`'h' is not exported by module "m"`))
+					To(MatchError(`not exported: 'h' in module "m"`))
 			})
 
 			It(
@@ -789,7 +812,7 @@ var _ = Describe("Scope", func() {
 						alias := buildAlias(bCtx, buildSourceModule())
 						Expect(alias.Parent.ResolveMember(
 							bCtx, "m", "h", symbol.IncludeInternal,
-						)).Error().To(MatchError(`'h' is not exported by module "m"`))
+						)).Error().To(MatchError(`not exported: 'h' in module "m"`))
 					},
 				)
 
@@ -1547,4 +1570,76 @@ var _ = Describe("Name conflicts", func() {
 		Entry("module alias", symbol.KindModuleAlias, "import"),
 		Entry("block falls back to symbol", symbol.KindBlock, "symbol"),
 	)
+
+	Describe("NameConflict", func() {
+		It("Should name the symbol and its position", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.ParseStatement("x := 1"))
+			sym := MustSucceed(symbol.NewRoot(nil, nil).Add(bCtx, symbol.Symbol{
+				Name: "dup", Kind: symbol.KindVariable, AST: ast,
+			}))
+			Expect(sym.NameConflict()).To(MatchError(
+				"name dup conflicts with existing variable at line 1, col 0",
+			))
+		})
+	})
+
+	Describe("Shadowers", func() {
+		var (
+			ast   antlr.ParserRuleContext
+			root  *symbol.Symbol
+			stage *symbol.Symbol
+		)
+		declare := func(bCtx SpecContext, scope *symbol.Symbol, sym symbol.Symbol) *symbol.Symbol {
+			GinkgoHelper()
+			sym.Name, sym.Type = "dup", types.I32()
+			return MustSucceed(scope.Add(bCtx, sym))
+		}
+		BeforeEach(func(bCtx SpecContext) {
+			ast = MustSucceed(parser.ParseStatement("x := 1"))
+			root = symbol.NewRoot(nil, nil)
+			seq := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "main", Kind: symbol.KindSequence, AST: ast,
+			}))
+			stage = MustSucceed(seq.Add(bCtx, symbol.Symbol{
+				Name: "hold", Kind: symbol.KindStage, AST: ast,
+			}))
+		})
+
+		DescribeTable("Should return a nested declaration of the name",
+			func(bCtx SpecContext, kind symbol.Kind) {
+				nested := declare(bCtx, stage, symbol.Symbol{Kind: kind, AST: ast})
+				outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+				Expect(outer.Shadowers()).To(ConsistOf(nested))
+			},
+			Entry("variable", symbol.KindVariable),
+			Entry("stateful variable", symbol.KindStatefulVariable),
+			Entry("loop variable", symbol.KindLoopVariable),
+			Entry("input parameter", symbol.KindInput),
+			Entry("output parameter", symbol.KindOutput),
+		)
+
+		It("Should return each nested declaration", func(bCtx SpecContext) {
+			fn := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "scale", Kind: symbol.KindFunction, AST: ast,
+			}))
+			inStage := declare(bCtx, stage, symbol.Symbol{AST: ast})
+			inFunction := declare(bCtx, fn, symbol.Symbol{AST: ast})
+			outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+			Expect(outer.Shadowers()).To(ConsistOf(inStage, inFunction))
+		})
+
+		It("Should skip a built-in and a declaration with another name",
+			func(bCtx SpecContext) {
+				declare(bCtx, stage, symbol.Symbol{})
+				MustSucceed(stage.Add(bCtx, symbol.Symbol{Name: "other", AST: ast}))
+				outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+				Expect(outer.Shadowers()).To(BeEmpty())
+			},
+		)
+
+		It("Should skip a scope that has the name", func(bCtx SpecContext) {
+			outer := MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "hold", AST: ast}))
+			Expect(outer.Shadowers()).To(BeEmpty())
+		})
+	})
 })

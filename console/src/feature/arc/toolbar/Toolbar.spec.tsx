@@ -10,6 +10,7 @@
 import { arc as clientArc, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +38,6 @@ import {
   renderSuspended,
   resolveFocusedTab,
   type TestStore,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 
@@ -168,8 +168,9 @@ describe("arc/Toolbar", () => {
       const arcsID = await retrieveRootDirectoryID(client);
       await renderToolbar();
       await openTreeRowContextMenu(arc.name);
+      const item = await screen.findByText("New directory");
       await act(async () => {
-        fireEvent.click(await screen.findByText("New directory"));
+        fireEvent.click(item);
       });
       const name = uniqueName("dir");
       commitTextEdit(await awaitTextEditingElement(), name);
@@ -189,8 +190,9 @@ describe("arc/Toolbar", () => {
       await renderToolbar();
       await findTreeRow(arc.name);
       await openTreeRootContextMenu();
+      const item = await screen.findByText("New directory");
       await act(async () => {
-        fireEvent.click(await screen.findByText("New directory"));
+        fireEvent.click(item);
       });
       const name = uniqueName("dir");
       commitTextEdit(await awaitTextEditingElement(), name);
@@ -206,8 +208,9 @@ describe("arc/Toolbar", () => {
       const dir = await createDirectory(await retrieveRootDirectoryID(client));
       await renderToolbar();
       await openTreeRowContextMenu(dir.name);
+      const item = await screen.findByText("New directory");
       await act(async () => {
-        fireEvent.click(await screen.findByText("New directory"));
+        fireEvent.click(item);
       });
       const name = uniqueName("sub");
       commitTextEdit(await awaitTextEditingElement(), name);

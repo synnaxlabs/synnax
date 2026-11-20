@@ -156,7 +156,12 @@ func (e *Writer) WriteNarrow(t types.Type) {
 		e.writeSignExtend(24)
 	case types.KindI16:
 		e.writeSignExtend(16)
-	default:
+	case types.KindInvalid, types.KindU32, types.KindU64, types.KindI32, types.KindI64,
+		types.KindF32, types.KindF64, types.KindString, types.KindChan,
+		types.KindSeries, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
 	}
 }
 
@@ -170,6 +175,12 @@ func (e *Writer) writeSignExtend(shift int32) {
 // WriteBinaryOp writes a simple binary operation (no immediates).
 func (e *Writer) WriteBinaryOp(op Opcode) {
 	e.WriteOpcode(op)
+}
+
+// WriteTruncSat writes a saturating float-to-integer conversion.
+func (e *Writer) WriteTruncSat(op TruncSatOpcode) {
+	e.buf.WriteByte(0xfc)
+	e.WriteLEB128Unsigned(uint64(op))
 }
 
 // WriteI32Eqz writes an i32.eqz instruction (returns 1 if value is 0, else 0).

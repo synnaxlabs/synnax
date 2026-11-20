@@ -11,9 +11,9 @@ package units
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -48,7 +48,7 @@ func ValidateBinaryOp[AST antlr.ParserRuleContext](
 		return true
 	}
 	if !left.Unit.Dimensions.Equal(right.Unit.Dimensions) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.DimensionMismatch.Atf(
 			ctx.AST,
 			"incompatible dimensions: %s vs %s",
 			left.Unit.Dimensions,
@@ -68,20 +68,20 @@ func ValidateBinaryOp[AST antlr.ParserRuleContext](
 // must be a literal integer (isLiteral=true).
 func ValidatePowerOp(base, exp types.Type, isLiteral bool) error {
 	if exp.Unit != nil && !exp.Unit.Dimensions.IsZero() {
-		return errors.Wrapf(
+		return codes.DimensionMismatch.Mark(errors.Wrapf(
 			ErrDimensions,
 			"exponent in power operation must be dimensionless, got %s",
 			exp.Unit.Dimensions.String(),
-		)
+		))
 	}
 	if base.Unit == nil || base.Unit.Dimensions.IsZero() {
 		return nil
 	}
 	if !isLiteral {
-		return errors.Wrap(
+		return codes.DimensionMismatch.Mark(errors.Wrap(
 			ErrDimensions,
 			"power operation with dimensioned base requires a literal integer exponent",
-		)
+		))
 	}
 	return nil
 }
@@ -94,17 +94,17 @@ func ScaleFactor(from, to *types.Unit) (float64, error) {
 		return 1.0, nil
 	}
 	if from == nil || to == nil {
-		return 0, errors.Wrap(
+		return 0, codes.DimensionMismatch.Mark(errors.Wrap(
 			ErrDimensions,
 			"cannot convert between dimensioned and dimensionless values",
-		)
+		))
 	}
 	if !from.Dimensions.Equal(to.Dimensions) {
-		return 0, errors.Wrapf(
+		return 0, codes.DimensionMismatch.Mark(errors.Wrapf(
 			ErrIncompatibleDimensions,
 			"cannot convert %s to %s",
 			from.Dimensions.String(), to.Dimensions.String(),
-		)
+		))
 	}
-	return from.Scale / to.Scale, nil
+	return types.UnitFactor(from, to), nil
 }

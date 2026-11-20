@@ -345,7 +345,14 @@ func (r Retrieve[K, E]) Count(
 		}
 		return len(r.entries.All()), nil
 	}
+	return r.countScan(ctx, snap)
+}
 
+// countScan counts the matching records by iterating over every entry in the table.
+func (r Retrieve[K, E]) countScan(
+	ctx context.Context,
+	snap Snapshot,
+) (count int, err error) {
 	reader := wrapReader[K, E](snap, r.keyPrefix)
 	iter, err := reader.OpenIterator(
 		IterOptions{prefix: r.prefix, after: r.encodedAfter()},
@@ -394,9 +401,8 @@ func (r Retrieve[K, E]) Count(
 	return count, err
 }
 
-// match runs the filter's predicates against a decoded entry. Returns
-// true if no filter is set. key may be nil when the caller does not
-// have the raw key bytes available.
+// match runs the filter's predicates against a decoded entry and its stored key and
+// value. Returns true if no filter is set.
 func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error) {
 	if !r.filter.keys.Contains((*e).GorpKey()) {
 		return false, nil
@@ -410,6 +416,40 @@ func (r Retrieve[K, E]) matchEval(ctx Context, e *E, key, value []byte) (bool, e
 		return true, nil
 	}
 	return r.filter.eval(ctx, e, key, value)
+}
+
+// read decodes the entry at k into e and reports whether k has an entry and whether it
+// matches the filter. k must be in the filter's keys. It decodes only an entry whose
+// key starts with prefix and that passes the raw filter.
+func (r Retrieve[K, E]) read(
+	ctx Context,
+	reader Reader[K, E],
+	k K,
+	prefix []byte,
+	e *E,
+) (found, match bool, err error) {
+	encoded := reader.keyCodec.Encode(k)
+	value, closer, err := reader.snap.Get(encoded)
+	if errors.Is(err, query.ErrNotFound) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	match = reader.keyCodec.HasPrefix(k, prefix)
+	if match {
+		match, err = r.matchRaw(encoded, value)
+	}
+	if match && err == nil {
+		err = reader.snap.Decode(value, e)
+	}
+	if match && err == nil {
+		match, err = r.matchEval(ctx, e, encoded, value)
+	}
+	if err = errors.Combine(err, closer.Close()); err != nil {
+		return false, false, err
+	}
+	return true, match, nil
 }
 
 // matchRaw runs the filter's raw-byte pre-screen against key/value.
@@ -453,28 +493,19 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			break
 		}
 		e = zero
-		b, closer, err := reader.get(ctx, k, &e)
+		found, match, err := r.read(gorpCtx, reader, k, r.prefix, &e)
 		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				notFound = append(notFound, k)
-				continue
-			}
 			return nil, err
 		}
-		if reader.keyCodec.HasPrefix(e.GorpKey(), r.prefix) {
-			match, mErr := r.matchEval(gorpCtx, &e, nil, b)
-			if mErr != nil {
-				return nil, errors.Combine(mErr, closer.Close())
-			}
-			if match {
-				validCount++
-				if r.limit == 0 || validCount <= r.limit {
-					r.entries.add(e)
-				}
-			}
+		if !found {
+			notFound = append(notFound, k)
+			continue
 		}
-		if cErr := closer.Close(); cErr != nil {
-			return nil, cErr
+		if match {
+			validCount++
+			if r.limit == 0 || validCount <= r.limit {
+				r.entries.add(e)
+			}
 		}
 	}
 	if len(r.validators) == 0 {
@@ -497,21 +528,18 @@ func (r Retrieve[K, E]) encodedAfter() []byte {
 // after drops the keys that a scan visits at or before it.
 func storageOrder[K Key](keys []K, after *K) []K {
 	type encoded struct {
-		key        K
-		start, end int
+		key K
+		raw []byte
 	}
 	var (
 		codec = key.NewCodec[K](nil)
-		raw   []byte
 		pairs = make([]encoded, len(keys))
 	)
 	for i, k := range keys {
-		start := len(raw)
-		raw = append(raw, codec.Encode(k)...)
-		pairs[i] = encoded{key: k, start: start, end: len(raw)}
+		pairs[i] = encoded{key: k, raw: bytes.Clone(codec.Encode(k))}
 	}
 	slices.SortFunc(pairs, func(a, b encoded) int {
-		return bytes.Compare(raw[a.start:a.end], raw[b.start:b.end])
+		return bytes.Compare(a.raw, b.raw)
 	})
 	sorted := make([]K, 0, len(pairs))
 	var bound []byte
@@ -519,7 +547,7 @@ func storageOrder[K Key](keys []K, after *K) []K {
 		bound = bytes.Clone(codec.Encode(*after))
 	}
 	for _, p := range pairs {
-		if bound == nil || bytes.Compare(raw[p.start:p.end], bound) > 0 {
+		if bound == nil || bytes.Compare(p.raw, bound) > 0 {
 			sorted = append(sorted, p.key)
 		}
 	}
@@ -610,16 +638,9 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			continue
 		}
 		var e E
-		b, closer, err := reader.get(ctx, k, &e)
+		_, match, err := r.read(gorpCtx, reader, k, nil, &e)
 		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
 			return err
-		}
-		match, mErr := r.matchEval(gorpCtx, &e, nil, b)
-		if cErr := closer.Close(); mErr != nil || cErr != nil {
-			return errors.Combine(mErr, cErr)
 		}
 		if !match {
 			continue

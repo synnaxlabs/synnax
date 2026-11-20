@@ -13,6 +13,7 @@
 #include <future>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <thread>
 #include <variant>
 
@@ -27,6 +28,10 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
+#include "driver/bypass/bypass.h"
+#include "driver/bypass/pipeline/streamer.h"
+#include "driver/bypass/pipeline/writer.h"
+#include "driver/control/state.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "driver/task/task.h"
 
@@ -794,7 +799,8 @@ void expect_status(
     }
 }
 
-TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
+/// @brief it should send a warning and keep the task running when a node traps.
+TEST(ArcErrorHandling, WasmTrapSendsWarning) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto input_idx_name = make_unique_channel_name("trap_input_idx");
@@ -883,19 +889,23 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    auto *error_status = find_status_by_variant(
-        ctx->statuses,
-        synnax::status::VARIANT_ERROR
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
     );
-    ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
-    expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
-    EXPECT_EQ(error_status->message, "Failed to run Arc program");
+    const auto *warning = find_status_by_variant(
+        ctx->statuses,
+        synnax::status::VARIANT_WARNING
+    );
+    expect_status(*warning, synnax::status::VARIANT_WARNING, true);
+    EXPECT_EQ(warning->message, "Node failed");
+    EXPECT_TRUE(warning->description.starts_with("The divide_by_zero node failed: "));
     EXPECT_TRUE(
-        error_status->description.starts_with("The divide_by_zero node failed: ")
+        warning->description.ends_with("at sample 0/1: integer divide by zero")
+    );
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
     );
 
     task->stop("test_stop", true);
@@ -1365,14 +1375,14 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     );
 
     task->start("test_start_1");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    auto *error_status = find_status_by_variant(
-        ctx->statuses,
-        synnax::status::VARIANT_ERROR
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
     );
-    EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
 
     task->stop("test_stop_1", true);
 
@@ -3604,6 +3614,194 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     task->stop("test_stop", true);
+}
+
+/// @brief it should run the first cycle after the command streamer opens, so that the
+/// program reads its own first write.
+TEST(ArcTests, ReadsItsOwnFirstWrite) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto first = synnax::channel::Channel{
+        .name = make_unique_channel_name("own_write_first"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(first));
+    auto second = synnax::channel::Channel{
+        .name = make_unique_channel_name("own_write_second"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(second));
+
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("own_write_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "1 -> " + first.name + "\n" + first.name + " -> " + second.name +
+                   "\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_own_write_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_own_write_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
+    task_meta.config = cfg;
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
+        {first.key},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    std::promise<void> open;
+    mock_streamer->open_gate = open.get_future().share();
+
+    auto bus = std::make_shared<bypass::Bus>();
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<bypass::pipeline::WriterFactory>(
+                mock_writer,
+                bus,
+                std::make_shared<control::States>(),
+                0
+            ),
+            std::make_shared<bypass::pipeline::StreamerFactory>(
+                mock_streamer,
+                bus,
+                x::control::Subject{},
+                x::breaker::default_config("arc_test")
+            )
+        )
+    );
+
+    task->start("test_start");
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(mock_writer->writes->size(), 0);
+    open.set_value();
+    ASSERT_EVENTUALLY_TRUE(
+        std::ranges::any_of(mock_writer->writes->snapshot(), [&](const auto &fr) {
+            return fr.contains(second.key);
+        })
+    );
+
+    task->stop("test_stop", true);
+}
+
+/// @brief the state of a pipeline thread that a HeldFailure holds in its catch block.
+struct Hold {
+    std::atomic<bool> entered{false};
+    std::atomic<bool> released{false};
+};
+
+/// @brief a failure that holds the thread that caught it until its Hold is released.
+class HeldFailure final : public std::runtime_error {
+    std::shared_ptr<Hold> hold;
+
+public:
+    explicit HeldFailure(std::shared_ptr<Hold> hold):
+        std::runtime_error("held failure"), hold(std::move(hold)) {}
+
+    ~HeldFailure() override {
+        if (this->hold == nullptr || this->hold->entered.exchange(true)) return;
+        this->hold->released.wait(false);
+    }
+};
+
+/// @brief a streamer factory whose open throws a HeldFailure.
+class HeldFailureFactory final : public pipeline::StreamerFactory {
+    std::shared_ptr<Hold> hold;
+
+public:
+    explicit HeldFailureFactory(std::shared_ptr<Hold> hold): hold(std::move(hold)) {}
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        throw HeldFailure(this->hold);
+    }
+};
+
+/// @brief it should answer a start that arrives while the pipeline of a failed start is
+/// still on its way out.
+TEST(ArcTests, AnswersStartWhileFailedStartExits) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input = synnax::channel::Channel{
+        .name = make_unique_channel_name("failed_start_input"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(input));
+    auto output = synnax::channel::Channel{
+        .name = make_unique_channel_name("failed_start_output"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(output));
+
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("failed_start_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{.raw = input.name + " -> " + output.name + "\n"}
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_failed_start_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_failed_start_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
+    task_meta.config = cfg;
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto hold = std::make_shared<Hold>();
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            std::make_shared<HeldFailureFactory>(hold)
+        )
+    );
+    // The release comes first, because the stop joins the held thread.
+    x::defer::defer cleanup([&] {
+        hold->released.store(true);
+        hold->released.notify_all();
+        task->stop("test_stop", true);
+    });
+
+    task->start("failed_start");
+    ASSERT_EVENTUALLY_TRUE(hold->entered.load());
+    task->start("next_start");
+    ASSERT_EVENTUALLY_TRUE(std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
+        return s.details.cmd == "next_start" && !s.details.running;
+    }));
 }
 
 /// @brief it should write the error of a boot configure that fails, so a status that

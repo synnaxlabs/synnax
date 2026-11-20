@@ -61,20 +61,7 @@ func checkShipped(
 		chain := shippedChains[livePath]
 		for _, n := range chain.Numbers {
 			filePath := chain.FilePath(n) + ".oracle"
-			fail := func(format string, args ...any) {
-				r.fail(Finding{
-					Path:     filePath,
-					Severity: SeverityError,
-					Message: fmt.Sprintf(
-						"%s v%d %s, which %s shipped",
-						livePath, n, fmt.Sprintf(format, args...), release.Tag,
-					),
-					FixHint: fmt.Sprintf(
-						"restore %s from %s and change the shape in a new version",
-						filePath, release.Tag,
-					),
-				})
-			}
+			fail := r.shippedFail(release, filePath, livePath, n)
 			current, ok := chains[livePath]
 			if !ok || !slices.Contains(current.Numbers, n) {
 				fail("is gone")
@@ -98,6 +85,27 @@ func checkShipped(
 			}
 			compareStored(old, now, ns, fail)
 		}
+	}
+}
+
+func (r *GateReport) shippedFail(
+	release Release,
+	filePath, livePath string,
+	n int,
+) func(format string, args ...any) {
+	return func(format string, args ...any) {
+		r.fail(Finding{
+			Path:     filePath,
+			Severity: SeverityError,
+			Message: fmt.Sprintf(
+				"%s v%d %s, which %s shipped",
+				livePath, n, fmt.Sprintf(format, args...), release.Tag,
+			),
+			FixHint: fmt.Sprintf(
+				"restore %s from %s and change the shape in a new version",
+				filePath, release.Tag,
+			),
+		})
 	}
 }
 

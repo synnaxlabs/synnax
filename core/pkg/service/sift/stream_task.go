@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/ingest"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -33,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 )
@@ -93,17 +93,7 @@ func newStreamTask(
 func (t *streamTask) open(ctx context.Context) (func(context.Context) error, error) {
 	// Data written once the task reports that it started must reach Sift.
 	start := telem.Now()
-	var dev device.Device
-	if err := t.factoryCfg.Device.NewRetrieve().
-		Where(device.MatchKeys(t.cfg.Device)).
-		Entry(&dev).
-		Exec(ctx, t.factoryCfg.DB); err != nil {
-		return nil, err
-	}
-	if dev.Rack != t.task.Rack {
-		return nil, validate.Errorf("device %s belongs to another rack", dev.Name)
-	}
-	props, err := decodeProperties(dev)
+	props, err := t.retrieveProperties(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -131,25 +121,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		labels:   make(set.Set[label.Key]),
 		rejected: make(map[ranger.Key]string),
 	}
-	e, err := ingest.New(ctx, ingest.Config{
-		DB:                 t.factoryCfg.DB,
-		Instrumentation:    t.factoryCfg.Child("stream"),
-		Framer:             t.factoryCfg.Framer,
-		Channel:            t.factoryCfg.Channel,
-		Conn:               conn,
-		Asset:              t.cfg.Asset,
-		Keys:               t.cfg.Channels,
-		CheckpointInterval: t.factoryCfg.CheckpointInterval,
-		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
-			if p.advance(ctx, cp) {
-				h.setSend(ctx, nil)
-			}
-			runs.signal()
-			return nil
-		},
-		OnRetry:    func(ctx context.Context, err error) { h.setSend(ctx, err) },
-		OnRunRetry: func(ctx context.Context, err error) { h.setRun(ctx, err.Error()) },
-	})
+	e, err := t.newEngine(ctx, conn, runs)
 	if err != nil {
 		closeConn()
 		return nil, err
@@ -166,24 +138,80 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 	p.begin(ctx, from)
 	return func(ctx context.Context) error {
 		defer closeConn()
-		sCtx, cancel := signal.WithCancel(
-			ctx,
-			signal.WithInstrumentation(t.factoryCfg.Instrumentation),
-		)
-		defer cancel()
-		if len(t.cfg.Labels) > 0 {
-			disconnectRanges := t.factoryCfg.Ranger.OnAction(runs.observe)
-			defer disconnectRanges()
-			disconnectLabels := t.factoryCfg.Label.Actions().OnChange(runs.observeLabel)
-			defer disconnectLabels()
-			runs.signal()
-			sCtx.Go(runs.run, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
-		}
-		sCtx.Go(func(ctx context.Context) error {
-			return e.Stream(ctx, from, behind)
-		}, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
-		return errors.Skip(sCtx.Wait(), context.Canceled)
+		return t.stream(ctx, runs, from, behind)
 	}, nil
+}
+
+// newEngine returns the engine that streams the channels of the task to Sift over
+// conn. Its checkpoints advance the progress of runs.
+func (t *streamTask) newEngine(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	runs *runSync,
+) (*ingest.Engine, error) {
+	return ingest.New(ctx, ingest.Config{
+		DB:                 t.factoryCfg.DB,
+		Instrumentation:    t.factoryCfg.Child("stream"),
+		Framer:             t.factoryCfg.Framer,
+		Channel:            t.factoryCfg.Channel,
+		Conn:               conn,
+		Asset:              t.cfg.Asset,
+		Keys:               t.cfg.Channels,
+		CheckpointInterval: t.factoryCfg.CheckpointInterval,
+		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
+			if runs.progress.advance(ctx, cp) {
+				runs.health.setSend(ctx, nil)
+			}
+			runs.signal()
+			return nil
+		},
+		OnRetry: func(ctx context.Context, err error) { runs.health.setSend(ctx, err) },
+		OnRunRetry: func(ctx context.Context, err error) {
+			runs.health.setRun(ctx, err.Error())
+		},
+	})
+}
+
+// retrieveProperties returns the properties of the device of the task, which must be
+// on the rack of the task.
+func (t *streamTask) retrieveProperties(ctx context.Context) (Properties, error) {
+	dev, err := retrieveDevice(ctx, t.factoryCfg, t.cfg.Device)
+	if err != nil {
+		return Properties{}, err
+	}
+	if dev.Rack != t.task.Rack {
+		return Properties{}, validate.Errorf(
+			"device %s belongs to another rack", dev.Name,
+		)
+	}
+	return decodeProperties(dev)
+}
+
+// stream sends the channels of the task to Sift from the positions in from, and syncs
+// runs when the task has labels, until ctx ends or either fails.
+func (t *streamTask) stream(
+	ctx context.Context,
+	runs *runSync,
+	from ingest.Positions,
+	behind ingest.ChannelPositions,
+) error {
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
+	)
+	defer cancel()
+	if len(t.cfg.Labels) > 0 {
+		disconnectRanges := t.factoryCfg.Ranger.OnAction(runs.observe)
+		defer disconnectRanges()
+		disconnectLabels := t.factoryCfg.Label.Actions().OnChange(runs.observeLabel)
+		defer disconnectLabels()
+		runs.signal()
+		sCtx.Go(runs.run, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
+	}
+	sCtx.Go(func(ctx context.Context) error {
+		return runs.engine.Stream(ctx, from, behind)
+	}, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
+	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
 
 // loadProgress reads the progress status of the task. A task without one starts at
@@ -416,12 +444,45 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			r.mu.Unlock()
 		}
 	}()
+	ranges, labeled, err := r.retrieveLabeled(ctx, changed, labels)
+	if err != nil {
+		return err
+	}
+	unlabeled, err := r.retrieveUnlabeled(ctx, labeled)
+	if err != nil {
+		return err
+	}
+	if err = r.putLabeled(ctx, ranges, changed, start, sent, since); err != nil {
+		return err
+	}
+	waiting, err := r.putUnlabeled(ctx, unlabeled, start, sent, since)
+	if err != nil {
+		return err
+	}
+	if sent > since {
+		r.progress.setRunsThrough(ctx, sent)
+	}
+	r.synced = true
+	labeled.Add(waiting...)
+	r.labeled = labeled
+	r.health.setRun(ctx, r.firstRejection())
+	return nil
+}
+
+// retrieveLabeled returns the ranges with a task label and their keys. It adds each
+// range with a label in labels to changed, and clears the rejection of each range in
+// changed.
+func (r *runSync) retrieveLabeled(
+	ctx context.Context,
+	changed set.Set[ranger.Key],
+	labels set.Set[label.Key],
+) ([]ranger.Range, set.Set[ranger.Key], error) {
 	var ranges []ranger.Range
-	if err = r.task.factoryCfg.Ranger.NewRetrieve().
+	if err := r.task.factoryCfg.Ranger.NewRetrieve().
 		Where(ranger.MatchLabels(r.task.cfg.Labels...)).
 		Entries(&ranges).
 		Exec(ctx, r.task.factoryCfg.DB); err != nil {
-		return err
+		return nil, nil, err
 	}
 	labeled := make(set.Set[ranger.Key], len(ranges))
 	for _, rng := range ranges {
@@ -434,23 +495,42 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	for key := range changed {
 		delete(r.rejected, key)
 	}
-	// A range that loses its last task label keeps its run, whose tags still change.
+	return ranges, labeled, nil
+}
+
+// retrieveUnlabeled returns the ranges that lost their last task label since the last
+// sync. Such a range keeps its run, whose tags still change.
+func (r *runSync) retrieveUnlabeled(
+	ctx context.Context,
+	labeled set.Set[ranger.Key],
+) ([]ranger.Range, error) {
 	var lost []ranger.Key
 	for key := range r.labeled {
 		if !labeled.Contains(key) {
 			lost = append(lost, key)
 		}
 	}
-	var unlabeled []ranger.Range
-	if len(lost) > 0 {
-		if err = r.task.factoryCfg.Ranger.NewRetrieve().
-			Where(ranger.MatchKeys(lost...)).
-			SkipMissingKeys().
-			Entries(&unlabeled).
-			Exec(ctx, r.task.factoryCfg.DB); err != nil {
-			return err
-		}
+	if len(lost) == 0 {
+		return nil, nil
 	}
+	var unlabeled []ranger.Range
+	if err := r.task.factoryCfg.Ranger.NewRetrieve().
+		Where(ranger.MatchKeys(lost...)).
+		SkipMissingKeys().
+		Entries(&unlabeled).
+		Exec(ctx, r.task.factoryCfg.DB); err != nil {
+		return nil, err
+	}
+	return unlabeled, nil
+}
+
+// putLabeled sets the run of each labeled range whose data Sift has.
+func (r *runSync) putLabeled(
+	ctx context.Context,
+	ranges []ranger.Range,
+	changed set.Set[ranger.Key],
+	start, sent, since telem.TimeStamp,
+) error {
 	ready := func(rng ranger.Range) bool {
 		end := rng.TimeRange.End
 		// Sift has every sample before since, also when sent falls behind it after a
@@ -468,7 +548,7 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		// with a run there.
 		if rng.TimeRange.End <= start {
 			if changed.Contains(rng.Key) {
-				if err = r.put(ctx, rng, false); err != nil {
+				if err := r.put(ctx, rng, false); err != nil {
 					return err
 				}
 			}
@@ -477,12 +557,21 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		if !ready(rng) {
 			continue
 		}
-		if err = r.put(ctx, rng, true); err != nil {
+		if err := r.put(ctx, rng, true); err != nil {
 			return err
 		}
 	}
-	// waiting holds the unlabeled ranges whose data Sift does not have yet, or whose
-	// update Sift rejected. They stay in labeled until their run is updated.
+	return nil
+}
+
+// putUnlabeled updates the run of each unlabeled range whose data Sift has. It returns
+// the unlabeled ranges whose data Sift does not have yet, or whose update Sift
+// rejected. They stay labeled until their run is updated.
+func (r *runSync) putUnlabeled(
+	ctx context.Context,
+	unlabeled []ranger.Range,
+	start, sent, since telem.TimeStamp,
+) ([]ranger.Key, error) {
 	var waiting []ranger.Key
 	for _, rng := range unlabeled {
 		end := rng.TimeRange.End
@@ -491,29 +580,24 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			waiting = append(waiting, rng.Key)
 			continue
 		}
-		if err = r.put(ctx, rng, false); err != nil {
-			return err
+		if err := r.put(ctx, rng, false); err != nil {
+			return nil, err
 		}
 		if _, ok := r.rejected[rng.Key]; ok {
 			waiting = append(waiting, rng.Key)
 		}
 	}
-	if sent > since {
-		r.progress.setRunsThrough(ctx, sent)
+	return waiting, nil
+}
+
+// firstRejection returns why Sift rejected the run of the range with the lowest key,
+// or an empty string when Sift rejected none.
+func (r *runSync) firstRejection() string {
+	if len(r.rejected) == 0 {
+		return ""
 	}
-	r.synced = true
-	labeled.Add(waiting...)
-	r.labeled = labeled
-	var rejection string
-	if len(r.rejected) > 0 {
-		first := slices.MinFunc(
-			slices.Collect(maps.Keys(r.rejected)),
-			ranger.Key.Compare,
-		)
-		rejection = r.rejected[first]
-	}
-	r.health.setRun(ctx, rejection)
-	return nil
+	first := slices.MinFunc(slices.Collect(maps.Keys(r.rejected)), ranger.Key.Compare)
+	return r.rejected[first]
 }
 
 // put sets the run of rng, or only updates an existing run when create is false. It

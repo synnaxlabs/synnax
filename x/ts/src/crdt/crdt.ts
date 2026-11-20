@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@/array";
 import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
-import { type spatial } from "@/spatial";
+import { map } from "@/map";
+import { type location } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0 };
 
@@ -68,14 +70,12 @@ const hasRight = (e: Element, off: number): boolean =>
   off < e.chars.length - 1 || e.right.length > 0;
 
 const sortedInsert = (children: Element[], e: Element): void => {
-  let lo = 0;
-  let hi = children.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (idLess(children[mid].id, e.id)) lo = mid + 1;
-    else hi = mid;
-  }
-  children.splice(lo, 0, e);
+  // partitionPoint only probes indexes below children.length.
+  const at = array.partitionPoint(
+    children.length,
+    (i) => !idLess(children[i]!.id, e.id),
+  );
+  children.splice(at, 0, e);
 };
 
 /** Text is a replicated text document owned by a single replica, identified at
@@ -119,7 +119,7 @@ export class Text {
   snapshot(): { inserts: Insert[]; deletes: Delete[] } {
     const inserts: Insert[] = [];
     const deletes: Delete[] = [];
-    const stack: Array<{ node: Element; origin: ID; side: spatial.XLocation }> = [
+    const stack: Array<{ node: Element; origin: ID; side: location.X }> = [
       { node: this.root, origin: ROOT_ID, side: "right" },
     ];
     while (stack.length > 0) {
@@ -131,9 +131,9 @@ export class Text {
       if (node !== this.root) {
         let prev = origin;
         let prevSide = side;
-        for (let i = 0; i < node.chars.length; i++) {
+        for (const [i, char] of node.chars.entries()) {
           const id = charID(node, i);
-          inserts.push({ id, origin: prev, side: prevSide, char: node.chars[i] });
+          inserts.push({ id, origin: prev, side: prevSide, char });
           if (node.deleted?.[i] === true) deletes.push({ id });
           prev = id;
           prevSide = "right";
@@ -141,10 +141,10 @@ export class Text {
         first = node.id;
         last = lastID(node);
       }
-      for (let i = node.right.length - 1; i >= 0; i--)
-        stack.push({ node: node.right[i], origin: last, side: "right" });
-      for (let i = node.left.length - 1; i >= 0; i--)
-        stack.push({ node: node.left[i], origin: first, side: "left" });
+      for (const child of node.right.toReversed())
+        stack.push({ node: child, origin: last, side: "right" });
+      for (const child of node.left.toReversed())
+        stack.push({ node: child, origin: first, side: "left" });
     }
     return { inserts, deletes };
   }
@@ -195,45 +195,37 @@ export class Text {
         continue;
       }
       const { node } = frame;
-      for (let i = node.right.length - 1; i >= 0; i--)
-        stack.push({ node: node.right[i], emit: false });
+      for (const child of node.right.toReversed())
+        stack.push({ node: child, emit: false });
       if (node !== this.root) stack.push({ node, emit: true });
-      for (let i = node.left.length - 1; i >= 0; i--)
-        stack.push({ node: node.left[i], emit: false });
+      for (const child of node.left.toReversed())
+        stack.push({ node: child, emit: false });
     }
   }
 
   private findRun(id: ID): [Element, number] | null {
     const runs = this.index.get(id.replica);
     if (runs == null) return null;
-    let lo = 0;
-    let hi = runs.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (runs[mid].id.counter <= id.counter) lo = mid + 1;
-      else hi = mid;
-    }
-    if (lo === 0) return null;
+    // partitionPoint only probes indexes below runs.length.
+    const lo = array.partitionPoint(
+      runs.length,
+      (i) => runs[i]!.id.counter > id.counter,
+    );
     const e = runs[lo - 1];
+    if (e == null) return null;
     const off = id.counter - e.id.counter;
     if (off < e.chars.length) return [e, off];
     return null;
   }
 
   private indexInsert(e: Element): void {
-    let runs = this.index.get(e.id.replica);
-    if (runs == null) {
-      runs = [];
-      this.index.set(e.id.replica, runs);
-    }
-    let lo = 0;
-    let hi = runs.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (runs[mid].id.counter < e.id.counter) lo = mid + 1;
-      else hi = mid;
-    }
-    runs.splice(lo, 0, e);
+    const runs = map.getOrInsert(this.index, e.id.replica, () => []);
+    // partitionPoint only probes indexes below runs.length.
+    const at = array.partitionPoint(
+      runs.length,
+      (i) => runs[i]!.id.counter >= e.id.counter,
+    );
+    runs.splice(at, 0, e);
   }
 
   /** splitAfter splits e after character offset k (0 <= k < length-1) and returns the
@@ -298,9 +290,9 @@ export class Text {
       buf = [];
     };
     for (const e of this.order)
-      for (let i = 0; i < e.chars.length; i++) {
+      for (const [i, char] of e.chars.entries()) {
         if (e.dead > 0 && e.deleted?.[i] === true) continue;
-        buf.push(e.chars[i]);
+        buf.push(char);
         if (buf.length >= TO_STRING_CHUNK) flush();
       }
 
@@ -335,7 +327,7 @@ export class Text {
     const ops: Insert[] = [];
     for (const ch of chars) {
       let origin: ID;
-      let side: spatial.XLocation;
+      let side: location.X;
       if (rightID != null && hasRight(left, leftOff)) {
         origin = rightID;
         side = "left";

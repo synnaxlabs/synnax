@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -41,6 +42,22 @@ const Make = "sift"
 // keepaliveTime is how long a connection idles before it pings Sift, which closes
 // streams that idle for 60 s.
 const keepaliveTime = 20 * time.Second
+
+// retrieveDevice returns the device with the given key.
+func retrieveDevice(
+	ctx context.Context,
+	cfg FactoryConfig,
+	key device.Key,
+) (device.Device, error) {
+	var dev device.Device
+	if err := cfg.Device.NewRetrieve().
+		Where(device.MatchKeys(key)).
+		Entry(&dev).
+		Exec(ctx, cfg.DB); err != nil {
+		return device.Device{}, err
+	}
+	return dev, nil
+}
 
 // decodeProperties returns the connection properties of dev. It returns a validation
 // error when dev is not a Sift device or its properties are incomplete.
@@ -170,11 +187,23 @@ func failure(uri string, err error) error {
 				reason,
 			),
 		}
-	default:
-		return driver.Failure{
-			Message:     "Sift rejected the request",
-			Description: st.Message() + ".",
-		}
+	case codes.OK,
+		codes.Canceled,
+		codes.Unknown,
+		codes.InvalidArgument,
+		codes.NotFound,
+		codes.AlreadyExists,
+		codes.ResourceExhausted,
+		codes.FailedPrecondition,
+		codes.Aborted,
+		codes.OutOfRange,
+		codes.Unimplemented,
+		codes.Internal,
+		codes.DataLoss:
+	}
+	return driver.Failure{
+		Message:     "Sift rejected the request",
+		Description: st.Message() + ".",
 	}
 }
 
@@ -190,14 +219,15 @@ func isLocal(uri string) bool {
 
 // APIKeyReference returns the reference from each Sift device to the secret that holds
 // its API key. Registered on the device table, it lists the device as a use of the
-// secret and stops the secret from being deleted while the device exists.
-func APIKeyReference() gorp.Reference[device.Key, device.Device] {
-	return gorp.NewKeyReference(
-		gorp.KeyReferenceConfig[device.Key, device.Device, secret.Key]{
-			Name:     "properties.api_key",
-			Table:    "secret",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
+// secret, stops the secret from being deleted while the device exists, and refuses a
+// file secret of a rack other than the device's.
+func APIKeyReference(
+	secrets *secret.Service,
+) gorp.Reference[device.Key, device.Device] {
+	return secret.NewReference(
+		secrets,
+		secret.ReferenceConfig[device.Key, device.Device]{
+			Name: "properties.api_key",
 			Targets: func(dev *device.Device) []secret.Key {
 				if dev.Make != Make {
 					return nil
@@ -209,6 +239,7 @@ func APIKeyReference() gorp.Reference[device.Key, device.Device] {
 				}
 				return []secret.Key{props.APIKey}
 			},
+			Rack: func(dev *device.Device) rack.Key { return dev.Rack },
 		},
 	)
 }

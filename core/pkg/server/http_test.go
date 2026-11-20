@@ -22,12 +22,16 @@ import (
 	. "github.com/onsi/gomega"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("HTTP", func() {
 	It("Should serve http requests", func(ctx context.Context) {
-		r := MustSucceed(fhttp.NewRouter(ctx))
+		r := MustSucceed(fhttp.NewRouter(
+			ctx,
+			fhttp.RouterConfig{Errors: errors.NewCodec()},
+		))
 		s := r.NewUnaryServer[int, int]("/basic")
 		s.BindHandler(func(_ context.Context, req int) (int, error) {
 			req++

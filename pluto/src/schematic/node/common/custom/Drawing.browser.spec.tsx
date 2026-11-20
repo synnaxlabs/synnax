@@ -13,6 +13,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type dimensions, location, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
 import { CSS } from "@/css";
@@ -363,6 +364,76 @@ describe("Custom.Drawing hold fill", () => {
       getComputedStyle(builtIn, "::after").content,
     );
   });
+});
+
+const BUILT_IN_TOGGLE_SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+    '<rect class="shape" width="10" height="10"/></svg>',
+  handles: [],
+});
+
+const JSX_TOGGLE_DRAWING = (
+  <Primitive.SVG dimensions={{ width: 10, height: 10 }}>
+    <rect className="shape" width="10" height="10" />
+  </Primitive.SVG>
+);
+
+const press = async (button: Element): Promise<void> => {
+  button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+  await expect.poll(() => button.classList.contains("pluto--pressed")).toBe(true);
+};
+
+const TOGGLE_STATES: [string, boolean, (button: Element) => Promise<void>][] = [
+  ["hovered", false, userEvent.hover],
+  ["hovered enabled", true, userEvent.hover],
+  ["pressed", false, press],
+  ["pressed enabled", true, press],
+];
+
+const renderToggleShape = async (
+  drawing: ReactElement,
+  enabled: boolean,
+  interact: (button: Element) => Promise<void>,
+): Promise<{ rest: Paint; changed: Paint }> => {
+  const { container } = await render(
+    <Theming.Provider theme={Theming.SYNNAX_DARK}>
+      <div className={CSS.BE("symbol", "container")}>
+        <Toggle.Button enabled={enabled} onClickDelay={HOLD_DELAY}>
+          {drawing}
+        </Toggle.Button>
+      </div>
+    </Theming.Provider>,
+  );
+  const button = container.querySelector("button");
+  const shape = container.querySelector(".shape");
+  if (button == null || shape == null) throw new Error("toggle not rendered");
+  const paint = (): Paint => ({
+    stroke: computed(shape, "stroke"),
+    fill: computed(shape, "fill"),
+  });
+  const rest = paint();
+  await interact(button);
+  const changed = paint();
+  await userEvent.unhover(button);
+  return { rest, changed };
+};
+
+describe("Custom.Drawing built-in toggle", () => {
+  it.each(TOGGLE_STATES)(
+    "should paint the shapes of a %s toggle as a JSX toggle",
+    async (_, enabled, interact) => {
+      const jsx = await renderToggleShape(JSX_TOGGLE_DRAWING, enabled, interact);
+      const builtIn = await renderToggleShape(
+        <Custom.Drawing spec={BUILT_IN_TOGGLE_SPEC} builtIn enabled={enabled} />,
+        enabled,
+        interact,
+      );
+      expect(jsx.changed.stroke).not.toBe(jsx.rest.stroke);
+      expect(builtIn).toEqual(jsx);
+    },
+  );
 });
 
 const BODY = '<rect width="40" height="20"/>';

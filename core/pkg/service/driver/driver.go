@@ -89,21 +89,28 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		integrations[i] = f.Name()
 	}
 
-	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
-		ctx,
-		fmt.Sprintf("Node %d", cfg.HostKey),
-		rack.NewSetAction(rack.SetPayload{
-			Path:  []string{"integrations"},
-			Value: integrations,
-		}),
-		rack.NewSetAction(rack.SetPayload{
-			Path:  []string{"version"},
-			Value: version.Get(),
-		}),
-	); !ok(err, nil) {
+	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := cfg.Rack.NewWriter(tx).Apply(
+			ctx,
+			cfg.RackKey,
+			rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"integrations"},
+				Value: integrations,
+			}),
+			rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"version"},
+				Value: version.Get(),
+			}),
+		); err != nil {
+			return err
+		}
+		return cfg.Rack.NewRetrieve().
+			Where(rack.MatchKeys(cfg.RackKey)).
+			Entry(&d.rack).
+			Exec(ctx, tx)
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
 	if err = d.createInitialTasks(ctx); !ok(err, nil) {
 		return nil, err
@@ -247,9 +254,9 @@ func (s *commandSink) process(ctx context.Context, res framer.StreamerResponse) 
 }
 
 func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
-	var cmd task.Command
 	for series := range frame.Series() {
 		for s := range series.Samples() {
+			var cmd task.Command
 			if err := json.Unmarshal(s, &cmd); err != nil {
 				d.cfg.L.Error("failed to unmarshal command", zap.Error(err))
 				continue
@@ -625,9 +632,19 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 			if err != nil {
 				return err
 			}
+			// A commit that deleted the task during the deploy marked no instance. The
+			// lock orders this check before markDeleted of any later delete.
 			d.mu.Lock()
-			d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
+			exists, err := d.cfg.Task.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exists(ctx, d.cfg.DB)
+			if exists {
+				d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
+			}
 			d.mu.Unlock()
+			if err != nil || !exists {
+				return errors.Combine(err, newTask.Stop(false))
+			}
 			d.cfg.L.Info("configured task", zap.Stringer("task", t))
 			return nil
 		}

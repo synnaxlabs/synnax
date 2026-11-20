@@ -34,7 +34,7 @@ class RangeDetails(ConsoleCase):
 
         self.console.ranges.toolbar.show()
 
-        self.console.ranges.create(self.parent_range_name, persisted=True)
+        self.console.ranges.create(self.parent_range_name)
 
         # Open parent overview BEFORE creating children. Child ranges show the
         # parent name in their explorer breadcrumb, so has_text filtering would
@@ -102,12 +102,12 @@ class RangeDetails(ConsoleCase):
             [self.child_1_name, self.child_2_name]
         )
 
-        assert self.console.ranges.toolbar.exists(self.child_1_name), (
-            f"'{self.child_1_name}' should appear in toolbar after favoriting"
-        )
-        assert self.console.ranges.toolbar.exists(self.child_2_name), (
-            f"'{self.child_2_name}' should appear in toolbar after favoriting"
-        )
+        assert self.console.ranges.toolbar.exists(
+            self.child_1_name, group="Favorites"
+        ), f"'{self.child_1_name}' should appear in toolbar after favoriting"
+        assert self.console.ranges.toolbar.exists(
+            self.child_2_name, group="Favorites"
+        ), f"'{self.child_2_name}' should appear in toolbar after favoriting"
 
     def test_unfavorite_multiple_child_ranges(self) -> None:
         """Test unfavoriting multiple child ranges via multi-select context menu."""

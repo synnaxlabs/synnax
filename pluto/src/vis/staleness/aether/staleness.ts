@@ -21,23 +21,21 @@ const CONTEXT_KEY = "pluto-vis-staleness";
 export const DEFAULT_TIMEOUT = TimeSpan.seconds(5).nanoseconds;
 
 /**
- * configZ carries the staleness config every source-backed component adds to its own
- * state. Components that resolve the stale color on the worker add stalenessColor
- * themselves; DOM-rendered ones read it from their config instead.
+ * stateZ is the staleness config and reported staleness that every source-backed
+ * component adds to its state. The staleness crosses to the DOM on every transition.
  */
-export const configZ = z.object({
+export const stateZ = z.object({
   // A non-positive timeout would pin a source stale from its first sample onward.
   stalenessTimeout: z.number().positive().default(DEFAULT_TIMEOUT),
-});
-
-/**
- * stateZ adds the reported staleness, which crosses to the DOM on every transition.
- * Extend it only when the DOM half renders the stale state. A component that draws on
- * the worker extends configZ and keeps staleness in its internal state.
- */
-export const stateZ = configZ.extend({
   // stale reports that no sample has arrived within stalenessTimeout.
   stale: z.boolean().default(false),
+});
+
+/** drawnStateZ is the state of a component that draws its stale color on the worker. */
+export const drawnStateZ = stateZ.extend({
+  stalenessColor: color.colorZ.optional(),
+  // A stale indicator beside the component shows the staleness instead.
+  staleColorHidden: z.boolean().default(false),
 });
 
 export interface EntryProps {
@@ -106,7 +104,7 @@ const providerStateZ = z.object({
 export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly TYPE = "staleness.Provider";
   static readonly z = providerStateZ;
-  schema = Provider.z;
+  override schema = Provider.z;
 
   private readonly entries = new Set<Entry>();
   private interval?: ReturnType<typeof setInterval>;
@@ -115,7 +113,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   // Ages samples with the measured clock skew removed.
   private now: () => TimeStamp = () => TimeStamp.now();
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const connection = synnax.use(ctx)?.connection;
     this.now = () =>
       TimeStamp.now().sub(connection?.status.details.clockSkew ?? TimeSpan.ZERO);
@@ -123,7 +121,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     ctx.set(CONTEXT_KEY, this, false);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.entries.clear();
     this.stop();
   }
@@ -223,12 +221,16 @@ interface StatefulLeaf<S extends z.infer<typeof stateZ>> {
 /**
  * Registers a source that reports staleness through its aether state, where the DOM
  * half reads it. See {@link useRegistration} for reuse semantics.
+ * @param onTransition - Runs after each transition. A component that draws itself must
+ * ask for a repaint here: with the source quiet, nothing else asks the canvas to
+ * redraw.
  */
 export const useStateRegistration = <S extends z.infer<typeof stateZ>>(
   ctx: aether.Context,
   prev: Registration | undefined,
   leaf: StatefulLeaf<S>,
   source: telem.Source<unknown>,
+  onTransition?: () => void,
 ): Registration =>
   useRegistration(
     ctx,
@@ -236,46 +238,13 @@ export const useStateRegistration = <S extends z.infer<typeof stateZ>>(
     {
       timeout: () => leaf.state.stalenessTimeout,
       stale: () => leaf.state.stale,
-      onChange: (stale) => leaf.setState((p) => ({ ...p, stale })),
-    },
-    source,
-  );
-
-/** The leaf surface {@link useInternalRegistration} drives. */
-interface InternalLeaf {
-  readonly state: z.infer<typeof configZ>;
-  readonly internal: { stale: boolean };
-}
-
-/**
- * Registers a source that keeps staleness in `internal.stale`, off the state that
- * crosses to the DOM. See {@link useRegistration} for reuse semantics.
- * @param onTransition - Runs after each transition. A component that draws itself must
- * ask for a repaint here: with the source quiet, nothing else asks the canvas to
- * redraw.
- */
-export const useInternalRegistration = (
-  ctx: aether.Context,
-  prev: Registration | undefined,
-  leaf: InternalLeaf,
-  source: telem.Source<unknown>,
-  onTransition: () => void,
-): Registration => {
-  leaf.internal.stale ??= false;
-  return useRegistration(
-    ctx,
-    prev,
-    {
-      timeout: () => leaf.state.stalenessTimeout,
-      stale: () => leaf.internal.stale,
       onChange: (stale) => {
-        leaf.internal.stale = stale;
-        onTransition();
+        leaf.setState((p) => ({ ...p, stale }));
+        onTransition?.();
       },
     },
     source,
   );
-};
 
 /**
  * Resolves the color that stale content renders in.
@@ -286,5 +255,15 @@ export const resolveColor = (
   c: color.Crude | undefined,
   theme: theme.Theme,
 ): color.Color => (c == null ? theme.colors.warning.m1 : color.construct(c));
+
+/**
+ * @returns the color that the stale content of a drawn component paints in, or
+ * undefined while the component paints in its own colors.
+ */
+export const drawnColor = (
+  { stale, staleColorHidden, stalenessColor }: z.infer<typeof drawnStateZ>,
+  theme: theme.Theme,
+): color.Color | undefined =>
+  stale && !staleColorHidden ? resolveColor(stalenessColor, theme) : undefined;
 
 export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };

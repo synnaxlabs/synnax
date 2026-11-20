@@ -7,28 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Self, cast
-
 import pytest
-from playwright.sync_api import Locator
 from pydantic import ValidationError
 
 from console.task_page import TaskPage
 
 
-class FakeStatusLocator:
+class FakeStatusElement:
     def __init__(self, classes: str | None, text: str) -> None:
         self.classes = classes
         self.text = text
 
-    def locator(self, _: str) -> Self:
-        return self
-
-    @property
-    def first(self) -> Self:
-        return self
-
-    def get_attribute(self, _: str) -> str | None:
+    def get_attribute(self, name: str) -> str | None:
         return self.classes
 
     def inner_text(self) -> str:
@@ -36,11 +26,15 @@ class FakeStatusLocator:
 
 
 class FakeTaskPage(TaskPage):
-    def __init__(self, classes: str | None, text: str) -> None:
-        self.controls = FakeStatusLocator(classes, text)
+    def __init__(self, classes: str | None, text: str, description: str = "") -> None:
+        self.element = FakeStatusElement(classes, text)
+        self.description = description
 
-    def _controls(self) -> Locator:
-        return cast(Locator, self.controls)
+    def _status_element(self) -> FakeStatusElement:
+        return self.element
+
+    def _status_description(self) -> str:
+        return self.description
 
 
 class TestStatus:
@@ -48,6 +42,10 @@ class TestStatus:
         status = FakeTaskPage("lyra-text lyra--status-success", "Task running").status()
         assert status.variant == "success"
         assert status.message == "Task running"
+
+    def test_should_read_the_description(self) -> None:
+        page = FakeTaskPage("lyra--status-error", "Failed to start task", "No entries")
+        assert page.status().description == "No entries"
 
     def test_should_reject_a_box_without_a_variant_class(self) -> None:
         with pytest.raises(ValidationError):

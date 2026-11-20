@@ -84,23 +84,28 @@ var _ = Describe("Doc", func() {
 				doc.Detail("Returns", "i32", true),
 			)
 			combined := doc.New(doc.TitleWithKind("add", "func"))
-			combined.Add(symbolDoc.Blocks()...)
+			combined = combined.With(symbolDoc.Blocks()...)
 			expected := "#### add\n##### func\n\nAdds two integers.\n\nReturns: `i32`"
 			Expect(combined.Render()).To(Equal(expected))
 		})
 	})
 
-	Describe("Add", func() {
+	Describe("With", func() {
 		It("Should append blocks to existing doc", func() {
 			d := doc.New(doc.Paragraph("First"))
-			d.Add(doc.Paragraph("Second"))
+			d = d.With(doc.Paragraph("Second"))
 			Expect(d.Render()).To(Equal("First\n\nSecond"))
 		})
 
-		It("Should support chained Add calls", func() {
-			d := doc.New()
-			d.Add(doc.Paragraph("One")).Add(doc.Paragraph("Two"))
+		It("Should support chained With calls", func() {
+			d := doc.New().With(doc.Paragraph("One")).With(doc.Paragraph("Two"))
 			Expect(d.Render()).To(Equal("One\n\nTwo"))
+		})
+
+		It("Should not change the original doc", func() {
+			d := doc.New(doc.Paragraph("First"))
+			_ = d.With(doc.Paragraph("Second"))
+			Expect(d.Render()).To(Equal("First"))
 		})
 	})
 

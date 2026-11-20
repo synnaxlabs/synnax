@@ -29,11 +29,7 @@ on:
         type: string
         default: ""
     secrets:
-      CLAUDE_CODE_APP_ID:
-        required: false
       CLAUDE_CODE_APP_PRIVATE_KEY:
-        required: false
-      CODEX_APP_ID:
         required: false
       CODEX_APP_PRIVATE_KEY:
         required: false
@@ -42,6 +38,8 @@ on:
 
   workflow_dispatch:
     inputs: *inputs
+
+permissions: {}
 
 jobs:
   prompt:
@@ -56,6 +54,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -108,9 +107,7 @@ jobs:
       timeout-minutes: 120
       licensed: true
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 

@@ -31,12 +31,26 @@ on:
         description: The directory containing the package
         required: true
         type: string
+      examples_package:
+        description:
+          The pnpm package whose examples script runs against the Core, or empty for
+          none
+        required: false
+        type: string
+        default: ""
       freighter_image:
         description:
           Freighter integration server image to test against, or empty for none
         required: false
         type: string
         default: ""
+      latest_runtimes:
+        description:
+          Whether the smoke test uses the latest stable Deno and Bun instead of the
+          pinned versions
+        required: false
+        type: boolean
+        default: false
       lint:
         description: Whether to check types, circular imports, and lint
         required: false
@@ -47,10 +61,23 @@ on:
         required: false
         type: boolean
         default: false
+      node_lts:
+        description:
+          Whether to also test on the oldest and newest supported Node.js LTS lines, on
+          Ubuntu
+        required: false
+        type: boolean
+        default: false
       package:
         description: The pnpm package name
         required: true
         type: string
+      packed:
+        description:
+          Whether to check the types of the packed package with attw and a strict tsc
+        required: false
+        type: boolean
+        default: false
       shards:
         description: How many jobs split the test files on each OS, from 1 to 4
         required: false
@@ -71,6 +98,12 @@ on:
         required: false
         type: number
         default: 20
+      runtimes:
+        description:
+          Whether to smoke-test the packed package in Deno, Bun, and three browsers
+        required: false
+        type: boolean
+        default: false
       ubuntu:
         description: Whether to test on Ubuntu
         required: false
@@ -91,6 +124,13 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
+env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
+
 # The test services pull their images from GHCR.
 permissions:
   contents: read
@@ -99,8 +139,9 @@ permissions:
 jobs:
   test:
     name:
-      Test (${{ matrix.os }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
-      inputs.shards) || '' }})
+      Test (${{ matrix.os }}${{ matrix.node && format(', Node {0}', matrix.node) || ''
+      }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard, inputs.shards) || ''
+      }})
     env:
       NODE_OPTIONS: "--max_old_space_size=4096"
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -111,16 +152,28 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         shard: [1, 2, 3, 4]
+        # An empty node is the one in devEngines. The test tooling (jsdom 31 and
+        # Stylelint 18) needs 22.22.2, so it stands in for the 22.12 floor.
+        node: ${{ fromJSON(inputs.node_lts && '["", "22.22.2", "24"]' || '[""]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
+          - os: macos-latest
+            node: "22.22.2"
+          - os: macos-latest
+            node: "24"
+          - os: windows-latest
+            node: "22.22.2"
+          - os: windows-latest
+            node: "24"
           - shard: ${{ inputs.shards < 2 && 2 }}
           - shard: ${{ inputs.shards < 3 && 3 }}
           - shard: ${{ inputs.shards < 4 && 4 }}
         include:
           - os: ubuntu-latest
             shard: 1
+            node: ""
             lint: true
     runs-on: ${{ matrix.os }}
     steps:
@@ -133,9 +186,11 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != ''
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_INSECURE: true
@@ -159,6 +214,8 @@ jobs:
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
+        with:
+          node: ${{ matrix.node }}
 
       - name: Check types
         if: matrix.lint && inputs.lint
@@ -179,15 +236,42 @@ jobs:
         shell: bash
         env:
           PACKAGE: ${{ inputs.package }}
+          # Typed linting of the Console needs more than 4 GB of heap.
+          NODE_OPTIONS: "--max_old_space_size=6144"
         run: pnpm lint:"$PACKAGE"
+
+      # The packages are ES modules only, so the profile skips CommonJS and node10.
+      - name: Check the packed types
+        if: matrix.lint && inputs.packed
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          scripts/pack_ts.sh "$PACKAGE" "$RUNNER_TEMP/packed"
+          pnpm exec attw --profile esm-only "$RUNNER_TEMP/packed/$PACKAGE.tgz"
+          scripts/check_declarations_ts.sh "$PACKAGE" "$RUNNER_TEMP/packed"
 
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
       - name: Install browsers
-        if: inputs.test && inputs.browsers
+        if: (inputs.test && inputs.browsers) || (inputs.runtimes && matrix.lint)
         uses: ./.github/actions/setup-browsers
         timeout-minutes: 20
         with:
           package: ${{ inputs.package }}
+
+      # Only the Linux runners start a Core, and not for a fork, so the others run only
+      # the spec files that create no test client.
+      - name: Skip the specs that need a Core
+        if:
+          inputs.test && inputs.core_image != '' && (runner.os != 'Linux' || env.FORK ==
+          'true')
+        shell: bash
+        working-directory: ${{ inputs.directory }}
+        run: |
+          specs=$(git grep -L -E \
+            'create(Proxied)?TestClient|TEST_(CLIENT_PARAMS|CORE_ADDRESS)' \
+            -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
+          echo "SPECS=$specs" >> "$GITHUB_ENV"
 
       # Without a limit, a hung test run holds the job for up to 6 hours. Turbo holds a
       # task's output until the task ends, so a run that hits the limit shows nothing
@@ -201,14 +285,30 @@ jobs:
           PACKAGE: ${{ inputs.package }}
           TEST_ARGS: ${{ inputs.test_args }}
           COVERAGE_ARGS:
-            ${{ inputs.coverage_flag != '' && '--coverage.reporter=text-summary
-            --coverage.reporter=clover --coverage.reporter=json' || '' }}
+            ${{ matrix.node && '--coverage.enabled=false' || inputs.coverage_flag != ''
+            && '--coverage.reporter=text-summary --coverage.reporter=clover
+            --coverage.reporter=json' || '' }}
           SHARD_ARG:
             ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
             inputs.shards) || '' }}
+          # A key per job and step, so Turbo never replays a cached test run.
+          SYNNAX_TEST_CACHE_KEY:
+            ${{ format('{0}-{1}-{2}-{3}-cov', github.run_id, github.run_attempt,
+            github.job, strategy.job-index) }}
         run: |
-          read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS"
+          read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS $SPECS"
           pnpm cov:"$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
+
+      - name: Run the examples
+        if:
+          inputs.test && inputs.examples_package != '' && runner.os == 'Linux' &&
+          inputs.core_image != '' && env.FORK != 'true' && !matrix.node
+        shell: bash
+        timeout-minutes: 5
+        env:
+          PACKAGE: ${{ inputs.examples_package }}
+        run:
+          pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
@@ -216,12 +316,37 @@ jobs:
         timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
+          SYNNAX_TEST_CACHE_KEY:
+            ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
+            github.job, strategy.job-index) }}
         run: >-
           pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
           webkit
 
+      - name: Set up Deno
+        if: inputs.runtimes && matrix.lint
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: ${{ inputs.latest_runtimes && 'latest' || '2.9.8' }}
+
+      - name: Set up Bun
+        if: inputs.runtimes && matrix.lint
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ inputs.latest_runtimes && 'latest' || '1.4.4' }}
+
+      # The smoke test needs the Core, which only the Linux runner has, and not for a
+      # fork.
+      - name: Smoke-test the packed package
+        if: inputs.runtimes && matrix.lint && env.FORK != 'true'
+        shell: bash
+        timeout-minutes: 10
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: pnpm --filter "@synnaxlabs/$PACKAGE" smoke
+
       - name: Upload coverage
-        if: inputs.test && inputs.coverage_flag != ''
+        if: inputs.test && inputs.coverage_flag != '' && !matrix.node
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov

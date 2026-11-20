@@ -160,23 +160,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		// again.
 		state.statusTime = state.lastUpdated
 		m.mu.racks[r.Key] = state
-		statuses = append(statuses, Status{
-			Owner:   new(r.ResourceID()),
-			Name:    r.Name,
-			Variant: status.VariantWarning,
-			Time:    state.lastUpdated,
-			Message: "Driver not running",
-			Description: fmt.Sprintf(
-				"The Core has not heard from the Driver on %s. Check that the "+
-					"Driver is running and can reach the Core.",
-				r.Name,
-			),
-		})
-		m.L.Warn(
-			"driver not running",
-			zap.String("rack", r.Name),
-			zap.Stringer("time_since_alive", telem.TimeSpan(now-state.lastUpdated)),
-		)
+		statuses = append(statuses, m.outageStatus(r, state, now))
 	}
 	m.mu.Unlock()
 
@@ -206,6 +190,34 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (m *monitor) outageStatus(r Rack, state rackState, now telem.TimeStamp) Status {
+	stat := Status{
+		Owner: new(r.ResourceID()),
+		Name:  r.Name,
+		Time:  state.lastUpdated,
+	}
+	if m.svc.EmbeddedDriverDisabled && r.Key == m.svc.EmbeddedKey {
+		stat.Variant = status.VariantDisabled
+		stat.Message = "Driver disabled"
+		stat.Description = "The Core runs without its embedded Driver, because it " +
+			"started with --no-driver or was built without the Driver."
+		return stat
+	}
+	m.L.Warn(
+		"driver not running",
+		zap.String("rack", r.Name),
+		zap.Stringer("time_since_alive", telem.TimeSpan(now-state.lastUpdated)),
+	)
+	stat.Variant = status.VariantWarning
+	stat.Message = "Driver not running"
+	stat.Description = fmt.Sprintf(
+		"The Core has not heard from the Driver on %s. Check that the Driver is "+
+			"running and can reach the Core.",
+		r.Name,
+	)
+	return stat
 }
 
 // copyOutages calls each handler that has not copied the outage of a rack. A handler
@@ -290,6 +302,19 @@ func (m *monitor) handleChange(
 			m.handleRackStatus(*owner, ch.Value)
 		case resource.TypeTask:
 			m.handleTaskStatus(ch.Key, ch.Value)
+		case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+			resource.TypeDevice, resource.TypeFramer, resource.TypeGroup,
+			resource.TypeLabel, resource.TypeLineplot, resource.TypeLog,
+			resource.TypeNode, resource.TypePanel, resource.TypePolicy,
+			resource.TypeProject, resource.TypeRange, resource.TypeRangeAlias,
+			resource.TypeRole, resource.TypeSchematic, resource.TypeSchematicSymbol,
+			resource.TypeStatus, resource.TypeTable, resource.TypeUser,
+			resource.TypeView, resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+			resource.TypeHTTPServer, resource.TypeLabjackDevice,
+			resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
+			resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
+			resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
+			resource.TypeEnumeration:
 		}
 	}
 }

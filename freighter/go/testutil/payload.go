@@ -29,22 +29,20 @@ const WriteDeadline = 20 * time.Millisecond
 
 var ErrCustom = errors.New("my custom error")
 
-func init() {
-	errors.Register(
-		func(err error) (errors.Payload, bool) {
+// ErrorProvider encodes and decodes ErrCustom for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{
+		Encode: func(_ *errors.Codec, err error) (errors.Payload, bool) {
 			if errors.Is(err, ErrCustom) {
-				return errors.Payload{
-					Type: "myCustomError",
-					Data: err.Error(),
-				}, true
+				return errors.Payload{Type: "myCustomError", Data: err.Error()}, true
 			}
 			return errors.Payload{}, false
 		},
-		func(f errors.Payload) (error, bool) {
+		Decode: func(_ *errors.Codec, f errors.Payload) (error, bool) {
 			if f.Type != "myCustomError" {
 				return nil, false
 			}
 			return ErrCustom, true
 		},
-	)
+	}
 }

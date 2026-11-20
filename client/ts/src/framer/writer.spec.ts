@@ -8,8 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type WebSocketClient } from "@synnaxlabs/freighter";
-import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import {
+  DataType,
+  id,
+  Series,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { UnauthorizedError, ValidationError } from "@/errors";
@@ -26,35 +34,52 @@ import {
 const client = createTestClient();
 
 describe("Writer", () => {
+  describe("dispose", () => {
+    test("should close the writer once at the end of an await using block", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
+      const close = vi.spyOn(writer, "close");
+      {
+        await using _ = writer;
+      }
+      expect(close).toHaveBeenCalledTimes(1);
+      await expect(writer.commit()).rejects.toThrow(framer.WriterClosedError);
+    });
+
+    test("should dispose a writer that was closed explicitly", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
+      const close = vi.spyOn(writer, "close");
+      {
+        await using w = writer;
+        await w.close();
+      }
+      expect(close).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("Writer", () => {
     test("basic write", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(1);
-      const writer = await client.openWriter({ start, channels });
       const [index, data] = channels;
-      try {
-        await writer.write({
-          [index.key]: secondsLinspace(1, 10),
-          [data.key]: randomSeries(10, data.dataType),
-        });
-        await writer.commit();
-      } finally {
-        await writer.close();
-      }
-      expect(true).toBe(true);
+      await using writer = await client.openWriter({ start, channels });
+      await writer.write({
+        [index.key]: secondsLinspace(1, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      await writer.commit();
     });
 
     test("write without a start", async () => {
       const [index, data] = await newIndexedPair(client);
-      const writer = await client.openWriter({ channels: [index, data] });
-      try {
+      {
+        await using writer = await client.openWriter({ channels: [index, data] });
         await writer.write({
           [index.key]: secondsLinspace(1, 3),
           [data.key]: new Series({ data: [1, 2, 3], dataType: data.dataType }),
         });
         await writer.commit();
-      } finally {
-        await writer.close();
       }
       const fr = await client.read(TimeRange.MAX, [index.key, data.key]);
       expect(fr.get(index.key).series[0].at(0)).toEqual(TimeStamp.seconds(1).valueOf());
@@ -123,7 +148,7 @@ describe("Writer", () => {
       // Simulating a timeout.
       const v = await Promise.race([
         stream.read(),
-        new Promise((resolve) => setTimeout(() => resolve(123), 250)),
+        sleep.sleep(TimeSpan.milliseconds(250)).then(() => 123),
       ]);
       expect(v).toEqual(123);
     });
@@ -303,7 +328,7 @@ describe("Writer", () => {
 
       await expect(async () => {
         for (let i = 0; i < 10; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 5));
+          await sleep.sleep(TimeSpan.milliseconds(5));
           await writer.write({
             [indexCh.key]: TimeStamp.seconds(10 - i),
             [dataCh.key]: i,
@@ -340,30 +365,26 @@ describe("Writer", () => {
         [index.key]: secondsLinspace(second, 1),
         [data.key]: randomSeries(1, data.dataType),
       });
-      const low = await client.openWriter({
+      await using low = await client.openWriter({
         start,
         channels,
         authorities: 10,
         enableAutoCommit: false,
       });
+      await low.write(frame(5));
+      // The acknowledged command orders the write before the next writer opens.
+      await low.setAuthority(10);
+      const high = await client.openWriter({ start, channels, authorities: 20 });
       try {
-        await low.write(frame(5));
-        // The acknowledged command orders the write before the next writer opens.
-        await low.setAuthority(10);
-        const high = await client.openWriter({ start, channels, authorities: 20 });
-        try {
-          const denied = await low.commitResult();
-          expect(denied.authorized).toBe(false);
-        } finally {
-          await high.close();
-        }
-        await low.write(frame(6));
-        const granted = await low.commitResult();
-        expect(granted.authorized).toBe(true);
-        expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
+        const denied = await low.commitResult();
+        expect(denied.authorized).toBe(false);
       } finally {
-        await low.close();
+        await high.close();
       }
+      await low.write(frame(6));
+      const granted = await low.commitResult();
+      expect(granted.authorized).toBe(true);
+      expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
     });
 
     describe("commitResult after the stream ends", () => {

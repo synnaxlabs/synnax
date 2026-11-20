@@ -177,8 +177,7 @@ func (t *alertTask) sendStatusEvent(
 		t.sendEvent(ctx, t.buildTriggerEvent(s, t.alertsByStatus[s.Key]), routingKey)
 	case status.VariantSuccess:
 		t.sendEvent(ctx, t.buildResolveEvent(s.Key), routingKey)
-	default:
-		// Loading and disabled statuses send no event.
+	case status.VariantLoading, status.VariantDisabled:
 	}
 }
 
@@ -227,9 +226,9 @@ func mapSeverity(variant status.Variant, errorsCritical bool) string {
 		return "warning"
 	case status.VariantInfo:
 		return "info"
-	default:
-		return "info"
+	case status.VariantSuccess, status.VariantLoading, status.VariantDisabled:
 	}
+	panic("no PagerDuty severity for variant " + string(variant))
 }
 
 // sendEvent sends event with routingKey. A failed send sets an error status on the
@@ -243,6 +242,10 @@ func (t *alertTask) sendEvent(
 	sent := event
 	sent.RoutingKey = routingKey
 	resp, err := t.factoryCfg.Sender.SendEvent(ctx, sent)
+	// A send that a stop cancels did not fail.
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
 		t.factoryCfg.L.Error(
 			"failed to send PagerDuty event",

@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import math
 import os
+import sys
 import tempfile
 import time
 from typing import override
@@ -19,7 +20,7 @@ from pymodbus import ModbusDeviceIdentification
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 from pymodbus.constants import ExcCodes
 from pymodbus.datastore import ModbusServerContext
-from pymodbus.exceptions import NoSuchIdException
+from pymodbus.exceptions import ModbusException, NoSuchIdException
 from pymodbus.server import ModbusSerialServer, ModbusTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 from pymodbus.simulator.simcore import SimCore
@@ -104,7 +105,7 @@ class ModbusSim(DeviceSim):
                     and not client.read_coils(0, count=1, device_id=SLAVE_ID).isError()
                 ):
                     return
-            except Exception:
+            except ModbusException:
                 pass
             finally:
                 client.close()
@@ -300,7 +301,7 @@ class ModbusSerialSim(DeviceSim):
                         and not client.read_holding_registers(0).isError()
                     ):
                         return
-                except Exception:
+                except ModbusException:
                     pass
                 finally:
                     client.close()
@@ -334,32 +335,35 @@ async def run_serial(link: str = ModbusSerialSim.serial_port) -> None:
     """Run a Modbus RTU server with the units of the gateway on a pseudo-terminal, and
     point link at the terminal a client opens. The server and the client each get a
     terminal, and the server process copies bytes between them."""
-    # tty imports termios, which Windows does not have.
-    import tty
+    if sys.platform != "win32":
+        # tty imports termios, which Windows does not have.
+        import tty
 
-    server_master, server_slave = os.openpty()
-    client_master, client_slave = os.openpty()
-    for fd in (server_slave, client_slave):
-        tty.setraw(fd)
-    with contextlib.suppress(FileNotFoundError):
-        os.unlink(link)
-    os.symlink(os.ttyname(client_slave), link)
-    loop = asyncio.get_running_loop()
+        server_master, server_slave = os.openpty()
+        client_master, client_slave = os.openpty()
+        for fd in (server_slave, client_slave):
+            tty.setraw(fd)
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(link)
+        os.symlink(os.ttyname(client_slave), link)
+        loop = asyncio.get_running_loop()
 
-    def bridge(src: int, dst: int) -> None:
-        loop.add_reader(src, lambda: os.write(dst, os.read(src, 4096)))
+        def bridge(src: int, dst: int) -> None:
+            loop.add_reader(src, lambda: os.write(dst, os.read(src, 4096)))
 
-    bridge(server_master, client_master)
-    bridge(client_master, server_master)
-    devices = _gateway_devices()
-    server = ModbusSerialServer(
-        context=devices,
-        port=os.ttyname(server_slave),
-        parity="N",
-        ignore_missing_devices=True,
-    )
-    server.context = _Gateway(devices)
-    await server.serve_forever()
+        bridge(server_master, client_master)
+        bridge(client_master, server_master)
+        devices = _gateway_devices()
+        server = ModbusSerialServer(
+            context=devices,
+            port=os.ttyname(server_slave),
+            parity="N",
+            ignore_missing_devices=True,
+        )
+        server.context = _Gateway(devices)
+        await server.serve_forever()
+    else:
+        raise NotImplementedError("Windows has no pseudo-terminals")
 
 
 if __name__ == "__main__":

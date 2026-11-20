@@ -1,20 +1,15 @@
 ---
-title: "Version 0.48 release notes"
+title: "Login page, status toolbar, NI counter read tasks, and improved measure tool"
+version: "0.48.0"
+date: "Nov 12, 2025"
 ---
 
 import { Hero } from "@/components/hero";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.48.0"
-    date="Nov 12, 2025"
-    title="Login page, status toolbar, NI counter read tasks, and improved measure tool"
->
 
 <Hero.Hero
   image="releases/0-48-0/thumbnail"
@@ -23,6 +18,7 @@ export const components = mdxOverrides;
   layout="framed"
   tone="deep"
   palette="blue-pink"
+  alt="The login page with a list of Cores"
 />
 
 <Divider.Divider x />
@@ -48,6 +44,7 @@ username and password to log in.
   layout="bleed"
   inset
   palette="teal-blue"
+  alt="The status toolbar and the status explorer"
 />
 
 We've added a new toolbar that allows you to favorite important statuses for quick
@@ -57,7 +54,12 @@ viewing. This toolbar also has buttons to create a status and open the status ex
 
 ### NI counter read tasks
 
-<Image id="releases/0-48-0/ni-counter-task" extension="webp" themed={false} />
+<Image
+  id="releases/0-48-0/ni-counter-task"
+  extension="webp"
+  themed={false}
+  alt="An NI counter read task with a semi-period channel"
+/>
 
 We've added support for NI counter read tasks to Synnax. This allows you to read data
 from frequency, period, pulse width, and a number of other counter-based channel types.
@@ -66,7 +68,12 @@ from frequency, period, pulse width, and a number of other counter-based channel
 
 ### Improved measure tool
 
-<Image id="releases/0-48-0/measure-tool" extension="webp" themed={false} />
+<Image
+  id="releases/0-48-0/measure-tool"
+  extension="webp"
+  themed={false}
+  alt="The measure tool on a line plot with the difference and slope between two points"
+/>
 
 The previous measure tool was clunky and difficult to use. We've updated the point
 selection mechanics to be more intuitive, added extra coloring and value displays to
@@ -90,5 +97,3 @@ line plot.
   circular dependencies and intelligently grouping nested calculations.
 - Fixed an issue where the docker image would not correctly grant permissions to the
   embedded driver.
-
-</Release>

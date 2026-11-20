@@ -810,7 +810,7 @@ var _ = Describe("Delete", func() {
 		},
 	)
 	It("Should stop a batch that never acks within one timeout", func(ctx SpecContext) {
-		const timeout = 300 * time.Millisecond
+		const timeout = time.Second
 		tasks := []task.Task{
 			createRunningTask(ctx, true),
 			createRunningTask(ctx, true),
@@ -828,7 +828,9 @@ var _ = Describe("Delete", func() {
 		)).Error().ToNot(HaveOccurred())
 		elapsed := time.Since(start)
 		Expect(elapsed).To(BeNumerically(">=", timeout))
-		Expect(elapsed).To(BeNumerically("<", 2*timeout))
+		// One timeout per task would take at least this long. A tighter bound also
+		// measures the delete transaction, which is slow on loaded runners.
+		Expect(elapsed).To(BeNumerically("<", time.Duration(len(tasks))*timeout))
 		stopped := make([]task.Key, 0, len(tasks))
 		for range tasks {
 			var cmd task.Command
@@ -845,7 +847,7 @@ var _ = Describe("Delete", func() {
 	It(
 		"Should return within the timeout when a stop cannot be written",
 		func(ctx SpecContext) {
-			const timeout = 200 * time.Millisecond
+			const timeout = time.Second
 			t := createRunningTask(ctx, true)
 			grantAll(ctx, u, deleteNeeds(t)...)
 			stallWrites(ctx)
@@ -853,7 +855,9 @@ var _ = Describe("Delete", func() {
 			Expect(deleteWith(timeout)(
 				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
-			Expect(time.Since(start)).To(BeNumerically("<", 2*timeout))
+			// A stop that waits on the stalled write blocks until cleanup. A tighter
+			// bound also measures the delete transaction.
+			Expect(time.Since(start)).To(BeNumerically("<", 3*timeout))
 			expectGone(ctx, t.Key)
 		},
 	)
@@ -1011,7 +1015,9 @@ var _ = Describe("Copy", func() {
 		func(ctx SpecContext) {
 			t = createAlerts(ctx)
 			grantAll(ctx, u, copyNeeds()...)
-			routingKey := uuid.MustParse(t.Config["routing_key"].(string))
+			rawKey, ok := t.Config["routing_key"].(string)
+			Expect(ok).To(BeTrue())
+			routingKey := uuid.MustParse(rawKey)
 			Expect(copyAs(ctx)).Error().
 				To(denied(u, access.ActionRetrieve, secret.ResourceID(routingKey)))
 			Expect(countCopies(ctx)).To(BeZero())

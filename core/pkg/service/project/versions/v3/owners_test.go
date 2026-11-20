@@ -87,6 +87,7 @@ var _ = Describe("OwnersMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		entries := []vis{
 			{Key: owned},
 			{Key: snapshot},
@@ -204,11 +205,12 @@ var _ = Describe("OwnersMigration", func() {
 				"name": name,
 			}
 		}
-		var got []map[string]any
-		for _, e := range logs.FilterMessage(
+		logged := logs.FilterMessage(
 			"deleted a visualization with no project or range",
-		).All() {
-			got = append(got, e.ContextMap())
+		).All()
+		got := make([]map[string]any, len(logged))
+		for i, e := range logged {
+			got[i] = e.ContextMap()
 		}
 		Expect(got).To(ConsistOf(
 			deleted(orphan, "Orphan"),

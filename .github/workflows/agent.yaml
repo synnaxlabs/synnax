@@ -70,11 +70,7 @@ on:
         description: "The agent's final message, for output report"
         value: ${{ jobs.run.outputs.report }}
     secrets:
-      CLAUDE_CODE_APP_ID:
-        required: false
       CLAUDE_CODE_APP_PRIVATE_KEY:
-        required: false
-      CODEX_APP_ID:
         required: false
       CODEX_APP_PRIVATE_KEY:
         required: false
@@ -100,11 +96,11 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
-          app-id:
-            ${{ env.AGENT == 'codex' && secrets.CODEX_APP_ID ||
-            secrets.CLAUDE_CODE_APP_ID }}
+          client-id:
+            ${{ env.AGENT == 'codex' && vars.CODEX_CLIENT_ID ||
+            vars.CLAUDE_CODE_CLIENT_ID }}
           private-key:
             ${{ env.AGENT == 'codex' && secrets.CODEX_APP_PRIVATE_KEY ||
             secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
@@ -135,6 +131,15 @@ jobs:
       - name: Keep the wrapper
         run: cp -R scripts/agent "$RUNNER_TEMP/agent"
 
+      # Every job installs the agent CLIs for itself, so an update never replaces a CLI
+      # that another job on the same instance runs. The install comes before the PR
+      # checkout, so the versions are those of this revision.
+      - name: Install the agent CLIs
+        run: |
+          cp -R .github/agents/cli "$RUNNER_TEMP/cli"
+          npm ci --prefix "$RUNNER_TEMP/cli"
+          echo "$RUNNER_TEMP/cli/node_modules/.bin" >> "$GITHUB_PATH"
+
       # The setup script must come from the PR the agent works on.
       - name: Check out the pull request
         if: inputs.pr
@@ -142,14 +147,6 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           PR: ${{ inputs.pr }}
         run: gh pr checkout "$PR"
-
-      # Every job installs the latest agent CLIs for itself, so an update never replaces
-      # a CLI that another job on the same instance runs.
-      - name: Install the agent CLIs
-        run: |
-          npm install --prefix "$RUNNER_TEMP/cli" \
-            @anthropic-ai/claude-code@latest @openai/codex@latest
-          echo "$RUNNER_TEMP/cli/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Set up the task
         if: inputs.setup != ''
@@ -212,51 +209,26 @@ jobs:
           "$RUNNER_TEMP/agent/run" "${args[@]}"
 
       # The runners of a seat share its login, so at a usage limit every job on the
-      # seat fails. The seat tags the time the limit resets, and the fleet controller
-      # moves it to the login, which no seat then starts on until then. The drain runs
-      # outside the job: each runner stops once its job ends, then the seat powers off.
-      # A later limited job on the seat leaves a running drain alone.
+      # seat fails. The fleet controller moves the limit to the login, which no seat
+      # then starts on until it resets.
       - name: Leave the pool until the usage limit resets
         if: failure() && steps.agent.outputs.limited-until != ''
         env:
           UNTIL: ${{ steps.agent.outputs.limited-until }}
         run: |
-          imds=http://169.254.169.254/latest
-          token=$(curl -fsS -X PUT "$imds/api/token" \
-            -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
-          meta() {
-            curl -fsS -H "X-aws-ec2-metadata-token: $token" "$imds/meta-data/$1"
-          }
-          uvx --from awscli==1.46.2 aws ec2 create-tags \
-            --region "$(meta placement/region)" --resources "$(meta instance-id)" \
-            --tags "Key=limited-until,Value=$UNTIL"
-          sudo install -m 644 "$RUNNER_TEMP/agent/drain.py" /run/agent-drain.py
-          sudo systemd-run --unit agent-drain python3 /run/agent-drain.py ||
-            systemctl is-active --quiet agent-drain
+          "$RUNNER_TEMP/agent/leave.sh" limited-until "$UNTIL"
           echo "::error::The seat is at its usage limit until" \
             "$(date -u -d "@$UNTIL" '+%F %R UTC'). It stops once its jobs end."
 
       # Claude rejects a revoked, expired, or invalid token on every job of the seat.
-      # The seat tags the time the agent started, and the fleet controller marks its
-      # login broken unless a person stored a new token after that. No seat then starts
-      # on the login until a person stores a new token with `seat.sh token`. The seat
-      # drains as at a usage limit.
+      # The fleet controller marks the login broken unless a person stored a new token
+      # after the agent started. No seat then starts on the login until a person stores
+      # a new token with `seat.sh token`.
       - name: Leave the pool until a person renews the login
         if: failure() && steps.agent.outputs.login-broken != ''
         env:
           AT: ${{ steps.agent.outputs.login-broken }}
         run: |
-          imds=http://169.254.169.254/latest
-          token=$(curl -fsS -X PUT "$imds/api/token" \
-            -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
-          meta() {
-            curl -fsS -H "X-aws-ec2-metadata-token: $token" "$imds/meta-data/$1"
-          }
-          uvx --from awscli==1.46.2 aws ec2 create-tags \
-            --region "$(meta placement/region)" --resources "$(meta instance-id)" \
-            --tags "Key=login-broken,Value=$AT"
-          sudo install -m 644 "$RUNNER_TEMP/agent/drain.py" /run/agent-drain.py
-          sudo systemd-run --unit agent-drain python3 /run/agent-drain.py ||
-            systemctl is-active --quiet agent-drain
+          "$RUNNER_TEMP/agent/leave.sh" login-broken "$AT"
           echo "::error::Claude rejected the token of the seat's login. Store a new" \
             "one with infra/agent-runner/seat.sh token <login>."

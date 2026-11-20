@@ -43,6 +43,7 @@ var _ = Describe("Batch", func() {
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		sets = 0
 		set := func(ctx context.Context, tx gorp.Tx, req setRequest) (setResponse, error) {
 			prev, closer, err := tx.Get([]byte(req.Key))

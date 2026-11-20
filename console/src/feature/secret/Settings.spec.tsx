@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   cleanup,
@@ -47,7 +48,6 @@ import {
   openContextMenu,
   resolveFocusedTab,
   selectTestProject,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -84,6 +84,31 @@ const createCertificate = async () => {
   createdCertificates.push(c.key);
   createdSecrets.push(c.privateKey);
   return { certificate: c, privateKey: await client.secrets.retrieve(c.privateKey) };
+};
+
+/** Creates a PagerDuty alert task, which makes the secret of its routing key used. */
+const createAlertTask = async (routingKey: secret.Key, name = uniqueName("alerts")) => {
+  // The Core refuses an alert that names a status it does not hold.
+  const st = await client.statuses.set({
+    key: uniqueName("status"),
+    name: "st",
+    variant: "info",
+    message: "st",
+  });
+  const t = await client.tasks.create(
+    {
+      name,
+      type: PagerDuty.Task.ALERT_TYPE,
+      config: {
+        ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+        routingKey,
+        alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
+      },
+    },
+    PagerDuty.Task.ALERT_SCHEMAS,
+  );
+  createdTasks.push(t.key);
+  return t;
 };
 
 const renderPage = async (
@@ -210,10 +235,12 @@ describe("Secret.Secrets", () => {
   });
 
   it("offers no replacement for a file secret", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
     const s = await client.secrets.set({
       name: uniqueName("secret"),
       source: "file",
       fileName: "token",
+      rack: r.key,
     });
     createdSecrets.push(s.key);
     await renderSecrets();
@@ -245,7 +272,7 @@ describe("Secret.Secrets", () => {
     expect(failed.message).toBe("Failed to delete secret");
     expect(failed.description).toBe(
       `cannot delete secret ${privateKey.name} because certificate ${c.name} ` +
-        "uses it as its private_key: validation error",
+        "uses it as its private_key",
     );
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
   });
@@ -278,8 +305,9 @@ describe("Secret.Secrets", () => {
     const s = await createSecret(client, createdSecrets);
     await renderSecrets();
     await openContextMenu(s.name);
+    const usedBy = await screen.findByRole("menuitem", { name: "Used by" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("menuitem", { name: "Used by" }));
+      fireEvent.click(usedBy);
     });
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByText("Nothing uses this secret.");
@@ -302,26 +330,7 @@ describe("Secret.Secrets", () => {
 
   it("opens a task that uses a secret from its users", async () => {
     const s = await createSecret(client, createdSecrets);
-    // The Core refuses an alert that names a status it does not hold.
-    const st = await client.statuses.set({
-      key: uniqueName("status"),
-      name: "st",
-      variant: "info",
-      message: "st",
-    });
-    const t = await client.tasks.create(
-      {
-        name: uniqueName("alerts"),
-        type: PagerDuty.Task.ALERT_TYPE,
-        config: {
-          ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
-          routingKey: s.key,
-          alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
-        },
-      },
-      PagerDuty.Task.ALERT_SCHEMAS,
-    );
-    createdTasks.push(t.key);
+    const t = await createAlertTask(s.key);
     const { store } = await renderSecrets(client, {
       ...Secret.TREE_ITEMS,
       ...Task.TREE_ITEMS,
@@ -337,6 +346,23 @@ describe("Secret.Secrets", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource).toEqual(task.resourceID(t.key));
+  });
+
+  it("lists the users of a secret by name", async () => {
+    const s = await createSecret(client, createdSecrets);
+    const base = uniqueName("alerts");
+    const names = ["a", "b", "c", "d"].map((n) => `${base} ${n}`);
+    // The Core returns uses in no fixed order.
+    for (const name of names.toReversed()) await createAlertTask(s.key, name);
+    await renderSecrets();
+    const count = await waitFor(() => within(getOption(s.name)).getByText("Used by 4"));
+    await act(async () => {
+      fireEvent.click(count);
+    });
+    const dialog = within(await screen.findByRole("dialog"));
+    await dialog.findByText(names[0]);
+    const listed = dialog.getAllByText((text) => text.startsWith(base));
+    expect(listed.map((el) => el.textContent)).toEqual(names);
   });
 
   it("deletes every selected secret after confirmation", async () => {

@@ -94,12 +94,16 @@ func addOperatorInput(
 		plain = "a plain value or list"
 	}
 	variants = append(variants, dict+args, sd.PyName+args)
+	dictDecl, err := typedDict(dict, sd.Fields, sd.TypeParams, data)
+	if err != nil {
+		return err
+	}
 	sd.After = fmt.Sprintf(`# %s is the dict form of %s.
 %s
 
 # %sInput is %s, %s, or %s in its place.
 type %sInput%s = %s`,
-		dict, sd.PyName, typedDict(dict, sd.Fields, params),
+		dict, sd.PyName, dictDecl,
 		sd.PyName, sd.PyName, dict, plain,
 		sd.PyName, args, strings.Join(variants, " | "),
 	)
@@ -206,37 +210,43 @@ func importShorthand(op resolution.Type, data *templateData) string {
 
 // typedDict declares a TypedDict whose keys are the wire names of fields. It uses class
 // syntax unless a key is a Python keyword, such as "in", which only call syntax takes.
-func typedDict(name string, fields []fieldData, params []string) string {
+// Call syntax cannot scope type parameters, so it declares module-level TypeVars.
+func typedDict(
+	name string,
+	fields []fieldData,
+	params []typeParamData,
+	data *templateData,
+) (string, error) {
 	valueType := func(f fieldData) string {
 		return strings.TrimSuffix(f.PyType, " | None")
 	}
 	if !lo.SomeBy(fields, func(f fieldData) bool { return f.Alias != "" }) {
-		generic := ""
-		if len(params) > 0 {
-			generic = ", Generic[" + strings.Join(params, ", ") + "]"
-		}
 		lines := lo.Map(fields, func(f fieldData, _ int) string {
 			return "    " + f.Name + ": " + valueType(f)
 		})
 		return fmt.Sprintf(
-			"class %s(TypedDict%s, total=False):\n%s",
+			"class %s%s(TypedDict, total=False):\n%s",
 			name,
-			generic,
+			typeParamList(params),
 			strings.Join(lines, "\n"),
-		)
+		), nil
 	}
+	if err := declareTypeVars(name, params, data); err != nil {
+		return "", err
+	}
+	// mypy reads an unquoted value such as list[T] as a runtime expression, where T is
+	// unbound. A quoted value is only a type, so the TypedDict stays generic.
 	keys := lo.Map(fields, func(f fieldData, _ int) string {
 		key := lo.Ternary(f.Alias != "", f.Alias, f.Name)
+		if len(params) > 0 {
+			return fmt.Sprintf("%q: %q", key, valueType(f))
+		}
 		return fmt.Sprintf("%q: %s", key, valueType(f))
 	})
-	// mypy checks the uses of a generic TypedDict in call syntax, but rejects its type
-	// variables at the declaration.
-	ignore := lo.Ternary(len(params) > 0, "  # type: ignore[valid-type]", "")
 	return fmt.Sprintf(
-		"%s = TypedDict(\n    %q,\n    {%s},%s\n    total=False,\n)",
+		"%s = TypedDict(\n    %q,\n    {%s},\n    total=False,\n)",
 		name,
 		name,
 		strings.Join(keys, ", "),
-		ignore,
-	)
+	), nil
 }

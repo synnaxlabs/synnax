@@ -192,12 +192,19 @@ type RestrictError struct {
 	Holder Target
 	// Reference is the name of the reference through which Holder holds Target.
 	Reference string
+	// Field is the field of Target that a write would change. It is empty for a delete.
+	Field string
 }
 
 // Error implements error.
 func (e RestrictError) Error() string {
+	change := "delete"
+	if e.Field != "" {
+		change = "change the " + e.Field + " of"
+	}
 	return fmt.Sprintf(
-		"cannot delete %s %s because %s %s references it through %s: %s",
+		"cannot %s %s %s because %s %s references it through %s: %s",
+		change,
 		e.Target.Table,
 		e.Target.Key,
 		e.Holder.Table,
@@ -247,6 +254,9 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	// Acyclic rejects a write that makes a chain of references within the table return
 	// to its start. Table must be the table the reference is registered on.
 	Acyclic bool
+	// Check returns an error when e may not hold target. A write of e calls it for each
+	// target that e holds after the write, and fails with its error under Name.
+	Check func(ctx context.Context, tx Tx, e *E, target T) error
 }
 
 // KeyReference is a Reference to the entries of one table, which holds each target as
@@ -273,6 +283,7 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 		targetsOf:   cfg.Targets,
 		detach:      cfg.Detach,
 		inline:      cfg.Inline,
+		checkTarget: cfg.Check,
 		format:      func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
 		parse: func(target Target) (T, bool) {
 			if target.Table != table {
@@ -353,9 +364,10 @@ func NewTargetReference[K Key, E Entry[K]](
 // reference is the engine of a Reference whose targets are values of type T.
 type reference[K Key, E Entry[K], T comparable] struct {
 	referenceSpec
-	targetsOf func(e *E) []T
-	detach    func(e *E, target T)
-	inline    func(ctx context.Context, tx Tx, e *E, target T) error
+	targetsOf   func(e *E) []T
+	detach      func(e *E, target T)
+	inline      func(ctx context.Context, tx Tx, e *E, target T) error
+	checkTarget func(ctx context.Context, tx Tx, e *E, target T) error
 	// format returns the Target of t.
 	format func(t T) Target
 	// parse returns the value of target, or false when the reference cannot hold it.
@@ -605,6 +617,7 @@ func (r *reference[K, E, T]) ownerTable() string       { return r.owner }
 func (r *reference[K, E, T]) referenceName() string    { return r.name }
 func (r *reference[K, E, T]) index() int               { return r.position }
 func (r *reference[K, E, T]) onDeletePolicy() OnDelete { return r.onDelete }
+func (r *reference[K, E, T]) linkKind() LinkKind       { return r.kind }
 func (r *reference[K, E, T]) targetTables() []string   { return r.tables }
 
 // check implements Reference.
@@ -642,6 +655,13 @@ func (r *reference[K, E, T]) check(
 		}
 		if !ok {
 			return r.fieldErr("%s %s does not exist", target.Table, target.Key)
+		}
+	}
+	if r.checkTarget != nil {
+		for _, v := range held {
+			if err := r.checkTarget(ctx, tx, e, v); err != nil {
+				return validate.PathedError(err, r.name)
+			}
 		}
 	}
 	if r.unique {

@@ -290,8 +290,10 @@ void Scanner::certificates(
         ctx->set_status(status);
         return;
     }
-    x::json::json data = {{"current", current.certificate.info().to_json()}};
-    if (next.has_value()) data["next"] = next->certificate.info().to_json();
+    x::json::json data = {
+        {"current", certificate::info(current.certificate).to_json()}
+    };
+    if (next.has_value()) data["next"] = certificate::info(next->certificate).to_json();
     status.variant = synnax::status::VARIANT_SUCCESS;
     status.message = regenerate ? "Regenerated the Driver certificate"
                                 : "Retrieved the Driver certificate";
@@ -933,7 +935,9 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         status.description = err.data;
         if (err.matches(errors::SERVER_CERTIFICATE_UNTRUSTED))
             if (const auto cert = connection::server_certificate(client.get()))
-                status.details.data = {{"server_certificate", cert->info().to_json()}};
+                status.details.data = {
+                    {"server_certificate", certificate::info(*cert).to_json()}
+                };
         if (err.matches(errors::CLIENT_CERTIFICATE_REJECTED))
             status.details.data = {{"client_certificate_rejected", true}};
         ctx->set_status(status);

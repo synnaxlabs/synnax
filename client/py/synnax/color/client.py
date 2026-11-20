@@ -31,7 +31,7 @@ from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    nameds: list[Named]
+    colors: list[Named]
 
 
 _CreateResponse = _CreateRequest
@@ -98,9 +98,9 @@ class Client:
                 light=color_.Color(light),
                 dark=None if dark is None else color_.Color(dark),
             )
-        req = _CreateRequest(nameds=normalize(colors))
+        req = _CreateRequest(colors=normalize(colors))
         res = self._client.send("/color/create", req, _CreateResponse)
-        return res.nameds[0] if is_single else res.nameds
+        return res.colors[0] if is_single else res.colors
 
     @overload
     def retrieve(
@@ -232,7 +232,7 @@ class Client:
             after=after,
         )
         res = self._client.send("/color/retrieve", req, RetrieveResponse)
-        return sole("named color", req, res.nameds) if single else res.nameds
+        return sole("named color", req, res.colors) if single else res.colors
 
     def dispatch(
         self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]

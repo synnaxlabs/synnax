@@ -10,6 +10,7 @@
 import {
   group,
   label,
+  panel,
   type resource,
   status,
   type Synnax as Client,
@@ -17,30 +18,33 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/status/explorer/Explorer";
+import { TAB_TYPE } from "@/feature/status/explorer/external";
 import { Modals } from "@/platform/modals";
-import { findToolbarIconButton } from "@/platform/view/testutil";
+import { createTabWrapper, findToolbarIconButton } from "@/platform/view/testutil";
 import {
   awaitTextEditing,
   commitTextEdit,
-  createConsoleWrapper,
   createTestClientWithGrants,
   getBySelector,
   queryIconButton,
-  uniqueName,
+  renderSuspended,
 } from "@/testutil";
 
 const client = createTestClient();
+
+const TAB = { variant: "view", type: TAB_TYPE } as const;
 
 describe("status explorer", () => {
   it("should list statuses matching a search", async () => {
     const s = await client.statuses.set(
       status.create({ name: uniqueName("status"), variant: "info", message: "m" }),
     );
-    const { wrapper } = await createConsoleWrapper({ client });
+    const { wrapper } = await createTabWrapper({ client, tab: TAB });
     render(
       <>
         <Explorer />
@@ -63,9 +67,11 @@ describe("status explorer", () => {
       type: "status",
       where: { labels: [saved.key], variant: { in: ["error"] } },
     });
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Explorer />, { wrapper });
-    fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+    const { wrapper } = await createTabWrapper({
+      client,
+      tab: { variant: "resource", resource: view.resourceID(stored.key) },
+    });
+    await renderSuspended(<Explorer />, { wrapper });
     expect(await screen.findByText(saved.name)).toBeTruthy();
     expect(screen.getByText("Labels")).toBeTruthy();
     expect(screen.getByText("Variants")).toBeTruthy();
@@ -76,7 +82,7 @@ describe("status explorer", () => {
     const s = await client.statuses.set(
       status.create({ name: uniqueName("status"), variant: "info", message: "m" }),
     );
-    const { wrapper } = await createConsoleWrapper({ client });
+    const { wrapper } = await createTabWrapper({ client, tab: TAB });
     render(
       <>
         <Explorer />
@@ -105,13 +111,14 @@ describe("status explorer permissions", () => {
         view.TYPE_RESOURCE_ID,
         label.TYPE_RESOURCE_ID,
         group.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
       ],
       update: [view.TYPE_RESOURCE_ID],
       create: [view.TYPE_RESOURCE_ID, ...creatable],
     });
 
   const renderExplorer = async (as: Client) => {
-    const { wrapper } = await createConsoleWrapper({ client: as });
+    const { wrapper } = await createTabWrapper({ client, as, tab: TAB });
     render(
       <>
         <Explorer />

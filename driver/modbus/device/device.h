@@ -20,8 +20,8 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -59,6 +59,11 @@ const x::telem::TimeSpan PROBE_WAIT = x::telem::SECOND * 10;
 /// @brief the time that each attempt of a request may hold the turn past its timeouts,
 /// for the gaps between the bytes of a reply.
 const x::telem::TimeSpan ATTEMPT_SLACK = x::telem::SECOND;
+/// @brief the longest that a wait for a connect or a reply goes before it checks
+/// whether its device was interrupted.
+const x::telem::TimeSpan WAIT_STEP = x::telem::MILLISECOND * 100;
+/// @brief the longest silence between two bytes of one reply.
+const x::telem::TimeSpan BYTE_TIMEOUT = x::telem::MILLISECOND * 500;
 
 /// @brief classifies a libmodbus or system error number.
 /// @param errnum the value of errno after a failed libmodbus call.
@@ -366,6 +371,16 @@ private:
     }
 };
 
+/// @brief connects the socket of a TCP context to the host and port of cfg. Each
+/// address of the host gets cfg.timeout to connect.
+/// @param interrupted ends the connect when set.
+/// @returns 0, EINTR if interrupted was set, or the error number of the last address.
+int connect_tcp(
+    modbus_t *ctx,
+    const ConnectionConfig &cfg,
+    const std::atomic<bool> &interrupted
+);
+
 /// @brief how a device plans and paces its requests.
 struct RequestConfig {
     /// @brief the most registers one read covers.
@@ -457,6 +472,90 @@ struct Stats {
     }
 };
 
+/// @brief the PDU of a Modbus request and the shape of the reply that answers it.
+struct Request {
+    /// @brief the function code and data of the request.
+    std::vector<std::uint8_t> pdu;
+    /// @brief the bytes that the reply starts with.
+    std::vector<std::uint8_t> head;
+    /// @brief the length of the reply, its function code included.
+    std::size_t reply_size = 0;
+
+    /// @brief reads nb coils or discrete inputs with function code 01 or 02, or nb
+    /// registers with 03 or 04. The data of the reply holds 8 bits in each byte, or
+    /// each register in big-endian order.
+    static Request read(const int function, const int addr, const std::size_t nb) {
+        const auto bytes = function <= MODBUS_FC_READ_DISCRETE_INPUTS ? (nb + 7) / 8
+                                                                      : nb * 2;
+        auto pdu = header(function, addr, nb);
+        std::vector head{pdu[0], static_cast<std::uint8_t>(bytes)};
+        return {std::move(pdu), std::move(head), 2 + bytes};
+    }
+
+    /// @brief writes one coil or holding register with function code 05 or 06. A coil
+    /// is on at 0xFF00 and off at 0.
+    static Request
+    write(const int function, const int addr, const std::uint16_t value) {
+        auto pdu = header(function, addr, value);
+        return {pdu, pdu, pdu.size()};
+    }
+
+    /// @brief writes nb coils with function code 15, each on if its byte is nonzero.
+    static Request
+    write_bits(const int addr, const std::size_t nb, const std::uint8_t *src) {
+        auto head = header(MODBUS_FC_WRITE_MULTIPLE_COILS, addr, nb);
+        auto pdu = head;
+        pdu.push_back(static_cast<std::uint8_t>((nb + 7) / 8));
+        for (std::size_t i = 0; i < nb; i += 8) {
+            unsigned byte = 0;
+            for (std::size_t bit = 0; bit < 8 && i + bit < nb; bit++)
+                if (src[i + bit] != 0) byte |= 1U << bit;
+            pdu.push_back(static_cast<std::uint8_t>(byte));
+        }
+        return {std::move(pdu), head, head.size()};
+    }
+
+    /// @brief writes nb holding registers with function code 16.
+    static Request
+    write_registers(const int addr, const std::size_t nb, const std::uint16_t *src) {
+        auto head = header(MODBUS_FC_WRITE_MULTIPLE_REGISTERS, addr, nb);
+        auto pdu = head;
+        pdu.push_back(static_cast<std::uint8_t>(nb * 2));
+        for (std::size_t i = 0; i < nb; i++) {
+            pdu.push_back(static_cast<std::uint8_t>(src[i] >> 8));
+            pdu.push_back(static_cast<std::uint8_t>(src[i]));
+        }
+        return {std::move(pdu), head, head.size()};
+    }
+
+    /// @brief sets the bits of a holding register that and_mask clears to those of
+    /// or_mask, with function code 22.
+    static Request mask_write(
+        const int addr,
+        const std::uint16_t and_mask,
+        const std::uint16_t or_mask
+    ) {
+        auto pdu = header(MODBUS_FC_MASK_WRITE_REGISTER, addr, and_mask);
+        pdu.push_back(static_cast<std::uint8_t>(or_mask >> 8));
+        pdu.push_back(static_cast<std::uint8_t>(or_mask));
+        std::vector head{pdu[0]};
+        return {std::move(pdu), std::move(head), 7};
+    }
+
+private:
+    /// @returns a function code, an address, and a 16-bit value.
+    static std::vector<std::uint8_t>
+    header(const int function, const int addr, const std::size_t value) {
+        return {
+            static_cast<std::uint8_t>(function),
+            static_cast<std::uint8_t>(addr >> 8),
+            static_cast<std::uint8_t>(addr),
+            static_cast<std::uint8_t>(value >> 8),
+            static_cast<std::uint8_t>(value),
+        };
+    }
+};
+
 /// @brief a connection to one Modbus TCP endpoint or serial port, shared by every
 /// device on it. Requests take turns. A waiting write goes before waiting reads, but
 /// not twice in a row, so reads keep their turns under steady writes. Safe for
@@ -523,6 +622,9 @@ private:
     /// @brief when the last attempt sent its request. Touched only while holding the
     /// turn.
     Clock::time_point sent;
+    /// @brief the transaction ID of the last TCP request. Touched only while holding
+    /// the turn.
+    std::uint16_t tid = 0;
 
     /// @brief holds the connection for one request and its retries.
     class Turn {
@@ -616,80 +718,190 @@ private:
         this->connected = false;
     }
 
-    /// @brief sets the longest wait for a reply, and for a connect.
-    void set_timeout(const std::chrono::microseconds timeout) {
-        modbus_set_response_timeout(
-            this->ctx,
-            static_cast<std::uint32_t>(timeout.count() / 1000000),
-            static_cast<std::uint32_t>(timeout.count() % 1000000)
-        );
+    /// @brief opens the socket or port. Call only while holding the turn.
+    /// @returns 0, or the error number: EINTR if interrupted was set.
+    int connect(const ConnectionConfig &cfg, const std::atomic<bool> &interrupted) {
+        if (this->transport == Transport::TCP)
+            return connect_tcp(this->ctx, cfg, interrupted);
+        if (const int errnum = this->port_lock.lock(this->serial.port)) return errnum;
+        this->opened = canonical_port(this->serial.port);
+        if (modbus_connect(this->ctx) == 0) return 0;
+        const int errnum = errno;
+        this->port_lock.unlock();
+        return errnum;
     }
 
-    /// @brief waits for the reply of a timed-out TCP request until stale_until and
-    /// discards it. A request sent first would read that reply as its own and lose the
-    /// socket. A lost socket fails the request that follows.
-    void discard_late_reply() {
-        const auto left = std::chrono::duration_cast<std::chrono::microseconds>(
-            this->stale_until - Clock::now()
+    /// @brief waits for a reply until the deadline, in steps of WAIT_STEP. A step that
+    /// ends before the first byte reads nothing, so the next step waits on.
+    /// @param adu receives the reply, at least MODBUS_MAX_ADU_LENGTH bytes long.
+    /// @returns the length of the reply and 0, or 0 and the error number: EINTR if
+    /// interrupted was set, and ETIMEDOUT at the deadline or after a reply goes silent
+    /// for BYTE_TIMEOUT.
+    std::pair<int, int> receive(
+        const Clock::time_point deadline,
+        const std::atomic<bool> &interrupted,
+        std::uint8_t *adu
+    ) {
+        while (!interrupted) {
+            const auto left = std::chrono::duration_cast<std::chrono::microseconds>(
+                deadline - Clock::now()
+            );
+            if (left <= std::chrono::microseconds::zero()) return {0, ETIMEDOUT};
+            const auto step = std::min(
+                left,
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    WAIT_STEP.chrono()
+                )
+            );
+            modbus_set_response_timeout(
+                this->ctx,
+                static_cast<std::uint32_t>(step.count() / 1000000),
+                static_cast<std::uint32_t>(step.count() % 1000000)
+            );
+            modbus_set_byte_timeout(
+                this->ctx,
+                0,
+                static_cast<std::uint32_t>(BYTE_TIMEOUT.microseconds())
+            );
+            clear_error();
+            const auto began = Clock::now();
+            if (const int length = modbus_receive_confirmation(this->ctx, adu);
+                length != -1)
+                return {length, 0};
+            if (const int errnum = last_error(); errnum != ETIMEDOUT)
+                return {0, errnum};
+            // A call that ran well past its step started a reply, then timed out
+            // between two of its bytes. Another call would read the rest as a reply.
+            if (Clock::now() - began > step + BYTE_TIMEOUT.chrono() / 2)
+                return {0, ETIMEDOUT};
+        }
+        return {0, EINTR};
+    }
+
+    /// @param data receives the bytes of the reply after its head.
+    /// @returns 0 if the reply answers the request to the unit, or the error number.
+    int check(
+        const std::uint8_t unit,
+        const Request &request,
+        const std::uint8_t *adu,
+        const int length,
+        std::vector<std::uint8_t> &data
+    ) const {
+        const bool tcp = this->transport == Transport::TCP;
+        if (!tcp && adu[0] != unit) return EMBBADSLAVE;
+        if (tcp && ((adu[0] << 8 | adu[1]) != this->tid || adu[2] != 0 || adu[3] != 0))
+            return EMBBADDATA;
+        const int header = modbus_get_header_length(this->ctx);
+        const int checksum = tcp ? 0 : 2;
+        const std::span reply(
+            adu + header,
+            static_cast<std::size_t>(length - header - checksum)
         );
-        if (left <= std::chrono::microseconds::zero()) return;
-        this->set_timeout(left);
-        std::uint8_t reply[MODBUS_TCP_MAX_ADU_LENGTH];
-        modbus_receive_confirmation(this->ctx, reply);
+        if (reply[0] >= 0x80) {
+            if (reply[0] != (request.pdu[0] | 0x80) || reply.size() != 2 ||
+                reply[1] >= MODBUS_EXCEPTION_MAX)
+                return EMBBADEXC;
+            return MODBUS_ENOBASE + reply[1];
+        }
+        if (reply.size() != request.reply_size ||
+            !std::ranges::equal(reply.first(request.head.size()), request.head))
+            return EMBBADDATA;
+        data.assign(reply.begin() + request.head.size(), reply.end());
+        return 0;
+    }
+
+    /// @brief sends a request and waits for its reply. Call only while holding the
+    /// turn.
+    /// @param data receives the bytes of the reply after its head.
+    /// @returns 0, or the error number: EINTR if interrupted was set.
+    int exchange(
+        const ConnectionConfig &cfg,
+        const Request &request,
+        const std::atomic<bool> &interrupted,
+        std::vector<std::uint8_t> &data
+    ) {
+        std::vector raw{cfg.unit_id};
+        raw.insert(raw.end(), request.pdu.begin(), request.pdu.end());
+        clear_error();
+        if (modbus_send_raw_request_tid(
+                this->ctx,
+                raw.data(),
+                static_cast<int>(raw.size()),
+                ++this->tid
+            ) == -1)
+            return last_error();
+        std::array<std::uint8_t, MODBUS_MAX_ADU_LENGTH> adu{};
+        const auto [length, errnum] = this->receive(
+            Clock::now() + cfg.timeout.chrono(),
+            interrupted,
+            adu.data()
+        );
+        if (errnum != 0) return errnum;
+        return this->check(cfg.unit_id, request, adu.data(), length, data);
+    }
+
+    /// @brief waits until the time.
+    /// @returns false if interrupted was set.
+    bool pause(const Clock::time_point until, const std::atomic<bool> &interrupted) {
+        std::unique_lock lock(this->mu);
+        return !this->released.wait_until(lock, until, [&] {
+            return interrupted.load();
+        });
     }
 
     /// @brief the result of one attempt of a request.
     struct Attempt {
-        /// @brief 0 on success, or the error number.
+        /// @brief 0 on success, or the error number: EINTR if interrupted was set.
         int errnum = 0;
         /// @brief whether the request went out. A failed connect sends nothing, so its
         /// timeout does not count against the unit.
         bool sent = false;
+        /// @brief the bytes of the reply after its head.
+        std::vector<std::uint8_t> data;
     };
 
-    /// @brief sends one attempt of a request.
-    template<typename Request>
-    Attempt attempt(const ConnectionConfig &cfg, const Request &request) {
-        const auto timeout = std::chrono::duration_cast<std::chrono::microseconds>(
-            cfg.timeout.chrono()
-        );
-        this->set_timeout(timeout);
+    /// @brief sends one attempt of a request. Each wait in it checks interrupted every
+    /// WAIT_STEP.
+    Attempt attempt(
+        const ConnectionConfig &cfg,
+        const Request &request,
+        const std::atomic<bool> &interrupted
+    ) {
         if (this->connected && this->transport == Transport::RTU &&
             canonical_port(this->serial.port) != this->opened)
             this->disconnect();
         if (!this->connected) {
-            if (this->transport == Transport::RTU) {
-                if (const int errnum = this->port_lock.lock(this->serial.port))
-                    return {errnum};
-                this->opened = canonical_port(this->serial.port);
-            }
-            if (modbus_connect(this->ctx) == -1) {
-                const int errnum = errno;
-                this->port_lock.unlock();
-                return {errnum};
-            }
+            if (const int errnum = this->connect(cfg, interrupted)) return {errnum};
             this->connected = true;
             this->stale = false;
         }
         if (this->stale) {
-            if (this->transport == Transport::TCP) {
-                this->discard_late_reply();
-                this->set_timeout(timeout);
-            }
+            // A request sent first would read the late reply as its own.
+            std::array<std::uint8_t, MODBUS_MAX_ADU_LENGTH> late{};
+            if (this->receive(this->stale_until, interrupted, late.data()).second ==
+                EINTR)
+                return {EINTR};
             modbus_flush(this->ctx);
             this->stale = false;
         }
         if (modbus_set_slave(this->ctx, cfg.unit_id) == -1) return {errno};
+        Attempt result{.sent = true};
         this->sent = Clock::now();
-        clear_error();
-        if (request(this->ctx) != -1) return {0, true};
-        const int errnum = last_error();
-        if (errnum == ETIMEDOUT || errnum == EMBBADCRC) {
+        result.errnum = this->exchange(cfg, request, interrupted, result.data);
+        if (result.errnum == ETIMEDOUT || result.errnum == EMBBADCRC ||
+            result.errnum == EINTR) {
             this->stale = true;
-            this->stale_until = Clock::now() + cfg.timeout.chrono();
-        } else if (classify(errnum).matches(UNREACHABLE))
+            // An RTU unit answers within the timeout or not at all, so only an
+            // interrupted RTU request can still get its reply.
+            if (this->transport == Transport::TCP)
+                this->stale_until = Clock::now() + cfg.timeout.chrono();
+            else if (result.errnum == EINTR)
+                this->stale_until = this->sent + cfg.timeout.chrono();
+            else
+                this->stale_until = Clock::now();
+        } else if (result.errnum != 0 && classify(result.errnum).matches(UNREACHABLE))
             this->disconnect();
-        return {errnum, true};
+        return result;
     }
 
     /// @returns UNREACHABLE if the unit is demoted, and NIL otherwise.
@@ -747,10 +959,9 @@ private:
         return (gap + cfg.timeout * 3 + ATTEMPT_SLACK) * (cfg.retries + 1);
     }
 
-    /// @brief runs a request for a unit while holding the turn. Makes no retry once
-    /// interrupted is set.
-    template<typename Request>
-    x::errors::Error send(
+    /// @brief runs a request for a unit while holding the turn.
+    /// @returns the bytes of the reply after its head, and the error of the request.
+    std::pair<std::vector<std::uint8_t>, x::errors::Error> send(
         const ConnectionConfig &cfg,
         const x::telem::TimeSpan delay,
         const std::atomic<bool> &interrupted,
@@ -760,26 +971,26 @@ private:
             const auto now = Clock::now();
             auto limit = this->turn_limit(cfg, delay).chrono();
             // The late reply of an earlier request can take longer than cfg.timeout.
-            if (this->stale && this->transport == Transport::TCP)
+            if (this->stale)
                 limit += std::max(this->stale_until - now, Clock::duration::zero());
             std::lock_guard lock(this->mu);
             this->turn_ends = now + limit;
         }
-        if (auto err = this->demoted(cfg.unit_id)) return err;
+        if (auto err = this->demoted(cfg.unit_id)) return {{}, err};
         const auto gap = std::max(delay, this->frame_gap);
         for (std::size_t i = 0;; i++) {
-            if (gap > x::telem::TimeSpan(0))
-                std::this_thread::sleep_until(this->last_request + gap.chrono());
-            const auto result = this->attempt(cfg, request);
+            if (!pause(this->last_request + gap.chrono(), interrupted))
+                return {{}, INTERRUPTED};
+            auto result = this->attempt(cfg, request, interrupted);
             this->last_request = Clock::now();
             this->record(cfg.unit_id, i > 0, result);
-            if (result.errnum == 0) return x::errors::NIL;
+            if (result.errnum == 0) return {std::move(result.data), x::errors::NIL};
+            if (result.errnum == EINTR) return {{}, INTERRUPTED};
             if (result.sent && result.errnum == ETIMEDOUT &&
                 this->timed_out(cfg.unit_id))
-                return this->demoted(cfg.unit_id);
+                return {{}, this->demoted(cfg.unit_id)};
             auto err = classify(result.errnum);
-            if (!err.matches(TEMPORARY_ERROR) || i >= cfg.retries || interrupted)
-                return err;
+            if (!err.matches(TEMPORARY_ERROR) || i >= cfg.retries) return {{}, err};
         }
     }
 
@@ -823,16 +1034,17 @@ public:
     /// @param delay the wait after the previous request on the connection. A serial
     /// connection waits at least its frame gap.
     /// @param write whether the request goes before waiting reads.
-    /// @param request sends the request on the context and returns -1 on failure.
+    /// @param request the request to send.
     /// @param wait how long to wait for the turn. If empty, waits while each request
     /// that holds the turn stays within the time that its timeout and retries allow.
-    /// @param interrupted fails the request at once when set, and stops its retries.
-    /// Set it, then call wake().
-    /// @returns NIL, UNREACHABLE if other requests kept the connection busy for wait or
-    /// a request held the turn past its limit, INTERRUPTED if interrupted was set
-    /// before the turn came, or the classified error of the last attempt.
-    template<typename Request>
-    x::errors::Error exec(
+    /// @param interrupted ends the request when set. A wait for the turn or a delay
+    /// ends at once, and a wait for a connect or a reply within WAIT_STEP. Set it, then
+    /// call wake().
+    /// @returns the bytes of the reply after its head, and NIL, UNREACHABLE if other
+    /// requests kept the connection busy for wait or a request held the turn past its
+    /// limit, INTERRUPTED if interrupted was set, or the classified error of the last
+    /// attempt.
+    std::pair<std::vector<std::uint8_t>, x::errors::Error> exec(
         const ConnectionConfig &cfg,
         const x::telem::TimeSpan delay,
         const bool write,
@@ -840,20 +1052,15 @@ public:
         const std::optional<x::telem::TimeSpan> &wait,
         const std::atomic<bool> &interrupted
     ) {
-        return this->sequence(
-            cfg,
-            delay,
-            write,
-            [&](const auto &send) { return send(request); },
-            wait,
-            interrupted
-        );
+        Turn turn(*this, write, this->turn_limit(cfg, delay), wait, interrupted);
+        if (turn.err) return {{}, turn.err};
+        return this->send(cfg, delay, interrupted, request);
     }
 
     /// @brief runs several requests for a unit in one turn, so that no other request on
     /// the connection comes between them. Each request runs as exec runs it.
-    /// @param run calls its argument with each request, which returns the request's
-    /// error, and returns NIL or the error to stop at.
+    /// @param run calls its argument with each request, which returns the result of
+    /// exec, and returns NIL or the error to stop at.
     /// @param wait as in exec.
     /// @param interrupted as in exec.
     /// @returns the error of run, or the turn errors of exec.
@@ -868,13 +1075,13 @@ public:
     ) {
         Turn turn(*this, write, this->turn_limit(cfg, delay), wait, interrupted);
         if (turn.err) return turn.err;
-        return run([&](const auto &request) {
+        return run([&](const Request &request) {
             return this->send(cfg, delay, interrupted, request);
         });
     }
 
-    /// @brief wakes the requests that wait for their turn, so that each checks its
-    /// interrupted flag.
+    /// @brief wakes the requests that wait for their turn or a delay, so that each
+    /// checks its interrupted flag.
     void wake() {
         // A waiter that read the flag before the store holds mu until it waits.
         { std::lock_guard lock(this->mu); }
@@ -901,8 +1108,8 @@ class Device {
     RequestConfig requests;
     std::atomic<bool> interrupted = false;
 
-    template<typename Request>
-    x::errors::Error exec(const bool write, const Request &request) {
+    std::pair<std::vector<std::uint8_t>, x::errors::Error>
+    exec(const bool write, const Request &request) {
         return this->conn->exec(
             this->cfg,
             this->requests.delay,
@@ -941,11 +1148,18 @@ public:
     /// @param dest the destination buffer, at least nb bytes long.
     x::errors::Error
     read_bits(const BitType type, const int addr, const size_t nb, uint8_t *dest) {
-        const int n = static_cast<int>(nb);
-        return this->exec(false, [&](modbus_t *ctx) {
-            if (type == Coil) return modbus_read_bits(ctx, addr, n, dest);
-            return modbus_read_input_bits(ctx, addr, n, dest);
-        });
+        const auto [data, err] = this->exec(
+            false,
+            Request::read(
+                type == Coil ? MODBUS_FC_READ_COILS : MODBUS_FC_READ_DISCRETE_INPUTS,
+                addr,
+                nb
+            )
+        );
+        if (err) return err;
+        for (std::size_t i = 0; i < nb; i++)
+            dest[i] = static_cast<std::uint8_t>((data[i / 8] >> (i % 8)) & 1);
+        return x::errors::NIL;
     }
 
     /// @brief reads from the register-address space of the device.
@@ -959,12 +1173,19 @@ public:
         const size_t nb,
         uint16_t *dest
     ) {
-        const int n = static_cast<int>(nb);
-        return this->exec(false, [&](modbus_t *ctx) {
-            if (type == HoldingRegister)
-                return modbus_read_registers(ctx, addr, n, dest);
-            return modbus_read_input_registers(ctx, addr, n, dest);
-        });
+        const auto [data, err] = this->exec(
+            false,
+            Request::read(
+                type == HoldingRegister ? MODBUS_FC_READ_HOLDING_REGISTERS
+                                        : MODBUS_FC_READ_INPUT_REGISTERS,
+                addr,
+                nb
+            )
+        );
+        if (err) return err;
+        for (std::size_t i = 0; i < nb; i++)
+            dest[i] = static_cast<std::uint16_t>(data[2 * i] << 8 | data[2 * i + 1]);
+        return x::errors::NIL;
     }
 
     /// @brief writes to the coils of the device, with function code 15, or 05 for each
@@ -974,15 +1195,15 @@ public:
     /// @param src the source buffer, at least nb bytes long.
     x::errors::Error write_bits(const int addr, const size_t nb, const uint8_t *src) {
         if (this->requests.write_codes == WriteCodes::Multiple)
-            return this->exec(true, [&](modbus_t *ctx) {
-                return modbus_write_bits(ctx, addr, static_cast<int>(nb), src);
-            });
+            return this->exec(true, Request::write_bits(addr, nb, src)).second;
         for (std::size_t i = 0; i < nb; i++) {
-            const int a = addr + static_cast<int>(i);
-            if (auto err = this->exec(true, [&](modbus_t *ctx) {
-                    return modbus_write_bit(ctx, a, src[i]);
-                }))
-                return err;
+            const auto value = static_cast<std::uint16_t>(src[i] != 0 ? 0xFF00 : 0);
+            const auto request = Request::write(
+                MODBUS_FC_WRITE_SINGLE_COIL,
+                addr + static_cast<int>(i),
+                value
+            );
+            if (auto err = this->exec(true, request).second) return err;
         }
         return x::errors::NIL;
     }
@@ -995,15 +1216,14 @@ public:
     x::errors::Error
     write_registers(const int addr, const size_t nb, const uint16_t *src) {
         if (this->requests.write_codes == WriteCodes::Multiple)
-            return this->exec(true, [&](modbus_t *ctx) {
-                return modbus_write_registers(ctx, addr, static_cast<int>(nb), src);
-            });
+            return this->exec(true, Request::write_registers(addr, nb, src)).second;
         for (std::size_t i = 0; i < nb; i++) {
-            const int a = addr + static_cast<int>(i);
-            if (auto err = this->exec(true, [&](modbus_t *ctx) {
-                    return modbus_write_register(ctx, a, src[i]);
-                }))
-                return err;
+            const auto request = Request::write(
+                MODBUS_FC_WRITE_SINGLE_REGISTER,
+                addr + static_cast<int>(i),
+                src[i]
+            );
+            if (auto err = this->exec(true, request).second) return err;
         }
         return x::errors::NIL;
     }
@@ -1021,21 +1241,22 @@ public:
         const std::uint16_t or_mask
     ) {
         if (this->requests.mask_write_supported)
-            return this->exec(true, [&](modbus_t *ctx) {
-                return modbus_mask_write_register(ctx, addr, and_mask, or_mask);
-            });
+            return this->exec(true, Request::mask_write(addr, and_mask, or_mask))
+                .second;
         return this->sequence(true, [&](const auto &send) {
-            std::uint16_t value = 0;
-            if (auto err = send([&](modbus_t *ctx) {
-                    return modbus_read_registers(ctx, addr, 1, &value);
-                }))
-                return err;
-            value = (value & and_mask) | (or_mask & ~and_mask);
-            return send([&](modbus_t *ctx) {
-                if (this->requests.write_codes == WriteCodes::Single)
-                    return modbus_write_register(ctx, addr, value);
-                return modbus_write_registers(ctx, addr, 1, &value);
-            });
+            const auto [data, err] = send(
+                Request::read(MODBUS_FC_READ_HOLDING_REGISTERS, addr, 1)
+            );
+            if (err) return err;
+            const auto value = static_cast<std::uint16_t>(
+                ((data[0] << 8 | data[1]) & and_mask) | (or_mask & ~and_mask)
+            );
+            if (this->requests.write_codes == WriteCodes::Single)
+                return send(
+                           Request::write(MODBUS_FC_WRITE_SINGLE_REGISTER, addr, value)
+                )
+                    .second;
+            return send(Request::write_registers(addr, 1, &value)).second;
         });
     }
 
@@ -1045,22 +1266,23 @@ public:
     /// request otherwise.
     x::errors::Error probe(const x::telem::TimeSpan wait = PROBE_WAIT) {
         const auto start = Connection::Clock::now();
-        std::uint16_t value = 0;
-        const auto err = this->conn->exec(
-            this->cfg,
-            this->requests.delay,
-            false,
-            [&](modbus_t *ctx) { return modbus_read_registers(ctx, 0, 1, &value); },
-            wait,
-            this->interrupted
-        );
+        const auto err = this->conn
+                             ->exec(
+                                 this->cfg,
+                                 this->requests.delay,
+                                 false,
+                                 Request::read(MODBUS_FC_READ_HOLDING_REGISTERS, 0, 1),
+                                 wait,
+                                 this->interrupted
+                             )
+                             .second;
         if (!err || this->last_reply() >= start) return x::errors::NIL;
         return err;
     }
 
-    /// @brief fails the requests of the device with INTERRUPTED from now on, a request
-    /// that waits for its turn included. A request that holds the turn makes no more
-    /// retries. Safe to call from any thread.
+    /// @brief fails the requests of the device with INTERRUPTED from now on. A request
+    /// that waits for its turn or a delay ends at once, and one that waits for a
+    /// connect or a reply within WAIT_STEP. Safe to call from any thread.
     void interrupt() {
         this->interrupted = true;
         this->conn->wake();

@@ -78,11 +78,7 @@ export const PolygonForm = (): ReactElement => (
     <Base.Section title="Appearance">
       <Form.ColorField path={path.strokeColor} label="Stroke" />
       <Form.FillField fallback={colorFallbacks.fillColor} />
-      <Base.NumericField
-        path={path.strokeWidth}
-        label="Border width"
-        inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-      />
+      <Form.StrokeWidthField />
     </Base.Section>
   </Base.Sections>
 );

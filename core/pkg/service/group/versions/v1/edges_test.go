@@ -120,6 +120,7 @@ var _ = Describe("ParentMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		names := map[uuid.UUID]string{
 			channels: "Channels", users: "Users", a: "A", b: "B", inUsers: "In Users",
 			inProj: "In Project", inRack: "In Rack", nested: "Nested", orphan: "Orphan",
@@ -231,11 +232,12 @@ var _ = Describe("ParentMigration", func() {
 				"member":     member.String(),
 			}
 		}
-		var got []map[string]any
-		for _, e := range logs.FilterMessage(
+		logged := logs.FilterMessage(
 			"dropped a member from a group that cannot hold it",
-		).All() {
-			got = append(got, e.ContextMap())
+		).All()
+		got := make([]map[string]any, len(logged))
+		for i, e := range logged {
+			got[i] = e.ContextMap()
 		}
 		Expect(got).To(ConsistOf(
 			dropped(mixed, "Mixed", channel),
@@ -372,6 +374,7 @@ var _ = Describe("MembersMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		projTop.Parent = &project
 		projLeaf.Parent = new(groupID(projTop.Key))
 		groups := []v1.Group{root, top, projTop, projLeaf, chans}

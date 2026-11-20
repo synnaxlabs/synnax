@@ -224,6 +224,19 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 				parents[parent.Key] != ontology.RootID {
 				g.Parent = &parent
 			}
+		case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+			resource.TypeDevice, resource.TypeFramer, resource.TypeLabel,
+			resource.TypeLineplot, resource.TypeLog, resource.TypeNode,
+			resource.TypePanel, resource.TypePolicy, resource.TypeRange,
+			resource.TypeRangeAlias, resource.TypeRole, resource.TypeSchematic,
+			resource.TypeSchematicSymbol, resource.TypeStatus, resource.TypeTable,
+			resource.TypeTask, resource.TypeUser, resource.TypeView,
+			resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+			resource.TypeHTTPServer, resource.TypeLabjackDevice,
+			resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
+			resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
+			resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
+			resource.TypeEnumeration:
 		}
 	}
 	if err = gorp.WrapWriter[Key, Group](tx).Set(ctx, groups...); err != nil {

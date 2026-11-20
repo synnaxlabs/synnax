@@ -85,11 +85,12 @@ func PBNamespace(pbOutputPath, namespace string) string {
 
 	// Derive layer prefix (mirrors deriveLayerPrefix in pb/types)
 	var prefix string
-	if len(parts) >= 3 && parts[0] == "core" && parts[1] == "pkg" {
+	switch {
+	case len(parts) >= 3 && parts[0] == "core" && parts[1] == "pkg":
 		prefix = parts[2] // e.g., "distribution", "service", "api"
-	} else if len(parts) >= 1 && parts[0] != "" {
+	case len(parts) >= 1 && parts[0] != "":
 		prefix = parts[0] // e.g., "x", "freighter"
-	} else {
+	default:
 		prefix = "synnax"
 	}
 

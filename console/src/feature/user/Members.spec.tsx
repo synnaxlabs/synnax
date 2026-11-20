@@ -13,6 +13,7 @@ import {
   createTestClientAs,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   cleanup,
@@ -36,7 +37,6 @@ import {
   createConsoleWrapper,
   openContextMenu,
   queryIcon,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -79,8 +79,9 @@ const search = async (term: string, count = 1): Promise<void> => {
 
 const confirmDelete = async (): Promise<void> => {
   await clickAndSettle("Delete");
+  const confirm = await screen.findByRole("button", { name: "Delete" });
   await act(async () => {
-    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    fireEvent.click(confirm);
   });
 };
 
