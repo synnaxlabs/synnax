@@ -1490,6 +1490,35 @@ describe("Task", async () => {
       });
     });
 
+    it("should end a wait on the change stream with a rack outage written before the command", async () => {
+      const sender = createTestClient();
+      await sender.connect();
+      await waitForStreamLive(sender.connection);
+      const r = await createRunningRack(sender);
+      const t = await r.createTask({
+        name: `outage-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      // Sent before the wait reads statuses, and stored before the command is sent.
+      const down = setDriverNotRunning(r.key);
+      const openWriter = sender.openWriter.bind(sender);
+      const hold = vi
+        .spyOn(sender, "openWriter")
+        .mockImplementationOnce(async (cfg) => {
+          await down;
+          return await openWriter(cfg);
+        });
+      onTestFinished(() => hold.mockRestore());
+      await expect(
+        t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) }),
+      ).rejects.toMatchObject({
+        message: "Driver not running",
+        description: "The Core has not heard from the Driver.",
+      });
+      expect(hold).toHaveBeenCalledOnce();
+    });
+
     it("should end a wait on the change stream once the stream drops", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient();
       await proxied.connect();
