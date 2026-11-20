@@ -451,23 +451,22 @@ func (w *idxWriter) Commit(
 	// read finds an index sample without its data.
 	defer w.group.Publish()
 	skipped := false
-	commit := func(chW *unaryWriterState) {
+	commit := func(chW *unaryWriterState) bool {
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end.Lower, &w.group, skip)
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {
 			err = cErr
 		}
+		return keySkipped
 	}
 	// The index persists first: after a restart, a reader resolves a data domain
 	// through the index.
-	if w.writingToIdx {
-		commit(w.internal[w.idx.ch.Key])
-	}
+	indexSkipped := w.writingToIdx && commit(w.internal[w.idx.ch.Key])
 	// A skipped index leaves its data channels with no stamps of this writer, so the
 	// group waits.
 	for key, chW := range w.internal {
-		if key != w.idx.ch.Key && !skipped {
+		if key != w.idx.ch.Key && !indexSkipped {
 			commit(chW)
 		}
 	}
