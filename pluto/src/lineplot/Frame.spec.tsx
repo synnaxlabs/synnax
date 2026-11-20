@@ -30,8 +30,8 @@ describe("LinePlot.Frame", () => {
       </LinePlot.Frame>,
       { wrapper },
     );
-    const frame = container.querySelector<HTMLElement>(".pluto-line-plot");
     await waitFor(() => {
+      const frame = container.querySelector<HTMLElement>(".pluto-line-plot");
       const columns = frame?.style.gridTemplateColumns ?? "";
       const names = [...columns.matchAll(/\[axis-start-([^\]\s]+)/g)].map(
         ([, name]) => name,
