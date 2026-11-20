@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { useViewportStore } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 import { selectZoom } from "@/vis/diagram/util";
 
 export const ConnectionLine = ({

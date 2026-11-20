@@ -16,7 +16,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
 import { Icon } from "@/icon";
-import { type Control } from "@/input/types";
+import type { Control } from "@/input/types";
 import { preventDefault } from "@/util/event";
 
 /** Drag behavior an input passes down to its {@link DragButton}. */

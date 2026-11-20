@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { OPTIONS } from "@/feature/theme/options";
 import { Settings as PlatformSettings } from "@/platform/settings";

@@ -41,8 +41,13 @@ describe("device/Toolbar", () => {
   it("lists a created device under its rack in the devices tree", async () => {
     const dev = await createTestDevice(client);
     const rack = await client.racks.retrieve(dev.rack);
+    // The tree lists only the racks that its subject can read. Other specs leave their
+    // racks in the Core.
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [rackClient.resourceID(rack.key), device.resourceID(dev.key)],
+    });
     await renderToolbar(Device.TOOLBAR.content, {
-      client,
+      client: reader,
       items: { ...Rack.TREE_ITEMS, ...Device.TREE_ITEMS },
     });
     await screen.findByText("Devices");

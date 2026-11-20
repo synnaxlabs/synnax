@@ -18,8 +18,8 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
-import { array, DataType, deep, type payload, uuid } from "@synnaxlabs/x";
+import type { Status } from "@synnaxlabs/lyra/status";
+import { array, DataType, deep, payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -292,7 +292,16 @@ const createInferredField = (
   dataType: string,
   type: "number" | "boolean" | "string",
   timeFormat?: payload.TimeFormat,
-) => ({ pointer, dataType, type, timeFormat, enum: [], count: 2, mismatched: 0 });
+) => ({
+  pointer,
+  dataType,
+  kind: payload.kindOf(dataType),
+  type,
+  timeFormat,
+  enum: [],
+  count: 2,
+  mismatched: 0,
+});
 
 /** Two keys of values that hold a time, a temperature, and a state. */
 const OVEN_SHAPE = {

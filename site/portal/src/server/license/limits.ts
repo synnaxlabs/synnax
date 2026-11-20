@@ -10,7 +10,7 @@
 // The browser imports this file, so it must not import anything that reaches the
 // database.
 
-import { type License, type Organization } from "@/server/db/schema";
+import type { License, Organization } from "@/server/db/schema";
 
 export const MAX_NAME_LENGTH = 64;
 

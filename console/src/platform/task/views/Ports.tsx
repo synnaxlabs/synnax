@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 
 export interface PortsProps<C extends Channel> {
   /** The path of the task's channels. */

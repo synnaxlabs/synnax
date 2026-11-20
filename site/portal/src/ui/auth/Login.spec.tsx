@@ -13,7 +13,7 @@ import { ResizeObserver } from "@juggle/resize-observer";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type Invited } from "@/server/invitation";
+import type { Invited } from "@/server/invitation";
 import { Login } from "@/ui/auth/Login";
 
 const INVITED = {

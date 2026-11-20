@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import type { Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { addressedTo, linked, list, retrieve } from "@/server/invitation";
 import { NOW } from "@/server/license/testutil";

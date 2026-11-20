@@ -10,7 +10,7 @@
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 
 import { DeferredScene } from "@/components/DeferredScene";
-import { type EngineeringMode } from "@/components/EngineeringScene";
+import type { EngineeringMode } from "@/components/EngineeringScene";
 
 const loadScene = () =>
   import("@/components/EngineeringScene").then(({ EngineeringScene }) => ({

@@ -9,16 +9,16 @@
 
 import "@/platform/task/views/Tree.css";
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel } from "@synnaxlabs/pluto";
 import { type deep, primitive, type record } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";

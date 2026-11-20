@@ -149,7 +149,7 @@ func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout.Duration())
 	defer cancel()
-	stored, values, err := s.cfg.Secret.Resolve(
+	g, values, err := s.cfg.Secret.Resolve(
 		ctx,
 		s.rack.ResourceID(),
 		cmd.Task,
@@ -159,7 +159,7 @@ func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
 		return err
 	}
 	var args testConnectionArgs
-	if err = stored.Args.Unmarshal(&args); err != nil {
+	if err = g.Command.Args.Unmarshal(&args); err != nil {
 		return errors.Wrap(err, "invalid connection")
 	}
 	if err = args.Connection.validate(); err != nil {

@@ -18,37 +18,14 @@
 
 namespace x::x509 {
 namespace {
-/// @brief the private key of testutil::CERTIFICATE.
-const std::string KEY_A = R"(-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgXsLANwJSgnKYh56a
-45Wp6vcgMMl4Pkvp3saAT1dd8sGhRANCAARMPAReAwqgqN3zht78hK+Ygm9v2XSb
-eI4rgWFp9W8CJfYnO7JRCvKOSVSpX1r+cicMl1D1VwxgRbldmfr5YLy/
------END PRIVATE KEY-----
-)";
-
-/// @brief KEY_A, encrypted with the password "secret".
-const std::string KEY_A_ENCRYPTED = R"(-----BEGIN ENCRYPTED PRIVATE KEY-----
+/// @brief testutil::KEY, encrypted with the password "secret".
+const std::string KEY_ENCRYPTED = R"(-----BEGIN ENCRYPTED PRIVATE KEY-----
 MIHsMFcGCSqGSIb3DQEFDTBKMCkGCSqGSIb3DQEFDDAcBAh6l9s/jp0Z5gICCAAw
 DAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEP2M3vyz3Hi4XlI+UqITcUsEgZB5
 lyPw9zMGjJnpBDMo1aXLYNGlwrACsW44yY+5IMROKxsPmaDaULzSOGhMmAofxLzU
 FtePTAVFQPeF2toKSLj7zSFXPdbbXWQfMa3nga+GT6pnxlpBPMrEULsLS0koxnSM
 82GxB6ZfywcF6CI1VMiwwclNfaBB2Blw08vyLlWq9o4U4o4guR8AuTPpK5tkp44=
 -----END ENCRYPTED PRIVATE KEY-----
-)";
-
-/// @brief a certificate with the same names and validity as testutil::CERTIFICATE,
-/// and another key.
-const std::string CERT_B = R"(-----BEGIN CERTIFICATE-----
-MIIBhzCCAS2gAwIBAgIUTGjJZ0xaaYJBQFgv6TBHTiS+DFcwCgYIKoZIzj0EAwIw
-JzEPMA0GA1UECgwGU3lubmF4MRQwEgYDVQQDDAtUZXN0IENsaWVudDAgFw0yNjAx
-MDEwMDAwMDBaGA8yMTI1MTIzMTIzNTk1OVowJzEPMA0GA1UECgwGU3lubmF4MRQw
-EgYDVQQDDAtUZXN0IENsaWVudDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABBWm
-0NyFDkPyCL9rC6DNDclSKXX6DXSOTF1YU1sj4S5yi9uU0qR2fH7DM0Z7WNo7U4id
-bS4P55szWw7ZLosJziCjNTAzMDEGA1UdEQQqMCiGG3VybjpzeW5uYXg6dGVzdDpj
-ZXJ0aWZpY2F0ZYIJdGVzdC1ob3N0MAoGCCqGSM49BAMCA0gAMEUCIHDMPuPZQ6ZC
-tmu7DORs3l8SqhMJup0hji1cFem/bYoqAiEApzKRjaxzHxrgPQgIWT2NnHvajpoE
-BWGYvh2eKE/z/9s=
------END CERTIFICATE-----
 )";
 
 /// @brief a certificate whose names hold escaped characters, a T61String, a BMPString,
@@ -133,7 +110,7 @@ AiEA61+Cv4ctjunZDcLqhyRWv1PVyPldZ5/gAOXI3QAozQs=
 -----END CERTIFICATE-----
 )";
 
-/// @brief the private key of CERT_B.
+/// @brief the private key of testutil::OTHER_CERTIFICATE.
 const std::string KEY_B = R"(-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg160R6M902UlqFdVs
 cetBa4/zrJdySu6u85NfP93UBWihRANCAAQVptDchQ5D8gi/awugzQ3JUil1+g10
@@ -225,7 +202,7 @@ TEST(CertificateTest, ParsePemAfterOtherContent) {
              "Bag Attributes\n    localKeyID: 01 00 00 00 \nsubject=/CN=Test Client\n" +
                  testutil::CERTIFICATE,
              "\xEF\xBB\xBF" + testutil::CERTIFICATE,
-             KEY_A + testutil::CERTIFICATE,
+             testutil::KEY + testutil::CERTIFICATE,
          }) {
         ASSERT_TRUE(Certificate::is_pem(data));
         ASSERT_EQ(ASSERT_NIL_P(Certificate::parse(data)), expected);
@@ -235,13 +212,14 @@ TEST(CertificateTest, ParsePemAfterOtherContent) {
 /// @brief it should find each certificate block in order, and skip other blocks, text,
 /// and a block with no footer.
 TEST(CertificateTest, PemBlocks) {
-    const auto data = "text\n" + KEY_A + testutil::CERTIFICATE + CERT_B +
+    const auto data = "text\n" + testutil::KEY + testutil::CERTIFICATE +
+                      testutil::OTHER_CERTIFICATE +
                       "-----BEGIN CERTIFICATE-----\nAAAA\n";
     const auto blocks = Certificate::pem_blocks(data);
     ASSERT_EQ(blocks.size(), 2);
     ASSERT_EQ(std::string(blocks[0]) + "\n", testutil::CERTIFICATE);
-    ASSERT_EQ(std::string(blocks[1]) + "\n", CERT_B);
-    ASSERT_TRUE(Certificate::pem_blocks(KEY_A).empty());
+    ASSERT_EQ(std::string(blocks[1]) + "\n", testutil::OTHER_CERTIFICATE);
+    ASSERT_TRUE(Certificate::pem_blocks(testutil::KEY).empty());
 }
 
 /// @brief it should keep only the first certificate of a chain, and skip a later block
@@ -249,7 +227,9 @@ TEST(CertificateTest, PemBlocks) {
 TEST(CertificateTest, ParseChainKeepsFirst) {
     const auto expected = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     ASSERT_EQ(
-        ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE + CERT_B)),
+        ASSERT_NIL_P(
+            Certificate::parse(testutil::CERTIFICATE + testutil::OTHER_CERTIFICATE)
+        ),
         expected
     );
     ASSERT_EQ(
@@ -276,13 +256,17 @@ TEST(CertificateTest, TruncatedPem) {
 /// @brief it should read DER that holds PEM text as DER, so that a forged certificate
 /// cannot pass for the certificate that it holds.
 TEST(CertificateTest, DerHoldingPem) {
-    const auto der = testutil::create_der_holding(KEY_A, "urn:holder", CERT_B);
+    const auto der = testutil::create_der_holding(
+        testutil::KEY,
+        "urn:holder",
+        testutil::OTHER_CERTIFICATE
+    );
     ASSERT_TRUE(der.contains("-----BEGIN CERTIFICATE-----"));
     ASSERT_FALSE(Certificate::is_pem(der));
     ASSERT_TRUE(Certificate::pem_blocks(der).empty());
     const auto cert = ASSERT_NIL_P(Certificate::parse(der));
     ASSERT_EQ(cert.der(), der);
-    ASSERT_NE(cert, ASSERT_NIL_P(Certificate::parse(CERT_B)));
+    ASSERT_NE(cert, ASSERT_NIL_P(Certificate::parse(testutil::OTHER_CERTIFICATE)));
 }
 
 /// @brief it should read text that starts with "0" as PEM, though DER starts with the
@@ -320,7 +304,7 @@ TEST(CertificateTest, ValidAt) {
 /// @brief it should accept the private key of the certificate.
 TEST(CertificateTest, CheckKeyMatches) {
     const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
-    ASSERT_NIL(cert.check_key(KEY_A));
+    ASSERT_NIL(cert.check_key(testutil::KEY));
 }
 
 /// @brief it should reject the private key of another certificate.
@@ -334,7 +318,7 @@ TEST(CertificateTest, CheckKeyMismatched) {
 /// @brief it should reject a private key that needs a password.
 TEST(CertificateTest, CheckKeyEncrypted) {
     const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
-    const auto err = cert.check_key(KEY_A_ENCRYPTED);
+    const auto err = cert.check_key(KEY_ENCRYPTED);
     ASSERT_MATCHES(err, KEY_INVALID);
     ASSERT_EQ(err.data, "The private key needs a password, which is not supported.");
 }

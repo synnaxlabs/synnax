@@ -16,7 +16,7 @@ import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useId } from "react";
 import { z } from "zod";
 
-import { type License, type Term } from "@/server/db/schema";
+import type { License, Term } from "@/server/db/schema";
 import { MAX_LABEL_LENGTH, VERSION_PATTERN } from "@/server/license/limits";
 
 const path = deep.path<TermsValues>();

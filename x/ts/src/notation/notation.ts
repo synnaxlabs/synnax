@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Notation } from "@/notation/types.gen";
-import { type bounds } from "@/spatial";
+import type { Notation } from "@/notation/types.gen";
+import type { bounds } from "@/spatial";
 
 /** The bounds of a display precision. A float64 holds about 17 significant digits. */
 export const PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 17 };
