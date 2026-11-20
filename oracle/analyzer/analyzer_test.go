@@ -3337,7 +3337,7 @@ Node union on variant {
 
 		It(
 			"Should substitute a defaulted type parameter of an extended struct",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Box struct<T = string> {
 					data T
@@ -3349,7 +3349,7 @@ Node union on variant {
 					action Load extends Box {}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				action := findAction(table, "test.Container", "Load")
 				Expect(action.Fields).To(HaveLen(1))
