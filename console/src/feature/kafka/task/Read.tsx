@@ -172,9 +172,6 @@ const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
   payload: { format: "json", fields: [], ...(match == null ? {} : { match }) },
 });
 
-const recordOf = (icdKey: icd.Key, message: icd.MessageKey): ReadRecord =>
-  kafka.readRecordZ.parse({ icd: icdKey, messages: [{ message }] });
-
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_READ_NAME : name;
@@ -532,15 +529,6 @@ const Records: FC<RecordsProps> = ({
     return first == null ? [] : ICD.formatOf(formats, first.icd).value().messages;
   };
 
-  /** Adds a record that reads any key of a topic. */
-  const addRecord = async (topic: string) => {
-    const message = createMessage(uniqueName(ANY_KEY, heldMessages()));
-    await addRecords(
-      [message],
-      (icdKey) => new Map([[topic, [recordOf(icdKey, message.key)]]]),
-    );
-  };
-
   /** @returns the name of the topic of the selected item, or of the only topic. */
   const selectedTopic = (): string => {
     let key = currentGroup;
@@ -578,7 +566,7 @@ const Records: FC<RecordsProps> = ({
       }
     });
 
-  /** Adds the fields that the user picks from records of topics, or one record. */
+  /** Adds the fields that the user picks from topics, and any empty record. */
   const add = async () => {
     const result = await addData({
       device,
@@ -588,7 +576,6 @@ const Records: FC<RecordsProps> = ({
       label,
     });
     if (result == null) return;
-    if (result.variant === "record") return await addRecord(result.topic);
     const additions = new Map<string, Addition[]>();
     let held = heldMessages();
     for (const { topic, shapes, picks } of result.topics) {
@@ -598,6 +585,13 @@ const Records: FC<RecordsProps> = ({
       if (added.length === 0) continue;
       additions.set(topic, added);
       held = [...held, ...added.map(({ message }) => message)];
+    }
+    if (result.record != null) {
+      const empty = {
+        message: createMessage(uniqueName(ANY_KEY, held)),
+        recordKeys: [""],
+      };
+      additions.set(result.record, [...(additions.get(result.record) ?? []), empty]);
     }
     if (additions.size === 0) return;
     await addRecords(
