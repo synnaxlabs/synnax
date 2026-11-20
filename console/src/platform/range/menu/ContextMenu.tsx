@@ -92,10 +92,9 @@ export const ContextMenu = ({
     }, "Failed to delete range");
   const handleCSV = () => {
     if (onDownloadCSV != null) return onDownloadCSV(ranges);
-    if (single == null) return;
     openCSV({
-      timeRanges: [single.timeRange],
-      name: single.name,
+      timeRanges: ranges.map((r) => r.timeRange),
+      name: single?.name ?? `${ranges.length} ranges`,
       channels: [],
       icon: <Icon.Range />,
     });
@@ -185,12 +184,10 @@ export const ContextMenu = ({
       )}
       <Menu.Divider />
       <Copy ranges={ranges} />
-      {(single != null || onDownloadCSV != null) && (
-        <Menu.Item itemKey="csv" onClick={handleCSV}>
-          <Icon.CSV />
-          Download as CSV
-        </Menu.Item>
-      )}
+      <Menu.Item itemKey="csv" onClick={handleCSV}>
+        <Icon.CSV />
+        Download as CSV
+      </Menu.Item>
       {extraMenuItems}
       <Menu.Divider />
       {canDelete && <Base.DeleteItem onClick={handleDelete} />}

@@ -15,7 +15,7 @@ import { useDownloadAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 
 describe("useDownloadAsCSV", () => {
-  it("opens the CSV modal on each time range and the channels of the lines", async () => {
+  it("should open the CSV dialog on each time range", async () => {
     await renderModalOpener(useDownloadAsCSV, [
       {
         timeRanges: [
@@ -34,7 +34,10 @@ describe("useDownloadAsCSV", () => {
     ]);
     await waitFor(() =>
       expect(document.body.textContent).toMatch(
-        /Mar 5, 2020\s*12:00.*Mar 5, 2020\s*13:00.*Jul 9, 2020\s*12:00.*Jul 9, 2020\s*13:00/,
+        new RegExp(
+          String.raw`Mar 5, 2020\s*12:00.*Mar 5, 2020\s*13:00.*` +
+            String.raw`Jul 9, 2020\s*12:00.*Jul 9, 2020\s*13:00`,
+        ),
       ),
     );
     expect(findButton("Download").className).not.toContain("lyra--disabled");

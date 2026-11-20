@@ -106,9 +106,9 @@ func writeRecord(w io.Writer, kind byte, payload []byte) error {
 }
 
 // rangeIterator reads a list of time ranges through one iterator, in order, as if they
-// were one range. Only SeekFirst and Next move from one range to the next.
+// were one range.
 type rangeIterator struct {
-	*svcframer.Iterator
+	iter   *svcframer.Iterator
 	ranges []telem.TimeRange
 	// current is the index of the range the iterator reads.
 	current int
@@ -126,37 +126,59 @@ func openRanges(
 	if err != nil {
 		return nil, err
 	}
-	return &rangeIterator{Iterator: iter, ranges: ranges}, nil
+	return &rangeIterator{iter: iter, ranges: ranges}, nil
 }
 
 // SeekFirst seeks to the first sample of the ranges, and reports whether they hold one.
-func (r *rangeIterator) SeekFirst() bool { return r.seek(0) }
+func (r *rangeIterator) SeekFirst() bool { return r.seek(0, 1) }
+
+// SeekLast seeks to the last sample of the ranges, and reports whether they hold one.
+func (r *rangeIterator) SeekLast() bool { return r.seek(len(r.ranges)-1, -1) }
 
 // Next reads the next span of samples, moving on to the next range that holds samples
 // when the current one runs out. It reports whether it read any.
 func (r *rangeIterator) Next(span telem.TimeSpan) bool {
-	for !r.Iterator.Next(span) {
-		if !r.seek(r.current + 1) {
+	for !r.iter.Next(span) {
+		if !r.seek(r.current+1, 1) {
 			return false
 		}
 	}
 	return true
 }
 
-// seek seeks to the first sample of the first range, from the i-th on, that holds one,
-// and reports whether one does. It stops at the error that stopped the iterator, and
-// leaves it for Close to return.
-func (r *rangeIterator) seek(i int) bool {
-	for ; i < len(r.ranges); i++ {
+// Prev reads the previous span of samples, moving back to the previous range that holds
+// samples when the current one runs out. It reports whether it read any.
+func (r *rangeIterator) Prev(span telem.TimeSpan) bool {
+	for !r.iter.Prev(span) {
+		if !r.seek(r.current-1, -1) {
+			return false
+		}
+	}
+	return true
+}
+
+// Value returns the frame of the last read.
+func (r *rangeIterator) Value() Frame { return r.iter.Value() }
+
+// Close closes the iterator and returns the error that stopped its reads.
+func (r *rangeIterator) Close() error { return r.iter.Close() }
+
+// seek seeks to the nearest sample of the first range, from the i-th on in the
+// direction
+// of step, that holds one, and reports whether one does. A step of 1 seeks to the first
+// sample of a range, and -1 to the last. It stops at the error that stopped the
+// iterator, and leaves it for Close to return.
+func (r *rangeIterator) seek(i, step int) bool {
+	for ; i >= 0 && i < len(r.ranges); i += step {
 		if i != r.current {
 			// Setting the bounds clears the error.
-			if r.Error() != nil {
+			if r.iter.Error() != nil {
 				return false
 			}
-			r.SetBounds(r.ranges[i])
+			r.iter.SetBounds(r.ranges[i])
 			r.current = i
 		}
-		if r.Iterator.SeekFirst() {
+		if step > 0 && r.iter.SeekFirst() || step < 0 && r.iter.SeekLast() {
 			return true
 		}
 	}
@@ -178,7 +200,7 @@ func drain(iter *rangeIterator, f func(Frame) error) error {
 	return errors.Combine(err, iter.Close())
 }
 
-// drainLatest seeks iter to the end of its range and calls f with the frame it reads
+// drainLatest seeks iter to the end of its ranges and calls f with the frame it reads
 // back, which holds up to the chunk size of iter for each channel. It always closes
 // iter, and it returns the read error that Close reports.
 func drainLatest(iter *rangeIterator, f func(Frame) error) error {
