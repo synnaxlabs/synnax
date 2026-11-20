@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// A browser has no process, so specs there connect to the defaults.
+const env: Partial<Record<string, string>> =
+  typeof process === "undefined" ? {} : process.env;
+
 /**
  * The Core that specs connect to: `SYNNAX_TEST_HOST` and `SYNNAX_TEST_PORT` when set,
  * else localhost:9090.
  */
 export const TEST_CORE_ADDRESS = {
-  host: process.env.SYNNAX_TEST_HOST ?? "localhost",
-  port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
+  host: env.SYNNAX_TEST_HOST ?? "localhost",
+  port: Number(env.SYNNAX_TEST_PORT ?? 9090),
 };
