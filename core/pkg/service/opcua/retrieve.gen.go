@@ -47,7 +47,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					if v1.Channel != 0 {
 						targets = append(targets, v1.Channel)
@@ -94,7 +94,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					if v1.CmdChannel != 0 {
 						targets = append(targets, v1.CmdChannel)
