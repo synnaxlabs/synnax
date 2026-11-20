@@ -91,7 +91,7 @@ describe("feedback", () => {
 
   describe("after a successful send", () => {
     beforeEach(() => {
-      // jsdom queues its own tasks with setImmediate, so fake only the form's timer.
+      // Vitest's browser runner needs real timers of its own, so fake only the form's.
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     });
 
