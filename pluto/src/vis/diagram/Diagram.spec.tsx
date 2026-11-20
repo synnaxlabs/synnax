@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, type ReactNode, useState } from "react";
@@ -37,6 +38,7 @@ const noop = () => {};
 
 interface HarnessProps {
   children?: ReactNode;
+  themeKey?: string;
   onSelectionChange: (selected: string[]) => void;
   onViewportChange: (viewport: Diagram.Viewport) => void;
   editable?: boolean;
@@ -46,6 +48,7 @@ interface HarnessProps {
 // The diagram is controlled, so the harness feeds each selection back as the next
 // `selected` prop the way a caller would.
 const Harness = ({
+  themeKey = "synnaxLight",
   onSelectionChange,
   onViewportChange,
   children,
@@ -58,28 +61,30 @@ const Harness = ({
     onSelectionChange(next);
   };
   return (
-    <Triggers.Provider>
-      <Base
-        nodes={NODES}
-        edges={[]}
-        onNodesChange={noop}
-        onEdgesChange={noop}
-        selected={selected}
-        onSelectionChange={handleSelectionChange}
-        editable={editable}
-        onEditableChange={noop}
-        onPaste={onPaste}
-        viewport={VIEWPORT}
-        onViewportChange={onViewportChange}
-        fitViewOnResize={false}
-        setFitViewOnResize={noop}
-        viewportMode="zoom"
-        onViewportModeChange={noop}
-        visible
-      >
-        {children}
-      </Base>
-    </Triggers.Provider>
+    <Theming.Provider theme={{ key: themeKey }} applyCSSVars={false}>
+      <Triggers.Provider>
+        <Base
+          nodes={NODES}
+          edges={[]}
+          onNodesChange={noop}
+          onEdgesChange={noop}
+          selected={selected}
+          onSelectionChange={handleSelectionChange}
+          editable={editable}
+          onEditableChange={noop}
+          onPaste={onPaste}
+          viewport={VIEWPORT}
+          onViewportChange={onViewportChange}
+          fitViewOnResize={false}
+          setFitViewOnResize={noop}
+          viewportMode="zoom"
+          onViewportModeChange={noop}
+          visible
+        >
+          {children}
+        </Base>
+      </Triggers.Provider>
+    </Theming.Provider>
   );
 };
 
@@ -110,7 +115,7 @@ class ImmediateResizeObserver {
 
 const renderDiagram = async (
   children?: ReactNode,
-  props: Pick<HarnessProps, "editable" | "onPaste"> = {},
+  props: Pick<HarnessProps, "editable" | "onPaste" | "themeKey"> = {},
 ) => {
   const onSelectionChange = vi.fn<(selected: string[]) => void>();
   const onViewportChange = vi.fn<(viewport: Diagram.Viewport) => void>();
@@ -189,6 +194,33 @@ describe("Diagram", () => {
         expect(onSelectionChange).toHaveBeenLastCalledWith(["a"]);
       },
     );
+  });
+
+  describe("color mode", () => {
+    const flowRoot = (): HTMLElement =>
+      document.querySelector(".react-flow") as HTMLElement;
+
+    const preferDark = (dark: boolean): void => {
+      vi.stubGlobal("matchMedia", (query: string): Partial<MediaQueryList> => ({
+        matches: dark && query === "(prefers-color-scheme: dark)",
+        addEventListener: noop,
+        removeEventListener: noop,
+      }));
+    };
+
+    it("follows a light theme when the OS prefers dark", async () => {
+      preferDark(true);
+      await renderDiagram(undefined, { themeKey: "synnaxLight" });
+      expect(flowRoot().classList.contains("light")).toBe(true);
+      expect(flowRoot().classList.contains("dark")).toBe(false);
+    });
+
+    it("follows a dark theme when the OS prefers light", async () => {
+      preferDark(false);
+      await renderDiagram(undefined, { themeKey: "synnaxDark" });
+      expect(flowRoot().classList.contains("dark")).toBe(true);
+      expect(flowRoot().classList.contains("light")).toBe(false);
+    });
   });
 
   describe("zoom reset", () => {
