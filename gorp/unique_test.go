@@ -81,15 +81,18 @@ func newItemFolderRef() *gorp.KeyReference[uint32, uniqueItem, string] {
 	})
 }
 
-// expectClash expects err to be a UniqueError of the item space that holder holds.
-func expectClash(err error, holder gorp.Target) {
+// expectClash expects err to be the UniqueError of a write of name at the top, whose
+// value holder holds.
+func expectClash(err error, holder gorp.Target, name string) {
 	GinkgoHelper()
 	Expect(err).To(MatchError(query.ErrUniqueViolation))
 	var clash gorp.UniqueError
 	Expect(errors.As(err, &clash)).To(BeTrue())
-	Expect(clash.Space).To(Equal(uniqueSpaceName))
-	Expect(clash.Holder).To(Equal(holder))
-	Expect(clash.Value).To(BeAssignableToTypeOf(uniqueSibling{}))
+	Expect(clash).To(Equal(gorp.UniqueError{
+		Space:  uniqueSpaceName,
+		Holder: holder,
+		Value:  uniqueSibling{Name: name},
+	}))
 }
 
 var _ = Describe("UniqueIndex", func() {
@@ -141,6 +144,7 @@ var _ = Describe("UniqueIndex", func() {
 			expectClash(
 				createItem(ctx, db, uniqueItem{Key: 2, Name: "pt"}),
 				itemTarget(1),
+				"pt",
 			)
 		})
 
@@ -168,7 +172,7 @@ var _ = Describe("UniqueIndex", func() {
 				}
 				return createItem(ctx, tx, uniqueItem{Key: 2, Name: "pt"})
 			})
-			expectClash(err, itemTarget(1))
+			expectClash(err, itemTarget(1), "pt")
 			Expect(items.NewRetrieve().Count(ctx, db)).To(BeZero())
 		})
 
@@ -185,6 +189,7 @@ var _ = Describe("UniqueIndex", func() {
 			expectClash(
 				createItem(ctx, db, uniqueItem{Key: 3, Name: "pt"}),
 				itemTarget(2),
+				"pt",
 			)
 		})
 
@@ -201,6 +206,7 @@ var _ = Describe("UniqueIndex", func() {
 			expectClash(
 				createItem(ctx, db, uniqueItem{Key: 3, Name: "pt_2"}),
 				itemTarget(1),
+				"pt_2",
 			)
 		})
 
@@ -276,6 +282,7 @@ var _ = Describe("UniqueIndex", func() {
 			expectClash(
 				createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"}),
 				gorp.NewTarget("folder", "a"),
+				"pt",
 			)
 		})
 
@@ -284,6 +291,7 @@ var _ = Describe("UniqueIndex", func() {
 			expectClash(
 				createFolder(ctx, db, uniqueFolder{Key: "a", Name: "pt"}),
 				itemTarget(1),
+				"pt",
 			)
 		})
 
@@ -298,7 +306,7 @@ var _ = Describe("UniqueIndex", func() {
 				}
 				return createItem(ctx, tx, uniqueItem{Key: 1, Name: "pt"})
 			})
-			expectClash(err, gorp.NewTarget("folder", "a"))
+			expectClash(err, gorp.NewTarget("folder", "a"), "pt")
 		})
 
 		It("Should fail a detach onto a taken value", func(ctx SpecContext) {
@@ -310,7 +318,7 @@ var _ = Describe("UniqueIndex", func() {
 			err := folders.NewDelete().
 				Where(gorp.MatchKeys[string, uniqueFolder]("a")).
 				Exec(ctx, db)
-			expectClash(err, itemTarget(1))
+			expectClash(err, itemTarget(1), "pt")
 			Expect(folders.NewRetrieve().Count(ctx, db)).To(Equal(1))
 		})
 
@@ -342,6 +350,7 @@ var _ = Describe("UniqueIndex", func() {
 			expectClash(
 				createItem(ctx, db, uniqueItem{Key: 2, Name: "pt"}),
 				itemTarget(1),
+				"pt",
 			)
 		})
 	})
