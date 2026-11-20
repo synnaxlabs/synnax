@@ -95,10 +95,11 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    writer holds one of the keys, and it blocks writer opens on them while it is held.
    Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
 2. In the Gorp transaction, the service deletes the records. Only once that delete
-   succeeds does it call `DB.Intend` with the keys (NEW), which returns once a delete
-   intent for each key is durable, and register the drop hook of step 4. A refused
-   delete logs no intent and drops nothing, even when the transaction commits other
-   writes.
+   succeeds does it call `DB.Intend` (NEW) with the keys whose record the transaction
+   deleted, never a requested key that had none, so a delete route cannot remove a kept
+   key; which returns once a delete intent for each key is durable, and register the
+   drop hook of step 4. A refused delete logs no intent and drops nothing, even when the
+   transaction commits other writes.
 3. The service commits the Gorp transaction.
 4. After the commit, a worker of the channel service calls `DB.Drop` with the keys, then
    releases the claim. A public hook, `gorp.AfterEnd` (NEW), queues the keys. It runs
@@ -133,19 +134,23 @@ old layout, the restrict link from a data channel to its index
 uses, so no intent names an index that an open needs. `DeleteTimeRange` refuses a clock
 key while a live pointer of another key names it, as today (`cesium/delete.go:265-279`).
 
-**The intent on the old layout (Phase 5).** The root holds one file, `delete-intents`.
-Each record is 8 bytes: the key (`uint32`), then a CRC32C of the record's file offset
-and the key. `Intend` appends the records of one call with one `WriteAt` and one sync,
-so a batch of deletes costs one sync. A failed sync closes the file, and every later
-`Intend` fails until a restart (as every failed sync, §6). `Drop` marks the key gone at
-once, so a new writer or iterator on it fails, and when its last open iterator closes
-removes its data files, then its metadata files, then its directory, and clears the
-intent last. An open skips a channel directory whose key has an intent, so a directory
-that a removal cut short never stops an open. `Sweep` writes the remaining intents to a
-temporary file in the root, syncs it, renames it over `delete-intents`, and syncs the
-root; a failed sync there fails the start. Only the last record can tear, so a bad
-record before a valid one raises a status. The old binary warns about the unknown root
-file and ignores it (`cesium/open.go:59-63`).
+**The intent on the old layout (Phase 5).** The root holds one append-only file,
+`delete-intents`, which is never renamed or rewritten, since a rename is not durable
+where `SyncDir` does nothing (§13 item 4). Each record is 12 bytes: the key, flags (bit
+0: the intent is cleared), and a CRC32C of the record's file offset, the key, and the
+flags (`uint32` each). `Intend` appends the records of one call with one `WriteAt` and
+one sync, so a batch of deletes costs one sync. A failed sync closes the file, and every
+later `Intend` fails until a restart (as every failed sync, §6). `Drop` marks the key
+gone at once, so a new writer or iterator on it fails, and when its last open iterator
+closes removes its data files, then its metadata files, then its directory, then appends
+and syncs a clear record. An open skips a channel directory whose key has an intent, so
+a directory that a removal cut short never stops an open. It still loads such a
+directory when a kept directory's `meta.json` names it as its index, and `Sweep` drops
+it after the last such channel goes. `Sweep` appends a clear record for each intent that
+it clears; a failed sync there fails the start. Only the last record can tear, so a bad
+record before a valid one raises a status. A delete costs 24 bytes of file, so a million
+deletes are 24 MB before the conversion of Phase 7 ends the file. The old binary warns
+about the unknown root file and ignores it (`cesium/open.go:59-63`).
 
 | Crash after                                     | State at the next start       | `Sweep`                                                             |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------- |
@@ -153,7 +158,7 @@ file and ignores it (`cesium/open.go:59-63`).
 | The intent, before the record commit is durable | Record and intent             | Clears the intent and opens the directory; channel and samples stay |
 | The commit, before `Drop`                       | Intent, no record             | Drops the key                                                       |
 | Part of `Drop`'s removal                        | Intent, no record, some files | The open skips the directory; `Sweep` drops the rest                |
-| `Sweep`'s rewrite of `delete-intents`           | The old or the new file       | Either is correct: an extra intent of a gone key does nothing       |
+| A clear record, torn                            | The intent stays              | Drops the key again, which finds nothing to remove                  |
 
 **The intent on the new layout (Phase 6 on).** An Intent record (type 10) in the pointer
 log; `Intend` returns at its log sync. Its body is the key, then flags: bit 0 clears the
@@ -280,7 +285,10 @@ the block, stored in the log with each commit. A writer continues from that valu
 
 **Version 2, a sealed clock as progressions.** The compactor rewrites a sealed version 1
 clock segment when the result is at most half the size. The file is a version 1 block
-stream that holds a raw area, an entry table, fences, and a footer, in that order.
+stream that holds a raw area, an entry table, fences, and a footer, in that order. Every
+rewrite, of version 1 or 2, pads its output with zeros to a whole number of blocks, so
+each byte is checked by a trailer and none by a `tail_crc` alone; a version 2 footer
+ends its last block. A repair can then read a rewrite whose Replace record is lost.
 
 | Structure | Offset | Size        | Type          | Meaning                                                                                                                              |
 | --------- | ------ | ----------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -318,10 +326,11 @@ times.
 
 While an undo can restore the old layout, compaction and progression encoding skip a
 version 0 file, and only a delete that leaves it with nothing live unlinks it. An undo
-restores the old layout only from an update backup taken from `core/v0.62.0` or older
-(RFC 0102 §3.1, which keeps the newest 3). So at each start the Core lists its backups
-and passes `WithVersion0Rewritable` (NEW, false by default) to `Open` when none of them
-is that old. A backup whose name holds no version (`before-0.61.0`,
+restores the old layout only from an update backup taken from a Core older than the
+first release that writes segments, a version constant in the binary that the Phase 7
+release sets (RFC 0102 §3.1 keeps the newest 3 backups). So at each start the Core lists
+its backups and passes `WithVersion0Rewritable` (NEW, false by default) to `Open` when
+none of them is that old. A backup whose name holds no version (`before-0.61.0`,
 `core/pkg/storage/version.go:33`) counts as that old. Nothing stores it: the backup list
 is the fact. From then, compaction and progression encoding treat a version 0 segment
 that has its check file as a sealed version 1 segment: they copy its live ranges,
@@ -367,30 +376,30 @@ records, and applies all or nothing. A record is an 8-byte header (`uint16` type
 `uint16` zero, `uint32` body bytes) and its body. Bit 15 of the type lets an older
 binary skip a record it does not know. Without the bit, that binary refuses to open.
 
-| Record        | Offset   | Size | Type          | Meaning                                                                                                                 |
-| ------------- | -------- | ---- | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Reserve (1)   | 0        | 16   | `uint64` each | Segment identity limit, then alignment number limit (at most 2^31). Every value given out is below its limit            |
-| Create (2)    | 0        | 8    | `uint64`      | Segment identity                                                                                                        |
-|               | 8        | 8    | `uint32` each | Key, then clock key. They are equal for a clock                                                                         |
-|               | 16       | 8    | mixed         | Segment format version (`uint16`), data type code of RFC 0117 (`uint8`), zero (5 bytes)                                 |
-| Commit (3)    | 0        | 8    | `uint32` each | Slot count `k`, then the samples that each slot gains                                                                   |
-|               | 8        | 8    | `uint64`      | Alignment of the first sample                                                                                           |
-|               | 16       | 16   | `int64` each  | Stamp of the first sample, then stamp of the last sample                                                                |
-|               | 32 + 16i | 8    | `uint64`      | Slot `i`: segment identity. Slots are in rising order                                                                   |
-|               | 40 + 16i | 8    | `uint32` each | Slot `i`: new committed length, then `tail_crc` there. The range starts at the length before                            |
-| Seal (4)      | 0        | 8    | `uint64`      | Segment identity. The segment seals at its committed length                                                             |
-| Tombstone (5) | 0        | 8    | `uint32` each | Key, then flags. Bit 0: a left cut. Bit 1: a right cut                                                                  |
-|               | 8        | 16   | `int64` each  | Deleted time range. The end is not included                                                                             |
-|               | 24       | 24   | cut           | Left: segment (`uint64`), stream offset and zero (`uint32` each), alignment of the first dead sample (`uint64`)         |
-|               | 48       | 24   | cut           | Right: the same fields, for the first live sample                                                                       |
-| Replace (6)   | 0        | 16   | `uint64` each | Old sealed segment, then new segment, created earlier in the entry and sealed by this record                            |
-|               | 16       | 8    | `uint32` each | Final length of the new segment (a version 2 reader finds the footer there), then its `tail_crc`                        |
-|               | 24       | 8    | `uint32` each | Pointer count, then zero                                                                                                |
-|               | 32 + 40j | 40   | pointer       | Stream offset, byte length, samples, zero (`uint32` each), alignment (`uint64`), first stamp, last stamp (`int64` each) |
-| Drop (7)      | 0        | 8    | `uint32` each | Key, then zero                                                                                                          |
-| Restart (8)   | -        | 0    | -             | No body. Replay seals every open segment at its committed length                                                        |
-| Check (9)     | 0        | 8    | `uint64`      | Version 0 segment that now has a check file                                                                             |
-| Intent (10)   | 0        | 8    | `uint32` each | Key, then zero. A delete intent (§4.1); the key's Drop clears it                                                        |
+| Record        | Offset   | Size | Type                    | Meaning                                                                                                                 |
+| ------------- | -------- | ---- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Reserve (1)   | 0        | 16   | `uint64` each           | Segment identity limit, then alignment number limit (at most 2^31). Every value given out is below its limit            |
+| Create (2)    | 0        | 8    | `uint64`                | Segment identity                                                                                                        |
+|               | 8        | 8    | `uint32` each           | Key, then clock key. They are equal for a clock                                                                         |
+|               | 16       | 8    | mixed                   | Segment format version (`uint16`), data type code of RFC 0117 (`uint8`), zero (5 bytes)                                 |
+| Commit (3)    | 0        | 8    | `uint32` each           | Slot count `k`, then the samples that each slot gains                                                                   |
+|               | 8        | 8    | `uint64`                | Alignment of the first sample                                                                                           |
+|               | 16       | 16   | `int64` each            | Stamp of the first sample, then stamp of the last sample                                                                |
+|               | 32 + 16i | 8    | `uint64`                | Slot `i`: segment identity. Slots are in rising order                                                                   |
+|               | 40 + 16i | 8    | `uint32` each           | Slot `i`: new committed length, then `tail_crc` there. The range starts at the length before                            |
+| Seal (4)      | 0        | 16   | `uint64`, `uint32` each | Segment identity, then its committed length and `tail_crc` there. The segment seals at that length                      |
+| Tombstone (5) | 0        | 8    | `uint32` each           | Key, then flags. Bit 0: a left cut. Bit 1: a right cut                                                                  |
+|               | 8        | 16   | `int64` each            | Deleted time range. The end is not included                                                                             |
+|               | 24       | 24   | cut                     | Left: segment (`uint64`), stream offset and zero (`uint32` each), alignment of the first dead sample (`uint64`)         |
+|               | 48       | 24   | cut                     | Right: the same fields, for the first live sample                                                                       |
+| Replace (6)   | 0        | 16   | `uint64` each           | Old sealed segment, then new segment, created earlier in the entry and sealed by this record                            |
+|               | 16       | 8    | `uint32` each           | Final length of the new segment (a version 2 reader finds the footer there), then its `tail_crc`                        |
+|               | 24       | 8    | `uint32` each           | Pointer count, then zero                                                                                                |
+|               | 32 + 40j | 40   | pointer                 | Stream offset, byte length, samples, zero (`uint32` each), alignment (`uint64`), first stamp, last stamp (`int64` each) |
+| Drop (7)      | 0        | 8    | `uint32` each           | Key, then zero                                                                                                          |
+| Restart (8)   | -        | 0    | -                       | No body. Replay seals every open segment at its committed length                                                        |
+| Check (9)     | 0        | 8    | `uint64`                | Version 0 segment that now has a check file                                                                             |
+| Intent (10)   | 0        | 8    | `uint32` each           | Key, then zero. A delete intent (§4.1); the key's Drop clears it                                                        |
 
 - **Commit**: One clock write is one Commit: 32 bytes plus 16 per channel. Its clock key
   is that of the segments in its slots. A Commit extends the newest pointer of a segment
@@ -705,13 +714,13 @@ does, it gets past the damage; as RocksDB `RepairDB` does, it rebuilds what the 
 allow; as SQLite `.recover` does, it lists what it cannot save. Fault 5b means that
 valid frames follow the bad one, so repair loses only the records of the bad frame.
 
-| A pointer needs  | Repair finds it in                                                                                                                                                                                                                                                                     |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Key, clock, type | The Create record or the segment record of a head or part. With neither: the key from the directory name, and the type code and clock key that make the first full block pass its check, tried over every type code and every clock key that the state names or that names a directory |
-| Segment, version | The file name, and the place check: a block passes only with its segment identity, offset, and format version                                                                                                                                                                          |
-| Alignment        | The Commit record. A rebuilt range that no record names takes a fresh alignment number, so it reads as its own stretch and never joins another by mistake                                                                                                                              |
-| Time range       | The Commit record, or the stamps of the clock segment, read from checked blocks                                                                                                                                                                                                        |
-| Committed length | The Commit record. A rebuilt range ends at the last full block that passes its check in the clock segment and in every data segment of the clock write                                                                                                                                 |
+| A pointer needs  | Repair finds it in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key, clock, type | The Create record or the segment record of a head or part. With neither: the key from the directory name, and the one type code and clock key under which its full blocks pass, tried over every type code and over the clock keys of the key's own segments and of the clock segments that no record names. A 32-bit check passes a wrong guess with chance 2^-32, and because CRC32C is linear each other type code has exactly one clock key that passes every block, so the narrow list keeps such keys out, and two passing candidates place nothing |
+| Segment, version | The file name, and the place check: a block passes only with its segment identity, offset, and format version                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Alignment        | The Commit record. A rebuilt range that no record names takes a fresh alignment number, so it reads as its own stretch and never joins another by mistake                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Time range       | The Commit record, or the stamps of the clock segment, read from checked blocks                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Committed length | The Commit record. A rebuilt range ends at the last full block that passes its check in the clock segment and in every data segment of the clock write                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 1. Find the damage as recovery does (§5.5 steps 1 to 7). When an open would pass, say so
    and stop.
@@ -719,38 +728,44 @@ valid frames follow the bad one, so repair loses only the records of the bad fra
    and every valid frame after it. Both heads bad: every part whose header sector and
    chunks pass (a segment in two parts takes the record of the newer switch), then each
    log from the oldest generation whose header passes, with the same rule for its bad
-   frames. A record that names a segment that the state does not hold takes the segment
-   from its place check (the table above). A record that breaks a rule of §5.2 only
-   because a record of the bad frame is gone is skipped and listed. With both heads bad,
-   the records of a log older than a part's switch are skipped for that part's segments,
-   which already hold them. An orphan segment whose samples a live segment of its key
-   already holds (equal bytes in version 1, equal stamps in version 2) is the output of
-   a lost rewrite: it is listed and renamed `<S>.seg.unrecovered`, not placed.
+   frames. Before it applies the frames after the damage, repair raises the limits of
+   segment identities and alignment numbers above every value that those frames and the
+   files use, since a Reserve of the bad frame is gone, and a fresh number comes from
+   above them. A record that names a segment that the state does not hold takes the
+   segment from its place check (the table above). A record that breaks a rule of §5.2
+   only because a record of the bad frame is gone is skipped and listed. With both heads
+   bad, the records of a log older than a part's switch are skipped for that part's
+   segments, which already hold them. An orphan segment whose samples a live segment of
+   its key already holds (equal bytes in version 1, equal stamps in version 2) is the
+   output of a lost rewrite: it is listed and renamed `<S>.seg.unrecovered`, not placed.
 3. Rebuild the commits of the bad frame. For each segment, the samples between the end
    of its last pointer before the bad frame and the start of its first pointer after it
    are one range, from the full blocks that pass their check in the clock segment and in
-   every data segment of the clock write. A range past the last pointer of a segment
-   ends at its last full checked block.
+   every data segment of the clock write. A segment that a valid frame seals ends at the
+   Seal's length, so samples that a refused commit wrote never return. A range past the
+   last pointer of an open segment ends at its last full checked block. A data range
+   whose clock has more than one segment that could time it is not placed and is listed.
 4. List, with key, segment, bytes, and the time range where it is known:
    - each rebuilt range, which takes its own stretch;
    - each rebuilt range past the last pointer of a segment, which may hold samples that
      were written and never committed;
    - the tail block of a segment whose last commit was in the bad frame, at most 64 KiB,
      since its `tail_crc` was only in that frame;
-   - a segment that no record names and whose first full block passes for no candidate
-     type and clock, or that has no full block yet (under 64 KiB of samples): renamed
-     `<S>.seg.unrecovered` in its directory, never removed;
+   - a segment that no record names and whose full blocks pass for no candidate type and
+     clock, or for more than one, or that has no full block yet (under 64 KiB of
+     samples): renamed `<S>.seg.unrecovered` after the commit point, never removed;
    - each segment whose file a compaction or a drop removed, which leaves the state;
    - the records of the bad frame that touch no sample: a lost Tombstone brings deleted
      data back, a lost Replace keeps the old segment, a lost Drop or Intent leaves the
      key to `Sweep`, and a lost Check makes the check pass run again. Both heads bad:
      the dead marks, kills, and tombstones of the lost heads.
-5. Ask, through the `confirm` call of `cesium.Repair`. On yes, write the head of the
-   next generation from the rebuilt state and a new log that starts with a Restart, and
-   sync each file and the root. The header sector of the new head is the commit point.
-   Only after it, rename the damaged log or heads with the suffix `.damaged` and sync
-   the root. A crash before the commit point leaves the old files, and repair runs
-   again; the orphan pass keeps `.damaged` and `.undone` files.
+5. Ask, through the `confirm` call of `cesium.Repair`; nothing is written before it. On
+   yes, write a head and a log of a generation above every generation present, the log
+   starting with a Restart, and sync each file and the root. The header sector of the
+   new head is the commit point. Only after it, rename the damaged log or heads with the
+   suffix `.damaged`, and each orphan of step 4 with `.unrecovered`, and sync the root.
+   A crash before the commit point leaves the old files, and repair runs again; the
+   orphan pass keeps `.damaged` and `.undone` files.
 
 So repair loses the commit boundaries and the alignments of one frame, the unchecked
 tail block of a segment whose last commit was in it, and the deletes and compactions in
@@ -791,9 +806,11 @@ bad block fails only that read, with a typed error. The Core start flag
 false by default), and the reads that serve iterators then skip the check. The log, the
 heads, the parts, the check files, every rewrite (compaction, progression encoding, the
 version 0 rewrite, the check pass), and repair always check, so no bad block gets a new
-checksum. The flag's description says that a damaged block then returns wrong data with
-no error. Writes do not change, so the flag can change at any start with no stored
-change. Phase 7 builds it with the read check.
+checksum. Every count that a reader takes from disk is bounded by the bytes of its range
+before the reader allocates, so an unchecked bad count fails the read and never asks for
+more memory than the range holds. The flag's description says that a damaged block then
+returns wrong data with no error. Writes do not change, so the flag can change at any
+start with no stored change. Phase 7 builds it with the read check.
 
 | Path                                           | Target                                                                                                                        | Napkin sketch                                                                                                                                                                                                                |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -881,8 +898,8 @@ serves only after the write. Telemetry that the new binary wrote is lost, and th
 binary's undo warns before it runs. An update that keeps the Cesium formats backs up and
 restores no Cesium file: its undo leaves the live state, and `Sweep` handles the keys
 that the restored channel table does not hold. No background work rewrites a version 0
-file while a backup from `core/v0.62.0` or older exists (§5.1), so every undo finds the
-old files that it needs.
+file while a backup from a release older than the first that writes segments exists
+(§5.1), so every undo finds the old files that it needs.
 
 ### 9.1 What is owed
 
@@ -922,18 +939,20 @@ on the same event counter, decoder fuzz tests, and an invariants build. Phase 5 
 of today, and a writer that opens inside a live claim joins it, as today, with no
 authority in Cesium: the framer gates each session per channel. `Write` and `Commit`
 take a predicate over the keys that the session lacks, which Cesium calls under each
-channel's claim lock, so a write never lands after a new holder's, and the framer names
-to `EndDomain` only the indexes whose groups it fully controls, so a write or a commit
-never reaches a channel that another session controls; Phase 6 drops the keys. One clock
-per writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6
-builds the log, heads, `Sync` and the framer's call to it, recovery, the state owner,
-the handle budget, version 1 segments, and replay from a run key, behind a Cesium open
-option that keeps the old layout the default. Phase 7 builds parts, versions 0 and 2,
-tombstones, compaction, the conversion with a crash test at each of its steps, the
-backup change, and `synnax repair` (§6.1), and makes the new layout the only one that
-opens. RFC 0117 Phase 8 deletes the old code, except the old-layout reader of the
-conversion. Phase 5 comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come
-after Phase 7.
+channel's claim lock, so a write never lands after a new holder's. A group whose index
+the session lacks is skipped whole, as today (`cesium/writer_stream.go:687-693`), so no
+data lands at another session's stamps, and a narrowed `EndDomain` still reports that
+the session is not authorized; and the framer names to `EndDomain` only the indexes
+whose groups it fully controls, so a write or a commit never reaches a channel that
+another session controls; Phase 6 drops the keys. One clock per writer and the refusal
+of an overlapping writer (§5.8) arrive with Phase 6. Phase 6 builds the log, heads,
+`Sync` and the framer's call to it, recovery, the state owner, the handle budget,
+version 1 segments, and replay from a run key, behind a Cesium open option that keeps
+the old layout the default. Phase 7 builds parts, versions 0 and 2, tombstones,
+compaction, the conversion with a crash test at each of its steps, the backup change,
+and `synnax repair` (§6.1), and makes the new layout the only one that opens. RFC 0117
+Phase 8 deletes the old code, except the old-layout reader of the conversion. Phase 5
+comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                       | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
