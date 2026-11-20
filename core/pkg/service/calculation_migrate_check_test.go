@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -55,6 +57,47 @@ var _ = Describe("Calculation records upgrade checks", func() {
 
 			Expect(l.Calculation.NewRetrieve().
 				Where(calculation.MatchOutputs(windowed.Key())).
+				Exists(ctx, n.DB)).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should keep the compile error status of an invalid calculation after upgrade",
+		func(
+			ctx SpecContext,
+		) {
+			n := testutil.NewNode(ctx)
+			keys := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+				{Name: "broken", Leaseholder: node.KeyFree, Virtual: true},
+			}))
+			broken := channelv1.Channel{
+				Name:        keys[0].Name,
+				Leaseholder: node.KeyFree,
+				LocalKey:    keys[0].LocalKey,
+				DataType:    telem.Float32T,
+				Virtual:     true,
+				Expression:  "return no_such_channel * 2",
+			}
+			Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
+				Set(ctx, broken)).To(Succeed())
+
+			l := MustOpen(svctestutil.OpenLayer(ctx, n))
+
+			var statuses []status.Status[any]
+			Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().
+				Entries(&statuses).
+				Exec(ctx, n.DB)).To(Succeed())
+			owner := channel.ResourceID(broken.Key())
+			var owned []status.Status[any]
+			for _, st := range statuses {
+				if st.Owner != nil && *st.Owner == owner {
+					owned = append(owned, st)
+				}
+			}
+			Expect(owned).To(HaveLen(1))
+			Expect(owned[0].Variant).To(Equal(status.VariantError))
+			Expect(l.Calculation.NewRetrieve().
+				Where(calculation.MatchOutputs(broken.Key())).
 				Exists(ctx, n.DB)).To(BeTrue())
 		},
 	)
