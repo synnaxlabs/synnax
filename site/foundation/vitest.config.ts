@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { getViteConfig } from "astro/config";
-import { type ViteUserConfigFn } from "vitest/config";
+import type { ViteUserConfigFn } from "vitest/config";
 
 const config: ViteUserConfigFn = getViteConfig(
   {

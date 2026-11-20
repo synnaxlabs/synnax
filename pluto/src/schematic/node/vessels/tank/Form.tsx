@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
-import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
+import type { FormProps as NodeFormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
 const path = deep.path<schematic.TankNodeConfig>();

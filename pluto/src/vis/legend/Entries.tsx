@@ -12,7 +12,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Theming } from "@synnaxlabs/lyra/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type color, compare, type optional, type state } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";

@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Tabs as BaseTabs } from "@synnaxlabs/lyra/tabs";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
@@ -22,7 +22,7 @@ import {
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { type FormProps } from "@/schematic/node/spec";
+import type { FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
 const path = deep.path<StyleValues & { clickable?: boolean }>();

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type role } from "@/access/role";
+import type { role } from "@/access/role";
 import { actions } from "@/actions";
-import { type batch } from "@/batch";
-import { type connection } from "@/connection";
+import type { batch } from "@/batch";
+import type { connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";

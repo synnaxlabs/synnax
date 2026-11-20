@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 /** The icon of each section of the reference, by the key of the section's nav group. */
 export const SECTION_ICONS: Record<string, ReactElement> = {

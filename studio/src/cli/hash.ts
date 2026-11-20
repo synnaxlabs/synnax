@@ -12,7 +12,7 @@ import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { type Entry } from "@/manifest";
+import type { Entry } from "@/manifest";
 
 /**
  * Specifiers of the static import and export statements in a module. Prettier starts

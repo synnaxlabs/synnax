@@ -9,10 +9,10 @@
 
 import "@/badge/Badge.css";
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import type { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Status } from "@/status";
+import type { Status } from "@/status";
 
 /** Props for the {@link Badge} component. */
 export interface BadgeProps extends ComponentPropsWithoutRef<"span"> {

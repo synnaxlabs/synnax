@@ -9,11 +9,11 @@
 
 import { map } from "@synnaxlabs/x";
 
-import { type Action } from "@/access/action/types.gen";
+import type { Action } from "@/access/action/types.gen";
 import { allowRequest } from "@/access/enforce";
-import { type policy } from "@/access/policy";
-import { type query } from "@/query";
-import { type resource } from "@/resource";
+import type { policy } from "@/access/policy";
+import type { query } from "@/query";
+import type { resource } from "@/resource";
 import { user } from "@/user";
 
 /** A permission question: may the subject apply the action to the objects? */

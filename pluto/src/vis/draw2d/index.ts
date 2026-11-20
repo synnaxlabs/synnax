@@ -22,9 +22,9 @@ import {
 } from "@synnaxlabs/x";
 
 import { text as aetherText } from "@/text/aether";
-import {
-  type FillTextOptions,
-  type SugaredOffscreenCanvasRenderingContext2D,
+import type {
+  FillTextOptions,
+  SugaredOffscreenCanvasRenderingContext2D,
 } from "@/vis/draw2d/canvas";
 
 export interface Draw2DLineProps {
@@ -121,6 +121,8 @@ export interface DrawList {
   root?: location.Corner;
   offset?: xy.XY;
   padding?: xy.XY;
+  /** The box the list stays inside. A list taller than it starts at its top. */
+  bound?: box.Box;
 }
 
 type ColorSpec = color.Crude | ((t: theme.Theme) => color.Color);
@@ -364,6 +366,7 @@ export class Draw2D {
     root = location.TOP_LEFT,
     offset = xy.ZERO,
     padding = xy.ZERO,
+    bound,
   }: DrawList): void {
     const height = length * itemHeight + padding.y * 2 + spacing * (length - 1);
     const wid = width + padding.x * 2;
@@ -372,6 +375,10 @@ export class Draw2D {
     else pos.x += offset.x;
     if (root.y === "top") pos.y -= height + offset.y * 2;
     else pos.y += offset.y;
+    if (bound != null) {
+      pos.x = Math.max(box.left(bound), Math.min(pos.x, box.right(bound) - wid));
+      pos.y = Math.max(box.top(bound), Math.min(pos.y, box.bottom(bound) - height));
+    }
     this.container({
       region: box.construct(pos, { width: wid, height }),
       backgroundColor: (t) => t.colors.gray.l1,

@@ -16,7 +16,7 @@ import {
 import { theme } from "@synnaxlabs/lyra/theme";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import {
   afterEach,
   assert,
