@@ -51,6 +51,7 @@ jobs:
       javascript-typescript: ${{ steps.filter.outputs.codeql_ts }}
       python: ${{ steps.filter.outputs.codeql_python }}
       rust: ${{ steps.filter.outputs.codeql_rust }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -79,6 +80,7 @@ jobs:
       PLACEHOLDER:
         ${{ github.event_name == 'pull_request' &&
         needs.changes.outputs[matrix.language] != 'true' }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -131,6 +133,7 @@ jobs:
       actions: write
       checks: read
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout the default branch scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
