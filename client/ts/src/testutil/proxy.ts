@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connect, createServer, type Socket } from "node:net";
+import { type Socket } from "node:net";
 
 import { type breaker, TimeSpan } from "@synnaxlabs/x";
 
-import { TEST_CORE_ADDRESS } from "@/testutil/address";
+import { testCoreAddress } from "@/testutil/address";
 
 /**
  * Retry policy for a client pointed at a severable proxy. A spec drives its own
@@ -64,7 +64,9 @@ interface ProxiedPair {
 export const createSeverableProxy = async (
   target: SeverableProxyTarget = {},
 ): Promise<SeverableProxy> => {
-  const { host, port } = { ...TEST_CORE_ADDRESS, ...target };
+  // Imported here so that the test utilities load in a browser.
+  const { connect, createServer } = await import("node:net");
+  const { host, port } = { ...testCoreAddress(), ...target };
   const pairs = new Set<ProxiedPair>();
   // Client-side sockets of blackholed connections: held open, silent, until the proxy
   // is severed or closed.

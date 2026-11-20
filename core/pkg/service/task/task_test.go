@@ -202,6 +202,7 @@ var _ = Describe("Task", Ordered, func() {
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 			DB:     db,
 			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
 		}))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
@@ -2185,6 +2186,7 @@ var _ = Describe("MatchArcs", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
+				Rack:   secrettestutil.CoreRack,
 			}))
 			var (
 				want  task.Key
@@ -2259,6 +2261,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 			DB:     db,
 			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
 		}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,

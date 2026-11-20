@@ -243,6 +243,20 @@ describe("stringValue.StringValue", () => {
       expect(lastFillStyle(recorder)).toBe(color.hex(stale));
     });
 
+    it("should keep the text color while the stale color is hidden", () => {
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("ARMED");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
+    });
+
     it("should fall back to the warning color when no staleness color is set", () => {
       const { source, recorder } = setup({
         state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
