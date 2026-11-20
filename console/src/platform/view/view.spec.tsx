@@ -58,8 +58,7 @@ const Inner = (): ReactElement => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
-      <View.Toolbar>
-        <View.Filter.Menu properties={PROPERTIES} />
+      <View.Toolbar properties={PROPERTIES}>
         {hasCreatePermission && (
           <Button.Button tooltip="Create range">
             <Icon.Add />
@@ -331,6 +330,27 @@ describe("View", () => {
     ).toBe("");
   });
 
+  it("clears the search term on Escape", async () => {
+    await renderHarness();
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(input.value).toBe("");
+  });
+
+  it("shows a clear button only while the search holds a term", async () => {
+    await renderHarness();
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+    const search = getBySelector(document.body, ".console-view__search");
+    expect(queryIconButton(search, "close")).toBeNull();
+    fireEvent.change(input, { target: { value: "alpha" } });
+    fireEvent.click(await waitFor(() => getIconButton(search, "close")));
+    expect(input.value).toBe("");
+    expect(queryIconButton(search, "close")).toBeNull();
+  });
+
   it("reveals the filter menu contents when the filter trigger is opened", async () => {
     await renderHarness();
     const trigger = await waitFor(() => getIconButton(document.body, "filter"));
@@ -345,6 +365,25 @@ const retrieveTab = async ({
   tabKey,
 }: TabWrapper): Promise<panel.Tab | undefined> =>
   panel.findTab((await client.panels.retrieve(panelKey)).root, tabKey);
+
+describe("View.textShown", () => {
+  it("is true only while the element with the class shows", () => {
+    const anchor = document.createElement("button");
+    const text = document.createElement("span");
+    text.className = "name";
+    anchor.append(text);
+    document.body.append(anchor);
+    onTestFinished(() => anchor.remove());
+    const shown = View.textShown("name");
+    expect(shown(anchor)).toBe(true);
+    text.style.display = "none";
+    expect(shown(anchor)).toBe(false);
+  });
+
+  it("is false when no element has the class", () => {
+    expect(View.textShown("name")(document.createElement("button"))).toBe(false);
+  });
+});
 
 describe("View open in a tab", () => {
   it("shows the saved view its tab holds", async () => {

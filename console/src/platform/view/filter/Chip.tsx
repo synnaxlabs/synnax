@@ -20,6 +20,7 @@ import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 
 const SEGMENT_CLASS = CSS.BE("view", "filter-segment");
+const VALUE_CLASS = CSS.BE("view", "filter-value");
 
 export interface ChipProps extends Flex.BoxProps {}
 
@@ -71,7 +72,12 @@ export interface ChipValueProps extends PropsWithChildren {}
 
 /** The value a {@link Chip} compares the property to. */
 export const ChipValue = ({ children }: ChipValueProps): ReactElement => (
-  <Text.Text el="div" gap="small" align="center" className={SEGMENT_CLASS}>
+  <Text.Text
+    el="div"
+    gap="small"
+    align="center"
+    className={CSS.cls(SEGMENT_CLASS, VALUE_CLASS)}
+  >
     {children}
   </Text.Text>
 );
