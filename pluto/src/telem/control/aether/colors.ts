@@ -43,7 +43,7 @@ export interface ColoredState extends control.State {
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
   static readonly stateZ = colorsStateZ;
-  schema = Colors.stateZ;
+  override schema = Colors.stateZ;
 
   /** The color assigned to each control subject, keyed by subject key. */
   private readonly assigned = new Map<string, color.Color>();
@@ -62,7 +62,7 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     return ctx.get(CONTEXT_KEY);
   }
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const theme = theming.use(ctx);
     i.palette = theme.colors.visualization.palettes.default;
@@ -80,7 +80,7 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     assign();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.disconnect?.();
   }
 

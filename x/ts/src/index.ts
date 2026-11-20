@@ -19,6 +19,7 @@ export * from "@/crdt";
 export * from "@/csv";
 export * from "@/deep";
 export * from "@/destructor";
+export * from "@/disposable";
 export * from "@/errors";
 export * from "@/filename";
 export * from "@/filter";

@@ -40,10 +40,10 @@ export class Input
   static readonly METHODS = methodsZ;
   static readonly z = stateZ;
 
-  schema = stateZ;
-  methods = methodsZ;
+  override schema = stateZ;
+  override methods = methodsZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.sink = telem.useSink(ctx, this.state.sink, i.sink);
     i.source = telem.useSource(ctx, this.state.source, i.source);
@@ -63,7 +63,7 @@ export class Input
     this.internal.sink.set(value);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.source.cleanup?.();
