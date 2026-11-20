@@ -41,6 +41,10 @@
             transition: top 0.15s ease-in-out;
             animation: var(--pluto-modal-animation);
 
+            @media (height <= 800px) {
+                top: 10%;
+            }
+
             &.lyra-dialog--modal-position-shifted {
                 top: 8%;
             }
@@ -127,12 +131,6 @@
 
     &::backdrop {
         background: transparent;
-    }
-
-    @media (height <= 800px) {
-        .lyra-dialog__dialog {
-            top: 10%;
-        }
     }
 }
 

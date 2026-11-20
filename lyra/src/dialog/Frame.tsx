@@ -13,7 +13,6 @@ import {
   type ReactElement,
   type RefCallback,
   type RefObject,
-  type SyntheticEvent,
   useEffect,
   useId,
   useRef,
@@ -132,8 +131,8 @@ interface InternalContextValue extends Pick<
   id: string;
   /** The element that `triggerRef` holds. */
   trigger: RefObject<HTMLElement | null>;
-  /** Handles the `cancel` event of a modal, which the browser sends on Escape. */
-  cancel: (e: SyntheticEvent) => void;
+  /** Handles a `cancel` event of a modal, which the browser sends on Escape. */
+  cancel: () => void;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -467,14 +466,14 @@ export const Frame = ({
     if (overlayOpen(dialog)) return;
     if (variant === "modal" && dialog.parentElement?.contains(target) !== true) {
       closeOnCancel.current = true;
+      stopPropagation();
       return;
     }
     close();
     stopPropagation();
   };
 
-  const cancel = (e: SyntheticEvent): void => {
-    e.preventDefault();
+  const cancel = (): void => {
     if (closeOnCancel.current) close();
   };
 

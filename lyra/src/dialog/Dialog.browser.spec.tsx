@@ -708,6 +708,47 @@ describe("Dialog", () => {
         expect(document.querySelector("dialog")).toBeNull();
       });
 
+      it("should show the dialog again when its owner keeps it open", async () => {
+        await renderThemed(
+          <Triggers.Provider>
+            <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+              <Dialog.Dialog>Busy</Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        const dialog = page.getByRole("dialog").element();
+        assert(dialog instanceof HTMLDialogElement);
+        dialog.close();
+        await expect.poll(() => dialog.matches(":modal")).toBe(true);
+      });
+
+      it("should close nested dropdowns one Escape at a time before the modal", async () => {
+        await openModal(
+          <Dialog.Frame>
+            <Dialog.Trigger>Outer</Dialog.Trigger>
+            <Dialog.Dialog>
+              <Dialog.Frame>
+                <Dialog.Trigger>Inner</Dialog.Trigger>
+                <Dialog.Dialog>
+                  <p>Inner content</p>
+                </Dialog.Dialog>
+              </Dialog.Frame>
+            </Dialog.Dialog>
+          </Dialog.Frame>,
+        );
+        await userEvent.click(page.getByRole("button", { name: "Outer" }));
+        await userEvent.click(page.getByRole("button", { name: "Inner" }));
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByText("Inner content")).not.toBeInTheDocument();
+        await userEvent.keyboard("{Escape}");
+        await expect
+          .element(page.getByRole("button", { name: "Inner" }))
+          .not.toBeInTheDocument();
+        expect(page.getByRole("button", { name: "Outer" }).query()).not.toBeNull();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      });
+
       it("should render a dropdown in the dialog, over the modal", async () => {
         const { dialog } = await openModal(DROPDOWN_FIELDS);
         await userEvent.click(page.getByRole("button", { name: "Menu" }));
