@@ -19,6 +19,7 @@ import (
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/calculation"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/color"
@@ -222,6 +223,18 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		struct{},
 		color.RetrieveBuiltinsResponse,
 	]{}
+
+	// CALCULATION
+	t.CalculationCreate = noop.UnaryServer[
+		calculation.CreateRequest,
+		calculation.CreateResponse,
+	]{}
+	t.CalculationRetrieve = noop.UnaryServer[
+		calculation.RetrieveRequest,
+		calculation.RetrieveResponse,
+	]{}
+	t.CalculationDelete = noop.UnaryServer[calculation.DeleteRequest, struct{}]{}
+	t.CalculationDispatch = noop.UnaryServer[calculation.DispatchRequest, struct{}]{}
 
 	// ENUMERATION
 	t.EnumerationCreate = noop.UnaryServer[

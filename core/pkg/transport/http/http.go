@@ -18,6 +18,7 @@ import (
 	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/calculation"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/color"
@@ -490,6 +491,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ColorRetrieveBuiltins: unary[struct{}, color.RetrieveBuiltinsResponse](
 			router,
 			"/api/v1/color/retrieve-builtins",
+		),
+
+		// CALCULATION
+		CalculationCreate: unary[
+			calculation.CreateRequest,
+			calculation.CreateResponse,
+		](router, "/api/v1/calculation/create"),
+		CalculationRetrieve: unary[
+			calculation.RetrieveRequest,
+			calculation.RetrieveResponse,
+		](router, "/api/v1/calculation/retrieve"),
+		CalculationDelete: unary[calculation.DeleteRequest, struct{}](
+			router,
+			"/api/v1/calculation/delete",
+		),
+		CalculationDispatch: unary[calculation.DispatchRequest, struct{}](
+			router,
+			"/api/v1/calculation/dispatch",
 		),
 
 		// ENUMERATION

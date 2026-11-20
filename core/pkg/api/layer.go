@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/calculation"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/color"
@@ -204,6 +205,18 @@ type Transport struct {
 	ColorDispatch freighter.UnaryServer[color.DispatchRequest, struct{}]
 	// ColorRetrieveBuiltins returns the shipped values of the built-in named colors.
 	ColorRetrieveBuiltins freighter.UnaryServer[struct{}, color.RetrieveBuiltinsResponse]
+	// CALCULATION
+	CalculationCreate freighter.UnaryServer[
+		calculation.CreateRequest,
+		calculation.CreateResponse,
+	]
+	CalculationRetrieve freighter.UnaryServer[
+		calculation.RetrieveRequest,
+		calculation.RetrieveResponse,
+	]
+	CalculationDelete freighter.UnaryServer[calculation.DeleteRequest, struct{}]
+	// CalculationDispatch applies path actions to a calculation.
+	CalculationDispatch freighter.UnaryServer[calculation.DispatchRequest, struct{}]
 	// ENUMERATION
 	EnumerationCreate freighter.UnaryServer[
 		enumeration.CreateRequest,
@@ -342,6 +355,7 @@ type Layer struct {
 	Label        *label.Service
 	Color        *color.Service
 	Enumeration  *enumeration.Service
+	Calculation  *calculation.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
@@ -530,6 +544,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.ColorDelete,
 		t.ColorDispatch,
 		t.ColorRetrieveBuiltins,
+
+		// CALCULATION
+		t.CalculationCreate,
+		t.CalculationRetrieve,
+		t.CalculationDelete,
+		t.CalculationDispatch,
 
 		// ENUMERATION
 		t.EnumerationCreate,
@@ -802,6 +822,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.ColorRetrieveBuiltins.BindHandler(l.Color.RetrieveBuiltins)
 
 	// ENUMERATION
+	t.CalculationCreate.BindHandler(bind.Write(l.binder, l.Calculation.Create))
+	t.CalculationRetrieve.BindHandler(bind.Read(l.binder, l.Calculation.Retrieve))
+	t.CalculationDelete.BindHandler(bind.Write(l.binder, l.Calculation.Delete))
+	t.CalculationDispatch.BindHandler(bind.Write(l.binder, l.Calculation.Dispatch))
 	t.EnumerationCreate.BindHandler(bind.Write(l.binder, l.Enumeration.Create))
 	t.EnumerationRetrieve.BindHandler(bind.Read(l.binder, l.Enumeration.Retrieve))
 	t.EnumerationDelete.BindHandler(bind.Write(l.binder, l.Enumeration.Delete))
@@ -1052,6 +1076,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Enumeration, err = enumeration.NewService(enumeration.ServiceConfig{
 		Enumeration: cfg.Service.Enumeration,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Calculation, err = calculation.NewService(calculation.ServiceConfig{
+		Calculation: cfg.Service.Calculation,
+		Status:      cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}

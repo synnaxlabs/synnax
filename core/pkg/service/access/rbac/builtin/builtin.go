@@ -53,6 +53,7 @@ var allObjects = []resource.ID{
 	{Type: resource.TypeCertificate},
 	{Type: resource.TypeColor},
 	{Type: resource.TypeEnumeration},
+	{Type: resource.TypeCalculation},
 	{Type: resource.TypeICD},
 }
 
@@ -114,6 +115,7 @@ var (
 				{Type: resource.TypeCertificate},
 				{Type: resource.TypeColor},
 				{Type: resource.TypeEnumeration},
+				{Type: resource.TypeCalculation},
 				{Type: resource.TypeICD},
 			},
 			Actions:  access.AllActions,
