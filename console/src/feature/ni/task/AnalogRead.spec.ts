@@ -594,6 +594,22 @@ describe("AnalogRead ports", () => {
       "ai_voltage",
       "Minimum value",
     ],
+    [
+      "the maximum of a polynomial scale above every range",
+      {
+        minVal: 0,
+        maxVal: 40,
+        customScale: {
+          type: "polynomial",
+          forwardCoeffs: [0, 2],
+          reverseCoeffs: [0, 0.5],
+          preScaledUnits: "Volts",
+          scaledUnits: "psi",
+        },
+      },
+      "ai_voltage",
+      "Maximum value",
+    ],
   ])("should mark %s", async (_, values, type, label) => {
     const dev = await createDevice();
     await renderWith([
@@ -688,6 +704,36 @@ describe("AnalogRead ports", () => {
           scaledVals: [0, 1],
           preScaledUnits: "Volts",
           scaledUnits: "Volts",
+        },
+      },
+    ],
+    [
+      "whose scale ends on the edge of a range after rounding",
+      createHardware,
+      {
+        minVal: -0.9,
+        maxVal: 1.1,
+        customScale: {
+          type: "linear",
+          slope: 0.1,
+          yIntercept: 0.1,
+          preScaledUnits: "Volts",
+          scaledUnits: "psi",
+        },
+      },
+    ],
+    [
+      "whose scale takes amps",
+      createHardware,
+      {
+        minVal: 0,
+        maxVal: 1000,
+        customScale: {
+          type: "linear",
+          slope: 1,
+          yIntercept: 0,
+          preScaledUnits: "Amps",
+          scaledUnits: "psi",
         },
       },
     ],

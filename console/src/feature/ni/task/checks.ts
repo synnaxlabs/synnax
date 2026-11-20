@@ -169,8 +169,13 @@ const checkRange = (
 ): void => {
   if (ranges.length === 0) return;
   if (customScale.type !== "none" && customScale.preScaledUnits !== units) return;
-  const min = preScaled(customScale, minVal);
-  const max = preScaled(customScale, maxVal);
+  // Scale math can land one rounding error past a bound the user meant to hit.
+  const toDevice = (value: number): number | undefined => {
+    const result = preScaled(customScale, value);
+    return result == null || customScale.type === "none" ? result : format(result);
+  };
+  const min = toDevice(minVal);
+  const max = toDevice(maxVal);
   if (min == null || max == null) return;
   const lo = Math.min(min, max);
   const hi = Math.max(min, max);
