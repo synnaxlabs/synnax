@@ -1647,6 +1647,113 @@ var _ = Describe("Delete", func() {
 								[]cesium.ChannelKey{data, data2, index},
 								(11 * telem.SecondTS).Range(14*telem.SecondTS),
 							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
+							By("Leaving the data channels untouched")
+							f := MustSucceed(
+								db.Read(ctx, telem.TimeRangeMax, data, data2),
+							)
+							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+							))
+							Expect(f.Get(data2).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+							))
+						},
+					)
+					It(
+						"Should delete nothing when a writer controls a later channel",
+						func(ctx SpecContext) {
+							data2 := GenerateChannelKey()
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Name:     "Queequeg",
+								Key:      data2,
+								Index:    index,
+								DataType: telem.Int64T,
+							})).To(Succeed())
+							Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{index, data, data2},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+									telem.NewSeriesV[int64](200, 201, 202, 203, 204),
+								},
+							))).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{data2},
+								Start:    15 * telem.SecondTS,
+							}))
+							Expect(db.DeleteTimeRange(
+								ctx,
+								[]cesium.ChannelKey{data, data2},
+								(11 * telem.SecondTS).Range(16*telem.SecondTS),
+							)).To(MatchError(ContainSubstring("cannot access time range")))
+							Expect(w.Close()).To(Succeed())
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+							))
+						},
+					)
+					It(
+						"Should delete nothing when a later index channel fails the check",
+						func(ctx SpecContext) {
+							index2 := GenerateChannelKey()
+							data2 := GenerateChannelKey()
+							data3 := GenerateChannelKey()
+							newChannels := []cesium.Channel{
+								{
+									Name:     "Ishmael",
+									Key:      index2,
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								{
+									Name:     "Ahab",
+									Key:      data2,
+									Index:    index2,
+									DataType: telem.Int64T,
+								},
+								{
+									Name:     "Starbuck",
+									Key:      data3,
+									Index:    index2,
+									DataType: telem.Int64T,
+								},
+							}
+							Expect(db.CreateChannel(ctx, newChannels...)).To(Succeed())
+							Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{index, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+								},
+							))).To(Succeed())
+							Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{index2, data2, data3},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+									telem.NewSeriesV[int64](200, 201, 202, 203, 204),
+									telem.NewSeriesV[int64](300, 301, 302, 303, 304),
+								},
+							))).To(Succeed())
+
+							Expect(db.DeleteTimeRange(
+								ctx,
+								[]cesium.ChannelKey{data, index, data2, index2},
+								(11 * telem.SecondTS).Range(14*telem.SecondTS),
+							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", newChannels[0], newChannels[2]))))
+							By("Leaving the first index group untouched")
+							f := MustSucceed(
+								db.Read(ctx, telem.TimeRangeMax, index, data, data2),
+							)
+							Expect(f.Get(index).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+							))
+							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+							))
+							Expect(f.Get(data2).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesV[int64](200, 201, 202, 203, 204),
+							))
 						},
 					)
 				})

@@ -101,7 +101,7 @@ var _ = Describe("Garbage Collection", func() {
 						}
 
 						By("Deleting data from the channel")
-						Expect(dataDB.Delete(ctx, telem.TimeRange{
+						Expect(deleteRange(ctx, dataDB, telem.TimeRange{
 							Start: 33 * telem.SecondTS,
 							End:   75 * telem.SecondTS,
 						})).To(Succeed())
@@ -277,20 +277,23 @@ var _ = Describe("Garbage Collection", func() {
 					).To(Succeed())
 
 					Expect(
-						dataDB.Delete(
+						deleteRange(
 							ctx,
+							dataDB,
 							(17 * telem.SecondTS).Range(19*telem.SecondTS),
 						),
 					).To(Succeed())
 					Expect(
-						dataDB.Delete(
+						deleteRange(
 							ctx,
+							dataDB,
 							(20 * telem.SecondTS).Range(26*telem.SecondTS),
 						),
 					).To(Succeed())
 					Expect(
-						dataDB.Delete(
+						deleteRange(
 							ctx,
+							dataDB,
 							(27 * telem.SecondTS).Range(34*telem.SecondTS),
 						),
 					).To(Succeed())
@@ -466,7 +469,7 @@ var _ = Describe("Garbage Collection", func() {
 
 						for i := range domains {
 							start := telem.TimeStamp(10*i+10) * telem.SecondTS
-							Expect(dataDB.Delete(ctx, telem.TimeRange{
+							Expect(deleteRange(ctx, dataDB, telem.TimeRange{
 								Start: start + deleteStart*telem.SecondTS,
 								End:   start + deleteEnd*telem.SecondTS,
 							})).To(Succeed())
