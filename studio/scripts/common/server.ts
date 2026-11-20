@@ -92,8 +92,8 @@ export const HTTP: Server = {
   },
 };
 
-/** The rack of the Core, which runs the MQTT and Kafka tasks. */
-const CORE_RACK = "Node 1";
+/** The rack of the Core, which runs the MQTT, Kafka, and Sift tasks. */
+export const CORE_RACK = "Node 1";
 
 export const MQTT: Server = {
   server: { protocol: "mqtt", port: 1883 },
@@ -204,16 +204,20 @@ export const serverTaskScript =
 
 /**
  * connectServerScript returns a script that connects a simulated server on camera from
- * the devices toolbar. The server then shows under the Driver. The script module must
- * export `driver = true`.
+ * the devices toolbar. The server then shows under its rack. `open` reaches the Console
+ * before recording, and defaults to the login form. The script module must export
+ * `driver = true` when the server connects from the Driver.
  */
 export const connectServerScript =
-  (server: Server) =>
+  (
+    server: Server,
+    open: (session: capture.CaptureSession) => Promise<void> = capture.login,
+  ) =>
   async (session: capture.CaptureSession): Promise<void> => {
     const sim = await fixtures.simulator(server.server);
     try {
       const { page } = session;
-      await capture.login(session);
+      await open(session);
       await capture.clearPanel(session);
       await session.moveTo({ x: 800, y: 450 });
 

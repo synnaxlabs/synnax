@@ -66,6 +66,25 @@ describe("Swatch", () => {
     expect(computed(icon, "color")).toBe(resolve("var(--pluto-gray-l11)"));
   });
 
+  it("should pick the icon over the checkerboard a translucent fill shows", async () => {
+    await renderThemed(
+      <Triggers.Provider>
+        <Color.Swatch
+          value={undefined}
+          fallback="#00000080"
+          onChange={() => {}}
+          aria-label="Fill"
+        />
+      </Triggers.Provider>,
+    );
+    const icon = page
+      .getByRole("button", { name: "Fill" })
+      .element()
+      .querySelector("svg");
+    assert(icon != null);
+    expect(computed(icon, "color")).toBe(resolve("var(--pluto-gray-l0)"));
+  });
+
   describe("shadow", () => {
     const renderShadow = async (): Promise<HTMLElement> => {
       await renderThemed(

@@ -642,6 +642,14 @@ describe("staleness", () => {
       expect(staleness.drawnColor(state, theme)).toEqual(theme.colors.warning.m1);
     });
 
+    it("should return undefined while the stale color is hidden", () => {
+      const state = staleness.drawnStateZ.parse({
+        stale: true,
+        staleColorHidden: true,
+      });
+      expect(staleness.drawnColor(state, theme)).toBeUndefined();
+    });
+
     it("should honor a configured stale color", () => {
       const state = staleness.drawnStateZ.parse({
         stale: true,

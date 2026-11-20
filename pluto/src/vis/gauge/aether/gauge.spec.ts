@@ -114,6 +114,23 @@ describe("gauge/aether/Gauge", () => {
       expect(styles(recorder, "fillStyle")).toContain(color.hex(STALE));
     });
 
+    it("should keep its own colors while the stale color is hidden", () => {
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("60");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      recorder.clear();
+      component.render({});
+      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
+      expect(styles(recorder, "strokeStyle")).not.toContain(color.hex(STALE));
+    });
+
     it("should recolor the arc as well as the value text", () => {
       const { component, source, recorder } = setup({
         state: {
