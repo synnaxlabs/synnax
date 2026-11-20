@@ -36,7 +36,7 @@ describe("csp", () => {
         ...new JSDOM(html).window.document.querySelectorAll("script:not([src])"),
       ];
       expect(scripts.length).toBeGreaterThan(0);
-      const { hashes } = policy({ posthog: true }).scriptDirective ?? {};
+      const { hashes } = policy({ posthogAllowed: true }).scriptDirective ?? {};
       for (const script of scripts) expect(hashes).toContain(hash(script.textContent));
     });
   });
@@ -70,14 +70,17 @@ describe("csp", () => {
         "'self'",
         { resource: "'unsafe-inline'", kind: "attribute" },
       ]);
-      expect(policy({ inlineStyles: true }).styleDirective?.resources).toEqual([
+      expect(policy({ inlineStylesAllowed: true }).styleDirective?.resources).toEqual([
         "'self'",
         "'unsafe-inline'",
       ]);
     });
 
     it("should allow PostHog", () => {
-      const p = policy({ sources: { "connect-src": ["'self'"] }, posthog: true });
+      const p = policy({
+        sources: { "connect-src": ["'self'"] },
+        posthogAllowed: true,
+      });
       expect(p.directives).toContain("connect-src 'self' https://t.synnaxlabs.com");
       expect(p.scriptDirective?.resources).toEqual([
         "'self'",

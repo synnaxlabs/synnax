@@ -71,9 +71,9 @@ export interface PolicyConfig {
   /** Hashes of the `is:inline` scripts, which Astro does not hash. */
   hashes?: `sha256-${string}`[];
   /** Allows the analytics that `Analytics.astro` loads. */
-  posthog?: boolean;
+  posthogAllowed?: boolean;
   /** Allows every inline style element, not only the hashed ones. */
-  inlineStyles?: boolean;
+  inlineStylesAllowed?: boolean;
   /** The `VERCEL_ENV` of the build. A preview also allows the Vercel toolbar. */
   vercelEnv?: string;
 }
@@ -86,13 +86,13 @@ export const policy = ({
   sources = {},
   scripts = [],
   hashes = [],
-  posthog = false,
-  inlineStyles = false,
+  posthogAllowed = false,
+  inlineStylesAllowed = false,
   vercelEnv,
 }: PolicyConfig): Csp => {
   const toolbar = vercelEnv === "preview";
   const extra = (d: keyof typeof TOOLBAR): string[] => [
-    ...(posthog ? (POSTHOG_SOURCES[d] ?? []) : []),
+    ...(posthogAllowed ? (POSTHOG_SOURCES[d] ?? []) : []),
     ...(toolbar ? TOOLBAR[d] : []),
   ];
   const directives: `${Directive} ${string}`[] = [];
@@ -103,7 +103,7 @@ export const policy = ({
     directives.push(`${d} ${[...list].join(" ")}`);
   }
   // The toolbar adds style elements that no hash can name.
-  const elements = inlineStyles || toolbar;
+  const elements = inlineStylesAllowed || toolbar;
   return {
     directives: [
       "default-src 'self'",
@@ -113,7 +113,7 @@ export const policy = ({
     ],
     scriptDirective: {
       resources: ["'self'", ...scripts, ...extra("script-src")],
-      hashes: posthog ? [...hashes, hash(LOADER)] : hashes,
+      hashes: posthogAllowed ? [...hashes, hash(LOADER)] : hashes,
     },
     styleDirective: {
       resources: elements

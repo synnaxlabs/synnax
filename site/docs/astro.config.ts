@@ -78,10 +78,10 @@ export default defineConfig({
         "media-src": ["'self'", CDN],
       },
       hashes: HASHES,
-      posthog: true,
+      posthogAllowed: true,
       // Shiki colors code with style attributes, and transitions add style elements
       // that differ by page while the client router keeps the first page's policy.
-      inlineStyles: true,
+      inlineStylesAllowed: true,
       vercelEnv: process.env.VERCEL_ENV,
     }),
   },
