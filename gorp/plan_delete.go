@@ -68,11 +68,11 @@ type DeleteEffects struct {
 
 // PlanDelete returns what a delete of the entries with keys would do, as seen by snap,
 // and writes nothing. It plans the keys that exist, once each, as the delete does, and
-// follows its cascades, but it lists each Restrict holder instead of failing. Unlike
-// the delete, it leaves out the entries of a commit in flight that snap does not hold.
-// It fails as the delete does when the delete would change more than DB.MaxDeleteSize
-// entries or an index failed to populate, and with a validation error when more than
-// DB.MaxDeleteSize entries would refuse the delete.
+// follows its cascades, but it lists each Restrict holder instead of failing. It reads
+// only what snap holds, so it leaves out a commit in flight. It fails as the delete
+// does when the delete would change more than DB.MaxDeleteSize entries or an index
+// failed to populate, and with a validation error when more than DB.MaxDeleteSize
+// entries would refuse the delete.
 func (t *Table[K, E]) PlanDelete(
 	ctx context.Context,
 	snap Snapshot,
