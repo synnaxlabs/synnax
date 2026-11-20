@@ -10,8 +10,9 @@
 import "zod/compile";
 
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
-import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 
-shortenKeepAlive();
+import { shortenKeepAlive } from "@/testutil/keepAlive";
+
+await shortenKeepAlive();
 
 failOnConsoleOutput();

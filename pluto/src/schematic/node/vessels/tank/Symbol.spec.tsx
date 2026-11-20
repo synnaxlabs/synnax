@@ -9,8 +9,14 @@
 
 import { type channel, schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { act, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  type RenderResult as RTLRenderResult,
+  waitFor,
+} from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -23,12 +29,16 @@ const state = z.object({ cornerRadii: z.unknown() }).loose();
 
 const updated = vi.fn();
 
+interface RenderResult extends Omit<RTLRenderResult, "rerender"> {
+  rerender: (channel: channel.Key) => void;
+}
+
 // Stands in for the scale worker component that draws the tank's fill.
 class StubScale extends aether.Leaf<typeof state> {
   static readonly TYPE = "scale";
-  schema = state;
+  override schema = state;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     updated(this.state.cornerRadii);
   }
 }
@@ -36,31 +46,34 @@ class StubScale extends aether.Leaf<typeof state> {
 const renderTank = async (
   channel: channel.Key,
   borderRadius?: schematic.TankNodeConfig["borderRadius"],
-): Promise<void> => {
+): Promise<RenderResult> => {
   const [workerSide, mainSide] = aether.createMockPair();
   aether.render({ worker: workerSide, registry: { [StubScale.TYPE]: StubScale } });
+  const ui = (channel: channel.Key): ReactElement => (
+    <Aether.Provider worker={mainSide}>
+      <ReactFlowProvider>
+        <Haul.Provider>
+          <div data-id="t1">
+            <Tank.spec.Node
+              nodeKey="t1"
+              selected={false}
+              onConfigChange={vi.fn()}
+              config={schematic.tankNodeConfigZ.parse({
+                variant: "tank",
+                channel,
+                borderRadius,
+              })}
+            />
+          </div>
+        </Haul.Provider>
+      </ReactFlowProvider>
+    </Aether.Provider>
+  );
+  let result!: RTLRenderResult;
   await act(async () => {
-    render(
-      <Aether.Provider worker={mainSide}>
-        <ReactFlowProvider>
-          <Haul.Provider>
-            <div data-id="t1">
-              <Tank.spec.Node
-                nodeKey="t1"
-                selected={false}
-                onConfigChange={vi.fn()}
-                config={schematic.tankNodeConfigZ.parse({
-                  variant: "tank",
-                  channel,
-                  borderRadius,
-                })}
-              />
-            </div>
-          </Haul.Provider>
-        </ReactFlowProvider>
-      </Aether.Provider>,
-    );
+    result = render(ui(channel));
   });
+  return { ...result, rerender: (next) => result.rerender(ui(next)) };
 };
 
 describe("Tank.Symbol", () => {
@@ -75,6 +88,13 @@ describe("Tank.Symbol", () => {
 
   it("should draw the fill when the tank reads a channel", async () => {
     await renderTank(7);
+    await waitFor(() => expect(updated).toHaveBeenCalled());
+  });
+
+  it("should draw the fill once a channel is set", async () => {
+    const { rerender } = await renderTank(0);
+    expect(updated).not.toHaveBeenCalled();
+    rerender(7);
     await waitFor(() => expect(updated).toHaveBeenCalled());
   });
 

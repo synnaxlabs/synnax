@@ -39,7 +39,10 @@ const client = createTestClient();
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(LabJack.Task.Read, options);
+  const rendered = await renderTaskFormTab(
+    LabJack.Task.FORMS[LabJack.Task.READ_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };

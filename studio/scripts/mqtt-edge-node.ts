@@ -47,8 +47,8 @@ const record = serverTaskScript(MQTT, {
 });
 
 /**
- * Docs `reference/hardware/mqtt/sparkplug` (Publish channels as an edge node): create an
- * edge node on the simulated broker, name it, publish a channel as a tag, let a host
+ * Docs `reference/hardware/mqtt/sparkplug` (Publish channels as an edge node): create
+ * an edge node on the simulated broker, name it, publish a channel as a tag, let a host
  * write to the tag through a command channel, and start the task.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {

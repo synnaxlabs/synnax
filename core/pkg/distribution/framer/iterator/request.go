@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-//go:generate stringer -type=Command
+//go:generate go tool stringer -type=Command
 
 // Command is an operation that can be executed on an Iterator.
 type Command uint8
@@ -65,7 +65,7 @@ type Request struct {
 	Command Command `json:"command" msgpack:"command"`
 }
 
-//go:generate stringer -type=ResponseVariant
+//go:generate go tool stringer -type=ResponseVariant
 
 // ResponseVariant is the kind of Response returned by an Iterator.
 type ResponseVariant uint8

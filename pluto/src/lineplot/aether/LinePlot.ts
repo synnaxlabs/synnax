@@ -68,10 +68,10 @@ export class LinePlot
 {
   static readonly TYPE: string = "LinePlot";
 
-  schema = linePlotStateZ;
-  methods = linePlotMethodsZ;
+  override schema = linePlotStateZ;
+  override methods = linePlotMethodsZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
     this.internal.handleError = status.useErrorHandler(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
@@ -87,7 +87,7 @@ export class LinePlot
     this.requestRender("high", "layout");
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     this.internal.stopListeningRestore?.();
     this.internal.renderCtx = render.Context.use(ctx);
     this.requestRender("high", "layout");

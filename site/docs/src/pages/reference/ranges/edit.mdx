@@ -9,7 +9,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -173,7 +173,11 @@ the range.
 Right-click the range in the ranges toolbar or the range explorer and select **Delete**,
 then confirm.
 
-<Image id="client/ranges/delete/4b9120475409/window" extension="webp" />
+<Image
+  id="client/ranges/delete/4b9120475409/window"
+  extension="webp"
+  alt="The dialog that confirms the deletion of a range"
+/>
 
   </Fragment>
 

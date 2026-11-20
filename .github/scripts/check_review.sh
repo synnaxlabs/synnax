@@ -13,8 +13,8 @@
 # <pr_number>. Prints "<state>\t<description>" where state is pending, failure, or
 # success. A pull request needs one tier label and a Sedosaur 5/5 of the head. A pull
 # request Dependabot opened and wrote every commit of passes without a review. A fork
-# fails, since Sedosaur does not review one. Exits non-zero only when the GitHub API
-# fails.
+# also needs a signed contributor license agreement and a maintainer's approval of the
+# head. Exits non-zero only when the GitHub API fails.
 
 set -euo pipefail
 
@@ -50,15 +50,23 @@ case "$TIER" in
 esac
 
 if [ "$FORK" = true ]; then
-    report failure "Sedosaur does not review forks: reopen it from a branch here"
+    CLA=$("$GH_API" "repos/${REPO}/commits/${HEAD}/status" \
+        --jq '[.statuses[] | select(.context == "license/cla")][0].state // "none"')
+    if [ "$CLA" != success ]; then
+        report pending "waiting for the contributor license agreement"
+    fi
+    APPROVED=$("$(dirname "$0")/fork_approved.sh" "$PR" "$HEAD")
+    if [ "$APPROVED" != true ]; then
+        report pending "waiting for a maintainer to approve the head"
+    fi
 fi
 
-# Only a review of the head counts. A push after the review needs a new request. When
-# the push leaves the diff the same, the request gets the last review at once, and
-# changes of the base outside the diff are left to CI. The newest review of this pull
-# request and base decides, since a commit can head two pull requests and a rerun must
-# not be shadowed by an earlier success. Only the Sedosaur app can write its check runs,
-# so the score in the title is its own.
+# Only a review of the head counts. A push after the review starts a new one. When the
+# push leaves the diff the same, it gets the last review at once, and changes of the
+# base outside the diff are left to CI. The newest review of this pull request and base
+# decides, since a commit can head two pull requests and a rerun must not be shadowed by
+# an earlier success. Only the Sedosaur app can write its check runs, so the score in
+# the title is its own.
 export KEY="${PR}:${BASE}"
 RUNS="repos/${REPO}/commits/${HEAD}/check-runs"
 REVIEW=$("$GH_API" "${RUNS}?check_name=Sedosaur%20Review&filter=all&per_page=100" \

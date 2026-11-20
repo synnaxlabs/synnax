@@ -63,11 +63,9 @@ const lastFillStyle = (recorder: canvasTest.Recorder): string | undefined =>
 
 describe("stringValue.StringValue", () => {
   describe("schema", () => {
-    // The worker draws the text, so neither the value nor staleness crosses to the DOM.
-    it("should keep the value and staleness off the state", () => {
-      const parsed = stringValue.stateZ.parse({ box: BOX });
-      expect(parsed).not.toHaveProperty("value");
-      expect(parsed).not.toHaveProperty("stale");
+    // The worker draws the text, so the value never crosses to the DOM.
+    it("should keep the value off the state", () => {
+      expect(stringValue.stateZ.parse({ box: BOX })).not.toHaveProperty("value");
     });
   });
 
@@ -204,6 +202,19 @@ describe("stringValue.StringValue", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        value: "IDLE",
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("ARMED");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("IDLE");
+      expect(component.state.stale).toBe(false);
+    });
+
     it("should stay live before the source has ever sent", () => {
       const { component, recorder } = setup({
         value: "IDLE",
@@ -230,6 +241,20 @@ describe("stringValue.StringValue", () => {
       vi.advanceTimersByTime(1250);
       expect(fillTexts(recorder)).toEqual(["ARMED"]);
       expect(lastFillStyle(recorder)).toBe(color.hex(stale));
+    });
+
+    it("should keep the text color while the stale color is hidden", () => {
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("ARMED");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
     });
 
     it("should fall back to the warning color when no staleness color is set", () => {

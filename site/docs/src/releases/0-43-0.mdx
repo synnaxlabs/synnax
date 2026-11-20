@@ -1,20 +1,15 @@
 ---
-title: "Version 0.43 release notes"
+title: "Maintenance and minor features"
+version: "0.43.0"
+date: "June 13, 2025"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.43.0"
-    date="June 13, 2025"
-    title="Maintenance and minor features"
-    breakingChanges
->
 
 <Hero.Hero
   image="releases/0-43-0/thumbnail"
@@ -23,6 +18,7 @@ export const components = mdxOverrides;
   layout="framed"
   tone="soft"
   palette="blue-violet"
+  alt=""
 />
 
 Synnax v0.43 is a maintenance release that focuses on bug fixes and stability
@@ -63,5 +59,3 @@ edit mode.
 - Improved the appearance of tables on the documentation site.
 - Fixed the appearance of the OPC UA connect server modal.
 - Allowed for placing labels in the center of tanks.
-
-</Release>

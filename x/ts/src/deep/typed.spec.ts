@@ -32,6 +32,7 @@ interface Values {
 const read = <V>(_: deep.Target<V>): V => undefined as V;
 
 describe("typed paths", () => {
+  // A path holds a child path at every key, so an index never misses.
   const path = deep.path<Values>();
 
   describe("path", () => {
@@ -41,15 +42,15 @@ describe("typed paths", () => {
 
     it("should stringify a field as a dot-separated path", () => {
       expect(String(path.name)).toEqual("name");
-      expect(String(path.channels.abc.key)).toEqual("channels.abc.key");
+      expect(String(path.channels.abc!.key)).toEqual("channels.abc.key");
     });
 
     it("should stringify a list index", () => {
-      expect(String(path.channels[0].key)).toEqual("channels.0.key");
+      expect(String(path.channels[0]!.key)).toEqual("channels.0.key");
     });
 
     it("should return the same object for the same field", () => {
-      expect(path.channels.abc.key).toBe(path.channels.abc.key);
+      expect(path.channels.abc!.key).toBe(path.channels.abc!.key);
     });
 
     it("should return another object for another root", () => {
@@ -72,8 +73,8 @@ describe("typed paths", () => {
       expectTypeOf(read(path.mode)).toEqualTypeOf<"a" | "b">();
       expectTypeOf(read(path.scale)).toEqualTypeOf<Scale | undefined>();
       expectTypeOf(read(path.channels)).toEqualTypeOf<Channel[]>();
-      expectTypeOf(read(path.labels.abc.color)).toEqualTypeOf<string>();
-      expectTypeOf(read(path.blob.deeper.still)).toEqualTypeOf<unknown>();
+      expectTypeOf(read(path.labels.abc!.color)).toEqualTypeOf<string>();
+      expectTypeOf(read(path.blob.deeper!.still!)).toEqualTypeOf<unknown>();
     });
 
     it("should refuse a field that the value does not have", () => {
@@ -83,7 +84,7 @@ describe("typed paths", () => {
 
     it("should refuse a field that only some union members hold", () => {
       // @ts-expect-error `builtin` has no port.
-      expect(String(path.channels[0].port)).toEqual("channels.0.port");
+      expect(String(path.channels[0]!.port)).toEqual("channels.0.port");
     });
 
     it("should refuse a child of an optional value", () => {
@@ -119,14 +120,14 @@ describe("typed paths", () => {
 
   describe("variant", () => {
     it("should reach the fields of the member", () => {
-      const channel = deep.variant(path.channels.abc, "type", "voltage");
+      const channel = deep.variant(path.channels.abc!, "type", "voltage");
       expect(String(channel.port)).toEqual("channels.abc.port");
       expectTypeOf(read(channel.port)).toEqualTypeOf<number>();
     });
 
     it("should reach the fields shared by a union of values", () => {
       const type = "voltage" as "voltage" | "builtin";
-      const channel = deep.variant(path.channels.abc, "type", type);
+      const channel = deep.variant(path.channels.abc!, "type", type);
       expectTypeOf(read(channel.key)).toEqualTypeOf<string>();
       // @ts-expect-error only a voltage channel has a port.
       expect(String(channel.port)).toEqual("channels.abc.port");
@@ -134,13 +135,13 @@ describe("typed paths", () => {
 
     it("should refuse a value that no member holds", () => {
       // @ts-expect-error no channel has this type.
-      expect(String(deep.variant(path.channels.abc, "type", "x"))).toEqual(
+      expect(String(deep.variant(path.channels.abc!, "type", "x"))).toEqual(
         "channels.abc",
       );
     });
 
     it("should return the same object", () => {
-      const channel = path.channels.abc;
+      const channel = path.channels.abc!;
       expect(deep.variant(channel, "type", "builtin")).toBe(channel);
     });
   });
@@ -159,7 +160,7 @@ describe("typed paths", () => {
 
   describe("widen", () => {
     const keys = <C extends { key: string }>(list: deep.Path<C[]>, key: string) =>
-      deep.widen<{ key: string }[]>(list)[key].key;
+      deep.widen<{ key: string }[]>(list)[key]!.key;
 
     it("should read a generic list through its known shape", () => {
       expect(String(keys(path.channels, "abc"))).toEqual("channels.abc.key");

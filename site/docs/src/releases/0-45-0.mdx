@@ -1,21 +1,16 @@
 ---
-title: "Version 0.45 release notes"
+title: "Custom schematic symbols"
+version: "0.45.0"
+date: "Aug 31, 2025"
 ---
 
 import { Hero } from "@/components/hero";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.45.0"
-    date="Aug 31, 2025"
-    title="Custom schematic symbols"
->
 
 <Hero.Hero
   image="releases/0-45-0/thumbnail"
@@ -24,6 +19,7 @@ export const components = mdxOverrides;
   layout="framed"
   tone="soft"
   palette="violet-pink"
+  alt="The create symbol dialog with a solenoid valve"
 />
 
 Synnax v0.45 adds the ability to create, edit, and import custom symbols for schematics.
@@ -57,7 +53,12 @@ We've added metrics channels to the Core, which allow for monitoring the CPU and
 usage of the Core.
 
 <Flex.Box x justify="center">
-  <Image id="releases/0-45-0/metrics" extension="webp" themed={false} />
+  <Image
+    id="releases/0-45-0/metrics"
+    extension="webp"
+    themed={false}
+    alt="A line plot of the CPU and memory use of the Core"
+  />
 </Flex.Box>
 
 These new channels are called `sy_node_x_cpu_percentage` and `sy_node_x_mem_percentage`,
@@ -78,7 +79,8 @@ the value form.
     id="releases/0-45-0/staleness"
     extension="webp"
     themed={false}
-    style={{ width: 350 }}
+    style={{ width: "350px" }}
+    alt="A schematic value in the stale color"
   />
 </Flex.Box>
 
@@ -88,5 +90,3 @@ the value form.
 
 - Fixed a minor issue where series in encoded frames would be sorted incorrectly,
   causing rare decoding issues in JSON series.
-
-</Release>
