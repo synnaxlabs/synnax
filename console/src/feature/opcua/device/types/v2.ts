@@ -24,8 +24,6 @@ import {
 
 const VERSION = "2.0.0";
 
-const PEM_CERTIFICATE_HEADER = "-----BEGIN CERTIFICATE-----";
-
 const DEFAULT_CLIENT_TIMEOUT_MS = 5000;
 const DEFAULT_SECURE_CHANNEL_LIFETIME_MS = 600_000;
 const DEFAULT_SESSION_TIMEOUT_MS = 1_200_000;
@@ -38,24 +36,41 @@ const TIMEOUTS = {
 
 const wholeNumberZ = (name: string) => z.int(`${name} must be a whole number`);
 
-export const connectionConfigZ = baseConnectionConfigZ.extend({
-  /** The key of the secret that holds the password, or empty for none. */
-  password: z.union([z.uuid(), z.literal("")]).default(""),
-  certificateValidationDisabled: z.boolean().default(false),
-  clientTimeoutMs: wholeNumberZ("Request timeout")
-    .positive()
-    .default(DEFAULT_CLIENT_TIMEOUT_MS),
-  secureChannelLifetimeMs: wholeNumberZ("Channel lifetime")
-    .positive()
-    .default(DEFAULT_SECURE_CHANNEL_LIFETIME_MS),
-  sessionTimeoutMs: wholeNumberZ("Session timeout")
-    .positive()
-    .default(DEFAULT_SESSION_TIMEOUT_MS),
-});
+const itemKeyZ = z.union([z.uuid(), z.literal("")]).default("");
+
+export const connectionConfigZ = baseConnectionConfigZ
+  .omit({ clientPrivateKey: true })
+  .extend({
+    /** The key of the secret that holds the password, or empty for none. */
+    password: itemKeyZ,
+    /**
+     * The key of the certificate that the Driver presents, or empty for the Driver
+     * certificate.
+     */
+    clientCertificate: itemKeyZ,
+    /**
+     * The key of the trusted server certificate, or empty to trust the first one that
+     * the server presents.
+     */
+    serverCertificate: itemKeyZ,
+    certificateValidationDisabled: z.boolean().default(false),
+    clientTimeoutMs: wholeNumberZ("Request timeout")
+      .positive()
+      .default(DEFAULT_CLIENT_TIMEOUT_MS),
+    secureChannelLifetimeMs: wholeNumberZ("Channel lifetime")
+      .positive()
+      .default(DEFAULT_SECURE_CHANNEL_LIFETIME_MS),
+    sessionTimeoutMs: wholeNumberZ("Session timeout")
+      .positive()
+      .default(DEFAULT_SESSION_TIMEOUT_MS),
+  });
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
+const { clientPrivateKey: _, ...BASE_ZERO_CONNECTION } = BASE_ZERO_CONNECTION_CONFIG;
 const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
-  ...BASE_ZERO_CONNECTION_CONFIG,
+  ...BASE_ZERO_CONNECTION,
   password: "",
+  clientCertificate: "",
+  serverCertificate: "",
   certificateValidationDisabled: false,
   ...TIMEOUTS,
 };
@@ -86,23 +101,21 @@ export const ZERO_PROPERTIES: Properties = {
   read: { ...BASE_ZERO_PROPERTIES.read, fields: [] },
 };
 
-/** Clears a server certificate that is not PEM, since v1 stored a file path there. */
-export const propertiesMigration = (p: BaseProperties): Properties => {
-  const serverCertificate = p.connection.serverCertificate ?? "";
-  return {
-    ...p,
-    version: VERSION,
-    read: { ...p.read, fields: [] },
-    connection: {
-      ...p.connection,
-      password: p.connection.password ?? "",
-      serverCertificate: serverCertificate.includes(PEM_CERTIFICATE_HEADER)
-        ? serverCertificate
-        : "",
-      certificateValidationDisabled: false,
-      ...TIMEOUTS,
-    },
-  };
-};
+export const propertiesMigration = ({
+  connection: { clientPrivateKey: _, ...connection },
+  ...p
+}: BaseProperties): Properties => ({
+  ...p,
+  version: VERSION,
+  read: { ...p.read, fields: [] },
+  connection: {
+    ...connection,
+    password: connection.password ?? "",
+    clientCertificate: connection.clientCertificate ?? "",
+    serverCertificate: connection.serverCertificate ?? "",
+    certificateValidationDisabled: false,
+    ...TIMEOUTS,
+  },
+});
 
 export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}

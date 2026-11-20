@@ -46,12 +46,14 @@ inline x::json::json connection_json(const connection::Config &cfg) {
          cfg.password_secret.is_nil() ? "" : cfg.password_secret.to_string()},
         {"security_mode", cfg.security_mode},
         {"security_policy", cfg.security_policy},
-        {"client_certificate", cfg.client_cert},
-        {"client_private_key", cfg.client_private_key},
+        {"client_certificate",
+         cfg.client_certificate_item.is_nil()
+             ? ""
+             : cfg.client_certificate_item.to_string()},
         {"certificate_validation_disabled", cfg.certificate_validation_disabled},
     };
-    if (cfg.server_certificate.has_value())
-        j["server_certificate"] = cfg.server_certificate->pem();
+    if (!cfg.server_certificate_item.is_nil())
+        j["server_certificate"] = cfg.server_certificate_item.to_string();
     return j;
 }
 }

@@ -54,9 +54,9 @@ retrieve_connection(synnax::Synnax &client, const std::string &key) {
 }
 
 /// @brief retrieves the device, parses its connection configuration, and reads its
-/// password. The rack reads the password because the device uses it.
+/// password and certificates. The rack reads them because the device uses them.
 /// @returns the retrieve error, a validation error for invalid properties, or the error
-/// of the read.
+/// of a read.
 inline std::pair<connection::Config, x::errors::Error> read_connection(
     synnax::Synnax &client,
     const secret::Reader &reader,
@@ -64,6 +64,7 @@ inline std::pair<connection::Config, x::errors::Error> read_connection(
 ) {
     auto [cfg, err] = retrieve_connection(client, key);
     if (!err) err = connection::read_password(cfg, reader);
+    if (!err) err = connection::read_certificates(cfg, reader);
     return {std::move(cfg), err};
 }
 

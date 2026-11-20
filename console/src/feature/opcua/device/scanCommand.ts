@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type certificate,
   rack as clientRack,
   type secret,
   status,
@@ -28,6 +29,8 @@ interface SendScanCommandParams {
    * grant for this one command, so the command carries the grant in place of args.
    */
   secrets?: secret.Key[];
+  /** The file certificates that the command reads, through the grant as secrets are. */
+  certificates?: certificate.Key[];
 }
 
 /**
@@ -37,18 +40,25 @@ interface SendScanCommandParams {
 export const sendScanCommand = async (
   client: Synnax,
   rack: number,
-  { type, args, timeout = TimeSpan.seconds(10), secrets = [] }: SendScanCommandParams,
+  {
+    type,
+    args,
+    timeout = TimeSpan.seconds(10),
+    secrets = [],
+    certificates = [],
+  }: SendScanCommandParams,
 ): Promise<task.Status<(typeof SCAN_SCHEMAS)["statusData"]>> => {
   const scanTask = await client.tasks.retrieve<typeof SCAN_SCHEMAS>({
     type: SCAN_TYPE,
     rack,
     one: true,
   });
-  if (secrets.length === 0)
+  if (secrets.length === 0 && certificates.length === 0)
     return await scanTask.executeCommandSync({ type, timeout, args });
   const grant = await client.secrets.grant({
     subject: clientRack.resourceID(rack),
     secrets,
+    certificates,
     command: { task: scanTask.key, type, args },
   });
   return await scanTask.executeCommandSync({ type, timeout, args: { grant } });

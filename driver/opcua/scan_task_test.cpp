@@ -710,7 +710,10 @@ TEST_F(TestScanTask, testTestConnectionUntrustedCertificate) {
         )
     );
 
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
     cmd.key = "trusted_cmd";
     cmd.args = {{"connection", testutil::connection_json(conn_cfg)}};
     ASSERT_TRUE(scanner.exec(cmd, task, ctx));
@@ -724,7 +727,10 @@ TEST_F(TestScanTask, testTestConnectionDriverCertificateRejected) {
     start_secured_server(server_id, {other_id.certificate});
     Scanner scanner(ctx, task, conn_pool, store, reader);
     auto conn_cfg = secured_config();
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
     synnax::task::Command cmd{
         .task = task.key,
         .type = TEST_CONNECTION_CMD_TYPE,
@@ -752,10 +758,20 @@ TEST_F(TestScanTask, testHealthCheckTrustsFirstCertificate) {
     ASSERT_EQ(scanned.size(), 1);
     EXPECT_EQ(scanned[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(scanned[0].status.value().message, "Server connected");
-    EXPECT_EQ(
-        scanned[0].properties.at("connection").at("server_certificate"),
-        server_id.certificate.pem()
+    const auto pinned_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(
+            scanned[0]
+                .properties.at("connection")
+                .at("server_certificate")
+                .get<std::string>()
+        )
     );
+    const auto pinned = std::get<synnax::certificate::StoredCertificate>(
+        ASSERT_NIL_P(this->client->certificates.retrieve(pinned_key))
+    );
+    EXPECT_EQ(pinned.name, scanned[0].name + " server certificate");
+    EXPECT_EQ(pinned.pem, server_id.certificate.pem());
+    EXPECT_FALSE(pinned.private_key.has_value());
 
     scanned = scan(scanner, scanned[0]);
     ASSERT_EQ(scanned.size(), 1);
@@ -785,6 +801,24 @@ TEST_F(TestScanTask, testHealthCheckMissingPassword) {
     EXPECT_EQ(
         status.description,
         "Found no secret with key " + missing.to_string() + "."
+    );
+    EXPECT_FALSE(status.details.connected);
+}
+
+/// @brief it should report a device whose server certificate it cannot read.
+TEST_F(TestScanTask, testHealthCheckMissingCertificate) {
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto missing = x::uuid::create();
+    auto cfg = secured_config();
+    cfg.server_certificate_item = missing;
+    const auto scanned = scan(scanner, secured_device(cfg));
+    ASSERT_EQ(scanned.size(), 1);
+    const auto &status = scanned[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to read certificate");
+    EXPECT_EQ(
+        status.description,
+        "Found no certificate where key = \"" + missing.to_string() + "\""
     );
     EXPECT_FALSE(status.details.connected);
 }
@@ -823,7 +857,10 @@ TEST_F(TestScanTask, testTestConnectionSpendsGrant) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
     const auto key = secret::testutil::create_secret(*client);
     auto cfg = password_config(key);
-    cfg.server_certificate = server_id.certificate;
+    cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
     const auto grant = secret::testutil::create_grant(
         rack.key,
         synnax::task::Command{
@@ -872,6 +909,99 @@ TEST_F(TestScanTask, testSentPasswordNeedsGrant) {
     }
 }
 
+/// @brief it should refuse a command that sends a connection with a client certificate
+/// and no grant, so that a command cannot present a saved certificate to any server.
+TEST_F(TestScanTask, testSentClientCertificateNeedsGrant) {
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto own = secret::testutil::create_stored_certificate(*client);
+    auto cfg = secured_config();
+    cfg.client_certificate_item = own.key;
+    synnax::task::Command cmd{
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "client_certificate_cmd",
+        .args = {{"connection", testutil::connection_json(cfg)}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(
+        state.description,
+        "The command sends a connection with a client certificate, so it must carry "
+        "a grant."
+    );
+}
+
+/// @brief it should test an unsecured connection that names a client certificate
+/// without a grant or a read of the certificate, since the connection presents none.
+TEST_F(TestScanTask, testUnsecuredClientCertificateNeedsNoGrant) {
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.client_certificate_item = x::uuid::create();
+    synnax::task::Command cmd{
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "unsecured_cmd",
+        .args = {{"connection", testutil::connection_json(cfg)}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    EXPECT_EQ(state.message, "Connected to server");
+}
+
+/// @brief it should trust a server certificate that has a private key without a grant,
+/// since it reads only the certificate and never its key.
+TEST_F(TestScanTask, testServerCertificateWithKeyNeedsNoGrant) {
+    start_secured_server(server_id);
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    auto cfg = secured_config();
+    cfg.server_certificate_item = secret::testutil::create_stored_certificate(
+                                      *client,
+                                      server_id.certificate.pem(),
+                                      server_id.private_key
+    )
+                                      .key;
+    synnax::task::Command cmd{
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "server_certificate_cmd",
+        .args = {{"connection", testutil::connection_json(cfg)}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    EXPECT_EQ(state.message, "Connected to server");
+}
+
+/// @brief it should present the stored client certificate of a device, reading its
+/// private key because the device uses the certificate.
+TEST_F(TestScanTask, testHealthCheckReadsClientCertificate) {
+    start_secured_server(server_id, {other_id.certificate});
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto own = secret::testutil::create_stored_certificate(
+        *client,
+        other_id.certificate.pem(),
+        other_id.private_key
+    );
+    auto cfg = secured_config();
+    cfg.client_certificate_item = own.key;
+    cfg.server_certificate_item = secret::testutil::create_certificate(
+        *client,
+        server_id.certificate.pem()
+    );
+    auto dev = secured_device(cfg);
+    dev.key = "client-certificate-device-" + x::uuid::create().to_string();
+    dev.location = "opc.tcp://localhost:4871";
+    dev.model = "OPC UA";
+    ASSERT_NIL(client->devices.create(dev));
+    const auto scanned = scan(scanner, dev);
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned[0].status.value().message, "Server connected")
+        << scanned[0].status.value().description;
+}
+
 /// @brief it should refuse a command whose grant argument is not the key of a grant,
 /// and report the Core's error for a grant that does not exist.
 TEST_F(TestScanTask, testExecRejectsBadGrant) {
@@ -908,7 +1038,10 @@ TEST_F(TestScanTask, testHealthCheckCertificateMismatch) {
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store, reader);
     auto conn_cfg = secured_config();
-    conn_cfg.server_certificate = other_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        other_id.certificate.pem()
+    );
     const auto scanned = scan(scanner, secured_device(conn_cfg));
     ASSERT_EQ(scanned.size(), 1);
     const auto &status = scanned[0].status.value();
@@ -924,7 +1057,7 @@ TEST_F(TestScanTask, testHealthCheckCertificateMismatch) {
     );
     EXPECT_EQ(
         scanned[0].properties.at("connection").at("server_certificate"),
-        other_id.certificate.pem()
+        conn_cfg.server_certificate_item.to_string()
     );
 }
 
@@ -950,7 +1083,10 @@ TEST_F(TestScanTask, testHealthCheckDriverCertificateRejected) {
     start_secured_server(server_id, {other_id.certificate});
     Scanner scanner(ctx, task, conn_pool, store, reader);
     auto conn_cfg = secured_config();
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
     const auto scanned = scan(scanner, secured_device(conn_cfg));
     ASSERT_EQ(scanned.size(), 1);
     const auto current = ASSERT_NIL_P(store->current());
@@ -1021,7 +1157,10 @@ TEST_F(TestScanTask, testRenewalSwitchesWhenServersAccept) {
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store, reader);
     auto conn_cfg = secured_config();
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
     const auto scanned = scan(scanner, secured_device(conn_cfg));
     ASSERT_EQ(scanned.size(), 1);
     EXPECT_EQ(scanned[0].status.value().message, "Server connected");
@@ -1039,7 +1178,10 @@ TEST_F(TestScanTask, testRenewalWaitsForServers) {
     start_secured_server(server_id, {old.certificate});
     Scanner scanner(ctx, task, conn_pool, store, reader);
     auto conn_cfg = secured_config();
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
     const auto scanned = scan(scanner, secured_device(conn_cfg));
     ASSERT_EQ(scanned.size(), 1);
     const auto current = ASSERT_NIL_P(store->current());
@@ -1065,7 +1207,10 @@ TEST_F(TestScanTask, testRenewalIgnoresUnreachableServer) {
     const auto old = ASSERT_NIL_P(store->current());
     Scanner scanner(ctx, task, conn_pool, store, reader);
     auto conn_cfg = secured_config();
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
     const auto dev = secured_device(conn_cfg);
     const auto unreachable = scan(scanner, dev);
     ASSERT_EQ(unreachable.size(), 1);

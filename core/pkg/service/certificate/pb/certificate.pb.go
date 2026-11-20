@@ -18,8 +18,9 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/service/secret/pb"
-	pb1 "github.com/synnaxlabs/x/filter/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/secret/pb"
+	pb2 "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -125,20 +126,67 @@ func (x *Details) GetSha256() string {
 	return ""
 }
 
+type ResourceIdList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*pb.ID               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResourceIdList) Reset() {
+	*x = ResourceIdList{}
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResourceIdList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceIdList) ProtoMessage() {}
+
+func (x *ResourceIdList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceIdList.ProtoReflect.Descriptor instead.
+func (*ResourceIdList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ResourceIdList) GetValues() []*pb.ID {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 // Base carries the fields shared by every certificate.
 type Base struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this certificate.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the certificate.
-	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// uses are the resources that use the certificate and that the caller can read,
+	// filled only when a retrieve request asks for them.
+	Uses          *ResourceIdList `protobuf:"bytes,3,opt,name=uses,proto3" json:"uses,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Base) Reset() {
 	*x = Base{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[1]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -150,7 +198,7 @@ func (x *Base) String() string {
 func (*Base) ProtoMessage() {}
 
 func (x *Base) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[1]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -163,7 +211,7 @@ func (x *Base) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Base.ProtoReflect.Descriptor instead.
 func (*Base) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Base) GetKey() string {
@@ -180,6 +228,13 @@ func (x *Base) GetName() string {
 	return ""
 }
 
+func (x *Base) GetUses() *ResourceIdList {
+	if x != nil {
+		return x.Uses
+	}
+	return nil
+}
+
 type WhereList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []*Where               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
@@ -189,7 +244,7 @@ type WhereList struct {
 
 func (x *WhereList) Reset() {
 	*x = WhereList{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[2]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -201,7 +256,7 @@ func (x *WhereList) String() string {
 func (*WhereList) ProtoMessage() {}
 
 func (x *WhereList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[2]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -214,7 +269,7 @@ func (x *WhereList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
 func (*WhereList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *WhereList) GetValues() []*Where {
@@ -233,7 +288,7 @@ type UuidList struct {
 
 func (x *UuidList) Reset() {
 	*x = UuidList{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[3]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -245,7 +300,7 @@ func (x *UuidList) String() string {
 func (*UuidList) ProtoMessage() {}
 
 func (x *UuidList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[3]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -258,7 +313,7 @@ func (x *UuidList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UuidList.ProtoReflect.Descriptor instead.
 func (*UuidList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UuidList) GetValues() []string {
@@ -282,7 +337,7 @@ type UuidSet struct {
 
 func (x *UuidSet) Reset() {
 	*x = UuidSet{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[4]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -294,7 +349,7 @@ func (x *UuidSet) String() string {
 func (*UuidSet) ProtoMessage() {}
 
 func (x *UuidSet) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[4]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,7 +362,7 @@ func (x *UuidSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UuidSet.ProtoReflect.Descriptor instead.
 func (*UuidSet) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UuidSet) GetEq() string {
@@ -326,14 +381,14 @@ func (x *UuidSet) GetIn() *UuidList {
 
 type SecretSourceList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Values        []pb.Source            `protobuf:"varint,1,rep,packed,name=values,proto3,enum=service.secret.pb.Source" json:"values,omitempty"`
+	Values        []pb1.Source           `protobuf:"varint,1,rep,packed,name=values,proto3,enum=service.secret.pb.Source" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SecretSourceList) Reset() {
 	*x = SecretSourceList{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[5]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -345,7 +400,7 @@ func (x *SecretSourceList) String() string {
 func (*SecretSourceList) ProtoMessage() {}
 
 func (x *SecretSourceList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[5]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -358,10 +413,10 @@ func (x *SecretSourceList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecretSourceList.ProtoReflect.Descriptor instead.
 func (*SecretSourceList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *SecretSourceList) GetValues() []pb.Source {
+func (x *SecretSourceList) GetValues() []pb1.Source {
 	if x != nil {
 		return x.Values
 	}
@@ -373,7 +428,7 @@ func (x *SecretSourceList) GetValues() []pb.Source {
 type SecretSourceSet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.
-	Eq *pb.Source `protobuf:"varint,1,opt,name=eq,proto3,enum=service.secret.pb.Source,oneof" json:"eq,omitempty"`
+	Eq *pb1.Source `protobuf:"varint,1,opt,name=eq,proto3,enum=service.secret.pb.Source,oneof" json:"eq,omitempty"`
 	// in matches a value equal to an element of in.
 	In            *SecretSourceList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -382,7 +437,7 @@ type SecretSourceSet struct {
 
 func (x *SecretSourceSet) Reset() {
 	*x = SecretSourceSet{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[6]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -394,7 +449,7 @@ func (x *SecretSourceSet) String() string {
 func (*SecretSourceSet) ProtoMessage() {}
 
 func (x *SecretSourceSet) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[6]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -407,14 +462,14 @@ func (x *SecretSourceSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecretSourceSet.ProtoReflect.Descriptor instead.
 func (*SecretSourceSet) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *SecretSourceSet) GetEq() pb.Source {
+func (x *SecretSourceSet) GetEq() pb1.Source {
 	if x != nil && x.Eq != nil {
 		return *x.Eq
 	}
-	return pb.Source(0)
+	return pb1.Source(0)
 }
 
 func (x *SecretSourceSet) GetIn() *SecretSourceList {
@@ -433,7 +488,7 @@ type RackKeyList struct {
 
 func (x *RackKeyList) Reset() {
 	*x = RackKeyList{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[7]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -445,7 +500,7 @@ func (x *RackKeyList) String() string {
 func (*RackKeyList) ProtoMessage() {}
 
 func (x *RackKeyList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[7]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -458,7 +513,7 @@ func (x *RackKeyList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RackKeyList.ProtoReflect.Descriptor instead.
 func (*RackKeyList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RackKeyList) GetValues() []uint32 {
@@ -480,7 +535,7 @@ type Where struct {
 	// key selects by key.
 	Key *UuidSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
 	// name selects by name.
-	Name *pb1.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Name *pb2.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	// source selects by source.
 	Source *SecretSourceSet `protobuf:"bytes,6,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// racks matches the file certificates on any of the given racks.
@@ -491,7 +546,7 @@ type Where struct {
 
 func (x *Where) Reset() {
 	*x = Where{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[8]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +558,7 @@ func (x *Where) String() string {
 func (*Where) ProtoMessage() {}
 
 func (x *Where) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[8]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +571,7 @@ func (x *Where) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Where.ProtoReflect.Descriptor instead.
 func (*Where) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{8}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Where) GetAnd() *WhereList {
@@ -547,7 +602,7 @@ func (x *Where) GetKey() *UuidSet {
 	return nil
 }
 
-func (x *Where) GetName() *pb1.String {
+func (x *Where) GetName() *pb2.String {
 	if x != nil {
 		return x.Name
 	}
@@ -582,7 +637,7 @@ type CertificateStoredPayload struct {
 
 func (x *CertificateStoredPayload) Reset() {
 	*x = CertificateStoredPayload{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[9]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -594,7 +649,7 @@ func (x *CertificateStoredPayload) String() string {
 func (*CertificateStoredPayload) ProtoMessage() {}
 
 func (x *CertificateStoredPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[9]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -607,7 +662,7 @@ func (x *CertificateStoredPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateStoredPayload.ProtoReflect.Descriptor instead.
 func (*CertificateStoredPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{9}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CertificateStoredPayload) GetPem() string {
@@ -648,7 +703,7 @@ type CertificateFilePayload struct {
 
 func (x *CertificateFilePayload) Reset() {
 	*x = CertificateFilePayload{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[10]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -660,7 +715,7 @@ func (x *CertificateFilePayload) String() string {
 func (*CertificateFilePayload) ProtoMessage() {}
 
 func (x *CertificateFilePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[10]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -673,7 +728,7 @@ func (x *CertificateFilePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateFilePayload.ProtoReflect.Descriptor instead.
 func (*CertificateFilePayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{10}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CertificateFilePayload) GetCertificatePath() string {
@@ -720,7 +775,7 @@ type Certificate struct {
 
 func (x *Certificate) Reset() {
 	*x = Certificate{}
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[11]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -732,7 +787,7 @@ func (x *Certificate) String() string {
 func (*Certificate) ProtoMessage() {}
 
 func (x *Certificate) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[11]
+	mi := &file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -745,7 +800,7 @@ func (x *Certificate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Certificate.ProtoReflect.Descriptor instead.
 func (*Certificate) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{11}
+	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Certificate) GetBase() *Base {
@@ -800,7 +855,7 @@ var File_core_pkg_service_certificate_pb_certificate_proto protoreflect.FileDesc
 
 const file_core_pkg_service_certificate_pb_certificate_proto_rawDesc = "" +
 	"\n" +
-	"1core/pkg/service/certificate/pb/certificate.proto\x12\x16service.certificate.pb\x1a'core/pkg/service/secret/pb/secret.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xa3\x01\n" +
+	"1core/pkg/service/certificate/pb/certificate.proto\x12\x16service.certificate.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/secret/pb/secret.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xa3\x01\n" +
 	"\aDetails\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x16\n" +
 	"\x06issuer\x18\x02 \x01(\tR\x06issuer\x12\x1d\n" +
@@ -808,10 +863,13 @@ const file_core_pkg_service_certificate_pb_certificate_proto_rawDesc = "" +
 	"not_before\x18\x03 \x01(\x03R\tnotBefore\x12\x1b\n" +
 	"\tnot_after\x18\x04 \x01(\x03R\bnotAfter\x12\x12\n" +
 	"\x04sha1\x18\x05 \x01(\tR\x04sha1\x12\x16\n" +
-	"\x06sha256\x18\x06 \x01(\tR\x06sha256\",\n" +
+	"\x06sha256\x18\x06 \x01(\tR\x06sha256\"A\n" +
+	"\x0eResourceIdList\x12/\n" +
+	"\x06values\x18\x01 \x03(\v2\x17.service.resource.pb.IDR\x06values\"h\n" +
 	"\x04Base\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"B\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12:\n" +
+	"\x04uses\x18\x03 \x01(\v2&.service.certificate.pb.ResourceIdListR\x04uses\"B\n" +
 	"\tWhereList\x125\n" +
 	"\x06values\x18\x01 \x03(\v2\x1d.service.certificate.pb.WhereR\x06values\"\"\n" +
 	"\bUuidList\x12\x16\n" +
@@ -873,46 +931,50 @@ func file_core_pkg_service_certificate_pb_certificate_proto_rawDescGZIP() []byte
 	return file_core_pkg_service_certificate_pb_certificate_proto_rawDescData
 }
 
-var file_core_pkg_service_certificate_pb_certificate_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_core_pkg_service_certificate_pb_certificate_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_core_pkg_service_certificate_pb_certificate_proto_goTypes = []any{
 	(*Details)(nil),                  // 0: service.certificate.pb.Details
-	(*Base)(nil),                     // 1: service.certificate.pb.Base
-	(*WhereList)(nil),                // 2: service.certificate.pb.WhereList
-	(*UuidList)(nil),                 // 3: service.certificate.pb.UuidList
-	(*UuidSet)(nil),                  // 4: service.certificate.pb.UuidSet
-	(*SecretSourceList)(nil),         // 5: service.certificate.pb.SecretSourceList
-	(*SecretSourceSet)(nil),          // 6: service.certificate.pb.SecretSourceSet
-	(*RackKeyList)(nil),              // 7: service.certificate.pb.RackKeyList
-	(*Where)(nil),                    // 8: service.certificate.pb.Where
-	(*CertificateStoredPayload)(nil), // 9: service.certificate.pb.CertificateStoredPayload
-	(*CertificateFilePayload)(nil),   // 10: service.certificate.pb.CertificateFilePayload
-	(*Certificate)(nil),              // 11: service.certificate.pb.Certificate
-	(pb.Source)(0),                   // 12: service.secret.pb.Source
-	(*pb1.String)(nil),               // 13: x.filter.pb.String
+	(*ResourceIdList)(nil),           // 1: service.certificate.pb.ResourceIdList
+	(*Base)(nil),                     // 2: service.certificate.pb.Base
+	(*WhereList)(nil),                // 3: service.certificate.pb.WhereList
+	(*UuidList)(nil),                 // 4: service.certificate.pb.UuidList
+	(*UuidSet)(nil),                  // 5: service.certificate.pb.UuidSet
+	(*SecretSourceList)(nil),         // 6: service.certificate.pb.SecretSourceList
+	(*SecretSourceSet)(nil),          // 7: service.certificate.pb.SecretSourceSet
+	(*RackKeyList)(nil),              // 8: service.certificate.pb.RackKeyList
+	(*Where)(nil),                    // 9: service.certificate.pb.Where
+	(*CertificateStoredPayload)(nil), // 10: service.certificate.pb.CertificateStoredPayload
+	(*CertificateFilePayload)(nil),   // 11: service.certificate.pb.CertificateFilePayload
+	(*Certificate)(nil),              // 12: service.certificate.pb.Certificate
+	(*pb.ID)(nil),                    // 13: service.resource.pb.ID
+	(pb1.Source)(0),                  // 14: service.secret.pb.Source
+	(*pb2.String)(nil),               // 15: x.filter.pb.String
 }
 var file_core_pkg_service_certificate_pb_certificate_proto_depIdxs = []int32{
-	8,  // 0: service.certificate.pb.WhereList.values:type_name -> service.certificate.pb.Where
-	3,  // 1: service.certificate.pb.UuidSet.in:type_name -> service.certificate.pb.UuidList
-	12, // 2: service.certificate.pb.SecretSourceList.values:type_name -> service.secret.pb.Source
-	12, // 3: service.certificate.pb.SecretSourceSet.eq:type_name -> service.secret.pb.Source
-	5,  // 4: service.certificate.pb.SecretSourceSet.in:type_name -> service.certificate.pb.SecretSourceList
-	2,  // 5: service.certificate.pb.Where.and:type_name -> service.certificate.pb.WhereList
-	2,  // 6: service.certificate.pb.Where.or:type_name -> service.certificate.pb.WhereList
-	8,  // 7: service.certificate.pb.Where.not:type_name -> service.certificate.pb.Where
-	4,  // 8: service.certificate.pb.Where.key:type_name -> service.certificate.pb.UuidSet
-	13, // 9: service.certificate.pb.Where.name:type_name -> x.filter.pb.String
-	6,  // 10: service.certificate.pb.Where.source:type_name -> service.certificate.pb.SecretSourceSet
-	7,  // 11: service.certificate.pb.Where.racks:type_name -> service.certificate.pb.RackKeyList
-	0,  // 12: service.certificate.pb.CertificateStoredPayload.details:type_name -> service.certificate.pb.Details
-	0,  // 13: service.certificate.pb.CertificateFilePayload.details:type_name -> service.certificate.pb.Details
-	1,  // 14: service.certificate.pb.Certificate.base:type_name -> service.certificate.pb.Base
-	9,  // 15: service.certificate.pb.Certificate.stored:type_name -> service.certificate.pb.CertificateStoredPayload
-	10, // 16: service.certificate.pb.Certificate.file:type_name -> service.certificate.pb.CertificateFilePayload
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	13, // 0: service.certificate.pb.ResourceIdList.values:type_name -> service.resource.pb.ID
+	1,  // 1: service.certificate.pb.Base.uses:type_name -> service.certificate.pb.ResourceIdList
+	9,  // 2: service.certificate.pb.WhereList.values:type_name -> service.certificate.pb.Where
+	4,  // 3: service.certificate.pb.UuidSet.in:type_name -> service.certificate.pb.UuidList
+	14, // 4: service.certificate.pb.SecretSourceList.values:type_name -> service.secret.pb.Source
+	14, // 5: service.certificate.pb.SecretSourceSet.eq:type_name -> service.secret.pb.Source
+	6,  // 6: service.certificate.pb.SecretSourceSet.in:type_name -> service.certificate.pb.SecretSourceList
+	3,  // 7: service.certificate.pb.Where.and:type_name -> service.certificate.pb.WhereList
+	3,  // 8: service.certificate.pb.Where.or:type_name -> service.certificate.pb.WhereList
+	9,  // 9: service.certificate.pb.Where.not:type_name -> service.certificate.pb.Where
+	5,  // 10: service.certificate.pb.Where.key:type_name -> service.certificate.pb.UuidSet
+	15, // 11: service.certificate.pb.Where.name:type_name -> x.filter.pb.String
+	7,  // 12: service.certificate.pb.Where.source:type_name -> service.certificate.pb.SecretSourceSet
+	8,  // 13: service.certificate.pb.Where.racks:type_name -> service.certificate.pb.RackKeyList
+	0,  // 14: service.certificate.pb.CertificateStoredPayload.details:type_name -> service.certificate.pb.Details
+	0,  // 15: service.certificate.pb.CertificateFilePayload.details:type_name -> service.certificate.pb.Details
+	2,  // 16: service.certificate.pb.Certificate.base:type_name -> service.certificate.pb.Base
+	10, // 17: service.certificate.pb.Certificate.stored:type_name -> service.certificate.pb.CertificateStoredPayload
+	11, // 18: service.certificate.pb.Certificate.file:type_name -> service.certificate.pb.CertificateFilePayload
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_certificate_pb_certificate_proto_init() }
@@ -920,12 +982,12 @@ func file_core_pkg_service_certificate_pb_certificate_proto_init() {
 	if File_core_pkg_service_certificate_pb_certificate_proto != nil {
 		return
 	}
-	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[4].OneofWrappers = []any{}
-	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[6].OneofWrappers = []any{}
-	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[8].OneofWrappers = []any{}
+	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[5].OneofWrappers = []any{}
+	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[7].OneofWrappers = []any{}
 	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[9].OneofWrappers = []any{}
 	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[10].OneofWrappers = []any{}
-	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[11].OneofWrappers = []any{
+	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[11].OneofWrappers = []any{}
+	file_core_pkg_service_certificate_pb_certificate_proto_msgTypes[12].OneofWrappers = []any{
 		(*Certificate_Stored)(nil),
 		(*Certificate_File)(nil),
 	}
@@ -935,7 +997,7 @@ func file_core_pkg_service_certificate_pb_certificate_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_certificate_pb_certificate_proto_rawDesc), len(file_core_pkg_service_certificate_pb_certificate_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

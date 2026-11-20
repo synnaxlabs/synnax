@@ -25,16 +25,25 @@
 #include "driver/http/types/types.h"
 
 namespace driver::secret::testutil {
-/// @returns a stored certificate of x::x509::testutil::CERTIFICATE, whose private key
-/// secret holds x::x509::testutil::KEY.
-[[nodiscard]] inline synnax::certificate::StoredCertificate
-create_stored_certificate(synnax::Synnax &client) {
+/// @returns a new stored certificate of pem. Its private key secret holds private_key,
+/// or it has none when private_key is empty.
+[[nodiscard]] inline synnax::certificate::StoredCertificate create_stored_certificate(
+    synnax::Synnax &client,
+    const std::string &pem = x::x509::testutil::CERTIFICATE,
+    const std::string &private_key = x::x509::testutil::KEY
+) {
     synnax::certificate::Certificate c = synnax::certificate::StoredCertificate{};
     auto &stored = std::get<synnax::certificate::StoredCertificate>(c);
     stored.name = "certificate " + x::uuid::create().to_string();
-    stored.pem = x::x509::testutil::CERTIFICATE;
-    EXPECT_NIL(client.certificates.set(c, x::x509::testutil::KEY));
+    stored.pem = pem;
+    EXPECT_NIL(client.certificates.set(c, private_key));
     return std::get<synnax::certificate::StoredCertificate>(c);
+}
+
+/// @returns the key of a new stored certificate of pem, with no private key.
+[[nodiscard]] inline synnax::certificate::Key
+create_certificate(synnax::Synnax &client, const std::string &pem) {
+    return create_stored_certificate(client, pem, "").key;
 }
 
 /// @returns the key of a stored secret that holds x::x509::testutil::KEY. The C++

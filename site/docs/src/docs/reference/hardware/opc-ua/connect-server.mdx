@@ -137,17 +137,18 @@ The Driver sends a certificate to the server. Select one of these:
 - **Driver certificate** -> the default. Each Driver makes its own certificate, and all
   the servers that the Driver connects to get the same one. The dialog shows its
   thumbprint. Click <Icon.Settings /> (**Manage**) to see its expiry date.
-- **Files on the Driver computer** -> the paths of a certificate and a private key on
-  the computer that runs the Driver. Use this when your site issues its own
-  certificates. The key must not have a password, and the certificate must hold the
-  application URI of the Driver.
+- **Saved certificate** -> a certificate that Synnax keeps. Use this when your site
+  issues its own certificates. Select one, or click **New certificate** to paste a
+  certificate and its private key, or to name files on the Driver computer. Synnax keeps
+  a pasted key as a secret. A key file must be in the secrets folder of the Driver. The
+  key must not have a password, and the certificate must hold the application URI of the
+  Driver.
 
 Most servers reject a certificate that they do not know, and keep it in a list of
 rejected certificates. To make the server trust the Driver certificate:
 
 1. Click **Connect**. The test fails with "Server rejected the Driver certificate". With
-   **Files on the Driver computer**, the message is "Server rejected the client
-   certificate".
+   **Saved certificate**, the message is "Server rejected the client certificate".
 2. On the server, find the Driver certificate in the rejected list. Make sure that its
    thumbprint is the same as the one in the dialog, then trust it.
 3. Click **Connect** again.
@@ -178,10 +179,13 @@ connects only to a server that sends the trusted certificate.
 - In the dialog, the first **Connect** fails with "Server certificate not trusted". The
   dialog shows the certificate that the server sent, with its subject, thumbprint, and
   expiry date. Make sure that the thumbprint is the same as the one the server shows,
-  then click **Trust and connect**. The dialog saves the certificate and connects again.
+  then click **Trust and connect**. The dialog saves the certificate with the name of
+  the device, such as "Line 1 PLC server certificate", and connects again.
+- To trust a certificate that you have, select it in **Server certificate**, or click
+  **New certificate** to add it.
 - A device made in Python or TypeScript without a server certificate trusts the
   certificate that the server sends on the first connection. The Driver saves that
-  certificate to the device.
+  certificate with the name of the device, and the device trusts it.
 - When the server gets a new certificate, the device shows "Server certificate not
   trusted". Right-click the device in the devices toolbar, select **Edit connection**,
   and click **Connect**. Compare the new thumbprint, then click **Trust and connect**.
@@ -208,21 +212,20 @@ plain text. The Driver cannot log in with a user certificate.
 
 ## Connection options
 
-| Console label               | Python field                      | Default                    | Notes                                                                                   |
-| --------------------------- | --------------------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
-| Connect from                | `rack`                            |                            | The key of the rack that runs the Driver.                                               |
-| Endpoint                    | `endpoint`                        | `opc.tcp://localhost:4840` | Required in Python.                                                                     |
-| Username                    | `username`                        | Empty                      | Empty for an anonymous login.                                                           |
-| Password                    | `password`                        | Empty                      | The key of the secret that holds the password.                                          |
-| Mode                        | `security_mode`                   | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.                                              |
-| Policy                      | `security_policy`                 | None                       | `"None"` goes only with the mode `"None"`. See [security policies](#security-policies). |
-| Certificate file            | `client_cert`                     | Empty                      | A path on the Driver computer. Empty, with an empty key, uses the Driver certificate.   |
-| Private key file            | `client_private_key`              | Empty                      | A path on the Driver computer. No password.                                             |
-| Server certificate          | `server_cert`                     | Empty                      | The trusted certificate as PEM. Empty trusts the certificate of the first connection.   |
-| Validate server certificate | `certificate_validation_disabled` | `False`                    | The switch shows the opposite value.                                                    |
-| Request timeout             | `client_timeout_ms`               | 5,000 ms                   | The wait for a reply to each request and connection attempt.                            |
-| Session timeout             | `session_timeout_ms`              | 1,200,000 ms (20 minutes)  | How long the server keeps a session that gets no requests.                              |
-| Channel lifetime            | `secure_channel_lifetime_ms`      | 600,000 ms (10 minutes)    | How long the keys of the connection last before the Driver renews them.                 |
+| Console label               | Python field                      | Default                    | Notes                                                                                     |
+| --------------------------- | --------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
+| Connect from                | `rack`                            |                            | The key of the rack that runs the Driver.                                                 |
+| Endpoint                    | `endpoint`                        | `opc.tcp://localhost:4840` | Required in Python.                                                                       |
+| Username                    | `username`                        | Empty                      | Empty for an anonymous login.                                                             |
+| Password                    | `password`                        | Empty                      | The key of the secret that holds the password.                                            |
+| Mode                        | `security_mode`                   | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.                                                |
+| Policy                      | `security_policy`                 | None                       | `"None"` goes only with the mode `"None"`. See [security policies](#security-policies).   |
+| Certificate                 | `client_certificate`              | Empty                      | The key of a certificate with a private key. Empty uses the Driver certificate.           |
+| Server certificate          | `server_certificate`              | Empty                      | The key of the trusted certificate. Empty trusts the certificate of the first connection. |
+| Validate server certificate | `certificate_validation_disabled` | `False`                    | The switch shows the opposite value.                                                      |
+| Request timeout             | `client_timeout_ms`               | 5,000 ms                   | The wait for a reply to each request and connection attempt.                              |
+| Session timeout             | `session_timeout_ms`              | 1,200,000 ms (20 minutes)  | How long the server keeps a session that gets no requests.                                |
+| Channel lifetime            | `secure_channel_lifetime_ms`      | 600,000 ms (10 minutes)    | How long the keys of the connection last before the Driver renews them.                   |
 
 The timeouts are in the **Advanced** section of the dialog. In TypeScript, the fields
 are in `properties.connection` in camel case, such as `securityMode`,
@@ -337,14 +340,18 @@ The certificate of the server is not valid at the current time.
 <Problem.Item message={"Failed to read client certificate"}>
 <Problem.Cause>
 
-The Driver could not use the files in **Certificate file** and **Private key file**.
+The saved client certificate has no private key, its key does not belong to it, or the
+Driver cannot parse one of them.
 
 </Problem.Cause>
 <Problem.Fix>
 
-1. Make sure that the paths are correct on the computer that runs the Driver.
-2. Make sure that the key belongs to the certificate.
-3. Remove the password from the private key.
+1. Make sure that the certificate has a private key, and that the key belongs to the
+   certificate. The key file of a certificate that names files must be in the secrets
+   folder of the Driver.
+2. Remove the password from the private key.
+
+See [client certificate](#client-certificate).
 
 </Problem.Fix>
 </Problem.Item>

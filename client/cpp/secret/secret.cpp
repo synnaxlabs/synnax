@@ -76,6 +76,11 @@ Client::resolve(const x::uuid::UUID &grant, const synnax::task::Key &task) const
         if (key_err) return {Grant{}, key_err};
         out.secrets.push_back(key);
     }
+    for (const auto &k: res.certificates()) {
+        auto [key, key_err] = x::uuid::UUID::parse(k);
+        if (key_err) return {Grant{}, key_err};
+        out.certificates.push_back(key);
+    }
     auto [values, values_err] = to_values(res);
     if (values_err) return {Grant{}, values_err};
     out.values = std::move(values);

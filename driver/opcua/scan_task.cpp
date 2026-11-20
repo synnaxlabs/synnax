@@ -48,8 +48,8 @@ std::string failure_message(
     if (err.matches(errors::SERVER_CERTIFICATE_TIME_INVALID))
         return "Server certificate expired";
     if (err.matches(errors::CLIENT_CERTIFICATE_REJECTED))
-        return cfg.uses_files() ? "Server rejected the client certificate"
-                                : "Server rejected the Driver certificate";
+        return cfg.uses_client_certificate() ? "Server rejected the client certificate"
+                                             : "Server rejected the Driver certificate";
     if (err.matches(errors::CLIENT_CERTIFICATE_INVALID))
         return "Failed to read client certificate";
     if (err.matches(errors::DRIVER_CERTIFICATE_FAILED))
@@ -66,20 +66,30 @@ bool server_answered(const x::errors::Error &err) {
            err.matches(errors::CLIENT_CERTIFICATE_REJECTED);
 }
 
-/// @brief reads the password of a connection that a command sends. Only a grant may
-/// give it, so a command cannot send a saved password to a server of its choice.
-x::errors::Error read_sent_password(
+/// @brief reads the password and certificates of a connection that a command sends.
+/// Only a grant may give the password or the client certificate, so a command cannot
+/// send a saved credential to a server of its choice.
+x::errors::Error read_sent_items(
     connection::Config &cfg,
     const secret::Reader &reader,
     const std::optional<synnax::secret::Grant> &grant
 ) {
-    if (!cfg.password_secret.is_nil() && !grant.has_value())
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            "The command sends a connection with a password, so it must carry a "
-            "grant."
-        );
-    return connection::read_password(cfg, reader, grant);
+    if (!grant.has_value()) {
+        if (!cfg.password_secret.is_nil())
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "The command sends a connection with a password, so it must carry a "
+                "grant."
+            );
+        if (cfg.uses_client_certificate())
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "The command sends a connection with a client certificate, so it must "
+                "carry a grant."
+            );
+    }
+    if (const auto err = connection::read_password(cfg, reader, grant)) return err;
+    return connection::read_certificates(cfg, reader, grant);
 }
 
 /// @returns an error status for the reply to cmd, which each handler fills in.
@@ -222,6 +232,14 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         dev.status = status;
         return err;
     }
+    if (const auto err = connection::read_certificates(cfg, *this->reader)) {
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.message = failure_message(err, cfg, "Failed to read certificate");
+        status.description = err.data;
+        status.details.connected = false;
+        dev.status = status;
+        return err;
+    }
     const auto previous = this->checked[dev.key];
     const bool pin = cfg.secured() && !cfg.certificate_validation_disabled &&
                      !cfg.server_certificate.has_value();
@@ -243,7 +261,20 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
             if (const auto cert = connection::server_certificate(conn.get())) {
                 LOG(INFO) << SCAN_LOG_PREFIX << "trusting server certificate "
                           << cert->thumbprint() << " for " << dev.name;
-                dev.properties["connection"]["server_certificate"] = cert->pem();
+                synnax::certificate::Certificate
+                    pinned = synnax::certificate::StoredCertificate{};
+                auto &stored = std::get<synnax::certificate::StoredCertificate>(pinned);
+                stored.name = dev.name + " server certificate";
+                stored.pem = cert->pem();
+                if (const auto err = this->ctx->client->certificates.set(pinned)) {
+                    status.variant = synnax::status::VARIANT_WARNING;
+                    status.message = "Failed to save server certificate";
+                    status.description = err.data;
+                    dev.status = status;
+                    return err;
+                }
+                dev.properties["connection"]["server_certificate"] = stored.key
+                                                                         .to_string();
             }
     } else
         this->checked[dev.key] = x::telem::TimeStamp::now();
@@ -293,10 +324,11 @@ Scanner::renew_certificate(const std::vector<synnax::device::Device> &devices) {
         const auto parser = x::json::Parser(dev.properties);
         const auto props = device::Properties(parser);
         if (parser.error() || !props.connection.secured() ||
-            props.connection.uses_files())
+            props.connection.uses_client_certificate())
             continue;
         auto cfg = props.connection;
-        if (connection::read_password(cfg, *this->reader)) {
+        if (connection::read_password(cfg, *this->reader) ||
+            connection::read_certificates(cfg, *this->reader)) {
             all_accepted = false;
             continue;
         }
@@ -794,7 +826,7 @@ std::pair<connection::Config, x::errors::Error> Scanner::connection_of(
     if (!args.device.empty())
         return device::read_connection(*this->ctx->client, *this->reader, args.device);
     auto cfg = args.connection;
-    auto err = read_sent_password(cfg, *this->reader, grant);
+    auto err = read_sent_items(cfg, *this->reader, grant);
     return {std::move(cfg), err};
 }
 
@@ -991,7 +1023,7 @@ void Scanner::test_connection(
         ctx->set_status(status);
         return;
     }
-    if (const auto err = read_sent_password(cfg, *this->reader, grant)) {
+    if (const auto err = read_sent_items(cfg, *this->reader, grant)) {
         status.message = "Failed to connect to server";
         status.description = err.data;
         ctx->set_status(status);

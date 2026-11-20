@@ -316,17 +316,41 @@ x::errors::Error read_password(
     return x::errors::NIL;
 }
 
+x::errors::Error read_certificates(
+    Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant
+) {
+    if (!cfg.server_certificate_item.is_nil()) {
+        auto [pem, err] = reader.read_chain(cfg.server_certificate_item);
+        if (err) return err;
+        auto [cert, parse_err] = x::x509::Certificate::parse(pem);
+        if (parse_err) return parse_err;
+        cfg.server_certificate = std::move(cert);
+    }
+    if (!cfg.uses_client_certificate()) return x::errors::NIL;
+    auto [client, err] = reader.read_certificate(cfg.client_certificate_item, grant);
+    if (err) return err;
+    auto [id, id_err] = certificate::Identity::parse(client.pem, client.private_key);
+    if (id_err) return id_err;
+    cfg.client_identity = std::move(id);
+    return x::errors::NIL;
+}
+
 std::pair<Security, x::errors::Error>
 resolve_security(const Config &cfg, certificate::Store &store) {
     Security sec;
     if (!cfg.secured()) return {sec, x::errors::NIL};
-    if (cfg.uses_files()) {
-        auto [id, err] = certificate::Identity::load(
-            cfg.client_cert,
-            cfg.client_private_key
-        );
-        if (err) return {sec, err};
-        sec.identity = std::move(id);
+    if (cfg.uses_client_certificate()) {
+        if (!cfg.client_identity.has_value())
+            return {
+                sec,
+                x::errors::Error(
+                    errors::CLIENT_CERTIFICATE_INVALID,
+                    "The Driver did not read the client certificate."
+                )
+            };
+        sec.identity = cfg.client_identity;
         return {sec, x::errors::NIL};
     }
     auto [id, err] = store.current();

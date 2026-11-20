@@ -10,7 +10,10 @@
 package certificate
 
 import (
+	"context"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -23,6 +26,39 @@ func (s *Service) Resources() *resource.TableProvider[Key, Certificate] {
 		Key:    resource.ParseUUIDKey,
 		Name:   func(c *Certificate) string { return c.Base().Name },
 	})
+}
+
+// Uses returns the ID of every record in snap that holds a use reference to the
+// certificate with key.
+func (s *Service) Uses(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key Key,
+) ([]resource.ID, error) {
+	return resource.Uses(ctx, snap, s.table, key)
+}
+
+// HasPrivateKey reports whether the certificate with key names a private key, as seen
+// by snap. It returns query.ErrNotFound when the certificate does not exist.
+func (s *Service) HasPrivateKey(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key Key,
+) (bool, error) {
+	var c Certificate
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&c).
+		Exec(ctx, snap); err != nil {
+		return false, err
+	}
+	switch variant := c.Variant.(type) {
+	case StoredCertificate:
+		return variant.PrivateKey != nil, nil
+	case FileCertificate:
+		return variant.PrivateKeyFile != nil, nil
+	}
+	return false, nil
 }
 
 // ResourceID returns the resource ID of the certificate with the given key.

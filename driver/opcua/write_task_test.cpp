@@ -323,7 +323,10 @@ protected:
         secured_cfg.endpoint = "opc.tcp://localhost:" + std::to_string(SECURED_PORT);
         secured_cfg.security_mode = "SignAndEncrypt";
         secured_cfg.security_policy = "Basic256Sha256";
-        secured_cfg.server_certificate = server_cert;
+        secured_cfg.server_certificate_item = secret::testutil::create_certificate(
+            *ctx->client,
+            server_cert.pem()
+        );
         secured_cfg.username = username;
         secured_cfg.password_secret = password_secret;
         this->secured_dev = synnax::device::Device{
