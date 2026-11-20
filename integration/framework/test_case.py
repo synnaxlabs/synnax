@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Literal, NoReturn, NotRequired, TypedDict, TypeVar, overload
+from typing import Literal, NoReturn, NotRequired, TypedDict, overload
 
 from pydantic import JsonValue
 
@@ -57,10 +57,9 @@ def _numeric(value: int | float | str) -> float:
     return value
 
 
-_Param = TypeVar("_Param", bool, int, float, str)
-
-
-def param(params: Mapping[str, JsonValue], key: str, default: _Param) -> _Param:
+def param[Param: (bool, int, float, str)](
+    params: Mapping[str, JsonValue], key: str, default: Param
+) -> Param:
     """Returns the test definition parameter named key, or default if params does not
     hold it. An int parameter passes for a float default, but a bool never passes for an
     int or float default.
