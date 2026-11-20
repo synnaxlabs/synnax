@@ -1482,6 +1482,31 @@ describe("Task", async () => {
         await ended;
       });
 
+      it("should start the timeout once the command write ends", async () => {
+        const r = await createRunningRack(sender);
+        const t = await r.createTask({
+          name: `slow-write-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => commands.close());
+        const timeout = TimeSpan.milliseconds(300);
+        const openWriter = sender.openWriter.bind(sender);
+        const slow = vi
+          .spyOn(sender, "openWriter")
+          .mockImplementationOnce(async (cfg) => {
+            await sleep.sleep(timeout.mult(2));
+            return await openWriter(cfg);
+          });
+        onTestFinished(() => slow.mockRestore());
+        const wait = t.executeCommandSync({ type: "scan", timeout });
+        const cmd = await readCommand(commands, t.key);
+        await setReply(t, cmd, "success", "Scan complete");
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+        expect(slow).toHaveBeenCalledOnce();
+      });
+
       it("should time out when no reply arrives", async () => {
         const { task: t, wait } = await createWait(TimeSpan.milliseconds(200));
         await expect(wait).rejects.toThrow(

@@ -1120,6 +1120,16 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("should notify that the stream went down", async () => {
+      const cache = makeEngine();
+      await cache.ensureStreaming();
+      const liveWhenDown: boolean[] = [];
+      cache.onStreamDown(() => liveWhenDown.push(cache.live));
+      await cache.reset();
+      expect(liveWhenDown).toEqual([false]);
+      await cache.close();
+    });
+
     it("reopens the stream on the next demand and returns to epoch 1", async () => {
       const cache = makeEngine();
       cache.createTable<string, Doc>({ name: "docs" });

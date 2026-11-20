@@ -382,8 +382,8 @@ export class Cache {
 
   /**
    * Subscribes to the change stream going down: a drop that starts a reconnect, a
-   * failure that ends it, or a close. No change made while it is down ever arrives.
-   * Returns a destructor that unsubscribes.
+   * failure that ends it, a reset, or a close. No change made while it is down ever
+   * arrives. Returns a destructor that unsubscribes.
    */
   onStreamDown(callback: () => void): destructor.Destructor {
     return this.downObserver.onChange(callback);
@@ -423,7 +423,7 @@ export class Cache {
   async reset(): Promise<void> {
     const { streamer } = this;
     this.streamer = null;
-    this._live = false;
+    this.goDown();
     // Drain the retired stream first so a late frame cannot repopulate the
     // tables cleared below. A close failure must not block the reset: the
     // stream is retired either way.

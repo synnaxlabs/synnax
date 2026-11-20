@@ -1212,12 +1212,17 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     if (states.length === cmdKeys.length) resolve(states);
   };
   const close = await openStatuses({ onStatus, onError: reject });
+  let ended = false;
+  // The timeout starts once the write ends, so a slow link does not use it up.
+  const written = writeCommands(frameClient, cmds).then(() => {
+    if (!ended && acknowledged.size < cmdKeys.length) timeOutAfter(parsedTimeout);
+  });
   try {
-    timeOutAfter(parsedTimeout);
     // A down Driver can end the wait before the write returns.
-    const [, replies] = await Promise.all([writeCommands(frameClient, cmds), promise]);
+    const [, replies] = await Promise.all([written, promise]);
     return replies;
   } finally {
+    ended = true;
     clearTimeout(timer);
     close();
   }
