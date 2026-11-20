@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate, type TimeStamp } from "@synnaxlabs/client";
+import type { certificate, TimeStamp } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -23,7 +23,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Entry } from "@/platform/file-browser/list";
+import type { Entry } from "@/platform/file-browser/list";
 import { Validity } from "@/platform/secret/validity";
 
 /** An entry keyed by its path, as the list holds it. */

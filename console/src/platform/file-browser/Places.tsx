@@ -11,10 +11,10 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Listing } from "@/platform/file-browser/list";
+import type { Listing } from "@/platform/file-browser/list";
 import { inside } from "@/platform/file-browser/path";
 
 type Kind = "root" | "home" | "secrets";

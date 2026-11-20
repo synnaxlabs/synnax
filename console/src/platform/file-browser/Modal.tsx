@@ -47,7 +47,7 @@ import { dirnameOf, normalize } from "@/platform/file-browser/path";
 import { PathBar } from "@/platform/file-browser/PathBar";
 import { Places, placesOf } from "@/platform/file-browser/Places";
 import { useSession } from "@/platform/file-browser/Provider";
-import { type Session, type Snapshot } from "@/platform/file-browser/session";
+import type { Session, Snapshot } from "@/platform/file-browser/session";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
