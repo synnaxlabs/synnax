@@ -189,7 +189,7 @@ func (r *testFileRenderer) newBuilder(mode valueMode) *testValueBuilder {
 		parentPath:  r.parentPath,
 		imports:     r.fo.ExtraImports,
 		aliases:     r.aliases,
-		pins:        r.pins,
+		scope:       pinScope{pins: r.pins},
 		pkgPrefix:   r.packageName + ".",
 		mode:        mode,
 		sharedVars:  r.sharedVars,
@@ -381,7 +381,7 @@ func (r *testFileRenderer) addGenericTest(
 	gte := genericTestEntry{GoName: e.GoName, Receiver: recv, TypeParams: typeParams}
 	for _, m := range modes {
 		b := r.newBuilder(m.mode)
-		b.owners = []string{e.Type.QualifiedName}
+		b.scope.owners = []string{e.Type.QualifiedName}
 		fieldExprs, err := b.substitutedFieldExprs(substituted, m.name, e.GoName)
 		if err != nil {
 			return err
@@ -529,13 +529,8 @@ type testValueBuilder struct {
 	parentPath  string
 	imports     map[string]string
 	// aliases forces the alias of each import path it holds.
-	aliases map[string]string
-	// pins resolves a stored reference to the dependency version that an owner's
-	// version file imports.
-	pins versioning.Pins
-	// owners are the qualified names of the types whose fields the builder is filling,
-	// innermost last.
-	owners    []string
+	aliases   map[string]string
+	scope     pinScope
 	pkgPrefix string
 	needsUUID bool
 	depth     int
@@ -631,7 +626,7 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	}
 	// An inline payload belongs to its union, which already owns the fields.
 	if !typ.Synthetic {
-		defer b.enter(typ.QualifiedName)()
+		defer b.scope.enter(typ.QualifiedName)()
 	}
 	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
@@ -913,7 +908,7 @@ func (b *testValueBuilder) genericFieldExprs(
 		// so it keeps the outer pins.
 		leave := func() {}
 		if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
-			leave = b.enter(actual.QualifiedName)
+			leave = b.scope.enter(actual.QualifiedName)
 		}
 		var expr string
 		var err error
@@ -943,7 +938,7 @@ func (b *testValueBuilder) unionExpr(
 	if err != nil {
 		return "", err
 	}
-	defer b.enter(actual.QualifiedName)()
+	defer b.scope.enter(actual.QualifiedName)()
 	goName := naming.GetGoName(actual)
 	variantType := strings.TrimSuffix(goType, goName) +
 		casing.VariantTypeName(goName, v.Name)
@@ -1259,24 +1254,6 @@ func (b *testValueBuilder) resolveLeafPrim(
 	return typemap.ResolveLeafPrimitive(typ, b.table, b.goTypeName)
 }
 
-// enter makes qualifiedName the innermost owner until the returned function runs.
-func (b *testValueBuilder) enter(qualifiedName string) func() {
-	b.owners = append(b.owners, qualifiedName)
-	return func() { b.owners = b.owners[:len(b.owners)-1] }
-}
-
-// pinnedPath returns the @go output path of typ at the version that the innermost owner
-// pinning typ's schema imports. A struct pins no version of its own schema, so its
-// fields of that schema take the version that the owner holding the struct pins.
-func (b *testValueBuilder) pinnedPath(typ resolution.Type) (string, bool) {
-	for _, owner := range slices.Backward(b.owners) {
-		if p, ok := b.pins.Path(owner, typ); ok {
-			return p, true
-		}
-	}
-	return "", false
-}
-
 func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
 		if prim.Name == "record" {
@@ -1296,7 +1273,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
 	}
-	if p, ok := b.pinnedPath(typ); ok {
+	if p, ok := b.scope.path(typ); ok {
 		goPath = p
 	}
 	importPath := resolveGoImportPath(goPath, b.repoRoot)

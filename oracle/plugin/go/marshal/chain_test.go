@@ -255,10 +255,11 @@ Log struct {
 })
 
 var _ = Describe("Stored reference to a struct that holds a struct", func() {
-	// log v0 pins color v0, and color v0's Color holds color v0's Shade. The specs of
-	// the current log package build the Shade at v0 too, not at color's current
-	// version.
-	It("Should import the pinned version for the fields of a pinned struct", func() {
+	// log v0 pins color v0, and color v0's Color holds color v0's Shade. The codec and
+	// specs of the current log package take the Shade at v0 too, not at color's
+	// current version.
+	generate := func(color string) map[string]string {
+		GinkgoHelper()
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {
 			GinkgoHelper()
@@ -266,51 +267,29 @@ var _ = Describe("Stored reference to a struct that holds a struct", func() {
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 		}
-		write("schemas/x/versions/color/v0.oracle", `
+		shade := `
 Shade struct {
 	r uint8
 
 	@go marshal
 }
-
-Color struct {
-	shade Shade
+`
+		band := `
+Band struct {
+	color Color
 
 	@go marshal
 }
-`)
+`
+		write("schemas/x/versions/color/v0.oracle", shade+color)
 		write("schemas/x/versions/color/v1.oracle", `
 Shade = v0.Shade
 
 Color = v0.Color
-
-Band struct {
-	color Color
-
-	@go marshal
-}
-`)
+`+band)
 		write("schemas/x/color.oracle", `
 @go output "x/go/color"
-
-Shade struct {
-	r uint8
-
-	@go marshal
-}
-
-Color struct {
-	shade Shade
-
-	@go marshal
-}
-
-Band struct {
-	color Color
-
-	@go marshal
-}
-`)
+`+shade+color+band)
 		write("schemas/synnax/versions/log/v0.oracle", `
 import "schemas/x/versions/color/v0"
 
@@ -355,10 +334,37 @@ Log struct {
 		for _, f := range resp.Files {
 			files[f.Path] = string(f.Content)
 		}
+		return files
+	}
+
+	It("Should import the pinned version for the fields of a pinned struct", func() {
+		files := generate(`
+Color struct {
+	shade Shade
+
+	@go marshal
+}
+`)
 		specs := files["core/pkg/service/log/versions/v0/codec_gen_test.go"]
 		Expect(specs).To(ContainSubstring("Color: color.Color{Shade: color.Shade{"))
 		Expect(specs).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
 		Expect(files["core/pkg/service/log/versions/v0/codec.gen.go"]).
+			ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+
+	It("Should import the pinned version for the fields of an inlined generic", func() {
+		files := generate(`
+Color struct<T = uint8> {
+	shades Shade[]
+	alpha  T
+
+	@go marshal
+}
+`)
+		codec := files["core/pkg/service/log/versions/v0/codec.gen.go"]
+		Expect(codec).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(codec).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+		Expect(files["core/pkg/service/log/versions/v0/codec_gen_test.go"]).
 			ToNot(ContainSubstring(`x/go/color/versions/v1"`))
 	})
 })
