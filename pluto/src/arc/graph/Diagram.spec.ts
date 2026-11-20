@@ -28,6 +28,14 @@ describe("arc gesture converters", () => {
         arc.removeNode({ key: "n1" }),
       ]);
     });
+    it("drops a select change", () => {
+      expect(
+        nodeChangesToActions([
+          { type: "select", key: "n1", selected: true },
+          { type: "remove", key: "n2" },
+        ]),
+      ).toEqual([arc.removeNode({ key: "n2" })]);
+    });
   });
 
   describe("edgeChangesToActions", () => {

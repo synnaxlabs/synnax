@@ -147,19 +147,17 @@ catalog:
   '@types/html-escaper': ^3.0.4
   '@types/jsdom': ^30.0.0
   '@types/node': ^26.6.6
-  '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
   '@types/use-sync-external-store': ^1.7.0
-  '@types/webgl2': ^0.0.12
   '@types/ws': ^8.18.2
   '@vercel/oidc-aws-credentials-provider': ^3.3.13
   '@vitejs/plugin-react': ^6.1.2
   '@vitest/browser-playwright': ^5.0.5
   '@vitest/coverage-v8': ^5.0.5
   '@vscode/vsce': ^4.0.0
-  '@xyflow/react': ^12.12.0
+  '@xyflow/react': ^13.0.2
   algoliasearch: ^5.60.0
   astro: ^7.4.12
   astro-seo: ^1.2.0
@@ -233,7 +231,6 @@ catalog:
   turbo: ^2.11.9
   typescript: ^7.0.2
   typescript-eslint: ^8.71.2
-  undici: ^8.12.2
   use-sync-external-store: ^1.7.0
   uuid: ^14.0.3
   vite: ^8.3.4
