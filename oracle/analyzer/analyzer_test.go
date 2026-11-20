@@ -1197,6 +1197,64 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject an lt rule",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a type", `
+				Count int32 { @validate lt max }
+			`, "test.Count has an lt rule, but only a struct field can have one"),
+			Entry("naming a field the struct does not have", `
+				Range struct {
+					min float64 { @validate lt max }
+				}
+			`, "test.Range.min is less than max, but test.Range has no field max"),
+			Entry("on a string", `
+				Range struct {
+					min string { @validate lt max }
+					max string
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("naming an optional field", `
+				Range struct {
+					min float64 { @validate lt max }
+					max float64?
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("in a generic struct", `
+				Range struct<T> {
+					min float64 { @validate lt max }
+					max float64
+					value T
+				}
+			`, "test.Range.min has an lt rule, but test.Range is generic"),
+		)
+
+		DescribeTable(
+			"Should accept an lt rule",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("naming a field of the struct", `
+				Range struct {
+					min float64 { @validate lt max "min must be below max" }
+					max float64
+				}
+			`),
+			Entry("naming an inherited field", `
+				Upper struct {
+					max int32
+				}
+				Range struct extends Upper {
+					min int32 { @validate lt max }
+				}
+			`),
+		)
+
+		DescribeTable(
 			"Should accept a finite rule on a float",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)

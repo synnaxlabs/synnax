@@ -483,6 +483,62 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
+// validateComparisonRules errors on an lt rule outside a struct field, and on one whose
+// field or compared field is not a required number of the same struct.
+func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			if validation.Parse(t.Domains["validate"]).LessThan != nil {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has an lt rule, but only a struct field can have one",
+					t.QualifiedName,
+				))
+			}
+		case resolution.StructForm:
+			fields := resolution.UnifiedFields(t, table)
+			for _, f := range fields {
+				if _, declared := form.Field(f.Name); !declared {
+					continue
+				}
+				lt := validation.Parse(f.Domains["validate"]).LessThan
+				if lt == nil {
+					continue
+				}
+				if len(form.TypeParams) > 0 {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s.%s has an lt rule, but %s is generic",
+						t.QualifiedName, f.Name, t.QualifiedName,
+					))
+					continue
+				}
+				other, ok := lo.Find(fields, func(o resolution.Field) bool {
+					return o.Name == lt.Field
+				})
+				name := t.QualifiedName + "." + f.Name
+				if !ok {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s is less than %s, but %s has no field %s",
+						name, lt.Field, t.QualifiedName, lt.Field,
+					))
+					continue
+				}
+				if !isRequiredNumber(f, table) || !isRequiredNumber(other, table) {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s is less than %s, but both must be required numbers",
+						name, lt.Field,
+					))
+				}
+			}
+		}
+	}
+}
+
+func isRequiredNumber(f resolution.Field, table *resolution.Table) bool {
+	return !f.Optional &&
+		resolution.IsNumberPrimitive(resolution.PrimitiveBase(f.Type, table))
+}
+
 // validatePatternRules errors on a field or a type that sets a pattern rule when its
 // type chain already sets one, since one value cannot carry both patterns.
 func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {

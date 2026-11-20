@@ -230,6 +230,14 @@ bound the fill must not overwrite.
 Grouping only changes Go. TypeScript, Python, and C++ fill from key presence at decode
 and never overwrite a value the caller sent.
 
+## Field comparisons
+
+`@validate lt <field> ["message"]` on a number field requires it to be less than another
+required number field of the same struct, such as a `min_val` below a `max_val`. Go
+checks it in the struct's `Validate`, TypeScript in a `zod.lessThan` check on the object
+schema, and Python in a model validator. The analyzer rejects it on a type, on a generic
+struct, and on a field it cannot compare.
+
 ## Contextual validation
 
 A rule that needs facts outside the config, such as the data type of a referenced

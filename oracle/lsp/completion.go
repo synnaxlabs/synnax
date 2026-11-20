@@ -288,6 +288,11 @@ var (
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Refuse NaN and infinite floats"),
 		},
+		{
+			Label:  "lt",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Less than another field of the struct"),
+		},
 	}
 
 	outputExpressionCompletions = []protocol.CompletionItem{

@@ -444,6 +444,46 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
+		It("Should check that a field is less than another field", func() {
+			source := `
+				@ts output "out"
+
+				Range struct {
+					min float64 { @validate lt max "min must be below max" }
+					max float64
+				}
+
+				Base struct {
+					name string
+				}
+
+				Holder struct extends Base, Range {
+					label string
+				}
+
+				Child struct extends Range {
+					label string
+				}
+
+				Shape union on kind {
+					ranged extends Range {
+						label string
+					}
+					named extends Base, Range {
+						label string
+					}
+				}
+			`
+			resp := MustGenerate(source, "range", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			check := `.check(zod.lessThan("min", "max", "min must be below max"))`
+			// Range, Holder, and the named variant. Child and the ranged variant extend
+			// rangeZ, which keeps its check.
+			Expect(strings.Count(content, check)).To(Equal(3))
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(`import { zod } from "@synnaxlabs/x";`)
+		})
+
 		It(
 			"Should apply numeric rules to a type overridden to number",
 			func() {

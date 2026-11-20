@@ -212,6 +212,41 @@ var _ = Describe("Parse", func() {
 	})
 })
 
+var _ = Describe("LessThan", func() {
+	ident := resolution.ExpressionValue{
+		Kind:       resolution.ValueKindIdent,
+		IdentValue: "max_val",
+	}
+
+	It("should parse the field to compare against", func() {
+		Expect(parse("lt", ident).LessThan).To(Equal(
+			&validation.Comparison{Field: "max_val"},
+		))
+	})
+
+	It("should parse a message", func() {
+		message := resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: "Minimum must be less than maximum",
+		}
+		Expect(parse("lt", ident, message).LessThan).To(Equal(&validation.Comparison{
+			Field:   "max_val",
+			Message: "Minimum must be less than maximum",
+		}))
+	})
+
+	It("should make the rules not empty", func() {
+		Expect(validation.IsEmpty(parse("lt", ident))).To(BeFalse())
+	})
+
+	It("should never apply to a type", func() {
+		compared := resolution.Type{
+			Domains: map[string]resolution.Domain{"validate": rule("lt", ident)},
+		}
+		Expect(validation.TypeRules([]resolution.Type{compared}).LessThan).To(BeNil())
+	})
+})
+
 var _ = Describe("IsEmpty", func() {
 	It("should return true for nil", func() {
 		Expect(validation.IsEmpty(nil)).To(BeTrue())

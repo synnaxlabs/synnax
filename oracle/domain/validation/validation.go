@@ -31,10 +31,20 @@ type Rules struct {
 	Required       bool
 	// Finite refuses NaN and the infinities in a floating point field.
 	Finite bool
+	// LessThan requires the field to be less than another field of the same struct.
+	LessThan *Comparison
 	// Skip excludes the field from generated validation entirely, including recursion
 	// into it. Used for fields that hold a reference to another entity (e.g. a parent
 	// key or label keys) rather than embedded data to validate.
 	Skip bool
+}
+
+// Comparison is a rule that compares a field to another field of its struct.
+type Comparison struct {
+	// Field is the schema name of the other field.
+	Field string
+	// Message replaces the generated error message when it is not empty.
+	Message string
 }
 
 // Number represents a numeric constraint value that can be int or float.
@@ -80,6 +90,11 @@ func Parse(domain resolution.Domain) *Rules {
 			rules.GT = newNumber(v)
 		case "max":
 			rules.Max = newNumber(v)
+		case "lt":
+			rules.LessThan = &Comparison{Field: v.IdentValue}
+			if len(expr.Values) > 1 {
+				rules.LessThan.Message = expr.Values[1].StringValue
+			}
 		case "pattern":
 			rules.Pattern = &v.StringValue
 			if len(expr.Values) > 1 {
@@ -124,7 +139,8 @@ func TypeChain(ref resolution.TypeRef, table *resolution.Table) []resolution.Typ
 	return chain
 }
 
-// TypeRules returns the merged type-level rules of types. Skip never applies to a type.
+// TypeRules returns the merged type-level rules of types. Skip and LessThan never apply
+// to a type.
 func TypeRules(types []resolution.Type) *Rules {
 	rules := &Rules{}
 	for _, t := range types {
@@ -133,6 +149,7 @@ func TypeRules(types []resolution.Type) *Rules {
 		}
 	}
 	rules.Skip = false
+	rules.LessThan = nil
 	return rules
 }
 
@@ -145,6 +162,9 @@ func Merge(a, b *Rules) *Rules {
 	out.Required = a.Required || b.Required
 	out.Finite = a.Finite || b.Finite
 	out.Skip = a.Skip || b.Skip
+	if out.LessThan == nil {
+		out.LessThan = b.LessThan
+	}
 	out.MinLength = tighterLength(a.MinLength, b.MinLength, true)
 	out.MaxLength = tighterLength(a.MaxLength, b.MaxLength, false)
 	out.Min = tighterNumber(a.Min, b.Min, true)
@@ -199,5 +219,6 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && !r.Finite && r.MinLength == nil && r.MaxLength == nil &&
-		r.Min == nil && r.GT == nil && r.Max == nil && r.Pattern == nil
+		r.Min == nil && r.GT == nil && r.Max == nil && r.Pattern == nil &&
+		r.LessThan == nil
 }

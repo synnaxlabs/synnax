@@ -251,6 +251,15 @@ func generatePyFile(
 			if err := addFilterInput(typ, &sd, table, data); err != nil {
 				return nil, err
 			}
+			declared := resolution.UnifiedFields(typ, table)
+			if sd.HasExtends {
+				declared = resolution.MustForm[resolution.StructForm](typ).Fields
+			}
+			if lt := lessThanValidators(declared, data); lt != "" {
+				sd.Validators = strings.Join(
+					lo.Compact([]string{sd.Validators, lt}), "\n\n",
+				)
+			}
 			// The alias keeps a field named override from shadowing the decorator in
 			// the class body.
 			if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
@@ -2520,6 +2529,10 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
     {{ $disc }}: Literal["{{ .Value }}"] = "{{ .Value }}"
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
+{{- if .Validators }}
+
+{{ .Validators }}
 {{- end }}
 {{- end }}
 
