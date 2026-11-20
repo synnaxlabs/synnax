@@ -155,7 +155,7 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 		}))
 		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(Succeed())
 		MustOpen(sigs.Start(ctx))
-		ch := retrieveChannel(ctx, signals.ReferenceChangeName)
+		ch := retrieveChannel(ctx, "sy_reference_change")
 		Expect(ch.DataType).To(Equal(telem.StringT))
 		record := sigs.Records()[ch.Key()]
 		responses := openStreamer(ctx, ch.Key())
@@ -165,7 +165,9 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 			samples := make([]refSample, len(raw))
 			for i, r := range raw {
 				samples[i].target = MustSucceed(record.Of(r)).String()
-				holders, sent := MustSucceed2(record.Changed(r))
+				of, holders, sent, err := record.Changed(r)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(of.String()).To(Equal(samples[i].target))
 				Expect(string(sent)).To(Equal(samples[i].target))
 				for _, h := range holders {
 					samples[i].holders = append(samples[i].holders, h.String())
@@ -306,13 +308,15 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 	It("Should read the target and the changed holders of a sample", func(
 		ctx SpecContext,
 	) {
-		ch := retrieveChannel(ctx, signals.ReferenceChangeName)
+		ch := retrieveChannel(ctx, "sy_reference_change")
 		record := sigs.Records()[ch.Key()]
 		Expect(record.Deleted).To(BeFalse())
 		sample := []byte("10:channel:4211:schematic:s")
 		Expect(record.Of(sample)).
 			To(Equal(resource.ID{Type: resource.TypeChannel, Key: "42"}))
-		holders, sent := MustSucceed2(record.Changed(sample))
+		of, holders, sent, err := record.Changed(sample)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(of).To(Equal(resource.ID{Type: resource.TypeChannel, Key: "42"}))
 		Expect(holders).
 			To(Equal([]resource.ID{{Type: resource.TypeSchematic, Key: "s"}}))
 		Expect(string(sent)).To(Equal("channel:42"))

@@ -11,6 +11,7 @@ package signals
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"slices"
 	"strconv"
@@ -20,19 +21,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// ReferenceChangeName is the name of the channel that announces the records whose
+// referenceChangeName is the name of the channel that announces the records whose
 // holders changed.
-const ReferenceChangeName = "sy_reference_change"
+const referenceChangeName = "sy_reference_change"
 
-// PublishReferenceChanges declares the channel named ReferenceChangeName. For each
-// commit that adds or removes a link, Start writes to it the resource ID of each target
-// of those links, once. A streamer sends a subject a target's sample only when the
-// subject can retrieve the target and at least one holder whose link to it changed:
-// holderOf returns the resource of a holder. A holder that names no resource type, such
-// as a session, is one that no subject can retrieve. Call it once every table with
+// PublishReferenceChanges declares the channel sy_reference_change. For each commit
+// that adds or removes a link, Start writes to it the resource ID of each target of
+// those links, once. A streamer sends a subject a target's sample only when the subject
+// can retrieve the target and at least one holder whose link to it changed: holderOf
+// returns the resource of a holder. A holder that names no resource type, such as a
+// session, is one that no subject can retrieve. Call it once every table with
 // references is open: it fails when a table that a reference points at names no
 // resource type.
 func (p *Provider) PublishReferenceChanges(
@@ -48,54 +50,81 @@ func (p *Provider) PublishReferenceChanges(
 		}
 	}
 	f := &referenceFeed{
-		ch:       channel.Channel{Name: ReferenceChangeName, DataType: telem.StringT},
+		ch:       channel.Channel{Name: referenceChangeName, DataType: telem.StringT},
 		holderOf: holderOf,
-		holders:  make(map[gorp.Target][]string),
+		index:    make(map[gorp.Target]int),
+		seen:     make(set.Set[targetHolder]),
 	}
 	return p.add(ctx, f, &f.ch)
 }
 
 // referenceFeed writes the targets of the links that each commit adds or removes. Each
 // sample holds the target's resource ID and then the ID of each holder whose link to it
-// changed, each as its length in decimal, a colon, and its text. The API streamer
-// checks the holders and sends the target alone.
+// changed, each as its length in decimal, a colon, and its text, so that the sample
+// stays valid UTF-8. The API streamer checks the holders and sends the target alone.
 type referenceFeed struct {
 	ch       channel.Channel
 	holderOf func(gorp.Target) resource.ID
-	// holders holds the changed holders of each target of one commit. Commits append
-	// one at a time.
-	holders map[gorp.Target][]string
+	// targets, index, links, and seen hold the work of one commit. Commits append one
+	// at a time, so the feed reuses them.
+	targets []gorp.Target
+	index   map[gorp.Target]int
+	links   []targetHolder
+	seen    set.Set[targetHolder]
+}
+
+// targetHolder is a holder whose link to the target at an index of targets changed.
+type targetHolder struct {
+	target int
+	holder resource.ID
 }
 
 func (f *referenceFeed) append(c gorp.Commit, fr framer.Frame) framer.Frame {
-	clear(f.holders)
-	var targets []gorp.Target
+	f.targets, f.links = f.targets[:0], f.links[:0]
+	clear(f.index)
+	clear(f.seen)
 	for _, ch := range c.Changes {
-		holder := f.holderOf(ch.Record).String()
+		if len(ch.Added) == 0 && len(ch.Removed) == 0 {
+			continue
+		}
+		holder := f.holderOf(ch.Record)
 		for _, links := range [2][]gorp.Link{ch.Added, ch.Removed} {
 			for _, l := range links {
-				held, seen := f.holders[l.Target]
-				if !seen {
-					targets = append(targets, l.Target)
-				}
-				if !slices.Contains(held, holder) {
-					f.holders[l.Target] = append(held, holder)
-				}
+				f.add(l.Target, holder)
 			}
 		}
 	}
-	if len(targets) == 0 {
+	if len(f.targets) == 0 {
 		return fr
 	}
-	samples := make([]string, 0, len(targets))
-	for _, t := range targets {
-		sample := appendID(nil, resourceOf(t).String())
-		for _, h := range f.holders[t] {
-			sample = appendID(sample, h)
+	slices.SortStableFunc(f.links, func(a, b targetHolder) int {
+		return cmp.Compare(a.target, b.target)
+	})
+	var data []byte
+	for i, j := 0, 0; i < len(f.targets); i++ {
+		start := len(data)
+		data = append(data, 0, 0, 0, 0)
+		data = appendID(data, resourceOf(f.targets[i]))
+		for ; j < len(f.links) && f.links[j].target == i; j++ {
+			data = appendID(data, f.links[j].holder)
 		}
-		samples = append(samples, string(sample))
+		telem.ByteOrder.PutUint32(data[start:], uint32(len(data)-start-4))
 	}
-	return fr.Append(f.ch.Key(), telem.NewSeriesV(samples...))
+	return fr.Append(f.ch.Key(), telem.Series{DataType: telem.StringT, Data: data})
+}
+
+// add records that the link of holder to target changed.
+func (f *referenceFeed) add(target gorp.Target, holder resource.ID) {
+	i, ok := f.index[target]
+	if !ok {
+		i = len(f.targets)
+		f.index[target] = i
+		f.targets = append(f.targets, target)
+	}
+	if th := (targetHolder{target: i, holder: holder}); !f.seen.Contains(th) {
+		f.seen.Add(th)
+		f.links = append(f.links, th)
+	}
 }
 
 func (f *referenceFeed) records() map[channel.Key]Record {
@@ -110,52 +139,57 @@ func resourceOf(target gorp.Target) resource.ID {
 	return resource.ID{Type: resource.Type(target.Table), Key: target.Key}
 }
 
-func appendID(sample []byte, id string) []byte {
-	sample = strconv.AppendInt(sample, int64(len(id)), 10)
+func appendID(sample []byte, id resource.ID) []byte {
+	sample = strconv.AppendInt(sample, int64(len(id.Type)+1+len(id.Key)), 10)
 	sample = append(sample, ':')
-	return append(sample, id...)
+	sample = append(sample, id.Type...)
+	sample = append(sample, ':')
+	return append(sample, id.Key...)
 }
 
 var errMalformedSample = errors.New("[signals] - malformed reference change sample")
 
-func idsOfSample(sample []byte) ([]string, error) {
-	var ids []string
-	for len(sample) > 0 {
-		colon := bytes.IndexByte(sample, ':')
-		if colon <= 0 {
-			return nil, errMalformedSample
-		}
-		n, err := strconv.Atoi(string(sample[:colon]))
-		if err != nil || n < 0 || n > len(sample)-colon-1 {
-			return nil, errMalformedSample
-		}
-		ids = append(ids, string(sample[colon+1:colon+1+n]))
-		sample = sample[colon+1+n:]
+// nextID returns the text of the first ID in sample and the rest of sample.
+func nextID(sample []byte) (id, rest []byte, err error) {
+	colon := bytes.IndexByte(sample, ':')
+	if colon <= 0 {
+		return nil, nil, errMalformedSample
 	}
-	if len(ids) == 0 {
-		return nil, errMalformedSample
+	n, err := strconv.Atoi(string(sample[:colon]))
+	if err != nil || n < 0 || n > len(sample)-colon-1 {
+		return nil, nil, errMalformedSample
 	}
-	return ids, nil
+	return sample[colon+1 : colon+1+n], sample[colon+1+n:], nil
 }
 
 func targetOfSample(sample []byte) (resource.ID, error) {
-	ids, err := idsOfSample(sample)
+	target, _, err := nextID(sample)
 	if err != nil {
 		return resource.ID{}, err
 	}
-	return resource.ParseID(ids[0])
+	return resource.ParseID(string(target))
 }
 
-func holdersOfSample(sample []byte) ([]resource.ID, []byte, error) {
-	ids, err := idsOfSample(sample)
+func holdersOfSample(sample []byte) (resource.ID, []resource.ID, []byte, error) {
+	text, rest, err := nextID(sample)
 	if err != nil {
-		return nil, nil, err
+		return resource.ID{}, nil, nil, err
 	}
-	holders := make([]resource.ID, len(ids)-1)
-	for i, id := range ids[1:] {
-		if holders[i], err = resource.ParseID(id); err != nil {
-			return nil, nil, err
+	target, err := resource.ParseID(string(text))
+	if err != nil {
+		return resource.ID{}, nil, nil, err
+	}
+	var holders []resource.ID
+	for len(rest) > 0 {
+		var id []byte
+		if id, rest, err = nextID(rest); err != nil {
+			return resource.ID{}, nil, nil, err
 		}
+		holder, err := resource.ParseID(string(id))
+		if err != nil {
+			return resource.ID{}, nil, nil, err
+		}
+		holders = append(holders, holder)
 	}
-	return holders, []byte(ids[0]), nil
+	return target, holders, text, nil
 }

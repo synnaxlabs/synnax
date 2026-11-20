@@ -68,6 +68,7 @@ func (h *dirHolder) DecodeOrc(r *orc.Reader) (err error) {
 var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 	var holders *gorp.Table[string, dirHolder]
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		holders = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, dirHolder]{
 			DB:   db,
 			Name: "signals_test_dir_holder",
@@ -111,14 +112,15 @@ var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 		}))
 		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(Succeed())
 		MustOpen(sigs.Start(ctx))
-		ch := retrieveChannel(ctx, signals.ReferenceChangeName)
+		ch := retrieveChannel(ctx, "sy_reference_change")
 		record := sigs.Records()[ch.Key()]
 		responses := openStreamer(ctx, ch.Key())
 		changes := func() []string {
 			GinkgoHelper()
-			var targets []string
-			for _, s := range receiveSamples(responses) {
-				targets = append(targets, MustSucceed(record.Of(s)).String())
+			samples := receiveSamples(responses)
+			targets := make([]string, len(samples))
+			for i, s := range samples {
+				targets[i] = MustSucceed(record.Of(s)).String()
 			}
 			return targets
 		}
@@ -186,7 +188,7 @@ var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 		}))
 		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(Succeed())
 		MustOpen(sigs.Start(ctx))
-		ch := retrieveChannel(ctx, signals.ReferenceChangeName)
+		ch := retrieveChannel(ctx, "sy_reference_change")
 		record := sigs.Records()[ch.Key()]
 		responses := openStreamer(ctx, ch.Key())
 		c := channel.Channel{Name: nextName(), DataType: telem.Float32T, Virtual: true}
@@ -197,23 +199,25 @@ var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 			"12:schematic:7", "", "ключ✓\x00\n", strings.Repeat("9:", 5000), ":",
 		}
 		hs := make([]dirHolder, len(keys))
-		var want []resource.ID
+		want := make([]resource.ID, len(keys))
 		for i, k := range keys {
 			hs[i] = dirHolder{Key: k, Reads: []channel.Key{c.Key()}}
-			want = append(want, resource.ID{Type: resource.TypeSchematic, Key: k})
+			want[i] = resource.ID{Type: resource.TypeSchematic, Key: k}
 		}
 		Expect(holders.NewCreate().Entries(&hs).Exec(ctx, db)).To(Succeed())
 		samples := receiveSamples(responses)
 		Expect(samples).To(HaveLen(1))
 		Expect(record.Of(samples[0])).To(Equal(c.ResourceID()))
-		by, sent := MustSucceed2(record.Changed(samples[0]))
+		of, by, sent, err := record.Changed(samples[0])
+		Expect(err).ToNot(HaveOccurred())
+		Expect(of).To(Equal(c.ResourceID()))
 		Expect(by).To(ConsistOf(want))
 		Expect(string(sent)).To(Equal(c.ResourceID().String()))
-		_, _, err := record.Changed([]byte("10:channel:428:nocolon"))
-		Expect(err).To(HaveOccurred())
+		malformed := "[signals] - malformed reference change sample"
+		_, _, _, err = record.Changed([]byte("10:channel:428:nocolon"))
+		Expect(err).To(MatchError(malformed))
 		_, err = record.Of([]byte("3:abc"))
-		Expect(err).To(HaveOccurred())
-		_, err = record.Of([]byte("99:channel:1"))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("abc")))
+		Expect(record.Of([]byte("99:channel:1"))).Error().To(MatchError(malformed))
 	})
 })

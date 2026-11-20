@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
@@ -367,7 +366,7 @@ var _ = Describe("Change channels", func() {
 		})).To(Succeed())
 		stream(
 			ctx,
-			signals.ReferenceChangeName,
+			"sy_reference_change",
 			resource.ID{Type: resource.TypeChannel},
 			resource.ID{Type: resource.TypeSchematic},
 		)
@@ -429,7 +428,7 @@ var _ = Describe("Change channels", func() {
 		// The subject can retrieve schematics and only the shown channel.
 		stream(
 			ctx,
-			signals.ReferenceChangeName,
+			"sy_reference_change",
 			shown.ResourceID(),
 			resource.ID{Type: resource.TypeSchematic},
 		)
@@ -490,7 +489,7 @@ var _ = Describe("Change channels", func() {
 			})).To(Succeed())
 			stream(
 				ctx,
-				signals.ReferenceChangeName,
+				"sy_reference_change",
 				resource.ID{Type: resource.TypeChannel},
 				resource.ID{Type: resource.TypeSchematic},
 			)

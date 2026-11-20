@@ -24,16 +24,17 @@ import (
 // describes. It returns an error when the sample does not hold a key.
 type RecordOf func(sample []byte) (resource.ID, error)
 
-// ChangedOf returns the records whose change one sample of a change channel reports,
-// and the sample to send in its place.
-type ChangedOf func(sample []byte) (by []resource.ID, sent []byte, err error)
+// ChangedOf returns the record of one sample of a change channel, the records whose
+// change the sample reports, and the sample to send in its place.
+type ChangedOf func(sample []byte) (of resource.ID, by []resource.ID, sent []byte, err error)
 
 // Record finds the records that the samples of a change channel describe.
 type Record struct {
 	// Of returns the record of one sample.
 	Of RecordOf
-	// Changed, when set, returns the records that changed the record of a sample. A
-	// subject then gets the sample only when it can also retrieve one of them.
+	// Changed, when set, reads a sample in place of Of, with the records that changed
+	// its record. A subject then gets the sample only when it can also retrieve one of
+	// them.
 	Changed ChangedOf
 	// Deleted is true when each sample describes a record that was deleted.
 	Deleted bool

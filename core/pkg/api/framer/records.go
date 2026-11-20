@@ -121,6 +121,25 @@ func (s *recordSender) carriesRecords(fr Frame) bool {
 	return false
 }
 
+// keptSample returns the sample to send in place of sample, and false when allowed
+// accepts neither its record nor, for a record with Changed, one of the records that
+// changed it.
+func keptSample(
+	sample []byte,
+	record signals.Record,
+	allowed func(resource.ID) bool,
+) ([]byte, bool, error) {
+	if record.Changed == nil {
+		of, err := record.Of(sample)
+		return sample, err == nil && allowed(of), err
+	}
+	of, by, sent, err := record.Changed(sample)
+	if err != nil {
+		return nil, false, err
+	}
+	return sent, allowed(of) && slices.ContainsFunc(by, allowed), nil
+}
+
 // keepAllowed returns a copy of the series with only the samples whose record allowed
 // accepts, and for a record with Changed, one of the records that changed it. Such a
 // sample is sent as Changed returns it. Streams share the series they receive, so it
@@ -138,22 +157,12 @@ func keepAllowed(
 	}
 	variable := series.DataType.IsVariable()
 	for sample := range series.Samples() {
-		of, err := record.Of(sample)
+		sample, keep, err := keptSample(sample, record, allowed)
 		if err != nil {
 			return telem.Series{}, err
 		}
-		if !allowed(of) {
+		if !keep {
 			continue
-		}
-		if record.Changed != nil {
-			by, sent, err := record.Changed(sample)
-			if err != nil {
-				return telem.Series{}, err
-			}
-			if !slices.ContainsFunc(by, allowed) {
-				continue
-			}
-			sample = sent
 		}
 		if variable {
 			sample = telem.MarshalVariableSample(sample)
