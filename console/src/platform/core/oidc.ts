@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { writeToken } from "@/platform/core/token";
 import { Runtime } from "@/platform/runtime";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 /** The scopes a login asks the provider for: the ID token, with the `name` claim. */
 const SCOPES = "openid profile";

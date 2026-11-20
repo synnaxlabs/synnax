@@ -20,7 +20,7 @@ import {
   MissingCredentialsError,
   SessionEndedError,
 } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -43,7 +43,7 @@ vi.mock("@/platform/core/detectConnection", () => ({
 
 const runtime = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, runtime);
 });
