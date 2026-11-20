@@ -19,6 +19,14 @@ interface Ref {
   needle: string;
 }
 
+const VERCEL_IMAGE = "/_vercel/image?";
+
+// Vercel serves a resized image only once deployed, so check the image it resizes.
+const original = (url: string): string =>
+  url.startsWith(VERCEL_IMAGE)
+    ? (new URLSearchParams(url.slice(VERCEL_IMAGE.length)).get("url") ?? url)
+    : url;
+
 // The page source names a docs asset by its id, not its URL.
 const needle = (url: string): string =>
   url.startsWith(CDN.ROOT)
@@ -36,7 +44,8 @@ interface Unnamed {
 
 const unnamed = (html: string): Unnamed[] => [
   ...[...html.matchAll(/<img\b[^>]*>/g)]
-    .filter(([tag]) => attrOf(tag, "alt") == null)
+    // Astro renders an empty alt as a bare attribute.
+    .filter(([tag]) => !/\salt(?=[\s=/>])/.test(tag))
     .map(([tag]) => ({
       url: attrOf(tag, "src") ?? "",
       problem: "image has no alt text",
@@ -62,12 +71,13 @@ export const media = (fullCrawl: boolean): Check => {
           set.split(",").map((candidate) => candidate.trim().split(/\s+/)[0]),
         ),
         ...attrValues(html, "video", "poster"),
-      ];
+      ].map(original);
       // A media fragment such as #t=0.001 seeks the video; it names no anchor.
       for (const url of urls)
         refs.push({ route, url: url.replace(/#.*$/, ""), needle: needle(url) });
       return unnamed(html).map(
-        ({ url, problem }) => `${locate(route, needle(url))} - ${problem}: ${url}`,
+        ({ url, problem }) =>
+          `${locate(route, needle(original(url)))} - ${problem}: ${original(url)}`,
       );
     },
     finish: async (ctx, report, progress) => {

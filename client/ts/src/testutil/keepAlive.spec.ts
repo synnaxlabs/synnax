@@ -25,7 +25,7 @@ describe("shortenKeepAlive", () => {
   };
 
   beforeAll(async () => {
-    shortenKeepAlive();
+    await shortenKeepAlive();
     server = createServer((_, res) => res.end("ok"));
     // A Keep-Alive header would override the client timeout. The Core sends none.
     server.keepAliveTimeout = 0;

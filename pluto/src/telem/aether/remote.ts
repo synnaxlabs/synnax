@@ -175,7 +175,7 @@ class ChannelValue<V>
     return { data: this.converted?.value ?? empty, status, time, appended };
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.generation++;
     this.subscription?.close();
     this.subscription = null;
@@ -595,7 +595,7 @@ export class ChannelData
       }
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.generation++;
     this.retryNotifier.notify();
     this.draw?.close();

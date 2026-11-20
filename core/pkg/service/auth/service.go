@@ -288,7 +288,8 @@ func (s *Service) version(
 }
 
 // current returns true when the session holds the current version of its credential in
-// snap. A session's version never changes after login.
+// snap. A session's version never changes after login. A session whose method is off is
+// never current: no authenticator in the config holds its credential.
 func (s *Service) current(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -350,6 +351,19 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{svc: s, tx: tx}
 }
 
+// Methods returns the methods the Service accepts, sorted.
+func (s *Service) Methods() []Method {
+	return slices.Sorted(maps.Keys(s.cfg.Authenticators))
+}
+
+// Accepts returns a validation error when the Service does not accept method.
+func (s *Service) Accepts(method Method) error {
+	if _, ok := s.cfg.Authenticators[method]; !ok {
+		return errors.Wrapf(validate.ErrValidation, "method %s is not accepted", method)
+	}
+	return nil
+}
+
 // Login checks the proof with the authenticator for its method and opens a session for
 // the identity it proves. It returns the session and its token, which is shown once. A
 // proof for a method with no authenticator is a validation error.
@@ -361,15 +375,10 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	authenticator, ok := s.cfg.Authenticators[method]
-	if !ok {
-		return Session{}, "", errors.Wrapf(
-			validate.ErrValidation,
-			"method %s is not accepted",
-			method,
-		)
+	if err = s.Accepts(method); err != nil {
+		return Session{}, "", err
 	}
-	identity, err := authenticator.Authenticate(ctx, proof)
+	identity, err := s.cfg.Authenticators[method].Authenticate(ctx, proof)
 	if err != nil {
 		return Session{}, "", err
 	}
@@ -387,10 +396,11 @@ func (s *Service) Login(
 }
 
 // Authenticate returns the session a token belongs to and counts the request as
-// activity. It returns [ErrInvalidToken] when no session matches the token or the
-// session's credential changed since login, and [ErrExpiredToken] when the session has
-// been idle for the idle timeout. Both of the latter delete the session. It reads two
-// records under the shared read lock, so it waits for a write that is in progress.
+// activity. It returns [ErrInvalidToken] when no session matches the token, the
+// session's credential changed since login, or its method is off, and [ErrExpiredToken]
+// when the session has been idle for the idle timeout. Both of the latter delete the
+// session. It reads two records under the shared read lock, so it waits for a write
+// that is in progress.
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
 	key, hash, err := ParseToken(tokenPrefix, token)
 	if err != nil {

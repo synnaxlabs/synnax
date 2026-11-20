@@ -215,8 +215,7 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should list the other ranges when the nested ranges fill a page", async () => {
-      // The ranges start after every other range, so they lead the newest-first list,
-      // and the spec deletes them.
+      // Far in the future, so the nested ranges sort above `other` and fill a page.
       const start = TimeStamp.now().add(TimeSpan.days(36500));
       const at = (offset: number) => {
         const from = start.add(TimeSpan.microseconds(offset));
