@@ -11,7 +11,7 @@ import "@/components/tabs/Tabs.css";
 
 import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 

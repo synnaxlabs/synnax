@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Errors } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { useFallback } from "@/platform/errors/Diagnostics";
 

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ni } from "@synnaxlabs/client";
+import type { ni } from "@synnaxlabs/client";
 import { type bounds, unique } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type Device } from "@/feature/ni/device/types";
+import type { Device } from "@/feature/ni/device/types";
 import {
   accepts,
   ANALOG_INPUT,

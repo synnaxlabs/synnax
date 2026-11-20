@@ -67,3 +67,15 @@ describe("Toolbar.Body", () => {
     expect(screen.getByText("boom", { exact: false })).toBeTruthy();
   });
 });
+
+describe("Toolbar.Title", () => {
+  it("fades a long title on one line instead of wrapping it", async () => {
+    await renderWithConsole(
+      <Toolbar.Header>
+        <Toolbar.Title>Ranges</Toolbar.Title>
+      </Toolbar.Header>,
+    );
+    const { classList } = screen.getByText("Ranges");
+    expect(classList.contains("lyra-text--overflow-fade")).toBe(true);
+  });
+});

@@ -23,7 +23,7 @@ import { createPanelProject, createTestClient } from "@synnaxlabs/client/testuti
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -43,14 +43,14 @@ import {
   useImperativeHandle,
 } from "react";
 import { expect, onTestFinished } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
-import { type FormTabProps } from "@/platform/task/Form";
-import { type PlotChannels } from "@/platform/task/plot";
+import type { FormTabProps } from "@/platform/task/Form";
+import type { PlotChannels } from "@/platform/task/plot";
 import { type Registry, RegistryProvider } from "@/platform/task/registry";
-import { type CreateParams, type UseCreate } from "@/platform/task/useCreate";
+import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
 import { Session } from "@/session";
 import {
   CaptureStatuses,

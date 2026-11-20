@@ -27,7 +27,7 @@ import {
 import { entryHash, versionOf } from "@/cli/hash";
 import { runCapture, runRender, STUDIO_PORT } from "@/cli/pipeline";
 import { type Entry, stillsDir, videoName } from "@/manifest";
-import { type Timeline } from "@/timeline";
+import type { Timeline } from "@/timeline";
 
 const usage = `usage: pnpm batch [filter] [options]
 Produces every manifest entry (videos.ts) whose id contains [filter]: for each,

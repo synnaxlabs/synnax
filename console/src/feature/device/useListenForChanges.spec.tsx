@@ -9,7 +9,7 @@
 
 import { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";

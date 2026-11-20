@@ -12,7 +12,7 @@ import "@/platform/connection/Target.css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Indicator } from "@/platform/connection/Indicator";
 import { label as statusLabel } from "@/platform/connection/labels";

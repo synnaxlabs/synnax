@@ -7,29 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIContext, type MiddlewareHandler } from "astro";
+import type { APIContext, MiddlewareHandler } from "astro";
 import { sequence } from "astro/middleware";
 
-import { type Portal } from "@/portal";
+import type { Portal } from "@/portal";
 import { forbidden, toResponse } from "@/server/errors";
-
-const CLERK = "https://*.clerk.accounts.dev https://clerk.synnaxlabs.com";
-
-/** POSTHOG is our own address for PostHog, which the analytics banner loads from. */
-const POSTHOG = "https://t.synnaxlabs.com";
-
-const CSP = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://vercel.live ${CLERK} https://challenges.cloudflare.com ${POSTHOG}`,
-  "style-src 'self' 'unsafe-inline'",
-  "font-src 'self' data:",
-  `connect-src 'self' https://vercel.live ${CLERK} https://clerk-telemetry.com ${POSTHOG}`,
-  "worker-src 'self' blob:",
-  "img-src 'self' data: https://img.clerk.com https://vercel.com https://vercel.live",
-  "frame-src https://vercel.live https://challenges.cloudflare.com",
-  "frame-ancestors 'none'",
-  "object-src 'none'",
-].join("; ");
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -62,12 +44,6 @@ const origin: MiddlewareHandler = async ({ request, url }, next) => {
   return await next();
 };
 
-const headers: MiddlewareHandler = async (_, next) => {
-  const response = await next();
-  if (!import.meta.env.DEV) response.headers.set("Content-Security-Policy", CSP);
-  return response;
-};
-
 export interface Config {
   /** auth reads the Clerk session of the request. */
   auth: MiddlewareHandler;
@@ -77,12 +53,12 @@ export interface Config {
 
 /**
  * pipeline builds the middleware every request passes through: the origin check, the
- * session, the portal, and the security headers.
+ * session, and the portal.
  */
 export const pipeline = ({ auth, open }: Config): MiddlewareHandler => {
   const portal: MiddlewareHandler = async (context, next) => {
     context.locals.portal = open(context);
     return await next();
   };
-  return sequence(origin, auth, portal, headers);
+  return sequence(origin, auth, portal);
 };

@@ -12,7 +12,7 @@ import "@/vis/legend/Container.css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { state } from "@synnaxlabs/lyra/state";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";

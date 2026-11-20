@@ -13,7 +13,7 @@ import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/test
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type framer, type Synnax } from "@synnaxlabs/client";
+import type { Instrumentation } from "@synnaxlabs/alamos";
+import type { framer, Synnax } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -22,7 +22,7 @@ import {
   createFactory,
   type Factory,
 } from "@/telem/aether/factory";
-import { type Client } from "@/telem/aether/remote";
+import type { Client } from "@/telem/aether/remote";
 
 export type ProviderState = z.input<typeof providerStateZ>;
 export const providerStateZ = z.object({});

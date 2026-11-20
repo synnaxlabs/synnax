@@ -19,12 +19,12 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { deep, type record, verbs } from "@synnaxlabs/x";
-import { type ComponentType, type ReactElement } from "react";
+import type { ComponentType, ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { type Hardware } from "@/platform/device/integration";
+import type { Hardware } from "@/platform/device/integration";
 import { LocationBadge } from "@/platform/device/LocationBadge";
 import {
   type ConfigureParams,

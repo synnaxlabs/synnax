@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
-import { type CaptureSession } from "@/capture/rig";
+import type { CaptureSession } from "@/capture/rig";
 
 /**
  * zoomCenter zooms `amount` deep on the center of a region too large for its fit to

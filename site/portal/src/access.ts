@@ -9,7 +9,7 @@
 
 import { desc, eq } from "drizzle-orm";
 
-import { type Portal } from "@/portal";
+import type { Portal } from "@/portal";
 import {
   type Activation,
   activation,
@@ -20,9 +20,9 @@ import {
 } from "@/server/db/schema";
 import { ADMIN_ROLE } from "@/server/directory";
 import { forbidden, notFound } from "@/server/errors";
-import { type Team } from "@/server/member";
+import type { Team } from "@/server/member";
 import { isMember, retrieve } from "@/server/organization";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 
 export interface LicenseView {
   license: License;
