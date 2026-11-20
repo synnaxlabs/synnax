@@ -33,7 +33,6 @@ import {
 import { useResetZoomOnRangeChange } from "@/feature/lineplot/useResetZoomOnRangeChange";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { Sift } from "@/feature/sift";
-import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import type { Panel } from "@/platform/panel";
@@ -304,7 +303,6 @@ const Internal = (): ReactElement => {
           onDoubleClick={handleDoubleClick}
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
-          gapsCollapsed={FLAGS.breaks}
           onBreaksChange={setBreaks}
         >
           <Controls hasAnnotations={hasAnnotations} />

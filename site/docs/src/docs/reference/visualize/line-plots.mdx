@@ -79,9 +79,10 @@ show a live span and one or more ranges together.
 To plot a range from the ranges toolbar, right-click the range and select **Plot**. To
 add it to a line plot that is open, drag it onto the **Ranges** field.
 
-Each range keeps its real times, so two runs on different days sit apart on the x-axis.
-A range that is still running shows from its start to its newest sample, and the plot
-grows as new samples arrive.
+Each range keeps its real times. When two ranges are far apart, the plot hides the time
+between them. See [hide the time between ranges](#hide-the-time-between-ranges). A range
+that is still running shows from its start to its newest sample, and the plot grows as
+new samples arrive.
 
 The plot shows each range in Synnax that overlaps the visible time as a bar in a strip
 above the plot. Only ranges that have a color show. The end of a bar shows the length of
@@ -102,6 +103,38 @@ To hide the bars, click <Icon.Range /> (**Hide range annotations**) in the top r
 the plot.
 
 <Video id="console/line-plots/range-zoom" label="Zoom a line plot to a range" />
+
+<Divider.Divider x />
+
+## Hide the time between ranges
+
+When a plot shows ranges that are far apart, such as tests on different days, it hides
+the time between them. Each range gets a part of the plot that fits its length, and a
+break separates two parts. The plot hides only time that is long compared to the ranges
+on each side of it.
+
+- **A break** -> a dark band with dashed edges on the plot, and `//` on the x-axis. The
+  first label after a break shows the date.
+- **Hover over a band** -> see how much time the break hides, and when that time starts
+  and ends.
+- **Click a band** -> show the hidden time. The x-axis keeps a faint `//` where the
+  break was. Click the faint `//` to hide the time again.
+- **Right-click the plot** -> select **Open all breaks** to show all hidden time, or
+  **Close all breaks** to hide it again.
+- **Reset the zoom** -> click <Icon.Expand /> or **Ctrl+click** the plot. All hidden
+  time hides again.
+
+An open or a close keeps the times at the edges of the view in view. The plot does not
+save which breaks are open.
+
+Across a break:
+
+- The tooltip shows only the lines of the part under the cursor.
+- A measure shows the true difference in time with `//` after it, and no slope.
+- A selection stops at the first break on each side of where it starts. To select across
+  a break, click its band first.
+- The download of the whole plot holds only the time the plot shows with all breaks
+  closed.
 
 <Divider.Divider x />
 
@@ -166,7 +199,8 @@ hover** (<Icon.Tooltip />). It is on by default.
      while the Core has a Sift connection. See
      [send data to Sift](/reference/ranges/sift#upload-data).
 
-To download the data of the whole plot, click <Icon.CSV /> in the component toolbar.
+To download the data of the whole plot, click <Icon.CSV /> in the component toolbar. The
+download leaves out the time between ranges that the plot hides.
 
 <Divider.Divider x />
 

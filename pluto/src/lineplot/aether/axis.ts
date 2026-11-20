@@ -79,8 +79,6 @@ export interface AxisRenderProps {
   container: box.Box;
   canvases: render.CanvasVariant[];
   hold: boolean;
-  /** Set when the gaps between the windows of a time axis collapse into breaks. */
-  gapsCollapsed: boolean;
   /** The lower bounds of the gaps that show their values in place of a break. */
   openBreaks: number[];
 }

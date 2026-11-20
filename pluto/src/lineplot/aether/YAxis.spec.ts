@@ -167,7 +167,6 @@ describe("YAxis", () => {
           container: region,
           canvases: ["gl"],
           hold: false,
-          gapsCollapsed: false,
           openBreaks: [],
           layout: new Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
         },
@@ -552,14 +551,12 @@ describe("XAxis", () => {
         { x: { lower: DAY, upper: DAY + 60 * S } },
       ],
     };
-    const props = (gapsCollapsed: boolean, openBreaks: number[] = []) => ({
+    const props = (openBreaks: number[] = []) => ({
       hold: false,
       viewport: box.DECIMAL,
-      gapsCollapsed,
       openBreaks,
     });
-    const segmentBounds = (x: XAxis, gapsCollapsed = true) =>
-      x.layout(props(gapsCollapsed)).segments.map((s) => s.bounds);
+    const segmentBounds = (x: XAxis) => x.layout(props()).segments.map((s) => s.bounds);
 
     it("should give each window far from the others its own segment", () => {
       const x = mount(WINDOWS, { type: "time" });
@@ -569,11 +566,6 @@ describe("XAxis", () => {
       ]);
     });
 
-    it("should lay out one segment when gaps do not collapse", () => {
-      const x = mount(WINDOWS, { type: "time" });
-      expect(segmentBounds(x, false)).toEqual([{ lower: 0, upper: DAY + 60 * S }]);
-    });
-
     it("should lay out one segment on an axis that is not a time axis", () => {
       const x = mount(WINDOWS, { type: "linear" });
       expect(segmentBounds(x)).toHaveLength(1);
@@ -581,14 +573,14 @@ describe("XAxis", () => {
 
     it("should draw each line with the scale of the segment of its window", () => {
       const x = mount(WINDOWS, { type: "time" });
-      const layout = x.layout(props(true));
+      const layout = x.layout(props());
       expect(layout.segment("line0")).toBe(layout.segments[0]);
       expect(layout.segment("line1")).toBe(layout.segments[1]);
     });
 
     it("should report the outer edges of its segments as its bounds", () => {
       const x = mount(WINDOWS, { type: "time" });
-      expect(x.layout(props(true)).bounds).toEqual({ lower: 0, upper: DAY + 60 * S });
+      expect(x.layout(props()).bounds).toEqual({ lower: 0, upper: DAY + 60 * S });
     });
 
     it("should move the outer edge of a segment to a manual bound", () => {
@@ -609,14 +601,6 @@ describe("XAxis", () => {
       expect(segmentBounds(x)).toEqual([{ lower: DAY - S, upper: DAY + 60 * S }]);
     });
 
-    it("should keep its segments while it holds", () => {
-      const x = mount(WINDOWS, { type: "time" });
-      const before = segmentBounds(x);
-      expect(
-        x.layout({ ...props(false), hold: true }).segments.map((s) => s.bounds),
-      ).toEqual(before);
-    });
-
     it("should draw a band over each seam in view", () => {
       const x = mount(WINDOWS, { type: "time" });
       const recorder = (x as unknown as { internal: { render: canvasTest.Recorder } })
@@ -624,7 +608,7 @@ describe("XAxis", () => {
       const plot = box.construct(0, 0, 800, 600);
       x.render(
         {
-          ...props(true),
+          ...props(),
           grid: {},
           plot,
           container: plot,
@@ -656,7 +640,6 @@ describe("XAxis", () => {
     const props = (openBreaks: number[] = []) => ({
       hold: false,
       viewport: box.DECIMAL,
-      gapsCollapsed: true,
       openBreaks,
     });
     const view = (lower: number, upper: number): box.Box =>

@@ -21,8 +21,6 @@ export const FLAGS = {
   icds: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
   // Owner: Emiliano Bonilla. Umbrella: SY-6226. Removed in 0.63.
   staleBadges: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
-  // Owner: Emiliano Bonilla. Umbrella: SY-####. Removed in 0.63.
-  breaks: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
