@@ -10,35 +10,20 @@
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import clerk from "@clerk/astro";
-import { HASHES, POSTHOG, VERCEL_LIVE } from "@synnaxlabs/site-common/csp";
+import { jitless } from "@synnaxlabs/site-common/csp";
 import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
-import { type AstroIntegration } from "astro";
 import { defineConfig, envField } from "astro/config";
 import path from "path";
 
+import { csp } from "./src/csp";
+
 const secret = envField.string({ context: "server", access: "secret" });
-
-const CLERK = "https://*.clerk.accounts.dev https://clerk.synnaxlabs.com";
-/** TURNSTILE is Cloudflare's bot check, which Clerk shows at sign-up. */
-const TURNSTILE = "https://challenges.cloudflare.com";
-
-/** jitless stops Zod's probe for eval, which the CSP refuses, before islands load. */
-const jitless: AstroIntegration = {
-  name: "jitless",
-  hooks: {
-    "astro:config:setup": ({ injectScript }) =>
-      injectScript(
-        "before-hydration",
-        'import { z } from "zod"; z.config({ jitless: true });',
-      ),
-  },
-};
 
 export default defineConfig({
   integrations: [
     react(),
     clerk({ signInUrl: "/login", signUpUrl: "/sign-up" }),
-    jitless,
+    jitless(),
   ],
   output: "server",
   adapter: vercel(),
@@ -46,27 +31,7 @@ export default defineConfig({
     // Astro's check refuses the Desktop renewal. src/pipeline.ts checks origins
     // instead.
     checkOrigin: false,
-    csp: {
-      directives: [
-        "default-src 'self'",
-        `connect-src 'self' ${CLERK} https://clerk-telemetry.com ${POSTHOG} ${VERCEL_LIVE}`,
-        "font-src 'self' data:",
-        "worker-src 'self' blob:",
-        `img-src 'self' data: https://img.clerk.com ${VERCEL_LIVE} https://vercel.com`,
-        `frame-src ${TURNSTILE} ${VERCEL_LIVE}`,
-        "frame-ancestors 'none'",
-        "object-src 'none'",
-        "base-uri 'self'",
-      ],
-      scriptDirective: {
-        resources: ["'self'", CLERK, TURNSTILE, POSTHOG, VERCEL_LIVE],
-        hashes: HASHES,
-      },
-      // Components set sizes and custom properties in style attributes.
-      styleDirective: {
-        resources: ["'self'", { resource: "'unsafe-inline'", kind: "attribute" }],
-      },
-    },
+    csp: csp(process.env.VERCEL_ENV),
   },
   // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
   vite: {
