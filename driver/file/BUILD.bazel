@@ -20,13 +20,6 @@ cc_library(
         "//conditions:default": ["platform_posix.cpp"],
     }),
     hdrs = ["file.h"],
-    copts = select({
-        "@platforms//os:windows": [
-            "/DWIN32_LEAN_AND_MEAN",
-            "/DNOMINMAX",
-        ],
-        "//conditions:default": [],
-    }),
     linkopts = select({
         "@platforms//os:windows": [
             "/DEFAULTLIB:ole32.lib",
