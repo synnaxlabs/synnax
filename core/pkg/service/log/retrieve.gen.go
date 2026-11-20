@@ -66,6 +66,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Log, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Log, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, project.Key]{
 			Name:     "project",
@@ -77,6 +84,13 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Log, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						e.Project = &t
+					}
+				}
 			},
 		}),
 		channelsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, channel.Key]{
@@ -102,6 +116,13 @@ func newIndexes() indexes {
 					}
 					return false
 				})
+			},
+			Retarget: func(e *Log, to map[channel.Key]channel.Key) {
+				for i3 := range e.Channels {
+					if t, ok := to[e.Channels[i3].Channel]; ok {
+						e.Channels[i3].Channel = t
+					}
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Log](

@@ -57,6 +57,13 @@ func newIndexes() indexes {
 					return v == t
 				})
 			},
+			Retarget: func(e *Status[any], to map[label.Key]label.Key) {
+				for i, k := range e.Labels {
+					if t, ok := to[k]; ok {
+						e.Labels[i] = t
+					}
+				}
+			},
 		}),
 		owner: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Status[any]]{
 			Name:     "owner",

@@ -39,6 +39,13 @@ func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 					e.RoutingKey = nil
 				}
 			},
+			Retarget: func(e *TaskConfig, to map[secret.Key]secret.Key) {
+				if e.RoutingKey != nil {
+					if t, ok := to[*e.RoutingKey]; ok {
+						e.RoutingKey = &t
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, TaskConfig, status.Key]{
 			Name:     "alerts.status",
@@ -61,6 +68,13 @@ func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 				for i2 := range e.Alerts {
 					if e.Alerts[i2].Status == t {
 						e.Alerts[i2].Status = ""
+					}
+				}
+			},
+			Retarget: func(e *TaskConfig, to map[status.Key]status.Key) {
+				for i3 := range e.Alerts {
+					if t, ok := to[e.Alerts[i3].Status]; ok {
+						e.Alerts[i3].Status = t
 					}
 				}
 			},

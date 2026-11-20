@@ -61,6 +61,11 @@ func newIndexes() indexes {
 			Targets: func(e *Device) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
+			Retarget: func(e *Device, to map[rack.Key]rack.Key) {
+				if t, ok := to[e.Rack]; ok {
+					e.Rack = t
+				}
+			},
 		}),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, group.Key]{
 			Name:     "group",
@@ -74,6 +79,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Device, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Device, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, Key]{
 			Name:     "parent",
@@ -86,6 +98,13 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []Key{*e.Parent}
+			},
+			Retarget: func(e *Device, to map[Key]Key) {
+				if e.Parent != nil {
+					if t, ok := to[*e.Parent]; ok {
+						e.Parent = &t
+					}
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Device](

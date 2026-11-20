@@ -57,6 +57,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Channel, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Channel](
 			"search",

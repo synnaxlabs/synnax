@@ -65,6 +65,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Table, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Table, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, project.Key]{
 			Name:     "project",
@@ -76,6 +83,13 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Table, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						e.Project = &t
+					}
+				}
 			},
 		}),
 		rowsCellsConfigChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, channel.Key]{
@@ -110,6 +124,19 @@ func newIndexes() indexes {
 								v6.Channel = 0
 							}
 							e.Rows[i4].Cells[i5].Config.Variant = v6
+						}
+					}
+				}
+			},
+			Retarget: func(e *Table, to map[channel.Key]channel.Key) {
+				for i7 := range e.Rows {
+					for i8 := range e.Rows[i7].Cells {
+						switch v9 := e.Rows[i7].Cells[i8].Config.Variant.(type) {
+						case ValueCellConfig:
+							if t, ok := to[v9.Channel]; ok {
+								v9.Channel = t
+							}
+							e.Rows[i7].Cells[i8].Config.Variant = v9
 						}
 					}
 				}

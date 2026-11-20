@@ -69,6 +69,13 @@ func newIndexes() indexes {
 					return v == t
 				})
 			},
+			Retarget: func(e *Range, to map[label.Key]label.Key) {
+				for i, k := range e.Labels {
+					if t, ok := to[k]; ok {
+						e.Labels[i] = t
+					}
+				}
+			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, Key]{
 			Name:     "parent",
@@ -81,6 +88,13 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []Key{*e.Parent}
+			},
+			Retarget: func(e *Range, to map[Key]Key) {
+				if e.Parent != nil {
+					if t, ok := to[*e.Parent]; ok {
+						e.Parent = &t
+					}
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Range](

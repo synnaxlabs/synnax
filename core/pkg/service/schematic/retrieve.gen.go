@@ -67,6 +67,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Schematic, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Schematic, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, project.Key]{
 			Name:     "project",
@@ -78,6 +85,13 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Schematic, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						e.Project = &t
+					}
+				}
 			},
 		}),
 		nodesConfigStateChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
@@ -529,6 +543,192 @@ func newIndexes() indexes {
 							v4.StateChannel = 0
 						}
 						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case InputNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SelectNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SetpointNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SwitchNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AgitatorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CrossBeamAgitatorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FlatBladeAgitatorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case HelicalAgitatorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PaddleAgitatorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PropellerAgitatorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RotaryMixerNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CavityPumpNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CentrifugalCompressorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CompressorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case DiaphragmPumpNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectionPumpNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectorCompressorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case LiquidRingCompressorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PistonPumpNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PumpNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RollerVaneCompressorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ScrewPumpNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case TurboCompressorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case VacuumPumpNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AngledValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case BallValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveOneNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveTwoNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FourWayValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case GateValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SolenoidValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayBallValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ValveNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CustomActuatorNodeConfig:
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
 					}
 				}
 			},
@@ -997,6 +1197,197 @@ func newIndexes() indexes {
 					}
 				}
 			},
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButtonNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case InputNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SelectNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SetpointNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SwitchNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AgitatorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CrossBeamAgitatorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FlatBladeAgitatorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case HelicalAgitatorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PaddleAgitatorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PropellerAgitatorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RotaryMixerNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CavityPumpNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CentrifugalCompressorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CompressorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case DiaphragmPumpNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectionPumpNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectorCompressorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case LiquidRingCompressorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PistonPumpNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PumpNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RollerVaneCompressorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ScrewPumpNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case TurboCompressorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case VacuumPumpNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AngledValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case BallValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveOneNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveTwoNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FourWayValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case GateValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SolenoidValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayBallValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ValveNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CustomActuatorNodeConfig:
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
 		}),
 		nodesConfigChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
 			Name:     "nodes.config.channel",
@@ -1099,6 +1490,47 @@ func newIndexes() indexes {
 							v4.Channel = 0
 						}
 						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case GaugeNodeConfig:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case LightNodeConfig:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ScaleNodeConfig:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case StateIndicatorNodeConfig:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case StringDisplayNodeConfig:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ValueNodeConfig:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case TankNodeConfig:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Nodes[i5].Config.Variant = v6
 					}
 				}
 			},
