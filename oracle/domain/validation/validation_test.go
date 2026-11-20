@@ -239,6 +239,25 @@ var _ = Describe("LessThan", func() {
 		Expect(validation.IsEmpty(parse("lt", ident))).To(BeFalse())
 	})
 
+	It("should read an lt rule scoped to a language", func() {
+		lt := resolution.ExpressionValue{
+			Kind:       resolution.ValueKindIdent,
+			IdentValue: "lt",
+		}
+		domains := map[string]resolution.Domain{"go": rule("validate", lt, ident)}
+		Expect(validation.LessThan(domains, "go")).To(Equal(
+			&validation.Comparison{Field: "max_val"},
+		))
+		Expect(validation.LessThan(domains, "ts")).To(BeNil())
+	})
+
+	It("should read an lt rule for every language", func() {
+		domains := map[string]resolution.Domain{"validate": rule("lt", ident)}
+		Expect(validation.LessThan(domains, "py")).To(Equal(
+			&validation.Comparison{Field: "max_val"},
+		))
+	})
+
 	It("should never apply to a type", func() {
 		compared := resolution.Type{
 			Domains: map[string]resolution.Domain{"validate": rule("lt", ident)},

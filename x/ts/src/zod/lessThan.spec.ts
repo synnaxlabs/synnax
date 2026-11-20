@@ -30,4 +30,12 @@ describe("lessThan", () => {
       expect.objectContaining({ path: ["min"], message: "min must be less than max" }),
     ]);
   });
+
+  it("should compare bigint values", () => {
+    const big = z
+      .object({ min: z.bigint(), max: z.bigint() })
+      .check(zod.lessThan("min", "max", "min must be less than max"));
+    expect(big.safeParse({ min: 1n, max: 2n }).success).toBe(true);
+    expect(big.safeParse({ min: 2n, max: 1n }).success).toBe(false);
+  });
 });

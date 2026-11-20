@@ -10,6 +10,7 @@
 package analyzer
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/samber/lo"
@@ -483,60 +484,88 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
-// validateComparisonRules errors on an lt rule outside a struct field, and on one whose
-// field or compared field is not a required number of the same struct.
+// validateComparisonRules errors on an lt rule outside a struct field, in a generic
+// struct, or whose field and compared field are not required numbers of one type in the
+// same struct.
 func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
+		var problems []string
 		switch form := t.Form.(type) {
 		case resolution.AliasForm, resolution.DistinctForm:
-			if validation.Parse(t.Domains["validate"]).LessThan != nil {
-				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
-					"%s has an lt rule, but only a struct field can have one",
-					t.QualifiedName,
-				))
+			if validation.LessThan(t.Domains, "go") != nil {
+				problems = append(problems, t.QualifiedName+
+					" has an lt rule, but only a struct field can have one")
 			}
 		case resolution.StructForm:
-			fields := resolution.UnifiedFields(t, table)
-			for _, f := range fields {
-				if _, declared := form.Field(f.Name); !declared {
-					continue
-				}
-				lt := validation.Parse(f.Domains["validate"]).LessThan
-				if lt == nil {
-					continue
-				}
-				if len(form.TypeParams) > 0 {
-					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
-						"%s.%s has an lt rule, but %s is generic",
-						t.QualifiedName, f.Name, t.QualifiedName,
-					))
-					continue
-				}
-				other, ok := lo.Find(fields, func(o resolution.Field) bool {
-					return o.Name == lt.Field
-				})
-				name := t.QualifiedName + "." + f.Name
-				if !ok {
-					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
-						"%s is less than %s, but %s has no field %s",
-						name, lt.Field, t.QualifiedName, lt.Field,
-					))
-					continue
-				}
-				if !isRequiredNumber(f, table) || !isRequiredNumber(other, table) {
-					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
-						"%s is less than %s, but both must be required numbers",
-						name, lt.Field,
-					))
-				}
-			}
+			problems = structComparisonProblems(t, form, table)
+		}
+		for _, p := range problems {
+			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil, "%s", p))
 		}
 	}
+}
+
+// structComparisonProblems returns the problems of the lt rules on the fields of t.
+func structComparisonProblems(
+	t resolution.Type,
+	form resolution.StructForm,
+	table *resolution.Table,
+) []string {
+	var problems []string
+	fields := resolution.UnifiedFields(t, table)
+	for _, f := range fields {
+		lt := validation.LessThan(f.Domains, "go")
+		if lt == nil {
+			continue
+		}
+		name := t.QualifiedName + "." + f.Name
+		if len(form.TypeParams) > 0 {
+			problems = append(problems, fmt.Sprintf(
+				"%s has an lt rule, but %s is generic", name, t.QualifiedName,
+			))
+			continue
+		}
+		if _, declared := form.Field(f.Name); !declared {
+			continue
+		}
+		prefix := name + " is less than " + lt.Field + ", but "
+		other, ok := lo.Find(fields, func(o resolution.Field) bool {
+			return o.Name == lt.Field
+		})
+		switch {
+		case !ok:
+			problems = append(problems, fmt.Sprintf(
+				"%s%s has no field %s", prefix, t.QualifiedName, lt.Field,
+			))
+		case !isRequiredNumber(f, table) || !isRequiredNumber(other, table):
+			problems = append(problems, prefix+"both must be required numbers")
+		case typeName(f.Type, table) != typeName(other.Type, table):
+			problems = append(problems, prefix+"the two have different types")
+		}
+	}
+	return problems
 }
 
 func isRequiredNumber(f resolution.Field, table *resolution.Table) bool {
 	return !f.Optional &&
 		resolution.IsNumberPrimitive(resolution.PrimitiveBase(f.Type, table))
+}
+
+// typeName returns the name of the type that ref stands for once its aliases resolve.
+func typeName(ref resolution.TypeRef, table *resolution.Table) string {
+	for visited := set.New[string](); !visited.Contains(ref.Name); {
+		visited.Add(ref.Name)
+		t, ok := ref.Resolve(table)
+		if !ok {
+			break
+		}
+		alias, isAlias := t.Form.(resolution.AliasForm)
+		if !isAlias {
+			return t.QualifiedName
+		}
+		ref = alias.Target
+	}
+	return ref.Name
 }
 
 // validatePatternRules errors on a field or a type that sets a pattern rule when its
