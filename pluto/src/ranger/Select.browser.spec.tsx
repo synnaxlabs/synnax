@@ -10,9 +10,10 @@
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { render } from "vitest-browser-react";
 
 import { Ranger } from "@/ranger";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -43,20 +44,20 @@ describe("Ranger.Select", () => {
       timeRange: { start, end: start.add(TimeSpan.hours(1)) },
       color: { type: "named", key: named.key },
     });
-    const { findByRole } = render(
-      <Ranger.Select value={rng.key} onChange={vi.fn()} />,
-      {
-        wrapper,
-      },
-    );
-    const source = await findByRole("button", { name: new RegExp(rng.name) });
+    const c = await render(<Ranger.Select value={rng.key} onChange={vi.fn()} />, {
+      wrapper,
+    });
+    const source = c.getByRole("button", { name: new RegExp(rng.name) });
+    await expect.element(source).toBeInTheDocument();
     // The named colors can load after the range, so each try starts a new drag.
     await expect
       .poll(() => {
-        fireEvent.dragStart(source);
+        // A browser builds a drag event with no DataTransfer unless one is given.
+        const dataTransfer = new DataTransfer();
+        fireEvent.dragStart(source.element(), { dataTransfer });
         const tile = document.querySelector<HTMLElement>(".lyra-haul-preview__tile");
         const background = tile?.style.background;
-        fireEvent.dragEnd(source);
+        fireEvent.dragEnd(source.element(), { dataTransfer });
         return background;
       })
       .toBe("rgb(18, 52, 86)");
