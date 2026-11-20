@@ -19,7 +19,7 @@ import { Sink } from "@/arc/graph/node/sink";
 import { Source } from "@/arc/graph/node/source";
 import { StableFor } from "@/arc/graph/node/stable";
 import { Status } from "@/arc/graph/node/status";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import type { Spec } from "@/arc/graph/node/types/spec";
 
 // REGISTRY maps each Arc function type to its Spec. The key is the node config's "type"
 // discriminant, matched against the Arc compiler's function templates.

@@ -13,7 +13,7 @@ import { device } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Device } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";

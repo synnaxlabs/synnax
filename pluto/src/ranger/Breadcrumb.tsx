@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { Breadcrumb as Base } from "@synnaxlabs/lyra/breadcrumb";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type CrudeTimeRange } from "@synnaxlabs/x";
+import type { CrudeTimeRange } from "@synnaxlabs/x";
 
 import { StageIcon } from "@/ranger/StageIcon";
 

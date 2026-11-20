@@ -9,7 +9,7 @@
 
 import { destructor, type record } from "@synnaxlabs/x";
 
-import { type FrameProps, type GetItem } from "@/list/Frame";
+import type { FrameProps, GetItem } from "@/list/Frame";
 
 export interface UseCombinedDataParams<
   K extends record.Key,

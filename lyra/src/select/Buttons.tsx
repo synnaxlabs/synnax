@@ -9,8 +9,8 @@
 
 import "@/select/Buttons.css";
 
-import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { record } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";

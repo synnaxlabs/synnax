@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot as client } from "@synnaxlabs/client";
+import type { lineplot as client } from "@synnaxlabs/client";
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useEffect } from "react";

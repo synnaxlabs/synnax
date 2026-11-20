@@ -9,7 +9,7 @@
 
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
-import { type Theming } from "@synnaxlabs/pluto";
+import type { Theming } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useState } from "react";
 

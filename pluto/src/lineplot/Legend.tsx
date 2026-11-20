@@ -9,13 +9,13 @@
 
 import { Text } from "@synnaxlabs/lyra/text";
 import { type color, compare, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { type LineSpec, useContext } from "@/lineplot/Frame";
 import { formatRelativeTime } from "@/vis/axis/relative";
 import { Legend as Base } from "@/vis/legend";
-import { type EntriesProps } from "@/vis/legend/Entries";
-import { type GroupData } from "@/vis/legend/Grouped";
+import type { EntriesProps } from "@/vis/legend/Entries";
+import type { GroupData } from "@/vis/legend/Grouped";
 
 type LineHandlers = Pick<
   EntriesProps,

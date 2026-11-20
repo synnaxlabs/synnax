@@ -43,7 +43,7 @@ import {
 } from "@/lineplot/Legend";
 import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
-import { type measure } from "@/lineplot/measure/aether";
+import type { measure } from "@/lineplot/measure/aether";
 import {
   type DerivedLine,
   useAxisRuleKeys,
@@ -67,10 +67,10 @@ import { Rule as BaseRule } from "@/lineplot/rule";
 import { useKey } from "@/lineplot/Suspended";
 import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
-import { type tooltip } from "@/lineplot/tooltip/aether";
+import type { tooltip } from "@/lineplot/tooltip/aether";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 

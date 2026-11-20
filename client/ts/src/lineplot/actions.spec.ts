@@ -11,7 +11,7 @@ import { color, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { lineplot } from "@/lineplot";
-import { type ranger } from "@/ranger";
+import type { ranger } from "@/ranger";
 
 const PLOT = "11111111-2222-4333-8444-555555555555";
 
