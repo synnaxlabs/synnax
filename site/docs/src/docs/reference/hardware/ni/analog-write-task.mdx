@@ -154,6 +154,13 @@ Every channel has a `port` (**Port**), a `cmd_channel`, and a `state_channel`.
 Each table shows the Console label of a setting, with its Python field under it. Voltage
 and current channels also have **Custom scaling**.
 
+**Range** is the lowest and highest value that the channel writes. NI-DAQmx uses it to
+select the output range of the device, and rejects a command outside it. The Console
+compares the range with the output ranges of the device, and shows "The device has no
+range from ... to ..." if no output range holds it. With a
+[custom scale](#custom-scaling), the range is in the scaled units, and the Console does
+not compare it.
+
 <Channel.Types>
 
 <Channel.Type
@@ -217,9 +224,13 @@ other channel types. If it does, use a task for each type.
 
 ### Custom scaling
 
-Channels with **Custom scaling** convert the raw value before the Driver writes it. In
-the Console, the options are in the **Scale** section of the channel. In code, set
-`custom_scale` to one of these scales:
+A custom scale converts the value that you command, the scaled value, to the value that
+the device outputs, the pre-scaled value. For example, a linear scale can convert a
+valve position in percent to volts. NI-DAQmx applies the scale, and the **Range** of the
+channel is then in the scaled units.
+
+In the Console, select the scale in **Custom scaling**, in the **Scale** section of the
+channel. In code, set `custom_scale` to one of these scales:
 
 | Console option | Python class      | Fields                                                                                                                         |
 | -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
