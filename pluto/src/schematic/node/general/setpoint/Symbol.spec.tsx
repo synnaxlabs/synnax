@@ -7,24 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type channel, schematic } from "@synnaxlabs/client";
+import { SyntheticCore } from "@synnaxlabs/client/testutil";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { TimeSpan } from "@synnaxlabs/x";
-import { act, render, type RenderResult, waitFor } from "@testing-library/react";
+import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  act,
+  render,
+  type RenderResult,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 
-import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { Setpoint } from "@/schematic/node/general/setpoint";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { canvasTest } from "@/vis/render/testutil";
 import { setpoint } from "@/vis/setpoint/aether";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { value } from "@/vis/value/aether";
 
 const NODE_KEY = "s1";
@@ -69,29 +84,16 @@ describe("Setpoint.Symbol", () => {
   });
 });
 
-const readbackState = z
-  .object({
-    stale: z.boolean().default(false),
-    staleColorHidden: z.boolean().default(false),
-  })
-  .loose();
-
 const staleColorHidden = vi.fn();
-
-// Stands in for the readback worker component and reports its source as stale.
-class StaleReadback extends aether.Leaf<typeof readbackState> {
-  static readonly TYPE = value.Value.TYPE;
-  schema = readbackState;
-
-  afterUpdate(): void {
-    staleColorHidden(this.state.staleColorHidden);
-    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-  }
-}
 
 const StaleWrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: { ...setpoint.REGISTRY, [StaleReadback.TYPE]: StaleReadback },
+  additionalRegistry: {
+    ...setpoint.REGISTRY,
+    ...stalenessTest.createRegistry(value.Value.TYPE, value.Value.z, (s) =>
+      staleColorHidden(s.staleColorHidden),
+    ),
+  },
   telemFactories: [new telemTest.TestFactory()],
   renderContext: canvasTest.record(),
 });
@@ -136,32 +138,58 @@ describe("Setpoint.Symbol staleness", () => {
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 
-  // The readback runs with no state channel. Its source never sends, so it never goes
-  // stale.
+  // The readback beside it reads a channel that sends, so the state channel is the only
+  // difference.
   it("should never show the stale indicator with no state channel", async () => {
     // Fakes only the sweep's clock, so React and the worker still run on real timers.
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
-    const { queryByRole } = render(
-      <Wrapper>
+    // Stamps every sample a minute ago, so a readback is stale once one arrives.
+    const now = TimeStamp.now().sub(TimeSpan.minutes(1));
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const client = telemTest.createClient(core);
+    onTestFinished(async () => await client.feed.close());
+    const FeedWrapper = createSynnaxWrapper({
+      client: null,
+      additionalRegistry: { ...value.REGISTRY, ...setpoint.REGISTRY },
+      telemFactories: [new telem.RemoteFactory(client)],
+      renderContext: canvasTest.record(),
+    });
+    const node = (nodeKey: string, stateChannel: channel.Key): ReactElement => (
+      <div data-testid={nodeKey}>
+        <Setpoint.spec.Node
+          nodeKey={nodeKey}
+          selected={false}
+          onConfigChange={vi.fn()}
+          config={schematic.setpointNodeConfigZ.parse({
+            variant: "setpoint",
+            stateChannel,
+          })}
+        />
+      </div>
+    );
+    const [reading] = core.data;
+    const { getByTestId } = render(
+      <FeedWrapper>
         <Staleness.Provider badged>
           <ReactFlowProvider>
             <Haul.Provider>
-              <Setpoint.spec.Node
-                nodeKey={NODE_KEY}
-                selected={false}
-                onConfigChange={vi.fn()}
-                config={schematic.setpointNodeConfigZ.parse({ variant: "setpoint" })}
-              />
+              {node("reading", reading.key)}
+              {node("idle", 0)}
             </Haul.Provider>
           </ReactFlowProvider>
         </Staleness.Provider>
-      </Wrapper>,
+      </FeedWrapper>,
     );
-    // Lets the worker mount the sweep before its clock moves.
-    await act(async () => {});
+    await act(
+      async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
+    );
+    await act(async () => core.advance(TimeSpan.seconds(1)));
+    await within(getByTestId("reading")).findByRole("img", { name: "Stale" });
     await act(async () => {
       vi.advanceTimersByTime(TimeSpan.seconds(10).milliseconds);
     });
-    expect(queryByRole("img", { name: "Stale" })).toBeNull();
+    expect(
+      within(getByTestId("idle")).queryByRole("img", { name: "Stale" }),
+    ).toBeNull();
   });
 });

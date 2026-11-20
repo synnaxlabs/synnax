@@ -15,9 +15,7 @@ import { act, render, type RenderResult, waitFor } from "@testing-library/react"
 import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { Input } from "@/schematic/node/general/input";
 import { telemTest } from "@/telem/aether/testutil";
@@ -25,6 +23,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { input } from "@/vis/input/aether";
 import { canvasTest } from "@/vis/render/testutil";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 
 const NODE_KEY = "i1";
@@ -69,29 +68,18 @@ describe("Input.Symbol", () => {
   });
 });
 
-const readbackState = z
-  .object({
-    stale: z.boolean().default(false),
-    staleColorHidden: z.boolean().default(false),
-  })
-  .loose();
-
 const staleColorHidden = vi.fn();
-
-// Stands in for the readback worker component and reports its source as stale.
-class StaleReadback extends aether.Leaf<typeof readbackState> {
-  static readonly TYPE = stringValue.StringValue.TYPE;
-  schema = readbackState;
-
-  afterUpdate(): void {
-    staleColorHidden(this.state.staleColorHidden);
-    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-  }
-}
 
 const StaleWrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: { ...input.REGISTRY, [StaleReadback.TYPE]: StaleReadback },
+  additionalRegistry: {
+    ...input.REGISTRY,
+    ...stalenessTest.createRegistry(
+      stringValue.StringValue.TYPE,
+      stringValue.StringValue.z,
+      (s) => staleColorHidden(s.staleColorHidden),
+    ),
+  },
   telemFactories: [new telemTest.TestFactory()],
   renderContext: canvasTest.record(),
 });
