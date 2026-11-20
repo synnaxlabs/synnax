@@ -68,22 +68,27 @@ A clock is a key under which Cesium stores timestamps (RFC 0118). The Core keeps
 clock record and no channel record for it. A clock belongs to one producer and lives as
 long as that producer names it.
 
-| Producer        | Where the clock key lives                                                    | Lifetime          |
-| --------------- | ---------------------------------------------------------------------------- | ----------------- |
-| Hardware task   | the task config, one key per sample clock of the task                        | the task          |
-| Arc task        | the Arc task config (`schemas/synnax/arc_task.oracle`, a new schema version) | the task          |
-| Script          | the client object, one key per channel set                                   | the client object |
-| Metrics service | Core memory, allocated at start                                              | one Core run      |
+| Producer        | Where the clock key lives                                                    | Lifetime                                   |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| Hardware task   | the task config, one key per sample clock of the task                        | the task                                   |
+| Arc task        | the Arc task config (`schemas/synnax/arc_task.oracle`, a new schema version) | the task                                   |
+| Script          | the framer, one entry per client ID and channel set (NEW)                    | back-to-back sessions of one client object |
+| Metrics service | Core memory, allocated at start                                              | one Core run                               |
 
-- **Named at open**: A writer names its clocks when it opens, each with its kind (§4.8),
-  or asks the framer writer for a new one. A client object names its earlier clock again
-  only for sessions that follow each other, so `client.write` in a loop writes one
-  clock. A writer that opens while another of the object is open takes a new clock, and
-  so does a client whose remembered clock is claimed.
-- **Who may name a clock**: A client, its own earlier clock. A subject that may update a
-  producer, a clock that the producer's config holds; the API checks it through an
-  injected owner lookup over the unique space of clock keys. Until Phase 9, a writer of
-  an index channel, under the access and write control of today. An open fails on a key
+- **Named at open**: A task writer names the clocks that its config holds, each with its
+  kind (§4.8). A client writer names no clock: it sends a client ID (NEW), a UUID that
+  each client object makes at construction, and the framer picks the clock. The framer
+  reuses the clock of that client ID and channel set for a session that opens after the
+  last one closed, so `client.write` in a loop writes one clock. It takes a new clock
+  when a session of the entry is still open or when the claim conflicts. An entry
+  expires one hour after its last session closes, and a Core restart drops them all. The
+  open response carries the session's clock key, which the client library sets on the
+  wire for that session only. No client library keeps a clock between sessions or shows
+  one to a user.
+- **Who may name a clock**: A subject that may update a producer, a clock that the
+  producer's config holds; the API checks it through an injected owner lookup over the
+  unique space of clock keys. Until Phase 9, a writer of an index channel, under the
+  access and write control of today. No client names a clock. An open fails on a key
   that is not issued, and on a key of a record that is not an index channel.
 - **Claims**: A clock key takes claims like a channel key (RFC 0118 §5.8). Sessions of
   one producer may write one clock on time ranges that do not overlap, and an open that
@@ -556,7 +561,7 @@ The channel record drops `is_index`, `local_index`, and `concurrency` in schema 
 | Declared type                                                 | the channel service                                                  | Gorp                                                                             | Cesium                                                      |
 | Key types and the key allocator (the counters and `Allocate`) | `core/pkg/distribution/channel`                                      | Gorp KV                                                                          | hold a service; make a record for a clock                   |
 | New clocks and claims at open                                 | the framer writer                                                    | the channel key allocator in `distribution/channel`, the claim table of RFC 0118 | Gorp records                                                |
-| Clock keys                                                    | the producer's own config or client object                           | -                                                                                | the channel record                                          |
+| Clock keys                                                    | the producer's own config, or the framer for a client ID             | -                                                                                | the channel record                                          |
 | Clock owner lookup                                            | each producer service, injected at the API layer                     | the unique space of clock keys                                                   | the framer                                                  |
 | Setting `Clock` on a series                                   | the framer writer and iterator                                       | Cesium's public API                                                              | client readers                                              |
 | Type and clock per segment                                    | Cesium (RFC 0118)                                                    | `x/telem`                                                                        | channel names, Gorp                                         |
@@ -691,7 +696,9 @@ Phase 6. Keys of `core/v0.62.0` keep their numbers.
 9. **A clock belongs to a producer, not to a session or a record**: A clock per session
    makes one clock per `client.write` call
    (`client/py/synnax/framer/client.py:241-256`): 864,000 per day at 10 Hz. A clock
-   record would store what the producer already holds.
+   record would store what the producer already holds. For a script, the framer keeps
+   the clock by client ID: a client that kept and named its own clock would put one more
+   concept in every client library and leak keys to users.
 10. **Time is a key in the write, not a `time=` argument**: One reserved key keeps a
     write one mapping. The first write fixes the kind, so a write that forgets its time
     fails.
