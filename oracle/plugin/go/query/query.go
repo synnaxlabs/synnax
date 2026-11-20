@@ -1085,7 +1085,7 @@ func newIndexes() indexes {
 			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
-{{- if not $ref.IsID}}
+{{- if $ref.Retargets}}
 			Retarget: func(e *{{$ret.GoName}}, to map[{{$ref.ElemGoType}}]{{$ref.ElemGoType}}) {
 {{- if $ref.IsSlice}}
 				for i, k := range e.{{$ref.GoName}} {

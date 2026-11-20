@@ -21,7 +21,7 @@ import (
 )
 
 var _ = Describe("Channel retarget breaker", func() {
-	It("Should leave an empty x axis empty when the map names the zero key", func(
+	It("Should refuse a map that names the zero key and leave the plot as it was", func(
 		ctx SpecContext,
 	) {
 		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
@@ -50,13 +50,15 @@ var _ = Describe("Channel retarget breaker", func() {
 				map[channel.Key]channel.Key{a: b, 0: c},
 				holders,
 			)
-		})).To(Succeed())
+		})).To(MatchError(ContainSubstring(
+			"cannot retarget channel to or from the zero key",
+		)))
 		var res lineplot.LinePlot
 		Expect(svc.NewRetrieve().
 			Where(lineplot.MatchKeys(plot.Key)).
 			Entry(&res).
 			Exec(ctx, db)).To(Succeed())
-		Expect(res.Channels.Y1).To(Equal([]channel.Key{b}))
+		Expect(res.Channels.Y1).To(Equal([]channel.Key{a}))
 		Expect(res.Channels.X1).To(BeZero())
 		Expect(res.Channels.X2).To(BeZero())
 	})

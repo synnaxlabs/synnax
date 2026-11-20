@@ -25,6 +25,9 @@ type registeredTable interface {
 	// canonical reports whether k is a key of the table in the text form that
 	// FormatKey returns.
 	canonical(k string) bool
+	// formatKey returns k, a text key of the table, in the text form that FormatKey
+	// returns.
+	formatKey(k string) (string, error)
 	// exists reports whether the entry with the text key k exists in snap.
 	exists(ctx context.Context, snap Snapshot, k string) (bool, error)
 	// issues reports whether the table has a TableConfig.Issued.

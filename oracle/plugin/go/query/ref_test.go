@@ -1561,7 +1561,7 @@ var _ = Describe("@ref", func() {
 		Describe("Retarget", func() {
 			It("Should move a zero key in place", func() {
 				generate("", `
-				rack rack.Key = 0 @ref on_delete restrict @ref kind use
+				rack rack.Key = 0 @ref on_delete detach @ref kind use
 			`).
 					ToContain(
 						"Retarget: func(e *ReadConfig, to map[rack.Key]rack.Key) {",
@@ -1624,19 +1624,31 @@ var _ = Describe("@ref", func() {
 			})
 
 			It("Should write back each union variant that holds a key", func() {
-				generate("", `
-				fills swatch.Ref[]
+				generate(`
+				Marker union on type {
+					pinned {
+						channel channel.Key @ref on_delete weak @ref kind use
+					}
+					free {}
+				}
+			`, `
+				markers Marker[]
 			`).
 					ToContain(
-						"Retarget: func(e *ReadConfig, to map[swatch.Key]swatch.Key) {",
-						"for i5 := range e.Fills {",
-						"switch v6 := e.Fills[i5].Variant.(type) {",
-						"case swatch.NamedRef:",
-						"if t, ok := to[v6.Key]; ok {",
-						"v6.Key = t",
-						"e.Fills[i5].Variant = v6",
+						"Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {",
+						"case PinnedMarker:",
+						"if t, ok := to[v6.Channel]; ok {",
+						"v6.Channel = t",
+						"e.Markers[i5].Variant = v6",
 					).
+					ToNotContain("case FreeMarker:").
 					ToBeValidGoSource()
+			})
+
+			It("Should not retarget a reference that inlines its target", func() {
+				generate("", `
+				fills swatch.Ref[]
+			`).ToNotContain("Retarget:")
 			})
 		})
 	})
@@ -1704,7 +1716,7 @@ var _ = Describe("@ref", func() {
 
 	Describe("Retarget on a retrieved type", func() {
 		DescribeTable(
-			"Should move a scalar key in place whatever its on_delete",
+			"Should move a scalar key of a detach or weak reference in place",
 			func(field string) {
 				resp := MustGenerate(device(field), "device", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
@@ -1715,13 +1727,23 @@ var _ = Describe("@ref", func() {
 					).
 					ToBeValidGoSource()
 			},
-			Entry("restrict", `spare rack.Key @ref on_delete restrict @ref kind use`),
-			Entry("cascade", `spare rack.Key @ref on_delete cascade @ref kind place`),
 			Entry("weak", `spare rack.Key @ref on_delete weak @ref kind use`),
 			Entry(
-				"a zero default",
+				"detach with a zero default",
 				`spare rack.Key = 0 @ref on_delete detach @ref kind use`,
 			),
+		)
+
+		DescribeTable(
+			"Should not retarget a reference that nothing moves",
+			func(field string) {
+				resp := MustGenerate(device(field), "device", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain("Targets: func(e *Device)").
+					ToNotContain("Retarget:")
+			},
+			Entry("restrict", `spare rack.Key @ref on_delete restrict @ref kind use`),
+			Entry("cascade", `spare rack.Key @ref on_delete cascade @ref kind place`),
 		)
 
 		It("Should move each key of an array in place", func() {

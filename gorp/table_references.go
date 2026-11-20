@@ -75,6 +75,15 @@ func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
 	return w
 }
 
+// formatKey implements registeredTable.
+func (t *Table[K, E]) formatKey(k string) (string, error) {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return "", err
+	}
+	return key.Format(pk), nil
+}
+
 // canonical implements registeredTable.
 func (t *Table[K, E]) canonical(k string) bool {
 	pk, err := key.Parse[K](k)
@@ -212,11 +221,14 @@ func (t *Table[K, E]) retarget(
 // reference of each holder replaces every target that is a key of to with its value.
 // holders are dependents that Dependents returns, or a subset of them. Gorp applies to
 // once per holder, so a map that swaps two keys swaps them, and writes each holder that
-// held a key of to once, through its reference checks, then runs OnRewrite.
+// held a key of to once, through its reference checks, then runs OnRewrite. A Unique
+// reference checks each holder against the others as they stand, so a map cannot swap
+// or chain targets between holders of one Unique reference.
 //
-// Retarget fails on a holder that does not exist, and on a reference that has no
-// Retarget or does not point at the table. It can fail after it writes other holders,
-// so discard tx on an error.
+// Retarget fails with a validation error when to moves the zero key or moves a key onto
+// it. It fails on a holder that does not exist, and on a reference that has no Retarget
+// or does not point at the table. It can fail after it writes other holders, so discard
+// tx on an error.
 func (t *Table[K, E]) Retarget(
 	ctx context.Context,
 	tx Tx,
@@ -226,17 +238,35 @@ func (t *Table[K, E]) Retarget(
 	if len(to) == 0 {
 		return nil
 	}
+	var zero K
+	for from, onto := range to {
+		if from == zero || onto == zero {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot retarget %s to or from the zero key",
+				t.name,
+			)
+		}
+	}
 	var (
 		order []Target
 		refs  = make(map[Target][]string, len(holders))
 	)
 	for _, d := range holders {
-		named, ok := refs[d.Holder]
+		table, err := t.db.registry.table(d.Holder.Table)
+		if err != nil {
+			return err
+		}
+		h := d.Holder
+		if h.Key, err = table.formatKey(h.Key); err != nil {
+			return err
+		}
+		named, ok := refs[h]
 		if !ok {
-			order = append(order, d.Holder)
+			order = append(order, h)
 		}
 		if !slices.Contains(named, d.Reference) {
-			refs[d.Holder] = append(named, d.Reference)
+			refs[h] = append(named, d.Reference)
 		}
 	}
 	for _, h := range order {

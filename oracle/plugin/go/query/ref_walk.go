@@ -404,8 +404,8 @@ type nestedRef struct {
 	// InlineBody is the body of the reference's Inline function, empty unless OnDelete
 	// is "Inline".
 	InlineBody string
-	// RetargetBody is the body of the reference's Retarget function, empty when the
-	// reference holds resource IDs.
+	// RetargetBody is the body of the reference's Retarget function, empty unless the
+	// reference retargets.
 	RetargetBody string
 	// usesSlices is true when the generated code calls the slices package.
 	usesSlices bool
@@ -968,7 +968,7 @@ func renderNestedRefs(
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
-		if !info.IsID {
+		if info.Retargets() {
 			nr.RetargetBody = rd.retargetBody(ref)
 		}
 		nr.usesSlices = rd.usesSlices

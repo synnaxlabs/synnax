@@ -123,23 +123,18 @@ var _ = Describe("Retarget breaker", func() {
 		}
 	}
 
-	It("Should swap the targets of two holders of a Unique reference", func(
-		ctx SpecContext,
-	) {
-		createOwners(ctx)
-		Expect(retarget(ctx, map[uint32]uint32{1: 2, 2: 1}, dependents(ctx, 1, 2))).
-			To(Succeed())
-		Expect(retrieveOwner(ctx, "a").Channel).To(Equal(uint32(2)))
-		Expect(retrieveOwner(ctx, "b").Channel).To(Equal(uint32(1)))
-	})
-
-	It("Should move a chain of holders of a Unique reference", func(ctx SpecContext) {
-		createOwners(ctx)
-		Expect(retarget(ctx, map[uint32]uint32{1: 2, 2: 3}, dependents(ctx, 1, 2))).
-			To(Succeed())
-		Expect(retrieveOwner(ctx, "a").Channel).To(Equal(uint32(2)))
-		Expect(retrieveOwner(ctx, "b").Channel).To(Equal(uint32(3)))
-	})
+	DescribeTable(
+		"Should refuse to swap or chain the targets of two holders of a Unique reference",
+		func(ctx SpecContext, to map[uint32]uint32) {
+			createOwners(ctx)
+			Expect(retarget(ctx, to, dependents(ctx, 1, 2))).
+				To(MatchError(ContainSubstring("owner b already references channel 2")))
+			Expect(retrieveOwner(ctx, "a").Channel).To(Equal(uint32(1)))
+			Expect(retrieveOwner(ctx, "b").Channel).To(Equal(uint32(2)))
+		},
+		Entry("a swap", map[uint32]uint32{1: 2, 2: 1}),
+		Entry("a chain", map[uint32]uint32{1: 2, 2: 3}),
+	)
 
 	It("Should apply the map once to a holder named in two text forms of its key", func(
 		ctx SpecContext,

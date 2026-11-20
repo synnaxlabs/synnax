@@ -54,7 +54,7 @@ var _ = Describe("Retarget breaker", Ordered, func() {
 		return ch.Key()
 	}
 
-	It("Should leave an unset state channel unset when the map names the zero key",
+	It("Should refuse a map that names the zero key and leave the schematic as it was",
 		func(ctx SpecContext) {
 			a, b, c := createChannel(ctx), createChannel(ctx), createChannel(ctx)
 			nodes := make([]schematic.Node, 2)
@@ -80,7 +80,9 @@ var _ = Describe("Retarget breaker", Ordered, func() {
 						Reference: "nodes.config.state_channel",
 					}},
 				)
-			})).To(Succeed())
+			})).To(MatchError(ContainSubstring(
+				"cannot retarget channel to or from the zero key",
+			)))
 			var stored schematic.Schematic
 			Expect(layer.Schematic.NewRetrieve().
 				Where(schematic.MatchKeys(sch.Key)).
@@ -90,7 +92,7 @@ var _ = Describe("Retarget breaker", Ordered, func() {
 			for i, n := range stored.Nodes {
 				states[i] = n.Config.Variant.(schematic.ValveNodeConfig).StateChannel
 			}
-			Expect(states).To(Equal([]channel.Key{b, 0}))
+			Expect(states).To(Equal([]channel.Key{a, 0}))
 		},
 	)
 })
