@@ -1169,6 +1169,15 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("client.crt", true)).toBeDefined();
     });
 
+    it("should list the places that failed again on Try again", async () => {
+      const listings = [ROOT];
+      await openBrowser(listings, "/etc/client.crt");
+      await screen.findByText("/etc does not exist.");
+      listings.push(TOP, ETC);
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(await screen.findByText("Secrets folder")).toBeDefined();
+    });
+
     it("should show the error of a folder that fails and go back from it", async () => {
       await openBrowser(LISTINGS);
       await openEtc();
