@@ -266,6 +266,24 @@ describe("Color.Field", () => {
       expect(created.group).toBe(picked.key);
     });
 
+    it("should create a color in no palette from the pinned No palette", async () => {
+      const { palette } = await createInPalette();
+      // A loose color makes the library list No palette as a palette too.
+      await client.colors.create({ name: `loose-${id.create()}`, light: "#0000FF" });
+      const { result, values } = await renderField();
+      openPicker(result);
+      await openCreate(palette);
+      fireEvent.click(screen.getByRole("button", { name: /^Palette/ }));
+      await screen.findByRole("option", { name: palette.name });
+      const none = screen.getAllByRole("option", { name: "No palette" });
+      expect(none).toHaveLength(1);
+      expect(none[0].closest("[role='listbox']")).toBeNull();
+      fireEvent.click(none[0]);
+      enterColorName(`created-${id.create()}`);
+      const created = await createdColor(values);
+      expect(created.group).toBeUndefined();
+    });
+
     it("should refuse a blank name and keep the view", async () => {
       const { palette } = await createInPalette();
       const { result, values } = await renderField();

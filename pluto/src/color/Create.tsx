@@ -15,6 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
@@ -121,8 +122,8 @@ const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement 
   const palettes = usePalettes().filter(
     ({ key }) =>
       key !== color.SERIES_PALETTE &&
-      (key === NO_PALETTE ||
-        Access.updateGranted({ client, id: group.resourceID(key) })),
+      key !== NO_PALETTE &&
+      Access.updateGranted({ client, id: group.resourceID(key) }),
   );
   const [palette, setPalette] = useState(initialPalette);
   const methods = Form.use<typeof createFormSchema>({
@@ -167,6 +168,15 @@ const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement 
             onChange={setPalette}
             triggerProps={{ size: "small" }}
             grow
+            footer={
+              <>
+                <Menu.Divider />
+                <Select.Item<group.Key> itemKey={NO_PALETTE} textValue="No palette">
+                  <Icon.None />
+                  No palette
+                </Select.Item>
+              </>
+            }
           >
             {palettes.map(({ key, name }) => (
               <Select.Item key={key} itemKey={key}>
