@@ -67,6 +67,7 @@ var (
 	framerSvc  *framer.Service
 	taskSvc    *task.Service
 	icdSvc     *icd.Service
+	kafkaSvc   *kafka.Service
 	cluster    *kfake.Cluster
 )
 
@@ -131,7 +132,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   db,
 		ImEx: imex.NewService(),
 	}))
-	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
+	kafkaSvc = MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
 		ICD:     icdSvc,

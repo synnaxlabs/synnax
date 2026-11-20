@@ -11,18 +11,17 @@ package v1
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"math"
 	"strconv"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
@@ -272,90 +271,47 @@ func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change strin
 	}
 }
 
-// NewReadMigration returns the migration that lifts stored v0 read configs to v1. It
-// resolves each config as ResolveReadConfig does, with the name of its task, creates
-// the ICD with create, and logs each change to a field. The config of a snapshot task
-// gets no ICD and keeps no records, because the task service deletes snapshots after
-// this migration runs.
-func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
-	return migrate.New(
-		"v62_kafka_read_icd",
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			var olds []v0.ReadConfig
-			if err := gorp.NewRetrieve[uuid.UUID, v0.ReadConfig]().
-				Entries(&olds).
-				Exec(ctx, tx); err != nil || len(olds) == 0 {
-				return err
-			}
-			tasks, err := retrieveTasks(ctx, tx, olds)
+// StagedRecordsKVPrefix is the KV key prefix under which ReadMigration stages the
+// records of each config. The rest of the key is the config key as a string, and the
+// value is the InlineRead that holds the records, as JSON.
+const StagedRecordsKVPrefix = "sy_kafka_read_staged_records/"
+
+// StagedRecordsKVKey returns the staging KV key of the records of the config with the
+// given key.
+func StagedRecordsKVKey(key uuid.UUID) []byte {
+	return []byte(StagedRecordsKVPrefix + key.String())
+}
+
+// ReadMigration lifts each stored v0 read config to v1. The v1 shape stores no inline
+// records, so ReadMigration stages the records of each config under
+// StagedRecordsKVPrefix.
+var ReadMigration = migrate.New(
+	"v63_kafka_read_stage",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		var olds []v0.ReadConfig
+		if err := gorp.NewRetrieve[uuid.UUID, v0.ReadConfig]().
+			Entries(&olds).
+			Exec(ctx, tx); err != nil || len(olds) == 0 {
+			return err
+		}
+		news := make([]ReadConfig, len(olds))
+		for i, old := range olds {
+			cfg, err := MigrateReadConfig(ctx, old)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "config %s", old.Key)
 			}
-			news := make([]ReadConfig, len(olds))
-			for i, old := range olds {
-				if tasks[old.Key].Snapshot {
-					if news[i], err = MigrateReadConfig(ctx, old); err != nil {
-						return errors.Wrapf(err, "config %s", old.Key)
-					}
-					continue
-				}
-				if news[i], err = migrateStored(
-					ctx,
-					tx,
-					channels,
-					create,
-					tasks[old.Key].Name,
-					old,
-					NoteLift(ins, old.Key),
-				); err != nil {
+			if cfg.Inline != nil {
+				b, err := json.Marshal(cfg.Inline)
+				if err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
+				if err = tx.Set(ctx, StagedRecordsKVKey(cfg.Key), b); err != nil {
+					return err
+				}
+				cfg.Inline = nil
 			}
-			return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
-		},
-	)
-}
-
-func migrateStored(
-	ctx context.Context,
-	tx gorp.Tx,
-	channels Channels,
-	create CreateICD,
-	name string,
-	old v0.ReadConfig,
-	note func(field, change string),
-) (ReadConfig, error) {
-	cfg, err := MigrateReadConfig(ctx, old)
-	if err != nil {
-		return ReadConfig{}, err
-	}
-	ic, ok, err := ResolveReadConfig(ctx, tx, channels, name, &cfg, note)
-	if err != nil {
-		return ReadConfig{}, err
-	}
-	if !ok {
-		return cfg, nil
-	}
-	if err = create(ctx, tx, ic); err != nil {
-		return ReadConfig{}, err
-	}
-	return cfg, nil
-}
-
-// retrieveTasks returns the task of each config of cfgs by key, read through tx.
-func retrieveTasks(
-	ctx context.Context,
-	tx gorp.Tx,
-	cfgs []v0.ReadConfig,
-) (map[uuid.UUID]task.Task, error) {
-	var tasks []task.Task
-	if err := gorp.NewRetrieve[task.Key, task.Task]().
-		Where(gorp.MatchKeys[task.Key, task.Task](
-			lo.Map(cfgs, func(c v0.ReadConfig, _ int) task.Key { return c.Key })...,
-		)).
-		Entries(&tasks).
-		Exec(ctx, tx); err != nil {
-		return nil, errors.Wrap(err, "tasks of Kafka read configs")
-	}
-	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
-}
+			news[i] = cfg
+		}
+		return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
+	},
+)

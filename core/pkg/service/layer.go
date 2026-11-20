@@ -1143,6 +1143,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
+			l.Kafka.ICDMigration(taskNames(l.Task)),
 		),
 	}); !ok(err, nil) {
 		return nil, err
