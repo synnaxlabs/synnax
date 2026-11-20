@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -419,7 +418,7 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
-// Delete deletes the channels that the request names by key or by name, with the
+// Delete deletes the channels that the request names by key, then by name, with the
 // default of each record that holds them. Deleting an internal channel is a validation
 // error, and a task that uses a channel refuses the delete.
 func (s *Service) Delete(
@@ -427,27 +426,21 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	keys := req.Keys
-	if len(req.Names) > 0 {
-		var named []channel.Channel
-		if err := s.internal.NewRetrieve().
-			Where(channel.MatchNames(req.Names...)).
-			Entries(&named).
-			Exec(ctx, tx); err != nil {
+	if len(req.Keys) > 0 {
+		if _, err := s.impact.Apply(
+			ctx,
+			tx,
+			impact.Change{Variant: impact.DeleteChannelsChange{Keys: req.Keys}},
+			impact.ApplyOptions{},
+		); err != nil {
 			return struct{}{}, err
 		}
-		keys = append(slices.Clone(keys), channel.KeysFromChannels(named)...)
 	}
-	if len(keys) == 0 {
-		return struct{}{}, nil
+	if len(req.Names) > 0 {
+		return struct{}{}, s.internal.NewWriter(tx).
+			DeleteManyByNames(ctx, req.Names, false)
 	}
-	_, err := s.impact.Apply(
-		ctx,
-		tx,
-		impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}},
-		impact.ApplyOptions{},
-	)
-	return struct{}{}, err
+	return struct{}{}, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
