@@ -11,17 +11,17 @@ import { type RefObject, useLayoutEffect } from "react";
 
 /**
  * Shows the element in ref in the top layer while shown is true. The element must set
- * `popover`. Pass the element it portals into as container, since a new container
- * mounts a new element.
+ * `popover`. It shows again, last in the top layer, each time key changes. Pass the
+ * element it portals into as key, since a new container mounts a new element.
  */
 export const usePopover = (
   ref: RefObject<HTMLElement | null>,
   shown: boolean,
-  container: HTMLElement | null,
+  key: unknown,
 ): void =>
   useLayoutEffect(() => {
     const el = ref.current;
     if (!shown || el == null) return;
     el.showPopover();
     return () => el.hidePopover();
-  }, [ref, shown, container]);
+  }, [ref, shown, key]);
