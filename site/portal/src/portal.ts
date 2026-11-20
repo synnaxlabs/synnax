@@ -10,7 +10,7 @@
 import { KMSClient } from "@aws-sdk/client-kms";
 import { clerkClient } from "@clerk/astro/server";
 import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
-import { type APIContext } from "astro";
+import type { APIContext } from "astro";
 import {
   AWS_ROLE_ARN,
   CLERK_WEBHOOK_SIGNING_SECRET,

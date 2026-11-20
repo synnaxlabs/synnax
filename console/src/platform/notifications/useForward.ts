@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource, type status, type Synnax as Client } from "@synnaxlabs/client";
+import type { resource, status, Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";

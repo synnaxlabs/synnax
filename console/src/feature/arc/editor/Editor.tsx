@@ -16,7 +16,7 @@ import { Graph } from "@/feature/arc/editor/Graph";
 import { Path } from "@/feature/arc/editor/Path";
 import { Text } from "@/feature/arc/editor/Text";
 import { CSS } from "@/platform/css";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 
 const Internal = () => {
   const mode = Arc.useMode();

@@ -43,7 +43,7 @@ import { Export } from "@/platform/export";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";

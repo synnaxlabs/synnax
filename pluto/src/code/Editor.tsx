@@ -9,7 +9,7 @@
 
 import "@/code/Editor.css";
 
-import { type ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
+import type { ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";

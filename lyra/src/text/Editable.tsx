@@ -19,7 +19,7 @@ import {
 
 import { CSS as PCSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
-import { type Input } from "@/input";
+import type { Input } from "@/input";
 import { paintHighlight } from "@/text/highlight";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";

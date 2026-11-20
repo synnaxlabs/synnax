@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type HastPluginDefinition } from "satteri";
+import type { HastPluginDefinition } from "satteri";
 
 /** The longest inline code, in characters, that stays on one line. */
 const SHORT_LENGTH = 32;

@@ -41,6 +41,8 @@ type registeredTable interface {
 	// targetSet runs the hook of the table for a set of an entry of the table named
 	// table, with the entry of the text key k.
 	targetSet(ctx context.Context, tx Tx, k, table string) error
+	// links returns the links that the entry with the text key k holds in snap.
+	links(ctx context.Context, snap Snapshot, k string) ([]Link, error)
 }
 
 // registeredReference is the part of a Reference that the delete walk reaches.

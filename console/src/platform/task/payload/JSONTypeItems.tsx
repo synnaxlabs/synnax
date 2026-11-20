@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type payload } from "@synnaxlabs/x";
+import type { payload } from "@synnaxlabs/x";
 
 export const JSON_TYPE_ITEMS = (
   <>

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type patch } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { patch } from "@synnaxlabs/x";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import {
@@ -17,7 +17,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/access/role/actions.gen";
-import { type Role } from "@/access/role/types.gen";
+import type { Role } from "@/access/role/types.gen";
 import { actions } from "@/actions";
 
 // The fields that path actions edit, checked for shape only. The Core validates them.

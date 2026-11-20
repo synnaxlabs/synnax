@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 import { createEvent, fireEvent } from "@testing-library/react";
 import { type Mock, vi } from "vitest";
 
