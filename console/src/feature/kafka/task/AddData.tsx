@@ -20,9 +20,7 @@ import type { Device } from "@/feature/kafka/device/types";
 import {
   carriedFields,
   defaultPicks,
-  heldPointers,
   isExtendable,
-  isPickable,
   type Picks,
   type Reads,
   shapeKey,
@@ -118,7 +116,6 @@ const ShapeValues = ({
   const extendable = isExtendable(shape, reads);
   const taken = takenPointers(shape, reads);
   const carried = carriedFields(shape, reads);
-  const held = new Set([...heldPointers(shape, reads), ...value]);
   const values = shape.fields.map((f, i): ICD.Picker.Value => {
     const dataType = f.timeFormat == null ? f.dataType.toString() : "timestamp";
     let lock: ICD.Picker.Lock | undefined;
@@ -126,7 +123,6 @@ const ShapeValues = ({
     else if (taken.has(f.pointer))
       lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
     else if (!extendable) lock = NOT_EXTENDABLE;
-    else if (!isPickable(shape, held, f)) lock = { checked: false, label: dataType };
     return {
       key: f.pointer,
       name: f.pointer === "" ? "Whole value" : f.pointer,
@@ -135,7 +131,6 @@ const ShapeValues = ({
       lock,
     };
   });
-  const mixed = extendable && values.some(({ lock }) => lock?.checked === false);
   return (
     <>
       <ICD.Picker.PaneHeader
@@ -152,12 +147,6 @@ const ShapeValues = ({
         value={[...value]}
         onChange={(keys) => onChange(new Set(keys))}
       />
-      {mixed && (
-        <Text.Text level="small" color={9} className={CSS.BE("kafka-add-data", "note")}>
-          A string field cannot share a message with number, boolean, or timestamp
-          fields.
-        </Text.Text>
-      )}
     </>
   );
 };

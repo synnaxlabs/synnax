@@ -524,36 +524,14 @@ describe("Kafka read form", () => {
         });
     });
 
-    it("should keep a string field out of a message with a timestamp", async () => {
+    it("should pick a string field with the numbers of its record", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
       const state = await dialog.findByRole("checkbox", { name: "Record /state" });
-      expect(state).toHaveProperty("disabled", true);
-      dialog.getByText(/A string field cannot share a message/);
-    });
-
-    it("should pick the fixed fields that can share the index", async () => {
-      const { dev } = await renderRead();
-      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
-      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
-      await dialog.findByText("1 field selected");
-      dialog.getByRole("button", { name: "Add 1 field" });
-    });
-
-    it("should pick variable-length fields when no fixed field is free", async () => {
-      const { dev } = await renderRead();
-      const log = {
-        sources: ["log"],
-        fields: [
-          createInferredField("/line", "string", "string"),
-          createInferredField("/host", "string", "string"),
-        ],
-        index: -1,
-        count: 2,
-      };
-      const dialog = await openAddData(dev, { data: sampleOf(log) });
-      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
-      await dialog.findByText("2 fields selected");
+      expect(state).toHaveProperty("disabled", false);
+      fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+      expect(state).toHaveProperty("checked", true);
+      dialog.getByRole("button", { name: "Add 2 fields" });
     });
 
     it("should give each number field the type of its inferred data type", async () => {
@@ -752,15 +730,17 @@ describe("Kafka read form", () => {
         recordKey: "oven-1",
       });
       await screen.findByRole("treeitem", { name: /^temperature/ });
-      const oven = { ...OVEN_SHAPE, sources: ["oven-1"] };
+      const oven = {
+        ...OVEN_SHAPE,
+        sources: ["oven-1"],
+        fields: OVEN_SHAPE.fields.slice(0, 2),
+      };
       const dialog = await openAddData(dev, { data: sampleOf(oven) });
       const pick = await dialog.findByRole("checkbox", { name: "Pick oven-1" });
       expect(pick).toHaveProperty("disabled", true);
       const field = dialog.getByRole("checkbox", { name: "Record /temperature" });
       expect(field).toHaveProperty("disabled", true);
       expect(field).toHaveProperty("checked", true);
-      const state = dialog.getByRole("checkbox", { name: "Record /state" });
-      expect(state).toHaveProperty("checked", false);
       expect(dialog.getAllByText("In task")).toHaveLength(2);
     });
 
@@ -777,6 +757,8 @@ describe("Kafka read form", () => {
       const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
       expect(pressure).toHaveProperty("disabled", false);
       expect(pressure).toHaveProperty("checked", false);
+      const state = dialog.getByRole("checkbox", { name: "Record /state" });
+      expect(state).toHaveProperty("disabled", false);
       expect(dialog.getAllByText("In task")).toHaveLength(1);
     });
 
@@ -881,7 +863,6 @@ describe("Kafka read form", () => {
       const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
       expect(pressure).toHaveProperty("disabled", true);
       expect(dialog.getAllByText("No JSON message")).toHaveLength(4);
-      expect(dialog.queryByText(/A string field cannot share a message/)).toBeNull();
     });
 
     it("should add a field to the message that the records of the keys read", async () => {

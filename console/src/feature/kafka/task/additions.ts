@@ -35,22 +35,6 @@ export interface Addition {
   index?: icd.FieldKey;
 }
 
-const isVariable = ({ dataType }: json.InferredField): boolean =>
-  new DataType(dataType).isVariable;
-
-/**
- * @returns whether a pick of a shape can take the field. The fields of a message share
- * one index, which a variable-length field cannot have, so the two kinds never mix.
- */
-export const isPickable = (
-  shape: json.Shape,
-  picked: Set<string>,
-  field: json.InferredField,
-): boolean =>
-  shape.fields
-    .filter((f, i) => i === shape.index || picked.has(f.pointer))
-    .every((f) => isVariable(f) === isVariable(field));
-
 /** @returns the messages of an ICD, by its key. */
 export type MessagesOf = (icdKey: icd.Key) => icd.Message[];
 
@@ -133,26 +117,17 @@ export const takenPointers = (shape: json.Shape, { pointers }: Reads): Set<strin
 };
 
 /**
- * @returns the pointers that any key of a shape reads. Their messages gain the picks of
- * the shape, so the picks must not mix variable-length fields among them.
- */
-export const heldPointers = (shape: json.Shape, { pointers }: Reads): Set<string> =>
-  new Set(shape.sources.flatMap((key) => [...(pointers.get(key) ?? [])]));
-
-/**
- * @returns the fields that a click on a shape picks: each one that a key of the shape
- * does not read and that the shape can take, without mixing variable-length fields
- * among fixed ones. Fixed fields go first. A shape that is not extendable picks none.
+ * @returns the fields that a click on a shape picks: each one but its index that a key
+ * of the shape does not read. A shape that is not extendable picks none.
  */
 export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
   if (!isExtendable(shape, reads)) return new Set();
   const taken = takenPointers(shape, reads);
-  const held = heldPointers(shape, reads);
-  const free = shape.fields.filter(
-    (f, i) => i !== shape.index && !taken.has(f.pointer) && isPickable(shape, held, f),
+  return new Set(
+    shape.fields
+      .filter((f, i) => i !== shape.index && !taken.has(f.pointer))
+      .map(({ pointer }) => pointer),
   );
-  const fixed = free.filter((f) => !isVariable(f));
-  return new Set((fixed.length > 0 ? fixed : free).map(({ pointer }) => pointer));
 };
 
 /** @returns the Kafka keys of a shape with no record of their own. */

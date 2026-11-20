@@ -65,8 +65,3 @@
     flex-grow: 1;
     min-width: 0;
 }
-
-.console-kafka-add-data .console-kafka-add-data__note {
-    flex-shrink: 0;
-    padding: 2rem 3rem;
-}
