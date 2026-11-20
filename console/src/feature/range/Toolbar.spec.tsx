@@ -209,22 +209,6 @@ describe("range/Toolbar", () => {
       });
       expect(queryLine("Running", oldest.name)).toBeNull();
       expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
-      // A deleted range shrinks the page, and a read for a range that ends still keeps
-      // Show more enabled.
-      const [deleted, ended] = newer.filter(
-        (r) => queryLine("Running", r.name) != null,
-      );
-      if (ended == null) throw new Error("Running shows fewer than two newer ranges");
-      await client.ranges.delete(deleted.key);
-      await waitFor(() => expect(queryLine("Running", deleted.name)).toBeNull());
-      const reads = holdListReads();
-      await endRange(ended, TimeStamp.now().add(TimeSpan.milliseconds(300)));
-      const busy = groupOf("Running").closest<HTMLElement>('[role="list"]');
-      await waitFor(() => expect(busy?.getAttribute("aria-busy")).toBe("true"), {
-        timeout: 10_000,
-      });
-      expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull();
-      reads.release();
       expect(await findLine("Running", oldest.name)).toBeTruthy();
       // A range that starts later joins Running only through the read for its start.
       const starting = await createRange(

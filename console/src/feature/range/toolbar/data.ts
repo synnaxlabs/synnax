@@ -51,8 +51,6 @@ export interface Groups {
   moreRunning: () => void;
   /** Whether a list reads. The groups keep the last answers until it lands. */
   reading: boolean;
-  /** Whether Running reads the page that moreRunning asked for. */
-  paging: boolean;
   getItem: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["getItem"];
   subscribe: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["subscribe"];
 }
@@ -62,8 +60,6 @@ export const useGroups = (): Groups => {
   const [at, setAt] = useState(() => TimeStamp.now());
   // Show more grows the size, so a read for a new `at` keeps the pages already shown.
   const [runningSize, setRunningSize] = useState(RUNNING_PAGE);
-  // The size of Running's last read to land. A read for a larger size is a page.
-  const [answered, setAnswered] = useState({ size: runningSize, loading: true });
   const runningList = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: Ranger.stageWhere("in_progress", at), order: NEWEST },
@@ -80,13 +76,7 @@ export const useGroups = (): Groups => {
   // land apart. Until both land, the groups keep the ranges of the last answers, so a
   // range that ends moves to Recent at once and never shows twice or drops out.
   const [held, setHeld] = useState<ranger.Key[]>([]);
-  const runningLoading = runningList.variant === "loading";
-  const reading = runningLoading || recentList.variant === "loading";
-  if (runningLoading !== answered.loading)
-    setAnswered({
-      size: runningLoading ? answered.size : runningSize,
-      loading: runningLoading,
-    });
+  const reading = runningList.variant === "loading" || recentList.variant === "loading";
   const keys = unique.unique([
     ...runningList.data,
     ...recentList.data,
@@ -125,7 +115,6 @@ export const useGroups = (): Groups => {
     runningComplete: runningList.complete,
     moreRunning: () => setRunningSize((size) => size + RUNNING_PAGE),
     reading,
-    paging: runningLoading && answered.size < runningSize,
     getItem: runningList.getItem,
     subscribe: runningList.subscribe,
   };
