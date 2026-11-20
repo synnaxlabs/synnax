@@ -36,7 +36,7 @@ const RELEASE_REDIRECTS = Object.fromEntries(
   ]),
 );
 
-const { POSTHOG, VERCEL_LIVE } = Common;
+const { POSTHOG } = Common;
 const ALGOLIA = "https://ywd9t0jxcs-dsn.algolia.net";
 const CDN = "https://synnax.nyc3.cdn.digitaloceanspaces.com";
 
@@ -72,24 +72,19 @@ export default defineConfig({
   adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
   image: { domains: IMAGES.domains },
   security: {
-    csp: {
-      directives: [
-        "default-src 'self'",
-        `connect-src 'self' ${ALGOLIA} ${POSTHOG} https://formspree.io ${VERCEL_LIVE}`,
-        `img-src 'self' data: ${CDN} ${VERCEL_LIVE} https://vercel.com`,
-        `media-src 'self' ${CDN}`,
-        `frame-src ${VERCEL_LIVE}`,
-        "object-src 'none'",
-        "base-uri 'self'",
-      ],
-      scriptDirective: {
-        resources: ["'self'", POSTHOG, VERCEL_LIVE],
-        hashes: [...Common.HASHES, ...HASHES],
+    csp: Common.policy({
+      sources: {
+        "connect-src": ["'self'", ALGOLIA, POSTHOG, "https://formspree.io"],
+        "img-src": ["'self'", "data:", CDN],
+        "media-src": ["'self'", CDN],
       },
+      scripts: [POSTHOG],
+      hashes: [...Common.HASHES, ...HASHES],
       // Shiki colors code with style attributes, and transitions add style elements
       // that differ by page while the client router keeps the first page's policy.
-      styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
-    },
+      inlineStyles: true,
+      vercelEnv: process.env.VERCEL_ENV,
+    }),
   },
   vite: {
     define: { __DOCS_VERSION__: JSON.stringify(version) },

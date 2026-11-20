@@ -9,13 +9,122 @@
 
 import { createHash } from "node:crypto";
 
+import {
+  type AstroIntegration,
+  type AstroUserConfig,
+  type HookParameters,
+} from "astro";
+
 export { API_HOST as POSTHOG } from "./analytics";
 
+type Csp = Exclude<
+  NonNullable<AstroUserConfig["security"]>["csp"],
+  boolean | undefined
+>;
+
+/** Directive names a policy lists sources for. */
+type Directive =
+  | "connect-src"
+  | "font-src"
+  | "frame-ancestors"
+  | "frame-src"
+  | "img-src"
+  | "media-src"
+  | "worker-src";
+
+const DIRECTIVES: Directive[] = [
+  "connect-src",
+  "font-src",
+  "frame-ancestors",
+  "frame-src",
+  "img-src",
+  "media-src",
+  "worker-src",
+];
+
+const VERCEL_LIVE = "https://vercel.live";
+
+/** TOOLBAR lists what the Vercel toolbar on a preview deployment loads. */
+const TOOLBAR: Record<Directive | "script-src" | "style-src", string[]> = {
+  "connect-src": [VERCEL_LIVE, "wss://ws-us3.pusher.com"],
+  "font-src": [VERCEL_LIVE, "https://assets.vercel.com"],
+  "frame-ancestors": [],
+  "frame-src": [VERCEL_LIVE],
+  "img-src": [VERCEL_LIVE, "https://vercel.com", "data:", "blob:"],
+  "media-src": [],
+  "worker-src": [],
+  "script-src": [VERCEL_LIVE],
+  "style-src": [VERCEL_LIVE],
+};
+
+export interface PolicyConfig {
+  /** Sources for each directive. A fetch directive needs `'self'` listed. */
+  sources?: Partial<Record<Directive, string[]>>;
+  /** Origins that scripts load from, besides `'self'`. */
+  scripts?: string[];
+  /** Hashes of the `is:inline` scripts, which Astro does not hash. */
+  hashes?: `sha256-${string}`[];
+  /** Allows every inline style element, not only the hashed ones. */
+  inlineStyles?: boolean;
+  /** The `VERCEL_ENV` of the build. A preview also allows the Vercel toolbar. */
+  vercelEnv?: string;
+}
+
 /**
- * VERCEL_LIVE is the origin of the Vercel toolbar, which Vercel adds to preview
- * deployments.
+ * policy returns the `security.csp` config of a site. It refuses plugins and other
+ * base URLs, and allows inline `style` attributes, which every site sets.
  */
-export const VERCEL_LIVE = "https://vercel.live";
+export const policy = ({
+  sources = {},
+  scripts = [],
+  hashes = [],
+  inlineStyles = false,
+  vercelEnv,
+}: PolicyConfig): Csp => {
+  const toolbar = vercelEnv === "preview";
+  const extra = (d: keyof typeof TOOLBAR): string[] => (toolbar ? TOOLBAR[d] : []);
+  const directives: `${Directive} ${string}`[] = [];
+  for (const d of DIRECTIVES) {
+    const own = sources[d];
+    if (own == null && extra(d).length === 0) continue;
+    const list = new Set([...(own ?? ["'self'"]), ...extra(d)]);
+    directives.push(`${d} ${[...list].join(" ")}`);
+  }
+  // The toolbar adds style elements that no hash can name.
+  const elements = inlineStyles || toolbar;
+  return {
+    directives: [
+      "default-src 'self'",
+      ...directives,
+      "object-src 'none'",
+      "base-uri 'self'",
+    ],
+    scriptDirective: {
+      resources: ["'self'", ...scripts, ...extra("script-src")],
+      hashes,
+    },
+    styleDirective: {
+      resources: elements
+        ? ["'self'", "'unsafe-inline'", ...extra("style-src")]
+        : ["'self'", { resource: "'unsafe-inline'", kind: "attribute" }],
+    },
+  };
+};
+
+/** jitless stops Zod's probe for eval, which the policy refuses, before islands run. */
+export const jitless = () =>
+  ({
+    name: "@synnaxlabs/site-common/jitless",
+    hooks: {
+      "astro:config:setup": ({
+        injectScript,
+      }: Pick<HookParameters<"astro:config:setup">, "injectScript">) =>
+        injectScript(
+          "before-hydration",
+          'import { z } from "zod"; z.config({ jitless: true });',
+        ),
+    },
+  }) satisfies AstroIntegration;
 
 /** hash returns the CSP source that lets an inline script or style with `text` run. */
 export const hash = (text: string): `sha256-${string}` =>
