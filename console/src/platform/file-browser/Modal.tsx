@@ -144,6 +144,8 @@ const Content = ({
   const shown =
     listing ?? (shownPath == null ? undefined : snapshot.listings.get(shownPath));
   const stale = listing == null;
+  // The Driver sends no details in the secrets folder, so each file there passes.
+  const typeFilter: TypeFilter = shown?.secret === true ? "all" : type;
   const loading = snapshot.loading.has(path);
   const failure = snapshot.failures.get(path);
   // While a folder loads or fails, the dimmed last folder offers no file to pick.
@@ -180,7 +182,7 @@ const Content = ({
   };
   const open = (entry: Entry): void => {
     if (entry.kind === "directory") go(entry.path);
-    else if (current && pickable(entry, type)) close(entry);
+    else if (current && pickable(entry, typeFilter)) close(entry);
   };
   // A folder the user points at lists in the background, so it often opens at once.
   const prefetch = (entry: Entry): void => {
@@ -193,7 +195,7 @@ const Content = ({
   };
   const selectedEntry = selected == null ? undefined : getItem(selected);
   const picked =
-    current && selectedEntry != null && pickable(selectedEntry, type)
+    current && selectedEntry != null && pickable(selectedEntry, typeFilter)
       ? selectedEntry
       : undefined;
 
@@ -254,7 +256,7 @@ const Content = ({
         folder={shownPath}
         selected={selected}
         now={now}
-        type={type}
+        type={typeFilter}
         onOpen={open}
         onPoint={prefetch}
         onUp={up}

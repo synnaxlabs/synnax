@@ -447,6 +447,18 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
+    it("should pick any file in the secrets folder under Certificates", async () => {
+      const { result } = await openBrowser([...LISTINGS, SECRETS]);
+      fireEvent.click(await screen.findByText("Secrets folder"));
+      fireEvent.click(await findEntry("ca.crt"));
+      await findEntry("ca.crt", true);
+      expect(findButton("Select").getAttribute("aria-disabled")).not.toBe("true");
+      fireEvent.click(findButton("Select"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: `${SECRETS_DIR}/ca.crt` }),
+      );
+    });
+
     it("should open a selected folder and pick a selected file on Enter", async () => {
       const { result } = await openBrowser(LISTINGS);
       await openFolder("/");
