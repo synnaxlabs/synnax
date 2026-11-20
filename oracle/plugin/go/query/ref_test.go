@@ -1026,8 +1026,10 @@ var _ = Describe("@ref", func() {
 			`).
 				ToContain(
 					`Name:     "entries.channel",`,
-					"targets := make([]channel.Key, 0, len(e.Entries))",
+					"var targets []channel.Key",
 					"for _, v1 := range e.Entries {",
+					"if targets == nil {",
+					"targets = make([]channel.Key, 0, len(e.Entries))",
 					"if v1.Channel != 0 {",
 					"for i2 := range e.Entries {",
 					`if e.Entries[i2].Channel == t {`,
