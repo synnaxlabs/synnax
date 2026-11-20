@@ -599,6 +599,24 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
+    it("should open a typed Windows file in another case", async () => {
+      const file = (name: string): FileBrowser.Entry => ({
+        name,
+        path: `C:\\certs\\${name}`,
+        kind: "file",
+      });
+      await openBrowser(
+        [createListing({ path: "C:\\certs", entries: [file("a.crt"), file("b.crt")] })],
+        "C:\\certs\\b.crt",
+      );
+      await findEntry("b.crt", true);
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      const field = screen.getByRole("textbox", { name: "Path" });
+      fireEvent.change(field, { target: { value: "C:\\certs\\A.CRT" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(await findEntry("a.crt", true)).toBeDefined();
+    });
+
     it("should open a typed file that came after its folder listed", async () => {
       const listings = [...LISTINGS];
       await openBrowser(listings);
