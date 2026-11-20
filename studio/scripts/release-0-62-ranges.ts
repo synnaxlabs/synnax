@@ -7,25 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  ranger,
-  type Synnax,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/client";
+import { ranger, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
 import { dropTemporal, pinClock } from "./common/clock";
+import { createPhases } from "./common/coldflow";
 import { isolateTab } from "./common/panels";
 
 export const viewport = { width: 1280, height: 800 };
 
 const CAMPAIGN = "LOX coldflow campaign";
-const RUNS = ["Coldflow 9", "Coldflow 10", "Coldflow 11"];
-const RUN_COLOR = "#7C5CE0";
+const TESTS = ["Coldflow 9", "Coldflow 10", "Coldflow 11"];
+const TEST_COLOR = "#7C5CE0";
 const PLOT = "OX Pressures";
 /** Video time the flow phase takes, however long the stand flows. */
 const FLOW_SHOWN = TimeSpan.seconds(4);
@@ -36,19 +31,6 @@ const REST = { x: 26, y: 600 };
  * frames record. The stand's samples must stay ahead for the sequence to advance.
  */
 const LEAD = TimeSpan.minutes(30);
-
-/** changes returns the times at which a valve on the stand changes state during tr. */
-const changes = async (
-  client: Synnax,
-  tr: TimeRange,
-  valve: string,
-): Promise<TimeStamp[]> => {
-  const times = Array.from(await client.read(tr, "daq_time"));
-  const states = Array.from(await client.read(tr, `${valve}_state`));
-  return states.flatMap((s, i) =>
-    i > 0 && s !== states[i - 1] ? [new TimeStamp(times[i] as bigint)] : [],
-  );
-};
 
 /**
  * Video for the ranges section of the v0.62 release notes: during a live coldflow, an
@@ -65,40 +47,23 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();
   try {
     const { page } = session;
-    const runs = await Promise.all(RUNS.map((n) => client.ranges.retrieve(n)));
+    const tests = await Promise.all(TESTS.map((n) => client.ranges.retrieve(n)));
     const campaign = await client.ranges.create({
       name: CAMPAIGN,
       color: "#3B7DDB",
       timeRange: new TimeRange(
-        runs[0].timeRange.start.sub(TimeSpan.minutes(12)),
+        tests[0].timeRange.start.sub(TimeSpan.minutes(12)),
         TimeStamp.MAX,
       ),
     });
-    for (const run of runs)
-      await client.ranges.dispatch(run.key, [
+    for (const test of tests)
+      await client.ranges.dispatch(test.key, [
         ranger.set({ path: ["parent"], value: campaign.key }),
-        ranger.set({ path: ["color"], value: RUN_COLOR }),
+        ranger.set({ path: ["color"], value: TEST_COLOR }),
       ]);
-    // The phases of the last run, which Next offers again in the same order.
-    const last = runs[runs.length - 1];
-    const tr = last.timeRange;
-    const [closed] = await changes(client, tr, "ox_vent");
-    const [opened, shut] = await changes(client, tr, "ox_mpv");
-    const phase = (name: string, color: string, start: TimeStamp, end: TimeStamp) => ({
-      name,
-      color,
-      timeRange: new TimeRange(start, end),
-      parent: last.key,
-    });
-    await client.ranges.create([
-      phase("Pressurization", "#3774D0", closed, opened),
-      phase("Flow", "#F5C400", opened, shut),
-      phase("Safing", "#10B061", shut, tr.end),
-    ]);
-    const flowSpeed = Math.max(
-      1,
-      new TimeRange(opened, shut).span.seconds / FLOW_SHOWN.seconds,
-    );
+    // Next offers the phases of the last test again, in the same order.
+    const [, flow] = await createPhases(client, tests[tests.length - 1]);
+    const flowSpeed = Math.max(1, flow.timeRange.span.seconds / FLOW_SHOWN.seconds);
 
     await pinClock(session);
     await capture.login(session, world.project);

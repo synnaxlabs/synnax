@@ -33,16 +33,16 @@ const LABELS = {
 type Label = keyof typeof LABELS;
 
 const CAMPAIGN = "LOX campaign";
-const RUN = "Coldflow 12";
+const TEST = "Coldflow 12";
 
-/** The stand's earlier runs, with their labels. */
-const RUNS: ReadonlyArray<readonly [name: string, labels: Label[]]> = [
+/** The stand's earlier tests, with their labels. */
+const TESTS: ReadonlyArray<readonly [name: string, labels: Label[]]> = [
   ["Coldflow 9", ["LOX", "Nominal"]],
   ["Coldflow 10", ["LOX", "Anomaly"]],
   ["Coldflow 11", ["LOX", "Nominal"]],
 ];
 
-/** Ranges starred before the run, so the toolbar lists them under Favorites. */
+/** Ranges starred before the test, so the toolbar lists them under Favorites. */
 const FAVORITES = ["Coldflow 10", "Coldflow 11"];
 
 /** Each TPC panel's icon, and its color when it does not use the theme's. */
@@ -112,8 +112,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         range.resourceID,
         labels.map((l) => LABELS[l].key),
       );
-    const runs = await Promise.all(
-      RUNS.map(async ([name, labels]) => {
+    const tests = await Promise.all(
+      TESTS.map(async ([name, labels]) => {
         const range = await client.ranges.retrieve(name);
         await label(range, labels);
         return range;
@@ -123,7 +123,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       name: CAMPAIGN,
       color: "#7C5CFF",
       timeRange: new TimeRange(
-        runs[0].timeRange.start.sub(TimeSpan.minutes(12)),
+        tests[0].timeRange.start.sub(TimeSpan.minutes(12)),
         TimeStamp.MAX,
       ),
     });
@@ -167,13 +167,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(capture.control(diagram, "circle"));
     await session.settle(800);
     const start = session.now();
-    const run = await client.ranges.create({
-      name: RUN,
+    const test = await client.ranges.create({
+      name: TEST,
       color: "#3B7DDB",
       timeRange: new TimeRange(start, TimeStamp.MAX),
       parent: campaign.key,
     });
-    await label(run, ["LOX"]);
+    await label(test, ["LOX"]);
     await session.click(
       diagram.getByRole("button", { name: "Start Sequence" }).first(),
     );
@@ -184,13 +184,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         name: "Pressurization",
         color: "#3774D0",
         timeRange: new TimeRange(start, flowing),
-        parent: run.key,
+        parent: test.key,
       },
       {
         name: "Flow",
         color: "#F5C400",
         timeRange: new TimeRange(flowing, TimeStamp.MAX),
-        parent: run.key,
+        parent: test.key,
       },
     ]);
     // Released, the schematic's controls fade out instead of staying pinned.

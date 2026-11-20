@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, TimeRange, TimeStamp } from "@synnaxlabs/client";
-
 import { capture, fixtures } from "@/index";
 
+import { createPhases } from "./common/coldflow";
 import { isolateTab } from "./common/panels";
 
 export const viewport = { width: 1280, height: 800 };
@@ -18,39 +17,7 @@ export const viewport = { width: 1280, height: 800 };
 const PLOT = "Coldflow 11 Pressures";
 const LINE = "press_pt_1";
 const NAMED = "Pressurant";
-const RUN = "Coldflow 11";
-
-/** changes returns the times at which a valve on the stand changes state during tr. */
-const changes = async (
-  client: Synnax,
-  tr: TimeRange,
-  valve: string,
-): Promise<TimeStamp[]> => {
-  const times = Array.from(await client.read(tr, "daq_time"));
-  const states = Array.from(await client.read(tr, `${valve}_state`));
-  return states.flatMap((s, i) =>
-    i > 0 && s !== states[i - 1] ? [new TimeStamp(times[i] as bigint)] : [],
-  );
-};
-
-/** createStages saves the stages of the run as its child ranges, which plots draw. */
-const createStages = async (client: Synnax): Promise<void> => {
-  const run = await client.ranges.retrieve(RUN);
-  const tr = run.timeRange;
-  const [closed] = await changes(client, tr, "ox_vent");
-  const [opened, shut] = await changes(client, tr, "ox_mpv");
-  const stage = (name: string, color: string, start: TimeStamp, end: TimeStamp) => ({
-    name,
-    color,
-    timeRange: new TimeRange(start, end),
-    parent: run.key,
-  });
-  await client.ranges.create([
-    stage("Pressurization", "#3774D0", closed, opened),
-    stage("Flow", "#F5C400", opened, shut),
-    stage("Safing", "#10B061", shut, tr.end),
-  ]);
-};
+const TEST = "Coldflow 11";
 
 /** The stand's own palette: one color for each system, with a value for each theme. */
 const PALETTE: ReadonlyArray<readonly [name: string, light: string, dark: string]> = [
@@ -63,7 +30,7 @@ const PALETTE: ReadonlyArray<readonly [name: string, light: string, dark: string
 
 /**
  * Still for the named colors section of the v0.62 release notes: the pressure plot of
- * Coldflow 11 with its stages, and the color picker of a line open on the Library tab.
+ * Coldflow 11 with its phases, and the color picker of a line open on the Library tab.
  * The line follows the Pressurant color of the stand's own palette, next to the
  * built-in series colors.
  */
@@ -82,7 +49,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         position: `a${i}`,
       })),
     );
-    await createStages(client);
+    await createPhases(client, await client.ranges.retrieve(TEST));
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Review", { exact: true }).first());
