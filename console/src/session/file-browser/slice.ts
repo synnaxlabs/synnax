@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type rack } from "@synnaxlabs/client";
+import type { rack } from "@synnaxlabs/client";
 import z from "zod";
 
 export const SLICE_NAME = "fileBrowser";
