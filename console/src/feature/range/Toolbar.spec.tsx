@@ -580,9 +580,8 @@ describe("range/Toolbar", () => {
         name: uniqueName("color"),
         light: "#123456",
       });
-      const rng = await client.ranges.create({
+      const rng = await createTestRange(client, {
         name: uniqueName("paint"),
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
         color: { type: "named", key: named.key },
       });
       await renderToolbar({ favorites: [rng] });
@@ -683,9 +682,8 @@ describe("range/Toolbar", () => {
         name: uniqueName("color"),
         light: "#123456",
       });
-      const rng = await client.ranges.create({
+      const rng = await createTestRange(client, {
         name: uniqueName("picture"),
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
         color: { type: "named", key: named.key },
       });
       await renderToolbar({ favorites: [rng] });

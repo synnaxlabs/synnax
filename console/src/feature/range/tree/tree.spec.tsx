@@ -190,7 +190,7 @@ describe("range tree", () => {
       color: { type: "fixed", value: "#000000" },
     });
     const end = TimeStamp.now().sub(TimeSpan.days(1));
-    const rng = await client.ranges.create({
+    const rng = await createTestRange(client, {
       name: "a",
       timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
       labels: [key],
