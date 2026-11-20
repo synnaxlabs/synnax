@@ -472,14 +472,17 @@ var _ = Describe("TS Types Plugin", func() {
 					named extends Base, Range {
 						label string
 					}
+					tuned extends Base, Range {
+						min float64 = 2
+					}
 				}
 			`
 			resp := MustGenerate(source, "range", loader, typesPlugin)
 			content := string(resp.Files[0].Content)
 			check := `.check(zod.lessThan("min", "max", "min must be below max"))`
-			// Range, Holder, and the named variant. Child and the ranged variant extend
-			// rangeZ, which keeps its check.
-			Expect(strings.Count(content, check)).To(Equal(3))
+			// Range, Holder, and the named and tuned variants. Child and the ranged
+			// variant extend rangeZ, which keeps its check.
+			Expect(strings.Count(content, check)).To(Equal(4))
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`import { zod } from "@synnaxlabs/x";`)
 		})
