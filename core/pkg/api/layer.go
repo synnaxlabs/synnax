@@ -966,6 +966,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
+		Impact:  cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}

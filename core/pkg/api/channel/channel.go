@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -52,6 +54,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Impact applies channel deletes and the changes they make to the records that hold
+	// the channels.
+	//
+	// [REQUIRED]
+	Impact *impact.Service
 }
 
 var (
@@ -66,6 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Impact = override.Nil(c.Impact, other.Impact)
 	return c
 }
 
@@ -76,6 +84,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
+	v.NotNil("impact", c.Impact)
 	return v.Error()
 }
 
@@ -85,6 +94,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *channel.Service
 	status   *status.Service
+	impact   *impact.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -97,6 +107,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		access:   cfg.RBAC,
 		internal: cfg.Channel,
 		status:   cfg.Status,
+		impact:   cfg.Impact,
 	}, nil
 }
 
@@ -408,23 +419,35 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
-// Delete deletes the channels that the request names by key or by name. Deleting an
-// internal channel is a validation error.
+// Delete deletes the channels that the request names by key or by name, with the
+// default of each record that holds them. Deleting an internal channel is a validation
+// error, and a task that uses a channel refuses the delete.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	w := s.internal.NewWriter(tx)
-	if len(req.Keys) > 0 {
-		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
+	keys := req.Keys
+	if len(req.Names) > 0 {
+		var named []channel.Channel
+		if err := s.internal.NewRetrieve().
+			Where(channel.MatchNames(req.Names...)).
+			Entries(&named).
+			Exec(ctx, tx); err != nil {
 			return struct{}{}, err
 		}
+		keys = append(slices.Clone(keys), channel.KeysFromChannels(named)...)
 	}
-	if len(req.Names) > 0 {
-		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
+	if len(keys) == 0 {
+		return struct{}{}, nil
 	}
-	return struct{}{}, nil
+	_, err := s.impact.Apply(
+		ctx,
+		tx,
+		impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}},
+		impact.ApplyOptions{},
+	)
+	return struct{}{}, err
 }
 
 // DispatchRequest carries an action sequence to apply to a single channel. DispatchKey

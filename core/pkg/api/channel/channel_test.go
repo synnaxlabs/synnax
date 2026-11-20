@@ -316,6 +316,43 @@ var _ = Describe("Service", func() {
 		)
 	})
 
+	Describe("Delete", func() {
+		It(
+			"Should refuse to delete an index that a data channel uses as it did before",
+			func(
+				ctx SpecContext,
+			) {
+				index := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &index)
+				})).To(Succeed())
+				data := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &data)
+				})).To(Succeed())
+				Expect(deleteChannels(
+					AuthedCtx(ctx, author),
+					apichannel.DeleteRequest{Keys: channel.Keys{index.Key()}},
+				)).Error().To(MatchError(gorp.RestrictError{
+					Target:    gorp.NewTarget("channel", index.Key()),
+					Holder:    gorp.NewTarget("channel", data.Key()),
+					Reference: "index",
+				}))
+				Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(index.Key(), data.Key())).
+					Count(ctx, db)).To(Equal(2))
+			},
+		)
+	})
+
 	Describe("Storage", func() {
 		var (
 			ch       channel.Channel

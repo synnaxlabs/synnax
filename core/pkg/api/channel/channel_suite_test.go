@@ -88,6 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    rbacSvc,
 		Channel: channelSvc,
 		Status:  statusSvc,
+		Impact:  layer.Impact,
 	}))
 	binder := MustSucceed(
 		bind.NewService(bind.ServiceConfig{
