@@ -23,16 +23,29 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// queue is an executor that holds each function until the test runs it.
+// queue is an executor that runs each function at once until held, and then holds each
+// until the test runs it.
 type queue struct {
 	mu    sync.Mutex
+	held  bool
 	funcs []func()
 }
 
 func (q *queue) exec(f func()) {
 	q.mu.Lock()
+	if !q.held {
+		q.mu.Unlock()
+		f()
+		return
+	}
 	defer q.mu.Unlock()
 	q.funcs = append(q.funcs, f)
+}
+
+func (q *queue) hold() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.held = true
 }
 
 func (q *queue) len() int {
@@ -76,7 +89,7 @@ var _ = Describe("Budget", func() {
 				for i := range hs {
 					name := fmt.Sprintf("%s%d.seg", prefix, i)
 					hs[i] = MustSucceed(b.Create(fs, name))
-					Expect(hs[i].Sync()).To(Succeed())
+					Expect(b.Sync(hs[i : i+1])).To(Succeed())
 					Expect(hs[i].WriteAt([]byte(name), 0)).To(Equal(len(name)))
 				}
 				DeferCleanup(func() {
@@ -102,9 +115,7 @@ var _ = Describe("Budget", func() {
 				Eventually(done).Should(Receive(BeNil()))
 				Eventually(done).Should(Receive(BeNil()))
 				Expect(fs.MaxSyncs()).To(Equal(2))
-				for _, h := range slices.Concat(first, second) {
-					Expect(h.Sync()).To(Succeed())
-				}
+				Expect(b.Sync(slices.Concat(first, second))).To(Succeed())
 				Expect(fs.Ops()).To(HaveLen(6*3), "a synced handle syncs once")
 			})
 
@@ -133,6 +144,7 @@ var _ = Describe("Budget", func() {
 					q := &queue{}
 					b := MustSucceed(segment.NewBudget(16, 32, q.exec))
 					hs := dirty(b, 3, "")
+					q.hold()
 					done := make(chan error, 1)
 					go func() { done <- b.Sync(hs) }()
 					Eventually(q.len).Should(Equal(3))
@@ -149,7 +161,10 @@ var _ = Describe("Budget", func() {
 				},
 			)
 
-			It("Should run the sync before a close on its executor, inside its width",
+			It(
+				"Should run the sync before a close in the call that closes, inside "+
+					"its "+
+					"width",
 				func() {
 					var execs atomic.Int64
 					b := MustSucceed(segment.NewBudget(2, 1, func(f func()) {
@@ -157,13 +172,13 @@ var _ = Describe("Budget", func() {
 						go f()
 					}))
 					hs := dirty(b, 2, "")
+					execs.Store(0)
 					release := fs.Hold()
 					synced := make(chan error, 1)
 					go func() { synced <- b.Sync(hs[:1]) }()
 					Eventually(fs.held).Should(Receive(Equal("0.seg")))
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
-					Eventually(execs.Load).Should(Equal(int64(2)))
 					Consistently(fs.held).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
@@ -171,10 +186,51 @@ var _ = Describe("Budget", func() {
 					var third *segment.Handle
 					Eventually(created).Should(Receive(&third))
 					Expect(third.Close()).To(Succeed())
+					Expect(
+						execs.Load(),
+					).To(Equal(int64(1)), "the close's sync is no job")
 					Expect(fs.MaxSyncs()).To(Equal(1))
 					ops := fs.Ops()
 					Expect(slices.Index(ops, "sync 1.seg")).
 						To(BeNumerically("<", slices.Index(ops, "close 1.seg")))
+				},
+			)
+
+			It(
+				"Should finish two closes in a row and the syncs that wait for them, "+
+					"when "+
+					"the executor runs one job at a time",
+				func() {
+					jobs := make(chan func(), 16)
+					go func() {
+						for f := range jobs {
+							f()
+						}
+					}()
+					DeferCleanup(func() { close(jobs) })
+					b := MustSucceed(
+						segment.NewBudget(1, 1, func(f func()) { jobs <- f }),
+					)
+					first := dirty(b, 1, "a")[0]
+					release := fs.Hold()
+					created := make(chan *segment.Handle, 1)
+					go func() { created <- MustSucceed(b.Create(fs, "b0.seg")) }()
+					Eventually(fs.held).Should(Receive(Equal("a0.seg")))
+					synced := make(chan error, 2)
+					go func() { synced <- b.Sync([]*segment.Handle{first}) }()
+					Consistently(synced).ShouldNot(Receive())
+					fs.Unhold()
+					close(release)
+					var second *segment.Handle
+					Eventually(created).Should(Receive(&second))
+					DeferCleanup(func() { Expect(second.Close()).To(Succeed()) })
+					Eventually(synced).Should(Receive(BeNil()))
+					Expect(second.WriteAt([]byte("b0.seg"), 0)).To(Equal(6))
+					third := MustSucceed(b.Create(fs, "c0.seg"))
+					DeferCleanup(func() { Expect(third.Close()).To(Succeed()) })
+					go func() { synced <- b.Sync([]*segment.Handle{second, first}) }()
+					Eventually(synced).Should(Receive(BeNil()))
+					Expect(fs.Ops()).To(ContainElements("sync a0.seg", "sync b0.seg"))
 				},
 			)
 

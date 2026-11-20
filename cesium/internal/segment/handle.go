@@ -108,9 +108,14 @@ func (h *Handle) openFile() (xfs.File, error) {
 
 // release ends one use of the file of h, and counts a write when wrote is true.
 func (h *Handle) release(wrote bool) {
+	h.b.mu.Lock()
+	defer h.b.mu.Unlock()
+	h.releaseLocked(wrote)
+}
+
+// releaseLocked is release for a caller that holds b.mu.
+func (h *Handle) releaseLocked(wrote bool) {
 	b := h.b
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	if wrote {
 		h.written++
 	}
@@ -178,12 +183,11 @@ func (h *Handle) failure() error {
 	return h.failed
 }
 
-// Sync makes every write that returned before the call durable, and the directory entry
+// sync makes every write that returned before the call durable, and the directory entry
 // of a created file. It runs one sync of the handle at a time, inside the width of the
 // budget. It returns the error of the failed sync when the handle is failed, from this
-// call or an earlier one. errors.Is matches a failed sync of the directory with
-// ErrDirSync.
-func (h *Handle) Sync() error {
+// call or an earlier one.
+func (h *Handle) sync() error {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	b := h.b
@@ -211,7 +215,6 @@ func (h *Handle) Sync() error {
 	var err error
 	if dirty {
 		err = b.do(file.Sync)
-		h.release(false)
 	}
 	if err == nil && newEntry {
 		d := dir(h.name)
@@ -221,11 +224,15 @@ func (h *Handle) Sync() error {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	// The mark comes before the release, so no close finds the file dirty and unmarked.
 	if err != nil {
 		h.fail(err)
-		return h.failed
+	} else {
+		h.synced, h.newEntry = h.written, false
 	}
-	h.synced, h.newEntry = h.written, false
+	if dirty {
+		h.releaseLocked(false)
+	}
 	return h.failed
 }
 
