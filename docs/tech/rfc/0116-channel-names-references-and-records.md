@@ -17,10 +17,13 @@ Arc text. Names are identifiers, unique across the Core, and nothing shows what 
 channel. This RFC makes a channel name free text that is unique in its folder, with a
 full path computed on read. Every stored channel key becomes a tracked link, so clients
 can ask what uses a channel. Arc programs and calculations keep paths in text, look each
-one up again at each compile, and follow renames. A calculation becomes its own record.
-The channel record shrinks to six fields, and Gorp is the only proof that a channel
-exists. RFC 0117 owns clocks, the wire, and the key counter. RFC 0118 owns the Cesium
-formats and the storage half of a delete.
+one up again at each compile, and follow renames. Every action that changes a link gets
+one impact plan. A deleted channel leaves a tombstone at its path, so a channel made
+again there heals the display links, and a path keeps its history when another channel
+takes it. A calculation becomes its own record. The channel record shrinks to six
+fields, and Gorp is the only proof that a channel exists. RFC 0117 owns clocks, the
+wire, and the key counter. RFC 0118 owns the Cesium formats and the storage half of a
+delete.
 
 ## 1 Motivation
 
@@ -42,8 +45,13 @@ formats and the storage half of a delete.
 - **Name**: The local name of a channel or folder. It never holds `.`.
 - **Path**: Folder names from the top down, then the name, joined by `.`. Computed.
 - **Link**: A stored key that Gorp tracks. A weak link survives its target's delete.
-- **Binding**: A channel name as text writes it, and the key that the last compile of
-  the text found for it.
+- **Plan**: Every record that an action touches, the choices for each, and the default.
+- **Tombstone**: The path and history of a deleted channel, kept so that a new channel
+  at the path heals the links to the old one.
+- **Rewire**: A rename onto a path that another channel holds. The path and its history
+  move to the renamed channel.
+- **Measured read**: A read of a channel with the data of the channels that held its
+  path before it.
 
 ## 3 Principles
 
@@ -56,7 +64,8 @@ formats and the storage half of a delete.
 5. **A lower layer learns a rule, never a type**: Gorp learns "unique in a space" and
    "weak", and the group service learns "sibling names are unique". Not "channel".
 6. **Ambiguity fails and names every match**: No lookup keeps the first of several.
-7. **A rename commits in one service**: Other services observe it and follow.
+7. **Every link change is one plan**: The impact service plans a create, rename, move,
+   or delete, the caller picks, and one transaction applies it.
 
 ## 4 Design
 
@@ -67,24 +76,25 @@ Channel v1 shipped in `core/v0.61.0` and is still the version of `core/v0.62.0`.
 the next version with the same lines if one does. RFC 0117 Phase 9 builds v3, after
 index channels stop being channels.
 
-| Field         | Bytes         | v1  | v2, Phase 1 | v2, Phase 2 | v2, Phase 3 | v3  |
-| ------------- | ------------- | --- | ----------- | ----------- | ----------- | --- |
-| magic `ORC`   | 3             | x   | x           | x           | x           | x   |
-| `key`         | 4             |     |             |             |             | x   |
-| `name`        | 4 + n         | x   | x           | x           | x           | x   |
-| `leaseholder` | 2             | x   | x           | x           | x           |     |
-| `data_type`   | 4 + t         | x   | x           | x           | x           | x   |
-| `is_index`    | 1             | x   | x           | x           | x           |     |
-| `local_key`   | 4             | x   | x           | x           | x           |     |
-| `local_index` | 4             | x   | x           | x           | x           |     |
-| `virtual`     | 1             | x   | x           | x           | x           | x   |
-| `concurrency` | 8             | x   | x           | x           | x           |     |
-| `internal`    | 1             | x   |             |             |             |     |
-| `operations`  | 1, or 5 + ops | x   | x           | x           |             |     |
-| `expression`  | 4 + e         | x   | x           | x           |             |     |
-| `group`       | 1 or 17       | x   | x           | x           | x           | x   |
-| `description` | 4 + d         |     |             | x           | x           | x   |
-| Example       |               | 69  | 68          | 72          | 67          | 52  |
+| Field         | Bytes         | v1  | v2, Phase 1 | v2, Phase 2 | v2, Phase 3 | v2, tombstones | v3  |
+| ------------- | ------------- | --- | ----------- | ----------- | ----------- | -------------- | --- |
+| magic `ORC`   | 3             | x   | x           | x           | x           | x              | x   |
+| `key`         | 4             |     |             |             |             |                | x   |
+| `name`        | 4 + n         | x   | x           | x           | x           | x              | x   |
+| `leaseholder` | 2             | x   | x           | x           | x           | x              |     |
+| `data_type`   | 4 + t         | x   | x           | x           | x           | x              | x   |
+| `is_index`    | 1             | x   | x           | x           | x           | x              |     |
+| `local_key`   | 4             | x   | x           | x           | x           | x              |     |
+| `local_index` | 4             | x   | x           | x           | x           | x              |     |
+| `virtual`     | 1             | x   | x           | x           | x           | x              | x   |
+| `concurrency` | 8             | x   | x           | x           | x           | x              |     |
+| `internal`    | 1             | x   |             |             |             |                |     |
+| `operations`  | 1, or 5 + ops | x   | x           | x           |             |                |     |
+| `expression`  | 4 + e         | x   | x           | x           |             |                |     |
+| `group`       | 1 or 17       | x   | x           | x           | x           | x              | x   |
+| `description` | 4 + d         |     |             | x           | x           | x              | x   |
+| `rewires`     | 1, or 5 + 12r |     |             |             |             | x              | x   |
+| Example       |               | 69  | 68          | 72          | 67          | 68             | 53  |
 
 The Pebble key is `gorp.Channel` (12 B) and the big-endian key (4 B)
 (`gorp/internal/key/key.go:24-33`, `:90-105`). The value is the Orc form: the magic,
@@ -101,6 +111,7 @@ no description, in a folder. In v3:
 00                                                   virtual
 00 00 00 00                                          description
 01 0F 8F AD 5B D9 CB 46 9F A1 65 70 86 77 28 95 0E   group
+00                                                   rewires
 ```
 
 `schemas/synnax/versions/channel/v2.oracle` keeps the imports of `v1.oracle`. Phases 1
@@ -115,11 +126,12 @@ Channel struct extends v1.Channel {
     -operations                 // Phase 3
     -expression                 // Phase 3
     description string = ""     // Phase 2
+    rewires     Rewire[]?       // tombstones
 }
 ```
 
 The end state, as the live file declares it. `v3.oracle` holds the same `Channel` with
-only `@key`, `@go marshal`, and `@go migrate`. `Binding` is new (§4.5):
+only `@key`, `@go marshal`, and `@go migrate`. `Rewire` is new (§4.13):
 
 ```
 Channel struct {
@@ -130,11 +142,13 @@ Channel struct {
     description string = ""    { @search  @validate max_length 1024 }
     group       group.Key?     { @group scope channel  @group namespace
                                  @ref kind place  @ref on_delete detach }
+    rewires     Rewire[]?
 }
 
-Binding struct {
-    name    string
-    channel Key                { @ref kind use  @ref on_delete weak }
+Rewire struct {
+    from Key                   { @ref direction read  @ref kind use
+                                 @ref on_delete weak }
+    at   telem.TimeStamp
     @go marshal
 }
 ```
@@ -145,6 +159,8 @@ Binding struct {
   `x/go/kv/pebblekv/pebblekv.go:92-94`, `:114-126`). From Phase 3, no code routes on key
   bits (`core/pkg/distribution/channel/channel.go:52`). RFC 0117 owns the counter and
   its cap, and its Phase 4 makes the TS cache stop trusting blocks by `leaseholder`.
+- **`rewires`**: The channels that held the path before this one, oldest first (§4.13).
+  It is absent on a channel that no rewire or heal has touched.
 - **`data_type`** and **`virtual`**: The type for new writes, stored as its name, and
   true for a channel whose samples are never stored. The framer reads both at writer
   open. `description` is free text for people. Computed on request: `path`, `uses`, and
@@ -257,21 +273,30 @@ Binding struct {
   (`schemas/synnax/secret.oracle:44-52`). A `Use` is the holder's resource ID and the
   direction. One shared fill maps a task config to its task
   (`core/pkg/service/task/config/config.go:319`) and drops holders that the caller
-  cannot retrieve.
+  cannot retrieve. Clients fetch `uses` again on one Core signal for every record type,
+  `sy_reference_change`: one frame per commit that changes a link, naming each target
+  whose holders changed by resource type and key, and no holder.
+- **Retarget**: Oracle generates `Retarget` for every key reference, as it does
+  `Detach`. The retargets of one action apply as one map, so a swap swaps the lines of a
+  plot and keeps their styles. The Tag stays the direction alone; the wiring site gives
+  the impact service the list of holders that `keep` instead (§4.11).
 
-| Holder                       | Field                                                                               | Kind              | On delete                 | Direction                        |
-| ---------------------------- | ----------------------------------------------------------------------------------- | ----------------- | ------------------------- | -------------------------------- |
-| Task configs                 | channel fields                                                                      | `use`             | `restrict`, as today      | per field                        |
-| Line plot, log               | channel lists                                                                       | `use`             | `detach`, as today        | `read`                           |
-| Schematic symbol, table cell | channel fields                                                                      | `use`             | `weak`: "deleted channel" | per field                        |
-| Arc                          | `reads[].channel`, `writes[].channel`, and the channel inputs of graph node configs | `use`             | `weak`                    | `read`, `write`                  |
-| Calculation                  | `output`                                                                            | `place`, `unique` | `cascade`                 | `write`                          |
-| Calculation                  | `bindings[].channel`, `operations[].reset`, `primary`                               | `use`             | `weak`                    | `read`                           |
-| Channel                      | `group`                                                                             | `place`           | `detach`                  | none                             |
-| Status                       | `owner`                                                                             | `place`, `unique` | `cascade`                 | none; `channel` leaves the types |
+| Holder                       | Field                                                           | Kind              | On delete                    | Direction                        | On heal or rewire                         |
+| ---------------------------- | --------------------------------------------------------------- | ----------------- | ---------------------------- | -------------------------------- | ----------------------------------------- |
+| Task configs                 | channel fields                                                  | `use`             | `restrict`, as today         | per field                        | `keep`                                    |
+| Line plot, log               | channel lists                                                   | `use`             | `detach`, as today           | `read`                           | `retarget`                                |
+| Schematic symbol, table cell | channel fields                                                  | `use`             | `weak`: "deleted channel"    | per field                        | `retarget`                                |
+| Arc                          | `reads`, `writes`, and the channel inputs of graph node configs | `use`             | `weak`                       | `read`, `write`                  | Text pass (§4.5); graph inputs `retarget` |
+| Calculation                  | `output`                                                        | `place`, `unique` | `cascade`                    | `write`                          | Never                                     |
+| Calculation                  | `reads`, `operations[].reset`, `primary`                        | `use`             | `weak`                       | `read`                           | Text pass; `reset`, `primary` `retarget`  |
+| Channel                      | `group`                                                         | `place`           | `detach`                     | none                             | Never                                     |
+| Channel                      | `rewires[].from`                                                | `use`             | `weak`: the span reads empty | `read`                           | Never                                     |
+| Tombstone                    | `group`                                                         | `place`           | `cascade`                    | none                             | Never                                     |
+| Status                       | `owner`                                                         | `place`, `unique` | `cascade`                    | none; `channel` leaves the types | Never                                     |
 
-Nothing cascades to a channel (RFC 0100 §4.5). The delete dialog reads `uses` before the
-delete. The restrict error stays one line (`core/pkg/api/restrict.go:53`).
+Nothing cascades to a channel (RFC 0100 §4.5). A delete runs through its plan (§4.11).
+With no picks a task holder defaults to `cancel`, so the old route fails with today's
+one-line restrict error (`core/pkg/api/restrict.go:53`).
 
 ### 4.4 The calculation record
 
@@ -305,7 +330,8 @@ Calculation struct {
     operations Operation[] = []            { @patch }
     primary    channel.Key?                { @patch  @ref direction read
                                              @ref kind use  @ref on_delete weak }
-    bindings   channel.Binding[] = []      { @ref direction read }
+    reads      channel.Key[] = []          { @ref direction read  @ref kind use
+                                             @ref on_delete weak }
     status     status.Status<nil>?         { @go marshal omit  @include }
     action Create { calculation Calculation }
     // Also the four patch actions, and @create, @go imex, @go marshal, @go migrate,
@@ -313,22 +339,22 @@ Calculation struct {
 }
 ```
 
-| Field                | Bytes                | Example                                  |
-| -------------------- | -------------------- | ---------------------------------------- |
-| magic                | 3                    | `4F 52 43`                               |
-| `key`                | 16                   | `6F1E2D3C 4B5A 4978 8695 A4B3C2D1E0F0`   |
-| `output`             | 4                    | `FF F0 00 07`                            |
-| `expression`         | 4 + e                | `00 00 00 14`, `return pt_01 - pt_02`    |
-| `operations`         | 1, or 5 + entries    | `01 00 00 00 01`                         |
-| operation tag        | 4 + 3, or 4 + 10     | `00 00 00 03 6D 61 78` (`max`)           |
-| operation `reset`    | 1 or 5 (window only) | `00`                                     |
-| operation `duration` | 8 (window only)      | `00 00 00 02 54 0B E4 00` (10 s)         |
-| `primary`            | 1 or 5               | `01 00 10 00 05`                         |
-| `bindings`           | 1, or 5 + entries    | `01 00 00 00 02`                         |
-| binding              | 4 + n + 4            | `00 00 00 05 70 74 5F 30 31 00 10 00 05` |
-| binding              |                      | `00 00 00 05 70 74 5F 30 32 00 10 00 06` |
+| Field                | Bytes                | Example                                |
+| -------------------- | -------------------- | -------------------------------------- |
+| magic                | 3                    | `4F 52 43`                             |
+| `key`                | 16                   | `6F1E2D3C 4B5A 4978 8695 A4B3C2D1E0F0` |
+| `output`             | 4                    | `FF F0 00 07`                          |
+| `expression`         | 4 + e                | `00 00 00 14`, `return pt_01 - pt_02`  |
+| `operations`         | 1, or 5 + entries    | `01 00 00 00 01`                       |
+| operation tag        | 4 + 3, or 4 + 10     | `00 00 00 03 6D 61 78` (`max`)         |
+| operation `reset`    | 1 or 5 (window only) | `00`                                   |
+| operation `duration` | 8 (window only)      | `00 00 00 02 54 0B E4 00` (10 s)       |
+| `primary`            | 1 or 5               | `01 00 10 00 05`                       |
+| `reads`              | 1, or 5 + 4 per key  | `01 00 00 00 02`                       |
+| read key             | 4                    | `00 10 00 05`                          |
+| read key             | 4                    | `00 10 00 06`                          |
 
-The example value is 104 B. The Pebble key is `gorp.Calculation` and the 16 key bytes.
+The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key bytes.
 
 - **`output`**: At most one calculation per channel. A delete of the channel deletes the
   calculation, then its status. Code finds a calculation with one probe of the `output`
@@ -338,18 +364,18 @@ The example value is 104 B. The Pebble key is `gorp.Calculation` and the 16 key 
   channel that holds no calculation. It fails when another holder links that channel
   with direction `write`, and the framer refuses an outside writer on an output. A
   delete of the calculation leaves the channel as a live-only channel: plots and
-  bindings on it outlive a change of producer. The output alone stores `data_type`,
+  programs on it outlive a change of producer. The output alone stores `data_type`,
   written through `ChangeDataType` (`writer.go:226-247`).
 - **`operations`**: `none` goes: an empty list means no operation. A `derivative` has no
   window. `reset` and `primary` are keys, because a picker sets them (principle 3).
-  `primary` is one of the bound channels, read by RFC 0117 §4.7. A save whose text stops
-  reading that channel picks a primary again by the rule of RFC 0117 §4.7 and announces
-  it with a computed `Set`.
+  `primary` is one of the channels in `reads`, read by RFC 0117 §4.7. A save whose text
+  stops reading that channel picks a primary again by the rule of RFC 0117 §4.7 and
+  announces it with a computed `Set`.
 - **Status**: `calculation` joins and `channel` leaves the owner types
   (`schemas/synnax/status.oracle:98-106`). The calculation graph stays the one writer. A
   rename of the output renames the status (`core/pkg/service/status/writer.go:90`).
 - **Edits and access**: An edit applies to all time, and the record holds no history. A
-  retrieve needs retrieve on the output and on each bound, reset, and primary key. A
+  retrieve needs retrieve on the output and on each read, reset, and primary key. A
   cycle through outputs fails the save and names the path.
 - **Old API, one minor**: The channel API turns a create or a set of `expression` or
   `operations` into calculation writes, and composes both fields and `status` on read.
@@ -368,12 +394,12 @@ The example value is 104 B. The Pebble key is `gorp.Calculation` and the 16 key 
   rename, or the quoted form.
 - **Keys**: The symbol resolver gains a lookup by key (NEW) for graph mode, and
   `Resolve` stops reading digits as a key (`arc/go/symbol/symbol.go:737-739`).
-- **Bindings**: A calculation stores `bindings`. An Arc stores `reads` and `writes`
-  (`channel.Binding[]`) for the names in its text, the function bodies of a graph
+- **Key lists**: A calculation stores `reads`, and an Arc stores `reads` and `writes`,
+  as `channel.Key[]`: the keys of the paths in its text, the function bodies of a graph
   included (`arc/go/graph/analyze.go:103-124`). The lists mint Arc v5; each adds 1 byte,
-  or 5 bytes and its entries (4 + n + 4). Graph nodes hold keys and get no entries: the
-  targets of the two references are the entry keys plus the keys from a walk of the node
-  configs, which reads the param types of `graph.functions` too (precedent:
+  or 5 bytes and 4 per key. Graph nodes hold keys and get no entries: the targets of the
+  two references are the entry keys plus the keys from a walk of the node configs, which
+  reads the param types of `graph.functions` too (precedent:
   `core/pkg/service/lineplot/reference.go:26-57`).
 - **Lookup**: Each compile, at a save, a deploy, an import, or a Core start, looks each
   path up in the channel table at that moment, through
@@ -381,35 +407,37 @@ The example value is 104 B. The Pebble key is `gorp.Calculation` and the 16 key 
   with "pt_01 does not exist"; several matches fail and name each. A channel deleted and
   made again under the same path binds at the next compile, as an import into another
   Core does. A running program changes only at its next deploy.
-- **The record of a compile**: Each compile that succeeds writes the lists in full: one
-  entry for each path in the text, with the key that it found. No compile reads them.
-  They feed `uses` and find the records that a rename touches. The Core announces a list
-  with a computed `Set`, as for `data_type` (`writer.go:172-175`).
+- **The record of a compile**: Each compile that succeeds writes the lists in full: the
+  key that each path in the text found. No compile reads them, and they feed `uses`. A
+  plan finds text holders by lexing, not from the lists (§4.11). The Arc task also
+  stores the keys of its deployed compile, so a plan finds the running programs. The
+  Core announces a list with a computed `Set`, as for `data_type` (`writer.go:172-175`).
 - **Saves**: A calculation save whose compile fails, fails, as today
   (`core/pkg/service/channel/calculation_analyzer.go:137-141`). An Arc saves on each
   keystroke and never fails; its lists wait for the next compile that succeeds.
-- **Start order**: Migrations, `Declare`, rewrites, then the API.
+- **Start order**: Migrations, `Declare` with the text pass of its renames, then the
+  API.
 - **The flip**: Phase 6 ships one migration step with a durable done marker. Before the
   Core-wide index goes, it rewrites bare names to paths by the Core-wide rule, and sets
   the marker after the last record. After it, "does not exist" for a bare name lists the
   matches in folders as fix-its. Core code that writes Arc or calculation text writes
   paths (`core/pkg/service/metrics/metrics.go:80-93`).
-- **Rewrite**: The Arc service and the calculation service each observe the channel and
-  group tables (precedent: `core/pkg/service/arc/service.go:267-275`). After a rename or
-  a move commits, each finds its records through the reverse index. For each binding
-  whose name is not the path of its live channel, it rewrites the tokens and the binding
-  name. It applies all edits of one event from one parse, and all records of one event
-  commit in one transaction. The helper is a pure function in `arc/go` (precedent:
+- **Text pass**: A plan that changes a path (§4.11) lexes the text of every Arc and
+  calculation outside the write lock, so a holder whose last compile failed is still
+  found. A token whose path the action gives to another channel keeps it: it follows the
+  measurement and binds the new holder at the next compile. A token whose path no
+  channel holds after the action gets `update_text` (default) or `keep`. All edits of
+  one holder come from one lex. The helper is a pure function in `arc/go` (precedent:
   `arc/go/lsp/rename.go:114`). The Arc service writes text actions, as the Core already
   does (`core/pkg/service/arc/actions.go:106`).
-- **Form**: The rewrite writes the bare form only when every segment is an identifier
-  and none is an Arc keyword, literal, or type name, and the name does not clash with a
+- **Form**: An edit writes the bare form only when every segment is an identifier and
+  none is an Arc keyword, literal, or type name, and the name does not clash with a
   variable or a module member. If not, it writes the quoted form, with `\` and `'`
   escaped. Two entries of one key merge into one.
-- **Not applied**: Text that does not parse, and a rewrite that would give two different
-  keys one name, stay as they are, and the record runs on its keys with a warning
-  status. The binding is the durable mark of the pending rewrite, so no queue is stored.
-  The LSP rename now renames the channel only.
+- **Text that does not parse**: An edit rewrites its lexer tokens, and the plan notes
+  it. `impact.Apply` is the only rename path outside migrations: the LSP rename calls
+  it, `Declare` runs the text pass at start, and a CI check refuses other callers of the
+  channel writer's rename.
 
 ### 4.6 Files
 
@@ -422,21 +450,24 @@ holds, and a string is a path. A JSON object key that the schema types as a chan
 is a key. A file's shape does not change, so no exported type mints a version for the
 switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once and
 fails, with every path that matches nothing, unless the file makes that channel. Arc and
-calculation text looks its paths up on the new Core at each compile, as on any Core.
+calculation text looks its paths up on the new Core at each compile, as on any Core. An
+import is an action with a plan, which names the path of each raw key. History and
+tombstones never leave the Core; a telemetry export (CSV, TDMS) reads measured.
 
 ### 4.7 Package boundaries
 
-| Package                                   | Owns                                                                                            | May import                                                                                                     | Must not import                             |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `gorp`                                    | Unique index and spaces, weak policy, dependents with their reference                           | `x`                                                                                                            | Any Core package; the meaning of a tag      |
-| `core/pkg/service/group`                  | Folders, the generated sibling index, naming rules                                              | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`            |
-| `core/pkg/service/channel`                | The record, the name rule, paths, the built-in set, the `Binding` shape, the meaning of the tag | `service/group`, `service/status`, `distribution/channel`                                                      | `arc`, `service/arc`, `service/calculation` |
-| `core/pkg/service/channel/resolver` (NEW) | Channels as Arc symbols, consistent lookups for one compile                                     | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`        |
-| `core/pkg/service/calculation`            | The record, analyzer, compiler, graph, status, its bindings and rewrite                         | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                               |
-| `core/pkg/service/arc`                    | Arc records, `reads` and `writes`, its rewrite, the remap of graph inputs                       | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                       |
-| `arc/go`                                  | Grammar, quoted paths, the rewrite helper                                                       | `x`                                                                                                            | Any Core package                            |
-| `core/pkg/service/framer`                 | Finds a calculation by its output key                                                           | `service/calculation`                                                                                          | Key bits                                    |
-| `core/pkg/api/channel`, `api/calculation` | `path`, `uses`, and the fields kept one minor                                                   | Services                                                                                                       | -                                           |
+| Package                                                 | Owns                                                                                              | May import                                                                                                     | Must not import                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `gorp`                                                  | Unique index and spaces, weak policy, dependents with their reference                             | `x`                                                                                                            | Any Core package; the meaning of a tag      |
+| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules                                                | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`            |
+| `core/pkg/service/channel`                              | The record, the name rule, paths, the built-in set, tombstones, `rewires`, the meaning of the tag | `service/group`, `service/status`, `distribution/channel`                                                      | `arc`, `service/arc`, `service/calculation` |
+| `core/pkg/service/channel/resolver` (NEW)               | Channels as Arc symbols, consistent lookups for one compile                                       | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`        |
+| `core/pkg/service/calculation`                          | The record, analyzer, compiler, graph, status, `reads`, its text holder                           | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                               |
+| `core/pkg/service/arc`                                  | Arc records, `reads` and `writes`, the deployed keys, its text holder, the remap of graph inputs  | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                       |
+| `arc/go`                                                | Grammar, quoted paths, the text edit helper                                                       | `x`                                                                                                            | Any Core package                            |
+| `core/pkg/service/framer`                               | Finds a calculation by its output key; stitches measured reads in its iterator                    | `service/calculation`                                                                                          | Key bits                                    |
+| `core/pkg/service/impact` (NEW)                         | Plans, choices, defaults, apply, the list of holders that keep                                    | `service/channel`, `service/group`, `service/arc`, `service/calculation`, the display services, `gorp`         | `api`                                       |
+| `core/pkg/api/channel`, `api/calculation`, `api/impact` | `path`, `uses`, plan and apply routes, and the fields kept one minor                              | Services                                                                                                       | -                                           |
 
 The table is the state after Phase 3. RFC 0117 Phase 2 moves `channel/calculation`, its
 `compiler`, and its `graph` to `core/pkg/service/calculation` as a pure move. The
@@ -457,11 +488,13 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 | Retrieve by key; by name         | Within 5% of base's time on the same API benchmark, no more allocations. On the bench host: a page of 100 at most 1.34 x F_keys(100), one key at most 6.0 x F_keys(1) | Same paths; the v3 value is 17 B smaller. Base: a page is 1.27 x F_keys(100) and one key 5.7 x F_keys(1), since the API call adds access and translation to the Gorp read |
 | Retrieve by path, depth d        | <= (d + 1) x F_name, no scan                                                                                                                                          | d + 1 probes, 1 read: 1.5 µs at depth 3                                                                                                                                   |
 | Path fill, page of 100           | <= 1.5 x the page; 0 when not asked                                                                                                                                   | 10 folders per level: 30 reads against 100                                                                                                                                |
-| Create, rename, move             | <= 1.10 x F_create per entry that adds no link                                                                                                                        | 2 probes, 1 staged entry: 0.4 µs; the name query per batch goes                                                                                                           |
+| Create, rename, move             | <= 1.10 x F_create per entry that adds no link                                                                                                                        | 3 probes with the tombstone index, 1 staged entry: 0.5 µs; the name query per batch goes                                                                                  |
 | A write that adds n weak links   | <= 1.00 x the same write with n restrict links                                                                                                                        | A weak link skips the existence check of a restrict link: 6.4 µs against 9.5 µs for one link on the bench host                                                            |
 | `include_uses`, page of 100      | <= 2 x the page; 0 when not asked                                                                                                                                     | 30 references x 0.1 µs per channel, one access check per holder                                                                                                           |
 | "Used by nothing" at 100,000     | <= 50 ms, no Pebble read                                                                                                                                              | 300,000 links x 0.1 µs = 30 ms                                                                                                                                            |
-| Rename commit; its rewrite       | <= 1.05 x today; 1 x F_tx plus CPU                                                                                                                                    | The rewrite runs after the commit. 1,000 channels, 20 programs, 250 tokens each: 0.1 s                                                                                    |
+| Rename plan and apply            | No text holder: <= 1.05 x today. The write lock is held <= 10 ms at 1,000 channels and 500 Arcs                                                                       | 500 Arcs x 1 ms lexed outside the lock: 0.5 s. Under it, the plan again and the writes: about 10 ms                                                                       |
+| Delete plan                      | <= 1.10 x today's delete                                                                                                                                              | The `Dependents` walk of today's restrict check, and one tombstone write                                                                                                  |
+| Measured read                    | No rewire in range: within 5% of a raw read. <= 20 µs per rewire in range                                                                                             | 1 compare per key; each rewire opens one sub-read                                                                                                                         |
 | "Is key K an output?"            | 1 probe; open <= 1.00 x today                                                                                                                                         | Replaces a record decode per candidate                                                                                                                                    |
 | Channel table open               | <= 1.10 x today                                                                                                                                                       | The index fills in the scan that fills the others                                                                                                                         |
 | Start pass at 5,000 calculations | <= 1.10 x today's graph start                                                                                                                                         | One analysis each, as today, and one write per new list                                                                                                                   |
@@ -489,13 +522,17 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
   exact name. The last pass deletes the list in its transaction.
 - **Phase 3: Calculations.** The channel chain copies each v1 record that holds an
   expression under a staging prefix, then writes v2. The calculation chain builds one
-  record per copy, with a UUIDv5 of the channel key, empty `bindings`, and each
+  record per copy, with a UUIDv5 of the channel key, empty `reads`, and each
   `reset_channel` copied (0 becomes absent). It deletes the statuses that channels own
   and each copy, and parses no Arc. A crash between the chains leaves the copies for the
   next start (precedent: `core/pkg/service/panel/versions/v0/composition.go:137`).
-- **Phases 5 to 7: Bindings, the flip, rules.** Arc v5 adds empty `reads` and `writes`,
+- **Phases 5 to 7: Key lists, the flip, rules.** Arc v5 adds empty `reads` and `writes`,
   and each compile from Phase 5 fills them. Phase 6 runs the step of §4.5 once. Group v2
   adds `name_rule`.
+- **Tombstones and rewires**: The tombstone table is new and needs no migration.
+  `rewires` joins channel v2 in place while no stable release holds v2, or mints the
+  next version. The deployed keys of an Arc task start empty and fill at its next
+  deploy.
 
 Compatibility is owed to `core/v0.62.0`. Every stored channel, folder, Arc text, and
 calculation migrates forward. `APIChannel` keeps `internal`, `expression`, `operations`,
@@ -506,15 +543,118 @@ duplicate name fails where it picked one.
 ### 4.10 Amendments to prior RFCs
 
 - **RFC 0082 §3.1, §5.6, §6**: Directory and module names stay Arc identifiers. Arcs
-  follow channel and folder renames. Module renames still break importers.
-- **RFC 0039 §6.3, RFC 0052 §6.4 and §7**: Files name channels by path (§4.6).
+  follow channel and folder renames through the plan of each rename (§4.11). Module
+  renames still break importers.
+- **RFC 0039 §6.3, RFC 0052 §6.4 and §7**: Files name channels by path (§4.6). History
+  and tombstones never leave the Core.
 - **RFC 0100 §4.0, §4.1, §8**: `weak` and `direction` join the declaration. Schematic
   symbols, table cells, Arc programs, and calculations leave the unchecked list.
+  `Retarget` is generated beside `Detach`, and a delete plan replaces the bare restrict
+  refusal.
 - **RFC 0092 §3.6, decision 10**: The calculation owns its status and has moved.
 - **RFC 0099 decision 2**: The channel API gains a path option, `include_path`.
 - **RFC 0085 §2.0**: A typed line whose type is a filter operator type generates like a
   bare line in every client; only its Go matcher is written by hand.
 - **RFC 0088**: Not on `main`. When it lands, its Arc text inputs follow §4.5.
+
+### 4.11 Impact plans
+
+- **Service**: `core/pkg/service/impact` (NEW) sits above the channel, group, Arc,
+  calculation, and display services. It plans a create, rename, move, or delete of a
+  channel or a folder, and an import. A plan lists every record that the action touches,
+  the choices for each, and the default. Holders are keyed by Gorp table name, since
+  `Dependents` returns Gorp targets. A key holder uses its generated `Detach` and
+  `Retarget`; the wiring site gives the list of holders that `keep` instead (task
+  configs and device ports). Arc and calculation implement `impact.Holder` for the text
+  pass. Construction fails when a table with a channel link has neither.
+- **Routes**: `/impact/plan` and `/impact/apply`. A plan carries a token, a 16 B hash of
+  the action and the entries, and picks override entries by id. Today's rename, delete,
+  and folder routes call apply with no token and return the applied entries, so a client
+  of `core/v0.62.0` gets the defaults. The Console shows one dialog for every plan; the
+  clients, imports, and Git apply pass picks. Key holders that write nothing are a
+  count, not entries.
+- **Check at apply**: Parses and lexing run outside the write lock. Under it, the Core
+  plans the Gorp entries again and compares each text holder's hash; a holder that
+  changed reruns its edit once, inline, with no retry loop. A changed plan fails with
+  `impact.ErrPlanChanged`, which carries the new plan. One action commits in one
+  transaction.
+- **Defaults**: A delete: a task holder `cancel`s (default) or is deleted too, and a
+  display link keeps the dead key and shows "deleted channel". A rename or a move: the
+  text pass (§4.5). A create, rename, or move onto a tombstone's path: the heal (§4.12).
+  A rename onto a taken path: the rewire (§4.13).
+
+### 4.12 Tombstones and heals
+
+```
+Tombstone struct {
+    key     Key            { @key }
+    name    Name
+    group   group.Key?     { @ref kind place  @ref on_delete cascade }
+    rewires Rewire[]?
+    @go marshal
+}
+```
+
+- **Write**: The delete of a channel writes a tombstone in its transaction when a weak
+  link other than a `rewires` entry holds the key, or when the channel holds `rewires`.
+  The tombstone takes the channel's list and adds `{the channel, delete time}`. Dead
+  entries next to each other merge into one gap entry with `from` 0, so a script that
+  makes a channel again on each run does not grow the list.
+- **One per path**: A unique index on (folder, name) in its own space, so a tombstone
+  never blocks a create. A folder delete deletes its tombstones.
+- **Heal**: A create, rename, or move that gives a channel a tombstone's path plans a
+  heal. Each link that holds the dead key gets `retarget` (default) or `keep`; the list
+  moves to the new channel. The tombstone then goes, whatever the picks, so a path holds
+  at most one. A `rewires` link is never a heal target. Text holders need no entry: the
+  path binds at the next compile. A script that makes channels again on each run heals
+  every display on each run, and a remake for another purpose heals by default too; only
+  the dialog shows it.
+
+### 4.13 Rewires and measured reads
+
+- **List**: `rewires` on the channel that holds the path, oldest first. Entry i says
+  that `from` held the path until `at`, after the `at` of entry i - 1; the holder's own
+  span starts at the last `at`. `at` rises strictly and is never after the write time.
+  It is the Core clock at apply unless the caller passes one, so samples inside a clock
+  skew land on the wrong side.
+- **Rewire**: A rename onto a taken path, only with picks. The displaced channel's entry
+  is `cancel` (default), `rename` (to the name a device integration proposes, or the
+  first free `<name>_<n>` that is not a tombstone's path), or `delete`, which warns that
+  the path loses its data before the move. A caller that passes no picks, such as a
+  script of `core/v0.62.0`, gets today's refusal; the Console offers the rewire as its
+  main action. The renamed channel takes the displaced channel's list and adds
+  `{the displaced channel, at}`. Display links of the displaced channel `retarget`, and
+  task configs and device ports `keep`. Text that names the path keeps it, and text that
+  names the renamed channel's old path gets `update_text`.
+- **Order**: An action orders its renames so that names stay unique after each write,
+  with a temporary name inside the transaction for a cycle. The check per write stays.
+- **Notes**: The plan lists the holders of the renamed channel, whose reads gain the
+  path's history, the running Arc tasks that compiled the displaced channel, and the
+  subjects that hold control of it. With a past `at`, it also lists the Sift tasks whose
+  position passes `at` and the running tasks that read the path after it. None is
+  redone.
+- **Deletes**: A delete of a past holder `keep`s the dead entry (default; its span reads
+  empty) or `cancel`s. A delete of the current holder leaves a tombstone with the list
+  (§4.12). A delete of data by path runs over the same pieces, and a delete by key over
+  a range that another channel's history uses gets an entry that warns.
+- **Measured reads**: NEW `measured_keys` on iterator and read requests, empty by
+  default. The clients set it when the caller named a path, and the Console on every
+  display read; calculation inputs, Sift uploads, and a measured export set it too. A
+  read by key and every client of `core/v0.62.0` stay raw. For each measured key, the
+  service iterator walks its pieces in time order and advances one view across them, as
+  one key. A piece is a stored channel or a calculation, read by the same paths as a
+  plain read, so Cesium does not change (RFC 0118 §4.2). A key can be read raw and
+  measured in one request. A piece that the subject cannot retrieve is left out. A
+  point-limited read splits its budget by duration, so a short span draws coarser.
+  Streams carry no history: a live stream keeps its key until it opens again.
+- **Cache**: The rewire commit publishes a history change over the moved span, so the
+  TypeScript cache reads it again.
+- **Gate**: Rewires and measured reads land after RFC 0117 Phase 6, which pairs series
+  by clock, and RFC 0118's one alignment counter per database. Until then a rename onto
+  a taken path fails, as today.
+- **Cost**: A measured read with no rewire in range costs one compare per key, and each
+  rewire in range opens one sub-read of about 20 µs. A year of daily moves costs about 7
+  ms per read and 4.4 kB on the record.
 
 ## 5 Implementation phases
 
@@ -522,7 +662,7 @@ Each phase is one PR of about 2,000 hand-written lines, the size the plan owner 
 this program. Phases 6 and 8 are small switches.
 
 - **Phase 2: Quoted names.** Arc gets the quoted token here, with the path filter. Phase
-  5 adds bare paths, the two lists, the lookup at each compile, the rewrite, the key
+  5 adds bare paths, the two lists, the lookup at each compile, the text pass, the key
   lookup, and files by path. Phase 2's specs pin both halves of the number rule: a
   stored config that holds a key as a numeric string parses to the key, and a lookup by
   a digit-only string resolves as a name or a path.
@@ -532,9 +672,13 @@ this program. Phases 6 and 8 are small switches.
   `channel_name`, sends the local name, as today. Sift channels take the local name, and
   a Sift flow takes the name stored in its config (RFC 0117 §4.9). Status details that
   hold channel keys stay untracked links.
-- **Phase 3: The whole calculation shape.** `bindings` stays empty until Phase 5, and
+- **Phase 3: The whole calculation shape.** `reads` stays empty until Phase 5, and
   nothing reads `primary` until RFC 0117 Phase 5. The `weak` and `direction` tags on its
   links are live-only and arrive with the later of Phases 1 and 3.
+- **Plans, tombstones, rewires** (§4.11 to §4.13): their PRs join the table when the
+  plan owner sets their count. Plans and tombstones land after Phase 1 and before Phases
+  4 and 5. Rewires and measured reads land after Phase 5, RFC 0117 Phase 6, and RFC
+  0118's alignment counter.
 - **Across RFCs**: Phases 3 and 5 land after RFC 0117 Phase 2. Phase 8 lands after RFC
   0117 Phases 5, 6, and 7, and one minor after Phase 3 ships. RFC 0117 Phase 6 lifts the
   key cap, and its Phase 9 builds channel v3. RFC 0118 moves the storage half of create,
@@ -553,7 +697,7 @@ this program. Phases 6 and 8 are small switches.
 
 ## 6 Resolved decisions
 
-**6.0 `reset` and `primary` are keys.** Names behind bindings give one rule for every
+**6.0 `reset` and `primary` are keys.** Names behind key lists give one rule for every
 channel a calculation names, but need a rewrite of plain fields on a rename and a name
 made of digits for a deleted reset. The trade is real: a dead `reset` shows no name.
 
@@ -576,8 +720,9 @@ which turns lost metadata into lost telemetry.
 
 **6.4 Names stay on the channel and in text.** A namespace service that maps names to
 keys makes every list, search, codec error, and Arc lookup a join. Key tokens in Arc
-text need a name overlay in the editor and a translation on export. A rewrite inside the
-rename transaction lets a failed parse fail a rename (RFC 0082 §5.6).
+text need a name overlay in the editor and a translation on export. The rename and its
+text edits commit in one transaction, and text that does not parse is edited from its
+lexer tokens, so no parse fails a rename (RFC 0082 §5.6).
 
 **6.5 A compile looks each path up again, and nothing pins it.** A path names a
 measurement on a stand, so a sensor moved to another port is a rename of the channel
@@ -620,6 +765,21 @@ every maker already holds, not on a second injected instance.
 the only cascade to a channel. `data_type` stays a name: a code saves 10 B and freezes a
 second number space. The expression is a string: a CRDT document costs 28 B per
 character. Typed paths are not needed: the shared space gives the check.
+
+**6.13 One plan for every link change.** A rewrite that always edits text after a rename
+gives the user no say, and edits text that meant the old channel. Observers in each
+service decide alone, so no dialog can show the whole change.
+
+**6.14 History on the channel that holds the path, read on request.** Six other shapes
+fail the scenarios of the bake-off: a field on the new channel, a log of name moves, a
+history per path, a measurement record over channels, segments that Cesium attaches, and
+a snapshot per range. History by default changes what every shipped reader gets for a
+key, so a read by key stays raw. The cost: a caller must ask for the measurement.
+
+**6.15 A channel made again at a path heals its display links.** A path names a
+measurement (§6.5), so a remade channel is that measurement. The other option keeps
+"deleted channel" on each display until a person picks again. The cost: a remake for
+another purpose heals by default, and only the dialog shows it.
 
 ## 7 Open questions
 
