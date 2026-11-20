@@ -1,22 +1,26 @@
 ---
-title: "Version 0.39 release notes"
+title: "Embedded control sequences"
+version: "0.39.0"
+date: "Mar 18, 2025"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
 export const components = mdxOverrides;
 
-<Release
-    version="0.39.0"
-    date="Mar 18, 2025"
-    title="Embedded control sequences"
-    breakingChanges
->
-<Hero.Hero image="control/embedded/thumbnail" extension="webp" themed={false} layout="bleed" tone="deep" palette="orange-yellow" alt="A Lua control sequence in the Console editor" />
+<Hero.Hero
+  image="control/embedded/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="bleed"
+  tone="deep"
+  palette="orange-yellow"
+  alt="A Lua control sequence in the Console editor"
+/>
 
 Synnax v0.39.0 introduces embedded control sequences. Write and deploy tightly timed
 control loops directly within the Synnax Console. We've done major refactoring work on
@@ -96,5 +100,3 @@ to make them easier to use.
   modes.
 - Fixed an issue where the theme would not change automatically when the system theme
   changes.
-
-</Release>
