@@ -124,6 +124,14 @@ func MatchWhere(w Where) (Filter, error) {
 			fs = append(fs, MatchInternal(*l.Eq))
 		}
 	}
+	if l := w.Used; l != nil {
+		if l.Eq == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "used")
+		}
+		if l.Eq != nil {
+			fs = append(fs, MatchUsed(*l.Eq))
+		}
+	}
 	if l := w.Virtual; l != nil {
 		fs = append(fs, MatchVirtual(*l))
 	}

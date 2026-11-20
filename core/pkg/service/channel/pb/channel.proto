@@ -138,11 +138,14 @@ message Where {
   optional .x.filter.pb.Bool is_index = 8;
   // internal matches the built-in channels, or every other channel when false.
   optional .x.filter.pb.Bool internal = 9;
+  // used matches the channels that a record reads or writes, or the channels that
+  // nothing reads or writes when false.
+  optional .x.filter.pb.Bool used = 10;
   // virtual matches virtual channels that are not calculated, or every other channel
   // when false.
-  optional bool virtual = 10;
+  optional bool virtual = 11;
   // groups matches the channels in any of the given groups.
-  GroupKeyList groups = 11;
+  GroupKeyList groups = 12;
   // grouped matches the channels in a group, or in no group when false.
-  optional bool grouped = 12;
+  optional bool grouped = 13;
 }

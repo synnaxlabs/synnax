@@ -712,13 +712,16 @@ type Where struct {
 	IsIndex *pb1.Bool `protobuf:"bytes,8,opt,name=is_index,json=isIndex,proto3,oneof" json:"is_index,omitempty"`
 	// internal matches the built-in channels, or every other channel when false.
 	Internal *pb1.Bool `protobuf:"bytes,9,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
+	// used matches the channels that a record reads or writes, or the channels that
+	// nothing reads or writes when false.
+	Used *pb1.Bool `protobuf:"bytes,10,opt,name=used,proto3,oneof" json:"used,omitempty"`
 	// virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
-	Virtual *bool `protobuf:"varint,10,opt,name=virtual,proto3,oneof" json:"virtual,omitempty"`
+	Virtual *bool `protobuf:"varint,11,opt,name=virtual,proto3,oneof" json:"virtual,omitempty"`
 	// groups matches the channels in any of the given groups.
-	Groups *GroupKeyList `protobuf:"bytes,11,opt,name=groups,proto3" json:"groups,omitempty"`
+	Groups *GroupKeyList `protobuf:"bytes,12,opt,name=groups,proto3" json:"groups,omitempty"`
 	// grouped matches the channels in a group, or in no group when false.
-	Grouped       *bool `protobuf:"varint,12,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
+	Grouped       *bool `protobuf:"varint,13,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -816,6 +819,13 @@ func (x *Where) GetInternal() *pb1.Bool {
 	return nil
 }
 
+func (x *Where) GetUsed() *pb1.Bool {
+	if x != nil {
+		return x.Used
+	}
+	return nil
+}
+
 func (x *Where) GetVirtual() bool {
 	if x != nil && x.Virtual != nil {
 		return *x.Virtual
@@ -887,7 +897,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\x02in\x18\x02 \x01(\v2%.service.channel.pb.TelemDataTypeListR\x02inB\x05\n" +
 	"\x03_eq\"&\n" +
 	"\fGroupKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xd1\x05\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x86\x06\n" +
 	"\x05Where\x12/\n" +
 	"\x03and\x18\x01 \x01(\v2\x1d.service.channel.pb.WhereListR\x03and\x12-\n" +
 	"\x02or\x18\x02 \x01(\v2\x1d.service.channel.pb.WhereListR\x02or\x120\n" +
@@ -897,11 +907,12 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\vleaseholder\x18\x06 \x01(\v2\x1e.service.channel.pb.NodeKeySetH\x03R\vleaseholder\x88\x01\x01\x12F\n" +
 	"\tdata_type\x18\a \x01(\v2$.service.channel.pb.TelemDataTypeSetH\x04R\bdataType\x88\x01\x01\x121\n" +
 	"\bis_index\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\aisIndex\x88\x01\x01\x122\n" +
-	"\binternal\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\binternal\x88\x01\x01\x12\x1d\n" +
-	"\avirtual\x18\n" +
-	" \x01(\bH\aR\avirtual\x88\x01\x01\x128\n" +
-	"\x06groups\x18\v \x01(\v2 .service.channel.pb.GroupKeyListR\x06groups\x12\x1d\n" +
-	"\agrouped\x18\f \x01(\bH\bR\agrouped\x88\x01\x01B\x06\n" +
+	"\binternal\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\binternal\x88\x01\x01\x12*\n" +
+	"\x04used\x18\n" +
+	" \x01(\v2\x11.x.filter.pb.BoolH\aR\x04used\x88\x01\x01\x12\x1d\n" +
+	"\avirtual\x18\v \x01(\bH\bR\avirtual\x88\x01\x01\x128\n" +
+	"\x06groups\x18\f \x01(\v2 .service.channel.pb.GroupKeyListR\x06groups\x12\x1d\n" +
+	"\agrouped\x18\r \x01(\bH\tR\agrouped\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\x0e\n" +
@@ -909,7 +920,8 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"_data_typeB\v\n" +
 	"\t_is_indexB\v\n" +
-	"\t_internalB\n" +
+	"\t_internalB\a\n" +
+	"\x05_usedB\n" +
 	"\n" +
 	"\b_virtualB\n" +
 	"\n" +
@@ -970,12 +982,13 @@ var file_core_pkg_service_channel_pb_channel_proto_depIdxs = []int32{
 	9,  // 13: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
 	14, // 14: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
 	14, // 15: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
-	10, // 16: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	14, // 16: service.channel.pb.Where.used:type_name -> x.filter.pb.Bool
+	10, // 17: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_channel_pb_channel_proto_init() }

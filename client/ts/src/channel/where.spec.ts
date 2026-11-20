@@ -32,4 +32,9 @@ describe("Where", () => {
     expect(serverComputed(unknown, { internal: { eq: false } })).toBe(true);
     expect(serverComputed(unknown, { virtual: true })).toBe(false);
   });
+
+  it("should always leave the used line to the Core", () => {
+    expect(serverComputed(lines, { used: { eq: false } })).toBe(true);
+    expect(serverComputed(lines, { not: { used: { eq: true } } })).toBe(true);
+  });
 });

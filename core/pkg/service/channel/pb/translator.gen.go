@@ -407,6 +407,13 @@ func WhereToPB(r channel.Where) (*Where, error) {
 			return nil, err
 		}
 	}
+	if r.Used != nil {
+		var err error
+		pb.Used, err = filterpb.BoolToPB(*r.Used)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if r.Virtual != nil {
 		pb.Virtual = r.Virtual
 	}
@@ -487,6 +494,13 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 			return channel.Where{}, err
 		}
 		r.Internal = &val
+	}
+	if pb.Used != nil {
+		val, err := filterpb.BoolFromPB(pb.Used)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Used = &val
 	}
 	if pb.Virtual != nil {
 		r.Virtual = pb.Virtual

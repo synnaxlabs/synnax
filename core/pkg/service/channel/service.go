@@ -120,7 +120,9 @@ type Service struct {
 	builtIns atomic.Pointer[builtInSet]
 	// builtInFilters holds the filters of MatchInternal.
 	builtInFilters builtInFilters
-	mu             struct {
+	// usedFilters holds the filters of MatchUsed.
+	usedFilters usedFilters
+	mu          struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -163,6 +165,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	s.usedFilters = newUsedFilters(s.table)
 	// The channel limit counts each non-virtual channel. Declare takes the built-ins
 	// out after the scan. This is the only walk of the table: no index holds Virtual.
 	var externalNonVirtualChannels []Channel
@@ -186,6 +189,7 @@ func (s *Service) newRetrieve() Retrieve {
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 		builtIn: &s.builtInFilters,
+		used:    &s.usedFilters,
 	}
 }
 

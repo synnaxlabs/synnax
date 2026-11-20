@@ -103,6 +103,7 @@ export type Where = {
   dataType?: filter.Set<typeof telem.dataTypeZ>;
   isIndex?: filter.Bool;
   internal?: filter.Bool;
+  used?: filter.Bool;
   virtual?: boolean;
   groups?: group.Key[];
   grouped?: boolean;
@@ -132,6 +133,11 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   isIndex: filter.boolZ.optional(),
   /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolZ.optional(),
+  /**
+   * used matches the channels that a record reads or writes, or the channels that
+   * nothing reads or writes when false.
+   */
+  used: filter.boolZ.optional(),
   /**
    * virtual matches virtual channels that are not calculated, or every other channel
    * when false.

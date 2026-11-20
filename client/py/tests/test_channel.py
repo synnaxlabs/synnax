@@ -1148,6 +1148,34 @@ class TestChannelUses:
         )
         assert client.channels.retrieve(ch.key).uses is None
 
+    def test_used(self, client: sy.Synnax) -> None:
+        """Should keep only used or only unused channels."""
+        used, unused = (
+            client.channels.create(
+                name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+            )
+            for _ in range(2)
+        )
+        project = client.projects.create(name=f"used-{channel_name()}")
+        client.schematics.create(
+            sy.Schematic(
+                project=project.key,
+                name="Used",
+                nodes=[
+                    schematic.Node(
+                        key="value",
+                        position=spatial.XY(x=0, y=0),
+                        config=schematic.ValueNodeConfig(channel=used.key),
+                    )
+                ],
+            )
+        )
+        keys = [used.key, unused.key]
+        assert [c.key for c in client.channels.retrieve(keys, used=True)] == [used.key]
+        assert [c.key for c in client.channels.retrieve(keys, used=False)] == [
+            unused.key
+        ]
+
     def test_retrieve_built_ins(self, client: sy.Synnax) -> None:
         """Should retrieve the keys of the built-in channels."""
         cmd = client.channels.retrieve("sy_task_cmd")

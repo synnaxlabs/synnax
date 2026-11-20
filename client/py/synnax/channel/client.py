@@ -386,6 +386,7 @@ class Client:
         data_type: filter.SetInput[DataType] = ...,
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
+        used: filter.BoolInput = ...,
         virtual: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
@@ -412,6 +413,7 @@ class Client:
         data_type: filter.SetInput[DataType] = ...,
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
+        used: filter.BoolInput = ...,
         virtual: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
@@ -435,6 +437,7 @@ class Client:
         data_type: filter.SetInput[DataType] = ...,
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
+        used: filter.BoolInput = ...,
         virtual: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
@@ -459,6 +462,7 @@ class Client:
         data_type: filter.SetInput[DataType] = ...,
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
+        used: filter.BoolInput = ...,
         virtual: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
@@ -486,6 +490,7 @@ class Client:
         data_type: filter.SetInput[DataType] = ...,
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
+        used: filter.BoolInput = ...,
         virtual: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
@@ -539,6 +544,9 @@ class Client:
         :param data_type: Keeps channels with this data type.
         :param is_index: Keeps only index or only non-index channels.
         :param internal: Keeps only internal or only non-internal channels.
+        :param used: Keeps only the channels that a record reads or writes, or only
+            the channels that nothing reads or writes when False. It counts every
+            record, also those that the caller cannot retrieve.
         :param virtual: Keeps only virtual channels that are not calculated, or only
             the other channels.
         :param groups: Keeps channels in any of these groups.

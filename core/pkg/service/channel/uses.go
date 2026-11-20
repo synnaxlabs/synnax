@@ -93,3 +93,26 @@ func (s *Service) Uses(
 	}
 	return out, nil
 }
+
+// usedFilters holds the filters of MatchUsed for one Service. The Service builds them
+// once, so that a request allocates none.
+type usedFilters struct{ in, out gorp.Filter[Key, Channel] }
+
+func newUsedFilters(table *gorp.Table[Key, Channel]) usedFilters {
+	return usedFilters{
+		in:  table.FilterReferenced(true, ReadTag, WriteTag),
+		out: table.FilterReferenced(false, ReadTag, WriteTag),
+	}
+}
+
+// MatchUsed returns a filter for the channels that a record reads or writes when used
+// is true, or for the channels that nothing reads or writes when it is false. It counts
+// every holder, also those that the caller cannot retrieve.
+func MatchUsed(used bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		if used {
+			return r.used.in
+		}
+		return r.used.out
+	}
+}

@@ -96,4 +96,19 @@ describe("Built-in channels", () => {
     });
     expect(other.map((ch) => ch.key)).toEqual([user.key]);
   });
+
+  it("should keep only used or only unused channels", async () => {
+    const used = await createChannel();
+    const unused = await createChannel();
+    await createSchematic(used);
+    const keys = [used.key, unused.key];
+    const retrieveKeys = async (isUsed: boolean) =>
+      (
+        await client.channels.retrieve({
+          where: { key: { in: keys }, used: { eq: isUsed } },
+        })
+      ).map((ch) => ch.key);
+    expect(await retrieveKeys(true)).toEqual([used.key]);
+    expect(await retrieveKeys(false)).toEqual([unused.key]);
+  });
 });

@@ -21,6 +21,8 @@ type Retrieve struct {
 	indexes indexes
 	// builtIn holds the filters of MatchInternal.
 	builtIn *builtInFilters
+	// used holds the filters of MatchUsed.
+	used *usedFilters
 }
 
 // builtInFilters holds the filters of MatchInternal for one Service. The Service builds

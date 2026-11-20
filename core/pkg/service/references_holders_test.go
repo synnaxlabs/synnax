@@ -229,6 +229,46 @@ var _ = Describe("References across holders", Ordered, func() {
 		}))
 	})
 
+	It("Should match the channels that a record reads or writes as used", func(
+		ctx SpecContext,
+	) {
+		read, state, command, unused := createChannel(ctx),
+			createChannel(ctx),
+			createChannel(ctx),
+			createChannel(ctx)
+		var valve schematic.ValveNodeConfig
+		valve.SetDefaults()
+		valve.StateChannel, valve.CommandChannel = state.Key(), command.Key()
+		sch := schematic.Schematic{
+			Name:    "pid",
+			Project: &proj.Key,
+			Nodes: []schematic.Node{{
+				Key:    "valve",
+				Config: schematic.NodeConfig{Variant: valve},
+			}},
+		}
+		t := valueTable(read.Key())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := layer.Schematic.NewWriter(tx).Create(ctx, &sch); err != nil {
+				return err
+			}
+			return layer.Table.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
+		keys := []channel.Key{read.Key(), state.Key(), command.Key(), unused.Key()}
+		retrieve := func(used bool) []channel.Key {
+			var found []channel.Channel
+			Expect(layer.Channel.NewRetrieve().
+				Where(channel.MatchKeys(keys...)).
+				Where(channel.MatchUsed(used)).
+				Where(channel.MatchInternal(false)).
+				Entries(&found).
+				Exec(ctx, db)).To(Succeed())
+			return channel.KeysFromChannels(found)
+		}
+		Expect(retrieve(true)).To(ConsistOf(read.Key(), state.Key(), command.Key()))
+		Expect(retrieve(false)).To(ConsistOf(unused.Key()))
+	})
+
 	It("Should leave a built-in channel out of an Arc symbol search", func(
 		ctx SpecContext,
 	) {

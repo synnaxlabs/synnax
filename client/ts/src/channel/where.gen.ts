@@ -29,6 +29,7 @@ import { node } from "@/node";
 export interface Lines {
   internal:
     ((record: Payload, value: NonNullable<Where["internal"]>) => boolean) | null;
+  used: ((record: Payload, value: NonNullable<Where["used"]>) => boolean) | null;
   virtual: ((record: Payload, value: NonNullable<Where["virtual"]>) => boolean) | null;
   groups: ((record: Payload, value: NonNullable<Where["groups"]>) => boolean) | null;
   grouped: ((record: Payload, value: NonNullable<Where["grouped"]>) => boolean) | null;
@@ -61,6 +62,10 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     if (lines.internal == null) throw new Error("only the Core can check internal");
     if (!lines.internal(record, where.internal)) return false;
   }
+  if (where.used != null) {
+    if (lines.used == null) throw new Error("only the Core can check used");
+    if (!lines.used(record, where.used)) return false;
+  }
   if (where.virtual != null) {
     if (lines.virtual == null) throw new Error("only the Core can check virtual");
     if (!lines.virtual(record, where.virtual)) return false;
@@ -87,6 +92,7 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
     (where.internal != null && lines.internal == null) ||
+    (where.used != null && lines.used == null) ||
     (where.virtual != null && lines.virtual == null) ||
     (where.groups != null && lines.groups == null) ||
     (where.grouped != null && lines.grouped == null));
@@ -104,6 +110,11 @@ const inputs = {
   isIndex: filter.boolInputZ.exactOptional(),
   /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolInputZ.exactOptional(),
+  /**
+   * used matches the channels that a record reads or writes, or the channels that
+   * nothing reads or writes when false.
+   */
+  used: filter.boolInputZ.exactOptional(),
   /**
    * virtual matches virtual channels that are not calculated, or every other channel
    * when false.
@@ -160,6 +171,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "dataType",
         "isIndex",
         "internal",
+        "used",
         "virtual",
         "groups",
         "grouped",

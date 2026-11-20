@@ -372,6 +372,13 @@ Where filter Channel {
     internal    filter.Bool {
         @doc value "matches the built-in channels, or every other channel when false."
     }
+    used        filter.Bool {
+        @cpp omit
+        @doc value """
+            matches the channels that a record reads or writes, or the channels that
+            nothing reads or writes when false.
+        """
+    }
     virtual     bool        {
         @doc value """
             matches virtual channels that are not calculated, or every other channel
