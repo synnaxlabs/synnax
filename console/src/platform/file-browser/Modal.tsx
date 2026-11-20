@@ -280,15 +280,22 @@ const Content = ({
     // The Driver says why it cannot list a path that is not absolute.
     const target = normalize(typed) || typed;
     const folder = dirnameOf(target);
-    const find = (listing?: Listing): Entry | undefined =>
-      listing?.entries.find((e) => e.path === target);
+    // Windows and macOS disks often ignore case, so one match in another case counts.
+    const find = (listing?: Listing): Entry | undefined => {
+      const entries = listing?.entries ?? [];
+      const exact = entries.find((e) => e.path === target);
+      if (exact != null) return exact;
+      const lower = target.toLowerCase();
+      const loose = entries.filter((e) => e.path.toLowerCase() === lower);
+      return loose.length === 1 ? loose[0] : undefined;
+    };
     // A cached listing can be old, so a target it does not hold lists the folder again.
     const entry =
       find(snapshot.listings.get(folder)) ??
       find(await session?.list(folder).catch(() => undefined));
     if (navigations.current !== navigation) return;
-    if (entry?.kind === "file") go(folder, target);
-    else go(target);
+    if (entry?.kind === "file") go(folder, entry.path);
+    else go(entry?.path ?? target);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
