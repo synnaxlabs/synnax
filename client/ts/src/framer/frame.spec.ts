@@ -106,6 +106,14 @@ describe("framer.Frame", () => {
           expect(f.columns.length).toEqual(1);
           expect(f.series.length).toEqual(1);
         });
+
+        it("should read a byte view in a series payload as raw bytes", () => {
+          const f = new framer.Frame({
+            keys: [12],
+            series: [{ dataType: "float32", data: new Uint8Array(8) }],
+          });
+          expect(f.length.valueOf()).toEqual(2);
+        });
       });
 
       test("from record", () => {
