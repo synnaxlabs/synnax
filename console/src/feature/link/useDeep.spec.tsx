@@ -14,7 +14,7 @@ import {
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient, TEST_CORE_ADDRESS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testCoreAddress } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
@@ -116,7 +116,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [CORE_KEY]: {
       key: CORE_KEY,
       name: "Local",
-      ...TEST_CORE_ADDRESS,
+      ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -124,7 +124,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [OTHER_CORE_KEY]: {
       key: OTHER_CORE_KEY,
       name: "Other",
-      ...TEST_CORE_ADDRESS,
+      ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -132,7 +132,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [THIRD_CORE_KEY]: {
       key: THIRD_CORE_KEY,
       name: "Third",
-      ...TEST_CORE_ADDRESS,
+      ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
       secure: false,
