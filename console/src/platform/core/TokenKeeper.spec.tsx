@@ -194,8 +194,8 @@ describe("Core.TokenKeeper", () => {
   };
 
   // a client logged in to the same Core the record names, which holds a spent code
-  const renderWithCode = async () => {
-    const client = createTestClient();
+  const renderWithCode = async (params?: Parameters<typeof createTestClient>[0]) => {
+    const client = createTestClient(params);
     await client.connect();
     const core = createCore("Local", { oidc: CODE });
     const { wrapper, store } = await createStatusConsoleWrapper({
@@ -215,6 +215,17 @@ describe("Core.TokenKeeper", () => {
     const { core, store } = await renderWithCode();
     await act(async () => {});
     expect(store.getState().core.cores[core.key].oidc).toEqual(CODE);
+  });
+
+  it("should forget a spent code on the web once a cookie holds the session", async () => {
+    mocks.engine = "web";
+    onTestFinished(() => {
+      mocks.engine = "tauri";
+    });
+    const { core, store } = await renderWithCode({ sessionCookie: true });
+    await waitFor(() =>
+      expect(store.getState().core.cores[core.key].oidc).toBeUndefined(),
+    );
   });
 
   it("should not save a session to another Core at the same address", async () => {
