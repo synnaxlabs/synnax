@@ -45,6 +45,7 @@ const createReqZ = z.object({ devices: deviceZ.array() });
 const createResZ = z.object({ devices: deviceZ.array() });
 const updateReqZ = z.object({ key: keyZ, update: updateZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
+const updateResZ = z.object({ device: deviceZ });
 const emptyResZ = z.object({});
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
@@ -208,25 +209,21 @@ export class Client extends query.Retriever<
    * Writes one field group to the device and keeps the other as stored. The update
    * replaces the whole group, so a field it leaves out is cleared, such as the chassis
    * of an identity update.
+   * @returns the device as the Core stored it, without its status.
    * @throws {NotFoundError} if the device does not exist.
    * @throws {ValidationError} if the update is invalid.
    */
-  async update(key: Key, update: Update): Promise<void> {
-    await this.cfg.unary.send(
+  async update(key: Key, update: Update): Promise<Device> {
+    const { device } = await this.cfg.unary.send(
       "/ni/device/update",
       { key, update },
       updateReqZ,
-      emptyResZ,
+      updateResZ,
     );
-    // The stored record replaces the cached one, even when an older stream set
-    // arrived during the request.
-    const { devices } = await this.cfg.unary.send(
-      "/ni/device/retrieve",
-      query.keysRequest([key]),
-      retrieveParamsZ,
-      retrieveResponseZ,
-    );
-    this.store.set(devices.map(stripStatus));
+    // The reply replaces the cached device, even when an older stream set arrived
+    // during the request.
+    this.store.set([stripStatus(device)]);
+    return device;
   }
 
   /** Deletes the devices with their statuses. */

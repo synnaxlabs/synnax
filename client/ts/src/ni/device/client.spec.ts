@@ -197,7 +197,7 @@ describe("NI device", async () => {
   describe("update", () => {
     it("should write the configuration group", async () => {
       const d = await create();
-      await client.ni.devices.update(d.key, {
+      const stored = await client.ni.devices.update(d.key, {
         group: "configuration",
         name: "Renamed",
         identifier: "dev",
@@ -211,11 +211,12 @@ describe("NI device", async () => {
       expect(retrieved.name).toBe("Renamed");
       expect(retrieved.identifier).toBe("dev");
       expect(retrieved.model).toBe(d.model);
+      expect(stored).toEqual(retrieved);
     });
 
     it("should write the identity group and keep the configuration", async () => {
       const d = await create();
-      await client.ni.devices.update(d.key, {
+      const stored = await client.ni.devices.update(d.key, {
         group: "identity",
         rack: rack.key,
         serial: "01ABCDEF",
@@ -226,6 +227,7 @@ describe("NI device", async () => {
       expect(retrieved.serial).toBe("01ABCDEF");
       expect(retrieved.model).toBe("PXIe-4302");
       expect(retrieved.name).toBe(d.name);
+      expect(stored).toEqual(retrieved);
     });
   });
 
