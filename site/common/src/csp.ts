@@ -57,12 +57,9 @@ const TOOLBAR: Record<Directive | "script-src" | "style-src", string[]> = {
   "style-src": [VERCEL_LIVE],
 };
 
-/**
- * POSTHOG_SOURCES lists what PostHog loads. Its session recorder reads `blob:` URLs,
- * which WebKit checks against `connect-src`.
- */
+/** POSTHOG_SOURCES lists what the analytics load. */
 const POSTHOG_SOURCES: Partial<Record<keyof typeof TOOLBAR, string[]>> = {
-  "connect-src": [POSTHOG, "blob:"],
+  "connect-src": [POSTHOG],
   "script-src": [POSTHOG],
 };
 
