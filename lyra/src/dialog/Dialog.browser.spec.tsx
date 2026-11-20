@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement, type ReactNode, useState } from "react";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, onTestFinished } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { List } from "@/list";
 import { Menu } from "@/menu";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
@@ -135,6 +136,62 @@ const Growing = (): ReactElement => {
       </Dialog.Frame>
     </div>
   );
+};
+
+/** A dropdown whose trigger a button outside it can widen while it is closed. */
+const Widening = (): ReactElement => {
+  const [name, setName] = useState("Menu");
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", width: "300px" }}>
+      <button onClick={() => setName("A much longer menu")}>Grow</button>
+      <Dialog.Frame>
+        <Dialog.Trigger>{name}</Dialog.Trigger>
+        <Dialog.Dialog>
+          <p>Content</p>
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </div>
+  );
+};
+
+const ITEMS = Array.from({ length: 200 }, (_, i) => `item-${i}`);
+
+const VirtualList = (): ReactElement => (
+  <Triggers.Provider>
+    <Dialog.Frame>
+      <Dialog.Trigger>Toggle</Dialog.Trigger>
+      <Dialog.Dialog>
+        <List.Frame data={ITEMS} virtual itemHeight={27}>
+          <List.Scroll>
+            <List.Items>
+              {({ key, ...rest }: List.ItemProps<string>) => (
+                <List.Item key={key} {...rest}>
+                  {key}
+                </List.Item>
+              )}
+            </List.Items>
+          </List.Scroll>
+        </List.Frame>
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  </Triggers.Provider>
+);
+
+/** @returns whether each dialog added to the page was shown before it was painted. */
+const watchDialogMounts = (): boolean[] => {
+  const shown: boolean[] = [];
+  const observer = new MutationObserver((records) => {
+    for (const { addedNodes } of records)
+      for (const node of addedNodes) {
+        if (!(node instanceof Element)) continue;
+        const dialog =
+          node.closest('[role="dialog"]') ?? node.querySelector('[role="dialog"]');
+        if (dialog != null) shown.push(dialog.classList.contains(CSS.visible(true)));
+      }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  onTestFinished(() => observer.disconnect());
+  return shown;
 };
 
 /** An item that closes its dropdown when clicked, and cannot take the focus. */
@@ -319,6 +376,39 @@ describe("Dialog", () => {
         .poll(() => dialog.getBoundingClientRect().left)
         .toBeCloseTo(trigger.getBoundingClientRect().left, 0);
       expect(dialog.getBoundingClientRect().left).toBeLessThan(before);
+    });
+
+    it("should open again hidden until it is placed at its trigger's new place", async () => {
+      await renderThemed(<Widening />);
+      await userEvent.click(button("Menu"));
+      await expect
+        .poll(() => computed(page.getByRole("dialog").element(), "opacity"))
+        .toBe("1");
+      await userEvent.click(button("Menu"));
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      await userEvent.click(button("Grow"));
+      const shown = watchDialogMounts();
+      await userEvent.click(button("A much longer menu"));
+      const dialog = page.getByRole("dialog").element();
+      await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+      expect(shown).toEqual([false]);
+      const { left } = button("A much longer menu").getBoundingClientRect();
+      expect(dialog.getBoundingClientRect().left).toBeCloseTo(left, 0);
+    });
+
+    it("should window a virtual list each time it opens", async () => {
+      await renderThemed(<VirtualList />);
+      for (let open = 0; open < 2; open++) {
+        await userEvent.click(button("Toggle"));
+        const dialog = page.getByRole("dialog").element();
+        await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+        await expect.element(page.getByText("item-0")).toBeVisible();
+        await expect
+          .poll(() => dialog.querySelectorAll(".lyra-list__item").length)
+          .toBeLessThan(ITEMS.length);
+        await userEvent.click(button("Toggle"));
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      }
     });
 
     it("should cap the height of tall content", async () => {

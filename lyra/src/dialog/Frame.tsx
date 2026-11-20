@@ -396,6 +396,15 @@ export const Frame = ({
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   };
 
+  // A closed dialog drops its placement, so it opens again hidden until it is placed.
+  useEffect(() => {
+    if (visible) return;
+    prevBox.current = undefined;
+    setState((prev) =>
+      Object.keys(prev.style).length === 0 ? prev : { ...prev, style: {} },
+    );
+  }, [visible]);
+
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
