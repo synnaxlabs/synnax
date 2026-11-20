@@ -204,15 +204,15 @@ and no reader pins it.
 Every checksum is CRC32C (Castagnoli, initial value and final XOR `0xFFFFFFFF`) over a
 32-byte place and then the covered bytes. The place is never stored.
 
-| Offset | Size | Type     | Meaning                                                             |
-| ------ | ---- | -------- | ------------------------------------------------------------------- |
-| 0      | 8    | `uint64` | Database identity, drawn once from the injected random source       |
-| 8      | 8    | `uint64` | File identity: a segment identity, a generation, or a part identity |
-| 16     | 8    | `uint64` | File offset of the first covered byte                               |
-| 24     | 1    | `uint8`  | Kind: 1 segment, 2 check file, 3 log, 4 head, 5 part                |
-| 25     | 1    | zero     |                                                                     |
-| 26     | 2    | `uint16` | Format version of the file                                          |
-| 28     | 4    | zero     |                                                                     |
+| Offset | Size | Type     | Meaning                                                                |
+| ------ | ---- | -------- | ---------------------------------------------------------------------- |
+| 0      | 8    | `uint64` | Database identity, drawn once from the injected random source          |
+| 8      | 8    | `uint64` | File identity: a segment identity, a generation, or a part identity    |
+| 16     | 8    | `uint64` | File offset of the first covered byte                                  |
+| 24     | 1    | `uint8`  | Kind: 1 segment, 2 check file, 3 log, 4 head, 5 part, 6 segment header |
+| 25     | 1    | zero     |                                                                        |
+| 26     | 2    | `uint16` | Format version of the file                                             |
+| 28     | 4    | zero     |                                                                        |
 
 A block of another database, file, offset, kind, or version fails its check. The log
 reserves segment identities (`uint64`, from 1) and alignment numbers (§5.7) before use,
@@ -221,13 +221,28 @@ twice. A generation rises by one per switch.
 
 ### 5.1 Segment file
 
-A segment file has no header. File offset 0 is sample byte 0. The Create record in the
-log is the one home of the data type, clock key, and format version. Every length and
-offset in a record or a pointer counts stream bytes: sample bytes with no trailers.
+A segment file of version 1 or 2 starts with a 64-byte header, written in its first
+append. The engine reads the data type, clock key, and format version from the Create
+record and the checkpoint only. The header holds a copy that only repair reads (§6.1),
+so a log frame lost to corruption does not orphan a segment, and the two copies are
+never compared at open. Every length and offset in a record or a pointer counts stream
+bytes: sample bytes with no header and no trailers.
+
+| Offset | Size | Type          | Segment header                                |
+| ------ | ---- | ------------- | --------------------------------------------- |
+| 0      | 8    | bytes         | Magic `CSSEGMNT`                              |
+| 8      | 2    | `uint16`      | Format version                                |
+| 10     | 1    | `uint8`       | Data type code of RFC 0117                    |
+| 11     | 1    | zero          |                                               |
+| 12     | 8    | `uint32` each | Key, then clock key                           |
+| 20     | 4    | zero          |                                               |
+| 24     | 8    | `uint64`      | Segment identity                              |
+| 32     | 28   | zero          |                                               |
+| 60     | 4    | `uint32`      | CRC of bytes 0 to 59. Place: kind 6, offset 0 |
 
 **Version 1, raw samples.** The sample stream is cut into blocks of `B` = 65,536 bytes.
 A trailer of `T` bytes follows each full block: 4 for a fixed-density type, 16 for a
-variable type. Stream offset `x` is at file offset `x + T * floor(x / B)`.
+variable type. Stream offset `x` is at file offset `64 + x + T * floor(x / B)`.
 
 | Structure        | Offset | Size   | Type     | Meaning                                                                                                                                |
 | ---------------- | ------ | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -633,10 +648,11 @@ Format version 3 is reserved for a group of fixed-density channels on one clock 
 file. One record per clock sample holds the stamp and then the sample of each member, in
 the order of the Create record. Member `j` of record `p` is at stream offset
 `p × R + o_j`, where the record size `R` is 8 plus the densities. Blocks, trailers,
-`tail_crc`, seal, and rewrite are those of version 1. The layout admits it because no
-file names a channel: a segment has no header, and the place holds a segment identity. A
-clock write of 100 channels then syncs 1 file, not 101, and a read of one member reads
-`R / d_j` times the bytes.
+`tail_crc`, seal, and rewrite are those of version 1. The layout admits it because the
+place holds a segment identity, not a channel. A struct segment's header holds key 0,
+and its members live in the Create record only, so repair cannot place one whose Create
+was in a bad frame. A clock write of 100 channels then syncs 1 file, not 101, and a read
+of one member reads `R / d_j` times the bytes.
 
 ## 6 Failure policy
 
@@ -677,51 +693,53 @@ one start, and the next start opens.
 
 `synnax repair` (NEW) gives a refused open (fault 5b) a way forward. It runs with the
 Core stopped, under the directory lock, as `synnax purge` does (§4.1). As `pg_resetwal`
-does, it cuts the log at the damage; as RocksDB `RepairDB` does, it rebuilds what the
-files allow; as SQLite `.recover` does, it lists what it cannot save. The log holds
-pointers, not samples, so repair works from the segment files.
+does, it gets past the damage; as RocksDB `RepairDB` does, it rebuilds what the files
+allow; as SQLite `.recover` does, it lists what it cannot save. Fault 5b means that
+valid frames follow the bad one, so repair loses only the records of the bad frame.
 
-| A pointer needs     | Repair finds it in                                                                                                                                                                           |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Key                 | The directory name                                                                                                                                                                           |
-| Segment, version    | The file name, and the place check: a block passes only with its segment identity, offset, and format version                                                                                |
-| Data type and clock | The Create record or the segment record of a head or part only. A segment that neither names has none                                                                                        |
-| Alignment           | The Commit record only. A rebuilt commit continues the stretch of the pointer before it                                                                                                      |
-| Time range          | The stamps of the clock segment, read from checked blocks                                                                                                                                    |
-| Committed length    | The Commit record only. A rebuilt commit ends at the last full block that passes its check in the clock segment and in every data segment of the clock write, whichever holds fewest samples |
+| A pointer needs  | Repair finds it in                                                                                                                                        |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key, clock, type | The Create record, the segment record of a head or part, or the segment header (§5.1)                                                                     |
+| Segment, version | The file name and the header, and the place check: a block passes only with its segment identity, offset, and format version                              |
+| Alignment        | The Commit record. A rebuilt range that no record names takes a fresh alignment number, so it reads as its own stretch and never joins another by mistake |
+| Time range       | The Commit record, or the stamps of the clock segment, read from checked blocks                                                                           |
+| Committed length | The Commit record. A rebuilt range ends at the last full block that passes its check in the clock segment and in every data segment of the clock write    |
 
 1. Find the damage as recovery does (§5.5 steps 1 to 7). When an open would pass, say so
    and stop.
-2. Build the base state. Log damage: the head in use and every frame before the bad
-   frame. Both heads bad: every part whose header sector and chunks pass (a segment in
-   two parts takes the record of the newer switch), then each log from the oldest
-   generation whose header passes, up to its first bad frame. The dead marks, kills, and
-   tombstones of the lost heads are gone.
-3. Rebuild. For each clock with an open clock write in the base state, read the clock
-   segment and each of its data segments past their committed lengths, keeping full
-   blocks whose check passes, and add one commit of the sample count that all of them
-   hold. Seal every segment at its new length.
+2. Build the base state. Log damage: the head in use, every frame before the bad frame,
+   and every valid frame after it. Both heads bad: every part whose header sector and
+   chunks pass (a segment in two parts takes the record of the newer switch), then each
+   log from the oldest generation whose header passes, with the same rule for its bad
+   frames. A record that names a segment that the state does not hold takes the segment
+   from its header. A record that breaks a rule of §5.2 only because a record of the bad
+   frame is gone is skipped and listed.
+3. Rebuild the commits of the bad frame. For each segment, the samples between the end
+   of its last pointer before the bad frame and the start of its first pointer after it
+   are one range, from the full blocks that pass their check in the clock segment and in
+   every data segment of the clock write. A range past the last pointer of a segment
+   ends at its last full checked block.
 4. List, with key, segment, bytes, and the time range where it is known:
-   - the tail block of each open segment, at most 64 KiB, whose `tail_crc` was only in
-     the lost records;
-   - each segment file that the base state does not name, which a write after the damage
-     created: it is renamed `<S>.seg.unrecovered` in its directory, never removed;
-   - data written against stored stamps after the damage, which has no clock slot;
-   - each segment that the base state names and whose file a compaction or a drop after
-     the damage removed: its pointers leave the state;
-   - the records after the damage that touch no sample: a lost Tombstone brings deleted
+   - each rebuilt range, which takes its own stretch;
+   - each rebuilt range past the last pointer of a segment, which may hold samples that
+     were written and never committed;
+   - the tail block of a segment whose last commit was in the bad frame, at most 64 KiB,
+     since its `tail_crc` was only in that frame;
+   - a segment file with no header that passes, renamed `<S>.seg.unrecovered` in its
+     directory, never removed;
+   - each segment whose file a compaction or a drop removed, which leaves the state;
+   - the records of the bad frame that touch no sample: a lost Tombstone brings deleted
      data back, a lost Replace keeps the old segment, a lost Drop or Intent leaves the
-     key to `Sweep`, and a lost Check makes the check pass run again;
-   - each rebuilt commit that may join two stretches, since a lost stretch end is not in
-     any file.
+     key to `Sweep`, and a lost Check makes the check pass run again. Both heads bad:
+     the dead marks, kills, and tombstones of the lost heads.
 5. Ask. On yes, write the head of the next generation from the rebuilt state and a new
    log that starts with a Restart, rename the damaged log or heads with the suffix
    `.damaged`, and sync each file and the root. The header sector of the new head is the
    commit point, so a crash during repair leaves the old files, and repair runs again.
 
-Repair rebuilds every commit on a segment that the base state names, up to its last
-checked full block. It rebuilds nothing on a segment made after the damage, because the
-data type and the clock key of a segment live only in the log and the checkpoint.
+So repair loses the commit boundaries and the alignments of one frame, the unchecked
+tail block of a segment whose last commit was in it, and the deletes and compactions in
+it. It keeps every sample that a checked block holds.
 
 ## 7 Determinism
 
