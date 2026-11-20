@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
@@ -19,8 +20,11 @@ import (
 )
 
 type counter struct {
+	// mu serializes adds, as two concurrent adds of ctr can write their values out of
+	// order.
+	mu  sync.Mutex
 	ctr *kv.AtomicInt64Counter
-	// durable is the highest value that storage holds. A failed write moves ctr but not
+	// durable is the value that storage holds. A failed write moves ctr but not
 	// durable.
 	durable atomic.Int64
 	// atOpen is the value that storage held when the counter opened.
@@ -50,6 +54,8 @@ func (c *counter) issued(local LocalKey) bool {
 }
 
 func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctr.Value()+int64(delta) > int64(math.MaxUint20) {
 		return 0, errors.New("maximum number of channels created")
 	}
@@ -57,10 +63,6 @@ func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
 	if err != nil {
 		return 0, err
 	}
-	for cur := c.durable.Load(); next > cur; cur = c.durable.Load() {
-		if c.durable.CompareAndSwap(cur, next) {
-			break
-		}
-	}
+	c.durable.Store(next)
 	return LocalKey(next), nil
 }
