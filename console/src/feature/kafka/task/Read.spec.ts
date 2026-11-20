@@ -1297,6 +1297,36 @@ describe("Kafka read form", () => {
       expect(dialog.queryByText("Any key")).toBeNull();
     });
 
+    it("should let a number join a string that Any key reads in the new record of a key", async () => {
+      const { draft, dev } = await renderRead({
+        fields: [createField("state", "string")],
+      });
+      await screen.findByRole("treeitem", { name: /^state/ });
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
+      const state = await dialog.findByRole("checkbox", { name: "Record /state" });
+      expect(state).toHaveProperty("disabled", true);
+      expect(state).toHaveProperty("checked", true);
+      const temperature = dialog.getByRole("checkbox", { name: "Record /temperature" });
+      expect(temperature).toHaveProperty("disabled", false);
+      fireEvent.click(temperature);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(3);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(records[1].icd);
+      const message = messages.find(
+        ({ key }) => key === records[1].messages[0].message,
+      );
+      const fields = message?.payload.format === "json" ? message.payload.fields : [];
+      expect(fields.map(({ pointer }) => pointer)).toEqual([
+        "/time",
+        "/temperature",
+        "/state",
+      ]);
+    });
+
     it("should lock a shape with a key whose record reads no JSON message", async () => {
       const format = await client.icds.create({
         name: uniqueName("format"),
