@@ -42,8 +42,8 @@ const seek = (video: HTMLVideoElement, time: number): void => {
     video.currentTime = bounds.clamp({ lower: 0, upper: video.duration }, time);
 };
 
-// On the page, `sizes` picks a source for the text column. Set to the viewport width,
-// it picks the largest source that the screen can show.
+// On the page, `sizes` picks a source for the text column. Expanded, an image takes the
+// viewport width, but never more than its own width, so a small image is not enlarged.
 const setSizes = (moved: Element, sizes: string): void => {
   for (const el of [moved, ...moved.querySelectorAll("source, img")])
     if (el.hasAttribute("sizes")) el.setAttribute("sizes", sizes);
@@ -161,7 +161,8 @@ export const start = (): void => {
       placeholder.style.aspectRatio = `${from.width} / ${from.height}`;
     moved.replaceWith(placeholder);
     const sizes = media.getAttribute("sizes");
-    if (sizes != null) setSizes(moved, "100vw");
+    if (sizes != null)
+      setSizes(moved, `min(100vw, ${media.getAttribute("width") ?? 0}px)`);
     query(root, ".docs-lightbox__stage").append(moved);
     query(root, ".docs-lightbox__caption").textContent = name;
     root.setAttribute("aria-label", name === "" ? "Expanded media" : name);

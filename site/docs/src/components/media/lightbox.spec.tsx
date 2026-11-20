@@ -169,12 +169,13 @@ describe("lightbox", () => {
       expect(control("caption").textContent).toBe("The plot toolbar");
     });
 
-    it("should pick the largest source for an image while expanded", () => {
-      const sized = '="(max-width: 1100px) 100vw, 1100px"';
+    it("should size an expanded image to the viewport, up to its width", () => {
+      const sized = '="min(100vw, 732px)"';
       show(
         '<picture class="docs-picture">' +
           `<source type="image/avif" srcset="a.avif 640w, b.avif 2560w" sizes${sized}>` +
-          `<img class="docs-image" src="a.webp" srcset="a.webp 640w" sizes${sized} alt="">` +
+          `<img class="docs-image" src="a.webp" srcset="a.webp 640w" sizes${sized} ` +
+          'width="1600" height="1000" alt="">' +
           "</picture>",
       );
       const img = find<HTMLImageElement>(".docs-image");
@@ -184,11 +185,11 @@ describe("lightbox", () => {
         [...stage.querySelectorAll("source, img")].map((el) =>
           el.getAttribute("sizes"),
         ),
-      ).toEqual(["100vw", "100vw"]);
+      ).toEqual(["min(100vw, 1600px)", "min(100vw, 1600px)"]);
       dialog().dispatchEvent(new Event("close"));
-      expect(img.getAttribute("sizes")).toBe("(max-width: 1100px) 100vw, 1100px");
+      expect(img.getAttribute("sizes")).toBe("min(100vw, 732px)");
       expect(document.querySelector("article source")?.getAttribute("sizes")).toBe(
-        "(max-width: 1100px) 100vw, 1100px",
+        "min(100vw, 732px)",
       );
     });
 
