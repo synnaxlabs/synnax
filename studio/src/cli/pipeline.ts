@@ -22,7 +22,13 @@ import { stage } from "@/director/stage";
 import { type Edit, type Format, type Overlays } from "@/film";
 import { type Core } from "@/fixtures/core";
 import { type FilmProps } from "@/remotion/Film";
-import { type HeroProps, type Region, SHOT, type ShotProps } from "@/remotion/Mail";
+import {
+  type HeroProps,
+  type Region,
+  SHOT,
+  type ShotProps,
+  type StillShotProps,
+} from "@/remotion/Mail";
 import { parse, type Timeline } from "@/timeline";
 
 export interface VideoScript {
@@ -316,23 +322,32 @@ export const runFilmStills = async (opts: FilmStillsOptions): Promise<string[]> 
 
 const MAIL = { imageFormat: "jpeg", jpegQuality: 85, scale: 2 } as const;
 
-export interface MailHero {
+export interface MailStill {
   /** source is a still in the bundle's public dir. */
   source: string;
+  /** width is the width of the still in CSS pixels. */
+  width: number;
+  /**
+   * region is the box of the still to show as a feature image, in CSS pixels of the
+   * still. Null shows the still as a window on the hero gradient.
+   */
+  region: Region | null;
   /** output is where the JPEG goes. */
   output: string;
 }
 
-/** runMailHeroes renders each still in `dir` as a window on the hero gradient. */
-export const runMailHeroes = async (dir: string, heroes: MailHero[]): Promise<void> =>
+/**
+ * runMailStills renders each still in `dir` as a window on the hero gradient, or as a
+ * feature image of its region.
+ */
+export const runMailStills = async (dir: string, stills: MailStill[]): Promise<void> =>
   await withBundle(dir, async (serveUrl) => {
-    for (const { source, output } of heroes) {
-      const inputProps: HeroProps = { source };
-      const composition = await selectComposition({
-        serveUrl,
-        id: "mail-hero",
-        inputProps,
-      });
+    for (const { source, width, region, output } of stills) {
+      const [id, inputProps]: [string, HeroProps | StillShotProps] =
+        region == null
+          ? ["mail-hero", { source }]
+          : ["mail-still-shot", { source, width, region }];
+      const composition = await selectComposition({ serveUrl, id, inputProps });
       await renderStill({ composition, serveUrl, output, inputProps, ...MAIL });
     }
   });

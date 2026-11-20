@@ -18,6 +18,8 @@ import {
   SHOT,
   Shot,
   type ShotProps,
+  StillShot,
+  type StillShotProps,
 } from "@/remotion/Mail";
 import { StudioVideo, type StudioVideoProps } from "@/remotion/StudioVideo";
 
@@ -55,6 +57,13 @@ const DEFAULT_FILM_PROPS: FilmProps = {
 
 /** Placeholder hero; the CLI supplies the still via inputProps. */
 const DEFAULT_HERO_PROPS: HeroProps = { source: "source.webp" };
+
+/** Placeholder still shot; the CLI supplies the still via inputProps. */
+const DEFAULT_STILL_SHOT_PROPS: StillShotProps = {
+  source: "source.webp",
+  width: 1280,
+  region: { x: 0, y: 0, width: 1280 },
+};
 
 /** Placeholder shot; the CLI supplies the capture via inputProps. */
 const DEFAULT_SHOT_PROPS: ShotProps = {
@@ -104,6 +113,15 @@ export const Root = (): ReactElement => (
       width={HERO.width}
       height={HERO.height}
       defaultProps={DEFAULT_HERO_PROPS}
+    />
+    <Composition
+      id="mail-still-shot"
+      component={StillShot}
+      durationInFrames={1}
+      fps={30}
+      width={SHOT.width}
+      height={SHOT.height}
+      defaultProps={DEFAULT_STILL_SHOT_PROPS}
     />
     <Composition
       id="mail-shot"
