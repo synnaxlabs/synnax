@@ -24,6 +24,10 @@ type planned struct {
 	Plan
 	// cancels maps the id of each restrict entry to the error that a cancel returns.
 	cancels map[string]gorp.RestrictError
+	// keys are the keys of the channels that the delete removes.
+	keys channel.Keys
+	// effects is what the delete does to the records that hold the channels.
+	effects gorp.DeleteEffects
 }
 
 // planDelete plans the delete of the channels with keys, as seen by snap. Each record
@@ -33,13 +37,15 @@ func (s *Service) planDelete(
 	snap gorp.Snapshot,
 	keys []channel.Key,
 ) (planned, error) {
-	effects, err := s.cfg.Channel.PlanDelete(ctx, snap, keys)
+	deleted, effects, err := s.cfg.Channel.PlanDelete(ctx, snap, keys)
 	if err != nil {
 		return planned{}, err
 	}
 	p := planned{
 		Change:  Change{Variant: DeleteChannelsChange{Keys: keys}},
 		cancels: make(map[string]gorp.RestrictError, len(effects.Restricts)),
+		keys:    deleted,
+		effects: effects,
 	}
 	byID := make(map[string]int)
 	add := func(e gorp.DeleteEffect, effect Effect) (string, bool) {

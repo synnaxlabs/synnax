@@ -184,6 +184,15 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(p.Kept).To(Equal(uint32(1)))
 			Expect(p.Change).To(Equal(deleteOf(ch.Key())))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(tsk.Key)).
+				Exists(ctx, db)).To(BeFalse())
+			var stored lineplot.LinePlot
+			Expect(layer.LinePlot.NewRetrieve().
+				Where(lineplot.MatchKeys(plot.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Channels.Y1).To(BeEmpty())
 		},
 	)
 
@@ -213,7 +222,7 @@ var _ = Describe("Delete", Ordered, func() {
 			plot := createPlot(ctx, ch.Key())
 			sch := createSchematic(ctx, ch.Key())
 			applied := MustSucceed(apply(ctx, impact.ApplyOptions{}, ch.Key()))
-			Expect(applied.Entries).To(HaveLen(1))
+			Expect(applied).To(Equal(impact.Plan{Change: deleteOf(ch.Key())}))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			var stored lineplot.LinePlot
 			Expect(layer.LinePlot.NewRetrieve().

@@ -81,15 +81,15 @@ type ApplyOptions struct {
 	Picks map[string]Choice
 }
 
-// Apply carries out c in tx with the picks of opts and returns the plan that it
-// applied, which it makes in tx: every entry it met, with the count of the records that
-// keep a deleted channel. A restrict entry that takes cancel fails Apply with the
-// gorp.RestrictError of its record. A delete pick on a channel adds the channel to the
-// delete, and the holders of that channel take their picks or defaults. A delete pick
-// on another record deletes it through ServiceConfig.Delete before the channels go. A
-// pick for no entry, or one that its entry does not allow, fails with a validation
-// error. Apply deletes channels as channel.Writer.DeleteMany does with allowInternal
-// false.
+// Apply carries out c in tx with the picks of opts. With no picks, it deletes as
+// channel.Writer.DeleteMany does with allowInternal false, which applies the default of
+// every record, and returns an empty plan. With picks, it plans c in tx and returns
+// every entry it met, with the count of the records that keep a deleted channel. A
+// restrict entry that takes cancel fails Apply with the gorp.RestrictError of its
+// record. A delete pick on a channel adds the channel to the delete, and the holders of
+// that channel take their picks or defaults. A delete pick on another record deletes it
+// through ServiceConfig.Delete before the channels go. A pick for no entry, or one that
+// its entry does not allow, fails with a validation error.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -100,7 +100,11 @@ func (s *Service) Apply(
 	if err != nil {
 		return Plan{}, err
 	}
-	applied, keys, records, err := s.resolve(ctx, tx, keys, opts.Picks)
+	w := s.cfg.Channel.NewWriter(tx)
+	if len(opts.Picks) == 0 {
+		return Plan{}, w.DeleteMany(ctx, keys, false)
+	}
+	applied, last, records, err := s.resolve(ctx, tx, keys, opts.Picks)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -109,37 +113,38 @@ func (s *Service) Apply(
 			return Plan{}, err
 		}
 	}
-	if err = s.cfg.Channel.NewWriter(tx).DeleteMany(ctx, keys, false); err != nil {
+	if err = w.DeletePlanned(ctx, last.keys, last.effects); err != nil {
 		return Plan{}, err
 	}
-	applied.Change = c
+	applied.Change = Change{Variant: DeleteChannelsChange{Keys: keys}}
 	return applied, nil
 }
 
 // resolve plans the delete of the channels with keys in tx, then plans again with each
 // channel that picks add to it. It returns every entry that it met, sorted by id, the
-// keys of the channels to delete, and the other records that picks delete.
+// last plan, and the records other than channels that picks delete.
 func (s *Service) resolve(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys []channel.Key,
 	picks map[string]Choice,
-) (Plan, []channel.Key, []resource.ID, error) {
+) (Plan, planned, []resource.ID, error) {
 	var (
 		applied Plan
+		p       planned
+		err     error
 		seen    = set.New[string]()
 		deleted = set.New[resource.ID]()
 		records []resource.ID
 	)
 	for {
-		p, err := s.planDelete(ctx, tx, keys)
-		if err != nil {
-			return Plan{}, nil, nil, err
+		if p, err = s.planDelete(ctx, tx, keys); err != nil {
+			return Plan{}, planned{}, nil, err
 		}
 		applied.Kept = p.Kept
 		more, picked, err := choose(p, picks)
 		if err != nil {
-			return Plan{}, nil, nil, err
+			return Plan{}, planned{}, nil, err
 		}
 		for _, e := range p.Entries {
 			if !seen.Contains(e.ID) {
@@ -160,7 +165,7 @@ func (s *Service) resolve(
 	}
 	for id := range picks {
 		if !seen.Contains(id) {
-			return Plan{}, nil, nil, errors.Wrapf(
+			return Plan{}, planned{}, nil, errors.Wrapf(
 				validate.ErrValidation,
 				"no entry is %s",
 				id,
@@ -170,7 +175,7 @@ func (s *Service) resolve(
 	slices.SortFunc(applied.Entries, func(a, b Entry) int {
 		return strings.Compare(a.ID, b.ID)
 	})
-	return applied, keys, records, nil
+	return applied, p, records, nil
 }
 
 // choose applies picks to the entries of p. It returns the channels and the other
@@ -231,7 +236,7 @@ func pickOf(e Entry, picks map[string]Choice) (Choice, error) {
 func deletedKeys(c Change) ([]channel.Key, error) {
 	d, ok := c.Variant.(DeleteChannelsChange)
 	if !ok {
-		return nil, errors.Wrapf(validate.ErrValidation, "unknown change %T", c.Variant)
+		return nil, errors.Wrap(validate.ErrValidation, "unknown change")
 	}
 	return d.Keys, nil
 }
