@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Control, Schematic, User } from "@synnaxlabs/pluto";
-import { memo, type PropsWithChildren, type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
 
 export interface ControllerProps extends PropsWithChildren {}
 
-export const Controller = memo(({ children }: ControllerProps): ReactElement => {
+export const Controller = ({ children }: ControllerProps): ReactElement => {
   const key = Schematic.useKey();
   const authority = Session.Schematic.useSelectAuthority();
   const { isCurrentlyEditable } = Session.Schematic.useSelectEditable();
@@ -36,5 +36,5 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
       {children}
     </Control.Controller>
   );
-});
+};
 Controller.displayName = "Schematic.Controller";
