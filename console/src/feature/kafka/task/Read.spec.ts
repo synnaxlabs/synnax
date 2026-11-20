@@ -26,7 +26,10 @@ import {
 const client = createTestClient();
 
 const renderRead = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(Kafka.Task.Read, options);
+  const rendered = await renderTaskFormTab(
+    Kafka.Task.FORMS[Kafka.Task.READ_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };

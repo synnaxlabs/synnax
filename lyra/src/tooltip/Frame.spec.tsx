@@ -10,6 +10,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Portal } from "@/portal";
 import { Tooltip } from "@/tooltip";
 
 const ANCHOR_RECT = {
@@ -127,6 +128,27 @@ describe("Tooltip.Frame", () => {
       </Tooltip.Frame>,
     );
     expect(onAnchorLost).toHaveBeenCalled();
+  });
+
+  it("should portal into the root element by default", () => {
+    const root = document.createElement("div");
+    root.id = "root";
+    document.body.appendChild(root);
+    render(<Tooltip.Frame anchor={createAnchor()}>Tip</Tooltip.Frame>);
+    expect(getFrame()?.parentElement).toBe(root);
+    root.remove();
+  });
+
+  it("should portal into a Portal.Target", () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    render(
+      <Portal.Target element={target}>
+        <Tooltip.Frame anchor={createAnchor()}>Tip</Tooltip.Frame>
+      </Portal.Target>,
+    );
+    expect(getFrame()?.parentElement).toBe(target);
+    target.remove();
   });
 
   it("should report a lost anchor when it has no area", () => {

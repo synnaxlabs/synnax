@@ -456,10 +456,9 @@ func processTypeDef(
 		// references with type arguments (e.g., status.Status<StatusDetails> ->
 		// status.Status[StatusDetails])
 		data.imports.addTyping("TypeAlias")
-		if _, err := declareTypeVars(
+		if err := declareTypeVars(
 			typ.Name,
-			form.TypeParams,
-			table,
+			processTypeParams(form.TypeParams, table, data),
 			data,
 		); err != nil {
 			return typeDefData{}, err
@@ -475,47 +474,50 @@ func processTypeDef(
 	}
 }
 
-// declareTypeVars declares a module-level TypeVar for each non-defaulted type parameter
-// of the declaration named owner, and returns those parameters. It errors when another
-// declaration in the file declares a TypeVar of the same name differently.
-func declareTypeVars(
-	owner string,
+// processTypeParams returns the Python type parameters of params: the non-defaulted
+// ones, in declared order.
+func processTypeParams(
 	params []resolution.TypeParam,
 	table *resolution.Table,
 	data *templateData,
-) ([]typeParamData, error) {
-	var declared []typeParamData
-	for _, tp := range resolution.NonDefaultedTypeParams(params) {
-		tpd := processTypeParam(tp, table, data)
-		declared = append(declared, tpd)
-		tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
-		// An omitted optional type argument means its bound, or arbitrary JSON when
-		// unbounded.
-		if tp.Optional {
-			tvd.Default = tpd.Constraint
-			if tvd.Default == "" {
-				data.imports.addPydantic("JsonValue")
-				tvd.Default = "JsonValue"
-			}
+) []typeParamData {
+	return lo.Map(
+		resolution.NonDefaultedTypeParams(params),
+		func(tp resolution.TypeParam, _ int) typeParamData {
+			return processTypeParam(tp, table, data)
+		},
+	)
+}
+
+// declareTypeVars declares a module-level TypeVar for each of params, which a
+// declaration named owner needs because it cannot scope its own type parameters. It
+// errors when another declaration in the file declares a TypeVar of the same name
+// differently.
+func declareTypeVars(owner string, params []typeParamData, data *templateData) error {
+	for _, tpd := range params {
+		tvd := typeVarData{
+			Name:       tpd.Name,
+			Constraint: tpd.Constraint,
+			Default:    tpd.Default,
 		}
 		// TypeVars are module-level, so declarations in one file share them by name.
 		existing, found := lo.Find(
 			data.TypeVars,
-			func(tv typeVarData) bool { return tv.Name == tp.Name },
+			func(tv typeVarData) bool { return tv.Name == tpd.Name },
 		)
 		if !found {
 			data.TypeVars = append(data.TypeVars, tvd)
 		} else if existing != tvd {
-			return nil, errors.Newf(
+			return errors.Newf(
 				"type parameter %s of %s conflicts with another %s in the same "+
 					"Python file; rename one of them",
-				tp.Name,
+				tpd.Name,
 				owner,
-				tp.Name,
+				tpd.Name,
 			)
 		}
 	}
-	return declared, nil
+	return nil
 }
 
 func processTypeParam(
@@ -529,6 +531,15 @@ func processTypeParam(
 	}
 	if tp.Constraint != nil {
 		tpd.Constraint = constraintToPython(*tp.Constraint, table, data)
+	}
+	// An omitted optional type argument means its bound, or arbitrary JSON when
+	// unbounded.
+	if tp.Optional {
+		tpd.Default = tpd.Constraint
+		if tpd.Default == "" {
+			data.imports.addPydantic("JsonValue")
+			tpd.Default = "JsonValue"
+		}
 	}
 	return tpd
 }
@@ -671,17 +682,15 @@ func processStruct(
 	// Process type parameters for generic structs
 	if len(form.TypeParams) > 0 {
 		sd.IsGeneric = true
-		data.imports.addTyping("Generic")
-		params, err := declareTypeVars(entry.Name, form.TypeParams, table, data)
-		if err != nil {
-			return structData{}, err
-		}
-		sd.TypeParams = params
+		sd.TypeParams = processTypeParams(form.TypeParams, table, data)
 	}
 
 	// Handle struct aliases (AliasForm)
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd.IsAlias = true
+		if err := declareTypeVars(entry.Name, sd.TypeParams, data); err != nil {
+			return structData{}, err
+		}
 		sd.AliasOf = typeRefToPythonAlias(aliasForm.Target, table, data)
 		return sd, nil
 	}
@@ -921,8 +930,7 @@ func buildExtendsExpr(
 	// An alias re-exports its target class under its own name and type parameters.
 	params := resolution.TypeParams(parent.Form)
 
-	// Find which parent type params don't have defaults (those are the ones in
-	// Generic[])
+	// Find the parent type params that have no default.
 	var activeParamIndices []int
 	for i, tp := range params {
 		if !tp.HasDefault() {
@@ -2071,9 +2079,8 @@ func (m *importManager) addNamespace(alias, path string) {
 // pydantic, uuid, enum, the resource ID and x.codec. A module import never binds one of
 // them, because the generator may add that import later in the same file.
 var generatedImportNames = set.New(
-	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "Generic",
-	"ID", "IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar",
-	"UUID", "uuid4",
+	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "ID",
+	"IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar", "UUID", "uuid4",
 )
 
 // bound reports whether name is reserved or already imported in the file.
@@ -2219,6 +2226,8 @@ type typeParamData struct {
 	Constraint string
 	// IsOptional is true if optional (defaults to JsonValue).
 	IsOptional bool
+	// Default is the Python type used when the type argument is omitted, or empty.
+	Default string
 }
 
 type typeVarData struct {
@@ -2341,14 +2350,22 @@ func formatVariantDocstring(v unionVariantData) string {
 	return googleDocstring(v.Doc, nil)
 }
 
-// genericArg returns the Python type argument for a type parameter in Generic[...].
-func genericArg(tpd typeParamData) string {
-	return tpd.Name
-}
-
-// hasTypeParams checks if there are any type params.
-func hasTypeParams(params []typeParamData) bool {
-	return len(params) > 0
+// typeParamList returns the PEP 695 type parameter list of a class, such as
+// "[T: Bound = Default]", or empty for a class with no type parameters.
+func typeParamList(params []typeParamData) string {
+	if len(params) == 0 {
+		return ""
+	}
+	return "[" + strings.Join(lo.Map(params, func(p typeParamData, _ int) string {
+		s := p.Name
+		if p.Constraint != "" {
+			s += ": " + p.Constraint
+		}
+		if p.Default != "" {
+			s += " = " + p.Default
+		}
+		return s
+	}), ", ") + "]"
 }
 
 // fieldName returns the Python attribute name for a schema field: its snake_case wire
@@ -2370,8 +2387,7 @@ var templateFuncs = template.FuncMap{
 	"hasDocumentation":       hasDocumentation,
 	"formatVariantDocstring": formatVariantDocstring,
 	"pyDocComment":           doc.FormatPyComment,
-	"genericArg":             genericArg,
-	"hasTypeParams":          hasTypeParams,
+	"typeParamList":          typeParamList,
 	"fieldName":              fieldName,
 }
 
@@ -2433,7 +2449,7 @@ class {{ .Name }}(IntEnum):
 {{- else if .HasExtends }}
 
 
-class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}{{ if hasTypeParams .TypeParams }}, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]{{ end }}):
+class {{ .PyName }}{{ typeParamList .TypeParams }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
@@ -2457,33 +2473,10 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- else if not (hasDocumentation .) }}
     pass
 {{- end }}
-{{- else if hasTypeParams .TypeParams }}
-
-
-class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]):
-{{- if hasDocumentation . }}
-{{ formatGoogleDocstring . }}
-{{- end }}
-{{- if .ModelConfig }}
-    model_config = {{ .ModelConfig }}
-{{ end }}
-{{- range .Fields }}
-    {{ .Name }}: {{ .PyType }}{{ .Default }}
-{{- end }}
-{{- if .KeyField }}
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.{{ .KeyField }})
-{{- end }}
-{{- if .Validators }}
-
-{{ .Validators }}
-{{- end }}
 {{- else }}
 
 
-class {{ .PyName }}(BaseModel):
+class {{ .PyName }}{{ typeParamList .TypeParams }}(BaseModel):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
