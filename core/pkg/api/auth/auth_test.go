@@ -559,6 +559,21 @@ var _ = Describe("CreatePassword", func() {
 			Username: nopass.Name, Password: "p",
 		})).Error().To(MatchError(access.ErrDenied))
 	})
+	It("Should deny a caller that may only update users", func(ctx SpecContext) {
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			bob.Key,
+			[]access.Action{access.ActionUpdate},
+			resource.ID{Type: resource.TypeUser},
+		))
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().To(MatchError(access.ErrDenied))
+	})
 	It("Should refuse a user named by a key in another case", func(ctx SpecContext) {
 		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
 			Subject: resource.ID{

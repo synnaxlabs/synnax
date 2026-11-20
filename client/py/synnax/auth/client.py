@@ -265,7 +265,7 @@ class Client:
         """Gives the subject, or the caller when none is given, its first password.
 
         :raises AuthError: if another user holds the username.
-        :raises AccessDenied: if the caller may not update the subject.
+        :raises AccessDenied: if the caller may not create and update the subject.
         :raises NotFoundError: if the subject does not exist.
         :raises ValidationError: if the username or password is empty, or the subject
             already has a password.

@@ -54,7 +54,8 @@ func passwordSubject(
 
 // PrepareCreatePassword hashes the password that CreatePassword stores. It returns a
 // validation error when the password method is off or the subject is not a user, and
-// an error wrapping access.ErrDenied when the caller cannot update another user.
+// an error wrapping access.ErrDenied when the caller cannot create and update another
+// user.
 func (s *Service) PrepareCreatePassword(
 	ctx context.Context,
 	req PasswordCreateRequest,
@@ -68,13 +69,23 @@ func (s *Service) PrepareCreatePassword(
 	}
 	if caller := GetSubject(ctx); subject != caller {
 		// A first password logs its holder in as the user, so it needs update, as
-		// setting one does. Each hash is slow, so a denied caller costs none.
+		// setting one does, and the binder checks create when the password is stored.
+		// Each hash is slow, so a denied caller costs none.
 		if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-			return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
-				Subject: caller,
-				Action:  access.ActionUpdate,
-				Objects: []resource.ID{subject},
-			})
+			enforcer := s.access.NewEnforcer(snap)
+			for _, action := range []access.Action{
+				access.ActionCreate,
+				access.ActionUpdate,
+			} {
+				if err := enforcer.Enforce(ctx, access.Request{
+					Subject: caller,
+					Action:  action,
+					Objects: []resource.ID{subject},
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
 		}); err != nil {
 			return password.Hash{}, err
 		}
