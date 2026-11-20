@@ -11,6 +11,11 @@ import { type ranger, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client"
 
 import { capture, fixtures } from "@/index";
 
+import { openProject } from "./common/desktop";
+
+export const desktop = true;
+
+const PROJECT = "My project";
 const CHANNEL = "chamber_pressure";
 const PLOT = "Hotfire review";
 const PERIOD = TimeSpan.milliseconds(40);
@@ -72,11 +77,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     }
     const ranges = await client.ranges.create(created);
     const { page } = session;
-    await capture.login(session);
-    const project = (
-      await client.projects.retrieve({ searchTerm: capture.PROJECT })
-    ).find((p) => p.name === capture.PROJECT);
-    if (project == null) throw new Error(`no project named "${capture.PROJECT}"`);
+    await openProject(session, PROJECT);
+    const project = (await client.projects.retrieve({ searchTerm: PROJECT })).find(
+      (p) => p.name === PROJECT,
+    );
+    if (project == null) throw new Error(`no project named "${PROJECT}"`);
     await client.lineplots.create({
       name: PLOT,
       project: project.key,
