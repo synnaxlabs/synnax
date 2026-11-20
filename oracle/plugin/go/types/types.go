@@ -1663,6 +1663,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1799,6 +1801,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}

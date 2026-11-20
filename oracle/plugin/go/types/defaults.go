@@ -717,10 +717,13 @@ type constraintCheckData struct {
 	GoName    string
 	FieldName string
 	// Kind selects the assertion form: non_empty_string, min_len, max_len (string),
-	// non_zero (numeric or uuid), or ge, le (numeric).
+	// non_zero (numeric or uuid), or ge, le, lt (numeric).
 	Kind string
-	// Arg is the length or numeric threshold literal for the kinds that take one.
+	// Arg is the length or numeric threshold literal for the kinds that take one, or
+	// the Go name of the compared field for lt.
 	Arg string
+	// Message is the quoted error message of an lt check.
+	Message string
 	// Opens and Closes mark the first and last checks of an optional field, which the
 	// template wraps in one nil guard.
 	Opens, Closes bool
@@ -769,6 +772,15 @@ func goConstraintChecks(
 	}
 	if resolution.IsNumberPrimitive(base) {
 		checks = append(checks, numberChecks(rules, required, check)...)
+	}
+	if lt := rules.LessThan; lt != nil {
+		message := lt.Message
+		if message == "" {
+			message = "must be less than " + lt.Field
+		}
+		c := check("lt", naming.ToPascalCase(lt.Field))
+		c.Message = strconv.Quote(message)
+		checks = append(checks, c)
 	}
 	if field.Optional && len(checks) > 0 {
 		checks[0].Opens = true

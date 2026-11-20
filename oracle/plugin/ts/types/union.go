@@ -77,7 +77,8 @@ type unionVariantData struct {
 	// Fields are the variant's own fields, rendered directly into the member
 	// schema. Populated only for inline variants, whose Synthetic payload has
 	// no standalone schema const to extend.
-	Fields []fieldData
+	Fields   []fieldData
+	LessThan []lessThanCheck
 }
 
 // processUnion builds the template view for a discriminated union. Each variant
@@ -162,7 +163,38 @@ func (p *Plugin) processVariant(
 			vd.ParentSchemas = append(vd.ParentSchemas, pn)
 		}
 	}
+	vd.LessThan = variantLessThan(v, bases, fields, omitted, table, data)
 	return vd
+}
+
+// variantLessThan returns the lt checks of a variant. The first schema the variant
+// extends carries its own checks.
+func variantLessThan(
+	v resolution.UnionVariant,
+	bases []resolution.TypeRef,
+	declared []resolution.Field,
+	omitted set.Set[string],
+	table *resolution.Table,
+	data *templateData,
+) []lessThanCheck {
+	parents := slices.Clone(bases)
+	if !v.Inline {
+		parents = append(parents, v.Type)
+	}
+	fields := slices.Clone(declared)
+	for _, ref := range parents {
+		if t, _, ok := resolution.Dealias(ref, table); ok {
+			fields = append(fields, resolution.UnifiedFields(t, table)...)
+		}
+	}
+	carried := set.New[string]()
+	if len(parents) > 0 {
+		carried = fieldNames(parents[0], table)
+	}
+	for name := range omitted {
+		carried.Add(name)
+	}
+	return lessThanChecks(fields, carried, data)
 }
 
 // variantShape returns the parents that a variant extends and the fields that it

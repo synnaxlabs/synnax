@@ -521,6 +521,44 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should check that a field is less than another field", func() {
+			source := `
+				@py output "out"
+
+				Range struct {
+					min float64 @validate lt max
+					max float64
+				}
+
+				Child struct extends Range {
+					label string
+				}
+
+				Shape union on kind {
+					inline {
+						low  int32 { @validate lt high "low must be below high" }
+						high int32
+					}
+				}
+			`
+			table, diag := Analyze(source, "range", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			resp := MustSucceed(typesPlugin.Generate(
+				&plugin.Request{Resolutions: table},
+			))
+			content := string(resp.Files[0].Content)
+			GinkgoWriter.Println(content)
+			Expect(content).To(ContainSubstring(`    @model_validator(mode="after")
+    def _check_min(self) -> Self:
+        if not self.min < self.max:
+            raise ValueError("min: must be less than max")
+        return self`))
+			Expect(content).To(ContainSubstring(
+				`raise ValueError("low: low must be below high")`,
+			))
+			Expect(strings.Count(content, "def _check_min(")).To(Equal(1))
+		})
+
 		It(
 			"Should reject infinity and NaN on a float or distinct float with a numeric rule",
 			func() {
