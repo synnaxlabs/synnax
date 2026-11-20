@@ -81,10 +81,11 @@ func openEnv(ctx SpecContext) *env {
 	}))
 	e.secrets = secrettestutil.OpenService(ctx, e.db)
 	e.certs = MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
-		DB:     e.db,
-		Secret: e.secrets,
-		Status: e.statuses,
-		Rack:   e.racks.EmbeddedKey,
+		DB:      e.db,
+		Secret:  e.secrets,
+		Status:  e.statuses,
+		Rack:    e.racks.EmbeddedKey,
+		HostKey: 1,
 	}))
 	e.devices = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     e.db,
