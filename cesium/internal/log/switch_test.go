@@ -162,9 +162,9 @@ var _ = Describe("Switch", func() {
 					Consistently(third).ShouldNot(Receive())
 					ready(generation + 1)
 					Eventually(third).Should(Receive(Equal(uint64(7))))
-					Expect(
-						walkLog(logBytes(fs, generation+1), generation+1),
-					).To(HaveLen(2))
+					frames := walkLog(logBytes(fs, generation+1), generation+1)
+					Expect(frames[0].Sequence).To(Equal(uint64(7)))
+					Expect(frames[0].Count).To(Equal(uint32(1)))
 				},
 			)
 
