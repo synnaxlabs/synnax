@@ -9,13 +9,12 @@
 
 // @vitest-environment node
 
-import reactRenderer from "@astrojs/react/server.js";
-import { experimental_AstroContainer } from "astro/container";
 import { type Element, type Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 
 import Reference from "@/layouts/Reference.astro";
+import { createContainer } from "@/testutil/container";
 
 const elements = (node: Root | Element): Element[] =>
   node.children.flatMap((child) =>
@@ -25,10 +24,7 @@ const elements = (node: Root | Element): Element[] =>
 const ROUTE = "/reference/channels/create";
 
 const breadcrumbs = async (breadcrumbHidden: boolean): Promise<unknown[]> => {
-  const container = await experimental_AstroContainer.create({
-    astroConfig: { site: "https://docs.synnaxlabs.com" },
-  });
-  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+  const container = await createContainer("https://docs.synnaxlabs.com");
   const html = await container.renderToString(Reference, {
     request: new Request(new URL(ROUTE, "https://docs.synnaxlabs.com")),
     props: {
