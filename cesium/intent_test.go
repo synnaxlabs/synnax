@@ -18,6 +18,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -77,27 +78,35 @@ var _ = Describe("Delete intents", func() {
 			To(MatchError(cesium.ErrChannelNotFound))
 		Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 	}
-	// intents returns the number of keys with an intent in the intents file of fs.
+	// intents returns the number of keys with an intent in the intents file of fs. It
+	// skips a batch that fails its checksum, as Open does.
 	intents := func(fs xfs.FS) int {
 		GinkgoHelper()
 		data := MustSucceed(xfs.ReadFile(fs, "delete-intents"))
 		live := set.New[cesium.ChannelKey]()
-		for off := 0; off+12 <= len(data); off += 12 {
-			key := binary.LittleEndian.Uint32(data[off:])
-			flags := binary.LittleEndian.Uint32(data[off+4:])
-			var b [16]byte
-			binary.LittleEndian.PutUint64(b[:], uint64(off))
-			binary.LittleEndian.PutUint32(b[8:], key)
-			binary.LittleEndian.PutUint32(b[12:], flags)
-			if crc32.Checksum(b[:], crc32.MakeTable(crc32.Castagnoli)) !=
-				binary.LittleEndian.Uint32(data[off+8:]) {
+		for off := 0; off+8 <= len(data); {
+			count := int(binary.LittleEndian.Uint32(data[off:]))
+			end := off + 8 + 8*count
+			if count == 0 || end > len(data) {
+				break
+			}
+			var at [8]byte
+			binary.LittleEndian.PutUint64(at[:], uint64(off))
+			table := crc32.MakeTable(crc32.Castagnoli)
+			crc := crc32.Update(crc32.Update(0, table, at[:]), table, data[off+8:end])
+			if crc != binary.LittleEndian.Uint32(data[off+4:]) {
+				off = end
 				continue
 			}
-			if flags&1 != 0 {
-				live.Remove(key)
-			} else {
-				live.Add(key)
+			for r := off + 8; r < end; r += 8 {
+				key := binary.LittleEndian.Uint32(data[r:])
+				if binary.LittleEndian.Uint32(data[r+4:])&1 != 0 {
+					live.Remove(key)
+				} else {
+					live.Add(key)
+				}
 			}
+			off = end
 		}
 		return len(live)
 	}
@@ -252,9 +261,11 @@ var _ = Describe("Delete intents", func() {
 			})).To(Succeed())
 			ops = nil
 			Expect(sweep(ctx, logged, nil)).To(BeEmpty())
+			// The intent, the removal, the clear, then the empty file.
 			Expect(ops).To(HaveExactElements(
 				"sync delete-intents",
 				"syncdir",
+				"sync delete-intents",
 				"sync delete-intents",
 			))
 		})
@@ -389,6 +400,47 @@ var _ = Describe("Delete intents", func() {
 			expectGone(ctx, restarted, fs, other)
 		})
 
+		It("Should drop a whole batch when a crash keeps only part of it", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Intend([]cesium.ChannelKey{idx, data})).To(Succeed())
+			restarted, fs := crashWith(ctx, func(cp *xfs.MemFS) {
+				f := MustSucceed(cp.Open("delete-intents", os.O_RDWR))
+				MustSucceed(f.WriteAt(make([]byte, 8), 16))
+				Expect(f.Close()).To(Succeed())
+			})
+			Expect(intents(fs)).To(BeZero())
+			Expect(restarted.CorruptIntents()).To(BeZero())
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx, data})).To(BeEmpty())
+			Expect(fs.Exists(channelKeyToPath(data))).To(BeTrue())
+		})
+
+		It("Should keep an intent that one read of the file damages", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			cp := xfs.NewMem()
+			Expect(xfs.CopyDir(mem, cp, "")).To(Succeed())
+			restarted := mustOpenDBOnFS(ctx, &badReadFS{FS: cp, name: "delete-intents"})
+			Expect(restarted.CorruptIntents()).To(BeZero())
+			Expect(MustSucceed(cp.Stat("delete-intents")).Size()).To(Equal(int64(16)))
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
+			expectGone(ctx, restarted, cp, data)
+		})
+
+		It("Should empty the intents file when Sweep leaves no intent", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			restarted, fs := crash(ctx)
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
+			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(BeZero())
+			Expect(restarted.Intend([]cesium.ChannelKey{idx})).To(Succeed())
+			again, cp := crash(ctx)
+			Expect(again.CorruptIntents()).To(BeZero())
+			Expect(intents(cp)).To(Equal(1))
+		})
+
 		It("Should fail every Intend after an append fails", func(ctx SpecContext) {
 			faulty := xfstestutil.WrapFaultyFS(xfs.NewMem())
 			fdb := mustOpenDBOnFS(ctx, faulty)
@@ -403,11 +455,11 @@ var _ = Describe("Delete intents", func() {
 		It("Should ignore a torn intent append", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			f := MustSucceed(mem.Open("delete-intents", os.O_RDWR))
-			MustSucceed(f.WriteAt([]byte{1, 2, 3, 4, 5}, 12))
+			MustSucceed(f.WriteAt([]byte{1, 2, 3, 4, 5}, 16))
 			Expect(f.Close()).To(Succeed())
 			restarted, fs := crash(ctx)
 			Expect(intents(fs)).To(Equal(1))
-			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(Equal(int64(12)))
+			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(Equal(int64(16)))
 			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 			expectGone(ctx, restarted, fs, data)
 		})
@@ -499,6 +551,42 @@ func sweep(
 	GinkgoHelper()
 	kept, _ := MustSucceed2(db.Sweep(ctx, keys))
 	return kept
+}
+
+// badReadFS damages the last byte of the first read of the file name.
+type badReadFS struct {
+	xfs.FS
+	name string
+	done atomic.Bool
+}
+
+func (f *badReadFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return &badReadFS{FS: sub, name: f.name}, nil
+}
+
+func (f *badReadFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != f.name {
+		return file, err
+	}
+	return badReadFile{File: file, fs: f}, nil
+}
+
+type badReadFile struct {
+	xfs.File
+	fs *badReadFS
+}
+
+func (f badReadFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.File.ReadAt(p, off)
+	if n > 0 && f.fs.done.CompareAndSwap(false, true) {
+		p[n-1] ^= 0xFF
+	}
+	return n, err
 }
 
 // opLogFS records the syncs, renames, and directory syncs of the intents file.

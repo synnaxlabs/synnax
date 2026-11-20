@@ -186,7 +186,7 @@ func corruptIntentsStatus(n int) status.Status[any] {
 		Variant: status.VariantWarning,
 		Message: "Found damaged channel deletes",
 		Description: fmt.Sprintf(
-			"The storage engine found %d damaged records of channel deletes. The "+
+			"The storage engine found %d damaged batches of channel deletes. The "+
 				"data of a deleted channel can stay on disk. The warning for data "+
 				"with no channel then names it.",
 			n,

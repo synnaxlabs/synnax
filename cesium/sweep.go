@@ -90,6 +90,9 @@ func (db *DB) Sweep(
 		}
 	}
 	err := errors.Join(db.dropLocked(drop), db.removeOrphanIntents(records, hidden))
+	if err == nil {
+		err = db.intents.truncateIfEmpty()
+	}
 	db.mu.skipped = set.New[ChannelKey]()
 	if err != nil {
 		return nil, 0, err

@@ -142,10 +142,10 @@ func (db *DB) Read(
 	return frame, err
 }
 
-// CorruptIntents returns the number of delete intents that Open found damaged before an
-// intact one. A torn append damages only the last, so such a record is corruption. The
-// data of a damaged intent's channel stays, and Sweep keeps it when no record holds its
-// key.
+// CorruptIntents returns the number of batches of delete intents that Open found
+// damaged, on two reads, before an intact one. Each Intend appends one batch, and a
+// crash tears only the last, so such a batch is damage on disk. The data of a damaged
+// intent's channel stays, and Sweep keeps it when no record holds its key.
 func (db *DB) CorruptIntents() int { return db.corruptIntents }
 
 // Metrics returns current metrics for the database.
