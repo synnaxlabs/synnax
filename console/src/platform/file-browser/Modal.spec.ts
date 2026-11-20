@@ -817,11 +817,14 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("client.crt")).toBeDefined();
     });
 
-    it("should clear on Escape in the list and keep the dialog open", async () => {
+    it.each([
+      ["the list", findFiles],
+      ["the footer", () => findButton("Cancel")],
+    ])("should clear on Escape in %s and keep the dialog open", async (_, target) => {
       await openBrowser(LISTINGS);
       await openEtc();
       typeFilter("host");
-      fireEvent.keyDown(findFiles(), { key: "Escape", code: "Escape" });
+      fireEvent.keyDown(target(), { key: "Escape", code: "Escape" });
       expect(findFilter()).toHaveProperty("value", "");
       expect(await findEntry("client.crt")).toBeDefined();
     });

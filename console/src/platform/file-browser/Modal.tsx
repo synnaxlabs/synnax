@@ -438,17 +438,11 @@ const Content = ({
   }
   const rackName = rackResult.variant === "success" ? rackResult.data.name : null;
   return (
-    <Modal.Frame className={CSS.BE("file-browser", "frame")}>
+    <Modal.Frame className={CSS.BE("file-browser", "frame")} onKeyDown={handleKeyDown}>
       <Modal.Header icon={<Icon.Folder />}>
         {rackName == null ? "Browse files" : ["Browse files", rackName]}
       </Modal.Header>
-      <Flex.Box
-        x
-        grow
-        empty
-        className={CSS.BE("file-browser", "body")}
-        onKeyDown={handleKeyDown}
-      >
+      <Flex.Box x grow empty className={CSS.BE("file-browser", "body")}>
         <Places places={places} recent={recent} path={path} onGo={go} />
         <Select.Frame<string, KeyedEntry>
           data={data}
