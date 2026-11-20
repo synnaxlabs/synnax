@@ -886,6 +886,15 @@ describe("FileBrowser.useModal", () => {
       expect(entryNames()).toEqual([expect.stringMatching(/^hosts/)]);
     });
 
+    it("should move the focus into the list on ArrowDown", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("host");
+      findFilter().focus();
+      fireEvent.keyDown(findFilter(), { key: "ArrowDown", code: "ArrowDown" });
+      expect(document.activeElement).toBe(findFiles());
+    });
+
     it("should take the focus on Ctrl+F", async () => {
       await openBrowser(LISTINGS);
       await openEtc();
