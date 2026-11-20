@@ -205,7 +205,7 @@ describe("LinePlot", () => {
     });
   });
 
-  describe("relative", () => {
+  describe("traces", () => {
     const ZERO = TimeStamp.seconds(1000);
     const RED = color.construct("#ff0000");
     const window = staticWindow(new TimeRange(ZERO, ZERO.add(TimeSpan.seconds(10))));
@@ -237,31 +237,38 @@ describe("LinePlot", () => {
 
     const components = (): aether.Component[] => roots.flatMap(all);
 
-    const renderRelative = async (
+    // renderTraces renders a plot of RANGES with one stored line for each label.
+    const renderTraces = async (
       props: Partial<LinePlot.LinePlotProps> = {},
+      { relative = true, labels = ["pressure"] } = {},
     ): Promise<void> => {
       const index = await client.channels.create({
         name: id.create(),
         dataType: "timestamp",
         isIndex: true,
       });
-      const data = await client.channels.create({
-        name: id.create(),
-        dataType: "float32",
-        index: index.key,
-      });
-      const key = await createPlot([
-        { ...LINE, yChannel: data.key, label: "pressure" },
-      ]);
-      const { result } = renderHook(() => LinePlot.useDispatch(), { wrapper });
-      await act(async () => {
-        await result.current.dispatchAsync({
-          key,
-          actions: [
-            lineplotClient.setAxisTimeMode({ key: "x1", timeMode: "relative" }),
-          ],
+      const lines = await Promise.all(
+        labels.map(async (label, i) => {
+          const data = await client.channels.create({
+            name: id.create(),
+            dataType: "float32",
+            index: index.key,
+          });
+          return { ...LINE, key: `${LINE.key}${i || ""}`, yChannel: data.key, label };
+        }),
+      );
+      const key = await createPlot(lines);
+      if (relative) {
+        const { result } = renderHook(() => LinePlot.useDispatch(), { wrapper });
+        await act(async () => {
+          await result.current.dispatchAsync({
+            key,
+            actions: [
+              lineplotClient.setAxisTimeMode({ key: "x1", timeMode: "relative" }),
+            ],
+          });
         });
-      });
+      }
       render(
         <GLHost>
           <LinePlot.Scope.Provider value={key}>
@@ -286,14 +293,14 @@ describe("LinePlot", () => {
     };
 
     it("should draw each range that has a zero from its zero, in its color", async () => {
-      await renderRelative();
+      await renderTraces();
       await waitFor(() => expect([...traces().keys()]).toEqual(["line/r1", "line/r2"]));
       expect(trace("line/r1").state.zero).toEqual(ZERO);
       expect(trace("line/r1").state.color).toEqual(RED);
     });
 
     it("should name a range that has no label by its key", async () => {
-      await renderRelative();
+      await renderTraces();
       expect(await screen.findByText("r2")).toBeDefined();
       expect(trace("line/r2").state.tooltipLabel).toEqual("r2");
     });
@@ -302,13 +309,13 @@ describe("LinePlot", () => {
       ["a hidden range", { hiddenRanges: new Set(["r1"]) }],
       ["a hidden line of a range", { hiddenTraces: new Set(["line/r1"]) }],
     ])("should hide the trace of %s", async (_, props) => {
-      await renderRelative(props);
+      await renderTraces(props);
       await waitFor(() => expect(trace("line/r1").state.visible).toBe(false));
       expect(trace("line/r2").state.visible).toBe(true);
     });
 
     it("should raise a hovered range and dim the others", async () => {
-      await renderRelative();
+      await renderTraces();
       fireEvent.pointerEnter(await screen.findByText("Range 1"));
       await waitFor(() => expect(trace("line/r1").state.raised).toBe(true));
       expect(trace("line/r1").state.opacity).toEqual(1);
@@ -316,8 +323,17 @@ describe("LinePlot", () => {
       expect(trace("line/r2").state.raised).toBe(false);
     });
 
+    it("should raise a hovered line and dim the others on an absolute axis", async () => {
+      await renderTraces({}, { relative: false, labels: ["pressure", "flow"] });
+      fireEvent.pointerEnter(await screen.findByText("pressure"));
+      await waitFor(() => expect(trace("line").state.raised).toBe(true));
+      expect(trace("line").state.opacity).toEqual(1);
+      expect(trace("line1").state.opacity).toEqual(0.25);
+      expect(trace("line1").state.raised).toBe(false);
+    });
+
     it("should rename the stored line from the entry of one range", async () => {
-      await renderRelative();
+      await renderTraces();
       const [label] = await screen.findAllByText("pressure");
       fireEvent.dblClick(label);
       label.innerText = "flow";
@@ -327,7 +343,7 @@ describe("LinePlot", () => {
 
     it("should report the hovered line with the time of its value", async () => {
       const onHoveredChange = vi.fn();
-      await renderRelative({ onHoveredChange });
+      await renderTraces({ onHoveredChange });
       const leaf = await waitFor(() => {
         const found = components().find((c) => c instanceof tooltip.Tooltip);
         if (!(found instanceof tooltip.Tooltip)) throw new Error("no tooltip");

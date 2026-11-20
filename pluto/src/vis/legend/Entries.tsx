@@ -10,13 +10,21 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type color, compare, type optional, type state } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode } from "react";
+import {
+  type HTMLAttributes,
+  memo,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+} from "react";
 
 import { CSS } from "@/css";
 
@@ -84,6 +92,40 @@ interface EntryProps
   entry: EntryData;
 }
 
+type HoverHandlers = Pick<
+  HTMLAttributes<HTMLElement>,
+  "onPointerEnter" | "onPointerLeave"
+>;
+
+/**
+ * @returns the pointer handlers that report the hover of the legend entry with key. An
+ * entry that unmounts under the pointer gets no pointerleave, so it ends its hover.
+ */
+export const useHover = (
+  key: string,
+  onHoverChange?: (key: string | null) => void,
+): HoverHandlers => {
+  const hovered = useRef(false);
+  const onHoverChangeRef = useSyncedRef(onHoverChange);
+  useEffect(
+    () => () => {
+      if (hovered.current) onHoverChangeRef.current?.(null);
+    },
+    [onHoverChangeRef],
+  );
+  if (onHoverChange == null) return {};
+  return {
+    onPointerEnter: () => {
+      hovered.current = true;
+      onHoverChange(key);
+    },
+    onPointerLeave: () => {
+      hovered.current = false;
+      onHoverChange(null);
+    },
+  };
+};
+
 const Entry = ({
   allowVisibleChange = true,
   entry,
@@ -100,6 +142,7 @@ const Entry = ({
   ...rest
 }: EntryProps): ReactElement => {
   const { color, key, label, visible, start } = entry;
+  const hover = useHover(key, onHoverChange);
   return (
     <Flex.Box
       align="center"
@@ -108,8 +151,7 @@ const Entry = ({
       gap="small"
       key={key}
       x
-      onPointerEnter={onHoverChange == null ? undefined : () => onHoverChange(key)}
-      onPointerLeave={onHoverChange == null ? undefined : () => onHoverChange(null)}
+      {...hover}
       {...rest}
     >
       <Flex.Box align="center" gap="small" x>
