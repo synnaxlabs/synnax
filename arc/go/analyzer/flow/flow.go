@@ -529,8 +529,8 @@ func flowSourceType(
 		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
 	}
 	if prevFn := prevNode.Function(); prevFn != nil {
-		// Resolve without ctx.Resolve: the call node already resolved this
-		// name, and resolving it again would duplicate deprecation warnings.
+		// The scope lookup adds no deprecation warning: the call node already resolved
+		// this name and warned once.
 		head, tail := parser.FunctionNameParts(prevFn)
 		fnName := head
 		fnSym, err := ctx.Scope.Resolve(ctx, head)
