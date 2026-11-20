@@ -153,6 +153,22 @@ func (u *UniqueIndex[K, E, V]) Check(ctx context.Context, tx Tx, e *E) error {
 	return nil
 }
 
+// Holder returns the entry of any table of the space of u that holds v, as seen by
+// snap, and false when none does. It waits for every index of the space to populate.
+func (u *UniqueIndex[K, E, V]) Holder(
+	ctx context.Context,
+	snap Snapshot,
+	v V,
+) (Target, bool, error) {
+	scope := scopeOf(snap)
+	for _, m := range *u.members.members.Load() {
+		if holder, found, err := m.holder(ctx, scope, v); err != nil || found {
+			return holder, found, err
+		}
+	}
+	return Target{}, false, nil
+}
+
 // clash returns err, or else the UniqueError for holder and v.
 func (u *UniqueIndex[K, E, V]) clash(holder Target, v V, err error) error {
 	if err != nil {

@@ -330,6 +330,62 @@ var _ = Describe("UniqueIndex", func() {
 		})
 	})
 
+	Describe("Holder", func() {
+		var itemIndex *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling]
+		BeforeEach(func(ctx SpecContext) {
+			openDB()
+			openFolders(ctx)
+			itemIndex = newItemIndex()
+			items = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
+				DB:         db,
+				Name:       "item",
+				Indexes:    []gorp.Index[uint32, uniqueItem]{itemIndex},
+				References: []gorp.Reference[uint32, uniqueItem]{newItemFolderRef()},
+			}))
+		})
+
+		It("Should find the holder of a value in any table of the space", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "a", Name: "a"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 1, Folder: "a", Name: "pt"})).
+				To(Succeed())
+			holder, found := MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Name: "a"}),
+			)
+			Expect(found).To(BeTrue())
+			Expect(holder).To(Equal(gorp.NewTarget("folder", "a")))
+			holder, found = MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Parent: "a", Name: "pt"}),
+			)
+			Expect(found).To(BeTrue())
+			Expect(holder).To(Equal(itemTarget(1)))
+			_, found := MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Name: "pt"}),
+			)
+			Expect(found).To(BeFalse())
+		})
+
+		It("Should see a value staged in the snapshot", func(ctx SpecContext) {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			Expect(
+				createItem(ctx, tx, uniqueItem{Key: 2, Name: "staged"}),
+			).To(Succeed())
+			holder, found := MustSucceed2(
+				itemIndex.Holder(ctx, tx, uniqueSibling{Name: "staged"}),
+			)
+			Expect(found).To(BeTrue())
+			Expect(holder).To(Equal(itemTarget(2)))
+			_, found := MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Name: "staged"}),
+			)
+			Expect(found).To(BeFalse())
+		})
+	})
+
 	Describe("Stored duplicates", func() {
 		BeforeEach(func(ctx SpecContext) {
 			openDB()
