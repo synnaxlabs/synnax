@@ -1951,13 +1951,14 @@ func resolveTypeRef(
 	_, isVersion := paths.Version(ns)
 	otherResource := len(parts) == 2 && !isVersion
 
+	var params []resolution.TypeParam
 	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) &&
 		len(parts) == 1 {
 		ref.Name = name
 	} else if typ, ok := lookupRef(c.table, len(parts) == 2, ns, name); ok {
 		ref.Name = typ.QualifiedName
 		// An omitted optional type argument is nil.
-		params := resolution.TypeParams(typ.Form)
+		params = resolution.TypeParams(typ.Form)
 		for i := len(ref.TypeArgs); i < len(params) &&
 			params[i].Optional && !params[i].HasDefault(); i++ {
 			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
@@ -1972,6 +1973,64 @@ func resolveTypeRef(
 	for i := range ref.TypeArgs {
 		resolveTypeRef(c, currentType, &ref.TypeArgs[i])
 	}
+	rejectDefaultedTypeArgs(c, *ref, params)
+}
+
+// rejectDefaultedTypeArgs reports an explicit type argument for a defaulted type
+// parameter, which the Go, Python, and C++ generators drop for the default. It allows
+// a pass-through of the enclosing type's own type parameter with the same default.
+func rejectDefaultedTypeArgs(
+	c *analysisCtx,
+	ref resolution.TypeRef,
+	params []resolution.TypeParam,
+) {
+	for i, arg := range ref.TypeArgs {
+		if i >= len(params) || !params[i].HasDefault() {
+			continue
+		}
+		if arg.IsTypeParam() && arg.TypeParam.HasDefault() &&
+			sameTypeRef(c, *arg.TypeParam.Default, *params[i].Default) {
+			continue
+		}
+		c.report(diagnostics.Errorf(
+			nil,
+			"%s cannot take a type argument for defaulted type parameter %s: omit "+
+				"it to use the default, or pass a type parameter with the same default",
+			ref.Name,
+			params[i].Name,
+		))
+	}
+}
+
+// sameTypeRef reports whether a and b name the same type. Either may be unresolved, so
+// a bare name counts as a type in the namespace under analysis.
+func sameTypeRef(c *analysisCtx, a, b resolution.TypeRef) bool {
+	if qualifiedRefName(c, a) != qualifiedRefName(c, b) ||
+		(a.ArraySize == nil) != (b.ArraySize == nil) ||
+		lo.FromPtr(a.ArraySize) != lo.FromPtr(b.ArraySize) ||
+		len(a.TypeArgs) != len(b.TypeArgs) {
+		return false
+	}
+	for i := range a.TypeArgs {
+		if !sameTypeRef(c, a.TypeArgs[i], b.TypeArgs[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func qualifiedRefName(c *analysisCtx, ref resolution.TypeRef) string {
+	switch {
+	case ref.TypeParam != nil:
+		return ref.TypeParam.Name
+	case strings.Contains(ref.Name, "."),
+		resolution.IsPrimitive(ref.Name),
+		resolution.IsConstraint(ref.Name),
+		ref.Name == "Array",
+		ref.Name == "Map":
+		return ref.Name
+	}
+	return c.namespace + "." + ref.Name
 }
 
 // namespaceSettled reports whether a name missing from namespace is a schema error. It

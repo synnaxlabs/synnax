@@ -147,7 +147,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						reason string
 					}
 
-					Wrapper struct<D = record> {
+					Wrapper struct<D> {
 						details D
 
 						@go marshal

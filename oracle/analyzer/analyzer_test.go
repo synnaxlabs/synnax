@@ -4219,6 +4219,82 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject an explicit type argument for a defaulted type parameter",
+			func(decl string) {
+				source := `
+				Box struct<T = uint8[2]> {
+					value T
+				}
+
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				` + decl
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"cannot take a type argument for defaulted type parameter",
+				))
+			},
+			Entry("field", "Config struct {\n\tvalue Box<uint8[3]>\n}"),
+			Entry(
+				"argument equal to the default",
+				"Config struct {\n\tvalue Box<uint8[2]>\n}",
+			),
+			Entry("second parameter", "Config struct {\n\tvalue Pair<int32, int64>\n}"),
+			Entry("nested argument", "Config struct {\n\tvalue Box<uint8[3]>[]\n}"),
+			Entry("alias", "Wide = Box<uint8[3]>"),
+			Entry("extends", "Wide struct extends Box<uint8[3]> {}"),
+			Entry(
+				"pass-through of a parameter without a default",
+				"Wrap struct<U> {\n\tbox Box<U>\n}",
+			),
+			Entry(
+				"pass-through of a parameter with another default",
+				"Wrap struct<U = uint8[3]> {\n\tbox Box<U>\n}",
+			),
+		)
+
+		DescribeTable(
+			"Should allow a pass-through of a parameter with the same default",
+			func(def string) {
+				source := `
+				Details struct<Data? = ` + def + `> {
+					data Data
+				}
+
+				Status<Data? = ` + def + `> = Details<Data>
+
+				Info struct {
+					name string
+				}
+			`
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("primitive", "record"),
+			Entry("struct declared later", "Info"),
+			Entry("fixed-size array", "uint8[2]"),
+		)
+
+		It("Should allow an omitted argument for a defaulted type parameter", func() {
+			source := `
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				Config struct {
+					value Pair<int32>
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
 			"Should reject an optional marker outside a field",
 			func(decl, message string) {
 				source := `
