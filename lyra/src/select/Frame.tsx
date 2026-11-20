@@ -87,8 +87,8 @@ interface BaseFrameProps<
 > extends optional.Optional<Omit<List.FrameProps<K, E>, "onChange">, "data"> {
   /**
    * Whether to list the selected entries first each time the enclosing dialog opens.
-   * The order holds while the dialog stays open, and a search lists its matches in
-   * their own order.
+   * The order holds while the dialog stays open, except that an entry that loads later
+   * joins the front. A search lists its matches in their own order.
    */
   selectedFirst?: boolean;
 }
