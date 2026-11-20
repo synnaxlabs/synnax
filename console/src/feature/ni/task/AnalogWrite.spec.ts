@@ -60,7 +60,7 @@ const renderAnalogWrite = async (
   config: task.Payload<NI.Task.AnalogWriteSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.AnalogWrite, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.ANALOG_WRITE_TYPE], {
     client,
     taskKey: draft.key,
   });
