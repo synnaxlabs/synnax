@@ -120,7 +120,12 @@ export const planMessage = async (
         );
   const indexOf = (ch: channel.Channel): channel.Key =>
     ch.isIndex ? ch.key : ch.index;
-  const ownIndexes = new Set(bound.filter((ch) => own.has(ch.key)).map(indexOf));
+  const ownIndexes = new Set(
+    bound
+      .filter((ch) => own.has(ch.key))
+      .map(indexOf)
+      .filter(primitive.isNonZero),
+  );
   const stored = new Set(Object.values(props?.channels ?? {}));
   const lent = (ch: channel.Channel): boolean =>
     !own.has(ch.key) && stored.has(ch.key) && ownIndexes.has(indexOf(ch));
