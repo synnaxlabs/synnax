@@ -443,11 +443,11 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name | OneParams): Promise<Range>;
-  async retrieve(
+  override async retrieve(params: Key | Name | OneParams): Promise<Range>;
+  override async retrieve(
     params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
-  async retrieve(
+  override async retrieve(
     params:
       | Key
       | Name

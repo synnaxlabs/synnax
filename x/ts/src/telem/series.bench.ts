@@ -54,7 +54,7 @@ test("boundsFor", async ({ bench }) => {
       let min = Infinity;
       let max = -Infinity;
       for (let i = 1; i < 1_499_999; i++) {
-        const v = raw[i];
+        const v = raw[i]!;
         if (v < min) min = v;
         if (v > max) max = v;
       }
