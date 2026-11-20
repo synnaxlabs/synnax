@@ -335,11 +335,13 @@ in Phase 23.
 them, creates new hardware, writes the identity group, and marks missing hardware as
 disconnected. NI finds chassis and modules in one scan, and a module needs its chassis
 key, so NI runs `Sync<Chassis>` and then `Sync<Device>`. EtherCAT runs `Sync<Master>`,
-then `Sync<Slave>`, then writes each master's `slaves` list in bus order with the new
-slave keys. A single-resource integration runs one `Sync`. Read and write tasks take the
-generated struct in place of `parser.field` reads. NI looks up the DAQmx alias for
-physical channel names from `resource_name` when a task starts. LabJack opens by
-`serial` (`driver/labjack/read_task.h:535` uses the key today).
+then `Sync<Slave>`, then writes each master's `slaves` list in bus order with the slave
+keys. The master's `merge_identity` keeps the stored `slaves`, so `Sync<Slave>` matches
+zero-serial slaves by the stored list, and only the last step writes it. A
+single-resource integration runs one `Sync`. Read and write tasks take the generated
+struct in place of `parser.field` reads. NI looks up the DAQmx alias for physical
+channel names from `resource_name` when a task starts. LabJack opens by `serial`
+(`driver/labjack/read_task.h:535` uses the key today).
 
 ### 4.7 Console
 
