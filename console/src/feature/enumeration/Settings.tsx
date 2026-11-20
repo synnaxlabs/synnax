@@ -35,6 +35,7 @@ import {
 import { useDeleteModal } from "@/feature/enumeration/Delete";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 /** @returns whether a stored built-in differs from its shipped name or entries. */
@@ -89,8 +90,9 @@ const Item = ({
     else return;
     ev.preventDefault();
   };
+  // No wrapper, so the checked items share the parent that the context menu searches.
   return (
-    <div>
+    <>
       <Select.Item<enumeration.Key>
         {...props}
         ref={setElement}
@@ -152,7 +154,7 @@ const Item = ({
           <Enumeration.Entries enumeration={e.key} autoFocus={autoFocus} />
         </div>
       )}
-    </div>
+    </>
   );
 };
 
@@ -195,50 +197,59 @@ const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
   );
 };
 
-interface ItemMenuProps {
-  enumeration: enumeration.Enumeration;
-}
-
-const ItemMenu = ({ enumeration: e }: ItemMenuProps): ReactElement => {
-  const id = enumeration.resourceID(e.key);
-  const canUpdate = Access.useUpdateGranted(id);
-  const canDelete = Access.useDeleteGranted(id);
-  const builtin = use(ShippedContext).get(e.key);
+/** The menu of the selected enumerations. Built-ins are never deleted. */
+const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+  const { getItem } = List.useUtilContext<enumeration.Key, enumeration.Enumeration>();
+  const enumerations = getItem?.(keys) ?? [];
+  const ids = enumeration.resourceID(keys);
+  const canUpdate = Access.useUpdateGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
+  const shipped = use(ShippedContext);
+  const deletable = enumerations.filter((e) => shipped.get(e.key) == null);
   const openDelete = useDeleteModal();
+  const confirm = Modals.useConfirmDelete({ type: "Enumeration" });
+  const { update: remove } = Enumeration.useDelete({
+    beforeUpdate: async () => await confirm(deletable),
+  });
   const { update: restore } = Enumeration.useRestore();
+  const single = enumerations.length === 1 ? enumerations[0] : undefined;
+  const builtin = single == null ? undefined : shipped.get(single.key);
+  // One enumeration gets the dialog that can replace it where it is in use.
+  const handleDelete = (): void => {
+    if (deletable.length === 1) openDelete({ enumeration: deletable[0] });
+    else remove(deletable.map((e) => e.key));
+  };
   return (
     <ContextMenu.Menu>
-      <Menu.Item
-        itemKey="usedBy"
-        onClick={() => Dialog.open(PlatformSettings.usedByDialogID(e.key))}
-      >
-        <Icon.Link />
-        Used by
-      </Menu.Item>
-      <Menu.Divider />
-      {canUpdate && (
-        <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(e.key))} />
+      {single != null && (
+        <Menu.Item
+          itemKey="usedBy"
+          onClick={() => Dialog.open(PlatformSettings.usedByDialogID(single.key))}
+        >
+          <Icon.Link />
+          Used by
+        </Menu.Item>
       )}
-      {builtin != null && edited(e, builtin) && canUpdate && (
+      <Menu.Divider />
+      {single != null && canUpdate && (
+        <ContextMenu.RenameItem
+          onClick={() => Text.edit(List.itemNameID(single.key))}
+        />
+      )}
+      {single != null && builtin != null && edited(single, builtin) && canUpdate && (
         <Menu.Item itemKey="restore" onClick={() => restore(builtin)}>
           <Icon.Reset />
           Restore default
         </Menu.Item>
       )}
       <Menu.Divider />
-      {builtin == null && canDelete && (
-        <ContextMenu.DeleteItem onClick={() => openDelete({ enumeration: e })} />
+      {deletable.length > 0 && canDelete && (
+        <ContextMenu.DeleteItem onClick={handleDelete} />
       )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
-};
-
-const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-  const { getItem } = List.useUtilContext<enumeration.Key, enumeration.Enumeration>();
-  const e = keys[0] == null ? undefined : getItem?.(keys[0]);
-  return e == null ? null : <ItemMenu enumeration={e} />;
 };
 
 const menu = Component.renderProp(SettingsMenu);

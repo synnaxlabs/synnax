@@ -29,6 +29,7 @@ import { describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
+import { findButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   awaitGranted,
@@ -537,6 +538,20 @@ describe("Enumeration.Settings", () => {
     expect(dialog.getByText(user.name)).toBeTruthy();
     expect(dialog.getByRole("button", { name: "Replace" })).toBeTruthy();
     expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
+  });
+
+  it("should delete every checked enumeration from the menu of one", async () => {
+    const checked = [await createEnumeration(), await createEnumeration()];
+    await renderEnumerations();
+    for (const { name } of checked) {
+      const option = await screen.findByRole("option", { name });
+      fireEvent.click(within(option).getByRole("checkbox", { name: "Select" }));
+    }
+    await openContextMenu(checked[1].name);
+    expect(screen.queryByText("Rename")).toBeNull();
+    await clickAndSettle("Delete");
+    fireEvent.click(findButton("Delete"));
+    for (const { key } of checked) await waitForDeleted(key);
   });
 
   it("should disable Cancel and Delete while the delete runs", async () => {
