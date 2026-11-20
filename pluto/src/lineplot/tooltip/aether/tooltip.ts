@@ -56,9 +56,9 @@ export interface TooltipProps {
 
 export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
-  schema = tooltipStateZ;
+  override schema = tooltipStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const theme = theming.use(ctx);
     const { textColor, ruleColor } = this.state;
     this.internal.textColor = textColor ?? theme.colors.text;
@@ -71,7 +71,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     render.request(ctx, "tool");
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "tool");
   }
 

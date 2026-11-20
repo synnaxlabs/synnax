@@ -483,7 +483,7 @@ export class Client extends query.Retriever<
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(
+  override async retrieve(
     params: Key | Name | RetrieveSingleParams | OneParams,
   ): Promise<Channel>;
 
@@ -495,11 +495,11 @@ export class Client extends query.Retriever<
    * name matches exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
    * An empty array retrieves no channels. To retrieve every channel, pass `{}`.
    */
-  async retrieve(
+  override async retrieve(
     params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,
   ): Promise<Channel[]>;
 
-  async retrieve(
+  override async retrieve(
     params:
       | PrimitiveParams
       | Payload[]

@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { type breaker, type record, Series, sleep, TimeSpan } from "@synnaxlabs/x";
+import {
+  type breaker,
+  disposable,
+  type record,
+  Series,
+  sleep,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -23,6 +30,12 @@ interface Doc extends record.Keyed<string> {
 }
 
 class MockStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   keys: channel.Key[] = [];
   private readonly frames: framer.Frame[];
   private done = false;
@@ -83,6 +96,8 @@ const failingStreamer = (): framer.Streamer => ({
   keys: [],
   update: async () => {},
   close: () => {},
+  [Symbol.dispose]: () => {},
+  [Symbol.asyncDispose]: async () => {},
   next: async () => {
     throw new Error("conn dropped");
   },
@@ -108,6 +123,12 @@ const lateFrameStreamer = (frame: framer.Frame): framer.Streamer => {
     keys: [],
     update: async () => {},
     close: () => {
+      closed = true;
+    },
+    [Symbol.dispose]: () => {
+      closed = true;
+    },
+    [Symbol.asyncDispose]: async () => {
       closed = true;
     },
     next,
