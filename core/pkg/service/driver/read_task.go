@@ -142,7 +142,6 @@ func (c ReadTaskConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("framer", c.Framer)
-	v.NotNil("channel", c.Channel)
 	v.NotEmptySlice("channels", c.Channels)
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Exec(c.Breaker.Validate)

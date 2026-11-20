@@ -179,7 +179,6 @@ func (c ScanTaskConfig) Validate() error {
 	v.NotNil("scanner", c.Scanner)
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
-	v.NotNil("channel", c.Channel)
 	v.NotNil("device", c.Device)
 	v.NotEmptyString("make", c.Make)
 	v.NotEmptyString("reachable_message", c.ReachableMessage)
