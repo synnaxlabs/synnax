@@ -116,6 +116,41 @@ describe("Notifications.useForward", () => {
       expect(screen.queryByText(inPlace.message)).toBeNull();
     });
 
+    it("should not notify a reply after a newer status on its key", async () => {
+      const owner = await createOwner();
+      let resolve: ((inPlace: boolean) => void) | undefined;
+      const repliesInPlace = vi.fn(async ({ key }: Notifications.InUseParams) => {
+        if (key !== owner.key) return true;
+        return await new Promise<boolean>((r) => (resolve = r));
+      });
+      await renderForward(client, { channel: { ...REPLY, repliesInPlace } });
+      const key = uniqueName("reply");
+      const [reply] = await write({ key, owner, variant: "error" });
+      await vi.waitFor(() => expect(resolve).toBeDefined());
+      await write({ key, owner, variant: "success" });
+      await settleWrites(client);
+      act(() => resolve?.(false));
+      await settleWrites(client);
+      expect(screen.queryByText(reply.message)).toBeNull();
+    });
+
+    it("should not notify a deleted reply whose check ends late", async () => {
+      const owner = await createOwner();
+      let resolve: ((inPlace: boolean) => void) | undefined;
+      const repliesInPlace = vi.fn(async ({ key }: Notifications.InUseParams) => {
+        if (key !== owner.key) return true;
+        return await new Promise<boolean>((r) => (resolve = r));
+      });
+      await renderForward(client, { channel: { ...REPLY, repliesInPlace } });
+      const [reply] = await write({ owner, variant: "error" });
+      await vi.waitFor(() => expect(resolve).toBeDefined());
+      await client.statuses.delete(reply.key);
+      await settleWrites(client);
+      act(() => resolve?.(false));
+      await settleWrites(client);
+      expect(screen.queryByText(reply.message)).toBeNull();
+    });
+
     it("should notify a reply whose check fails and print the error", async () => {
       const owner = await createOwner();
       const exc = new Error("The Core is unreachable.");

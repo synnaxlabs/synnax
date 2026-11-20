@@ -108,6 +108,8 @@ const createForwarder = ({
   add,
 }: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Problem>();
+  // The reply on each key whose check is in flight. A newer status on the key ends it.
+  const replies = new Map<status.Key, status.Status>();
 
   const show = (problem: Problem): void => {
     if (problem.inUse !== true) return;
@@ -165,12 +167,19 @@ const createForwarder = ({
       add(stat);
       return;
     }
+    replies.set(stat.key, stat);
+    const settle = (): boolean => {
+      if (replies.get(stat.key) !== stat) return false;
+      replies.delete(stat.key);
+      return true;
+    };
     void rule.repliesInPlace({ client, key }).then(
       (inPlace) => {
-        if (!inPlace) add(stat);
+        if (settle() && !inPlace) add(stat);
       },
       // The check only filters noise, so a reply whose check fails still shows.
       (exc: unknown) => {
+        if (!settle()) return;
         console.error(`failed to check where the reply ${stat.key} shows`, exc);
         add(stat);
       },
@@ -178,6 +187,7 @@ const createForwarder = ({
   };
 
   const write = (stat: status.Status): void => {
+    replies.delete(stat.key);
     const owner = getOwner(rules, keyRules, stat);
     const kind = owner?.rule.kind(stat) ?? "alarm";
     if (kind !== "state") retire(stat.key);
@@ -202,11 +212,17 @@ const createForwarder = ({
   };
 
   const stop = (): void => {
+    replies.clear();
     problems.forEach(({ timer }) => clearTimeout(timer));
     problems.clear();
   };
 
-  return { write, remove: close, stop };
+  const remove = (key: status.Key): void => {
+    close(key);
+    replies.delete(key);
+  };
+
+  return { write, remove, stop };
 };
 
 /**
