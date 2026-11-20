@@ -8,17 +8,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 
-interface Props {
-    headings?: MarkdownHeading[];
+interface Entry {
+    /** The id of the release's heading on the page. */
+    slug: string;
+    text: string;
+    /** The day the release shipped, or undefined if it has not shipped. */
+    date?: string;
 }
 
-const { headings = [] } = Astro.props;
-const releases = headings.filter(({ depth }) => depth === 6);
+interface Props {
+    /** The releases to list, newest first. */
+    releases: Entry[];
+}
+
+const yearOf = (date?: string): string => {
+    if (date == null) return "Unreleased";
+    const year = /\d{4}$/.exec(date)?.[0];
+    if (year == null) throw new Error(`The release date ${date} has no year`);
+    return year;
+};
+
+const { releases } = Astro.props;
+const years = new Map<string, Entry[]>();
+for (const release of releases) {
+    const year = yearOf(release.date);
+    years.set(year, [...(years.get(year) ?? []), release]);
+}
 ---
 
 {releases.length > 0 && (
@@ -26,10 +46,18 @@ const releases = headings.filter(({ depth }) => depth === 6);
         <Text.Text level="h5">History</Text.Text>
         <div class="release-menu" data-outline="article h6">
             <div class="release-indicator" data-outline-indicator></div>
-            {releases.map(({ slug, text }) => (
-                <a href={`#${slug}`} data-item-key={slug} class="release-item">
-                    {unescape(text)}
-                </a>
+            {[...years].map(([year, entries], i) => (
+                <details class="release-year" name="release-years" open={i === 0}>
+                    <summary>
+                        <Icon.Caret.Right className="release-year__caret" />
+                        {year}
+                    </summary>
+                    {entries.map(({ slug, text }) => (
+                        <a href={`#${slug}`} data-item-key={slug} class="release-item">
+                            {unescape(text)}
+                        </a>
+                    ))}
+                </details>
             ))}
         </div>
     </Flex.Box>
@@ -40,7 +68,7 @@ const releases = headings.filter(({ depth }) => depth === 6);
         position: sticky;
         top: 25rem;
         align-self: flex-start;
-        width: 80px;
+        width: 96px;
 
         @media (width <= 900px) {
             display: none;
@@ -68,9 +96,47 @@ const releases = headings.filter(({ depth }) => depth === 6);
             pointer-events: none;
         }
 
+        .release-year > summary {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            width: auto;
+            padding: 0.75rem 2rem 0.75rem 0.5rem;
+            list-style: none;
+            font-size: var(--pluto-small-size);
+            font-family: var(--pluto-font-family);
+            font-weight: 500;
+            color: var(--pluto-gray-l9);
+            box-shadow: inset -1px 0 0 0 var(--pluto-border-color);
+            transition: color 0.15s ease;
+
+            &::-webkit-details-marker {
+                display: none;
+            }
+
+            &:hover {
+                color: var(--pluto-text-color);
+            }
+
+            &:focus-visible {
+                outline: 1px solid var(--pluto-primary-z);
+            }
+        }
+
+        .release-year__caret {
+            width: 2rem;
+            height: 2rem;
+            color: var(--pluto-gray-l8);
+            transition: rotate 0.2s ease;
+        }
+
+        .release-year[open] .release-year__caret {
+            rotate: 90deg;
+        }
+
         .release-item {
             display: block;
-            padding: 0.75rem 2rem;
+            padding: 0.75rem 2rem 0.75rem 3.5rem;
             font-size: var(--pluto-small-size);
             font-family: var(--pluto-font-family);
             color: var(--pluto-gray-l8);

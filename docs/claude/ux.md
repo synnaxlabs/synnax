@@ -650,13 +650,14 @@ bound, a log precision, or the line plot X channel.
 - A caret at the start of an item opens the item's own content in place, such as a
   range's children or an enumeration's entries.
 - A caret at the end of a bar opens or closes a group of items, such as a palette
-  (`Header.Group`).
+  (`Header.Group`). The History list of the docs releases page is the one exception.
 
 ### Group headings
 
 - A list that groups its items, such as the palettes on the Colors page or the groups of
   the Ranges toolbar, heads each group with `Header.Group`: one full-width bar that
-  opens and closes the group.
+  opens and closes the group. The History list of the docs releases page is the one
+  exception.
 - The bar is l2 with the item radius. Its height is the Lyra size nearest the item
   height: `large` above a 40 px item. Hover and press fill the whole bar with a button's
   transition.
@@ -983,3 +984,10 @@ The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 - Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
   bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
   7% tint over the page surface was too flat.
+- The History list on the releases page groups the releases under the year they shipped,
+  with a caret before each year. One year is open at a time: the year of the release
+  being read opens by itself, and a click opens another. Rejected: a list that scrolls
+  inside itself, and a grid of every release three across.
+- The History list is an exception to Carets and Group headings: it is a navigation
+  tree, like the docs sidebar, so each year is a caret and a label, with the caret
+  before the year.

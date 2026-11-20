@@ -19,7 +19,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import IndexHero from "@/components/hero/Index.astro";
 import ReleasesArtwork from "@/components/hero/ReleasesArtwork.astro";
 import { Releases as ReleasesComponents } from "@/components/releases";
-import { NOTES_PAGE } from "@/util/releaseNotes";
+import { NOTES_PAGE, shippedOn } from "@/util/releaseNotes";
 
 const entries = (await getCollection("releases")).sort((a, b) =>
     semver.compare(b.data.version, a.data.version),
@@ -28,7 +28,14 @@ const notes = await Promise.all(
     entries.map(async (entry) => {
         const text = entry.data.version.split(".").slice(0, 2).join(".");
         const { Content } = await render(entry);
-        return { data: entry.data, Content, slug: text.replaceAll(".", ""), text };
+        const date = await shippedOn(Astro.locals.releases, entry.data);
+        return {
+            data: entry.data,
+            Content,
+            slug: text.replaceAll(".", ""),
+            text,
+            date,
+        };
     }),
 );
 const headings: MarkdownHeading[] = notes.map(({ slug, text }) => ({
@@ -66,7 +73,7 @@ const headings: MarkdownHeading[] = notes.map(({ slug, text }) => ({
                 </>
             ))}
         </Flex.Box>
-        <ReleasesComponents.List headings={headings} />
+        <ReleasesComponents.List releases={notes} />
     </section>
 </Root>
 
