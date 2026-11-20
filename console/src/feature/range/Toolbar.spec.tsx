@@ -203,10 +203,7 @@ describe("range/Toolbar", () => {
         })),
       );
       onTestFinished(async () => await client.ranges.delete(newer.map((r) => r.key)));
-      const deleted = await client.ranges.create({
-        name: uniqueName("deleted"),
-        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-      });
+      const deleted = await createRunning(uniqueName("deleted"));
       await renderToolbar();
       await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
         timeout: 10_000,
