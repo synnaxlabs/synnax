@@ -8,26 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { type enumeration, type resource } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Enumeration, Resource } from "@synnaxlabs/pluto";
 import { type ReactElement, Suspense, useState } from "react";
 
-import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { Triggers } from "@/platform/triggers";
 
 const NO_USERS: resource.ID[] = [];
 const IN_USE = "Each of these moves to the enumeration you pick.";
 const NOT_IN_USE = "Nothing uses it.";
+const CANNOT_UNDO = "This action cannot be undone.";
 const REPLACEMENT_REQUIRED = "Replacement is required";
 const TRIGGER_PROPS = { "aria-label": "Replace with" };
 
@@ -66,80 +61,66 @@ const Delete = ({
   enumeration: e,
   close,
 }: Modals.ContentProps<DeleteParams, void>): ReactElement => {
-  const dependents = Enumeration.useResult({ key: e.key, includeUses: true });
-  const users = dependents.data?.uses ?? NO_USERS;
+  const res = Enumeration.useResult({ key: e.key, includeUses: true });
+  const users = res.data?.uses ?? NO_USERS;
   const [replacement, setReplacement] = useState<enumeration.Key>();
-  const [error, setError] = useState<string>();
-  const { update: remove } = Enumeration.useDelete({ afterSuccess: () => close() });
-  const { update: replace } = Enumeration.useReplace({ afterSuccess: () => close() });
+  const [confirmed, setConfirmed] = useState(false);
+  const { update: remove, variant: removeVariant } = Enumeration.useDelete({
+    afterSuccess: () => close(),
+  });
+  const { update: replace, variant: replaceVariant } = Enumeration.useReplace({
+    afterSuccess: () => close(),
+  });
+  const busy = removeVariant === "loading" || replaceVariant === "loading";
+  Modals.useBusy(busy);
   const inUse = users.length > 0;
-  const handleReplacementChange = (key: enumeration.Key | undefined): void => {
-    setReplacement(key);
-    setError(undefined);
-  };
+  const error = confirmed && replacement == null ? REPLACEMENT_REQUIRED : undefined;
   const handleConfirm = () => {
     if (!inUse) return remove(e.key);
-    if (replacement == null) return setError(REPLACEMENT_REQUIRED);
-    replace({ from: e.key, to: replacement });
+    setConfirmed(true);
+    if (replacement != null) replace({ from: e.key, to: replacement });
   };
   return (
-    <Modal.Frame className={CSS.B("confirm")}>
-      <Modal.Header icon={<Icon.Enumeration />}>Enumeration.Delete</Modal.Header>
-      <Modal.Body gap="medium" className={CSS.BE("confirm", "body")}>
-        <Text.Text level="h3" weight={450}>
-          Are you sure you want to delete {e.name}?
-        </Text.Text>
-        {dependents.variant === "error" ? (
-          <Status.Summary level="small" status={dependents.status} />
-        ) : (
-          <Text.Text weight={450}>
-            {dependents.variant === "success" && (inUse ? IN_USE : NOT_IN_USE)} This
-            action cannot be undone.
-          </Text.Text>
-        )}
-        {inUse && (
-          <>
-            <Suspense>
-              <Users ids={users} />
-            </Suspense>
-            <Input.Item
-              label="Replace with"
-              helpText={error}
-              status={error == null ? undefined : "error"}
-              padHelpText
-            >
-              <Enumeration.SelectSingle
-                triggerProps={TRIGGER_PROPS}
-                value={replacement}
-                onChange={handleReplacementChange}
-                filter={(other) => other.key !== e.key}
-              />
-            </Input.Item>
-          </>
-        )}
-      </Modal.Body>
-      <Modal.Footer>
-        <Nav.Bar.End x align="center">
-          <Button.Button
-            variant="outlined"
-            triggerIndicator={PTriggers.ESCAPE}
-            onClick={() => close()}
+    <Modals.ConfirmLayout
+      title="Enumeration.Delete"
+      icon={<Icon.Enumeration />}
+      message={`Are you sure you want to delete ${e.name}?`}
+      description={
+        res.variant === "success"
+          ? `${inUse ? IN_USE : NOT_IN_USE} ${CANNOT_UNDO}`
+          : CANNOT_UNDO
+      }
+      confirm={{
+        label: inUse ? "Replace" : "Delete",
+        variant: busy ? "loading" : "error",
+        disabled: res.variant !== "success",
+      }}
+      cancel={{ disabled: busy }}
+      onConfirm={handleConfirm}
+      onCancel={() => close()}
+    >
+      {res.variant === "error" && <Status.Summary level="small" status={res.status} />}
+      {inUse && (
+        <>
+          <Suspense>
+            <Users ids={users} />
+          </Suspense>
+          <Input.Item
+            label="Replace with"
+            helpText={error}
+            status={error == null ? undefined : "error"}
+            padHelpText
           >
-            Cancel
-          </Button.Button>
-          <Button.Button
-            variant="filled"
-            status="error"
-            trigger={Triggers.SAVE}
-            triggerIndicator
-            disabled={dependents.variant !== "success"}
-            onClick={handleConfirm}
-          >
-            {inUse ? "Replace" : "Delete"}
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modal.Footer>
-    </Modal.Frame>
+            <Enumeration.SelectSingle
+              triggerProps={TRIGGER_PROPS}
+              value={replacement}
+              onChange={setReplacement}
+              filter={(other) => other.key !== e.key}
+            />
+          </Input.Item>
+        </>
+      )}
+    </Modals.ConfirmLayout>
   );
 };
 

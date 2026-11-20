@@ -15,6 +15,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Enumeration } from "@/enumeration";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
@@ -28,7 +29,14 @@ describe("StateIndicator form", () => {
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <Enumeration.CreatePromptProvider value={vi.fn()}>
+          {children}
+        </Enumeration.CreatePromptProvider>
+      </Base>
+    );
     ch = await client.channels.create({
       name: id.create(),
       dataType: DataType.FLOAT32,

@@ -9,7 +9,7 @@
 
 import "@/input/Table.css";
 
-import { csv, deep, type dimensions, grid, strings, xy } from "@synnaxlabs/x";
+import { csv, type dimensions, grid, strings, xy } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type ComponentPropsWithRef,
@@ -134,11 +134,8 @@ const renderCell = (
     case "boolean": {
       const cell = { ...props, value: props.value === true };
       if (column.children != null) return column.children(cell);
-      // The grid draws the cell's frame, so the checkbox draws none of its own. A
-      // read-only box still shows its state as a control.
-      return (
-        <Checkbox {...cell} variant="text" preview={false} disabled={props.preview} />
-      );
+      // A read-only box still shows its state as a control.
+      return <Checkbox {...cell} preview={false} disabled={props.preview} />;
     }
     case "custom":
       return column.children({ ...props, row });
@@ -263,28 +260,27 @@ const inTable = (e: SyntheticEvent): boolean =>
 
 type ColumnElement = ReactElement<TableColumnProps>;
 
-/** @returns where the row at index y sits once the row at from moves to to. */
-const movedIndex = (y: number, from: number, to: number): number => {
-  if (y === from) return to;
-  if (from < to && y > from && y <= to) return y - 1;
-  if (from > to && y >= to && y < from) return y + 1;
-  return y;
-};
-
 const HANDLE_CLASS = CSS.BE("input", "table-handle");
 
 interface RowProps extends PropsWithChildren {
   index: number;
+  /** The key of the row, which its drag carries. */
+  rowKey: string;
+  /** @returns the index of the row with the given key, or -1. */
+  indexOf: (key: string) => number;
   /** The haul type of one table's rows, so a row drops only in its own table. */
   haulType: string;
   /** Renders the preview of the row while it drags. */
   haulPreview: () => ReactNode;
+  /** Omitted while the table is in preview, so the row takes no drop. */
   onMove?: (from: number, to: number) => void;
 }
 
 /** A body row that drags by its handle and takes drops of its table's other rows. */
 const Row = ({
   index,
+  rowKey,
+  indexOf,
   haulType,
   haulPreview,
   onMove,
@@ -293,11 +289,13 @@ const Row = ({
   const [over, setOver] = useState<"above" | "below" | null>(null);
   const draggedIndex = (items: Haul.Item[]): number | null => {
     const dragged = Haul.filterByType(haulType, items).at(0);
-    return dragged == null ? null : Number(dragged.key);
+    if (dragged == null) return null;
+    const from = indexOf(String(dragged.key));
+    return from === -1 ? null : from;
   };
   const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
     type: haulType,
-    key: index,
+    key: rowKey,
     canDrop: (state) => onMove != null && Haul.canDropOfType(haulType)(state),
     onDragOver: ({ items }) => {
       const from = draggedIndex(items);
@@ -318,7 +316,7 @@ const Row = ({
       return;
     startDrag({
       event,
-      items: [{ type: haulType, key: index }],
+      items: [{ type: haulType, key: rowKey }],
       preview: haulPreview(),
     });
   };
@@ -336,7 +334,7 @@ const Row = ({
   );
 };
 
-export interface TableProps
+interface BaseTableProps
   extends
     Omit<ComponentPropsWithRef<"table">, "onChange" | "children">,
     Control<TableCell[][]> {
@@ -352,11 +350,6 @@ export interface TableProps
    */
   rowLabel?: (index: number) => string;
   /**
-   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
-   * when the rows above it change. Defaults to the index.
-   */
-  rowKey?: (index: number) => string;
-  /**
    * Builds each new row: the one the add button appends, and each one a paste adds.
    * Defaults to the column default values.
    */
@@ -370,15 +363,31 @@ export interface TableProps
    * place of onChange, so the caller can remove the row by identity.
    */
   onRemove?: (index: number) => void;
+  /** Renders the preview of a dragged row. Defaults to the row's name. */
+  renderHaulPreview?: (index: number) => ReactNode;
+}
+
+interface StaticTableProps {
+  /**
+   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
+   * when the rows above it change. Defaults to the index.
+   */
+  rowKey?: (index: number) => string;
+  onMove?: undefined;
+}
+
+interface MovableTableProps {
+  /** Identifies a row, so its cells, marks, and focus stay with it when it moves. */
+  rowKey: (index: number) => string;
   /**
    * Called with the index of a row the user moves and the index it moves to. When set,
    * each row's gutter holds a handle. A drag drops the row in the place of the row it
    * lands on, and the up and down arrows on the handle move it by one row.
    */
   onMove?: (from: number, to: number) => void;
-  /** Renders the preview of a dragged row. Defaults to the row's name. */
-  renderHaulPreview?: (index: number) => ReactNode;
 }
+
+export type TableProps = BaseTableProps & (StaticTableProps | MovableTableProps);
 
 /** A focused cell's value and text from when it took focus. */
 interface Initial {
@@ -386,21 +395,14 @@ interface Initial {
   text: string;
 }
 
-/** A move that the table sent to its caller, held until the next value shows it. */
-interface PendingMove {
-  from: number;
-  to: number;
-  /** The table's value when the move went out. */
-  value: TableCell[][];
-  /** The value that shows the move. */
-  moved: TableCell[][];
-  /** Whether the moved row's handle takes focus, as after a keyboard move. */
-  focus: boolean;
-}
-
 /** Pasted text that a cell could not read. */
 interface Rejection {
-  at: xy.XY;
+  /**
+   * The key of the cell's row, so the mark moves with it. It is the index while the row
+   * has no key: in a table with no rowKey, or in a row that a paste adds.
+   */
+  row: string | number;
+  x: number;
   text: string;
   /** The value the cell kept in place of the text. */
   kept: TableCell | undefined;
@@ -449,27 +451,22 @@ export const Table = ({
   const pendingFocus = useRef<number | null>(autoFocus ? 0 : null);
   const haulType = `${CSS.BE("input", "table-row")}-${useId()}`;
   const table = useRef<HTMLTableElement>(null);
-  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
-  // A new object for each keyboard move that lands, so a row can take focus again.
-  const [movedHandle, setMovedHandle] = useState<{ y: number } | null>(null);
+  // The key of the row whose handle a keyboard move left.
+  const movedRow = useRef<string | null>(null);
   const [rejections, setRejections] = useState<Rejection[]>([]);
-  // The caller can refuse a move, so the marks move only when the next value shows it.
-  let current = rejections;
-  if (pendingMove != null && pendingMove.value !== value) {
-    const { from, to, moved, focus } = pendingMove;
-    setPendingMove(null);
-    if (deep.equal(value, moved)) {
-      current = rejections.map((mark) => ({
-        ...mark,
-        at: { x: mark.at.x, y: movedIndex(mark.at.y, from, to) },
-      }));
-      if (focus) setMovedHandle({ y: to });
-    }
-  }
+  const keys = value.map((_, i) => rowKey?.(i) ?? String(i));
+  const keyAt = (y: number): string | number =>
+    rowKey != null && y < value.length ? keys[y] : y;
+  const rowOf = ({ row }: Rejection): number =>
+    typeof row === "number" ? row : keys.indexOf(row);
+  const markAt = (mark: Rejection, at: xy.XY): boolean =>
+    mark.x === at.x && rowOf(mark) === at.y;
   // A cell that the caller gives another value drops its mark for good.
-  const marks = current.filter(({ at, kept }) => value[at.y]?.[at.x] === kept);
-  if (current !== rejections || marks.length !== rejections.length)
-    setRejections(marks);
+  const marks = rejections.filter((mark) => {
+    const y = rowOf(mark);
+    return y !== -1 && value[y]?.[mark.x] === mark.kept;
+  });
+  if (marks.length !== rejections.length) setRejections(marks);
   const columns = reactElementToArray<TableColumnProps>(children).map(
     ({ props }) => props,
   );
@@ -491,8 +488,8 @@ export const Table = ({
   };
 
   const handleCellChange = (at: xy.XY, next: TableCell) => {
-    if (marks.some((mark) => xy.equals(mark.at, at)))
-      setRejections(marks.filter((mark) => !xy.equals(mark.at, at)));
+    if (marks.some((mark) => markAt(mark, at)))
+      setRejections(marks.filter((mark) => !markAt(mark, at)));
     onChange(
       value.map((row, i) =>
         i === at.y ? row.map((cell, j) => (j === at.x ? next : cell)) : row,
@@ -523,16 +520,16 @@ export const Table = ({
     const rejected: Rejection[] = [];
     plan.writes.forEach(({ position: at, value: { text, value: parsed } }) => {
       if (parsed !== null) next[at.y][at.x] = parsed;
-      else rejected.push({ at, text, kept: next[at.y][at.x] });
+      else rejected.push({ row: keyAt(at.y), x: at.x, text, kept: next[at.y][at.x] });
     });
-    const written = (at: xy.XY): boolean =>
-      plan.writes.some(({ position }) => xy.equals(position, at));
-    setRejections([...marks.filter(({ at }) => !written(at)), ...rejected]);
+    const written = (mark: Rejection): boolean =>
+      plan.writes.some(({ position }) => markAt(mark, position));
+    setRejections([...marks.filter((mark) => !written(mark)), ...rejected]);
     onChange(next);
   };
 
   const statusAt = (at: xy.XY): Status.Crude | undefined => {
-    const rejection = marks.find((mark) => xy.equals(mark.at, at));
+    const rejection = marks.find((mark) => markAt(mark, at));
     if (rejection == null) return cellStatus?.(at);
     const column = columns[at.x].name ?? "this column";
     return {
@@ -571,38 +568,43 @@ export const Table = ({
 
   const handleRemove = (index: number) => {
     pendingFocus.current = index;
-    // Marks below the row move up with their rows.
+    // Marks below the row move up with their rows, unless a key holds them.
     setRejections(
       marks.flatMap((mark) => {
-        if (mark.at.y < index) return [mark];
-        if (mark.at.y === index) return [];
-        return [{ ...mark, at: { x: mark.at.x, y: mark.at.y - 1 } }];
+        const y = rowOf(mark);
+        if (y === index) return [];
+        if (typeof mark.row === "string" || y < index) return [mark];
+        return [{ ...mark, row: y - 1 }];
       }),
     );
     if (onRemove != null) onRemove(index);
     else onChange(value.filter((_, i) => i !== index));
   };
 
-  const handleMove = (from: number, to: number, focus = false) => {
-    const moved = [...value];
-    moved.splice(to, 0, ...moved.splice(from, 1));
-    setPendingMove({ from, to, value, moved, focus });
+  const handleMove = (from: number, to: number) => {
+    // A mark of a row that a paste added takes the row's key, so it moves with the row.
+    if (marks.some(({ row }) => typeof row === "number"))
+      setRejections(marks.map((mark) => ({ ...mark, row: keyAt(rowOf(mark)) })));
     onMove?.(from, to);
   };
 
+  // A move can take the row out of the document, which drops the focus of its handle.
   useEffect(() => {
-    if (movedHandle == null) return;
-    table.current?.tBodies[0]?.rows[movedHandle.y]
+    const key = movedRow.current;
+    movedRow.current = null;
+    if (key == null || document.activeElement !== document.body) return;
+    table.current?.tBodies[0]?.rows[keys.indexOf(key)]
       ?.querySelector<HTMLElement>(`.${HANDLE_CLASS}`)
       ?.focus();
-  }, [movedHandle]);
+  }, [value]);
 
   const handleHandleKeyDown = (e: KeyboardEvent, index: number) => {
     const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
     const to = index + step;
     if (step === 0 || to < 0 || to >= value.length) return;
     e.preventDefault();
-    handleMove(index, to, true);
+    movedRow.current = keys[index];
+    handleMove(index, to);
   };
 
   const haulPreview = (index: number): ReactNode =>
@@ -613,6 +615,7 @@ export const Table = ({
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
     if (!inTable(e)) return;
     anchor.current = at;
+    movedRow.current = null;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
     restored.current = false;
@@ -695,86 +698,98 @@ export const Table = ({
           </thead>
         )}
         <tbody>
-          {value.map((row, i) => (
-            <Row
-              key={rowKey?.(i) ?? i}
-              index={i}
-              haulType={haulType}
-              haulPreview={() => haulPreview(i)}
-              onMove={movable ? handleMove : undefined}
-            >
-              {hasGutter && (
-                <th scope="row" className={CSS.BE("input", "table-gutter")}>
-                  {movable ? (
+          {value.map((row, i) => {
+            const cells = (
+              <>
+                {hasGutter && (
+                  <th scope="row" className={CSS.BE("input", "table-gutter")}>
+                    {movable ? (
+                      <Button.Button
+                        variant="text"
+                        size="small"
+                        textColor={8}
+                        draggable
+                        className={HANDLE_CLASS}
+                        aria-label={`Move ${resourceName} ${rowName(i)}`}
+                        tooltip={`Move ${resourceName} ${rowName(i)}`}
+                        onKeyDown={(e) => handleHandleKeyDown(e, i)}
+                      >
+                        <Icon.Drag />
+                      </Button.Button>
+                    ) : (
+                      rowLabel != null && (
+                        <Text.Text level="small" color={9}>
+                          {rowName(i)}
+                        </Text.Text>
+                      )
+                    )}
+                  </th>
+                )}
+                {columns.map((column, j) => {
+                  const status = statusAt({ x: j, y: i });
+                  // A cell's own status replaces the status of an item around the
+                  // table.
+                  const cellItem: ItemContextValue = {
+                    status: status?.variant,
+                    message: status?.message,
+                    helpTextHidden: true,
+                  };
+                  return (
+                    <td
+                      key={j}
+                      onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
+                      onBlur={handleCellBlur}
+                    >
+                      <ItemContext value={cellItem}>
+                        {renderCell(
+                          column,
+                          {
+                            value: row[j] ?? emptyCell(column),
+                            onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                            preview,
+                            variant: "shadow",
+                            "aria-label":
+                              column.name == null
+                                ? rowName(i)
+                                : `${column.name} ${rowName(i)}`,
+                          },
+                          i,
+                        )}
+                      </ItemContext>
+                    </td>
+                  );
+                })}
+                <td>
+                  {!preview && (
                     <Button.Button
                       variant="text"
                       size="small"
-                      textColor={8}
-                      draggable
-                      className={HANDLE_CLASS}
-                      aria-label={`Move ${resourceName} ${rowName(i)}`}
-                      tooltip={`Move ${resourceName} ${rowName(i)}`}
-                      onKeyDown={(e) => handleHandleKeyDown(e, i)}
+                      textColor={9}
+                      tooltip={`Remove ${resourceName} ${rowName(i)}`}
+                      onClick={() => handleRemove(i)}
                     >
-                      <Icon.Drag />
+                      <Icon.Close />
                     </Button.Button>
-                  ) : (
-                    rowLabel != null && (
-                      <Text.Text level="small" color={9}>
-                        {rowName(i)}
-                      </Text.Text>
-                    )
                   )}
-                </th>
-              )}
-              {columns.map((column, j) => {
-                const status = statusAt({ x: j, y: i });
-                // A cell's own status replaces the status of an item around the table.
-                const cellItem: ItemContextValue = {
-                  status: status?.variant,
-                  message: status?.message,
-                  helpTextHidden: true,
-                };
-                return (
-                  <td
-                    key={j}
-                    onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
-                    onBlur={handleCellBlur}
-                  >
-                    <ItemContext value={cellItem}>
-                      {renderCell(
-                        column,
-                        {
-                          value: row[j] ?? emptyCell(column),
-                          onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                          preview,
-                          variant: "shadow",
-                          "aria-label":
-                            column.name == null
-                              ? rowName(i)
-                              : `${column.name} ${rowName(i)}`,
-                        },
-                        i,
-                      )}
-                    </ItemContext>
-                  </td>
-                );
-              })}
-              <td>
-                {!preview && (
-                  <Button.Button
-                    variant="text"
-                    size="small"
-                    textColor={9}
-                    tooltip={`Remove ${resourceName} ${rowName(i)}`}
-                    onClick={() => handleRemove(i)}
-                  >
-                    <Icon.Close />
-                  </Button.Button>
-                )}
-              </td>
-            </Row>
-          ))}
+                </td>
+              </>
+            );
+            // A preview keeps the row, so its inputs and focus stay when it changes.
+            if (onMove == null) return <tr key={keys[i]}>{cells}</tr>;
+            return (
+              <Row
+                key={keys[i]}
+                index={i}
+                rowKey={keys[i]}
+                indexOf={(key) => keys.indexOf(key)}
+                haulType={haulType}
+                haulPreview={() => haulPreview(i)}
+                onMove={movable ? handleMove : undefined}
+              >
+                {cells}
+              </Row>
+            );
+          })}
         </tbody>
         {!preview && (
           <tfoot>

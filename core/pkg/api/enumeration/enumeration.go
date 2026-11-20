@@ -182,6 +182,14 @@ type ReplaceRequest struct {
 	To enumeration.Key `json:"to" msgpack:"to"`
 }
 
+var _ bind.Copy = ReplaceRequest{}
+
+// Sources implements bind.Copy. The subject needs retrieve on To even when nothing uses
+// From.
+func (r ReplaceRequest) Sources() []resource.ID {
+	return []resource.ID{enumeration.ResourceID(r.To)}
+}
+
 // Replace moves each record that uses the enumeration From to the enumeration To, then
 // deletes From. It returns a validation error when From is built in or equals To, and a
 // not found error when From or To does not exist.

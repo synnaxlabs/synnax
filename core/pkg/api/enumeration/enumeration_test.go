@@ -361,43 +361,55 @@ var _ = Describe("Replace", func() {
 		Expect(enumerationExists(ctx, from.Key)).To(BeFalse())
 	})
 
-	It("Should refuse the replace without update on a user", func(ctx SpecContext) {
+	DescribeTable("Should refuse the replace without each grant", func(
+		ctx SpecContext,
+		missing access.Action,
+		missingID func() resource.ID,
+	) {
 		u := createUser(ctx)
-		grant(ctx, access.ActionDelete, u.ResourceID(), from.ResourceID())
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), to.ResourceID())
-		grant(ctx, access.ActionUpdate, u.ResourceID(), holderID("a"))
+		grants := []struct {
+			action access.Action
+			id     resource.ID
+		}{
+			{access.ActionDelete, from.ResourceID()},
+			{access.ActionRetrieve, to.ResourceID()},
+			{access.ActionUpdate, holderID("a")},
+			{access.ActionUpdate, holderID("b")},
+		}
+		for _, g := range grants {
+			if g.action != missing || g.id != missingID() {
+				grant(ctx, g.action, u.ResourceID(), g.id)
+			}
+		}
 		Expect(replace(AuthedCtx(ctx, u), apienumeration.ReplaceRequest{
 			From: from.Key,
 			To:   to.Key,
-		})).Error().To(denied(u, access.ActionUpdate, holderID("b")))
+		})).Error().To(denied(u, missing, missingID()))
 		Expect(retrieveHolder(ctx, "a")).To(Equal(from.Key))
 		Expect(enumerationExists(ctx, from.Key)).To(BeTrue())
-	})
+	},
+		Entry("update on a user", access.ActionUpdate, func() resource.ID {
+			return holderID("b")
+		}),
+		Entry("retrieve on the replacement", access.ActionRetrieve, func() resource.ID {
+			return to.ResourceID()
+		}),
+		Entry("delete on the enumeration", access.ActionDelete, func() resource.ID {
+			return from.ResourceID()
+		}),
+	)
 
-	It("Should refuse the replace without retrieve on the replacement", func(
+	It("Should check retrieve on the replacement of an unused enumeration", func(
 		ctx SpecContext,
 	) {
+		unused := createEnumeration(ctx, "Pump")
 		u := createUser(ctx)
-		grant(ctx, access.ActionDelete, u.ResourceID(), from.ResourceID())
-		grant(ctx, access.ActionUpdate, u.ResourceID(), holderID("a"), holderID("b"))
+		grant(ctx, access.ActionDelete, u.ResourceID(), unused.ResourceID())
 		Expect(replace(AuthedCtx(ctx, u), apienumeration.ReplaceRequest{
-			From: from.Key,
+			From: unused.Key,
 			To:   to.Key,
 		})).Error().To(denied(u, access.ActionRetrieve, to.ResourceID()))
-		Expect(enumerationExists(ctx, from.Key)).To(BeTrue())
-	})
-
-	It("Should refuse the replace without delete on the enumeration", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), to.ResourceID())
-		grant(ctx, access.ActionUpdate, u.ResourceID(), holderID("a"), holderID("b"))
-		Expect(replace(AuthedCtx(ctx, u), apienumeration.ReplaceRequest{
-			From: from.Key,
-			To:   to.Key,
-		})).Error().To(denied(u, access.ActionDelete, from.ResourceID()))
-		Expect(retrieveHolder(ctx, "a")).To(Equal(from.Key))
+		Expect(enumerationExists(ctx, unused.Key)).To(BeTrue())
 	})
 })
 

@@ -19,7 +19,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
@@ -27,7 +27,6 @@ import { Tree } from "@/platform/tree";
 import {
   awaitGranted,
   awaitTextEditingElement,
-  CaptureStatuses,
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
@@ -73,7 +72,7 @@ const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   return shipped;
 };
 
-const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
+const renderEnumerations = async (): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -81,7 +80,6 @@ const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
         <HaulProvider>{children}</HaulProvider>
         <Modals.Stack />
       </Tree.Provider>
-      <CaptureStatuses onStatuses={onStatuses} />
     </Console>
   );
   await act(async () => {
@@ -389,19 +387,6 @@ describe("Enumeration.Settings", () => {
     expect((await core.enumerations.retrieve(from.key)).key).toEqual(from.key);
   });
 
-  it("should open delete as a narrow confirmation with selectable text", async () => {
-    const e = await createEnumeration();
-    await renderEnumerations();
-    await openContextMenu(e.name);
-    await clickAndSettle("Delete");
-    const message = await screen.findByText(/Are you sure you want to delete/);
-    const dialog = (await screen.findAllByRole("dialog")).find((d) =>
-      d.contains(message),
-    );
-    expect(dialog?.classList).toContain("console-confirm");
-    expect(message.parentElement?.classList).toContain("console-confirm__body");
-  });
-
   it("should delete an unused enumeration with no replace field", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
@@ -418,5 +403,21 @@ describe("Enumeration.Settings", () => {
     await clickWhenEnabled(dialog, "Delete");
     await waitForDialogToClose();
     await waitForDeleted(e.key);
+  });
+
+  it("should disable Cancel and Delete while the delete runs", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    await clickAndSettle("Delete");
+    const remove = await screen.findByRole("button", { name: "Delete" });
+    await waitFor(() => expect(remove.getAttribute("aria-disabled")).toBeNull());
+    act(() => {
+      fireEvent.click(remove);
+    });
+    expect(remove.getAttribute("aria-disabled")).toBe("true");
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel.getAttribute("aria-disabled")).toBe("true");
+    await waitForDialogToClose();
   });
 });
