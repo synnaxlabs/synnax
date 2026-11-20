@@ -36,10 +36,10 @@ func (s *Service) BuiltIns() Keys {
 
 // Declare finds the channel named ch.Name or creates ch, and makes its key a built-in
 // channel when the transaction commits. A channel of that name at the root, with the
-// data type and virtual flag of ch, becomes the built-in. Declare renames any other
-// channel of that name with the first free suffix (_2, _3) and writes a warning status
-// for it. Declare fills ch with the stored channel. It returns an error when another
-// built-in holds the name, or when ch is calculated.
+// data type and virtual flag of ch and no expression, becomes the built-in. Declare
+// renames any other channel of that name with the first free suffix (_2, _3) and writes
+// a warning status for it. Declare fills ch with the stored channel. It returns an
+// error when another built-in holds the name, or when ch is calculated.
 func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	if ch.IsCalculated() {
 		return errors.Wrapf(
@@ -56,7 +56,10 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 		return err
 	}
 	match := slices.IndexFunc(holders, func(h Channel) bool {
-		return h.Group == nil && h.DataType == ch.DataType && h.Virtual == ch.Virtual
+		return h.Group == nil &&
+			h.DataType == ch.DataType &&
+			h.Virtual == ch.Virtual &&
+			!h.IsCalculated()
 	})
 	for i, h := range holders {
 		if i == match {
