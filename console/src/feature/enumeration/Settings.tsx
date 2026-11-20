@@ -242,10 +242,8 @@ const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null 
 const menu = Component.renderProp(SettingsMenu);
 
 /**
- * Every enumeration, by name, with its entry count and uses. A click shows an
- * enumeration's entries under it, where they edit in place. A new enumeration opens
- * with Add entry focused. The menu renames, restores built-ins, or deletes other
- * enumerations.
+ * Every enumeration, by name, with its entry count and uses. A click shows its entries
+ * under it to edit in place. The menu renames, restores built-ins, or deletes the rest.
  */
 export const Settings = (): ReactElement => {
   const list = Flux.useList((client) => client.enumerations, {
@@ -258,7 +256,7 @@ export const Settings = (): ReactElement => {
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
   const [opened, setOpened] = useState<ReadonlySet<enumeration.Key>>(() => new Set());
   // The enumeration just created here, whose entries take focus when they first show.
-  // Focus in any entries clears it, so a later mount takes no focus.
+  // Focus in any entries or a search clears it, so a later mount takes no focus.
   const [created, setCreated] = useState<enumeration.Key>();
   const byKey = new Map(
     (records.variant === "success" ? records.data : []).map((e) => [e.key, e]),
@@ -285,10 +283,14 @@ export const Settings = (): ReactElement => {
     setOpen(key, true);
     setCreated(key);
   };
+  const handleSearch = (term: string): void => {
+    setCreated(undefined);
+    list.search(term);
+  };
   return (
     <ShippedContext value={shipped}>
       <PlatformSettings.Table<enumeration.Key, enumeration.Enumeration>
-        list={{ ...list, data: sorted.map((e) => e.key) }}
+        list={{ ...list, search: handleSearch, data: sorted.map((e) => e.key) }}
         columns={COLUMNS}
         noun="enumerations"
         menu={menu}

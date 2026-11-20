@@ -202,6 +202,26 @@ describe("Enumeration.Settings", () => {
     expect(document.activeElement).toBe(search);
   });
 
+  it("should not focus a hidden new enumeration that a search shows", async () => {
+    await renderEnumerations();
+    const search = screen.getByPlaceholderText("Search enumerations");
+    fireEvent.change(search, { target: { value: uniqueName("zzz") } });
+    const name = uniqueName("enumeration");
+    await clickAndSettle("Create enumeration");
+    const field = await screen.findByLabelText("Enumeration name");
+    fireEvent.change(field, { target: { value: name } });
+    await act(async () => {
+      fireEvent.keyDown(field, { key: "Enter" });
+    });
+    // The create form closes once the Core holds the new enumeration.
+    await waitFor(() => expect(field.isConnected).toBe(false));
+    act(() => search.focus());
+    fireEvent.change(search, { target: { value: name } });
+    await screen.findByRole("region", { name: `${name} entries` });
+    await act(async () => {});
+    expect(document.activeElement).toBe(search);
+  });
+
   it("should focus the entries of each new enumeration", async () => {
     await renderEnumerations();
     const first = await createThroughForm(uniqueName("enumeration"));
