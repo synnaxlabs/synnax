@@ -14,7 +14,6 @@ package task
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
 	"uuid"
 )
@@ -33,6 +32,9 @@ type Status = versions.Status
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
 type Task = versions.Task
+
+// Command is a command to execute on a task in the Driver system.
+type Command = versions.Command
 
 // KeyedConfig is the base for every stored task configuration record.
 type KeyedConfig = versions.KeyedConfig
@@ -114,23 +116,4 @@ type Where struct {
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Arcs matches the tasks that run any of the Arcs with the given keys.
 	Arcs []uuid.UUID `json:"arcs,omitzero" msgpack:"arcs,omitempty"`
-}
-
-// Command is a command to execute on a task in the Driver system.
-type Command struct {
-	// Task is the key of the target task.
-	Task Key `json:"task" msgpack:"task"`
-	// Type is the command type (e.g., 'start', 'stop', 'configure').
-	Type string `json:"type" msgpack:"type"`
-	// Key is a unique identifier for this command instance.
-	Key string `json:"key" msgpack:"key"`
-	// ConfigHash is the config hash the sender wants running. Empty when the sender
-	// does not know it. The Driver reuses its live instance when the hash matches and
-	// redeploys when it differs.
-	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
-	// Args contains optional arguments for the command.
-	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
-	// Pinned is true when the Driver must refuse a start whose config_hash differs from
-	// the hash of the stored config.
-	Pinned bool `json:"pinned" msgpack:"pinned"`
 }
