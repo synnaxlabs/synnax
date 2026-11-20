@@ -30,7 +30,6 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "async-mutex": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
     "react": "catalog:",

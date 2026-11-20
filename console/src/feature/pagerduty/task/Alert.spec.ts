@@ -42,11 +42,14 @@ afterEach(async () => {
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderAlert = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(PagerDuty.Task.Alert, {
-    client,
-    task: ZERO_DRAFT,
-    ...options,
-  });
+  const rendered = await renderTaskFormTab(
+    PagerDuty.Task.FORMS[PagerDuty.Task.ALERT_TYPE],
+    {
+      client,
+      task: ZERO_DRAFT,
+      ...options,
+    },
+  );
   await awaitEditableForm();
   return rendered;
 };
