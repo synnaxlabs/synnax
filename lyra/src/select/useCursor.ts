@@ -220,7 +220,7 @@ export const useCursor = <K extends record.Key>(
     // The order reads the DOM, so the server has no target.
     () => undefined,
   );
-  const place = (key: K): void => {
+  const place = (key: K | undefined): void => {
     movedRef.current = key;
     listenersRef.current.forEach((listener) => listener());
   };
@@ -228,6 +228,10 @@ export const useCursor = <K extends record.Key>(
   const enabledRef = useSyncedRef<Triggers.Condition>(
     enableTriggers ?? (hovering ? visible : true),
   );
+  // A hover lasts one open. The first arrow key of the next moves on from the choice.
+  useEffect(() => {
+    if (hovering && !visible && movedRef.current != null) place(undefined);
+  }, [hovering, visible, place]);
 
   const moveTo = (key: K, direction: location.Y): void => {
     if (selection != null) movedFromRef.current = selection.selected;

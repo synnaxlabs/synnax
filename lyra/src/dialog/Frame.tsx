@@ -523,7 +523,7 @@ export const Frame = ({
     toggle,
     toggleAt,
     visible,
-    placed: visible && (variant === "modal" || Object.keys(style).length > 0),
+    placed: visible && (variant === "modal" || hasPlacement),
     onPointerEnter,
     variant,
     location: targetCorner,
