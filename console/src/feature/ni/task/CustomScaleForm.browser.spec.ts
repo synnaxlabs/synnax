@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({
-  engine: "tauri",
-}));
+const mocks = vi.hoisted(
+  (): { engine: "web" | "tauri"; files: Map<string, string> } => ({
+    engine: "tauri",
+    files: new Map(),
+  }),
+);
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -25,16 +24,17 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 
 vi.mock("@tauri-apps/api/path", () => ({ sep: vi.fn(() => "/") }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
-// The Tauri fs plugin is an unmockable IPC seam in jsdom; route it to the real node
-// filesystem so the specs exercise genuine file reads.
-vi.mock("@tauri-apps/plugin-fs", async () => {
-  const { readFile } = await import("node:fs/promises");
-  return {
-    readDir: vi.fn(),
-    readFile: vi.fn(async (path: string) => new Uint8Array(await readFile(path))),
-    readTextFile: vi.fn(),
-  };
-});
+// The Tauri fs plugin is an IPC seam with no backend in a spec, so it reads the files
+// that a spec picks.
+vi.mock("@tauri-apps/plugin-fs", () => ({
+  readDir: vi.fn(),
+  readFile: vi.fn(async (path: string) => {
+    const contents = mocks.files.get(path);
+    if (contents == null) throw new Error(`no file at ${path}`);
+    return new TextEncoder().encode(contents);
+  }),
+  readTextFile: vi.fn(),
+}));
 
 import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
@@ -63,15 +63,12 @@ const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {
   config: NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
 };
 
-let dir: string;
-
-beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), "console-ni-scale-spec-"));
-});
-
-afterAll(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+/** Puts a CSV file at the path that the next file dialog picks. */
+const pickCSV = (name: string, contents: string): void => {
+  const path = `/scale-spec/${name}`;
+  mocks.files.set(path, contents);
+  openMock.mockResolvedValue(path);
+};
 
 beforeEach(() => {
   mocks.engine = "tauri";
@@ -116,9 +113,7 @@ describe("CustomScaleForm", () => {
   });
 
   it("should populate the column selects from a loaded table CSV", async () => {
-    const csvPath = join(dir, "table.csv");
-    await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,30\n");
-    openMock.mockResolvedValue(csvPath);
+    pickCSV("table.csv", "raw_col,scaled_col\n1,10\n2,20\n3,30\n");
     await renderWithScale(NI.Task.createScale("table"));
     await screen.findByText("Table CSV");
     fireEvent.click(screen.getByText("Select file"));
@@ -128,9 +123,7 @@ describe("CustomScaleForm", () => {
   });
 
   it("should let the scaled column be reassigned after a load", async () => {
-    const csvPath = join(dir, "table2.csv");
-    await writeFile(csvPath, "col_a,col_b,col_c\n1,10,100\n2,20,200\n");
-    openMock.mockResolvedValue(csvPath);
+    pickCSV("table2.csv", "col_a,col_b,col_c\n1,10,100\n2,20,200\n");
     await renderWithScale(NI.Task.createScale("table"));
     await screen.findByText("Table CSV");
     fireEvent.click(screen.getByText("Select file"));
@@ -203,9 +196,11 @@ describe("CustomScaleForm", () => {
       await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(1));
       const cell = getInputTable("Values").cell(0, 0);
       fireEvent.focus(cell);
-      fireEvent.paste(cell, {
-        clipboardData: { getData: () => "1\t10\n2\t20\n3\t30" },
-      });
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", "1\t10\n2\t20\n3\t30");
+      // fireEvent.paste copies only own properties onto a new DataTransfer, which
+      // drops the data set above.
+      fireEvent(cell, new ClipboardEvent("paste", { clipboardData, bubbles: true }));
       await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(3));
       const table = getInputTable("Values");
       expect(table.cell(2, 0).value).toBe("3");
@@ -213,9 +208,7 @@ describe("CustomScaleForm", () => {
     });
 
     it("should reject a CSV with an empty cell", async () => {
-      const csvPath = join(dir, "ragged.csv");
-      await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,\n3,30\n");
-      openMock.mockResolvedValue(csvPath);
+      pickCSV("ragged.csv", "raw_col,scaled_col\n1,10\n2,\n3,30\n");
       await renderWithScale(NI.Task.createScale("table"));
       await screen.findByText("Table CSV");
       fireEvent.click(screen.getByText("Select file"));
@@ -224,9 +217,7 @@ describe("CustomScaleForm", () => {
     });
 
     it("should load the chosen columns of a CSV whose other column is longer", async () => {
-      const csvPath = join(dir, "notes.csv");
-      await writeFile(csvPath, "raw_col,scaled_col,notes\n1,10,a\n2,20,b\n,,c\n");
-      openMock.mockResolvedValue(csvPath);
+      pickCSV("notes.csv", "raw_col,scaled_col,notes\n1,10,a\n2,20,b\n,,c\n");
       await renderWithScale(NI.Task.createScale("table"));
       await screen.findByText("Table CSV");
       fireEvent.click(screen.getByText("Select file"));
@@ -235,9 +226,7 @@ describe("CustomScaleForm", () => {
     });
 
     it("should reject a CSV whose chosen column ends early", async () => {
-      const csvPath = join(dir, "short.csv");
-      await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,\n");
-      openMock.mockResolvedValue(csvPath);
+      pickCSV("short.csv", "raw_col,scaled_col\n1,10\n2,20\n3,\n");
       await renderWithScale(NI.Task.createScale("table"));
       await screen.findByText("Table CSV");
       fireEvent.click(screen.getByText("Select file"));
@@ -248,9 +237,7 @@ describe("CustomScaleForm", () => {
     });
 
     it("should load a CSV with quoted fields", async () => {
-      const csvPath = join(dir, "quoted.csv");
-      await writeFile(csvPath, '"raw_col","scaled_col"\n"1","10"\n"2","20"\n');
-      openMock.mockResolvedValue(csvPath);
+      pickCSV("quoted.csv", '"raw_col","scaled_col"\n"1","10"\n"2","20"\n');
       await renderWithScale(NI.Task.createScale("table"));
       await screen.findByText("Table CSV");
       fireEvent.click(screen.getByText("Select file"));
@@ -275,9 +262,7 @@ describe("CustomScaleForm", () => {
     });
 
     it("should show the values loaded from a CSV", async () => {
-      const csvPath = join(dir, "table3.csv");
-      await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,30\n");
-      openMock.mockResolvedValue(csvPath);
+      pickCSV("table3.csv", "raw_col,scaled_col\n1,10\n2,20\n3,30\n");
       await renderWithScale(NI.Task.createScale("table"));
       await screen.findByText("Table CSV");
       fireEvent.click(screen.getByText("Select file"));
