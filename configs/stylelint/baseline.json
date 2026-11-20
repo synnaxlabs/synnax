@@ -257,7 +257,6 @@
       "lyra-text--p"
     ],
     "site/docs/src/styles/pluto.css": [
-      "lyra--visible",
       "lyra-caret",
       "lyra-dialog__bg",
       "lyra-dialog__dialog",
