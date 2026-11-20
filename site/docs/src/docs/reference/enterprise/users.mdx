@@ -1,0 +1,206 @@
+---
+title: "Users"
+description:
+  "Register users, give each one a role, set passwords and API keys, and remove users.
+  Includes the permissions of each role."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@/components/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Each person who uses a Synnax Core logs in as a user. Each user holds one role, and the
+role sets what the user can see and change. Only users with the **Owner** role can
+register, change, or delete users.
+
+Owners manage users on the **Users** page of Settings. Click <Icon.Settings /> in the
+top bar to open Settings, then select **Users**. Synnax Desktop has one user and no
+**Users** page.
+
+<Divider.Divider x />
+
+## Register a user
+
+1. Click **Register user** on the **Users** page, or run the "Register user" command.
+2. Enter the **Name**, **Username**, and **Password**.
+3. Select a **Role**.
+4. Click **Register**.
+
+Give the username and password to the person. They can log in at once.
+
+<Video id="console/users/register" label="Register a user on the Users page" />
+
+<Divider.Divider x />
+
+## Change a role
+
+On the **Users** page, select a new role in the **Role** column of the user. The new
+role replaces the user's role at once. You cannot change your own role or the role of
+the root user.
+
+<Video
+  id="console/users/modal-change-role"
+  label="Change the role of a user on the Users page"
+/>
+
+<Divider.Divider x />
+
+## Rename a user
+
+On the **Users** page, right-click the user and select **Rename**. Rename changes the
+name that the Console shows, not the username. To rename yourself, go to the **Profile**
+page of Settings. To change a username, see
+[manage users from code](#manage-users-from-code).
+
+<Divider.Divider x />
+
+## Delete users
+
+1. On the **Users** page, select one or more users.
+2. Right-click and select **Delete**, then click **Delete** to confirm.
+
+You cannot delete yourself or the root user. Deleting a user ends all of that user's
+sessions at once.
+
+<Divider.Divider x />
+
+## Manage sign-in
+
+The **Sign-in** dialog sets the password of a user and holds the API keys of the user.
+An Owner can open it for any user: on the **Users** page, right-click the user and
+select **Manage sign-in**. To set your own password or API keys, go to the **Profile**
+or **API keys** page of Settings.
+
+<Video
+  id="console/users/manage-credentials"
+  label="Set a password and create an API key in the sign-in dialog"
+/>
+
+### Set a password
+
+1. In the **Sign-in** dialog, under **Password**, enter the **New password**. For your
+   own user, also enter the **Current password**.
+2. Click **Set password**.
+
+A new password ends every session that the old password opened. A password cannot be
+empty, and it has no maximum length. To reset a forgotten password, an Owner sets a new
+one.
+
+### Create an API key
+
+A script or a Driver can log in with an API key instead of a password.
+
+1. In the **Sign-in** dialog, under **API keys**, enter a **Key name**.
+2. Click **Create key**.
+3. Copy the key. The Core does not show it again.
+
+The key acts as its user, with the same role. To use it, see
+[connect a client](/reference/client/connect). To delete a key, click <Icon.Delete />
+next to it. Deleting a key ends its sessions.
+
+<Divider.Divider x />
+
+## Manage users from code
+
+Create a user with a role:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
+user = client.users.create(
+    username="jdoe", password="secret", name="Jane Doe", role=engineer.key
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const roles = await client.access.roles.retrieve({});
+const engineer = roles.find((r) => r.name === "Engineer");
+if (engineer == null) throw new Error("the Core has no Engineer role");
+const user = await client.users.create({
+  username: "jdoe",
+  password: "secret",
+  name: "Jane Doe",
+  role: engineer.key,
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+To give users a different role, call `client.users.set_role(keys, role)` in Python or
+`client.users.setRole(keys, role)` in TypeScript. The new role replaces the role of each
+user. To change a username, call `client.users.change_username(key, username)` in Python
+or `client.users.changeUsername(key, username)` in TypeScript. To delete users, call
+`client.users.delete` with their keys.
+
+To set a password in TypeScript, call `client.auth.setPassword({ subject, password })`.
+Leave out `subject` and add `currentPassword` to set your own. To create an API key,
+call `client.auth.create_key(name, subject)` in Python or
+`client.auth.createKey({ name, subject })` in TypeScript.
+
+You cannot delete a role that a user holds. First give its users a different role.
+
+<Divider.Divider x />
+
+## The root user
+
+A Core starts with one root user, `synnax` with the password `seldon` by default. The
+root user always has the **Owner** role. At each start, the Core:
+
+- Creates the root user from `--username` and `--password` if no user has that username.
+  If a user has it, the Core makes that user the root user with the **Owner** role.
+- Sets the root password back to `--password`. A changed root password lasts only until
+  the next start.
+
+When you start the Core with a different `--username`, the previous root user stops
+being root but keeps the **Owner** role and its password. To remove it, delete it.
+
+<Note.Note variant="warning">
+  Do not change the username of the root user. At the next start, the Core creates a new
+  root user, and the renamed user keeps the **Owner** role.
+</Note.Note>
+
+To change the root password for good, or to recover a forgotten one, restart the Core
+with a new `--password`. See the
+[CLI reference](/reference/enterprise/cli-reference#start).
+
+<Divider.Divider x />
+
+## Roles
+
+A Core has five roles. **All** means create, read, change, and delete.
+
+| Resources                                     | Owner | Engineer | Operator | Driver          | Viewer |
+| --------------------------------------------- | ----- | -------- | -------- | --------------- | ------ |
+| Channels                                      | All   | All      | Read     | Read            | Read   |
+| Ranges                                        | All   | All      | All      | All             | Read   |
+| Live data                                     | All   | All      | All      | Read and write  | Read   |
+| Drivers                                       | All   | All      | Read     | Read and change | Read   |
+| Devices, tasks, Arc automations, and statuses | All   | All      | Read     | All             | Read   |
+| Projects, visualizations, and labels          | All   | All      | Read     | None            | Read   |
+| Users and roles                               | All   | Read     | Read     | None            | Read   |
+
+- **Owner** -> runs the deployment and manages users.
+- **Engineer** -> sets up channels, hardware, automations, and visualizations.
+- **Operator** -> runs tests: writes live data to control hardware, and edits ranges. An
+  Operator cannot create visualizations.
+- **Driver** -> given to each rack, so a Driver logs in as its rack. It can change its
+  rack, but cannot create or delete racks.
+- **Viewer** -> sees everything and changes nothing.
+
+An upgrade from v0.60 or earlier gives each user that held no role a new **No access**
+role, which grants no permissions. A user that held several roles keeps the one that
+grants the most access.
