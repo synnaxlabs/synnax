@@ -944,15 +944,20 @@ the session lacks is skipped whole, as today (`cesium/writer_stream.go:687-693`)
 data lands at another session's stamps, and a narrowed `EndDomain` still reports that
 the session is not authorized; and the framer names to `EndDomain` only the indexes
 whose groups it fully controls, so a write or a commit never reaches a channel that
-another session controls; Phase 6 drops the keys. One clock per writer and the refusal
-of an overlapping writer (§5.8) arrive with Phase 6. Phase 6 builds the log, heads,
-`Sync` and the framer's call to it, recovery, the state owner, the handle budget,
-version 1 segments, and replay from a run key, behind a Cesium open option that keeps
-the old layout the default. Phase 7 builds parts, versions 0 and 2, tombstones,
-compaction, the conversion with a crash test at each of its steps, the backup change,
-and `synnax repair` (§6.1), and makes the new layout the only one that opens. RFC 0117
-Phase 8 deletes the old code, except the old-layout reader of the conversion. Phase 5
-comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
+another session controls. From Phase 6 the framer opens one Cesium writer per live
+clock, for the session that holds the clock, over that session's keys on it. A handoff
+of the clock closes that writer (a `Sync`, then a Seal) and opens one for the new
+holder, as one event, at one sealed segment and one new stretch. The predicate stays for
+data channels that the holder lacks, until RFC 0117 Phase 6 gives each control writer
+its own clock. One clock per writer and the refusal of an overlapping writer (§5.8)
+arrive with Phase 6. Phase 6 builds the log, heads, `Sync` and the framer's call to it,
+recovery, the state owner, the handle budget, version 1 segments, and replay from a run
+key, behind a Cesium open option that keeps the old layout the default. Phase 7 builds
+parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test at
+each of its steps, the backup change, and `synnax repair` (§6.1), and makes the new
+layout the only one that opens. RFC 0117 Phase 8 deletes the old code, except the
+old-layout reader of the conversion. Phase 5 comes after RFC 0117 Phases 1 and 2, and
+RFC 0117 Phases 6 to 8 come after Phase 7.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                       | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
