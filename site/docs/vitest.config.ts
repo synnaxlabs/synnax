@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import react from "@astrojs/react";
+import { CDN } from "@synnaxlabs/site-common/cdn";
 import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import { getViteConfig } from "astro/config";
@@ -59,7 +60,7 @@ const config: ViteUserConfigFn = getViteConfig(
   {
     root: import.meta.dirname,
     configFile: false,
-    image: { domains: ["synnax.nyc3.cdn.digitaloceanspaces.com"] },
+    image: { domains: [new URL(CDN).hostname] },
     integrations: [react()],
   },
 );

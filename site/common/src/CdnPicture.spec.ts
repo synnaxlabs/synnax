@@ -13,13 +13,13 @@ import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
+import { CDN } from "./cdn";
 import CdnPicture from "./CdnPicture.astro";
 import { stubImageSize } from "./testutil/image";
 
-const SRC = "https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/images/hero.png";
+const SRC = `${CDN}/landing/images/hero.png`;
 
-const DARK =
-  "https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/images/hero-dark.png";
+const DARK = `${CDN}/landing/images/hero-dark.png`;
 
 interface Rendered {
   sources: HTMLSourceElement[];
