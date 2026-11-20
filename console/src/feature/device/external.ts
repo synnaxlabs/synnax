@@ -14,7 +14,7 @@ import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { OPCUA } from "@/feature/opcua";
 import { Sift } from "@/feature/sift";
-import { type Command } from "@/platform/command";
+import type { Command } from "@/platform/command";
 
 export * from "@/feature/device/Connect";
 export { INTEGRATIONS } from "@/feature/device/integrations";

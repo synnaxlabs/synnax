@@ -9,7 +9,7 @@
 
 // @vitest-environment node
 
-import { type Element, type Root } from "hast";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 

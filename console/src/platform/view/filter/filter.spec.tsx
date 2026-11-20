@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { deep, filter, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 

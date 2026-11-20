@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type ranger } from "@synnaxlabs/client";
+import type { color, ranger } from "@synnaxlabs/client";
 import { Color as Base } from "@synnaxlabs/lyra/color";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";

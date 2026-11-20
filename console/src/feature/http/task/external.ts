@@ -9,7 +9,7 @@
 
 import { READ_TYPE, WRITE_TYPE } from "@/feature/http/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/http/task/commands";
 export * from "@/feature/http/task/create";

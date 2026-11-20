@@ -15,7 +15,7 @@ import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/test
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, color, id } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base, type BaseProps } from "@/log/Base";

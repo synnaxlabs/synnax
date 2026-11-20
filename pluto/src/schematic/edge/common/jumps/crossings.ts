@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 
-import { type Path } from "@/schematic/edge/common/path";
+import type { Path } from "@/schematic/edge/common/path";
 
 /// @brief an edge's polyline, widths, and render order; higher order paints on top.
 export interface Polyline {

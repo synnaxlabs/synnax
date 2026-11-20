@@ -9,9 +9,9 @@
 
 import { array, type patch, type record } from "@synnaxlabs/x";
 
-import { type actions } from "@/actions";
-import { type batch } from "@/batch";
-import { type Key } from "@/group/types.gen";
+import type { actions } from "@/actions";
+import type { batch } from "@/batch";
+import type { Key } from "@/group/types.gen";
 
 /** A record that can sit in a group. */
 export interface Member {

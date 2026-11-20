@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, type record } from "@synnaxlabs/x";
+import type { errors, record } from "@synnaxlabs/x";
 
 /** Main → worker: create or update the component at `path`. */
 export interface MainUpdateRequest {

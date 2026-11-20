@@ -14,7 +14,7 @@ import { onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { createRunningRack } from "@/platform/device/testutil";
-import { type Listing } from "@/platform/file-browser/list";
+import type { Listing } from "@/platform/file-browser/list";
 import { answerCommand } from "@/platform/task/testutil";
 
 /** A running rack and its file browser task. */

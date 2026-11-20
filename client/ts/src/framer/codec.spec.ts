@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type WebsocketMessage } from "@synnaxlabs/freighter";
+import type { WebsocketMessage } from "@synnaxlabs/freighter";
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { Codec, WSIteratorCodec, WSStreamerCodec, WSWriterCodec } from "@/framer/codec";
 import { ValidationError } from "@/index";

@@ -9,7 +9,7 @@
 
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 /** ActiveTag marks a daily active user: one active on the UTC day of today. */
 export const ActiveTag = (): ReactElement => (

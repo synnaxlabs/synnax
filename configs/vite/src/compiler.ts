@@ -22,7 +22,7 @@ import babel, {
 } from "@rolldown/plugin-babel";
 import { plugins } from "@synnaxlabs/eslint-config/compiler";
 import { defineParallelPlugin } from "rolldown/experimental";
-import { type PluginOption, type ResolvedConfig } from "vite";
+import type { PluginOption, ResolvedConfig } from "vite";
 
 import { COMPILER, DIST, OPTIONS, STRICT } from "./parallel.js";
 

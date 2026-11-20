@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license } from "@synnaxlabs/client";
+import type { license } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -15,7 +15,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Account } from "@/feature/account";
-import { type License } from "@/platform/license";
+import type { License } from "@/platform/license";
 import { Session } from "@/session";
 import { renderHookWithConsole, type TestStore } from "@/testutil";
 

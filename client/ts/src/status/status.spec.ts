@@ -13,7 +13,7 @@ import z from "zod";
 
 import { channel } from "@/channel";
 import { DataType, NotFoundError } from "@/index";
-import { type query } from "@/query";
+import type { query } from "@/query";
 import { status } from "@/status";
 import {
   createTestClient,

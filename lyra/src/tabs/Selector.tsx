@@ -19,7 +19,7 @@ import {
   useState,
 } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";

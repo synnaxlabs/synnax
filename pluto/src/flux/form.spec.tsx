@@ -9,11 +9,11 @@
 
 import { label, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Form } from "@synnaxlabs/lyra/form";
+import type { Form } from "@synnaxlabs/lyra/form";
 import { color, deep, TimeSpan } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
