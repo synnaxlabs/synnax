@@ -3238,13 +3238,57 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(f.Get(data).Len()).To(Equal(dataLen))
 						},
 						Entry(
-							"commit neither when the index samples are lost",
+							"commit the index and the data after control comes back",
 							func(w1, w2 *cesium.Writer, _, _ cesium.ChannelKey) {
 								Expect(w2.Close()).To(Succeed())
-								MustSucceed2(w1.Commit())
+								_, authorized := MustSucceed2(w1.Commit())
+								Expect(authorized).To(BeTrue())
 								Expect(w1.Close()).To(Succeed())
 							},
-							int64(0), int64(0),
+							int64(4), int64(4),
+						),
+						Entry(
+							"commit the index and the data after a refused write",
+							func(w1, w2 *cesium.Writer, idx, data cesium.ChannelKey) {
+								Expect(w1.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx, data},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(14),
+										telem.NewSeriesV[int64](5),
+									},
+								))).To(BeFalse())
+								Expect(w2.Close()).To(Succeed())
+								_, authorized := MustSucceed2(w1.Commit())
+								Expect(
+									authorized,
+								).To(BeFalse(), "the commit reports the refused write")
+								Expect(w1.Close()).To(Succeed())
+							},
+							int64(4), int64(4),
+						),
+						Entry(
+							"commit the data on a retry after a refused write",
+							func(w1, w2 *cesium.Writer, idx, data cesium.ChannelKey) {
+								Expect(w1.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx, data},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(20),
+										telem.NewSeriesV[int64](5),
+									},
+								))).To(BeFalse())
+								Expect(w2.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx},
+									[]telem.Series{telem.NewSeriesSecondsTSV(14)},
+								))).To(BeTrue())
+								MustSucceed2(w2.Commit())
+								Expect(w2.Close()).To(Succeed())
+								_, authorized := MustSucceed2(w1.Commit())
+								Expect(
+									authorized,
+								).To(BeFalse(), "the commit reports the refused write")
+								Expect(w1.Close()).To(Succeed())
+							},
+							int64(5), int64(4),
 						),
 						Entry(
 							"commit the data on a retry after another writer commits the index",

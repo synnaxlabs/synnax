@@ -541,8 +541,9 @@ type idxWriter struct {
 	// successful commit. This prevents stale commits when a control transfer
 	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
 	hasUncommittedData bool
-	// dataPending is true when a refused index commit held back the data channels.
-	// Commit retries them once another controller commits the index samples.
+	// dataPending is true when a refused index commit or write held back the data.
+	// Commit retries them once this writer controls the index again, or once another
+	// controller commits the index samples.
 	dataPending bool
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
@@ -722,6 +723,9 @@ func (w *idxWriter) write(
 		fr.SetRawSeriesAt(i, series)
 	}
 	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+		if idx.unauthorized && w.hasUncommittedData {
+			w.dataPending = true
+		}
 		w.hasUncommittedData = false
 	}
 	return fr, accumulatedErr
@@ -811,10 +815,18 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 		return w.lastCommitEnd, nil
 	}
 	if !w.hasUncommittedData {
-		if w.dataPending {
+		if !w.dataPending {
+			return w.lastCommitEnd, nil
+		}
+		// Another controller that committed the index also committed this writer's
+		// samples in it. Otherwise this writer commits the index and the data itself.
+		held, err := w.indexHoldsHighWater(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if held {
 			return w.commitPendingData(ctx)
 		}
-		return w.lastCommitEnd, nil
 	}
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
@@ -849,20 +861,19 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return end.Lower, nil
 }
 
-// commitPendingData commits the data channels that a refused index commit held back,
-// once the index holds the group's last sample. It never commits the index again: the
-// controller that committed it may have moved its commit end past this writer's.
-func (w *idxWriter) commitPendingData(ctx context.Context) (telem.TimeStamp, error) {
+func (w *idxWriter) indexHoldsHighWater(ctx context.Context) (bool, error) {
 	end := w.idx.highWaterMark + 1
 	covered, _, err := w.idx.Coverage(ctx, w.idx.highWaterMark.Range(end))
-	if err != nil {
-		return 0, err
-	}
-	if covered < end {
-		return w.lastCommitEnd, nil
-	}
+	return covered >= end, err
+}
+
+// commitPendingData commits the data channels that a refused index commit held back.
+// It never commits the index: the controller that committed it may have moved its
+// commit end past this writer's.
+func (w *idxWriter) commitPendingData(ctx context.Context) (telem.TimeStamp, error) {
+	end := w.idx.highWaterMark + 1
 	defer w.group.Publish()
-	err = w.commitData(ctx, end)
+	err := w.commitData(ctx, end)
 	if err == nil || errors.Is(err, xcontrol.ErrUnauthorized) {
 		w.dataPending = false
 	}
