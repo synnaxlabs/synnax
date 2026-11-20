@@ -155,7 +155,7 @@ Invoke-WebRequest https://get.pnpm.io/install.ps1 -UseBasicParsing | Invoke-Expr
 Open a new shell, then install Node.js with
 
 ```powershell
-pnpm runtime set node 24 -g
+pnpm runtime set node 26 -g
 ```
 
 Verify both installations by running
@@ -169,7 +169,7 @@ The output should look something like
 
 ```text
 12.14.0
-v24.22.0
+v26.13.1
 ```
 
 pnpm reads the versions this repository needs from the `devEngines` field in the root

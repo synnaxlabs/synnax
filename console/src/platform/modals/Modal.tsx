@@ -11,7 +11,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Modal as Base } from "@synnaxlabs/lyra/modal";
 import { Errors as PErrors } from "@synnaxlabs/pluto";
-import { memo, type ReactElement, useLayoutEffect } from "react";
+import { type ReactElement, useLayoutEffect } from "react";
 
 import { Errors } from "@/platform/errors";
 import { type Session } from "@/session";
@@ -45,7 +45,7 @@ const Fallback = (props: PErrors.FallbackProps): ReactElement => (
 
 interface ModalProps extends Session.Modals.Entry {}
 
-export const Modal = memo(({ dismiss, render, setBusy }: ModalProps): ReactElement => {
+export const Modal = ({ dismiss, render, setBusy }: ModalProps): ReactElement => {
   const handleDismiss = () => dismiss();
   return (
     <Dialog.Frame
@@ -61,5 +61,5 @@ export const Modal = memo(({ dismiss, render, setBusy }: ModalProps): ReactEleme
       </BusyContext>
     </Dialog.Frame>
   );
-});
+};
 Modal.displayName = "Modal";
