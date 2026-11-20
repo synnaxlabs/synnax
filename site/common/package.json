@@ -57,6 +57,7 @@
     "react-dom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

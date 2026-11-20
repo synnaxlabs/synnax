@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { runInThisContext } from "node:vm";
+
 import reactRenderer from "@astrojs/react/server.js";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import Analytics from "./Analytics.astro";
-import { hash, jitless, policy } from "./csp";
+import { hash, JITLESS, jitless, policy } from "./csp";
 
 describe("csp", () => {
   describe("hash", () => {
@@ -111,14 +114,17 @@ describe("csp", () => {
   });
 
   describe("jitless", () => {
-    it("should turn on jitless before islands hydrate", () => {
+    it("should run JITLESS in the head of every page", () => {
       const scripts: [string, string][] = [];
       jitless().hooks["astro:config:setup"]({
         injectScript: (stage, content) => scripts.push([stage, content]),
       });
-      expect(scripts).toEqual([
-        ["before-hydration", 'import { z } from "zod"; z.config({ jitless: true });'],
-      ]);
+      expect(scripts).toEqual([["head-inline", JITLESS]]);
+    });
+
+    it("should turn on Zod's jitless mode", () => {
+      runInThisContext(JITLESS);
+      expect(z.config().jitless).toBe(true);
     });
   });
 });

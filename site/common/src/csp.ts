@@ -123,7 +123,13 @@ export const policy = ({
   };
 };
 
-/** jitless stops Zod's probe for eval, which the policy refuses, before islands run. */
+/**
+ * JITLESS turns on Zod's jitless mode, so Zod never probes for eval, which the policy
+ * refuses. Zod keeps its config on `globalThis`, so the script works before Zod loads.
+ */
+export const JITLESS = "(globalThis.__zod_globalConfig ??= {}).jitless = true;";
+
+/** jitless runs `JITLESS` in the head of every page, before any module. */
 export const jitless = () =>
   ({
     name: "@synnaxlabs/site-common/jitless",
@@ -131,10 +137,7 @@ export const jitless = () =>
       "astro:config:setup": ({
         injectScript,
       }: Pick<HookParameters<"astro:config:setup">, "injectScript">) =>
-        injectScript(
-          "before-hydration",
-          'import { z } from "zod"; z.config({ jitless: true });',
-        ),
+        injectScript("head-inline", JITLESS),
     },
   }) satisfies AstroIntegration;
 
