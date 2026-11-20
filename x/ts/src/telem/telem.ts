@@ -171,7 +171,7 @@ export class TimeStamp
   }
 
   /** @returns the timestamp as nanoseconds since the Unix epoch. */
-  valueOf(): bigint {
+  override valueOf(): bigint {
     return this.value;
   }
 
@@ -483,7 +483,10 @@ export class TimeStamp
   }
 
   /** @returns the timestamp formatted per format, defaulting to ISO in UTC. */
-  toString(format: TimestampFormat = "ISO", timeZone: TimeZone = "UTC"): string {
+  override toString(
+    format: TimestampFormat = "ISO",
+    timeZone: TimeZone = "UTC",
+  ): string {
     switch (format) {
       case "ISODate":
         return this.toISOString(timeZone).slice(0, 10);
@@ -583,9 +586,11 @@ export class TimeStamp
       return new TimeStamp(new Date(ms)).add(new TimeSpan(sub));
     }
     const [datePart, ...timeParts] = trimmed.split(/[T ]/);
-    const date = DATE_RE.exec(datePart);
+    const date = datePart == null ? null : DATE_RE.exec(datePart);
     if (date == null) return null;
-    const [year, month, day] = date.slice(1).map(Number);
+    const year = Number(date[1]);
+    const month = Number(date[2]);
+    const day = Number(date[3]);
     let [hour, minute, second, fraction] = [0, 0, 0, 0n];
     if (timeParts.length > 0) {
       const time = TIME_OF_DAY_RE.exec(timeParts.join(" "));
@@ -747,7 +752,11 @@ export class TimeSpan
       const match = UNIT_RUN_RE.exec(rest);
       if (match == null) return null;
       const [whole, amount, unit] = match;
-      const span = CASED_SPAN_UNITS[unit] ?? SPAN_UNITS[unit.toLowerCase()];
+      const span =
+        unit == null
+          ? undefined
+          : (CASED_SPAN_UNITS[unit] ?? SPAN_UNITS[unit.toLowerCase()]);
+      if (span == null) return null;
       total = total.add(span.mult(Number(amount)));
       rest = rest.slice(whole.length);
     }
@@ -765,7 +774,7 @@ export class TimeSpan
   }
 
   /** @returns the span as a count of nanoseconds. */
-  valueOf(): bigint {
+  override valueOf(): bigint {
     return this.value;
   }
 
@@ -810,7 +819,7 @@ export class TimeSpan
    * @param format - "full" prints every non-zero unit ("2d 3h 45min 12s 500ms"),
    * "semantic" prints the one or two most significant ("2d 3h"). Defaults to "full".
    */
-  toString(format: TimeSpanStringFormat = "full"): string {
+  override toString(format: TimeSpanStringFormat = "full"): string {
     if (format === "semantic") return this.toSemanticString();
 
     const totalDays = this.truncate(TimeSpan.DAY);
@@ -1098,7 +1107,7 @@ export class Rate
   }
 
   /** @returns a pretty string representation of the rate in the format "X Hz". */
-  toString(): string {
+  override toString(): string {
     return `${this.valueOf()} Hz`;
   }
 
@@ -1463,7 +1472,7 @@ export class DataType
 
   /** @returns a string representation of the DataType. If short is true, a 1-4
    * character representation (i64, str, etc.) is returned instead. */
-  toString(short: boolean = false): string {
+  override toString(short: boolean = false): string {
     if (short) return DataType.SHORT_STRINGS.get(this.valueOf()) ?? this.valueOf();
     return this.valueOf();
   }
@@ -1762,7 +1771,7 @@ export class Size extends ValueExtension<number> implements primitive.Stringer {
   }
 
   /** @returns a nicely formatted string representation of the Size. */
-  toString(): string {
+  override toString(): string {
     const totalTB = this.truncate(Size.TERABYTE);
     const totalGB = this.truncate(Size.GIGABYTE);
     const totalMB = this.truncate(Size.MEGABYTE);

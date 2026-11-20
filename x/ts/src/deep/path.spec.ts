@@ -62,5 +62,10 @@ describe("path utilities", () => {
     it("should get first element", () => {
       expect(deep.element("a.b.c", 0)).toEqual("a");
     });
+
+    it("should throw for an index past the end", () => {
+      expect(() => deep.element("a.b.c", 3)).toThrow("no part at index 3");
+      expect(() => deep.element("a.b.c", -4)).toThrow("no part at index -4");
+    });
   });
 });

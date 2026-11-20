@@ -39,9 +39,9 @@ interface RenderResult extends Omit<RTLRenderResult, "rerender"> {
 // Stands in for the scale worker component that draws the tank's fill.
 class StubScale extends aether.Leaf<typeof state> {
   static readonly TYPE = "scale";
-  schema = state;
+  override schema = state;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     updated(this.state.cornerRadii);
   }
 }
