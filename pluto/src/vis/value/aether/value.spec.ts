@@ -402,6 +402,23 @@ describe("value/aether/Value", () => {
       expect(fillStyles(recorder)).toContain(color.hex(stale));
     });
 
+    it("should keep its own color while the stale color is hidden", () => {
+      const stale = color.construct("#ff0000");
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("1");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).not.toContain(color.hex(stale));
+    });
+
     it("should fall back to the warning color when no staleness color is set", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },

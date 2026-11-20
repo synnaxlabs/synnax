@@ -54,13 +54,20 @@ export const BaseSwatch = ({
 }: BaseSwatchProps): ReactElement => {
   const { gray } = Theming.use().colors;
   const hex = color.hex(value);
-  // A clear fill shows the surface, so its text takes the icon gray instead. The
-  // background shows through a translucent fill.
+  // A clear fill shows the surface, so its text takes the icon gray. A translucent fill
+  // shows the l2 and l5 checkerboard, so the icon takes the gray that reads over both.
   const opacity = color.opacity(value);
+  const contrastOverCheckerboard = (icon: color.Color): number =>
+    Math.min(
+      color.contrast(color.over(value, gray.l2, opacity), icon),
+      color.contrast(color.over(value, gray.l5, opacity), icon),
+    );
   const text =
     opacity === 0
       ? gray.l9
-      : color.pickByContrast(color.over(value, gray.l0, opacity), gray.l0, gray.l11);
+      : contrastOverCheckerboard(gray.l0) >= contrastOverCheckerboard(gray.l11)
+        ? gray.l0
+        : gray.l11;
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = ({ items }) => {
     const [k] = filterHaulItems(items);

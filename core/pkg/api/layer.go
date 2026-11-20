@@ -1112,6 +1112,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
 		Secret: cfg.Service.Secret,
 		RBAC:   cfg.Service.RBAC,
+		Task:   cfg.Service.Task,
 	}); err != nil {
 		return nil, err
 	}
