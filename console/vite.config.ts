@@ -172,6 +172,15 @@ export default defineConfig({
       },
       {
         extends: true,
+        // The optimizer misses these until a spec loads them, then reloads the page
+        // and fails the specs that are running.
+        optimizeDeps: {
+          include: [
+            "@tauri-apps/plugin-dialog",
+            "@tauri-apps/plugin-fs",
+            "@tauri-apps/plugin-shell",
+          ],
+        },
         test: {
           name: "browser",
           setupFiles: ["src/testutil/browser.ts"],
