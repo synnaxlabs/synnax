@@ -379,6 +379,22 @@ var _ = Describe("Service", func() {
 			).Error().ToNot(HaveOccurred())
 		})
 
+		DescribeTable("Should reject a channel whose minimum is not below its maximum",
+			func(ctx SpecContext, store func() config.Store, ch map[string]any) {
+				Expect(store().Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+					"channels": []any{ch},
+				})).Error().To(MatchError(ContainSubstring(
+					"Minimum value must be less than maximum value",
+				)))
+			},
+			Entry("an analog input", func() config.Store { return svc.AnalogRead },
+				map[string]any{"type": "ai_voltage", "min_val": 5, "max_val": -5}),
+			Entry("an analog output", func() config.Store { return svc.AnalogWrite },
+				map[string]any{"type": "ao_voltage", "min_val": 1, "max_val": 1}),
+			Entry("a counter input", func() config.Store { return svc.CounterRead },
+				map[string]any{"type": "ci_frequency", "min_val": 100, "max_val": 2}),
+		)
+
 		It("Should reject a digital write line above 31", func(ctx SpecContext) {
 			Expect(
 				svc.DigitalWrite.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
