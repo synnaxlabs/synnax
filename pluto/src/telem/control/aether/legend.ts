@@ -36,9 +36,9 @@ interface InternalState {
 
 export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
   static readonly TYPE = "Legend";
-  schema = legendStateZ;
+  override schema = legendStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.colors = Colors.use(ctx);
     i.colors.setOverrides(this.state.colors);
@@ -53,7 +53,7 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
     this.publish();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.disconnectColors?.();
     i.retrieve.close();

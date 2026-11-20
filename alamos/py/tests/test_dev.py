@@ -18,5 +18,5 @@ class TestDev:
         """Should name the extra to install when uptrace is missing."""
         monkeypatch.setitem(sys.modules, "uptrace", None)
         monkeypatch.delitem(sys.modules, "alamos.dev", raising=False)
-        with pytest.raises(ImportError, match=r"alamos\[dev\]"):
+        with pytest.raises(ImportError, match=r"alamos\[uptrace\]"):
             importlib.import_module("alamos.dev")

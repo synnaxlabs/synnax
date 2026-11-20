@@ -67,7 +67,7 @@ THREAD_NODES = (
 )
 
 
-COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
+COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.IGNORECASE)
 """The reply on the thread of a finding that dismisses it."""
 WRITE = {"admin", "write"}
 """The repository permissions that can dismiss a finding. GitHub reports maintain as
@@ -79,14 +79,14 @@ SETTLED = "The review of {head} finds this fixed: {reason}"
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
-_FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.I)
+_FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.IGNORECASE)
 _COMMENT = (
     "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
     "body}"
 )
 
 _SUMMARY = re.compile(
-    f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
+    f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.DOTALL
 )
 
 
@@ -350,8 +350,8 @@ def dismissals(
     t: Target, gh: GH, found: list[Thread], can: Authority
 ) -> list[Dismissal]:
     """Returns each finding that someone with write access dismissed, on its thread in
-    the threads or with a comment on the pull request that the bot answered and bound
-    to a finding, and each finding that the bot withdrew and that still holds."""
+    the threads or by its title in a record of the bot, and each finding that the bot
+    withdrew and that still holds."""
     bound = [a for a in answers(t, comments(t, gh)) if "path" in a]
     return (
         dismissed(found, can)
@@ -364,9 +364,9 @@ def dismissals(
 
 
 def answers(t: Target, found: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Returns the record in each of the bot's answers to a dismissal comment, from the
-    comments on the pull request. A record holds the `comment` it answers and, when the
-    comment dismissed a finding, its `path`, `title`, and `reason`."""
+    """Returns the record in each of the bot's answers to a dismissal, from the comments
+    on the pull request. A record of a dismissal holds the `path`, `title`, and `reason`
+    of its finding."""
     return [
         _record(c["body"])
         for c in found
@@ -441,7 +441,7 @@ def blob(t: Target, gh: GH, commit: str, path: str) -> str | None:
 
 
 def answer(record: dict[str, Any], text: str) -> str:
-    """Renders an answer to a dismissal comment that holds a record `answers` reads."""
+    """Renders a comment of the bot that holds a record `answers` reads."""
     # A ">" in a title would end the HTML comment early.
     data = json.dumps(record).replace(">", "\\u003e")
     return f"{ANSWER_START}{data}{ANSWER_END}\n\n{text}"
@@ -566,18 +566,6 @@ def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
     return [json.loads(s) for s in out.splitlines() if s]
 
 
-def issue_comment(t: Target, gh: GH, id: int) -> dict[str, Any] | None:
-    """Returns a comment on the pull request in the shape that GraphQL serves, or None
-    when the comment is on another issue or pull request."""
-    out = gh(
-        "api",
-        f"repos/{t.repo}/issues/comments/{id}",
-        "--jq",
-        f'select(.issue_url | endswith("/issues/{t.pr}")) | {_COMMENT} | tojson',
-    )
-    return json.loads(out) if out.strip() else None
-
-
 def _outside(t: Target, gh: GH) -> dict[str, Any] | None:
     for c in comments(t, gh):
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(render.OUTSIDE):
@@ -609,7 +597,7 @@ def recheck(t: Target, gh: GH, can: Authority) -> None:
 
 def rescore(t: Target, gh: GH, found: list[Thread], key: str, can: Authority) -> bool:
     """Scores the head 5/5 in a new check run when every finding of its newest review is
-    dismissed by someone with write access, in the threads or in answered comments, or
+    dismissed by someone with write access, in the threads or in the bot's records, or
     withdrawn by the bot. Returns whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.

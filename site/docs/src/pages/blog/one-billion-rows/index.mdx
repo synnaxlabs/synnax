@@ -13,7 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Text as TextComponent } from "@/components/text";
 import Details from "@/components/details/Details.astro";
 import { Diagram } from "@/components/diagram";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -342,7 +342,11 @@ We'll also measure the average memory and CPU usage of each database during the 
 ### Throughput
 
 <figure>
-  <Image id="guides/comparison/performance/batch-throughput" themed={false} />
+  <Image
+    id="guides/comparison/performance/batch-throughput"
+    themed={false}
+    alt="Chart of write throughput by batch size for Synnax, TimescaleDB, and InfluxDB"
+  />
   {/* prettier-ignore */}
   <figcaption>Throughput comparison: Synnax dramatically outperforms alternatives at large batch sizes.</figcaption>
 </figure>
@@ -425,7 +429,7 @@ the other two databases.
 <figure>
   <Image
     id="guides/comparison/performance/batch-memory"
-    themed={false}
+    themed={false} alt="Chart of memory use by batch size for Synnax, TimescaleDB, and InfluxDB"
   />
   {/* prettier-ignore */}
   <figcaption>Memory comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes.</figcaption>
@@ -527,7 +531,11 @@ the other two databases.
 ### CPU usage
 
 <figure>
-  <Image id="guides/comparison/performance/batch-cpu" themed={false} />
+  <Image
+    id="guides/comparison/performance/batch-cpu"
+    themed={false}
+    alt="Chart of CPU use by batch size for Synnax, TimescaleDB, and InfluxDB"
+  />
   {/* prettier-ignore */}
   <figcaption>CPU usage: Synnax uses more CPU at small batch sizes, and comparable CPU at large batch sizes.</figcaption>
 </figure>
@@ -728,7 +736,11 @@ channels we insert data for.
 ### Throughput
 
 <figure>
-  <Image id="guides/comparison/performance/channel-throughput" themed={false} />
+  <Image
+    id="guides/comparison/performance/channel-throughput"
+    themed={false}
+    alt="Chart of write throughput by channel count for Synnax, TimescaleDB, and InfluxDB"
+  />
   {/* prettier-ignore */}
   <figcaption>Throughput: Synnax outperforms alternatives at low channel counts, but starts to lose ground as the channel count increases.</figcaption>
 </figure>
@@ -838,7 +850,11 @@ and Influx remain relatively stable.
 ### Memory usage
 
 <figure>
-  <Image id="guides/comparison/performance/channel-memory" themed={false} />
+  <Image
+    id="guides/comparison/performance/channel-memory"
+    themed={false}
+    alt="Chart of memory use by channel count for Synnax, TimescaleDB, and InfluxDB"
+  />
   {/* prettier-ignore */}
   <figcaption>Memory usage: Synnax uses more memory than alternatives.</figcaption>
 </figure>
@@ -945,7 +961,11 @@ and Influx remain relatively stable.
 ### CPU usage
 
 <figure>
-  <Image id="guides/comparison/performance/channel-cpu" themed={false} />
+  <Image
+    id="guides/comparison/performance/channel-cpu"
+    themed={false}
+    alt="Chart of CPU use by channel count for Synnax, TimescaleDB, and InfluxDB"
+  />
   {/* prettier-ignore */}
   <figcaption>CPU usage: Synnax consistently uses more CPU than alternatives.</figcaption>
 </figure>
@@ -1037,6 +1057,7 @@ data.
     id="guides/comparison/performance/one-billion-row-ingestion"
     themed={false}
     style={{ padding: "5rem", background: "var(--pluto-dark-gray-l0)" }}
+    alt="Chart of the time each database takes to write one billion rows"
   />
   {/* prettier-ignore */}
   <figcaption>Synnax ingests one billion rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>

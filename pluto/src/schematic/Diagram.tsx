@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { useStoreApi, useUpdateNodeInternals } from "@xyflow/react";
+import { useReactFlowStoreApi, useUpdateNodeInternals } from "@xyflow/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -91,12 +91,12 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   const edges = useAllEdges({ key });
   const edgeKeys = edges.map((e) => e.key);
   const configs = useConfigs({ key, keys: edgeKeys });
-  const rfStore = useStoreApi();
+  const { nodesStore, viewportStore } = useReactFlowStoreApi();
   const [jumpStore] = useState(Edge.Jumps.createStore);
 
   const recompute = () => {
-    const { nodeLookup, transform } = rfStore.getState();
-    const zoom = transform[2];
+    const { nodeLookup } = nodesStore.getState();
+    const zoom = viewportStore.getState().transform[2];
     const polylines: Edge.Jumps.Polyline[] = [];
     edges.forEach((edge, order) => {
       const sourceNode = nodeLookup.get(edge.source.node);
@@ -138,8 +138,8 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       if (frameRef.current != null) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null;
-        const { nodeLookup, transform } = rfStore.getState();
-        let geometry = `${transform[2]}`;
+        const { nodeLookup } = nodesStore.getState();
+        let geometry = `${viewportStore.getState().transform[2]}`;
         for (const node of nodeLookup.values()) {
           const { x, y } = node.internals.positionAbsolute;
           geometry += `;${x},${y},${node.measured.width},${node.measured.height}`;
@@ -149,15 +149,17 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         recompute();
       });
     };
-    const unsubscribe = rfStore.subscribe(schedule);
+    const unsubscribeNodes = nodesStore.subscribe(schedule);
+    const unsubscribeViewport = viewportStore.subscribe(schedule);
     return () => {
-      unsubscribe();
+      unsubscribeNodes();
+      unsubscribeViewport();
       if (frameRef.current != null) {
         cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
       }
     };
-  }, [recompute, rfStore]);
+  }, [recompute, nodesStore, viewportStore]);
 
   return <Edge.Jumps.Context value={jumpStore}>{children}</Edge.Jumps.Context>;
 };
@@ -190,6 +192,9 @@ export const nodeChangesToActions = (
         return;
       case "remove":
         actions.push(schematic.removeNode({ key: ch.key }));
+        break;
+      case "select":
+        break;
     }
   });
   return actions;

@@ -180,7 +180,7 @@ export const { actions, reducer } = createSlice({
     ),
     setControlHold: withSelectedState<SetControlHoldPayload, SliceState>(
       (state, { payload: { hold } }) => {
-        state.control.hold = hold !== undefined ? hold : !state.control.hold;
+        state.control.hold = hold ?? !state.control.hold;
       },
     ),
     toggleControlClickMode: withSelectedState<
@@ -193,8 +193,7 @@ export const { actions, reducer } = createSlice({
       SetControlEnableTooltipPayload,
       SliceState
     >((state, { payload: { enabled } }) => {
-      state.control.enableTooltip =
-        enabled !== undefined ? enabled : !state.control.enableTooltip;
+      state.control.enableTooltip = enabled ?? !state.control.enableTooltip;
     }),
     setViewportMode: withSelectedState<SetViewportModePayload, SliceState>(
       (state, { payload: { mode } }) => {

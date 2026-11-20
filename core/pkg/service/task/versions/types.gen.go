@@ -28,6 +28,9 @@ type Status = v4.Status
 // for devices.
 type Task = v4.Task
 
+// Command is a command to execute on a task in the Driver system.
+type Command = v4.Command
+
 // KeyedConfig is the base for every stored task configuration record.
 type KeyedConfig = v4.KeyedConfig
 

@@ -12,16 +12,16 @@ import "@/feature/modbus/task/Task.css";
 import { channel, type modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
+import { SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
+import { getOpenWriteChannel } from "@/feature/modbus/task/create";
 import { DataTypeCell } from "@/feature/modbus/task/DataTypeCell";
 import { RegisterField } from "@/feature/modbus/task/Register";
 import {
@@ -31,18 +31,14 @@ import {
 } from "@/feature/modbus/task/RegisterMap";
 import {
   deployWriteConfigZ,
-  nextOpenChannel,
   UNSUPPORTED_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteChannel,
   type WriteChannelType,
   type WriteSchemas,
-  writesOverlap,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -161,20 +157,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   );
 };
 
-const getOpenChannel = (channels: WriteChannel[], copy?: string): WriteChannel => {
-  const next = nextOpenChannel(channels, writesOverlap, copy);
-  if (next == null)
-    return {
-      ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
-      key: id.create(),
-    };
-  return {
-    ...next,
-    ...Task.READ_CHANNEL_OVERRIDE,
-    key: id.create(),
-  };
-};
-
 const createMapChannel = (type: WriteChannelType, address: number): WriteChannel => ({
   ...WRITE_CHANNEL_SCHEMAS[type].parse({ type, address }),
   key: id.create(),
@@ -201,7 +183,7 @@ const Form: FC = () => {
     <RegisterMapProvider>
       <Task.Views.List
         path={path.config.channels}
-        createChannel={getOpenChannel}
+        createChannel={getOpenWriteChannel}
         contextMenuItems={Task.readChannelContextMenuItem}
         listItem={listItem}
         resolve={resolve}
@@ -211,13 +193,6 @@ const Form: FC = () => {
       />
     </RegisterMapProvider>
   );
-};
-
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
-  const config = WRITE_SCHEMAS.config.parse({});
-  if (deviceKey != null) config.device = deviceKey;
-  config.channels = [getOpenChannel([])];
-  return { name: "Modbus write task", type: WRITE_TYPE, config };
 };
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
@@ -291,16 +266,3 @@ export const Write = Task.wrapForm({
   type: "modbus_write",
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "Modbus write task",
-  label: "Write",
-  icon: <Icon.Logo.Modbus />,
-  useOnSelect: useCreateWrite,
-};

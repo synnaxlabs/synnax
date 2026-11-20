@@ -46,24 +46,27 @@ class Leaf extends aether.Leaf<
 > {
   static readonly TYPE = "stalenessTestLeaf";
   static readonly z = staleness.stateZ;
-  schema = Leaf.z;
+  override schema = Leaf.z;
 
   readonly transitions: boolean[] = [];
+  // The staleness each onTransition call sees.
+  readonly repaints: boolean[] = [];
   // Stands in for the telem source. Specs reassign it to model the user picking a
   // different channel, which builds a new source under the same leaf.
   source: telem.Source<unknown> = createSource();
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.registration = staleness.useStateRegistration(
       ctx,
       i.registration,
       this,
       this.source,
+      () => this.repaints.push(this.state.stale),
     );
   }
 
-  setState(next: state.SetArg<z.infer<typeof staleness.stateZ>>): void {
+  override setState(next: state.SetArg<z.infer<typeof staleness.stateZ>>): void {
     const prev = this.state.stale;
     super.setState(next);
     if (this.state.stale !== prev) this.transitions.push(this.state.stale);
@@ -73,7 +76,7 @@ class Leaf extends aether.Leaf<
     this.internal.registration.received();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.registration?.cleanup();
   }
 }
@@ -81,22 +84,21 @@ class Leaf extends aether.Leaf<
 // Registers but never releases, so specs can reach the Provider's cleanup backstop.
 class LeakyLeaf extends aether.Leaf<
   typeof staleness.stateZ,
-  { registration: staleness.Registration; stale: boolean }
+  { registration: staleness.Registration }
 > {
   static readonly TYPE = "stalenessLeakyTestLeaf";
   static readonly z = staleness.stateZ;
-  schema = LeakyLeaf.z;
+  override schema = LeakyLeaf.z;
 
   readonly source = createSource();
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.registration = staleness.useInternalRegistration(
+    i.registration = staleness.useStateRegistration(
       ctx,
       i.registration,
       this,
       this.source,
-      () => {},
     );
   }
 }
@@ -231,6 +233,13 @@ describe("staleness", () => {
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);
+    });
+
+    it("should run onTransition after the state reports each transition", () => {
+      const { leaf } = mountLive({ timeouts: [5] });
+      vi.advanceTimersByTime(5250);
+      leaf.received();
+      expect(leaf.repaints).toEqual([true, false]);
     });
 
     it("should report each transition once", () => {
@@ -582,21 +591,21 @@ describe("staleness", () => {
 
   describe("stalenessTimeout", () => {
     it("should default an absent timeout", () => {
-      expect(staleness.configZ.parse({}).stalenessTimeout).toEqual(
+      expect(staleness.stateZ.parse({}).stalenessTimeout).toEqual(
         staleness.DEFAULT_TIMEOUT,
       );
     });
 
     it("should keep a positive timeout", () => {
       expect(
-        staleness.configZ.parse({ stalenessTimeout: TimeSpan.seconds(30).nanoseconds })
+        staleness.stateZ.parse({ stalenessTimeout: TimeSpan.seconds(30).nanoseconds })
           .stalenessTimeout,
       ).toEqual(TimeSpan.seconds(30).nanoseconds);
     });
 
     // A non-positive timeout would pin a source stale from its first sample onward.
     it.each([0, -1])("should reject a non-positive timeout of %s", (t) => {
-      expect(() => staleness.configZ.parse({ stalenessTimeout: t })).toThrow();
+      expect(() => staleness.stateZ.parse({ stalenessTimeout: t })).toThrow();
     });
   });
 
@@ -617,6 +626,36 @@ describe("staleness", () => {
       expect(staleness.resolveColor("#FF0000", theme)).toEqual(
         color.construct("#FF0000"),
       );
+    });
+  });
+
+  describe("drawnColor", () => {
+    const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
+
+    it("should return undefined while the content is live", () => {
+      const state = staleness.drawnStateZ.parse({ stalenessColor: "#ff0000" });
+      expect(staleness.drawnColor(state, theme)).toBeUndefined();
+    });
+
+    it("should resolve the stale color while the content is stale", () => {
+      const state = staleness.drawnStateZ.parse({ stale: true });
+      expect(staleness.drawnColor(state, theme)).toEqual(theme.colors.warning.m1);
+    });
+
+    it("should return undefined while the stale color is hidden", () => {
+      const state = staleness.drawnStateZ.parse({
+        stale: true,
+        staleColorHidden: true,
+      });
+      expect(staleness.drawnColor(state, theme)).toBeUndefined();
+    });
+
+    it("should honor a configured stale color", () => {
+      const state = staleness.drawnStateZ.parse({
+        stale: true,
+        stalenessColor: "#ff0000",
+      });
+      expect(staleness.drawnColor(state, theme)).toEqual(color.construct("#ff0000"));
     });
   });
 

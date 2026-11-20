@@ -73,16 +73,16 @@ const chipSinks = vi.fn();
 // Stands in for the chip worker component and records the sink it acquires with.
 class StubChip extends aether.Leaf<typeof chipState> {
   static readonly TYPE = control.Chip.TYPE;
-  schema = chipState;
+  override schema = chipState;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     chipSinks(this.state.sink);
   }
 }
 
 class StubIndicator extends aether.Leaf<typeof indicatorState> {
   static readonly TYPE = control.Indicator.TYPE;
-  schema = indicatorState;
+  override schema = indicatorState;
 }
 
 const STUB_REGISTRY: aether.ComponentRegistry = {

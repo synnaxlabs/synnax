@@ -26,6 +26,8 @@
 #include "core/pkg/transport/grpc/device/device.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.grpc.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.pb.h"
+#include "core/pkg/transport/grpc/icd/icd.grpc.pb.h"
+#include "core/pkg/transport/grpc/icd/icd.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.grpc.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.pb.h"
 #include "core/pkg/transport/grpc/ranger/kv/kv.grpc.pb.h"
@@ -192,6 +194,14 @@ Transport::Transport(
         grpc::arc::DeleteRequest,
         google::protobuf::Empty,
         grpc::arc::ArcDeleteService>>(pool, base_target);
+    this->icd_create = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::icd::CreateRequest,
+        grpc::icd::CreateResponse,
+        grpc::icd::ICDCreateService>>(pool, base_target);
+    this->icd_retrieve = std::make_shared<freighter::grpc::UnaryClient<
+        ::api::icd::pb::RetrieveRequest,
+        ::api::icd::pb::RetrieveResponse,
+        grpc::icd::ICDRetrieveService>>(pool, base_target);
     this->connectivity_check = std::make_unique<freighter::grpc::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse,
@@ -232,5 +242,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);
+    icd_create->use(mw);
+    icd_retrieve->use(mw);
 }
 }

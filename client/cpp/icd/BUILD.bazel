@@ -12,8 +12,10 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "icd",
+    srcs = ["icd.cpp"],
     hdrs = [
         "actions.gen.h",
+        "icd.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
@@ -21,9 +23,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
+        "//client/cpp/errors",
         "//client/cpp/resource",
         "//core/pkg/api/icd:icd_grpc",
         "//core/pkg/service/icd:icd_grpc",
+        "//core/pkg/transport/grpc:api_grpc",
+        "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/json",
@@ -41,6 +46,21 @@ cc_test(
     srcs = ["proto_test.cpp"],
     deps = [
         ":icd",
+        "//x/cpp/json",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "icd_test",
+    srcs = ["icd_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":icd",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
         "//x/cpp/json",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
