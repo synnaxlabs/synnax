@@ -203,10 +203,11 @@ var _ = Describe("FilterReferenced", func() {
 		Expect(retrieve(ctx, db, used(false))).To(Equal([]uint32{1, 2, 3, 4}))
 	})
 
-	It("Should count every reference when no tag is listed", func(ctx SpecContext) {
+	It("Should count the references of every listed tag", func(ctx SpecContext) {
 		hold(ctx, db, "status", "a", 1)
 		hold(ctx, db, "symbol", "b", 2)
-		Expect(retrieve(ctx, db, channels.FilterReferenced(true))).
+		hold(ctx, db, "task", "c", 3)
+		Expect(retrieve(ctx, db, channels.FilterReferenced(true, 0, usedReadTag))).
 			To(Equal([]uint32{1, 2}))
 	})
 

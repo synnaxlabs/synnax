@@ -12,6 +12,7 @@ package channel
 import (
 	"cmp"
 	"context"
+	"maps"
 	"slices"
 	"strings"
 
@@ -98,16 +99,20 @@ func (s *Service) Uses(
 // once, so that a request allocates none.
 type usedFilters struct{ in, out gorp.Filter[Key, Channel] }
 
+// newUsedFilters returns the filters of MatchUsed, which count the references of each
+// tag that names a direction.
 func newUsedFilters(table *gorp.Table[Key, Channel]) usedFilters {
+	tags := slices.Sorted(maps.Keys(tagDirections))
 	return usedFilters{
-		in:  table.FilterReferenced(true, ReadTag, WriteTag),
-		out: table.FilterReferenced(false, ReadTag, WriteTag),
+		in:  table.FilterReferenced(true, tags[0], tags[1:]...),
+		out: table.FilterReferenced(false, tags[0], tags[1:]...),
 	}
 }
 
-// MatchUsed returns a filter for the channels that a record reads or writes when used
-// is true, or for the channels that nothing reads or writes when it is false. It counts
-// every holder, also those that the caller cannot retrieve.
+// MatchUsed returns a filter for the channels that a stored link reads or writes when
+// used is true, or for the channels that no stored link reads or writes when it is
+// false. It counts every holder, also those that the caller cannot retrieve. An Arc
+// program or a calculation that names a channel in its text holds no stored link.
 func MatchUsed(used bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		if used {

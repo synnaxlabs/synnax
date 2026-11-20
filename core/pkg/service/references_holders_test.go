@@ -269,6 +269,45 @@ var _ = Describe("References across holders", Ordered, func() {
 		Expect(retrieve(false)).To(ConsistOf(unused.Key()))
 	})
 
+	It("Should match a channel that a task config uses as used", func(
+		ctx SpecContext,
+	) {
+		read, unused := createChannel(ctx), createChannel(ctx)
+		dev := device.Device{
+			Key:      UniqueChannelName(),
+			Rack:     layer.Rack.EmbeddedKey,
+			Name:     "plc",
+			Make:     "modbus",
+			Model:    "modbus",
+			Location: "127.0.0.1:502",
+		}
+		tsk := task.Task{
+			Name: "modbus_read",
+			Type: "modbus_read",
+			Config: msgpack.EncodedJSON{
+				"device": dev.Key,
+				"channels": []any{map[string]any{
+					"type":    "coil",
+					"key":     "coil-1",
+					"channel": read.Key(),
+				}},
+			},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := layer.Device.NewWriter(tx).Create(ctx, &dev); err != nil {
+				return err
+			}
+			return layer.Task.NewWriter(tx).Create(ctx, &tsk)
+		})).To(Succeed())
+		var found []channel.Channel
+		Expect(layer.Channel.NewRetrieve().
+			Where(channel.MatchKeys(read.Key(), unused.Key())).
+			Where(channel.MatchUsed(true)).
+			Entries(&found).
+			Exec(ctx, db)).To(Succeed())
+		Expect(channel.KeysFromChannels(found)).To(ConsistOf(read.Key()))
+	})
+
 	It("Should leave a built-in channel out of an Arc symbol search", func(
 		ctx SpecContext,
 	) {

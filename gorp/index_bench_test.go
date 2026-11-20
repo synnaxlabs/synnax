@@ -687,7 +687,7 @@ func BenchmarkFilterReferenced(b *testing.B) {
 	db, targets := openReferencedBench(b, 100_000)
 	for _, referenced := range []bool{true, false} {
 		b.Run(fmt.Sprintf("referenced=%t", referenced), func(b *testing.B) {
-			filter := targets.FilterReferenced(referenced)
+			filter := targets.FilterReferenced(referenced, 0)
 			var found []benchEntry
 			b.ReportAllocs()
 			b.ResetTimer()

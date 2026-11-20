@@ -712,8 +712,10 @@ type Where struct {
 	IsIndex *pb1.Bool `protobuf:"bytes,8,opt,name=is_index,json=isIndex,proto3,oneof" json:"is_index,omitempty"`
 	// internal matches the built-in channels, or every other channel when false.
 	Internal *pb1.Bool `protobuf:"bytes,9,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
-	// used matches the channels that a record reads or writes, or the channels that
-	// nothing reads or writes when false.
+	// used matches the channels that a stored link of any record reads or writes, or the
+	// channels that no stored link reads or writes when false. Records the caller cannot
+	// retrieve count. An Arc program or a calculation that names a channel in its text
+	// holds no stored link.
 	Used *pb1.Bool `protobuf:"bytes,10,opt,name=used,proto3,oneof" json:"used,omitempty"`
 	// virtual matches virtual channels that are not calculated, or every other channel
 	// when false.

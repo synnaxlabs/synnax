@@ -111,8 +111,10 @@ const inputs = {
   /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolInputZ.exactOptional(),
   /**
-   * used matches the channels that a record reads or writes, or the channels that
-   * nothing reads or writes when false.
+   * used matches the channels that a stored link of any record reads or writes, or the
+   * channels that no stored link reads or writes when false. Records the caller cannot
+   * retrieve count. An Arc program or a calculation that names a channel in its text
+   * holds no stored link.
    */
   used: filter.boolInputZ.exactOptional(),
   /**

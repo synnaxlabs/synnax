@@ -223,9 +223,6 @@ func narrowSpans[K Key, E Entry[K]](
 	return out, nil
 }
 
-// andEval returns the eval closure used by And composition, or nil when no child has
-// an eval. It does not check the keys of each child, because the keys of the And are
-// their intersection.
 // andRaw returns the AND of the raw pre-screens of filters, or nil when none has one.
 func andRaw[K Key, E Entry[K]](
 	filters []Filter[K, E],
@@ -260,6 +257,9 @@ func andRaw[K Key, E Entry[K]](
 	}
 }
 
+// andEval returns the eval closure used by And composition, or nil when no child has
+// an eval. It does not check the keys of each child, because the keys of the And are
+// their intersection.
 func andEval[K Key, E Entry[K]](filters []Filter[K, E]) evalFunc[K, E] {
 	if !slices.ContainsFunc(
 		filters,
@@ -305,6 +305,9 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
+			if !slices.ContainsFunc(materialized, notRawOnly) {
+				return resolved[K, E]{raw: orRaw(materialized)}, nil
+			}
 			return resolved[K, E]{
 				keys: keyset.Union(filterKeys(materialized)...),
 				eval: orEval(materialized),
@@ -319,18 +322,7 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	// raw-only. In that case the raw OR is the full predicate and we
 	// don't need an eval closure.
 	if len(filters) > 0 && allRawOnly(filters) {
-		f.raw = func(key, value []byte) (bool, error) {
-			for _, child := range filters {
-				ok, err := child.raw(key, value)
-				if err != nil {
-					return false, err
-				}
-				if ok {
-					return true, nil
-				}
-			}
-			return false, nil
-		}
+		f.raw = orRaw(filters)
 		return f
 	}
 
@@ -408,6 +400,15 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 				if res.raw != nil {
 					m.raw = res.raw
 				}
+				if !notRawOnly(m) {
+					raw := m.raw
+					return resolved[K, E]{
+						raw: func(key, value []byte) (bool, error) {
+							ok, err := raw(key, value)
+							return !ok, err
+						},
+					}, nil
+				}
 				return resolved[K, E]{eval: notEval(m)}, nil
 			},
 		}
@@ -451,6 +452,27 @@ func evalChild[K Key, E Entry[K]](
 		return f.eval(ctx, e, key, value)
 	}
 	return true, nil
+}
+
+// notRawOnly reports whether f, once resolved, has a constraint beyond its raw
+// pre-screen, or no raw pre-screen.
+func notRawOnly[K Key, E Entry[K]](f Filter[K, E]) bool {
+	return f.raw == nil || f.eval != nil || f.keys.Bounded()
+}
+
+// orRaw returns the OR of the raw pre-screens of filters, each of which has one.
+func orRaw[K Key, E Entry[K]](
+	filters []Filter[K, E],
+) func(key, value []byte) (bool, error) {
+	return func(key, value []byte) (bool, error) {
+		for _, child := range filters {
+			ok, err := child.raw(key, value)
+			if err != nil || ok {
+				return ok, err
+			}
+		}
+		return false, nil
+	}
 }
 
 // allRawOnly reports whether every filter has raw set and no eval,

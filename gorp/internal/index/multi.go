@@ -391,6 +391,24 @@ func (m *Multi[S, K, V]) Values(scope S, add func(V)) error {
 	return nil
 }
 
+// CommittingValues calls add with each value that a transaction in its commit maps a
+// key to. Values misses them until the commit flushes. See Lookup.Committing for its
+// contract.
+func (m *Multi[S, K, V]) CommittingValues(add func(V)) {
+	m.overlay.mu.RLock()
+	defer m.overlay.mu.RUnlock()
+	for scope, d := range m.overlay.deltas {
+		if !scope.Committing() {
+			continue
+		}
+		for v, h := range d.forward {
+			if h.len() > 0 {
+				add(v)
+			}
+		}
+	}
+}
+
 // Held returns the values that key holds, with the changes of scope applied. It
 // returns false when the bulk load has not finished or failed.
 func (m *Multi[S, K, V]) Held(scope S, key K) ([]V, bool) {

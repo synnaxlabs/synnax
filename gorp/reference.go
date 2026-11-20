@@ -667,13 +667,16 @@ func (r *reference[K, E, T]) heldTargets(
 		return err
 	}
 	typed, direct := add.(func(T))
-	return r.store.Values(scopeOf(snap), func(t T) {
+	held := func(t T) {
 		if direct {
 			typed(t)
 		} else if target := r.format(t); target.Table == table {
 			text(target.Key)
 		}
-	})
+	}
+	// Values misses a commit in flight, as probe does, so its values count too.
+	r.store.CommittingValues(held)
+	return r.store.Values(scopeOf(snap), held)
 }
 
 // values returns the values of targets that the reference can hold, and the position

@@ -118,8 +118,10 @@ class Where(BaseModel):
         data_type: Selects by data_type.
         is_index: Selects by is_index.
         internal: Matches the built-in channels, or every other channel when false.
-        used: Matches the channels that a record reads or writes, or the channels that
-            nothing reads or writes when false.
+        used: Matches the channels that a stored link of any record reads or writes, or
+            the channels that no stored link reads or writes when false. Records the
+            caller cannot retrieve count. An Arc program or a calculation that names a
+            channel in its text holds no stored link.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
         groups: Matches the channels in any of the given groups.

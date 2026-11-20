@@ -101,8 +101,10 @@ type Where struct {
 	IsIndex *filter.Bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
 	// Internal matches the built-in channels, or every other channel when false.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
-	// Used matches the channels that a record reads or writes, or the channels that
-	// nothing reads or writes when false.
+	// Used matches the channels that a stored link of any record reads or writes, or
+	// the channels that no stored link reads or writes when false. Records the caller
+	// cannot retrieve count. An Arc program or a calculation that names a channel in
+	// its text holds no stored link.
 	Used *filter.Bool `json:"used,omitzero" msgpack:"used,omitempty"`
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.

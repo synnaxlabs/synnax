@@ -255,20 +255,27 @@ func (t *Table[K, E]) DependentsEach(
 }
 
 // FilterReferenced returns a Filter matching the entries of the table that an entry of
-// any open table holds through a reference with one of tags, or through any reference
-// when tags is empty. With referenced false, it matches the entries that no such
-// reference holds. It reads the reference indexes only, with the changes staged
-// against the snapshot applied, and never decodes an entry it leaves out. A Retrieve
-// with the filter fails with ErrIndexInvalid when an index of one of those references
-// failed to populate.
-func (t *Table[K, E]) FilterReferenced(referenced bool, tags ...uint8) Filter[K, E] {
+// any open table holds through a reference with tag or one of tags. With referenced
+// false, it matches the entries that no such reference holds. It reads the reference
+// indexes only, with the changes staged against the snapshot applied and the links of
+// a commit in flight counted, as Dependents does. It scans the table once and never
+// decodes an entry it leaves out, under Not too, and under Or when each other child has
+// only a raw check (MatchRaw). A Retrieve with the filter
+// fails with ErrIndexInvalid when an index of one of those references failed to
+// populate.
+func (t *Table[K, E]) FilterReferenced(
+	referenced bool,
+	tag uint8,
+	tags ...uint8,
+) Filter[K, E] {
+	tags = append([]uint8{tag}, tags...)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
 			held, err := t.heldKeys(ctx, snap, tags)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			// A scan that skips by key costs less than a read per held key.
+			// One scan with a key check costs less than a read of each held key.
 			codec := key.NewCodec[K](t.keyPrefix)
 			return resolved[K, E]{
 				raw: func(k, _ []byte) (bool, error) {
@@ -280,34 +287,29 @@ func (t *Table[K, E]) FilterReferenced(referenced bool, tags ...uint8) Filter[K,
 }
 
 // heldKeys returns the keys of the table that an entry holds through a reference with
-// one of tags, or through any reference when tags is empty, as seen by snap.
+// one of tags, as seen by snap. A text target that is not the canonical form of a key
+// of the table names no entry, as for Dependents.
 func (t *Table[K, E]) heldKeys(
 	ctx context.Context,
 	snap Snapshot,
 	tags []uint8,
 ) (set.Set[K], error) {
-	var (
-		held     = make(set.Set[K])
-		parseErr error
-		add      = func(k K) { held.Add(k) }
-		text     = func(s string) {
-			k, err := key.Parse[K](s)
-			if err != nil {
-				parseErr = errors.Combine(parseErr, err)
-				return
-			}
+	held := make(set.Set[K])
+	add := func(k K) { held.Add(k) }
+	text := func(s string) {
+		if k, err := key.Parse[K](s); err == nil && key.Format(k) == s {
 			held.Add(k)
 		}
-	)
+	}
 	for _, ref := range t.db.registry.referencesTo(t.name) {
-		if len(tags) > 0 && !slices.Contains(tags, ref.referenceTag()) {
+		if !slices.Contains(tags, ref.referenceTag()) {
 			continue
 		}
 		if err := ref.heldTargets(ctx, snap, t.name, add, text); err != nil {
 			return nil, err
 		}
 	}
-	return held, parseErr
+	return held, nil
 }
 
 // check validates the references e holds against tx. It reports whether every index

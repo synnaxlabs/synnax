@@ -544,9 +544,10 @@ class Client:
         :param data_type: Keeps channels with this data type.
         :param is_index: Keeps only index or only non-index channels.
         :param internal: Keeps only internal or only non-internal channels.
-        :param used: Keeps only the channels that a record reads or writes, or only
-            the channels that nothing reads or writes when False. It counts every
-            record, also those that the caller cannot retrieve.
+        :param used: Keeps only the channels that a stored link of any record reads or
+            writes, or only the channels that no stored link reads or writes when False.
+            Records that the caller cannot retrieve count. An Arc program or a
+            calculation that names a channel in its text holds no stored link.
         :param virtual: Keeps only virtual channels that are not calculated, or only
             the other channels.
         :param groups: Keeps channels in any of these groups.
