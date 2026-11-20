@@ -863,4 +863,35 @@ describe("auth", () => {
       ).toThrow(/either an API key or a username and password/);
     });
   });
+
+  describe("setCredentials", () => {
+    it("should log in again for a request waiting on a login it made stale", async () => {
+      const admin = createTestClient();
+      const second = { username: id.create(), password: "seldon" };
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      });
+      let username: string | undefined;
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS },
+        { onUser: (u) => (username = u?.name) },
+      );
+      transport.use(client.middleware());
+      const next = vi.fn(async (ctx: Context) => ctx);
+      const sent = client.middleware()({ ...DUMMY_CTX, params: {} }, next);
+      client.setCredentials(second);
+      await sent;
+      expect(username).toEqual(second.username);
+      expect(next.mock.calls[0][0].params.Authorization).toEqual(
+        `Bearer ${client.token}`,
+      );
+      await admin.close();
+    });
+  });
 });
