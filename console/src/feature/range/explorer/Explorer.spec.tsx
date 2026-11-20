@@ -132,6 +132,17 @@ const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { nam
 const findItem = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("listitem", { name });
 
+/**
+ * Waits for the list item of the named range once the search for term lands. The item
+ * mounts again when the search lands, which closes a picker or swatch opened before.
+ */
+const findSearchedItem = async (name: string, term: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const item = itemOf(name);
+    within(item).getByText(term, { selector: "mark" });
+    return item;
+  });
+
 /** @returns the keys of the tabs that the selected panel shows. */
 const focusedTabs = (store: TestStore): string[] => {
   const state = store.getState();
@@ -814,7 +825,7 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(`${token} labeled`);
       await renderExplorer();
       await search(token);
-      const item = await findItem(rng.name);
+      const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Labels" }));
       await searchAndClickLabelOption(label.name);
       await waitFor(async () =>
@@ -833,11 +844,8 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(`${token} colored`);
       await renderExplorer();
       await search(token);
-      // The item remounts when the search lands, and the swatch drops a held color.
-      await waitFor(() =>
-        within(itemOf(rng.name)).getByText(token, { selector: "mark" }),
-      );
-      fireEvent.click(within(itemOf(rng.name)).getByRole("button", { name: "Color" }));
+      const item = await findSearchedItem(rng.name, token);
+      fireEvent.click(within(item).getByRole("button", { name: "Color" }));
       // A range with no color opens the picker on its palettes.
       fireEvent.click(await screen.findByText("Custom"));
       const hex = await screen.findByLabelText("Hex");

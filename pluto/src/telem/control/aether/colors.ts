@@ -47,7 +47,7 @@ export interface ColoredState extends control.State {
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
   static readonly stateZ = colorsStateZ;
-  schema = Colors.stateZ;
+  override schema = Colors.stateZ;
 
   /**
    * The number assigned to each control subject, keyed by subject key. A subject takes
@@ -69,7 +69,7 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     return ctx.get(CONTEXT_KEY);
   }
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.palette = aetherColor.useSeries(ctx);
     i.defaultColor = theming.use(ctx).colors.gray.l9;
@@ -89,7 +89,7 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     assign();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.disconnect?.();
   }
 
