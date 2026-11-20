@@ -15,8 +15,8 @@ import "schemas/x/versions/telem/v0"
 Key = v0.Key
 
 Range struct extends v2.Range {
-    name string {
-        @doc value "is a human-readable name for the range."
+    name         string {
+        @doc value           "is a human-readable name for the range."
         @validate min_length 1
     }
     has_children bool = false {

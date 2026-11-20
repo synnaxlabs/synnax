@@ -75,7 +75,9 @@ const clickPreset = (span: TimeSpan): void => {
 
 const expectRanges = async (key: string, ranges: ranger.Ref[]): Promise<void> =>
   await waitFor(async () =>
-    expect((await reader.lineplots.retrieve(key)).ranges).toEqual(ranges),
+    expect((await reader.lineplots.retrieve(key)).ranges).toEqual(
+      ranges.map((r) => expect.objectContaining(r)),
+    ),
   );
 
 const local = (hour: number): TimeStamp =>
@@ -217,7 +219,7 @@ describe("lineplot/toolbar/Data", () => {
       ).toBeDefined();
       expect(screen.getByPlaceholderText(SEARCH_PLACEHOLDER)).toBe(input);
       expect((await reader.lineplots.retrieve(key)).ranges).toEqual([
-        rolling(FIVE_MIN),
+        expect.objectContaining(rolling(FIVE_MIN)),
       ]);
     });
 

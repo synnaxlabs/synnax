@@ -17,13 +17,14 @@ import (
 
 var _ = Describe("Vision", func() {
 	Describe("Simulate", func() {
-		// The values match color.simulate in x/ts.
+		// The values match color.simulate in x/ts, in the order of Deficiencies.
 		DescribeTable(
 			"Should match the TypeScript simulation",
-			func(c, protan, deutan, tritan color.Color) {
-				Expect(color.Simulate(c, color.Protanopia)).To(Equal(protan))
-				Expect(color.Simulate(c, color.Deuteranopia)).To(Equal(deutan))
-				Expect(color.Simulate(c, color.Tritanopia)).To(Equal(tritan))
+			func(c color.Color, expected ...color.Color) {
+				Expect(color.Deficiencies).To(HaveLen(len(expected)))
+				for i, d := range color.Deficiencies {
+					Expect(color.Simulate(c, d)).To(Equal(expected[i]))
+				}
 			},
 			Entry("red",
 				color.Color{R: 255, A: 255},
@@ -53,7 +54,9 @@ var _ = Describe("Vision", func() {
 
 		It("Should keep the alpha", func() {
 			c := color.Color{R: 255, A: 128}
-			Expect(color.Simulate(c, color.Deuteranopia).A).To(Equal(uint8(128)))
+			for _, d := range color.Deficiencies {
+				Expect(color.Simulate(c, d).A).To(Equal(uint8(128)))
+			}
 		})
 	})
 

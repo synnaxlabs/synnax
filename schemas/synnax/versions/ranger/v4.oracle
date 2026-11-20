@@ -20,7 +20,7 @@ Where = v3.Where
 
 Ref union on variant {
     key {
-        key   Key {
+        key   Key              {
             @doc value "is the key of a range saved in the Core."
         }
         t0    telem.TimeStamp? {
@@ -29,7 +29,7 @@ Ref union on variant {
                 start.
             """
         }
-        color color.Ref? {
+        color color.Ref?       {
             @doc value """
                 is the color that a relative time axis draws the range in. A line plot
                 write with no color gets the range's own color when it is clearly apart
@@ -43,7 +43,7 @@ Ref union on variant {
         window telem.Window {
             @doc value "is the window the reference resolves to."
         }
-        color  color.Ref? {
+        color  color.Ref?   {
             @doc value """
                 is the color that a relative time axis draws the window in. A line plot
                 write with no color gets a series color.
