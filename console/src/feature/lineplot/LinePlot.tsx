@@ -143,7 +143,8 @@ const CompareMenuItems = ({
   const trace = heading == null ? Base.parseTraceKey(menuKey, ranges) : null;
   const target = hovered ?? trace;
   const range = heading ?? ranges.find((r) => r.key === target?.range);
-  if (range == null) return null;
+  if (range?.zero == null) return null;
+  const { zero } = range;
   const applyT0 = (t0: TimeStamp | undefined) =>
     dispatch({ key, actions: [lineplot.setRangeT0({ range: range.key, t0 })] });
   const isKey =
@@ -157,30 +158,26 @@ const CompareMenuItems = ({
       const t0 = await setT0Modal({
         name: range.label ?? "",
         timeRange,
-        value: Number((range.zero ?? timeRange.start).valueOf()),
+        value: Number(zero.valueOf()),
       });
       if (t0 != null) applyT0(new TimeStamp(t0));
     }, "Failed to set T0");
   const handleZoom = () =>
     handleError(async () => {
       const bounds = await linePlotRef.current?.getBounds();
-      if (bounds == null || range.zero == null) return;
+      if (bounds == null) return;
       const s = scale.Scale.scale<number>(bounds.x1).scale(1);
-      const zero = range.zero.valueOf();
       linePlotRef.current?.toggleZoom(range.key, {
-        lower: s.pos(Number(timeRange.start.valueOf() - zero)),
-        upper: s.pos(Number(timeRange.end.valueOf() - zero)),
+        lower: s.pos(Number(timeRange.start.valueOf() - zero.valueOf())),
+        upper: s.pos(Number(timeRange.end.valueOf() - zero.valueOf())),
       });
     }, "Failed to zoom to range");
   return (
     <>
       {hovered != null && editable && isKey && (
-        <>
-          <Menu.Item itemKey="setT0Here" onClick={() => applyT0(hovered.time)}>
-            <Icon.Time /> Set T0 here
-          </Menu.Item>
-          <Menu.Divider />
-        </>
+        <Menu.Item itemKey="setT0Here" onClick={() => applyT0(hovered.time)}>
+          <Icon.Time /> Set T0 here
+        </Menu.Item>
       )}
       <Menu.Item
         itemKey="showOnlyRange"

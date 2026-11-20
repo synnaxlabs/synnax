@@ -13,6 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { LinePlot } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 
 type Mode = lineplot.TimeMode;
@@ -33,7 +34,8 @@ const TOOLTIPS: Record<Mode, string> = {
 
 /**
  * Selects the time mode of the plot's x axis: absolute or relative. Renders nothing
- * when the axis does not show time.
+ * when the axis does not show time. With the compare flag off, it renders only on a
+ * relative axis, so the user can go back to absolute.
  */
 export const TimeModeSelect = (): ReactElement | null => {
   const key = LinePlot.useKey();
@@ -57,7 +59,7 @@ export const TimeModeSelect = (): ReactElement | null => {
       </span>
     </Select.Item>
   );
-  if (type !== "time") return null;
+  if (type !== "time" || (!FLAGS.compare && timeMode !== "relative")) return null;
   return (
     <Select.Buttons<Mode>
       variant="outlined"
