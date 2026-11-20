@@ -153,10 +153,14 @@ export interface ExecuteCommandsParams {
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
   /**
    * How long to wait for the Driver to acknowledge the command. Once it does, each
-   * loading status restarts the wait for the next status, which lasts two minutes or
-   * the timeout, whichever is longer.
+   * loading status restarts the wait for the next status, which lasts finalTimeout.
    */
   timeout?: CrudeTimeSpan;
+  /**
+   * How long each wait for the next status lasts once the Driver acknowledges the
+   * command. Defaults to two minutes or the timeout, whichever is longer.
+   */
+  finalTimeout?: CrudeTimeSpan;
 }
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
@@ -1127,6 +1131,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   task,
   type,
   timeout,
+  finalTimeout,
   name: taskName,
   statusDataZ,
   args,
@@ -1141,6 +1146,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
       commands: [{ args, task, type, configHash, pinned }],
       racks,
       timeout,
+      finalTimeout,
       statusDataZ,
       name: taskName,
     })
@@ -1154,6 +1160,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
   /** The racks of the commanded tasks. The wait fails when one of them goes down. */
   racks: RackKey[];
   timeout?: CrudeTimeSpan;
+  finalTimeout?: CrudeTimeSpan;
   statusDataZ: StatusData;
   name: string | string[] | (() => Promise<string | string[]>);
 }
@@ -1164,6 +1171,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   commands,
   racks,
   timeout = COMMAND_DEADLINE,
+  finalTimeout: crudeFinalTimeout,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
@@ -1176,9 +1184,12 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const cmds = keyCommands(commands);
   const cmdKeys = cmds.map((c) => c.key);
   const parsedTimeout = new TimeSpan(timeout);
-  const finalTimeout = parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
-    ? parsedTimeout
-    : FINAL_STATUS_TIMEOUT;
+  const finalTimeout =
+    crudeFinalTimeout != null
+      ? new TimeSpan(crudeFinalTimeout)
+      : parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
+        ? parsedTimeout
+        : FINAL_STATUS_TIMEOUT;
   const { promise, resolve, reject } = Promise.withResolvers<Status<StatusData>[]>();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeOutAfter = (span: TimeSpan): void => {

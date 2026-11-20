@@ -1346,7 +1346,7 @@ describe("Task", async () => {
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
 
-    it("should give up two minutes after a loading reply with no final status", async () => {
+    it("should give up once the final timeout passes after a loading reply", async () => {
       const t = await testRack.createTask({
         name: `lost-start-${id.create()}`,
         config: {},
@@ -1354,35 +1354,16 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
+      const finalTimeout = TimeSpan.milliseconds(500);
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
+        finalTimeout,
       });
-      let settled = false;
-      const markSettled = (): void => {
-        settled = true;
-      };
-      wait.then(markSettled, markSettled);
       const cmd = await readCommand(streamer, t.key);
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldClearNativeTimers: true,
-      });
-      onTestFinished(() => {
-        vi.useRealTimers();
-      });
       await setReply(t, cmd, "loading", "Starting task");
-      await expect
-        .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
-        .toBe("Starting task");
-      // The wait gets the reply at about the time the store does. Steps shorter than
-      // the 1 minute acknowledgment limit cover the gap.
-      await vi.waitFor(async () => {
-        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(30).milliseconds);
-        expect(settled).toBe(true);
-      });
       await expect(wait).rejects.toThrow(
-        new Error(`Command to ${t.name} timed out after 2min`),
+        new Error(`Command to ${t.name} timed out after ${finalTimeout.toString()}`),
       );
     });
 
@@ -1394,33 +1375,18 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
+      const finalTimeout = TimeSpan.milliseconds(1500);
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
+        finalTimeout,
       });
       const cmd = await readCommand(streamer, t.key);
-      const realSetTimeout = globalThis.setTimeout;
-      // Lets the wait read a reply that the store already holds.
-      const settle = async (): Promise<void> =>
-        await new Promise((resolve) => realSetTimeout(resolve, 200));
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldClearNativeTimers: true,
-      });
-      onTestFinished(() => {
-        vi.useRealTimers();
-      });
-      const loading = async (message: string): Promise<void> => {
-        await setReply(t, cmd, "loading", message);
-        await expect
-          .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
-          .toBe(message);
-        await settle();
-      };
-      await loading("Starting task");
-      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
-      await loading("Still starting task");
-      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
+      const gap = TimeSpan.seconds(1);
+      await setReply(t, cmd, "loading", "Starting task");
+      await sleep.sleep(gap);
+      await setReply(t, cmd, "loading", "Still starting task");
+      await sleep.sleep(gap);
       await setReply(t, cmd, "success", "Started task");
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
