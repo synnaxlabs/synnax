@@ -36,7 +36,7 @@ export class PathError extends ValidationError.sub("path") {
     return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
 
-  static matchExact(e: unknown): e is PathError {
+  static override matchExact(e: unknown): e is PathError {
     return (
       e != null &&
       typeof e === "object" &&

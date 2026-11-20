@@ -966,4 +966,42 @@ var _ = Describe("LayerConfig", func() {
 		}
 		Expect(cfg.Validate()).To(MatchError(ContainSubstring("secrets_key: required")))
 	})
+
+	It("Should reject an unknown auth method", func() {
+		cfg := service.LayerConfig{
+			AuthMethods: []auth.Method{auth.MethodPassword, "carrier_pigeon"},
+		}
+		Expect(cfg.Validate()).To(MatchError(And(
+			ContainSubstring("auth_methods"),
+			ContainSubstring("carrier_pigeon"),
+		)))
+	})
+})
+
+var _ = Describe("Auth methods", func() {
+	DescribeTable(
+		"Should accept only the listed methods",
+		func(ctx SpecContext, listed, accepted []auth.Method) {
+			node := testutil.NewNode(ctx)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+				AuthMethods: listed,
+			}))
+			Expect(layer.Auth.Methods()).To(Equal(accepted))
+		},
+		Entry(
+			"password only",
+			[]auth.Method{auth.MethodPassword},
+			[]auth.Method{auth.MethodPassword},
+		),
+		Entry(
+			"API key only",
+			[]auth.Method{auth.MethodAPIKey},
+			[]auth.Method{auth.MethodAPIKey},
+		),
+		Entry(
+			"every method for an empty list",
+			[]auth.Method{},
+			[]auth.Method{auth.MethodAPIKey, auth.MethodPassword},
+		),
+	)
 })

@@ -511,6 +511,20 @@ describe("caseconv", () => {
   });
 
   describe("preserveCase", () => {
+    it("should resolve a key two union options share to the earlier option", () => {
+      const schema = z.union([
+        z.object({ channels: caseconv.preserveCase(z.record(z.string(), z.number())) }),
+        z.object({
+          channels: z.record(z.string(), z.number()),
+          sample_rate: z.number(),
+        }),
+      ]);
+      const input = { channels: { my_channel: 1 }, sample_rate: 2 };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      expect(result.channels).toEqual({ my_channel: 1 });
+      expect(result.sampleRate).toBe(2);
+    });
+
     describe("with ZodRecord", () => {
       it("should preserve case for record keys marked with preserveCase", () => {
         const schema = z.object({
