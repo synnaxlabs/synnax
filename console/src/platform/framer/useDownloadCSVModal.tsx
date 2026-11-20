@@ -40,7 +40,11 @@ import { Triggers } from "@/platform/triggers";
 const path = deep.path<z.infer<typeof formSchema>>();
 
 export interface DownloadCSVModalParams {
-  timeRange: CrudeTimeRange;
+  /**
+   * The time ranges to read, in any order. The modal can edit one range, and lists
+   * several with no edit.
+   */
+  timeRanges: CrudeTimeRange[];
   channels: channel.Key[];
   name: string;
   icon?: Icon.ReactElement;
@@ -60,31 +64,79 @@ const shownRange = ({ start, end }: TimeRange): TimeRange => {
   return new TimeRange(from, to);
 };
 
+interface TimeRangeFieldsProps {
+  index: number;
+  preview: boolean;
+  labelShown: boolean;
+}
+
+const TimeRangeFields = ({ index, preview, labelShown }: TimeRangeFieldsProps) => {
+  const rangePath = path.timeRanges[index];
+  const range = Form.useFieldValue(rangePath);
+  return (
+    <Flex.Box x gap="medium">
+      <Form.DateTimeField
+        path={rangePath.start}
+        padHelpText={false}
+        label="From"
+        showLabel={labelShown}
+        inputProps={{
+          level: "h4",
+          variant: "text",
+          bound: "start",
+          anchors: { end: range.end },
+          preview,
+        }}
+      />
+      <Icon.Arrow.Right className={CSS.BE("download-csv", "arrow")} color={9} />
+      <Form.DateTimeField
+        padHelpText={false}
+        path={rangePath.end}
+        label="To"
+        showLabel={labelShown}
+        inputProps={{
+          level: "h4",
+          variant: "text",
+          bound: "end",
+          anchors: { start: range.start },
+          preview,
+        }}
+      />
+    </Flex.Box>
+  );
+};
+
 const DownloadCSV = ({
-  timeRange,
+  timeRanges,
   channels,
   name,
   icon,
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
-  const [shown] = useState(() => shownRange(new TimeRange(timeRange)));
+  // The list reads in the order of the rows in the file.
+  const [given] = useState(() =>
+    timeRanges.map((tr) => new TimeRange(tr)).sort((a, b) => TimeRange.sort(a, b)),
+  );
+  const [shown] = useState(() => given.map(shownRange));
   // Form times are floats that round nanoseconds, so a time left as shown reads the
   // exact time behind it. An open end left as shown stays open.
-  const toRead = ({ start, end }: NumericTimeRange): TimeRange =>
-    new TimeRange(
-      start === shown.numeric.start ? shown.start : start,
-      end === shown.numeric.end ? new TimeRange(timeRange).end : end,
+  const toRead = (ranges: NumericTimeRange[]): TimeRange[] =>
+    ranges.map(
+      ({ start, end }, i) =>
+        new TimeRange(
+          start === shown[i].numeric.start ? shown[i].start : start,
+          end === shown[i].numeric.end ? given[i].end : end,
+        ),
     );
   const form = Form.use<typeof formSchema>({
     schema: formSchema,
     values: {
       channels,
-      timeRange: shown.numeric,
+      timeRanges: shown.map((tr) => tr.numeric),
       downsampleFactor: 1,
       name,
     },
   });
-  const range = Form.useFieldValue(path.timeRange, { ctx: form });
   const footer = (
     <Nav.Bar.End x align="center">
       <DownloadButton handleFinish={close} toRead={toRead} />
@@ -99,30 +151,15 @@ const DownloadCSV = ({
             Download data for {name} as CSV
           </Text.Text>
           <Flex.Box y full="x" gap="medium">
-            <Flex.Box x gap="medium">
-              <Form.DateTimeField
-                path={path.timeRange.start}
-                padHelpText={false}
-                label="From"
-                inputProps={{
-                  level: "h4",
-                  variant: "text",
-                  bound: "start",
-                  anchors: { end: range.end },
-                }}
-              />
-              <Icon.Arrow.Right className={CSS.BE("download-csv", "arrow")} color={9} />
-              <Form.DateTimeField
-                padHelpText={false}
-                path={path.timeRange.end}
-                label="To"
-                inputProps={{
-                  level: "h4",
-                  variant: "text",
-                  bound: "end",
-                  anchors: { start: range.start },
-                }}
-              />
+            <Flex.Box y gap="small">
+              {shown.map((_, i) => (
+                <TimeRangeFields
+                  key={i}
+                  index={i}
+                  preview={shown.length > 1}
+                  labelShown={i === 0}
+                />
+              ))}
             </Flex.Box>
             <Form.Field path={path.channels}>
               {({ value, onChange }) => (
@@ -161,8 +198,8 @@ const DownsampleFactorField = Form.buildNumericField({
 
 interface DownloadButtonProps {
   handleFinish: () => void;
-  /** @returns the range to read for the range in the form. */
-  toRead: (range: NumericTimeRange) => TimeRange;
+  /** @returns the ranges to read for the ranges in the form. */
+  toRead: (ranges: NumericTimeRange[]) => TimeRange[];
 }
 
 const DownloadButton = ({ handleFinish, toRead }: DownloadButtonProps) => {
@@ -171,14 +208,14 @@ const DownloadButton = ({ handleFinish, toRead }: DownloadButtonProps) => {
   const download = Runtime.useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {
-    const timeRange = toRead(get(path.timeRange).value);
+    const timeRanges = toRead(get(path.timeRanges).value);
     const channels = get(path.channels).value;
     const downsampleFactor = get(path.downsampleFactor).value;
     const name = get(path.name).value;
     handleError(
       async () => {
         if (client == null) throw new DisconnectedError();
-        const stream = await client.readCSV(timeRange, channels, {
+        const stream = await client.readCSV(timeRanges, channels, {
           reduction: { variant: "stride", factor: downsampleFactor },
         });
         await download({
@@ -210,9 +247,11 @@ const DownloadButton = ({ handleFinish, toRead }: DownloadButtonProps) => {
 const formSchema = z.object({
   name: z.string(),
   channels: channel.keyZ.array(),
-  timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
-    error: "End time must be after start time",
-    path: ["end"],
-  }),
+  timeRanges: numericTimeRangeZ
+    .refine(({ start, end }) => end >= start, {
+      error: "End time must be after start time",
+      path: ["end"],
+    })
+    .array(),
   downsampleFactor: z.int().min(1).default(1),
 });

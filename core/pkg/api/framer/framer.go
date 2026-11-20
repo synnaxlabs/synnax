@@ -10,7 +10,10 @@
 package framer
 
 import (
+	"cmp"
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
@@ -178,25 +181,46 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
 }
 
-// ReadRequest requests every sample in Bounds for the given channels.
+// ReadRequest requests every sample in TimeRanges for the given channels.
 type ReadRequest struct {
-	Keys   channel.Keys    `json:"keys"   msgpack:"keys"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// TimeRanges are the time ranges to read, in any order. A read takes at least one.
+	// Ranges that overlap or touch read as one, and the samples of every range arrive
+	// in time order.
+	TimeRanges []telem.TimeRange `json:"time_ranges" msgpack:"time_ranges"`
 	// Reduction reduces the samples of each channel. A read without one keeps every
-	// sample.
+	// sample. A stride runs over the samples of every range as one series. A read
+	// cannot take a limit over more than one range.
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.
 	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
-	// Latest reads only the newest Latest samples of each channel in Bounds, when it is
-	// above 0. A CSV or TDMS read takes the newest Latest rows of each index instead. A
-	// read cannot combine it with Earliest or Reduction.
+	// Latest reads only the newest Latest samples of each channel, when it is above 0.
+	// A CSV or TDMS read takes the newest Latest rows of each index instead. A read
+	// cannot combine it with Earliest, Reduction, or more than one range.
 	Latest uint32 `json:"latest" msgpack:"latest"`
-	// Earliest reads only the oldest Earliest samples of each channel in Bounds, when
-	// it
-	// is above 0. A CSV or TDMS read takes the oldest Earliest rows of each index
-	// instead. A read cannot combine it with Latest or Reduction.
+	// Earliest reads only the oldest Earliest samples of each channel, when it is above
+	// 0. A CSV or TDMS read takes the oldest Earliest rows of each index instead. A
+	// read cannot combine it with Latest, Reduction, or more than one range.
 	Earliest uint32 `json:"earliest" msgpack:"earliest"`
+}
+
+// UnmarshalJSONFrom implements json.UnmarshalerFrom. It adds the time range in bounds,
+// which older clients send in place of time_ranges, to TimeRanges.
+func (r *ReadRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadRequest
+	var body struct {
+		plain  `json:",inline"`
+		Bounds *telem.TimeRange `json:"bounds"`
+	}
+	if err := json.UnmarshalDecode(dec, &body); err != nil {
+		return err
+	}
+	*r = ReadRequest(body.plain)
+	if body.Bounds != nil {
+		r.TimeRanges = append(r.TimeRanges, *body.Bounds)
+	}
+	return nil
 }
 
 // ReadResponse is the handle a read encoder drives to produce the response body. It is
@@ -208,8 +232,9 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
-	// Bounds is the request's time range.
-	Bounds telem.TimeRange
+	// TimeRanges holds the request's time ranges, sorted by start, with none that
+	// overlap or touch. It holds one range when Latest or Earliest is above 0.
+	TimeRanges []telem.TimeRange
 	// Reduction is the request's reduction.
 	Reduction telem.Reduction
 	// Latest is the request's count of newest samples, or 0 to not limit the read to
@@ -243,9 +268,25 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			"a read cannot take latest or earliest with a reduction",
 		)
 	}
+	ranges, err := mergeTimeRanges(req.TimeRanges)
+	if err != nil {
+		return ReadResponse{}, err
+	}
+	if len(ranges) > 1 && (req.Latest > 0 || req.Earliest > 0) {
+		return ReadResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take latest or earliest over more than one time range",
+		)
+	}
+	if _, ok := req.Reduction.Variant.(telem.LimitReduction); ok && len(ranges) > 1 {
+		return ReadResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take a limit reduction over more than one time range",
+		)
+	}
 	subject := auth.GetSubject(ctx)
 	var channels, indexes []channel.Channel
-	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 		if err = s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
 			return err
 		}
@@ -271,12 +312,12 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		return ReadResponse{}, err
 	}
 	return ReadResponse{
-		Channels:  channels,
-		Indexes:   indexes,
-		Bounds:    req.Bounds,
-		Reduction: req.Reduction,
-		Latest:    req.Latest,
-		Earliest:  req.Earliest,
+		Channels:   channels,
+		Indexes:    indexes,
+		TimeRanges: ranges,
+		Reduction:  req.Reduction,
+		Latest:     req.Latest,
+		Earliest:   req.Earliest,
 		OpenIterator: func(
 			ctx context.Context,
 			keys channel.Keys,
@@ -290,6 +331,39 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			})
 		},
 	}, nil
+}
+
+// mergeTimeRanges returns ranges sorted by start, with each run of ranges that overlap
+// or touch merged into one. It returns a validation error when ranges is empty or holds
+// a range that ends before it starts.
+func mergeTimeRanges(ranges []telem.TimeRange) ([]telem.TimeRange, error) {
+	if len(ranges) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read must take at least one time range",
+		)
+	}
+	for _, tr := range ranges {
+		if !tr.Valid() {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"a read cannot take time range %s, which ends before it starts",
+				tr,
+			)
+		}
+	}
+	sorted := slices.SortedFunc(slices.Values(ranges), func(a, b telem.TimeRange) int {
+		return cmp.Compare(a.Start, b.Start)
+	})
+	merged := sorted[:1]
+	for _, tr := range sorted[1:] {
+		if last := &merged[len(merged)-1]; tr.Start <= last.End {
+			last.End = max(last.End, tr.End)
+			continue
+		}
+		merged = append(merged, tr)
+	}
+	return merged, nil
 }
 
 // enforceRetrieve reports whether subject may retrieve every given channel and every

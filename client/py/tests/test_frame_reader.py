@@ -373,6 +373,46 @@ class TestReader:
         assert lines[1] == "1000000000,0"
         assert len(lines) == 11
 
+    def test_read_time_ranges(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should read the samples of several time ranges in time order"""
+        _, data_ch = written_pair
+        s = client.read(
+            [
+                sy.TimeRange(7 * sy.TimeSpan.SECOND, 9 * sy.TimeSpan.SECOND),
+                sy.TimeRange(1 * sy.TimeSpan.SECOND, 3 * sy.TimeSpan.SECOND),
+                sy.TimeRange(2 * sy.TimeSpan.SECOND, 3 * sy.TimeSpan.SECOND),
+            ],
+            data_ch.key,
+        )
+        assert np.array_equal(s, np.array([0, 1, 6, 7], dtype=np.float64))
+
+    def test_read_csv_time_ranges(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        """Should write one header and the rows of several time ranges"""
+        idx_ch, data_ch = written_pair
+        dest = tmp_path / "out.csv"
+        client.read_csv(
+            [
+                sy.TimeRange(7 * sy.TimeSpan.SECOND, 9 * sy.TimeSpan.SECOND),
+                sy.TimeRange(1 * sy.TimeSpan.SECOND, 3 * sy.TimeSpan.SECOND),
+            ],
+            data_ch.key,
+            dest=dest,
+        )
+        assert dest.read_text().splitlines() == [
+            f"{idx_ch.name},{data_ch.name}",
+            "1000000000,0",
+            "2000000000,1",
+            "7000000000,6",
+            "8000000000,7",
+        ]
+
     def test_read_tdms(self, client: sy.Synnax, tmp_path: pathlib.Path) -> None:
         """Should write every data type so that a TDMS reader recovers each sample"""
         index = _create_index(client)

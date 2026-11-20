@@ -865,16 +865,17 @@ describe("range/explorer/Explorer", () => {
       const running = await createRange(`${token} running`);
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
-      // The search keeps the ranges of other specs off the axis.
+      // The search keeps the ranges of other specs off the axis. Only the tinted term
+      // proves that it landed, as the unsearched list can also show just these two.
       await search(token);
-      await waitFor(() =>
-        expect(
-          screen
-            .getAllByRole("listitem")
-            .map((el) => el.getAttribute("aria-label"))
-            .toSorted(),
-        ).toEqual([planned.name, running.name].toSorted()),
-      );
+      await findSearchedItem(planned.name, token);
+      await findSearchedItem(running.name, token);
+      expect(
+        screen
+          .getAllByRole("listitem")
+          .map((el) => el.getAttribute("aria-label"))
+          .toSorted(),
+      ).toEqual([planned.name, running.name].toSorted());
       // A window that reached the unset start would mark years on its axis.
       expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
     });

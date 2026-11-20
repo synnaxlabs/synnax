@@ -9,6 +9,7 @@
 
 import type { FileOptions, FileTransport } from "@synnaxlabs/freighter";
 import {
+  array,
   type CrudeTimeRange,
   errors,
   type Reduction,
@@ -28,7 +29,7 @@ const FRAME_ENCODING = { contentType: "application/vnd.synnax.frame" };
 
 const reqZ = z.object({
   keys: channel.keyZ.array(),
-  bounds: TimeRange.z,
+  timeRanges: TimeRange.z.array(),
   reduction: reductionZ.optional(),
   timestampsIncluded: z.boolean(),
   latest: z.number().optional(),
@@ -71,7 +72,8 @@ export class Reader {
   /**
    * Reads every sample the given channels hold within tr.
    *
-   * @param tr - the time range to read.
+   * @param tr - the time range to read, or a list of time ranges in any order. The
+   * samples of every range arrive in time order.
    * @param channels - the channels to read, by key or by name. A frame read by name is
    * keyed by name.
    * @param opts - see {@link ReadOptions}.
@@ -81,7 +83,7 @@ export class Reader {
    * @throws {UnexpectedError} if the response ends before the read completes.
    */
   async read(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts: ReadOptions = {},
   ): Promise<Frame> {
@@ -104,7 +106,8 @@ export class Reader {
    * grouped by the index channel that timestamps them, and each group contributes its
    * index column followed by one column per channel.
    *
-   * @param tr - the time range to read.
+   * @param tr - the time range to read, or a list of time ranges in any order. The CSV
+   * has one header, then the rows of every range in time order.
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadFileOptions}.
    * @returns the CSV as a stream of bytes the caller pipes wherever it likes.
@@ -113,7 +116,7 @@ export class Reader {
    * @throws {ValidationError} if a channel has no index channel.
    */
   async readCSV(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts: ReadFileOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
@@ -126,7 +129,8 @@ export class Reader {
    * where they have no sample. Every other channel gets a group of its own, holding the
    * timestamps of its samples, then the samples.
    *
-   * @param tr - the time range to read.
+   * @param tr - the time range to read, or a list of time ranges in any order. The file
+   * holds the samples of every range in time order.
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadFileOptions}.
    * @returns the TDMS file as a stream of bytes the caller pipes wherever it likes.
@@ -135,7 +139,7 @@ export class Reader {
    * @throws {ValidationError} if a channel has no index channel.
    */
   async readTDMS(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts: ReadFileOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
@@ -143,7 +147,7 @@ export class Reader {
   }
 
   private async readFile(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     encoding: FileOptions["encoding"],
     opts: ReadFileOptions,
@@ -160,7 +164,7 @@ export class Reader {
 
   private async download(
     keys: channel.Key[],
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     encoding: FileOptions["encoding"],
     timestampsIncluded: boolean,
     opts: ReadOptions,
@@ -169,7 +173,7 @@ export class Reader {
       READ_ENDPOINT,
       {
         keys,
-        bounds: new TimeRange(tr),
+        timeRanges: array.toArray(tr).map((t) => new TimeRange(t)),
         reduction: opts.reduction,
         timestampsIncluded,
         latest: opts.latest,
