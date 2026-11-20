@@ -174,8 +174,10 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, {{if eq .Name
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 	count := prevCount + inputLen
-	{{if and (eq $.Type.Size 8) (not $.Type.IsFloat)}}
-	outData[0] = mean.add{{$.Type.Name}}(inData[:inputLen], count)
+	{{if $.Type.IsSigned}}
+	outData[0] = avgSigned(mean, inData[:inputLen], count)
+	{{else if $.Type.IsUnsigned}}
+	outData[0] = avgUnsigned(mean, inData[:inputLen], count)
 	{{else}}
 	for i := int64(0); i < inputLen; i++ {
 		mean.sum += float64(inData[i])

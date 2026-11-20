@@ -5926,7 +5926,7 @@ func AvgI64(input telem.Series, prevCount int64, mean *Mean, output *telem.Serie
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
 	count := prevCount + inputLen
 
-	outData[0] = mean.addI64(inData[:inputLen], count)
+	outData[0] = avgSigned(mean, inData[:inputLen], count)
 
 	return count
 
@@ -6022,10 +6022,7 @@ func AvgI32(input telem.Series, prevCount int64, mean *Mean, output *telem.Serie
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
 	count := prevCount + inputLen
 
-	for i := int64(0); i < inputLen; i++ {
-		mean.sum += float64(inData[i])
-	}
-	outData[0] = int32(mean.sum / float64(count))
+	outData[0] = avgSigned(mean, inData[:inputLen], count)
 
 	return count
 
@@ -6121,10 +6118,7 @@ func AvgI16(input telem.Series, prevCount int64, mean *Mean, output *telem.Serie
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
 	count := prevCount + inputLen
 
-	for i := int64(0); i < inputLen; i++ {
-		mean.sum += float64(inData[i])
-	}
-	outData[0] = int16(mean.sum / float64(count))
+	outData[0] = avgSigned(mean, inData[:inputLen], count)
 
 	return count
 
@@ -6220,10 +6214,7 @@ func AvgI8(input telem.Series, prevCount int64, mean *Mean, output *telem.Series
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
 	count := prevCount + inputLen
 
-	for i := int64(0); i < inputLen; i++ {
-		mean.sum += float64(inData[i])
-	}
-	outData[0] = int8(mean.sum / float64(count))
+	outData[0] = avgSigned(mean, inData[:inputLen], count)
 
 	return count
 
@@ -6319,7 +6310,7 @@ func AvgU64(input telem.Series, prevCount int64, mean *Mean, output *telem.Serie
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
 	count := prevCount + inputLen
 
-	outData[0] = mean.addU64(inData[:inputLen], count)
+	outData[0] = avgUnsigned(mean, inData[:inputLen], count)
 
 	return count
 
@@ -6415,10 +6406,7 @@ func AvgU32(input telem.Series, prevCount int64, mean *Mean, output *telem.Serie
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
 	count := prevCount + inputLen
 
-	for i := int64(0); i < inputLen; i++ {
-		mean.sum += float64(inData[i])
-	}
-	outData[0] = uint32(mean.sum / float64(count))
+	outData[0] = avgUnsigned(mean, inData[:inputLen], count)
 
 	return count
 
@@ -6514,10 +6502,7 @@ func AvgU16(input telem.Series, prevCount int64, mean *Mean, output *telem.Serie
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
 	count := prevCount + inputLen
 
-	for i := int64(0); i < inputLen; i++ {
-		mean.sum += float64(inData[i])
-	}
-	outData[0] = uint16(mean.sum / float64(count))
+	outData[0] = avgUnsigned(mean, inData[:inputLen], count)
 
 	return count
 
@@ -6613,10 +6598,7 @@ func AvgU8(input telem.Series, prevCount int64, mean *Mean, output *telem.Series
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
 	count := prevCount + inputLen
 
-	for i := int64(0); i < inputLen; i++ {
-		mean.sum += float64(inData[i])
-	}
-	outData[0] = uint8(mean.sum / float64(count))
+	outData[0] = avgUnsigned(mean, inData[:inputLen], count)
 
 	return count
 

@@ -16,13 +16,21 @@ const signBit = 1 << 63
 // Mean is the running state of an Avg reduction. The zero value holds no samples. Avg
 // clears it and restarts the count when prevCount is zero or the output is empty.
 type Mean struct {
-	// sum holds the samples of floats and of integers up to 32 bits.
+	// sum holds the samples of floats.
 	sum float64
-	// hi and lo hold the 128-bit sum of 64-bit integer samples, XORed with a bias.
+	// hi and lo hold the 128-bit sum of integer samples, XORed with a bias.
 	hi, lo uint64
 }
 
-func add128[T int64 | uint64](m *Mean, samples []T, bias uint64) {
+type signed interface {
+	~int8 | ~int16 | ~int32 | ~int64
+}
+
+type unsigned interface {
+	~uint8 | ~uint16 | ~uint32 | ~uint64
+}
+
+func add128[T signed | unsigned](m *Mean, samples []T, bias uint64) {
 	var carry uint64
 	for _, s := range samples {
 		m.lo, carry = bits.Add64(m.lo, uint64(s)^bias, 0)
@@ -30,20 +38,20 @@ func add128[T int64 | uint64](m *Mean, samples []T, bias uint64) {
 	}
 }
 
-func (m *Mean) addU64(samples []uint64, count int64) uint64 {
+func avgUnsigned[T unsigned](m *Mean, samples []T, count int64) T {
 	add128(m, samples, 0)
 	quo, _ := bits.Div64(m.hi, m.lo, uint64(count))
-	return quo
+	return T(quo)
 }
 
-// addI64 truncates toward zero. The sign bias maps int64 onto uint64 in order, so the
-// quotient is the floor of the biased mean.
-func (m *Mean) addI64(samples []int64, count int64) int64 {
+// avgSigned truncates toward zero. The sign bias maps int64 onto uint64 in order, so
+// the quotient is the floor of the biased mean.
+func avgSigned[T signed](m *Mean, samples []T, count int64) T {
 	add128(m, samples, signBit)
 	quo, rem := bits.Div64(m.hi, m.lo, uint64(count))
 	avg := int64(quo ^ signBit)
 	if avg < 0 && rem != 0 {
 		avg++
 	}
-	return avg
+	return T(avg)
 }

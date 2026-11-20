@@ -1254,6 +1254,18 @@ var _ = Describe("Vectorized Operations", func() {
 			Expect(output.Unmarshal[int32]()).To(Equal([]int32{50}))
 		})
 
+		It("should average 32-bit samples exactly past 2^53 in the sum", func() {
+			output := telem.Series{DataType: telem.Int32T}
+			samples := make([]int32, 1<<23)
+			for i := range samples {
+				samples[i] = math.MaxInt32
+			}
+			var mean op.Mean
+			count := op.AvgI32(telem.NewSeriesV(samples...), 0, &mean, &output)
+			op.AvgI32(telem.NewSeriesV[int32](math.MaxInt32-1), count, &mean, &output)
+			Expect(output.Unmarshal[int32]()).To(Equal([]int32{math.MaxInt32 - 1}))
+		})
+
 		It("should not drift from a truncated running 64-bit average", func() {
 			output := telem.Series{DataType: telem.Int64T}
 			var (
