@@ -16,9 +16,10 @@ head, a report is missing, or a trust check fails. A surface the head predates r
 skipped, which does not raise the tier. Otherwise the author picks the tier, so the
 script adds no label. The script only raises: it never removes review/human. It reads
 the pull request number from PR, or else <results-dir>/pr/number, and refuses it
-unless the pull request's head is HEAD_SHA. When it raises a pull request that a bot
-opened, it requests a review from REVIEWER, if set, since no author will. Environment:
-GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and optionally PR and REVIEWER.
+unless the pull request's head is HEAD_SHA. When a pull request that a bot opened needs
+review/human, it requests a review from REVIEWER, if set and not yet asked or reviewed,
+since no author will. Environment: GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and
+optionally PR and REVIEWER.
 """
 
 import json
@@ -228,6 +229,18 @@ def write_comment(
     )
 
 
+def reviewed(repo: str, *, number: int, login: str) -> bool:
+    """Returns whether login left a review on the pull request."""
+    logins = gh(
+        "api",
+        "--paginate",
+        f"repos/{repo}/pulls/{number}/reviews",
+        "--jq",
+        ".[].user.login",
+    )
+    return login in logins.split()
+
+
 def main() -> None:
     root = Path(sys.argv[1])
     repo = os.environ["GITHUB_REPOSITORY"]
@@ -271,7 +284,16 @@ def main() -> None:
             f"repos/{repo}/issues/{number}/labels/{quote(label, safe='')}",
         )
     reviewer = os.environ.get("REVIEWER", "")
-    if HUMAN in add and reviewer and pull.get("user", {}).get("type") == "Bot":
+    human = HUMAN in add or HUMAN in current
+    asked = any(r["login"] == reviewer for r in pull.get("requested_reviewers", []))
+    bot = pull.get("user", {}).get("type") == "Bot"
+    if (
+        human
+        and reviewer
+        and bot
+        and not asked
+        and not reviewed(repo, number=number, login=reviewer)
+    ):
         gh(
             "api",
             "-X",
