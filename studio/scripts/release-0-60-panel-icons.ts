@@ -35,7 +35,10 @@ const style = async (client: Synnax): Promise<void> => {
       (p) => p.name === name,
     );
     if (found == null) throw new Error(`no panel named "${name}"`);
-    const actions = [panel.setIcon({ icon }), panel.setColor({ color })];
+    const actions = [
+      panel.setIcon({ icon }),
+      panel.setColor({ color: { type: "fixed", value: color } }),
+    ];
     if (!(await client.panels.dispatch(found.key, actions)))
       throw new Error(`the ${name} panel is not cached`);
   }

@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client, table } from "@synnaxlabs/client";
+import {
+  type color as clientColor,
+  type Synnax as Client,
+  table,
+} from "@synnaxlabs/client";
 import {
   createTestClient,
   RoleClients,
@@ -48,8 +52,8 @@ const createUncoloredGrid = (): ReturnType<typeof createCellGrid> =>
     b: { variant: "text", value: "Cell B", level: "h5" },
   });
 
-const hexOf = (value: unknown): string | undefined =>
-  value == null ? undefined : color.hex(value as color.Crude);
+const hexOf = (ref?: clientColor.Ref | null): string | undefined =>
+  ref?.type === "fixed" ? color.hex(ref.value) : undefined;
 
 const renderToolbar = async ({
   tableState,
@@ -251,6 +255,32 @@ describe("table/Toolbar", () => {
         })),
       }),
     );
+  });
+
+  it("sets a named fill on every selected cell and shows its name", async () => {
+    const palette = await client.groups.create({
+      scope: "color",
+      name: uniqueName("palette"),
+    });
+    const named = await client.colors.create({
+      name: uniqueName("color"),
+      light: "#00ff00",
+      group: palette.key,
+    });
+    const { key } = await renderToolbar({
+      tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
+    });
+    await screen.findByText("Colors");
+    fireEvent.click(getSwatches("Fill")[0]);
+    fireEvent.click(await screen.findByRole("button", { name: named.name }));
+    await waitFor(async () => {
+      const t = await client.tables.retrieve(key);
+      expect(["a", "b"].map((k) => configOf(t, k)?.fillColor)).toEqual([
+        { type: "named", key: named.key },
+        { type: "named", key: named.key },
+      ]);
+    });
+    await waitFor(() => expect(getHexInput("Fill").placeholder).toBe(named.name));
   });
 
   it("shows Mixed when the selected fills differ", async () => {

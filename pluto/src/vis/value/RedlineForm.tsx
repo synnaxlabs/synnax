@@ -23,7 +23,7 @@ import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 
-const root = deep.path<{ units?: string; fillColor?: color.Color }>();
+const root = deep.path<{ units?: string }>();
 
 const ascending: compare.Comparator<color.Band> = (a, b) => a.threshold - b.threshold;
 
@@ -171,17 +171,17 @@ const TransitionField = ({ path }: TransitionFieldProps): ReactElement => (
 export interface RedlineFormProps {
   /** The path of the redline. */
   path: deep.Path<color.Scale>;
+  /** The fill behind the value where no band paints. Absent paints no fill. */
+  background?: color.Color;
 }
 
 /**
  * Edits a redline as a list of threshold bands, lowest first. Rows sort by threshold
- * as thresholds change. Reads the value's units and fill from the form root.
+ * as thresholds change. Reads the value's units from the form root.
  */
-export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
+export const RedlineForm = ({ path, background }: RedlineFormProps): ReactElement => {
   const redline = Form.useFieldValue(path);
   const units = Form.useFieldValue(root.units, { optional: true }) ?? "";
-  const background =
-    Form.useFieldValue(root.fillColor, { optional: true }) ?? undefined;
   const { push, remove } = Form.useFieldListUtils(path.bands);
   const theme = Theming.use();
   const { bands, smooth } = redline;

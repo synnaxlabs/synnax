@@ -22,40 +22,43 @@ import { Value } from "@/vis/value";
 
 const path = deep.path<schematic.ValueNodeConfig>();
 
-export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
-  <Properties.Tabs
-    tabs={["telemetry", "style", "redline"]}
-    tab={tab}
-    onTabChange={onTabChange}
-  >
-    <Tabs.Content itemKey="style">
-      <Base.Sections x>
-        <Base.Section title="Label">
-          <Label.Form path={path.label} />
-        </Base.Section>
-        <Base.Section title="Appearance">
-          <Form.ColorField path={path.strokeColor} label="Stroke" />
-          <Form.FillField />
-          <Form.ColorField path={path.textColor} label="Text" />
-          <Form.LevelSizeField />
-          <Form.UnitsField />
-          <Base.NumericField
-            path={path.inlineSize}
-            label="Width"
-            padHelpText={false}
-            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-          />
-        </Base.Section>
-        <Orientation.Section path={path} hideInner />
-      </Base.Sections>
-    </Tabs.Content>
-    <Tabs.Content itemKey="telemetry">
-      <Base.Sections x>
-        <Value.TelemForm />
-      </Base.Sections>
-    </Tabs.Content>
-    <Tabs.Content itemKey="redline">
-      <Value.RedlineForm path={path.redline} />
-    </Tabs.Content>
-  </Properties.Tabs>
-);
+export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => {
+  const fill = Base.useFieldValue(path.fillColor, { optional: true }) ?? undefined;
+  return (
+    <Properties.Tabs
+      tabs={["telemetry", "style", "redline"]}
+      tab={tab}
+      onTabChange={onTabChange}
+    >
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
+            <Label.Form path={path.label} />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField path={path.strokeColor} label="Stroke" />
+            <Form.FillField />
+            <Form.ColorField path={path.textColor} label="Text" />
+            <Form.LevelSizeField />
+            <Form.UnitsField />
+            <Base.NumericField
+              path={path.inlineSize}
+              label="Width"
+              padHelpText={false}
+              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+            />
+          </Base.Section>
+          <Orientation.Section path={path} hideInner />
+        </Base.Sections>
+      </Tabs.Content>
+      <Tabs.Content itemKey="telemetry">
+        <Base.Sections x>
+          <Value.TelemForm />
+        </Base.Sections>
+      </Tabs.Content>
+      <Tabs.Content itemKey="redline">
+        <Value.RedlineForm path={path.redline} background={fill} />
+      </Tabs.Content>
+    </Properties.Tabs>
+  );
+};

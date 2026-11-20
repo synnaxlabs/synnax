@@ -104,8 +104,8 @@ describe("store", () => {
       project: project.key,
       name: `log-${id.create()}`,
       channels: [
-        { channel: kept.key, color: "#000000" },
-        { channel: deleted.key, color: "#000000" },
+        { channel: kept.key, color: { type: "fixed", value: "#000000" } },
+        { channel: deleted.key, color: { type: "fixed", value: "#000000" } },
       ],
     });
     await client.channels.delete(deleted.key);

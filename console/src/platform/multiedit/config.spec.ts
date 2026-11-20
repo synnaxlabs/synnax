@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -27,6 +28,35 @@ describe("MultiEdit", () => {
       expect(() => MultiEdit.fieldsByVariant({ a: z.string() })).toThrow(
         "[multiedit] - schema for a is not an object",
       );
+    });
+  });
+
+  describe("colorRefs", () => {
+    it("should reference each color stored at the fields", () => {
+      const fault = uuid.create();
+      const refs = MultiEdit.colorRefs(
+        "a",
+        {
+          strokeColor: { type: "named", key: fault },
+          fillColor: undefined,
+          textColor: { type: "fixed", value: "#00ff00" },
+        },
+        ["strokeColor", "fillColor", "textColor"],
+      );
+      expect(refs).toEqual([
+        { key: "a", path: "strokeColor", value: { type: "named", key: fault } },
+        {
+          key: "a",
+          path: "textColor",
+          value: { type: "fixed", value: color.construct("#00ff00") },
+        },
+      ]);
+    });
+
+    it("should throw when a field holds a plain color", () => {
+      expect(() =>
+        MultiEdit.colorRefs("a", { fillColor: "#ff0000" }, ["fillColor"]),
+      ).toThrow(z.ZodError);
     });
   });
 });
