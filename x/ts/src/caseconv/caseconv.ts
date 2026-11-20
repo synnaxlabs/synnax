@@ -239,7 +239,7 @@ const snakeToCamelStr = (str: string): string => {
   if (str.length === 0) return str;
   const hasUnderscore = str.indexOf("_") !== -1;
   const c = hasUnderscore
-    ? str.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+    ? str.replace(/_[a-z]/g, (m) => m.charAt(1).toUpperCase())
     : str;
   const first = c.charCodeAt(0);
   if (first < 65 || first > 90) return c; // not uppercase A-Z
