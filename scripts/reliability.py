@@ -70,6 +70,7 @@ JOBS: dict[str, tuple[str, str, list[str]]] = {
     "alamos-go": ("core", "go", ["alamos/go"]),
     "arc-go": ("arc", "go", ["arc/go"]),
     "arc-cpp": ("arc", "cpp", ["arc/cpp"]),
+    "arc-ts": ("arc", "ts", ["arc/ts"]),
     "driver": ("driver", "cpp", ["driver"]),
     "x-cpp": ("driver", "cpp", ["x/cpp"]),
     "freighter-cpp": ("driver", "cpp", ["freighter/cpp"]),
@@ -112,6 +113,7 @@ UNLISTED = {
     "portal",
     "protobuf",
     "site-common",
+    "studio",
     "www",
 }
 
