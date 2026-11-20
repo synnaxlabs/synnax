@@ -26,7 +26,7 @@ const desktop = process.env.VITE_DESKTOP === "true";
 const release = process.env.VITE_RELEASE === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
-const BROWSER_SPECS = "src/**/*.browser.spec.tsx";
+const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
@@ -172,10 +172,27 @@ export default defineConfig({
       },
       {
         extends: true,
+        // The optimizer misses these until a spec loads them, then reloads the page
+        // and fails the specs that are running.
+        optimizeDeps: {
+          include: [
+            "@tauri-apps/plugin-deep-link",
+            "@tauri-apps/plugin-dialog",
+            "@tauri-apps/plugin-fs",
+            "@tauri-apps/plugin-shell",
+          ],
+        },
         test: {
           name: "browser",
           setupFiles: ["src/testutil/browser.ts"],
           include: [BROWSER_SPECS],
+          // A browser has no `process` to read the test Core from.
+          provide: {
+            synnaxTestCore: {
+              host: process.env.SYNNAX_TEST_HOST ?? "localhost",
+              port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
+            },
+          },
           browser: {
             enabled: true,
             headless: true,
