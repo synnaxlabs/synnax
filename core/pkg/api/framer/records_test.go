@@ -533,9 +533,8 @@ var _ = Describe("Change channels", func() {
 			keys := channel.Keys{ch.Key()}
 			Expect(slowClient.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
 			Expect(MustSucceed(slowClient.Receive()).Frame.Empty()).To(BeTrue())
-			// The client reads nothing, so the second frame blocks the stream and the
-			// queue of one fills.
-			for i := range 4 {
+			// The client reads nothing, so the frames back up into the queue of one.
+			for i := range 8 {
 				name := fmt.Sprintf("slow-%d", i)
 				createSchematic(ctx, valueSchematic(name, proj, shown.Key()))
 			}

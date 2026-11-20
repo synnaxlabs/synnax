@@ -33,6 +33,8 @@ var errReferencesOverflowed = errors.New(
 type referenceStream struct {
 	*recordSender
 	source signals.ReferenceChanges
+	// out holds the frames of the changes for the goroutine that sends the stream.
+	out chan StreamerResponse
 	// queue holds the changes of the commits that wait to be sent. full closes when a
 	// commit finds queue full, and closed closes when the stream sends nothing more.
 	queue     chan []signals.ReferenceChange
@@ -51,6 +53,7 @@ func (s *Service) newReferenceStream(records *recordSender) *referenceStream {
 	return &referenceStream{
 		recordSender: records,
 		source:       s.references,
+		out:          make(chan StreamerResponse),
 		queue:        make(chan []signals.ReferenceChange, s.referenceQueue),
 		full:         make(chan struct{}),
 		closed:       make(chan struct{}),
@@ -96,8 +99,8 @@ func (r *referenceStream) CloseSend() error {
 	return nil
 }
 
-// run sends the queued changes until the stream closes or ctx ends. It fails when the
-// queue overflows.
+// run hands the frames of the queued changes to out until the stream closes or ctx
+// ends. It fails when the queue overflows.
 func (r *referenceStream) run(ctx context.Context) error {
 	for {
 		// An overflow fails the stream before it sends any later change.
@@ -114,12 +117,19 @@ func (r *referenceStream) run(ctx context.Context) error {
 		case <-r.full:
 			return errReferencesOverflowed
 		case changes := <-r.queue:
-			err := r.sendReferences(r.source.Key, changes)
-			if errors.Is(err, freighter.ErrStreamClosed) {
-				return context.Canceled
-			}
+			res, ok, err := r.referenceResponse(r.source.Key, changes)
 			if err != nil {
 				return err
+			}
+			if !ok {
+				continue
+			}
+			select {
+			case r.out <- res:
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-r.closed:
+				return nil
 			}
 		}
 	}

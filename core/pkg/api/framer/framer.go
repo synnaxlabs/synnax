@@ -520,6 +520,7 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 		}
 		sender = &freightfluence.Sender[StreamerResponse]{
 			Sender:            references,
+			Merged:            references.out,
 			KeepAliveInterval: req.KeepAlive.Duration(),
 			NewKeepAlive: func() StreamerResponse {
 				return StreamerResponse{KeepAlive: true}

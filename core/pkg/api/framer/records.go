@@ -12,7 +12,6 @@ package framer
 import (
 	"context"
 	"slices"
-	"sync"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
@@ -34,9 +33,6 @@ type recordSender struct {
 	ctx     context.Context
 	subject resource.ID
 	service *Service
-	// mu serializes the sends of the relay and of the reference changes, and guards
-	// held.
-	mu sync.Mutex
 	// held holds each policy that the subject's roles held at a check since the stream
 	// opened.
 	held set.Set[resource.ID]
@@ -66,8 +62,6 @@ func (s *Service) newRecordSender(
 // also sent, because the delete removes what let the subject read it. A frame left with
 // no samples is not sent.
 func (s *recordSender) Send(res StreamerResponse) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if !s.carriesRecords(res.Frame) {
 		return s.StreamSender.Send(res)
 	}
@@ -86,7 +80,7 @@ func (s *recordSender) Send(res StreamerResponse) error {
 			if record.Deleted {
 				keep = deleted
 			}
-			if sr, err = keepAllowed(sr, record, keep); err != nil {
+			if sr, err = keepAllowed(sr, record.Of, keep); err != nil {
 				return err
 			}
 			if sr.Size() == 0 {
@@ -103,18 +97,18 @@ func (s *recordSender) Send(res StreamerResponse) error {
 	return s.StreamSender.Send(res)
 }
 
-// sendReferences sends, as a frame of key, the target of each change that the subject
-// can retrieve along with one of the holders that changed it.
-func (s *recordSender) sendReferences(
+// referenceResponse returns a frame of key with the target of each change that the
+// subject can retrieve along with one of the holders that changed it, and false when it
+// would hold none. It leaves held alone, so it can run beside Send.
+func (s *recordSender) referenceResponse(
 	key channel.Key,
 	changes []signals.ReferenceChange,
-) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	allowed, err := s.allowed()
+) (StreamerResponse, bool, error) {
+	policies, err := s.policies()
 	if err != nil {
-		return err
+		return StreamerResponse{}, false, err
 	}
+	allowed := rbac.Allows(s.subject, policies, access.ActionRetrieve)
 	var data []byte
 	for _, c := range changes {
 		if allowed(c.Target) && slices.ContainsFunc(c.Holders, allowed) {
@@ -123,22 +117,18 @@ func (s *recordSender) sendReferences(
 		}
 	}
 	if len(data) == 0 {
-		return nil
+		return StreamerResponse{}, false, nil
 	}
 	series := telem.Series{DataType: telem.StringT, Data: data}
-	return s.StreamSender.Send(StreamerResponse{
+	return StreamerResponse{
 		Frame: frame.NewMulti(channel.Keys{key}, []telem.Series{series}),
-	})
+	}, true, nil
 }
 
-// allowed returns the check of the subject's current policies and adds them to held. It
-// runs under mu once the stream opens.
+// allowed returns the check of the subject's current policies and adds them to held.
 func (s *recordSender) allowed() (func(resource.ID) bool, error) {
-	var policies []policy.Policy
-	if err := s.service.db.WithSnapshot(s.ctx, func(snap gorp.Snapshot) (err error) {
-		policies, err = s.service.access.NewEnforcer(snap).Policies(s.ctx, s.subject)
-		return err
-	}); err != nil {
+	policies, err := s.policies()
+	if err != nil {
 		return nil, err
 	}
 	for _, p := range policies {
@@ -156,11 +146,21 @@ func (s *recordSender) carriesRecords(fr Frame) bool {
 	return false
 }
 
+// policies returns the current policies of the subject.
+func (s *recordSender) policies() ([]policy.Policy, error) {
+	var policies []policy.Policy
+	err := s.service.db.WithSnapshot(s.ctx, func(snap gorp.Snapshot) (err error) {
+		policies, err = s.service.access.NewEnforcer(snap).Policies(s.ctx, s.subject)
+		return err
+	})
+	return policies, err
+}
+
 // keepAllowed returns a copy of the series with only the samples whose record allowed
 // accepts. Streams share the series they receive, so it never changes them.
 func keepAllowed(
 	series telem.Series,
-	record signals.Record,
+	recordOf signals.RecordOf,
 	allowed func(resource.ID) bool,
 ) (telem.Series, error) {
 	kept := telem.Series{
@@ -171,11 +171,11 @@ func keepAllowed(
 	}
 	variable := series.DataType.IsVariable()
 	for sample := range series.Samples() {
-		of, err := record.Of(sample)
+		record, err := recordOf(sample)
 		if err != nil {
 			return telem.Series{}, err
 		}
-		if !allowed(of) {
+		if !allowed(record) {
 			continue
 		}
 		if variable {
