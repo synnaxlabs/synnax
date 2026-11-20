@@ -147,6 +147,12 @@ fragment STR_PREFIX
     : 'r' | 'f' | 'rf' | 'fr'
     ;
 
+// A channel path in single quotes. Inside it, \' is a quote and \\ is a backslash;
+// the parser package decodes them.
+CHANNEL_NAME
+    : '\'' (~['\\\r\n] | '\\' ['\\])* '\''
+    ;
+
 // =============================================================================
 // Identifiers
 // =============================================================================
