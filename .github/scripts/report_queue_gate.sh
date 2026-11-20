@@ -10,11 +10,9 @@
 # included in the file licenses/APL.txt.
 
 # Posts the Review gate status of a merge group. Usage: report_queue_gate.sh <queue_ref>
-# <sha>. Judges every pull request in the group, read from the "(#N)" that ends each
-# commit title between the target branch and the commit, if GitHub's ref points at the
-# commit. Under HEADGREEN only the last entry's status gates a merge, so it must cover
-# the entries ahead. A merge group cannot wait, so anything short of success is a
-# failure. When the gate cannot judge, posts a failure, so the queue does not stall
+# <sha>. Judges the pull request the group adds, if GitHub's ref points at the commit.
+# Under ALLGREEN each entry ahead passes its own gate. A merge group cannot wait, so
+# anything short of success is a failure. When the gate cannot judge, posts a failure, so the queue does not stall
 # until its timeout, and exits non-zero. When the queue ref is gone or points at another
 # commit, the queue destroyed the group, so there is nothing to judge, and the script
 # exits zero.
@@ -26,12 +24,11 @@ SHA=${2:?usage: report_queue_gate.sh <queue_ref> <sha>}
 REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
 API="$(dirname "$0")/gh_api.sh"
 
-if [[ ! $QUEUE_REF =~ ^gh-readonly-queue/(.+)/pr-([0-9]+)-[0-9a-f]{40}$ ]]; then
+if [[ ! $QUEUE_REF =~ ^gh-readonly-queue/.+/pr-([0-9]+)-[0-9a-f]{40}$ ]]; then
     echo "not a merge queue ref: $QUEUE_REF" >&2
     exit 1
 fi
-TARGET=${BASH_REMATCH[1]}
-PR=${BASH_REMATCH[2]}
+PR=${BASH_REMATCH[1]}
 
 REF_ERR=$(mktemp)
 trap 'rm -f "$REF_ERR"' EXIT
@@ -48,28 +45,14 @@ if [ "$DESTROYED" = true ]; then
     exit 0
 fi
 
-# Prints the verdict for the group, or fails when a pull request cannot be judged.
+# Prints the verdict for the group, or fails when the pull request cannot be judged.
 judge() {
-    local prs pr verdict state description own=
+    local verdict state description
     [ "$QUEUED" = "$SHA" ] || return 1
-    local filter='.commits[].commit.message | split("\n")[0]'
-    filter+=' | capture("\\(#(?<n>[0-9]+)\\)$").n'
-    prs=$("$API" "repos/${REPO}/compare/${TARGET}...${SHA}" --jq "$filter")
-    grep -qx "$PR" <<< "$prs" || return 1
-    for pr in $prs; do
-        verdict=$("$(dirname "$0")/check_review.sh" "$pr") || {
-            echo "could not judge pull request ${pr}" >&2
-            return 1
-        }
-        IFS=$'\t' read -r state description <<< "$verdict"
-        if [ "$state" != success ]; then
-            [ "$pr" = "$PR" ] || description="pull request ${pr}: ${description}"
-            printf 'failure\t%s\n' "$description"
-            return 0
-        fi
-        [ "$pr" = "$PR" ] && own=$description
-    done
-    printf 'success\t%s\n' "$own"
+    verdict=$("$(dirname "$0")/check_review.sh" "$PR") || return 1
+    IFS=$'\t' read -r state description <<< "$verdict"
+    [ "$state" = success ] || state=failure
+    printf '%s\t%s\n' "$state" "$description"
 }
 
 JUDGED=true
