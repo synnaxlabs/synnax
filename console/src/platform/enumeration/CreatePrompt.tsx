@@ -40,7 +40,6 @@ const Create = ({
   const handleCreate = (): void => {
     const trimmed = name.trim();
     if (trimmed === "") return setError("Name is required");
-    if (loading) return;
     const key = uuid.create();
     void (async () => {
       if ((await updateAsync({ key, name: trimmed, entries })) !== false) close(key);
