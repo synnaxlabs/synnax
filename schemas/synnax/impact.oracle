@@ -1,0 +1,90 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/resource"
+
+@go output "core/pkg/service/impact"
+
+Change union on type {
+    delete_channels {
+        keys channel.Key[] {
+            @doc value "are the keys of the channels to delete."
+        }
+
+        @doc value "deletes channels."
+    }
+
+    @doc value "is a change to channels that a plan covers."
+}
+
+Effect enum {
+    restrict = "restrict"
+    cascade  = "cascade"
+    detach   = "detach"
+
+    @doc value """
+        is what a change does to a record that holds a channel it changes. A restrict
+        record stops the change unless the caller picks to delete it too, a cascade
+        record is deleted with the channel, and a detach record loses the channel.
+    """
+}
+
+Choice enum {
+    cancel = "cancel"
+    delete = "delete"
+
+    @doc value """
+        is a pick for an entry. Cancel stops the whole change, and delete deletes the
+        record too.
+    """
+}
+
+Entry struct {
+    id      string      {
+        @doc value "identifies the entry in a plan: the text form of its record."
+    }
+    record  resource.ID {
+        @doc value "is the record that the change touches."
+    }
+    effect  Effect      {
+        @doc value "is what the change does to the record."
+    }
+    choices Choice[]    {
+        @doc value "are the picks the caller may make, empty when it has none."
+    }
+    default Choice?     {
+        @doc value "is the pick that applies when the caller makes none."
+    }
+
+    @doc value "is one record that a change touches."
+}
+
+Plan struct {
+    entries Entry[] {
+        @doc value "are the records that the change touches, sorted by id."
+    }
+    kept    uint32  {
+        @doc value """
+            is the number of records that hold a deleted channel and keep it with no
+            change. They need no pick, so they are not entries.
+        """
+    }
+    token   string  {
+        @doc value """
+            is the hex form of a hash of the change and the entries. Apply refuses a
+            token that no longer matches.
+        """
+    }
+    change  Change  {
+        @doc value "is the change that the plan covers."
+    }
+
+    @doc value "is every record that a change touches, with the picks for each."
+}
