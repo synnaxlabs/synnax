@@ -218,8 +218,8 @@ export const selectRange = (
 
 const ADDITIONAL_REGISTRY = eraser.REGISTRY;
 
-// A browser lays the specs out, so they get a box the size of a window. A form or
-// list in a box of no height draws nothing.
+// A browser lays the specs out, so they get a box the size of a window. A form or list
+// in a box of no height draws nothing.
 const WINDOW_STYLE: CSSProperties = {
   display: "flex",
   flexDirection: "column",
