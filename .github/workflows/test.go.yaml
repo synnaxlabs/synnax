@@ -549,7 +549,7 @@ jobs:
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: ${{ github.event_name != 'merge_group' }}
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
