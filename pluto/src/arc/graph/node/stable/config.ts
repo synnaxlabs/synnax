@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import z from "zod/v4";
+import { z } from "zod";
 
 export const configZ = z.object({
   type: z.literal("stable_for"),

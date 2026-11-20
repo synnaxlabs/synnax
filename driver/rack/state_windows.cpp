@@ -13,9 +13,6 @@
 #include <system_error>
 #include <utility>
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 // clang-format off
 // aclapi.h and sddl.h must be included after windows.h.
 #include <windows.h>
