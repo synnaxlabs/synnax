@@ -274,6 +274,22 @@ TEST(ConnectionConfigTest, BaseURLRejectsBareHTTPSScheme) {
     EXPECT_FALSE(parser.ok());
 }
 
+/// @brief it should reject a base URL with a port out of range.
+TEST(ConnectionConfigTest, BaseURLRejectsOutOfRangePort) {
+    x::json::json j = {{"base_url", "http://localhost:99999"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+/// @brief it should reject a base URL with a non-numeric port.
+TEST(ConnectionConfigTest, BaseURLRejectsNonNumericPort) {
+    x::json::json j = {{"base_url", "http://localhost:abc"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
 TEST(ConnectionConfigTest, MissingBaseURLErrors) {
     x::json::json j = {{"timeout_ms", 5000}};
     x::json::Parser parser(j);
