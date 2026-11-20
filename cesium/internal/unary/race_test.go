@@ -124,16 +124,18 @@ var _ = Describe("Unary racing", func() {
 							defer GinkgoRecover()
 							defer wg.Done()
 							Expect(
-								dataDB.Delete(
+								deleteRange(
 									ctx,
+									dataDB,
 									(telem.TimeStamp(11+i) * telem.SecondTS).Range(
 										telem.TimeStamp(12+i)*telem.SecondTS,
 									),
 								),
 							).To(Succeed())
 							Expect(
-								dataDB.Delete(
+								deleteRange(
 									ctx,
+									dataDB,
 									(telem.TimeStamp(16+i) * telem.SecondTS).Range(
 										telem.TimeStamp(17+i)*telem.SecondTS,
 									),

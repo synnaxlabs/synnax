@@ -21,17 +21,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Delete deletes the specified time range from the database. Note that the start of the
-// time range is inclusive whereas the end is note.
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
-	del, release, err := db.OpenDelete(tr)
-	if err != nil {
-		return err
-	}
-	defer release()
-	return del(ctx)
-}
-
 // OpenDelete takes control of tr so that del deletes it, and returns an error if a
 // writer controls part of tr. No writer can take tr until the caller calls release.
 func (db *DB) OpenDelete(
