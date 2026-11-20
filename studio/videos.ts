@@ -172,6 +172,7 @@ export default manifest.define([
   },
   { id: "console/racks/create-key", script: "scripts/racks-create-key.ts" },
   { id: "console/line-plots/range-zoom", script: "scripts/line-plot-range-zoom.ts" },
+  { id: "console/line-plots/compare", script: "scripts/line-plot-compare.ts" },
   { id: "console/schematics/tooltip", script: "scripts/schematic-tooltip.ts" },
   { id: "console/statuses/create", script: "scripts/statuses-create.ts" },
   { id: "console/redlines/add", script: "scripts/redlines-add.ts" },

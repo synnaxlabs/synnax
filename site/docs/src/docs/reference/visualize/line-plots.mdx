@@ -22,7 +22,7 @@ export const components = mdxOverrides;
 
 A line plot graphs the values of channels over time. It shows live data as it arrives,
 or the data of past [ranges](/reference/ranges). Use a line plot to watch a test, to
-compare runs, and to measure and export data.
+compare ranges, and to measure and export data.
 
 <Divider.Divider x />
 
@@ -79,9 +79,10 @@ show a live span and one or more ranges together.
 To plot a range from the ranges toolbar, right-click the range and select **Plot**. To
 add it to a line plot that is open, drag it onto the **Ranges** field.
 
-Each range keeps its real times, so two runs on different days sit apart on the x-axis.
-A range that is still running shows from its start to its newest sample, and the plot
-grows as new samples arrive.
+Each range keeps its real times, so two ranges on different days sit apart on the
+x-axis. To draw them from one zero, see [compare ranges](#compare-ranges). A range that
+is still running shows from its start to its newest sample, and the plot grows as new
+samples arrive.
 
 The plot shows each range in Synnax that overlaps the visible time as a bar in a strip
 above the plot. Only ranges that have a color show. The end of a bar shows the length of
@@ -102,6 +103,79 @@ To hide the bars, click <Icon.Range /> (**Hide range annotations**) in the top r
 the plot.
 
 <Video id="console/line-plots/range-zoom" label="Zoom a line plot to a range" />
+
+<Divider.Divider x />
+
+## Compare ranges
+
+In relative time, each range starts at its zero on the x-axis, so tests from different
+days sit on top of each other. The zero of a range is its start.
+
+To compare ranges:
+
+- **From the ranges** -> in the ranges toolbar or the range explorer, select two or more
+  ranges. Right-click them and select **Compare**. A new line plot opens in relative
+  time with those ranges. Then select channels in **Y1**.
+- **On a line plot** -> on the **Data** tab, click **Relative** beside **X1**. Click
+  **Absolute** to go back. A change of time mode resets the zoom.
+
+In relative time:
+
+- **The x-axis** shows the time from zero, such as `T+12.5 s`. Time before the zero
+  shows as `T-`.
+- **Each range has one color** for all of its channels. The plot uses the color of the
+  range when it is clearly different from the other colors on the plot, else a new
+  color. Click the swatch beside a range name in the legend to change the color on this
+  plot. The range keeps its own color.
+- **The legend** lists each range name above its channels. Hover over a channel to draw
+  its line on top and dim the other ranges. Hover over a range name to do this for all
+  of its channels.
+- **The tooltip** shows the time from zero. It groups the values by channel, puts the
+  highest value first, and shows the line under the cursor in bold.
+- **A live span** has no fixed start, so it does not show. The legend lists it with
+  "Shows in absolute time only".
+
+### Set a custom T0
+
+To compare ranges from an event such as ignition, set a custom T0 for each range. The T0
+is a setting of the plot. It does not change the range.
+
+- **Right-click a line** -> select **Set T0 here**. The T0 moves to the sample under the
+  cursor.
+- **Right-click a range name in the legend** -> select **Set T0...**, then type a time
+  or an offset from the start of the range, such as `T+12.5s`.
+
+A range with a custom T0 shows a **T0** badge in the legend. Hover over the badge to see
+the time of the T0. To go back to the start, right-click the range name and select
+**Reset T0**.
+
+### Hide and show ranges
+
+- Click the eye beside a range name to hide the range. Click the eye beside a channel
+  under a range to hide that channel in that range only.
+- **Alt+click** (**Option+click** on macOS) an eye to show only that item. Do it again
+  to show the items from before.
+- Right-click a line, or a channel in the legend, for **Show only this range**, **Show
+  only this channel**, **Hide this channel in all ranges**, and **Show all**.
+
+When an item is hidden, the legend ends with **Show all (N hidden)**. The plot does not
+save which items are hidden.
+
+To zoom to one range, right-click its name in the legend and select **Zoom to range**.
+The plot shows the range from its zero to its end.
+
+### What shows only in absolute time
+
+A time from zero is a different real time in each range. These features need one real
+time, so they do not show in relative time:
+
+- The range bars above the plot.
+- **Download as CSV** in the component toolbar.
+- The actions of a selected region: the copy time range actions, **Create range from
+  selection**, **Download region as CSV**, and **Upload region to Sift**.
+
+The measure tool shows each point as a time from zero. ΔX, ΔY, and the slope do not
+change.
 
 <Divider.Divider x />
 
@@ -208,6 +282,9 @@ The legend lists each line with its color and label.
 - Click a label to rename the line. The channel keeps its name.
 - Drag the legend to move it.
 
+In relative time, the legend groups the lines by range. See
+[compare ranges](#compare-ranges).
+
 <Divider.Divider x />
 
 ## How the plot loads data
@@ -244,12 +321,13 @@ not show **Copy link**.
 
 ### Data
 
-| Field  | Default  | Description                                       |
-| ------ | -------- | ------------------------------------------------- |
-| Ranges | Live 30s | The live span and the ranges that the plot shows. |
-| Y1     | None     | Channels plotted against the left axis.           |
-| Y2     | None     | Channels plotted against the right axis.          |
-| X1     | Time     | The channel of the x-axis.                        |
+| Field     | Default  | Description                                                                 |
+| --------- | -------- | --------------------------------------------------------------------------- |
+| Ranges    | Live 30s | The live span and the ranges that the plot shows.                           |
+| Y1        | None     | Channels plotted against the left axis.                                     |
+| Y2        | None     | Channels plotted against the right axis.                                    |
+| X1        | Time     | The channel of the x-axis.                                                  |
+| Time mode | Absolute | **Absolute** shows real times. **Relative** shows each range from its zero. |
 
 ### Lines
 
