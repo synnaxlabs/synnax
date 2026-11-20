@@ -12,6 +12,7 @@ import "@synnaxlabs/lyra/dist/base.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { setupBrowser } from "@synnaxlabs/lyra/styletest";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
@@ -19,7 +20,10 @@ failOnConsoleOutput();
 setupBrowser();
 // The Console sets its theme on the document root, where drawings such as the Nebula
 // backdrop read their colors.
-CSS.applyVars(document.documentElement, Theming.toCSSVars(Theming.SYNNAX_LIGHT));
+CSS.applyVars(
+  document.documentElement,
+  Theming.toCSSVars(theme.themeZ.parse(theme.SYNNAX_LIGHT)),
+);
 
 // Testing Library unmounts each spec in an afterEach hook, which must run before the
 // pointer reset of setupBrowser. Hooks run last-in first-out, so it loads after.
