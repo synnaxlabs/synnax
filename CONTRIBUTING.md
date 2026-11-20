@@ -116,9 +116,8 @@ when Sedosaur is down, pull requests wait for it. The gate script is
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
 already on `main` do not block. The rule waits for a CodeQL analysis of each language. A
-pull request scans every language, except that it uploads an empty analysis for C++ or
-Rust when it changes no input of that language. GitHub does not apply the rule to a
-merge queue group.
+pull request scans each language whose inputs it changes and uploads an empty analysis
+for the others. GitHub does not apply the rule to a merge queue group.
 
 ## Size
 
