@@ -381,7 +381,7 @@ const Content = ({
   const listed = listing?.topics ?? NO_TOPICS;
   const listedNames = new Set(listed.map(({ name }) => name));
   const unlisted = unique
-    .unique([...held, ...entered])
+    .unique([...held, ...entered, ...picks.keys()])
     .filter((name) => name !== "" && !listedNames.has(name));
   const entries: Entry[] = [
     ...listed.map((t): Entry => ({ name: t.name, listed: t })),
