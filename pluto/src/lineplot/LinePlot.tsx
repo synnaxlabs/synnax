@@ -32,7 +32,7 @@ import { Frame, type FrameProps } from "@/lineplot/Frame";
 import { Legend as BaseLegend } from "@/lineplot/Legend";
 import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
-import { type measure } from "@/lineplot/measure/aether";
+import type { measure } from "@/lineplot/measure/aether";
 import {
   type DerivedLine,
   useAxisRuleKeys,
@@ -58,7 +58,7 @@ import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 

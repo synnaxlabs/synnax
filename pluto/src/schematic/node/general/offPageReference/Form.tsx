@@ -10,7 +10,7 @@
 import { resource, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -22,7 +22,7 @@ import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
-import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
+import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
 
 const path = deep.path<schematic.OffPageReferenceNodeConfig>();

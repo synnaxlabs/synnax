@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type WriteChannelType } from "@/platform/task/types";
+import type { WriteChannelType } from "@/platform/task/types";
 
 export const getChannelNameID = (key: string, type?: WriteChannelType) => {
   switch (type) {

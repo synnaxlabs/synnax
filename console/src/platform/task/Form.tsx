@@ -24,7 +24,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, narrow, primitive } from "@synnaxlabs/x";
 import { createContext, type FC, useContext, useEffect, useRef, useState } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";

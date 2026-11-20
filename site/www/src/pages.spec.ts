@@ -9,6 +9,7 @@
 
 // @vitest-environment node
 
+import { API_HOST } from "@synnaxlabs/site-common/analytics";
 import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -277,6 +278,27 @@ describe("pages", () => {
         "https://www.synnaxlabs.com/sponsorships",
         "https://www.synnaxlabs.com/terms",
       ]);
+    });
+  });
+
+  describe("content security policy", () => {
+    const sources = (directive: string): string[] => {
+      const csp = config.security?.csp;
+      if (typeof csp !== "object") throw new Error("the site sets no policy");
+      const found = csp.directives?.find((d) => d.startsWith(`${directive} `));
+      return found?.split(" ").slice(1) ?? [];
+    };
+
+    it("should let the contact form post to Formspree", () => {
+      expect(sources("connect-src")).toContain("https://formspree.io");
+    });
+
+    it("should let the analytics send events", () => {
+      expect(sources("connect-src")).toContain(API_HOST);
+    });
+
+    it("should let videos load from the CDN", () => {
+      expect(sources("media-src")).toContain(new URL(CDN).origin);
     });
   });
 });

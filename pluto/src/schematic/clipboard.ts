@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type record, uuid } from "@synnaxlabs/x";
-import { type RefObject } from "react";
+import type { RefObject } from "react";
 
 import { useSingleDispatch } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";

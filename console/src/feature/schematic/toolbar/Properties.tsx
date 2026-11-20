@@ -34,7 +34,7 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import { type FC, type ReactElement, type ReactNode } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";

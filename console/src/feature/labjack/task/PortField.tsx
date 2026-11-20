@@ -9,12 +9,12 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { type Model, PORTS, type PortType } from "@/feature/labjack/device/types";
 import { BankTabs, PortBanks } from "@/feature/labjack/task/PortBanks";
 import { claims } from "@/feature/labjack/task/ports";
-import { type Channel } from "@/feature/labjack/task/types";
+import type { Channel } from "@/feature/labjack/task/types";
 import { Task } from "@/platform/task";
 
 export interface PortFieldProps<C extends Channel> {

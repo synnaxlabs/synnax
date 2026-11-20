@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type location } from "@synnaxlabs/x";
+import type { location } from "@synnaxlabs/x";
 import { fireEvent, render, renderHook } from "@testing-library/react";
 import { type Node, ReactFlowProvider, ResizeControlVariant } from "@xyflow/react";
 import {

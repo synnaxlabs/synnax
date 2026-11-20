@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/client";
 import { type color as xcolor, deep, type record } from "@synnaxlabs/x";
 
-import { type ColorRef } from "@/platform/multiedit/config";
+import type { ColorRef } from "@/platform/multiedit/config";
 import { fixedRef } from "@/platform/multiedit/fixed";
 
 // A control that hides the palettes never sends a named reference.

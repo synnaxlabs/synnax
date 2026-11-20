@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { Composite, compositeStateZ } from "@/aether/testutil/Composite";
 import { createDriver, ROOT_KEY } from "@/aether/testutil/driver";
 import { Leaf } from "@/aether/testutil/Leaf";

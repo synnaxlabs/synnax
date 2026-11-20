@@ -9,9 +9,9 @@
 
 import { strings } from "@synnaxlabs/x";
 
-import { type License, type Organization } from "@/server/db/schema";
+import type { License, Organization } from "@/server/db/schema";
 import { channels, term } from "@/server/license/limits";
-import { type Fact, type Notice } from "@/server/mail";
+import type { Fact, Notice } from "@/server/mail";
 
 const inDays = (days: number): string => strings.count(days, "day");
 

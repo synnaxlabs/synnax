@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot, type ranger, type Synnax } from "@synnaxlabs/client";
+import type { lineplot, ranger, Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,

@@ -13,7 +13,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { type Node as FlowNode, ReactFlowProvider } from "@xyflow/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Jumps } from "@/schematic/edge/common/jumps";
@@ -34,7 +34,7 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { TextBox } from "@/schematic/node/general/textBox";
 import { Value } from "@/schematic/node/general/value";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";
 import { telemTest } from "@/telem/aether/testutil";

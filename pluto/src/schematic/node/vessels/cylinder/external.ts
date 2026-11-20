@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 import { CylinderForm } from "@/schematic/node/vessels/cylinder/Form";
 import { Preview, Symbol } from "@/schematic/node/vessels/cylinder/Symbol";
 

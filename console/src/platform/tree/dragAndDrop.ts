@@ -9,14 +9,14 @@
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Color } from "@synnaxlabs/pluto";
-import { type DragEvent, type RefObject } from "react";
+import type { DragEvent, RefObject } from "react";
 
-import { type Item } from "@/platform/tree/item";
+import type { Item } from "@/platform/tree/item";
 import { isMoreKey, type Store } from "@/platform/tree/store";
-import { type GetResource } from "@/platform/tree/types";
+import type { GetResource } from "@/platform/tree/types";
 
 export interface UseDragAndDropProps {
   client: Client;

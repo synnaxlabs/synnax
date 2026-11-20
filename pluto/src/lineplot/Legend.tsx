@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { compare } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { type LineSpec, useContext } from "@/lineplot/Frame";
 import { Legend as Base } from "@/vis/legend";
-import { type EntriesProps } from "@/vis/legend/Entries";
+import type { EntriesProps } from "@/vis/legend/Entries";
 
 type LineHandlers = Pick<
   EntriesProps,

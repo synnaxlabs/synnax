@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type log } from "@synnaxlabs/client";
-import { type Menu } from "@synnaxlabs/lyra/menu";
+import type { log } from "@synnaxlabs/client";
+import type { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";

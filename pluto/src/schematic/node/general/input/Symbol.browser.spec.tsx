@@ -15,7 +15,7 @@ import { SyntheticCore } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Rate, scheduler, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { ReactFlowProvider } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { render } from "vitest-browser-react";
 

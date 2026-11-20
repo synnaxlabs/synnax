@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { scheduler } from "@synnaxlabs/x";
-import { type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 

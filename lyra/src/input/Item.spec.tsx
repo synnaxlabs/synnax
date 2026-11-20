@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { type Status } from "@/status";
+import type { Status } from "@/status";
 import { Theming } from "@/theming";
 
 const textbox = (name?: string): HTMLInputElement =>

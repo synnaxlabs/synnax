@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { color, type destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { synnax } from "@/synnax/aether";
-import { type telem } from "@/telem/aether";
+import type { telem } from "@/telem/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 

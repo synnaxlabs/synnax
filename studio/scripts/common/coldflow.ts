@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, type resource, TimeRange, TimeSpan } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
 import { capture, type fixtures } from "@/index";
 
