@@ -10,7 +10,7 @@
 import { color, id, math, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError, type Synnax, ValidationError } from "@/index";
+import { NotCachedError, NotFoundError, type Synnax, ValidationError } from "@/index";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import {
@@ -1183,11 +1183,13 @@ describe("dispatch", () => {
     expect(expectLive(local.ranges.watch(rng.key).getCached()).name).toBe("Cold flow");
   });
 
-  it("should return false without a send when the range is not cached", async () => {
+  it("should throw without a send when the range is not cached", async () => {
     const rng = await createRange(remote);
     const fresh = createTestClient();
     const send = spyOnSend(fresh);
-    expect(await fresh.ranges.dispatch(rng.key, rename("Cold flow"))).toBe(false);
+    await expect(fresh.ranges.dispatch(rng.key, rename("Cold flow"))).rejects.toThrow(
+      NotCachedError,
+    );
     expect(send).not.toHaveBeenCalled();
   });
 

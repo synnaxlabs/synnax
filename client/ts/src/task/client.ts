@@ -594,8 +594,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached task and sends them to the Core. Paths and values
-   * take the camelCase form of the cached task. Returns false without side effects when
-   * the task is not cached.
+   * take the camelCase form of the cached task.
+   * @throws {NotCachedError} if the task is not cached, before any change.
    * @throws {Error} if the task cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached task drops the actions.
    */
@@ -611,7 +611,10 @@ export class Client extends query.Retriever<
     await this.dispatcher.settled(key);
   }
 
-  /** Stages actions that commit atomically as one dispatch. */
+  /**
+   * Stages actions that commit atomically as one dispatch.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key): actions.Transaction<Action> {
     return this.dispatcher.transaction(key);
   }

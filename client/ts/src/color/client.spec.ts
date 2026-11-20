@@ -11,7 +11,7 @@ import { color as xcolor, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { color } from "@/color";
-import { NotFoundError } from "@/errors";
+import { NotCachedError, NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { query } from "@/query";
 import { resource } from "@/resource";
@@ -329,11 +329,13 @@ describe("color.Client", () => {
       expect(stored.dark).toBeUndefined();
     });
 
-    it("should return false without a send for an uncached named color", async () => {
+    it("should throw without a send for an uncached named color", async () => {
       const named = await createNamed(remote);
       const fresh = createTestClient();
       const send = spyOnSend(fresh);
-      expect(await fresh.colors.dispatch(named.key, rename("Anomaly"))).toBe(false);
+      await expect(fresh.colors.dispatch(named.key, rename("Anomaly"))).rejects.toThrow(
+        NotCachedError,
+      );
       expect(send).not.toHaveBeenCalled();
     });
 

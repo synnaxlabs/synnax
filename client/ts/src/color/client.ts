@@ -152,8 +152,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
   }
 
   /**
-   * Applies actions to the cached named color and sends them to the Core. Returns
-   * false without side effects when the named color is not cached.
+   * Applies actions to the cached named color and sends them to the Core.
+   * @throws {NotCachedError} if the named color is not cached, before any change.
    * @throws {Error} if the named color cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached named color drops the actions.
    */
@@ -161,7 +161,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
     return await this.dispatcher.dispatch(key, array.toArray(actions));
   }
 
-  /** Stages actions that commit atomically as one dispatch. */
+  /**
+   * Stages actions that commit atomically as one dispatch.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key): actions.Transaction<Action> {
     return this.dispatcher.transaction(key);
   }
