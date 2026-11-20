@@ -13,7 +13,13 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
+import {
+  DisconnectedError,
+  MultipleFoundError,
+  NotFoundError,
+  type Synnax,
+  ValidationError,
+} from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
@@ -21,6 +27,7 @@ import { type secret } from "@/secret";
 import { type status } from "@/status";
 import { task } from "@/task";
 import {
+  createProxiedTestClient,
   createTestClient,
   createTestClientWithPolicy,
   expectLive,
@@ -1161,8 +1168,8 @@ describe("Task", async () => {
   };
 
   describe("executeCommandSync", () => {
-    // The wait opens its streamer before it sends the command, so once the command
-    // lands, the wait sees every status written after it.
+    // The wait reads statuses before it sends the command, so once the command lands,
+    // the wait sees every status written after it.
     const readCommand = async (
       streamer: framer.Streamer,
       key: task.Key,
@@ -1416,6 +1423,92 @@ describe("Task", async () => {
       await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
       await setReply(t, cmd, "success", "Started task");
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
+    });
+
+    // The change stream can deliver a status written before the wait began, so each
+    // rack starts with the status of a running Driver.
+    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
+      await c.racks.create({
+        name: `running-${id.create()}`,
+        status: {
+          variant: "success",
+          message: "Driver running",
+          details: { running: true },
+        },
+      });
+
+    describe.each([
+      { replies: "the change stream", cache: true, streamers: 0 },
+      { replies: "a streamer of its own", cache: false, streamers: 1 },
+    ])("with the replies on $replies", ({ cache, streamers }) => {
+      const sender = createTestClient({ cache });
+
+      beforeAll(async () => {
+        await sender.connect();
+        if (cache) await waitForStreamLive(sender.connection);
+      });
+
+      const createWait = async (timeout: TimeSpan = TimeSpan.minutes(1)) => {
+        const r = await createRunningRack(sender);
+        const t = await r.createTask({
+          name: `replies-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => commands.close());
+        const openStreamer = vi.spyOn(sender, "openStreamer");
+        onTestFinished(() => openStreamer.mockRestore());
+        const wait = t.executeCommandSync({ type: "scan", timeout });
+        return { rack: r, task: t, commands, openStreamer, wait };
+      };
+
+      it("should return the reply of the task", async () => {
+        const { task: t, commands, openStreamer, wait } = await createWait();
+        const cmd = await readCommand(commands, t.key);
+        await setReply(t, cmd, "success", "Scan complete");
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+        expect(openStreamer).toHaveBeenCalledTimes(streamers);
+      });
+
+      it("should end the wait with the error of a Driver that goes down", async () => {
+        const { rack: r, task: t, commands, wait } = await createWait();
+        const ended = expect(wait).rejects.toMatchObject({
+          message: "Driver not running",
+          description: "The Core has not heard from the Driver.",
+        });
+        await readCommand(commands, t.key);
+        await setDriverNotRunning(r.key);
+        await ended;
+      });
+
+      it("should time out when no reply arrives", async () => {
+        const { task: t, wait } = await createWait(TimeSpan.milliseconds(200));
+        await expect(wait).rejects.toThrow(
+          new Error(`Command to ${t.name} timed out after 200ms`),
+        );
+      });
+    });
+
+    it("should end a wait on the change stream once the stream drops", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      await proxied.connect();
+      await waitForStreamLive(proxied.connection);
+      const r = await createRunningRack(proxied);
+      const t = await r.createTask({
+        name: `severed-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => commands.close());
+      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      const ended = expect(wait).rejects.toThrow(
+        new DisconnectedError("The connection to the Core dropped."),
+      );
+      await readCommand(commands, t.key);
+      await proxy.sever();
+      await ended;
     });
   });
 

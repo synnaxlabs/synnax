@@ -129,7 +129,7 @@ export class Cache {
   private epochCount = 0;
   private unmaintained = false;
   /** Whether the change stream is live, so tables may drop records. */
-  private live = false;
+  private _live = false;
   private trimScheduled = false;
 
   /**
@@ -224,7 +224,7 @@ export class Cache {
    * is down, so a view reopened offline still shows what it showed.
    */
   private trim(): void {
-    if (!this.live) return;
+    if (!this._live) return;
     const cap = this.params.recordCap ?? DEFAULT_RECORD_CAP;
     this.tables.forEach(({ trim, size }) => {
       if (size() > cap) trim(Math.floor(cap * TRIM_FLOOR));
@@ -326,7 +326,7 @@ export class Cache {
           if (this.streamer !== streamer) return;
           this.clearPendingDeletes();
           this.unmaintained = false;
-          this.live = true;
+          this._live = true;
           this.epochCount = 1;
           this.epochObserver.notify(this.epochCount);
           this.trim();
@@ -334,7 +334,7 @@ export class Cache {
         onReopen: () => {
           if (this.streamer !== streamer) return;
           this.clearPendingDeletes();
-          this.live = true;
+          this._live = true;
           this.bumpEpoch();
           this.trim();
         },
@@ -367,6 +367,14 @@ export class Cache {
     return this.epochCount;
   }
 
+  /**
+   * Whether the change stream is live. While it is, each change written to a streamed
+   * channel reaches the listeners, and {@link onStreamDown} fires once it stops.
+   */
+  get live(): boolean {
+    return this._live;
+  }
+
   /** Subscribes to epoch changes. Returns a destructor that unsubscribes. */
   onEpoch(callback: (epoch: number) => void): destructor.Destructor {
     return this.epochObserver.onChange(callback);
@@ -382,7 +390,7 @@ export class Cache {
   }
 
   private goDown(): void {
-    this.live = false;
+    this._live = false;
     this.downObserver.notify();
   }
 
@@ -415,7 +423,7 @@ export class Cache {
   async reset(): Promise<void> {
     const { streamer } = this;
     this.streamer = null;
-    this.live = false;
+    this._live = false;
     // Drain the retired stream first so a late frame cannot repopulate the
     // tables cleared below. A close failure must not block the reset: the
     // stream is retired either way.

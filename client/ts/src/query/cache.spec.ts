@@ -146,6 +146,7 @@ describe("Cache", () => {
       cache.createTable<string, number>({ name: "docs" });
       await cache.ensureStreaming();
       expect(cache.epoch).toEqual(0);
+      expect(cache.live).toBe(false);
       const late = () => cache.createTable({ name: "late" });
       expect(late).not.toThrow();
       await cache.close();
@@ -814,6 +815,26 @@ describe("Cache", () => {
       await expect.poll(() => down.mock.calls.length).toBe(1);
       await expect.poll(() => cache.epoch).toBe(2);
       await cache.close();
+    });
+
+    it("is live only while the stream is open", async () => {
+      const first = new MockStreamer();
+      let opens = 0;
+      const cache = makeEngine(async () => {
+        opens++;
+        return opens === 1 ? first : new MockStreamer();
+      });
+      const liveWhenDown: boolean[] = [];
+      cache.onStreamDown(() => liveWhenDown.push(cache.live));
+      expect(cache.live).toBe(false);
+      await cache.ensureStreaming();
+      expect(cache.live).toBe(true);
+      first.drop();
+      await expect.poll(() => liveWhenDown).toEqual([false]);
+      await expect.poll(() => cache.epoch).toBe(2);
+      expect(cache.live).toBe(true);
+      await cache.close();
+      expect(cache.live).toBe(false);
     });
 
     it("notifies its listeners when the cache closes", async () => {
