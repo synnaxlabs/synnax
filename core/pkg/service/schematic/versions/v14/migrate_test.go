@@ -103,10 +103,7 @@ var _ = Describe("MigrateNode", func() {
 			Expect(out.Position).To(Equal(spatial.XY{X: 10, Y: 20}))
 			Expect(out.ZIndex).To(BeEquivalentTo(3))
 			Expect(out.Parent).To(Equal(new("group")))
-			sel, ok := out.Config.Variant.(v14.SelectNodeConfig)
-			Expect(ok).To(BeTrue())
-			Expect(sel.Options).To(Equal(options))
-			Expect(sel.Enumeration).To(BeNil())
+			Expect(out.Config.Variant).To(Equal(v14.SelectNodeConfig{Options: options}))
 		},
 	)
 })

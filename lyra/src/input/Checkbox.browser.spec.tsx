@@ -11,6 +11,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { CSS } from "@/css";
 import { Input } from "@/input";
 import { renderThemed } from "@/styletest";
 
@@ -25,6 +26,28 @@ describe("Input.Checkbox", () => {
     );
     await userEvent.click(getByRole("checkbox"));
     expect(onChange).toHaveBeenCalledExactlyOnceWith(true);
+  });
+
+  it("should start at the edge of its label in a plain table cell", async () => {
+    const { container, getByText } = await renderThemed(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <Input.Item label="Enabled">
+                <Input.Checkbox value={false} onChange={() => {}} />
+              </Input.Item>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const indicator = container.querySelector(
+      `.${CSS.BE("input", "checkbox", "indicator")}`,
+    );
+    if (indicator == null) throw new Error("The field has no checkbox");
+    const label = getByText("Enabled").element().getBoundingClientRect();
+    expect(indicator.getBoundingClientRect().left).toBeCloseTo(label.left, 0);
   });
 
   it("should call onClick once per click", async () => {

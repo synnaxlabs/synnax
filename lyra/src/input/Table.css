@@ -151,8 +151,8 @@
         background: var(--pluto-fill-rest);
     }
 
-    /* A cell's content fills it, whether a bare input or a container. At the top, a
-       control whose baseline is not its text adds no space below it. */
+    /* A cell's content fills it, whether a bare input or a container. Top alignment
+       stops a control with no text from leaving a line gap under it. */
     & tbody td:not(:last-child) > * {
         width: 100%;
         border-radius: 0;
