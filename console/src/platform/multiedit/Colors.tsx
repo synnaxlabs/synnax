@@ -7,21 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Color } from "@synnaxlabs/lyra/color";
+import { type color } from "@synnaxlabs/client";
+import { Color as LyraColor } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-import { color, state } from "@synnaxlabs/x";
+import { Color } from "@synnaxlabs/pluto";
+import { color as xcolor, state } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { type ColorRef } from "@/platform/multiedit/config";
 import { type ColorValue } from "@/platform/multiedit/selection";
 
+const refID = (ref?: color.Ref): string => {
+  if (ref == null) return "";
+  return ref.type === "named" ? ref.key : xcolor.hex(ref.value);
+};
+
 export interface ColorFieldProps {
   label: string;
   /** The color of each element that has the field. Must not be empty. */
   values: ColorValue[];
-  /** Called with the new color, or with undefined when the user picks Auto. */
-  onChange: (value?: color.Color) => void;
+  /**
+   * Called with a named reference for a pick from a palette, a fixed reference for a
+   * typed or custom color, and undefined when the user picks Auto.
+   */
+  onChange: (value?: color.Ref) => void;
+  /** If true, the picker hides the palettes, for a field that stores fixed colors. */
+  palettesHidden?: boolean;
 }
 
 /**
@@ -33,21 +45,24 @@ export const ColorField = ({
   label,
   values,
   onChange,
+  palettesHidden = false,
 }: ColorFieldProps): ReactElement => {
   const [first] = values;
-  const painted = (v: ColorValue): color.Crude => v.value ?? v.fallback;
   const mixed = values.some(
     (v) =>
-      !color.equals(v.value, first.value) || !color.equals(painted(v), painted(first)),
+      refID(v.value) !== refID(first.value) ||
+      (v.value == null && !xcolor.equals(v.fallback, first.fallback)),
   );
+  const binding = Color.useBinding(mixed ? undefined : first.value, onChange);
   return (
     <Input.Item label={label} align="start" padHelpText={false}>
-      <Color.Input
+      <LyraColor.Input
         aria-label={label}
-        value={mixed ? undefined : first.value}
+        value={binding.value}
         mixed={mixed}
         fallback={first.fallback}
-        onChange={onChange}
+        onChange={binding.onChange}
+        library={palettesHidden ? undefined : binding.library}
       />
     </Input.Item>
   );
@@ -56,10 +71,12 @@ export const ColorField = ({
 export interface SelectionColorsProps {
   refs: ColorRef[];
   /** Called with every reference that held the changed color. */
-  onChange: (refs: ColorRef[], value: color.Color) => void;
+  onChange: (refs: ColorRef[], value: color.Ref) => void;
+  /** If true, the pickers hide the palettes, for fields that store fixed colors. */
+  palettesHidden?: boolean;
 }
 
-const refID = (ref: ColorRef): string => `${ref.key}.${ref.path}`;
+const holderID = (ref: ColorRef): string => `${ref.key}.${ref.path}`;
 
 interface Held {
   id: string;
@@ -70,35 +87,68 @@ interface Held {
 export const SelectionColors = ({
   refs,
   onChange,
+  palettesHidden = false,
 }: SelectionColorsProps): ReactElement | null => {
   // An open picker holds the grouping, so dragging through another group's color does
   // not merge the two groups.
   const [held, setHeld] = useState<Held | null>(null);
   if (refs.length === 0) return null;
-  const live = new Map(refs.map((r) => [refID(r), r]));
+  const live = new Map(refs.map((r) => [holderID(r), r]));
   const groups =
-    held?.groups ?? Array.from(Map.groupBy(refs, (r) => color.hex(r.value)).values());
+    held?.groups ?? Array.from(Map.groupBy(refs, (r) => refID(r.value)).values());
   return (
     <Input.Item label="Selection" align="start" padHelpText={false}>
       <Flex.Box x wrap>
         {groups.map((group) => {
-          const current = group.flatMap((r) => live.get(refID(r)) ?? []);
+          const current = group.flatMap((r) => live.get(holderID(r)) ?? []);
           if (current.length === 0) return null;
-          const id = refID(group[0]);
+          const id = holderID(group[0]);
           const visible = held?.id === id;
           return (
-            <Color.Swatch
+            <GroupSwatch
               key={id}
               value={current[0].value}
               visible={visible}
               onVisibleChange={(arg) =>
                 setHeld(state.resolve(arg, visible) ? { id, groups } : null)
               }
-              onChange={(c: color.Color) => onChange(current, c)}
+              onChange={(c) => onChange(current, c)}
+              palettesHidden={palettesHidden}
             />
           );
         })}
       </Flex.Box>
     </Input.Item>
+  );
+};
+
+interface GroupSwatchProps extends Pick<
+  LyraColor.SwatchProps,
+  "visible" | "onVisibleChange"
+> {
+  value: color.Ref;
+  onChange: (value: color.Ref) => void;
+  palettesHidden: boolean;
+}
+
+const GroupSwatch = ({
+  value,
+  onChange,
+  palettesHidden,
+  ...rest
+}: GroupSwatchProps): ReactElement | null => {
+  const binding = Color.useBinding(value, (c) => {
+    if (c == null) throw new Error("[multiedit] - Auto from a swatch with no fallback");
+    onChange(c);
+  });
+  // A named color shows once the named colors load.
+  if (binding.value == null) return null;
+  return (
+    <LyraColor.Swatch
+      {...rest}
+      value={binding.value}
+      onChange={binding.onChange}
+      library={palettesHidden ? undefined : binding.library}
+    />
   );
 };
