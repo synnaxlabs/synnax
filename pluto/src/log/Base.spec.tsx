@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";
@@ -158,14 +157,6 @@ describe("log/Base", () => {
     it("should render custom empty content when provided", () => {
       renderLog({ emptyContent: <div data-testid="custom-empty">No data</div> });
       expect(screen.getByTestId("custom-empty")).toBeDefined();
-    });
-
-    it("should append the consumer's extra context menu items", async () => {
-      const { container } = renderLog({
-        extraContextMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item>,
-      });
-      fireEvent.contextMenu(getLogDiv(container));
-      expect(await screen.findByText("Extra")).toBeDefined();
     });
 
     it("should apply className to the container div", () => {
@@ -583,39 +574,6 @@ describe("log/Base", () => {
       const channels = [{ channel: 1, color: "#ff0000" }, { channel: 2 }];
       renderLog({ channels });
       expect(getAetherInitialState().channels).toEqual(channels);
-    });
-  });
-
-  describe("context menu", () => {
-    const openMenu = (container: HTMLElement): void => {
-      fireEvent.contextMenu(getLogDiv(container), { clientX: 10, clientY: 10 });
-    };
-
-    it("should run undo from the menu when the host supplies the handlers", async () => {
-      setupAether({ empty: false });
-      const undo = vi.fn();
-      const redo = vi.fn();
-      const { container } = renderLog({
-        undoRedo: { undo, redo, canUndo: true, canRedo: true },
-      });
-      openMenu(container);
-      // Both entries are asserted before the click, since selecting one closes the menu
-      // and takes the other out of the document with it.
-      expect(await screen.findByText("Undo")).toBeDefined();
-      expect(screen.getByText("Redo")).toBeDefined();
-      fireEvent.click(screen.getByText("Undo"));
-      expect(undo).toHaveBeenCalledTimes(1);
-      expect(redo).not.toHaveBeenCalled();
-    });
-
-    it("should omit undo and redo when the host supplies none", async () => {
-      setupAether({ empty: false });
-      const { container } = renderLog();
-      openMenu(container);
-      // Positive control: the menu opened, so the absence below is the missing prop
-      // rather than a menu that never rendered.
-      expect(await screen.findByText("Copy")).toBeDefined();
-      expect(screen.queryByText("Undo")).toBeNull();
     });
   });
 

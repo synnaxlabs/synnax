@@ -10,7 +10,7 @@
 import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { test } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { createTestClient } from "@/testutil";
 
 const SIZES = [1, 10, 80, 300];

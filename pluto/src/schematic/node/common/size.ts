@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Component } from "@synnaxlabs/lyra/component";
-import { type text } from "@synnaxlabs/x";
+import type { Component } from "@synnaxlabs/lyra/component";
+import type { text } from "@synnaxlabs/x";
 
 /**
  * The text level a symbol renders at for each size rung. A symbol must pass this level

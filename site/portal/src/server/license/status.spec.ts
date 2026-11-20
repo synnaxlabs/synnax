@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type License } from "@/server/db/schema";
+import type { License } from "@/server/db/schema";
 import { isStatus, STATUSES, statusOf } from "@/server/license/status";
 import { LICENSE, NOW } from "@/server/license/testutil";
 

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   AbstractSink,
   AbstractSource,

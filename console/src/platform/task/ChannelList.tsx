@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { channel } from "@synnaxlabs/client";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -24,7 +24,7 @@ import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
 import { TareItem } from "@/platform/task/TareItem";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ContextMenuItemProps<C extends Channel> extends Pick<

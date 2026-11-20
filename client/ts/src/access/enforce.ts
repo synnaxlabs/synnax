@@ -9,9 +9,9 @@
 
 import { array } from "@synnaxlabs/x";
 
-import { type Action } from "@/access/action/types.gen";
+import type { Action } from "@/access/action/types.gen";
 import { type Policy, resourceID } from "@/access/policy/types.gen";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 /**
  * Request represents an access control request to check if a subject

@@ -14,12 +14,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { text } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { type Available } from "@/platform/version/check";
+import type { Available } from "@/platform/version/check";
 import { useCheck, useDownload } from "@/platform/version/Updater";
 
 export interface UpdateProps {

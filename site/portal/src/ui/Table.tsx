@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type CSSProperties, type PropsWithChildren, type ReactElement } from "react";
+import type { CSSProperties, PropsWithChildren, ReactElement } from "react";
 
 import { Panel } from "@/ui/Panel";
 

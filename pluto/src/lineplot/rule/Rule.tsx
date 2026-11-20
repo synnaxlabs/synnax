@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { box, color } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
