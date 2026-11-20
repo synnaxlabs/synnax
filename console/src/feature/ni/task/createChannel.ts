@@ -57,8 +57,8 @@ const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
 /**
  * Creates an analog input channel. Without a port, it takes the lowest port on its
  * device that is free, along with its negative input when the channel is
- * differential. A voltage channel with no channel to copy takes the device's widest
- * voltage range.
+ * differential. An unscaled voltage channel that copies no channel on its own device
+ * takes the widest voltage range of that device.
  */
 export const createNextAIChannel = (
   channels: AIChannel[],
@@ -73,7 +73,8 @@ export const createNextAIChannel = (
   };
   if (device != null) next.device = device;
   const hardware = hardwareOf(devices, next.device);
-  if (source == null && next.type === "ai_voltage") {
+  const sameDevice = source?.device === next.device;
+  if (next.type === "ai_voltage" && next.customScale.type === "none" && !sameDevice) {
     const { lower, upper } = defaultAIVoltageRange(hardware);
     next.minVal = lower;
     next.maxVal = upper;

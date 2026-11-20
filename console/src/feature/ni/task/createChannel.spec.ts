@@ -135,6 +135,14 @@ describe("createChannel", () => {
       expect(createNextAIChannel([])).toMatchObject({ minVal: -10, maxVal: 10 });
     });
 
+    it("should give a copy on another device that device's range", () => {
+      const source = { ...aiChannel("1", 0), device: "a", minVal: -60, maxVal: 60 };
+      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+        minVal: -10,
+        maxVal: 10,
+      });
+    });
+
     it("should keep the range of the copied channel", () => {
       const source = { ...aiChannel("1", 0), minVal: -1, maxVal: 1 };
       expect(createNextAIChannel([source])).toMatchObject({ minVal: -1, maxVal: 1 });
