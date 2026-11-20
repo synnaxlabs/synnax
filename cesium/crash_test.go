@@ -106,7 +106,7 @@ func (e *crashEngine) Commit(
 		},
 	)
 	start := telem.TimeStamp(r.ID) * telem.SecondTS
-	if err := commitFrame(ctx, e.db, crashClock, start, frame); err != nil {
+	if err := commitFrame(ctx, e.db, start, frame); err != nil {
 		return 0, err
 	}
 	return e.ack, nil
@@ -291,9 +291,7 @@ var _ = Describe("Crash adapter", func() {
 		for i, k := range keys {
 			series[i] = all[k]
 		}
-		Expect(
-			commitFrame(ctx, e.db, crashClock, start, telem.MultiFrame(keys, series)),
-		).
+		Expect(commitFrame(ctx, e.db, start, telem.MultiFrame(keys, series))).
 			To(Succeed())
 	}
 
@@ -331,7 +329,7 @@ var _ = Describe("Crash adapter", func() {
 				[]cesium.ChannelKey{crashClock},
 				[]telem.Series{telem.NewSeries([]telem.TimeStamp{after})},
 			)
-			Expect(commitFrame(ctx, e.db, crashClock, after, extra)).To(Succeed())
+			Expect(commitFrame(ctx, e.db, after, extra)).To(Succeed())
 			records := testutil.MustSucceed(e.Recovered(ctx))
 			Expect(records).To(HaveLen(1))
 			Expect(records[0].ID).To(Equal(uint64(2)))
@@ -381,17 +379,25 @@ var _ = Describe("Crash adapter", func() {
 	)
 })
 
-// commitFrame writes fr from start with one writer on clock, commits it, and closes the
-// writer.
+// commitFrame writes fr from start with one writer on the clock of its first channel,
+// commits it, and closes the writer.
 func commitFrame(
 	ctx context.Context,
 	db *cesium.DB,
-	clock cesium.ChannelKey,
 	start telem.TimeStamp,
 	fr cesium.Frame,
 ) error {
+	keys := fr.KeysSlice()
+	first, err := db.RetrieveChannel(ctx, keys[0])
+	if err != nil {
+		return err
+	}
+	clock := first.Index
+	if first.IsIndex {
+		clock = first.Key
+	}
 	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
-		Channels: fr.KeysSlice(),
+		Channels: keys,
 		Clock:    clock,
 		Start:    start,
 	})
