@@ -53,34 +53,6 @@ byte_order_from_pb(::service::icd::pb::ByteOrder pb) {
     }
 }
 
-inline std::pair<::service::icd::pb::ImportFormat, x::errors::Error>
-import_format_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::service::icd::pb::ImportFormat>
-        kMap = {
-            {IMPORT_FORMAT_DBC, ::service::icd::pb::IMPORT_FORMAT_DBC},
-            {IMPORT_FORMAT_CSV, ::service::icd::pb::IMPORT_FORMAT_CSV},
-            {IMPORT_FORMAT_XLSX, ::service::icd::pb::IMPORT_FORMAT_XLSX},
-    };
-    auto it = kMap.find(cpp);
-    if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized ImportFormat value: " + cpp)};
-    return {it->second, x::errors::NIL};
-}
-
-inline std::pair<std::string, x::errors::Error>
-import_format_from_pb(::service::icd::pb::ImportFormat pb) {
-    switch (pb) {
-        case ::service::icd::pb::IMPORT_FORMAT_DBC:
-            return {IMPORT_FORMAT_DBC, x::errors::NIL};
-        case ::service::icd::pb::IMPORT_FORMAT_CSV:
-            return {IMPORT_FORMAT_CSV, x::errors::NIL};
-        case ::service::icd::pb::IMPORT_FORMAT_XLSX:
-            return {IMPORT_FORMAT_XLSX, x::errors::NIL};
-        default:
-            return {"", x::errors::Error("unrecognized ImportFormat protobuf value")};
-    }
-}
-
 inline std::pair<::service::icd::pb::UuidSet, x::errors::Error>
 uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
 inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
@@ -369,59 +341,6 @@ Where::from_proto(const ::service::icd::pb::Where &pb) {
         if (err) return {{}, err};
         cpp.key = v;
     }
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::service::icd::pb::ReadBinding, x::errors::Error>
-ReadBinding::to_proto() const {
-    ::service::icd::pb::ReadBinding pb;
-    pb.set_field(this->field.to_string());
-    pb.set_channel(this->channel);
-    pb.set_data_type(this->data_type.to_proto());
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<ReadBinding, x::errors::Error>
-ReadBinding::from_proto(const ::service::icd::pb::ReadBinding &pb) {
-    ReadBinding cpp;
-    {
-        auto [v, err] = x::uuid::UUID::parse(pb.field());
-        if (err) return {{}, err};
-        cpp.field = v;
-    }
-    cpp.channel = pb.channel();
-    cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::service::icd::pb::ReadMessage, x::errors::Error>
-ReadMessage::to_proto() const {
-    ::service::icd::pb::ReadMessage pb;
-    pb.set_message(this->message.to_string());
-    if (this->index.has_value()) pb.set_index(this->index->to_string());
-    for (const auto &item: this->bindings) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_bindings() = v;
-    }
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<ReadMessage, x::errors::Error>
-ReadMessage::from_proto(const ::service::icd::pb::ReadMessage &pb) {
-    ReadMessage cpp;
-    {
-        auto [v, err] = x::uuid::UUID::parse(pb.message());
-        if (err) return {{}, err};
-        cpp.message = v;
-    }
-    if (pb.has_index()) {
-        auto [v, err] = x::uuid::UUID::parse(pb.index());
-        if (err) return {{}, err};
-        cpp.index = v;
-    }
-    if (auto err = x::pb::from_proto_repeated<ReadBinding>(cpp.bindings, pb.bindings()))
-        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

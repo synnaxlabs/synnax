@@ -15,15 +15,6 @@ package x.payload.pb;
 
 option go_package = "github.com/synnaxlabs/x/payload/pb";
 
-// TimeFormat is the encoding of a timestamp value within a payload.
-enum TimeFormat {
-  TIME_FORMAT_ISO_8601 = 0;
-  TIME_FORMAT_UNIX_SEC = 1;
-  TIME_FORMAT_UNIX_MS = 2;
-  TIME_FORMAT_UNIX_US = 3;
-  TIME_FORMAT_UNIX_NS = 4;
-}
-
 // Kind is the kind of value a payload field holds.
 enum Kind {
   KIND_FLOAT = 0;
@@ -37,24 +28,13 @@ enum Kind {
   KIND_BYTES = 8;
 }
 
-// JSONType is the JSON type a channel value is serialized as in a payload.
-enum JSONType {
-  JSON_TYPE_NUMBER = 0;
-  JSON_TYPE_STRING = 1;
-  JSON_TYPE_BOOLEAN = 2;
-}
-
-// GeneratorType is the kind of value produced for a generated write field.
-enum GeneratorType {
-  GENERATOR_TYPE_UUID = 0;
-  GENERATOR_TYPE_TIMESTAMP = 1;
-}
-
-// Format is the encoding of a whole payload.
-enum Format {
-  FORMAT_JSON = 0;
-  FORMAT_TEXT = 1;
-  FORMAT_BINARY = 2;
+// TimeFormat is the encoding of a timestamp value within a payload.
+enum TimeFormat {
+  TIME_FORMAT_ISO_8601 = 0;
+  TIME_FORMAT_UNIX_SEC = 1;
+  TIME_FORMAT_UNIX_MS = 2;
+  TIME_FORMAT_UNIX_US = 3;
+  TIME_FORMAT_UNIX_NS = 4;
 }
 
 // FloatEntry maps a payload label to a float channel value.
@@ -95,67 +75,4 @@ message BooleanEntry {
   string label = 1;
   // value is the channel value the label maps to.
   bool value = 2;
-}
-
-// FloatRead holds the options of a field that reads a float.
-message FloatRead {
-  // data_type is the data type of a new channel. Absent for an existing one.
-  optional string data_type = 1;
-  // enum_values maps payload labels to channel values.
-  repeated FloatEntry enum_values = 2;
-  // fill is written when the payload has no value. Absent requires one.
-  optional double fill = 3;
-}
-
-// IntegerRead holds the options of a field that reads a signed integer.
-message IntegerRead {
-  // data_type is the data type of a new channel. Absent for an existing one.
-  optional string data_type = 1;
-  // enum_values maps payload labels to channel values.
-  repeated IntegerEntry enum_values = 2;
-  // fill is written when the payload has no value. Absent requires one.
-  optional int64 fill = 3;
-}
-
-// UnsignedRead holds the options of a field that reads an unsigned integer.
-message UnsignedRead {
-  // data_type is the data type of a new channel. Absent for an existing one.
-  optional string data_type = 1;
-  // enum_values maps payload labels to channel values.
-  repeated UnsignedEntry enum_values = 2;
-  // fill is written when the payload has no value. Absent requires one.
-  optional uint64 fill = 3;
-}
-
-// StringRead holds the options of a field that reads a string.
-message StringRead {
-  // enum_values maps payload labels to channel values.
-  repeated StringEntry enum_values = 1;
-  // fill is written when the payload has no value. Absent requires one.
-  optional string fill = 2;
-}
-
-// BooleanRead holds the options of a field that reads a boolean.
-message BooleanRead {
-  // enum_values maps payload labels to channel values.
-  repeated BooleanEntry enum_values = 1;
-  // fill is written when the payload has no value. Absent requires one.
-  optional bool fill = 2;
-}
-
-// TimestampRead holds the options of a field that reads a timestamp.
-message TimestampRead {
-  // time_format is the encoding of the timestamp in the payload.
-  TimeFormat time_format = 1;
-  // fill is written when the payload has no value. Absent requires one.
-  optional int64 fill = 2;
-}
-
-// EnumEntry maps a string label in a payload to a numeric channel value for enum-style
-// parsing (e.g. "ON" -> 1, "OFF" -> 0).
-message EnumEntry {
-  // label is the string label in the payload.
-  string label = 1;
-  // value is the numeric channel value the label maps to.
-  double value = 2;
 }
