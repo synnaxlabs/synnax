@@ -1712,12 +1712,12 @@ var _ = Describe("Read task", func() {
 
 		// read returns the read of m that writes its timestamp to index and its value
 		// to data.
-		read := func(m icd.Message, index, data channel.Channel) kafka.ReadMessage {
+		read := func(m icd.Message, index, data channel.Channel) icd.ReadMessage {
 			ts := fieldKey(m, 0)
-			return kafka.ReadMessage{
+			return icd.ReadMessage{
 				Message:  m.Key,
 				Index:    &ts,
-				Bindings: []kafka.ReadBinding{bind(m, 0, index), bind(m, 1, data)},
+				Bindings: []icd.ReadBinding{bind(m, 0, index), bind(m, 1, data)},
 			}
 		}
 
@@ -1725,7 +1725,7 @@ var _ = Describe("Read task", func() {
 		record := func(
 			recordKey string,
 			ic icd.ICD,
-			messages ...kafka.ReadMessage,
+			messages ...icd.ReadMessage,
 		) kafka.ReadRecord {
 			return kafka.ReadRecord{
 				Key:       "r-" + recordKey,
@@ -1947,7 +1947,7 @@ var _ = Describe("Read task", func() {
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
 					rm := read(m, index, index)
-					rm.Bindings[1] = kafka.ReadBinding{
+					rm.Bindings[1] = icd.ReadBinding{
 						Field: fieldKey(m, 1), DataType: telem.Float64T,
 					}
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
@@ -1963,7 +1963,7 @@ var _ = Describe("Read task", func() {
 				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
 					return []kafka.ReadRecord{record(
-						"", createICD(ctx, m), kafka.ReadMessage{Message: m.Key},
+						"", createICD(ctx, m), icd.ReadMessage{Message: m.Key},
 					)}
 				}, "message Reading binds no fields"),
 			Entry("a field whose kind does not convert to its channel",
@@ -1972,9 +1972,9 @@ var _ = Describe("Read task", func() {
 						jsonField("s", "/s", icd.StringJSONField{}),
 					)
 					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						kafka.ReadMessage{
+						icd.ReadMessage{
 							Message:  m.Key,
-							Bindings: []kafka.ReadBinding{bind(m, 0, data)},
+							Bindings: []icd.ReadBinding{bind(m, 0, data)},
 						},
 					)}
 				}, "cannot write string values to float64 channels"),
@@ -1986,9 +1986,9 @@ var _ = Describe("Read task", func() {
 						jsonField("w", "/w", icd.FloatJSONField{}),
 					)
 					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						kafka.ReadMessage{
+						icd.ReadMessage{
 							Message: m.Key,
-							Bindings: []kafka.ReadBinding{
+							Bindings: []icd.ReadBinding{
 								bind(m, 0, data), bind(m, 1, other),
 							},
 						},
@@ -1999,10 +1999,10 @@ var _ = Describe("Read task", func() {
 					m := stampedMessage("Reading", nil)
 					ts := fieldKey(m, 0)
 					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						kafka.ReadMessage{
+						icd.ReadMessage{
 							Message:  m.Key,
 							Index:    &ts,
-							Bindings: []kafka.ReadBinding{bind(m, 1, data)},
+							Bindings: []icd.ReadBinding{bind(m, 1, data)},
 						},
 					)}
 				}, "the index field has no binding"),
@@ -2013,10 +2013,10 @@ var _ = Describe("Read task", func() {
 					)
 					v := fieldKey(m, 0)
 					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						kafka.ReadMessage{
+						icd.ReadMessage{
 							Message:  m.Key,
 							Index:    &v,
-							Bindings: []kafka.ReadBinding{bind(m, 0, data)},
+							Bindings: []icd.ReadBinding{bind(m, 0, data)},
 						},
 					)}
 				}, "the index field must write to an index channel"),
@@ -2024,9 +2024,9 @@ var _ = Describe("Read task", func() {
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
 					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						kafka.ReadMessage{
+						icd.ReadMessage{
 							Message:  m.Key,
-							Bindings: []kafka.ReadBinding{bind(m, 0, index)},
+							Bindings: []icd.ReadBinding{bind(m, 0, index)},
 						},
 					)}
 				}, "only the index field can write to an index channel"),
@@ -2098,10 +2098,10 @@ var _ = Describe("Read task", func() {
 				})).To(Succeed())
 				m := stampedMessage("Reading", nil)
 				ic := createICD(ctx, m)
-				value := func(ch channel.Channel) kafka.ReadMessage {
-					return kafka.ReadMessage{
+				value := func(ch channel.Channel) icd.ReadMessage {
+					return icd.ReadMessage{
 						Message:  m.Key,
-						Bindings: []kafka.ReadBinding{bind(m, 1, ch)},
+						Bindings: []icd.ReadBinding{bind(m, 1, ch)},
 					}
 				}
 				dev := createDevice(ctx, clusterProperties())

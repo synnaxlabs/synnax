@@ -82,19 +82,26 @@ export const recordZ = z.object({
 });
 export interface Record extends z.infer<typeof recordZ> {}
 
-/** ReadBinding writes the value of one message field to a channel. */
-export const readBindingZ = z.object({
-  /** field is the key of the message field to read. */
-  field: icd.fieldKeyZ,
-  /** channel is the channel the value of the field is written to. */
-  channel: channel.keyZ.default(0),
+/** ReadRecord reads the records with one Kafka key as the messages of an ICD. */
+export const readRecordZ = z.object({
+  /** key uniquely identifies the record within the task. */
+  key: z.string().default(id.create),
+  /** disabled is true when the record is excluded from the task. */
+  disabled: z.boolean().default(false),
   /**
-   * dataType is the data type of the channel that a client creates for the field. Empty
-   * takes the default of the field's kind. The Core ignores it once the channel exists.
+   * recordKey is the Kafka key of the records read here. Empty reads every record of
+   * the topic that no other record of the topic claims, keyless ones included.
    */
-  dataType: z.string().default(""),
+  recordKey: z.string().default(""),
+  /** icd is the key of the ICD that holds the messages of the records. */
+  icd: icd.keyZ,
+  /**
+   * messages are the messages the records carry. Each record value is read as the
+   * message whose match rule it meets.
+   */
+  messages: icd.readMessageZ.array().default(() => []),
 });
-export interface ReadBinding extends z.infer<typeof readBindingZ> {}
+export interface ReadRecord extends z.infer<typeof readRecordZ> {}
 
 /** NoneSASL authenticates with no credentials. */
 export const noneSASLZ = z.object({
@@ -151,19 +158,16 @@ export const writeConfigZ = task.startConfigZ.extend({
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-/** ReadMessage reads the record values of one ICD message. */
-export const readMessageZ = z.object({
-  /** message is the key of the ICD message to read. */
-  message: icd.messageKeyZ,
-  /**
-   * index is the key of the field whose channel indexes the others. Absent when the
-   * task stamps samples with the Kafka timestamp of the record.
-   */
-  index: icd.fieldKeyZ.optional(),
-  /** bindings are the fields the task reads. A field with no binding is not read. */
-  bindings: readBindingZ.array().default(() => []),
+/** ReadTopic reads the records of one topic. */
+export const readTopicZ = z.object({
+  /** key uniquely identifies the topic within the task. */
+  key: z.string().default(id.create),
+  /** name is the name of the topic. */
+  name: z.string().default(""),
+  /** records contains the records the task reads from the topic, one per record key. */
+  records: readRecordZ.array().default(() => []),
 });
-export interface ReadMessage extends z.infer<typeof readMessageZ> {}
+export interface ReadTopic extends z.infer<typeof readTopicZ> {}
 
 /** Properties configures the connection to a Kafka cluster device. */
 export const propertiesZ = z.object({
@@ -183,38 +187,6 @@ export const propertiesZ = z.object({
   sasl: saslZ.prefault({ mechanism: "none" }),
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}
-
-/** ReadRecord reads the records with one Kafka key as the messages of an ICD. */
-export const readRecordZ = z.object({
-  /** key uniquely identifies the record within the task. */
-  key: z.string().default(id.create),
-  /** disabled is true when the record is excluded from the task. */
-  disabled: z.boolean().default(false),
-  /**
-   * recordKey is the Kafka key of the records read here. Empty reads every record of
-   * the topic that no other record of the topic claims, keyless ones included.
-   */
-  recordKey: z.string().default(""),
-  /** icd is the key of the ICD that holds the messages of the records. */
-  icd: icd.keyZ,
-  /**
-   * messages are the messages the records carry. Each record value is read as the
-   * message whose match rule it meets.
-   */
-  messages: readMessageZ.array().default(() => []),
-});
-export interface ReadRecord extends z.infer<typeof readRecordZ> {}
-
-/** ReadTopic reads the records of one topic. */
-export const readTopicZ = z.object({
-  /** key uniquely identifies the topic within the task. */
-  key: z.string().default(id.create),
-  /** name is the name of the topic. */
-  name: z.string().default(""),
-  /** records contains the records the task reads from the topic, one per record key. */
-  records: readRecordZ.array().default(() => []),
-});
-export interface ReadTopic extends z.infer<typeof readTopicZ> {}
 
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),

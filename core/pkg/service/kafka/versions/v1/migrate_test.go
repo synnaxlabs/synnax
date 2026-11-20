@@ -185,7 +185,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			Expect(f.Base().Pointer).To(Equal("/level"))
 			Expect(
 				cfg.Topics[0].Records[0].Messages[0].Bindings,
-			).To(Equal([]v1.ReadBinding{
+			).To(Equal([]icd.ReadBinding{
 				{Field: f.Base().Key, Channel: 7},
 			}))
 			Expect(changes).To(Equal([]string{
@@ -204,7 +204,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			ic := resolve(ctx, &cfg)
 			Expect(
 				cfg.Topics[0].Records[0].Messages[0].Bindings,
-			).To(Equal([]v1.ReadBinding{
+			).To(Equal([]icd.ReadBinding{
 				{Field: fields(ic.Messages[0])[0].Base().Key, DataType: telem.Int16T},
 			}))
 		},

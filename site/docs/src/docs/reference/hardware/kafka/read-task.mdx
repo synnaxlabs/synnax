@@ -116,10 +116,10 @@ task = client.tasks.create(
                         record_key="oven",
                         icd=plant.key,
                         messages=[
-                            kafka.ReadMessage(
+                            icd.ReadMessage(
                                 message=oven.key,
                                 bindings=[
-                                    kafka.ReadBinding(
+                                    icd.ReadBinding(
                                         field=field.key, channel=temperature.key
                                     )
                                 ],

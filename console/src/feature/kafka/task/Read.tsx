@@ -12,7 +12,7 @@ import "@/feature/kafka/task/Task.css";
 import {
   channel,
   DisconnectedError,
-  type icd,
+  icd,
   kafka,
   type Synnax,
 } from "@synnaxlabs/client";
@@ -463,7 +463,7 @@ const Records: FC<RecordsProps> = ({
           pointer
         ] ?? 0;
       const written = writtenChannels(all);
-      return kafka.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
+      return icd.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
     },
     messageName: (key, held) => {
       const rec = ctx.get(pathOf(key)).value;
@@ -565,7 +565,7 @@ const Records: FC<RecordsProps> = ({
           const path = pathOf(record).messages[read].bindings;
           ctx.set(path, [
             ...ctx.get(path).value,
-            ...keys.map((field) => kafka.readBindingZ.parse({ field })),
+            ...keys.map((field) => icd.readBindingZ.parse({ field })),
           ]);
         }
       }

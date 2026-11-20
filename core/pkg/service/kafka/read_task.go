@@ -362,7 +362,7 @@ func newReadRecord(
 func newReadGroup(
 	topic string,
 	recordKey string,
-	rm ReadMessage,
+	rm icd.ReadMessage,
 	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
 	decoded *codec.JSONMessage,
@@ -414,7 +414,7 @@ func newReadGroup(
 // bind sets the columns, the index channel, and the stamp of g from the bindings of rm
 // and their channels. It returns the codec binding of each.
 func (g *readGroup) bind(
-	rm ReadMessage,
+	rm icd.ReadMessage,
 	channels map[channel.Key]channel.Channel,
 ) ([]codec.Binding, error) {
 	bindings := make([]codec.Binding, len(rm.Bindings))

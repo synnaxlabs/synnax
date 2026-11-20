@@ -62,12 +62,6 @@ type ReadTopic = v1.ReadTopic
 // ReadRecord reads the records with one Kafka key as the messages of an ICD.
 type ReadRecord = v1.ReadRecord
 
-// ReadBinding writes the value of one message field to a channel.
-type ReadBinding = v1.ReadBinding
-
-// ReadMessage reads the record values of one ICD message.
-type ReadMessage = v1.ReadMessage
-
 // InlineRecord is a record from before ICDs, which held its fields inline.
 type InlineRecord = v1.InlineRecord
 

@@ -17,7 +17,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, http, icd as icd_, task
-from x import payload, telem
+from x import payload
 
 START_OFFSET_LATEST: Literal["latest"] = "latest"
 
@@ -102,20 +102,29 @@ class Record(BaseModel):
     fields: list[http.WriteField] = Field(default_factory=list)
 
 
-class ReadBinding(BaseModel):
-    """Writes the value of one message field to a channel.
+class ReadRecord(BaseModel):
+    """Reads the records with one Kafka key as the messages of an ICD.
 
     Attributes:
-        field: Is the key of the message field to read.
-        channel: Is the channel the value of the field is written to.
-        data_type: Is the data type of the channel that a client creates for the field.
-            Empty takes the default of the field's kind. The Core ignores it once the
-            channel exists.
+        key: Uniquely identifies the record within the task.
+        disabled: Is true when the record is excluded from the task.
+        record_key: Is the Kafka key of the records read here. Empty reads every record
+            of the topic that no other record of the topic claims, keyless ones
+            included.
+        icd: Is the key of the ICD that holds the messages of the records.
+        messages: Are the messages the records carry. Each record value is read as the
+            message whose match rule it meets.
     """
 
-    field: icd_.FieldKey
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    data_type: telem.DataType = telem.DataType("")
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
+    record_key: str = ""
+    icd: icd_.Key
+    messages: list[icd_.ReadMessage] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class NoneSASL(BaseModel):
@@ -172,19 +181,22 @@ class WriteConfig(task.StartConfig):
         return hash(self.key)
 
 
-class ReadMessage(BaseModel):
-    """Reads the record values of one ICD message.
+class ReadTopic(BaseModel):
+    """Reads the records of one topic.
 
     Attributes:
-        message: Is the key of the ICD message to read.
-        index: Is the key of the field whose channel indexes the others. Absent when the
-            task stamps samples with the Kafka timestamp of the record.
-        bindings: Are the fields the task reads. A field with no binding is not read.
+        key: Uniquely identifies the topic within the task.
+        name: Is the name of the topic.
+        records: Contains the records the task reads from the topic, one per record key.
     """
 
-    message: icd_.MessageKey
-    index: icd_.FieldKey | None = None
-    bindings: list[ReadBinding] = Field(default_factory=list)
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    name: str = ""
+    records: list[ReadRecord] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class Properties(BaseModel):
@@ -202,49 +214,6 @@ class Properties(BaseModel):
     secure: bool = False
     ca_certificate: str = ""
     sasl: SASL = Field(default_factory=lambda: NoneSASL(mechanism="none"))
-
-
-class ReadRecord(BaseModel):
-    """Reads the records with one Kafka key as the messages of an ICD.
-
-    Attributes:
-        key: Uniquely identifies the record within the task.
-        disabled: Is true when the record is excluded from the task.
-        record_key: Is the Kafka key of the records read here. Empty reads every record
-            of the topic that no other record of the topic claims, keyless ones
-            included.
-        icd: Is the key of the ICD that holds the messages of the records.
-        messages: Are the messages the records carry. Each record value is read as the
-            message whose match rule it meets.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    disabled: bool = False
-    record_key: str = ""
-    icd: icd_.Key
-    messages: list[ReadMessage] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class ReadTopic(BaseModel):
-    """Reads the records of one topic.
-
-    Attributes:
-        key: Uniquely identifies the topic within the task.
-        name: Is the name of the topic.
-        records: Contains the records the task reads from the topic, one per record key.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    records: list[ReadRecord] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class ReadConfig(task.PersistConfig):

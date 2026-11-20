@@ -271,7 +271,7 @@ const addMessage = async (
     }),
   );
   const bindings = fields.map(({ key }) => ({ field: key, channel: 0, dataType: "" }));
-  rec.messages.push(kafka.readMessageZ.parse({ message: message.key, bindings }));
+  rec.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
   return message;
 };
 

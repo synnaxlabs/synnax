@@ -69,8 +69,8 @@ func fieldKey(m icd.Message, i int) icd.FieldKey {
 }
 
 // bind returns the binding that writes field i of m to ch.
-func bind(m icd.Message, i int, ch channel.Channel) kafka.ReadBinding {
-	return kafka.ReadBinding{Field: fieldKey(m, i), Channel: ch.Key()}
+func bind(m icd.Message, i int, ch channel.Channel) icd.ReadBinding {
+	return icd.ReadBinding{Field: fieldKey(m, i), Channel: ch.Key()}
 }
 
 // lift moves records, which hold their fields inline, into a new ICD with one message

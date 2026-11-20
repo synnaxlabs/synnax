@@ -593,10 +593,10 @@ var _ = Describe("Service", func() {
 						payload.KindTimestamp, payload.KindFloat, payload.KindInteger,
 					}))
 					index := fieldKey(m, 0)
-					Expect(rec.Messages).To(Equal([]kafka.ReadMessage{{
+					Expect(rec.Messages).To(Equal([]icd.ReadMessage{{
 						Message: m.Key,
 						Index:   &index,
-						Bindings: []kafka.ReadBinding{
+						Bindings: []icd.ReadBinding{
 							{Field: index, Channel: idx.Key()},
 							{Field: fieldKey(m, 1), Channel: value.Key()},
 						},

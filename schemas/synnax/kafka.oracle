@@ -302,12 +302,12 @@ ReadRecord struct {
             topic that no other record of the topic claims, keyless ones included.
         """
     }
-    icd        icd.Key       {
+    icd        icd.Key           {
         @doc value     "is the key of the ICD that holds the messages of the records."
         @ref kind      use
         @ref on_delete restrict
     }
-    messages   ReadMessage[] = [] {
+    messages   icd.ReadMessage[] = [] {
         @doc value """
             are the messages the records carry. Each record value is read as the message
             whose match rule it meets.
@@ -315,46 +315,6 @@ ReadRecord struct {
     }
 
     @doc value  "reads the records with one Kafka key as the messages of an ICD."
-    @go marshal
-}
-
-ReadBinding struct {
-    field     icd.FieldKey   {
-        @doc value "is the key of the message field to read."
-    }
-    channel   channel.Key = 0 {
-        @doc value     "is the channel the value of the field is written to."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    data_type telem.DataType = "" {
-        @doc value """
-            is the data type of the channel that a client creates for the field. Empty
-            takes the default of the field's kind. The Core ignores it once the channel
-            exists.
-        """
-        @ts type   "string"
-    }
-
-    @doc value  "writes the value of one message field to a channel."
-    @go marshal
-}
-
-ReadMessage struct {
-    message  icd.MessageKey {
-        @doc value "is the key of the ICD message to read."
-    }
-    index    icd.FieldKey?  {
-        @doc value """
-            is the key of the field whose channel indexes the others. Absent when the
-            task stamps samples with the Kafka timestamp of the record.
-        """
-    }
-    bindings ReadBinding[] = [] {
-        @doc value "are the fields the task reads. A field with no binding is not read."
-    }
-
-    @doc value  "reads the record values of one ICD message."
     @go marshal
 }
 

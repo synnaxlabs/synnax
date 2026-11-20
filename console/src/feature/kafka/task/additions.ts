@@ -211,7 +211,7 @@ export const createAdditions = (
 export const createRecords = (icdKey: icd.Key, additions: Addition[]): ReadRecord[] =>
   additions.flatMap(({ message, recordKeys, index }) => {
     const fields = message.payload.format === "json" ? message.payload.fields : [];
-    const read = kafka.readMessageZ.parse({
+    const read = icd.readMessageZ.parse({
       message: message.key,
       index,
       bindings: fields.map(({ key }) => ({ field: key })),
