@@ -231,7 +231,8 @@ jobs:
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
-          fail_ci_if_error: true
+          # The queue gates on no Codecov status, so an outage must not eject a group.
+          fail_ci_if_error: ${{ github.event_name != 'merge_group' }}
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
 
