@@ -1096,7 +1096,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ClearUnissuedChannelLinks(
 				l.Schematic,
 				l.Table,
-				cfg.Distribution.Channel.IssuedAtOpen,
+				cfg.Distribution.Channel.IssuedAtFirstOpen,
 			),
 		),
 	}); !ok(err, nil) {

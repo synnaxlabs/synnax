@@ -45,11 +45,11 @@ var _ = Describe("Issued with two concurrent Allocates", func() {
 	It("Should not report a key that storage does not hold", func(ctx SpecContext) {
 		store := DeferClose(storagetestutil.OpenLayer(ctx))
 		slow := slowSetKV{
-			holding: &atomic.Bool{},
-			entered: make(chan struct{}),
-			release: make(chan struct{}),
+			ReadWriter: store.KV,
+			holding:    &atomic.Bool{},
+			entered:    make(chan struct{}),
+			release:    make(chan struct{}),
 		}
-		slow.ReadWriter = store.KV
 		host := node.Key(1)
 		open := func() *channel.Service {
 			GinkgoHelper()

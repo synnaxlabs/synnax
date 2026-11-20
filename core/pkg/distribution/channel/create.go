@@ -73,14 +73,15 @@ func (s *Service) Issued(k Key) bool {
 	return true
 }
 
-// IssuedAtOpen reports whether Issued(k) held when the service opened, before any
-// Allocate of this run.
-func (s *Service) IssuedAtOpen(k Key) bool {
+// IssuedAtFirstOpen reports whether Issued(k) held at the first open of the service on
+// its storage, before any Allocate. Later opens keep the answer, so a start that stops
+// before it finishes does not change it.
+func (s *Service) IssuedAtFirstOpen(k Key) bool {
 	switch {
 	case k.Free():
-		return s.freeCounter.issuedAtOpen(k.LocalKey())
+		return s.freeCounter.issuedAtFirstOpen(k.LocalKey())
 	case k.Lease() == s.cfg.HostKey:
-		return s.leasedCounter.issuedAtOpen(k.LocalKey())
+		return s.leasedCounter.issuedAtFirstOpen(k.LocalKey())
 	}
 	return true
 }
