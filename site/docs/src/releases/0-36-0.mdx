@@ -1,22 +1,18 @@
 ---
-title: "Version 0.36 release notes"
+title: "Line plot annotation tool"
+version: "0.36.0"
+date: "Dec 16, 2024"
+breakingChanges: true
 ---
 
-import { Image, Video } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
+import { Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
-import Release from "@/components/releases/Release.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Keys } from "@/components/keys/Keys";
 export const components = mdxOverrides;
-
-<Release
-    version="0.36.0"
-    date="Dec 16, 2024"
-    title="Line plot annotation tool"
-    breakingChanges
->
 
 Synnax v0.36.0 introduces several new quality of life improvements and bug fixes,
 including a new line plot annotation tool, schematic undo/redo, a new way to select the
@@ -102,5 +98,3 @@ Bug fixes:
 - Commit changes to Core when clicking on schematic elements.
 - Close windows on empty workspace.
 - Fix error when creating a channel that doesn't exist.
-
-</Release>

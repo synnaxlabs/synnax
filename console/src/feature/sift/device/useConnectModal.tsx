@@ -102,11 +102,13 @@ const beforeSave = async ({
 
 const APIKeyField = () => {
   const name = Form.useFieldValue(path.name);
+  const rackKey = Form.useFieldValue(path.rack);
   return (
     <Secret.Field
       path={path.properties.apiKey}
       label="API key"
       defaultName={`${name || "Sift"} API key`}
+      rack={rackKey}
       padHelpText={false}
       required
     />

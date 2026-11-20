@@ -133,9 +133,9 @@ export class Scale
 {
   static readonly TYPE = "scale";
   static readonly z = scaleStateZ;
-  schema = Scale.z;
+  override schema = Scale.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
@@ -172,7 +172,7 @@ export class Scale
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.staleness?.cleanup();

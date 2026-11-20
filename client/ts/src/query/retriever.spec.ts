@@ -75,6 +75,8 @@ const silentStreamer = (): framer.Streamer => {
       throw new EOF();
     },
     [Symbol.asyncIterator]: () => streamer,
+    [Symbol.dispose]: () => streamer.close(),
+    [Symbol.asyncDispose]: async () => streamer.close(),
   };
   return streamer;
 };

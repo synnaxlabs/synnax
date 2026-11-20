@@ -47,18 +47,16 @@ raises an error.
   <Fragment slot="typescript">
 
 ```typescript
-const streamer = await client.openStreamer(["time", "temperature"]);
-try {
-  for await (const frame of streamer) {
-    console.log(Array.from(frame.get("temperature")));
-  }
-} finally {
-  streamer.close();
+await using streamer = await client.openStreamer(["time", "temperature"]);
+for await (const frame of streamer) {
+  console.log(Array.from(frame.get("temperature")));
 }
 ```
 
-The loop waits for each frame. The `finally` block closes the streamer, also when the
-code throws an error.
+The loop waits for each frame. `await using` closes the streamer when the block ends,
+also when the code throws an error. It needs Node.js 24, Chrome 134, Firefox 141, Safari
+27.3, or later, unless your build tool compiles it to older JavaScript. Elsewhere, call
+`close` in a `finally` block.
 
   </Fragment>
 
@@ -247,7 +245,8 @@ streamer.close();
 
 </Client.Tabs>
 
-A streamer that you do not close keeps its connection to the Core open.
+A streamer that you do not close keeps its connection to the Core open. A streamer
+declared with `await using` closes when its block ends.
 
 <Divider.Divider x />
 
