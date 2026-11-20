@@ -492,6 +492,39 @@ describe("Kafka read form", () => {
       await screen.findByRole("treeitem", { name: /Topic.*plant/ });
     });
 
+    it("should add the picked fields with an empty record of another topic", async () => {
+      const { draft, dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "sample", {
+        browse: {
+          data: browseOf(listTopic("kiln"), listTopic("plant", { records: 0 })),
+        },
+        sample: { data: sampleOfTopic("kiln", OVEN_SHAPE) },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByText("plant"));
+      await dialog.findByText(/The topic holds no records/);
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
+      const topics = await waitFor(async () => {
+        const next = await retrieveTopics(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      expect(
+        topics.map(({ name, records }) => [name, records.map((r) => r.recordKey)]),
+      ).toEqual([
+        ["kiln", ["oven-1", "oven-2"]],
+        ["plant", [""]],
+      ]);
+      const icds = new Set(topics.flatMap(({ records }) => records.map((r) => r.icd)));
+      expect(icds.size).toBe(1);
+      const { messages } = await client.icds.retrieve([...icds][0]);
+      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "Any key"]);
+    });
+
     it("should describe the topic and group its fields by record", async () => {
       const { dev } = await renderRead();
       const newest = Number(TimeStamp.now().sub(TimeSpan.seconds(4)).valueOf());
