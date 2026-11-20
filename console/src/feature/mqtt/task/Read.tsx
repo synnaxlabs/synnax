@@ -9,7 +9,14 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/client";
+import {
+  channel,
+  DisconnectedError,
+  icd,
+  mqtt,
+  query,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -17,7 +24,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
   deep,
@@ -34,6 +41,7 @@ import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
+  type RefObject,
   type SetStateAction,
   useContext,
   useRef,
@@ -231,18 +239,22 @@ const messagePrefix = (
 
 /**
  * @returns the bindings of fields, each to the channel stored for its pointer. A field
- * whose stored channel is in written gets no channel, as the Core refuses a channel
- * that two bindings write. Adds the channels it binds to written.
+ * gets no channel when its stored channel is in written, as the Core refuses a channel
+ * that two bindings write, or when its kind does not convert to the data type of the
+ * channel in dataTypes. Adds the channels it binds to written.
  */
 const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: Pick<icd.JSONField, "key" | "pointer">[],
+  fields: Pick<icd.JSONField, "key" | "pointer" | "type">[],
   written: Set<channel.Key>,
+  dataTypes: ReadonlyMap<channel.Key, string>,
 ): icd.ReadBinding[] =>
-  fields.map(({ key: field, pointer }) => {
+  fields.map(({ key: field, pointer, type }) => {
     const ch = stored[pointer] ?? 0;
-    if (written.has(ch)) return icd.readBindingZ.parse({ field });
-    if (ch !== 0) written.add(ch);
+    const dataType = dataTypes.get(ch);
+    if (written.has(ch) || dataType == null || !ICD.converts(type, dataType))
+      return icd.readBindingZ.parse({ field });
+    written.add(ch);
     return icd.readBindingZ.parse({ field, channel: ch });
   });
 
@@ -476,6 +488,7 @@ const MessageSections = ({ device, path, read, format }: MessagePanelProps) => {
 
 interface MessageDetailsProps extends MessagePanelProps {
   onAddField: () => void;
+  bindDisabled: boolean;
 }
 
 const MessageDetails = ({
@@ -484,6 +497,7 @@ const MessageDetails = ({
   read,
   format,
   onAddField,
+  bindDisabled,
 }: MessageDetailsProps) => {
   const props = useMessageProps(device, path, read);
   return (
@@ -493,6 +507,7 @@ const MessageDetails = ({
       matchTitle="Documents"
       anyLabel="Any document"
       onAddField={onAddField}
+      addFieldDisabled={bindDisabled}
     />
   );
 };
@@ -514,6 +529,9 @@ interface TopicDetailsProps {
   onAddField: () => void;
   /** Adds a message to the topic, for documents that its messages do not cover. */
   onAddMessage: () => void;
+  /** Makes a topic that reads one message read a message of any ICD. */
+  onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  bindDisabled: boolean;
 }
 
 /**
@@ -526,6 +544,8 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   device,
   onAddField,
   onAddMessage,
+  onFormatChange,
+  bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
   const topic = PForm.useFieldValue(path.topic);
@@ -542,7 +562,9 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
+                {encoding === "json" && (
+                  <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
+                )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -557,6 +579,13 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
             inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
           />
+          {reads.length === 1 && (
+            <ICD.MessageFormatField
+              path={path}
+              onChange={onFormatChange}
+              disabled={bindDisabled}
+            />
+          )}
           <QoSField path={path.qos} />
           <PForm.CheckboxField
             path={path.retainedIgnored}
@@ -642,6 +671,8 @@ interface EntriesProps {
   onSelect: Dispatch<SetStateAction<string[]>>;
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
+  /** The key of each message that the task made. */
+  made: RefObject<Set<string>>;
 }
 
 /** The entries of the task as a tree, beside the details of the selected item. */
@@ -651,6 +682,7 @@ const Entries: FC<EntriesProps> = ({
   onSelect,
   expanded,
   onExpand,
+  made,
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
@@ -660,32 +692,55 @@ const Entries: FC<EntriesProps> = ({
   const { push } = PForm.useFieldList(root.config.entries);
   const entries = PForm.useFieldValue(root.config.entries);
   const stored = device.properties.read;
-  const { tree, handleSelect, contextMenu, renderItem, current, addField, addMessage } =
-    ICD.Tree.use({
-      sources: root.config.entries,
-      sourceOf: (e) => (isPlain(e) ? e : null),
-      pathOf: plainPath,
-      SourceItem: EntryItem,
-      // Starting reuses the channel that the device stores for the field's pointer,
-      // unless another field reads it.
-      bindingOf: (entry, read, field) => {
-        const channels = storedOf(
-          stored,
-          ctx.get(plainPath(entry)).value,
-          read,
-        )?.channels;
-        const written = writtenChannels(ctx.get(root.config.entries).value);
-        return bindingsOf(channels ?? {}, [field], written)[0];
-      },
-      messageName: (entry, held) =>
-        nextMessageName(ctx.get(plainPath(entry)).value, held),
-      selected,
-      onSelect,
-      expanded,
-      onExpand,
-    });
-  const first = entries.find(isPlain);
-  const format = first == null ? undefined : formats.get(first.icd);
+  const storedKeys = unique
+    .unique(Object.values(stored).flatMap(({ channels }) => Object.values(channels)))
+    .filter((key) => key !== 0);
+  const { data: storedChannels, variant } = Channel.useResultMultiple(
+    storedKeys.length === 0 ? null : query.keysRequest(storedKeys),
+  );
+  // Each control that binds waits for the data types of the stored channels, as the
+  // Core refuses a channel that the field's kind does not convert to.
+  const bindDisabled = storedKeys.length > 0 && variant !== "success";
+  const dataTypes = new Map(
+    storedChannels?.map(({ key, dataType }) => [key, dataType.toString()]),
+  );
+  const {
+    tree,
+    handleSelect,
+    contextMenu,
+    renderItem,
+    current,
+    addField,
+    addMessage,
+    setMessage,
+  } = ICD.Tree.use({
+    sources: root.config.entries,
+    sourceOf: (e) => (isPlain(e) ? e : null),
+    pathOf: plainPath,
+    SourceItem: EntryItem,
+    // Starting reuses the channel that the device stores for the field's pointer,
+    // unless another field reads it. A topic that reads one message also reuses the
+    // channels of its earlier messages, so a new message format keeps its channels.
+    bindDisabled,
+    bindingOf: (key, read, field) => {
+      const entry = ctx.get(plainPath(key)).value;
+      const channels =
+        entry.messages.length === 1
+          ? topicChannels(stored, entry.topic, entry.messages[0].message)
+          : (storedOf(stored, entry, read)?.channels ?? {});
+      const written = writtenChannels(ctx.get(root.config.entries).value);
+      return bindingsOf(channels, [field], written, dataTypes)[0];
+    },
+    messageName: (entry, held) =>
+      nextMessageName(ctx.get(plainPath(entry)).value, held),
+    made,
+    selected,
+    onSelect,
+    expanded,
+    onExpand,
+  });
+  const home = ICD.mostRead(entries.filter(isPlain));
+  const format = home == null ? undefined : formats.get(home);
 
   // Adds run one at a time, so a second click cannot make a second ICD.
   const adding = useRef(false);
@@ -707,20 +762,22 @@ const Entries: FC<EntriesProps> = ({
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
     const bind: Bind = ({ topic }, fields, message) =>
-      bindingsOf(topicChannels(stored, topic, message), fields, written);
+      bindingsOf(topicChannels(stored, topic, message), fields, written, dataTypes);
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }
-        : first == null || format == null
+        : home == null || format == null
           ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
           : await addTopics({
               client,
-              format: { key: first.icd, form: format },
+              format: { key: home, form: format },
               entries: plain,
               drafts,
               bind,
             });
     push([...added, ...tags]);
+    for (const { messages } of added) made.current.add(messages[0].message);
+    for (const { message } of grown) if (message != null) made.current.add(message);
     grown.forEach(({ key, message, bindings }) => {
       const read = plainPath(key).messages[0];
       // The index and bindings of a deleted message name fields it no longer has.
@@ -795,6 +852,7 @@ const Entries: FC<EntriesProps> = ({
         format={entryFormat}
         device={device}
         onAddField={() => addField(entry.key, current.read)}
+        bindDisabled={bindDisabled}
       />
     );
   } else if (entry != null) {
@@ -817,6 +875,8 @@ const Entries: FC<EntriesProps> = ({
           device={device}
           onAddField={() => addField(entry.key, 0)}
           onAddMessage={() => addMessage(entry.key)}
+          onFormatChange={(icdKey, message) => setMessage(entry.key, icdKey, message)}
+          bindDisabled={bindDisabled}
         />
       );
   }
@@ -831,6 +891,7 @@ const Entries: FC<EntriesProps> = ({
           emptyMessage="No entries"
           addLabel="Add data"
           onAdd={handleAdd}
+          addDisabled={bindDisabled}
         >
           {renderItem}
         </Task.Views.TreeList>
@@ -936,6 +997,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const [expanded, setExpanded] = useState<string[]>(() =>
     ICD.Tree.initialExpanded(entries),
   );
+  const made = useRef(new Set<string>());
   const plain = entries.filter(isPlain);
   const resolve = (entry: ReadEntry) => {
     if (entry.type !== "sparkplug") return {};
@@ -950,6 +1012,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         onSelect={setSelected}
         expanded={expanded}
         onExpand={setExpanded}
+        made={made}
       />
       {plain.flatMap(({ key, messages }) =>
         messages.map(({ message }, read) => (
