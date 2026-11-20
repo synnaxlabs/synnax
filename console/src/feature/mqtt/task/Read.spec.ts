@@ -1753,6 +1753,41 @@ describe("MQTT read form", () => {
     await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
   });
 
+  it("should move only the message that borrows a channel on another's index", async () => {
+    const time = await createTimeChannel();
+    const createOnTime = async (name: string) =>
+      await client.channels.create({
+        name: uniqueName(name),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+    const temperature = await createOnTime("temperature");
+    const flow = await createOnTime("flow");
+    const temperatureField = createField("temperature", "float");
+    const entry = await createEntry({
+      fields: [temperatureField],
+      bound: { [temperatureField.key]: temperature.key },
+    });
+    await addMessage(entry, "status", [createField("flow", "float")], KIND_MATCH);
+    // The second message took the channel that the first stores for /flow.
+    entry.messages[1].bindings[0].channel = flow.key;
+    const channels = { "/temperature": temperature.key, "/flow": flow.key };
+    await renderRead({
+      entries: [entry],
+      properties: {
+        read: {
+          [`${TOPIC}#${entry.messages[0].message}`]: { index: time.key, channels },
+        },
+      },
+    });
+    const isNew = (name: RegExp) =>
+      within(screen.getByRole("treeitem", { name })).queryByRole("img", {
+        name: "New channel",
+      });
+    await waitFor(() => expect(isNew(/^flow/)).not.toBeNull());
+    expect(isNew(/^temperature/)).toBeNull();
+  });
+
   describe("Sparkplug B entries", () => {
     it("should list a tag by its full path beside a plain entry", async () => {
       await renderRead({
