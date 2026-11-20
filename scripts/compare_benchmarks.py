@@ -171,6 +171,12 @@ GROUPS: tuple[Group, ...] = (
         "^Benchmark(Write|Open)$",
     ),
     go(
+        "framer/stored",
+        "cpu",
+        "core/pkg/distribution/framer/writer",
+        "^BenchmarkWriteStored$",
+    ),
+    go(
         "framer/codec",
         "cpu",
         "core/pkg/distribution/framer/codec",
