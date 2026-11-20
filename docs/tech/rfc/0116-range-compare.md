@@ -21,7 +21,7 @@ Comparing ranges on a shared zero is the most requested range feature (SY-3942).
 compare 2 to 5 ranges. Today a plot keeps each range at its real time
 (`site/docs/src/docs/reference/visualize/line-plots.mdx:82`), so two tests a week apart
 sit a week apart. All ranges of a channel also draw in one color with one legend entry
-(`pluto/src/lineplot/LinePlot.tsx:154`), so the user cannot tell which line is which
+(`pluto/src/lineplot/LinePlot.tsx:152`), so the user cannot tell which line is which
 range.
 
 ## 2 Design
@@ -36,17 +36,17 @@ not draw in relative mode.
 
 ### 2.1 Stored shape
 
-- **`ranger.Ref`** (`schemas/synnax/ranger.oracle:164`): The `key` variant gains an
+- **`ranger.Ref`** (`schemas/synnax/ranger.oracle:165`): The `key` variant gains an
   optional `t0` timestamp. Both variants gain an optional `color`. `Ref` is "the range a
   visualization shows", so any visualization can read both fields.
 - **Line plot axis**: An x axis gains a time mode, absolute or relative. Null is
   absolute.
-- **Actions**: `AddRange` and `RemoveRange` (`schemas/synnax/lineplot.oracle:413`) match
+- **Actions**: `AddRange` and `RemoveRange` (`schemas/synnax/lineplot.oracle:416`) match
   a reference by its range and ignore `t0` and `color`, as `refsEqual` already does
-  (`console/src/session/range/ref.ts:37`). New actions set the T0 and the color of one
+  (`console/src/session/range/ref.ts:40`). New actions set the T0 and the color of one
   range, and the time mode of an axis. The Core rejects a `t0` on a window.
 - **Versions**: The line plot moves to v11, and the range schema gets a new version (RFC
-  0053). The migration copies each reference as is.
+  0053). The migration copies each reference and drops a repeat of a range or window.
 
 Stored lines keep the style of their channel across ranges (#4114). In relative mode the
 range color replaces the line color. The line width still applies.
@@ -56,10 +56,10 @@ range color replaces the line color. The line width still applies.
 The Console resolves each range's zero, label, and color, and Pluto gets one entry per
 range: a key, its window, its zero, a label, and a color. Pluto reads no ranges (RFC
 0083 decision 7). The line shifts each trace by its zero in one place: the scale offset
-that each draw already applies (`pluto/src/vis/line/aether/line.ts:637`). Tiles, bounds,
+that each draw already applies (`pluto/src/vis/line/aether/line.ts:665`). Tiles, bounds,
 and the live edge stay in absolute time (RFC 0083 §2, RFC 0068). The shift subtracts in
 `bigint` before the conversion to `Number`, because `Series.glOffset` holds a full
-timestamp (`x/ts/src/telem/series.ts:1034`).
+timestamp (`x/ts/src/telem/series.ts:1042`).
 
 The x axis gets a tick type for time from zero, with T- below zero and T+ above it.
 
@@ -84,7 +84,7 @@ mode keeps the color by channel.
   the lines of the other ranges at 25 percent over the background until the pointer
   leaves. Hovering a range heading does the same for each channel of the range. A line
   on the plot does not dim the others; the tooltip names it. The range strip dims on
-  hover in the same way (`docs/claude/ux.md:829`).
+  hover in the same way (`docs/claude/ux.md:849`).
 - **Tooltip**: The heading is the time from zero, such as "T+1.250 s". Entries group by
   channel. Inside a channel, each range shows its color, name, and value, sorted by
   value from high to low. The hovered line's entry is bold. The tooltip lists as many
@@ -96,7 +96,7 @@ mode keeps the color by channel.
   Show all. When an item is hidden, the legend ends with "Show all (N hidden)". Hidden
   state stays session state for each window, as hidden lines are today
   (`console/src/session/lineplot/slice.ts:65`), and is never saved with the plot.
-- **Scale**: Colors stay distinct for 8 ranges (`docs/claude/ux.md:66`). Past 8, colors
+- **Scale**: Colors stay distinct for 8 ranges (`docs/claude/ux.md:64`). Past 8, colors
   repeat, and hover, the tooltip, and hide tell the ranges apart.
 
 ### 2.5 Setting a custom T0
@@ -110,7 +110,7 @@ mode keeps the color by channel.
 ### 2.6 Turning compare on
 
 - **Mode select**: A `Select.Buttons` group in the Data tab of the plot toolbar, right
-  of X1 (`console/src/feature/lineplot/toolbar/Data.tsx:29`), with absolute and relative
+  of X1 (`console/src/feature/lineplot/toolbar/Data.tsx:22`), with absolute and relative
   time. The plot controls hold only window state that is never saved, and the mode is
   saved on the x axis. A change of mode resets the zoom.
 - **Compare**: The shared range menu gets "Compare" for a selection of two or more
