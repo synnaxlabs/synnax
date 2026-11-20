@@ -1,0 +1,53 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# The last job of a watched workflow calls this when a job of its run failed. It starts
+# Agent - Requeue, and Report - Failures for a scheduled run. Both wait for the run to
+# complete and read its conclusion, so a run that ends cancelled starts nothing.
+name: Relay - Failure
+
+on:
+  workflow_call:
+    inputs:
+      requeue:
+        description: "Start Agent - Requeue"
+        type: boolean
+        default: false
+      report:
+        description: "Start Report - Failures when the run is scheduled"
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  relay:
+    name: Relay
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      REQUEUE: ${{ inputs.requeue }}
+      REPORT: ${{ inputs.report && github.event_name == 'schedule' }}
+    # No retry: a dispatch that fails with a 5xx can still start a run.
+    steps:
+      - name: Start Agent - Requeue
+        if: env.REQUEUE == 'true'
+        run: gh workflow run agent.requeue.yaml --ref main -f run="$GITHUB_RUN_ID"
+
+      # Report - Failures reads this attempt, so a rerun that Agent - Requeue starts
+      # does not hide the failure.
+      - name: Start Report - Failures
+        if: ${{ !cancelled() && env.REPORT == 'true' }}
+        run: |
+          gh workflow run report.failures.yaml --ref main -f run="$GITHUB_RUN_ID" \
+            -f attempt="$GITHUB_RUN_ATTEMPT"

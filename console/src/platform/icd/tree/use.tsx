@@ -26,6 +26,7 @@ import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
+import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
   isReadable,
@@ -167,13 +168,20 @@ const FieldItem = ({
   const bindingsPath = path.messages[read].bindings;
   const bindings = PForm.useFieldValue(bindingsPath);
   const sourceOff = PForm.useFieldValue(path.disabled);
+  const plan = usePlan(path, read);
   const i = bindings.findIndex(({ field: key }) => key === field.key);
+  const replaced =
+    i >= 0 &&
+    bindings[i].channel !== 0 &&
+    plan != null &&
+    Task.newChannelName(plan.channels, field.key) != null;
   return (
     <Task.Views.TreeFieldItem
       {...props}
       label={field.name}
       emptyLabel="Unnamed field"
       channel={i < 0 ? null : bindingsPath[i].channel}
+      replaced={replaced}
       off={i < 0}
       skipped={i < 0 || sourceOff}
     >
