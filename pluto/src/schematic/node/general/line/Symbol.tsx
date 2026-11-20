@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { box, xy } from "@synnaxlabs/x";
-import { useStoreApi } from "@xyflow/react";
+import { useReactFlowStoreApi } from "@xyflow/react";
 import { type ReactElement, useRef } from "react";
 
 import { Color } from "@/color";
@@ -38,7 +38,7 @@ export const Symbol = ({
   config: { strokeColor, start, end, strokeWidth },
 }: NodeProps<schematic.LineNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const store = useStoreApi();
+  const { optionsStore, viewportStore } = useReactFlowStoreApi();
   const dragRef = useRef<Drag | null>(null);
   const points = [start, end];
 
@@ -52,7 +52,7 @@ export const Symbol = ({
     onMove: (b, _, e) => {
       const drag = dragRef.current;
       if (drag == null) return;
-      const zoom = store.getState().transform[2];
+      const zoom = viewportStore.getState().transform[2];
       const { signedWidth, signedHeight } = box.signedDims(b);
       const fixed = drag.points[1 - drag.index];
       let moved = xy.translate(drag.points[drag.index], {
@@ -63,9 +63,9 @@ export const Symbol = ({
       const next = drag.points.with(drag.index, moved);
       const origin = xy.round(box.topLeft(box.construct(next[0], next[1])));
       // Position is not config, so it takes react-flow's change pipeline like a drag.
-      store
+      optionsStore
         .getState()
-        .triggerNodeChanges([{ type: "position", id: nodeKey, position: origin }]);
+        .emitNodeChanges([{ type: "position", id: nodeKey, position: origin }]);
       const rel = next.map((p) => xy.round(xy.sub(p, origin)));
       onConfigChange({ start: rel[0], end: rel[1] });
     },
