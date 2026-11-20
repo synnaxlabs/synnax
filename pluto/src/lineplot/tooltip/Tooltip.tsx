@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
+import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 import type { z } from "zod";
@@ -19,7 +19,10 @@ export interface TooltipProps
   extends
     Omit<z.input<typeof tooltip.tooltipStateZ>, "position" | "hovered">,
     Aether.ComponentProps {
-  /** Called with the line nearest the cursor, or null when no line is near. */
+  /**
+   * Called with the line nearest the cursor, or null when no line is near or the
+   * tooltip unmounts.
+   */
   onHoveredChange?: (hovered: tooltip.Hovered | null) => void;
 }
 
@@ -29,14 +32,25 @@ export const Tooltip = ({
   ...rest
 }: TooltipProps): ReactElement | null => {
   const cKey = useUniqueKey(aetherKey);
+  const reported = useRef(false);
+  const onHoveredChangeRef = useSyncedRef(onHoveredChange);
   // A lifecycle with no React state, so the cursor moving does not re-render.
   const { setState } = Aether.useLifecycle({
     aetherKey: cKey,
     type: tooltip.Tooltip.TYPE,
     schema: tooltip.tooltipStateZ,
     initialState: { position: null, hovered: null, ...rest },
-    onAetherChange: ({ hovered }) => onHoveredChange?.(hovered),
+    onAetherChange: ({ hovered }) => {
+      reported.current = hovered != null;
+      onHoveredChange?.(hovered);
+    },
   });
+  useEffect(
+    () => () => {
+      if (reported.current) onHoveredChangeRef.current?.(null);
+    },
+    [onHoveredChangeRef],
+  );
   const { relative } = rest;
   useEffect(() => setState((p) => ({ ...p, relative })), [relative]);
 

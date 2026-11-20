@@ -155,16 +155,21 @@ describe("YAxis", () => {
         },
       });
       const region = box.construct(0, 0, 800, 600);
-      m.axis.render({
-        grid: {},
-        plot: region,
-        viewport: box.DECIMAL,
-        container: region,
-        canvases: ["gl"],
-        hold: false,
-        xDataToDecimalScale: scale.Scale.scale<number>(0, 50).scale(0, 1),
-        xBounds: { lower: 0, upper: 50 },
-      });
+      const raised: Array<() => void> = [];
+      m.axis.render(
+        {
+          grid: {},
+          plot: region,
+          viewport: box.DECIMAL,
+          container: region,
+          canvases: ["gl"],
+          hold: false,
+          xDataToDecimalScale: scale.Scale.scale<number>(0, 50).scale(0, 1),
+          xBounds: { lower: 0, upper: 50 },
+        },
+        raised,
+      );
+      raised.forEach((draw) => draw());
       const colors = m.calls
         .filter((c) => c.op === "uniform4fv")
         .map((c) => [...(c.args[1] as Iterable<number>)]);

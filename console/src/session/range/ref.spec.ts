@@ -167,7 +167,7 @@ describe("range ref", () => {
     });
 
     it("should zero a fixed window at its start and give a rolling window no zero", async () => {
-      const { wrapper } = await createConsoleWrapper({ client });
+      const { wrapper } = await createConsoleWrapper({ client: null });
       const span = TimeSpan.minutes(5).valueOf();
       const refs = [staticRef(1000, 2000), windowRef(Number(span))];
       const { result } = renderHook(() => Range.useResolveRanges(refs, [RED, BLUE]), {

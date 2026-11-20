@@ -137,7 +137,13 @@ export class LinePlot
 
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { ...this.state, plot, canvases };
-    this.axes.forEach((xAxis) => xAxis.render(p));
+    // Raised lines draw after the lines of every axis, so they draw over all of them.
+    const raised: Array<() => void> = [];
+    try {
+      this.axes.forEach((xAxis) => xAxis.render(p, raised));
+    } finally {
+      raised.forEach((draw) => draw());
+    }
   }
 
   private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {

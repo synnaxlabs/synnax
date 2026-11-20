@@ -237,11 +237,12 @@ describe("LinePlot", () => {
 
     const components = (): aether.Component[] => roots.flatMap(all);
 
-    // renderTraces renders a plot of RANGES with one stored line for each label.
+    // renderTraces renders a plot of RANGES with one stored line for each label, and
+    // returns a function that renders the plot again with more props.
     const renderTraces = async (
       props: Partial<LinePlot.LinePlotProps> = {},
       { relative = true, labels = ["pressure"] } = {},
-    ): Promise<void> => {
+    ): Promise<(next: Partial<LinePlot.LinePlotProps>) => void> => {
       const index = await client.channels.create({
         name: id.create(),
         dataType: "timestamp",
@@ -269,14 +270,15 @@ describe("LinePlot", () => {
           });
         });
       }
-      render(
+      const plot = (p: Partial<LinePlot.LinePlotProps>): ReactElement => (
         <GLHost>
           <LinePlot.Scope.Provider value={key}>
-            <LinePlot.LinePlot ranges={RANGES} {...props} />
+            <LinePlot.LinePlot ranges={RANGES} {...p} />
           </LinePlot.Scope.Provider>
-        </GLHost>,
-        { wrapper },
+        </GLHost>
       );
+      const { rerender } = render(plot(props), { wrapper });
+      return (next) => rerender(plot({ ...props, ...next }));
     };
 
     const traces = (): Map<string, line.Line> =>
@@ -391,15 +393,19 @@ describe("LinePlot", () => {
       await waitFor(() => expect(trace("line/r2").state.label).toEqual("flow"));
     });
 
-    it("should report the hovered line with the time of its value", async () => {
-      const onHoveredChange = vi.fn();
-      await renderTraces({ onHoveredChange });
+    const hover = async (key: string): Promise<void> => {
       const leaf = await waitFor(() => {
         const found = components().find((c) => c instanceof tooltip.Tooltip);
         if (!(found instanceof tooltip.Tooltip)) throw new Error("no tooltip");
         return found;
       });
-      leaf.setState((p) => ({ ...p, hovered: { key: "line/r1", x: 1.5e9 } }));
+      leaf.setState((p) => ({ ...p, hovered: { key, x: 1.5e9 } }));
+    };
+
+    it("should report the hovered line with the time of its value", async () => {
+      const onHoveredChange = vi.fn();
+      await renderTraces({ onHoveredChange });
+      await hover("line/r1");
       await waitFor(() =>
         expect(onHoveredChange).toHaveBeenLastCalledWith({
           line: "line",
@@ -407,6 +413,19 @@ describe("LinePlot", () => {
           time: ZERO.add(TimeSpan.milliseconds(1500)),
         }),
       );
+    });
+
+    it("should report no hovered line once the tooltip turns off", async () => {
+      const onHoveredChange = vi.fn();
+      const update = await renderTraces({ onHoveredChange });
+      await hover("line/r1");
+      await waitFor(() =>
+        expect(onHoveredChange).toHaveBeenLastCalledWith(
+          expect.objectContaining({ range: "r1" }),
+        ),
+      );
+      update({ enableTooltip: false });
+      await waitFor(() => expect(onHoveredChange).toHaveBeenLastCalledWith(null));
     });
   });
 
