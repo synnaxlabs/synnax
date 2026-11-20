@@ -158,7 +158,7 @@ catalog:
   '@vitest/browser-playwright': ^5.0.5
   '@vitest/coverage-v8': ^5.0.5
   '@vscode/vsce': ^4.0.0
-  '@xyflow/react': ^12.12.0
+  '@xyflow/react': ^13.0.2
   algoliasearch: ^5.60.0
   astro: ^7.4.12
   astro-seo: ^1.2.0
