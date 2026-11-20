@@ -188,25 +188,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						expectStored(ctx, telem.NewSeriesSecondsTSV(10, 10, 10, 11))
 					})
 					It(
-						"Should not check the order of stream only writes",
-						func(ctx SpecContext) {
-							live := open(ctx, config(10*telem.SecondTS))
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
-							MustSucceed(live.Commit(ctx))
-							cfg := config(10 * telem.SecondTS)
-							cfg.Persist = new(false)
-							stream := open(ctx, cfg)
-							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(100)))
-							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(99)))
-							Expect(stream.Close()).To(Succeed())
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(11)))
-							Expect(MustSucceed(live.Commit(ctx))).
-								To(Equal(11*telem.SecondTS + 1))
-							Expect(live.Close()).To(Succeed())
-							expectStored(ctx, telem.NewSeriesSecondsTSV(10, 11))
-						},
-					)
-					It(
 						"Should reject a writer that writes behind the data of another",
 						func(ctx SpecContext) {
 							live := open(ctx, config(100*telem.SecondTS))

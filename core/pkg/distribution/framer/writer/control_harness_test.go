@@ -54,7 +54,7 @@ type storageConfig struct {
 	Channels          []cesium.ChannelKey
 	Authorities       []xcontrol.Authority
 	Start             telem.TimeStamp
-	Mode              cesium.WriterMode
+	Mode              writer.Mode
 }
 
 // controlUpdate is a batch of control transfers in Cesium keys.

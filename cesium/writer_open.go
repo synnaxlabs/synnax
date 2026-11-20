@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -21,46 +22,35 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// WriterMode sets the operating mode of the writer, optionally enabling or disabling
-// persistence and streaming.
-type WriterMode uint8
-
-func (mode WriterMode) persist() bool { return mode != WriterModeStreamOnly }
-
-// Stream returns true if the current mode should stream data.
-func (mode WriterMode) Stream() bool { return mode != WriterModePersistOnly }
-
-const (
-	WriterModePersistStream WriterMode = iota + 1
-	// WriterModePersistOnly stores samples without streaming them. The writer holds
-	// only the time it has committed and can write behind a live writer. It fails to
-	// open when another writer holds its Start, and a commit fails when it reaches
-	// another writer's claim.
-	WriterModePersistOnly
-	WriterModeStreamOnly
-)
-
 // WriterConfig sets the configuration used to open a new writer on the DB.
 type WriterConfig struct {
-	// Channels sets the channels that the writer will write to. If a channel does not
-	// exist, the writer fill fail to open.
+	// Channels are the keys that the writer writes: its clock, the channels that the
+	// clock times, or both. A writer of channels without their clock writes against the
+	// stored stamps of the clock.
+	//
+	// [REQUIRED]
 	Channels []channel.Key
+	// Clock is the key of the clock that times every channel of the writer.
+	//
+	// [REQUIRED]
+	Clock channel.Key
 	// Start marks the start of the writer's claim. When Start is zero, the region
 	// starts at the time the writer opens. If a sample exists for any channel at a
-	// non-zero Start, the writer fails to open. The domains of each index start at the
-	// first timestamp written to that index, not at Start. The region moves back to a
-	// domain that starts before it.
+	// non-zero Start, the writer fails to open. The domains of the clock start at the
+	// first timestamp written to it, not at Start. The region moves back to a domain
+	// that starts before it.
 	//
-	// A writer that writes data channels without their index needs a Start that is a
-	// sample of that index.
+	// A writer that writes channels without their clock needs a Start that is a sample
+	// of the clock.
 	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
-	// Mode sets the persistence and streaming mode of the writer. The default mode is
-	// WriterModePersistStream. See the WriterMode documentation for more.
+	// Bounded limits the writer's claim to the time it has committed, so that it can
+	// write behind a live writer. The writer fails to open when another writer holds
+	// its Start, and a commit fails when it reaches another writer's claim.
 	//
-	// [OPTIONAL] - Defaults to WriterModePersistStream.
-	Mode WriterMode
+	// [OPTIONAL] - Defaults to false.
+	Bounded bool
 }
 
 // commitsNeverPersist is the persist interval of the internal writers. Their commits
@@ -73,6 +63,7 @@ var _ config.Config[WriterConfig] = WriterConfig{}
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
 	v.NotEmptySlice("channels", c.Channels)
+	v.Ternary("clock", c.Clock == 0, "must be set")
 	return v.Error()
 }
 
@@ -80,7 +71,8 @@ func (c WriterConfig) Validate() error {
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Channels = override.Slice(c.Channels, other.Channels)
-	c.Mode = override.Numeric(c.Mode, other.Mode)
+	c.Clock = override.Numeric(c.Clock, other.Clock)
+	c.Bounded = c.Bounded || other.Bounded
 	return c
 }
 
@@ -89,8 +81,7 @@ func (c WriterConfig) unaryConfig() unary.WriterConfig {
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: commitsNeverPersist,
 		Start:                    c.Start,
-		Persist:                  new(c.Mode.persist()),
-		Bounded:                  new(!c.Mode.Stream()),
+		Bounded:                  new(c.Bounded),
 	}
 }
 
@@ -101,167 +92,93 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	return db.newWriter(ctx, cfgs...)
-}
-
-func (db *DB) newWriter(
-	ctx context.Context,
-	cfgs ...WriterConfig,
-) (w *Writer, err error) {
-	cfg, err := config.New(WriterConfig{Mode: WriterModePersistStream}, cfgs...)
+	cfg, err := config.New(WriterConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		domainWriters = make(map[ChannelKey]*idxWriter)
-		keyToIdx      = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
-	)
+	idx, err := db.openClockWriter(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Writer{WriterConfig: cfg, idx: idx}, nil
+}
+
+// openClockWriter opens the writers of the clock of cfg and of each channel of cfg that
+// it times. Alignment is not decided here: data channels resolve it from their clock on
+// every write, so a writer that joins an existing claim cannot end up in a different
+// alignment space than the clock it writes against. The caller must hold db.mu.
+func (db *DB) openClockWriter(
+	ctx context.Context,
+	cfg WriterConfig,
+) (_ *idxWriter, err error) {
+	idx, err := db.openDomainIdxWriter(cfg.Clock, cfg)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		if err != nil {
-			err = closeWriters(err, domainWriters)
+			err = errors.Combine(err, idx.Close())
 		}
 	}()
-
-	// Two passes:
-	//   Pass 1: Open index-channel writers.
-	//   Pass 2: Open all non-index unary writers (both fixed-density and
-	//     variable-length) and attach them to the appropriate idxWriter group.
-	// Alignment is not decided here. Data channels resolve it from their index on every
-	// write, so a writer that joins an existing claim cannot end up in a different
-	// alignment space than the index it is being written against.
-	if err = db.openIndexWriters(ctx, cfg, domainWriters, keyToIdx); err != nil {
-		return nil, err
-	}
-	if err = db.openDataWriters(ctx, cfg, domainWriters, keyToIdx); err != nil {
-		return nil, err
-	}
-
-	return db.assembleWriter(cfg, domainWriters, keyToIdx), nil
-}
-
-// assembleWriter returns a Writer over the opened writers.
-func (db *DB) assembleWriter(
-	cfg WriterConfig,
-	domainWriters map[ChannelKey]*idxWriter,
-	keyToIdx map[ChannelKey]*idxWriter,
-) *Writer {
-	w := &Writer{
-		WriterConfig: cfg,
-		internal:     make([]*idxWriter, 0, len(domainWriters)),
-		keyToIdx:     keyToIdx,
-	}
-	for _, idx := range domainWriters {
-		w.internal = append(w.internal, idx)
-	}
-	return w
-}
-
-// closeWriters closes the given writers and returns err combined with any errors from
-// closing them.
-func closeWriters(err error, domainWriters map[ChannelKey]*idxWriter) error {
-	for _, idx := range domainWriters {
-		err = errors.Combine(idx.Close(), err)
-	}
-	return err
-}
-
-// openIndexWriters opens a writer for each index channel in cfg, adding the index
-// writers to domainWriters and keyToIdx.
-func (db *DB) openIndexWriters(
-	ctx context.Context,
-	cfg WriterConfig,
-	domainWriters map[ChannelKey]*idxWriter,
-	keyToIdx map[ChannelKey]*idxWriter,
-) error {
-	for i, key := range cfg.Channels {
-		u, ok := db.mu.dbs.unary[key]
-		if !ok {
-			return channel.NewNotFoundError(key)
-		}
-		if !u.Channel().IsIndex {
-			continue
-		}
-		idxW, err := db.openIndexWriter(ctx, cfg, &u, i)
-		if err != nil {
-			return err
-		}
-		domainWriters[u.Channel().Index] = idxW
-		keyToIdx[key] = idxW
-	}
-	return nil
-}
-
-// openIndexWriter opens the writer for the index channel u at position i of cfg.
-func (db *DB) openIndexWriter(
-	ctx context.Context,
-	cfg WriterConfig,
-	u *unary.DB,
-	i int,
-) (*idxWriter, error) {
-	uW, err := u.OpenWriter(ctx, cfg.unaryConfig())
-	if err != nil {
-		return nil, err
-	}
-	idxW, err := db.openDomainIdxWriter(u.Channel().Index, cfg)
-	if err != nil {
-		return nil, errors.Combine(err, uW.Close())
-	}
-	idxW.writingToIdx = true
-	idxW.internal[cfg.Channels[i]] = &unaryWriterState{Writer: *uW}
-	return idxW, nil
-}
-
-// openDataWriters opens a writer for each non-index unary channel in cfg and attaches
-// it to the idxWriter of its index, opening that idxWriter when domainWriters lacks it.
-func (db *DB) openDataWriters(
-	ctx context.Context,
-	cfg WriterConfig,
-	domainWriters map[ChannelKey]*idxWriter,
-	keyToIdx map[ChannelKey]*idxWriter,
-) error {
-	for _, key := range cfg.Channels {
-		u, ok := db.mu.dbs.unary[key]
-		if !ok || u.Channel().IsIndex || u.Channel().Index == 0 {
-			continue
-		}
-		idxKey := u.Channel().Index
-		idxW, ok := domainWriters[idxKey]
-		if !ok {
-			var err error
-			if idxW, err = db.openDataOnlyIdxWriter(cfg, u.Channel()); err != nil {
-				return err
-			}
-			domainWriters[idxKey] = idxW
-		}
-		uW, err := u.OpenWriter(ctx, cfg.unaryConfig())
-		if err != nil {
-			return err
-		}
-		idxW.internal[key] = &unaryWriterState{Writer: *uW}
-		keyToIdx[key] = idxW
-	}
-	return nil
-}
-
-// openDataOnlyIdxWriter opens an idxWriter for the index of the data channel ch when
-// the writer does not write that index.
-func (db *DB) openDataOnlyIdxWriter(
-	cfg WriterConfig,
-	ch channel.Channel,
-) (*idxWriter, error) {
-	idxW, err := db.openDomainIdxWriter(ch.Index, cfg)
-	if err != nil {
-		return nil, err
-	}
-	if cfg.Start.IsZero() {
-		return nil, channel.Wrap(ch.Key, errors.Wrapf(
+	if !idx.idx.ch.IsIndex {
+		return nil, channel.Wrap(cfg.Clock, errors.Wrap(
 			validate.ErrValidation,
-			"writer needs a start to write the channel without its index %v",
-			idxW.idx.ch,
+			"writer clock is not an index",
 		))
 	}
-	idxW.writingToIdx = false
-	return idxW, nil
+	// The clock opens first, so that it holds its claim before its channels do.
+	if slices.Contains(cfg.Channels, cfg.Clock) {
+		if err = db.openChannelWriter(ctx, cfg, idx, cfg.Clock); err != nil {
+			return nil, err
+		}
+		idx.writingToIdx = true
+	} else if cfg.Start.IsZero() {
+		return nil, channel.Wrap(cfg.Channels[0], errors.Wrapf(
+			validate.ErrValidation,
+			"writer needs a start to write the channel without its index %v",
+			idx.idx.ch,
+		))
+	}
+	for _, key := range cfg.Channels {
+		if key == cfg.Clock {
+			continue
+		}
+		u, ok := db.mu.dbs.unary[key]
+		if !ok {
+			return nil, channel.NewNotFoundError(key)
+		}
+		if ch := u.Channel(); ch.IsIndex || ch.Index != cfg.Clock {
+			return nil, channel.Wrap(key, errors.Wrapf(
+				validate.ErrValidation,
+				"channel is not timed by the writer clock %v",
+				idx.idx.ch,
+			))
+		}
+		if err = db.openChannelWriter(ctx, cfg, idx, key); err != nil {
+			return nil, err
+		}
+	}
+	return idx, nil
+}
+
+// openChannelWriter opens the unary writer of key and adds it to idx. The caller must
+// hold db.mu.
+func (db *DB) openChannelWriter(
+	ctx context.Context,
+	cfg WriterConfig,
+	idx *idxWriter,
+	key ChannelKey,
+) error {
+	u, ok := db.mu.dbs.unary[key]
+	if !ok {
+		return channel.NewNotFoundError(key)
+	}
+	uW, err := u.OpenWriter(ctx, cfg.unaryConfig())
+	if err != nil {
+		return err
+	}
+	idx.internal[key] = &unaryWriterState{Writer: *uW}
+	return nil
 }
 
 func (db *DB) openDomainIdxWriter(

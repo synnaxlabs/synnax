@@ -87,11 +87,14 @@ func write(
 			series[i] = telem.NewSeriesV(1.0, 2.0, 3.0)
 		}
 	}
-	Expect(l.TS.Write(
-		ctx,
-		telem.TimeStamp(start)*telem.SecondTS,
-		telem.MultiFrame(keys, series),
-	)).To(Succeed())
+	w := MustSucceed(l.TS.OpenWriter(ctx, cesium.WriterConfig{
+		Channels: keys,
+		Clock:    indexCh.Key,
+		Start:    telem.TimeStamp(start) * telem.SecondTS,
+	}))
+	MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, series), nil))
+	MustSucceed2(w.Commit(ctx, nil))
+	Expect(w.Close()).To(Succeed())
 }
 
 func writeFile(path, data string) {

@@ -27,10 +27,6 @@ import (
 )
 
 type WriterConfig struct {
-	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
-	// data is written.
-	// [OPTIONAL] - Defaults to true
-	Persist *bool
 	// Bounded limits the writer's claim to the time it has committed, so that it can
 	// write behind another writer. The writer fails to open when another writer holds
 	// its start, and a commit fails when it reaches another claim.
@@ -67,7 +63,6 @@ var (
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.writer_config")
-	v.NotNil("persist", c.Persist)
 	v.NotNil("bounded", c.Bounded)
 	v.NotNil("enable_auto_commit", c.EnableAutoCommit)
 	v.Ternary(
@@ -82,7 +77,6 @@ func (c WriterConfig) Validate() error {
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.End = override.Zero(c.End, other.End)
-	c.Persist = override.Nil(c.Persist, other.Persist)
 	c.Bounded = override.Nil(c.Bounded, other.Bounded)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(
@@ -197,7 +191,6 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		return nil, db.wrapError(ErrDBClosed)
 	}
 	cfg, err := config.New(WriterConfig{
-		Persist:                  new(true),
 		Bounded:                  new(false),
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -330,13 +323,13 @@ func (w *Writer) write(
 			return nil
 		}
 		mark := dw.highWaterMark
-		if w.Channel.IsIndex && *w.cfg.Persist {
+		if w.Channel.IsIndex {
 			var err error
 			if mark, err = checkOrder(mark, series); err != nil {
 				return err
 			}
 		}
-		if *w.cfg.Persist && dw.Len() == 0 {
+		if dw.Len() == 0 {
 			// Move first, so that no delete can reach the domain setStart checks.
 			if err := w.claim.MoveStart(w.domainStart); err != nil {
 				return err
@@ -346,29 +339,21 @@ func (w *Writer) write(
 			}
 		}
 		if derive {
-			// The tracker is only fed when persisting, so in stream-only mode the
-			// published cursor is the sole record of where the next write lands.
-			if *w.cfg.Persist {
-				a = telem.NewAlignment(
-					dw.loadAlignment().DomainIndex(),
-					uint32(dw.tracker.count(dw.Writer)),
-				)
-			} else {
-				a = dw.loadAlignment()
-			}
+			a = telem.NewAlignment(
+				dw.loadAlignment().DomainIndex(),
+				uint32(dw.tracker.count(dw.Writer)),
+			)
 		}
 		// Publish where the next write lands before this one is on disk, so a channel
 		// resolving its alignment against this one reserves the slot after this write
 		// instead of colliding with it.
 		dw.storeAlignment(a.AddSamples(uint32(series.Len())))
-		if *w.cfg.Persist {
-			baseOffset := uint32(dw.tracker.domainBytes)
-			dw.tracker.record(series.Data, baseOffset)
-			if _, err := dw.Write(series.Data); err != nil {
-				return err
-			}
-			dw.highWaterMark = mark
+		baseOffset := uint32(dw.tracker.domainBytes)
+		dw.tracker.record(series.Data, baseOffset)
+		if _, err := dw.Write(series.Data); err != nil {
+			return err
 		}
+		dw.highWaterMark = mark
 		return nil
 	})
 	if err != nil {

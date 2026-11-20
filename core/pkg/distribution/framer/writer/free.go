@@ -70,6 +70,7 @@ func (s *Service) newFree(
 	group uint32,
 	g *gates,
 	release func(),
+	autoIndex *indexStamper,
 ) StreamWriter {
 	if freeIndexes == nil {
 		freeIndexes = make(map[channel.Key]channel.Key)
@@ -89,6 +90,7 @@ func (s *Service) newFree(
 		gates:      g,
 		controls:   s.controls,
 		release:    release,
+		autoIndex:  autoIndex,
 	}
 	w.Transform = w.transform
 	return w
@@ -110,14 +112,17 @@ type freeWriter struct {
 	// sync is true if the writer should receive acknowledgments for all requests,
 	// including Write commands.
 	sync bool
-	// gates gate the writes of the writer on its control of each leased virtual
-	// channel. Free channels have no control, so gates is nil when the writer holds no
-	// leased virtual channel.
+	// gates gate the writes of the writer on its control of each leased channel. Free
+	// channels have no control, so gates is nil when the writer holds no leased
+	// channel.
 	gates    *gates
 	controls *controls
-	// release releases the writer's hold on its leased virtual channels. It is nil for
-	// a writer that holds none.
+	// release releases the writer's hold on its leased channels. It is nil for a writer
+	// that holds none.
 	release func()
+	// autoIndex is nil when the writer does not stamp the indexes of its stored
+	// channels.
+	autoIndex *indexStamper
 	// group is the writer group identifier, used for server-side deduplication.
 	group uint32
 	// writeRefused is true when a write was refused for no control since the last
@@ -125,8 +130,8 @@ type freeWriter struct {
 	writeRefused bool
 }
 
-// Flow implements confluence.Flow. A writer that holds leased virtual channels releases
-// its gates and its hold when it exits.
+// Flow implements confluence.Flow. A writer that holds leased channels releases its
+// gates and its hold when it exits.
 func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	if w.release == nil {
 		w.LinearTransform.Flow(ctx, opts...)
@@ -166,8 +171,8 @@ func (w *freeWriter) run(ctx context.Context) error {
 	}
 }
 
-// exclude returns fr without the leased virtual channels that the writer does not
-// control, and true when it left one out.
+// exclude returns fr without the leased channels that the writer does not control, and
+// true when it left one out.
 func (w *freeWriter) exclude(fr frame.Frame) (frame.Frame, bool) {
 	if w.gates == nil {
 		return fr, false
@@ -229,7 +234,11 @@ func (w *freeWriter) transform(
 	res = Response{Command: req.Command, SeqNum: req.SeqNum, Authorized: true}
 	switch req.Command {
 	case CommandWrite:
-		fr, refused := w.exclude(req.Frame)
+		fr := req.Frame
+		if w.autoIndex != nil {
+			fr = frame.NewFromStorage(w.autoIndex.stamp(fr.ToStorage()))
+		}
+		fr, refused := w.exclude(fr)
 		w.writeRefused = w.writeRefused || refused
 		if w.mode.Stream() {
 			if err = signal.SendUnderContext(

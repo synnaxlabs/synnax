@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -351,7 +350,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:  keys,
 				Start: 12 * telem.SecondTS,
-				Mode:  cesium.WriterModePersistOnly,
+				Mode:  writer.ModePersistOnly,
 				Sync:  new(true),
 			}))
 			Expect(fill.Write(frameAt(keys, 12, 13))).To(BeTrue())
@@ -377,7 +376,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             cesium.WriterModePersistOnly,
+				Mode:             writer.ModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))

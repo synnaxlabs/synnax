@@ -48,7 +48,7 @@ var _ = Describe("Delete intents", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-		Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+		Expect(write(ctx, db, 10*telem.SecondTS, telem.MultiFrame(
 			[]cesium.ChannelKey{idx, data},
 			[]telem.Series{
 				telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -197,6 +197,7 @@ var _ = Describe("Delete intents", func() {
 				Expect(kept[0].Size).To(BeNumerically(">", 0))
 				Expect(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{data},
+					Clock:    idx,
 					Start:    20 * telem.SecondTS,
 				})).Error().To(MatchError(cesium.ErrChannelNotFound))
 				Expect(db.Read(ctx, telem.TimeRangeMax, data)).Error().
@@ -245,7 +246,7 @@ var _ = Describe("Delete intents", func() {
 						DataType: telem.Int64T,
 					},
 				)).To(Succeed())
-				Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+				Expect(write(ctx, db, 10*telem.SecondTS, telem.MultiFrame(
 					[]cesium.ChannelKey{intendedIdx, keptData},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(10, 11),
@@ -361,8 +362,8 @@ var _ = Describe("Delete intents", func() {
 					},
 				)).To(Succeed())
 				for _, k := range []cesium.ChannelKey{idx, other} {
-					Expect(ldb.WriteSeries(
-						ctx,
+					Expect(writeSeries(
+						ctx, ldb,
 						k,
 						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11),
@@ -393,8 +394,8 @@ var _ = Describe("Delete intents", func() {
 			Expect(db.CreateChannel(ctx, cesium.Channel{
 				Key: other, Name: "other", IsIndex: true, DataType: telem.TimestampT,
 			})).To(Succeed())
-			Expect(db.WriteSeries(
-				ctx,
+			Expect(writeSeries(
+				ctx, db,
 				other,
 				10*telem.SecondTS,
 				telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -505,7 +506,7 @@ var _ = Describe("Delete intents", func() {
 			Expect(fdb.CreateChannel(ctx, cesium.Channel{
 				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 			})).To(Succeed())
-			Expect(fdb.Write(ctx, 10*telem.SecondTS, telem.UnaryFrame(
+			Expect(write(ctx, fdb, 10*telem.SecondTS, telem.UnaryFrame(
 				idx,
 				telem.NewSeriesSecondsTSV(10, 11),
 			))).To(Succeed())

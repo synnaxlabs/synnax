@@ -92,8 +92,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							}
 
 							Expect(
-								db.Write(
-									ctx,
+								write(
+									ctx, db,
 									telem.TimeStamp(10*i)*telem.SecondTS,
 									telem.MultiFrame(
 										[]cesium.ChannelKey{basic, index},
@@ -197,8 +197,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							}
 
 							Expect(
-								db.Write(
-									ctx,
+								write(
+									ctx, db,
 									telem.TimeStamp(10*i)*telem.SecondTS,
 									telem.MultiFrame(
 										[]cesium.ChannelKey{basic, index},
@@ -321,8 +321,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							}
 
 							Expect(
-								db.Write(
-									ctx,
+								write(
+									ctx, db,
 									telem.TimeStamp(10*i)*telem.SecondTS,
 									telem.MultiFrame(
 										[]cesium.ChannelKey{basic, index},
@@ -378,14 +378,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							"Writing more data – they should go to the newly freed files, i.e. file 3 or file 4",
 						)
 						// This should go to file 10.
-						Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, db, 200*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](2000, 2010, 2020, 2030, 2040),
 								telem.NewSeriesSecondsTSV(200, 201, 202, 203, 204),
 							},
 						))).To(Succeed())
-						Expect(db.Write(ctx, 300*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, db, 300*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](3000, 3010, 3020),
@@ -472,8 +472,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 								Index:    index,
 							},
 						)).To(Succeed())
-						Expect(failing.Write(
-							ctx,
+						Expect(write(
+							ctx, failing,
 							10*telem.SecondTS,
 							telem.MultiFrame(
 								[]cesium.ChannelKey{basic, index},
@@ -522,7 +522,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			})).To(Succeed())
-			Expect(setup.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+			Expect(write(ctx, setup, 10*telem.SecondTS, telem.MultiFrame(
 				[]cesium.ChannelKey{key},
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),

@@ -96,10 +96,9 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// Mode sets the persistence and streaming mode for the writer. The default mode is
-	// WriterModePersistStream.
+	// Mode sets whether the writer persists its frames, streams them, or both.
 	//
-	// [OPTIONAL] - Defaults to WriterModePersistStream.
+	// [OPTIONAL] - Defaults to ModePersistStream.
 	Mode Mode
 	// AutoIndex causes the writer to generate timestamps for any index channel in its
 	// Keys whose series is omitted from a Write frame. The first sample in each Write
@@ -125,7 +124,7 @@ func DefaultConfig() Config {
 		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        new(false),
-		Mode:                     cesium.WriterModePersistStream,
+		Mode:                     ModePersistStream,
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
@@ -133,19 +132,19 @@ func DefaultConfig() Config {
 	}
 }
 
-// split returns a copy of c holding only the channels that Cesium stores, the copy
-// holding only the leased virtual channels, and the keys of the free channels. Each
-// copy gives each of its channels its own authority. It must only be called after c has
-// been validated.
+// split returns a copy of c holding only the channels that it does not lease and that
+// Cesium stores, the copy holding only the leased channels, and the keys of the free
+// channels. Each copy gives each of its channels its own authority. It must only be
+// called after c has been validated.
 func (c Config) split(
-	virtual set.Set[channel.Key],
+	leasedKeys set.Set[channel.Key],
 ) (stored, leased Config, free channel.Keys) {
 	var nStored, nLeased, nFree int
 	for _, key := range c.Keys {
 		switch {
 		case key.Free():
 			nFree++
-		case virtual.Contains(key):
+		case leasedKeys.Contains(key):
 			nLeased++
 		default:
 			nStored++
@@ -166,7 +165,7 @@ func (c Config) split(
 		switch {
 		case key.Free():
 			free = append(free, key)
-		case virtual.Contains(key):
+		case leasedKeys.Contains(key):
 			leased.Keys = append(leased.Keys, key)
 			leased.Authorities = append(leased.Authorities, auth)
 		default:
@@ -175,14 +174,6 @@ func (c Config) split(
 		}
 	}
 	return stored, leased, free
-}
-
-func (c Config) toStorage() cesium.WriterConfig {
-	return cesium.WriterConfig{
-		Channels: c.Keys.Uint32(),
-		Start:    c.Start,
-		Mode:     c.Mode,
-	}
 }
 
 // Validate implements config.Config.
@@ -402,19 +393,24 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	stored, virtualChannels, records, err := s.resolve(ctx, cfg.Keys)
+	stored, leasedChannels, records, err := s.resolve(ctx, cfg.Keys)
 	if err != nil {
 		return nil, err
 	}
-	var virtual set.Set[channel.Key]
-	if len(virtualChannels) > 0 {
-		virtual = make(set.Set[channel.Key], len(virtualChannels))
-		for _, ch := range virtualChannels {
-			virtual.Add(channel.Key(ch.Key))
+	// A stream-only writer opens no Cesium writer, so it streams its stored channels as
+	// it streams its leased virtual channels.
+	if cfg.Mode == ModeStreamOnly && len(stored) > 0 {
+		leasedChannels, stored = slices.Concat(leasedChannels, stored), nil
+	}
+	var leasedKeys set.Set[channel.Key]
+	if len(leasedChannels) > 0 {
+		leasedKeys = make(set.Set[channel.Key], len(leasedChannels))
+		for _, ch := range leasedChannels {
+			leasedKeys.Add(channel.Key(ch.Key))
 		}
 	}
 	var (
-		storedCfg, leased, freeKeys     = cfg.split(virtual)
+		storedCfg, leased, freeKeys     = cfg.split(leasedKeys)
 		hasStorage                      = len(storedCfg.Keys) > 0
 		hasFree                         = len(freeKeys) > 0 || len(leased.Keys) > 0
 		pipe                            = plumber.New()
@@ -435,17 +431,28 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			return nil, err
 		}
 	}
-	// A writer on a leased virtual channel holds it against a delete, as a writer on a
-	// stored channel does. Free channels have no delete claim and no control.
+	// A writer on a leased channel holds it against a delete, as a writer on a stored
+	// channel does. Free channels have no delete claim and no control.
 	var (
 		releaseLeased func()
 		leasedGates   *gates
 		transfers     []transfer
+		clocks        map[channel.Key]channel.Key
+		autoIndex     *indexStamper
 	)
+	if cfg.Mode == ModeStreamOnly && len(leased.Keys) > 0 {
+		if leased, leasedChannels, clocks, autoIndex, err = s.streamClocks(
+			ctx,
+			leased,
+			leasedChannels,
+		); err != nil {
+			return nil, err
+		}
+	}
 	if len(leased.Keys) > 0 {
 		if leasedAlignment, err = s.freeWriteAlignments.reserve(
 			leased.Keys,
-			nil,
+			clocks,
 		); err != nil {
 			return nil, err
 		}
@@ -456,7 +463,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		}
 		if releaseLeased, leasedGates, transfers, err = s.holdLeased(
 			leased,
-			virtualChannels,
+			leasedChannels,
 		); err != nil {
 			return nil, err
 		}
@@ -490,6 +497,11 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		if len(leased.Keys) > 0 {
 			keys = append(slices.Clone(freeKeys), leased.Keys...)
 		}
+		if freeIndexes == nil {
+			freeIndexes = clocks
+		} else {
+			maps.Copy(freeIndexes, clocks)
+		}
 		w := s.newFree(
 			cfg.Mode,
 			*cfg.Sync,
@@ -499,6 +511,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			cfg.ControlSubject.Group,
 			leasedGates,
 			releaseLeased,
+			autoIndex,
 		)
 		pipe.SetSegment(freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
@@ -512,20 +525,61 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	return newSegment(pipe, receiverAddresses, routeSequencerTo, sw), nil
 }
 
-// holdLeased holds the leased virtual channels of leased against a delete and opens
-// their gates. It returns the function that releases the hold.
+// holdLeased holds the channels of leased against a delete and opens their gates. It
+// returns the function that releases the hold.
 func (s *Service) holdLeased(
 	leased Config,
-	virtualChannels []cesium.Channel,
+	channels []cesium.Channel,
 ) (release func(), g *gates, transfers []transfer, err error) {
 	if release, err = s.claims.hold(leased.Keys); err != nil {
 		return nil, nil, nil, err
 	}
-	if g, transfers, err = s.controls.openGates(leased, virtualChannels); err != nil {
+	if g, transfers, err = s.controls.openGates(leased, channels); err != nil {
 		release()
 		return nil, nil, nil, err
 	}
 	return release, g, transfers, nil
+}
+
+// streamClocks returns the clock of each stored channel of the leased channels of a
+// stream-only writer, so that the channels of a clock share its alignments. When leased
+// auto indexes, it adds the indexes of its data channels to leased and to channels, and
+// returns the stamper of those indexes.
+func (s *Service) streamClocks(
+	ctx context.Context,
+	leased Config,
+	channels []cesium.Channel,
+) (Config, []cesium.Channel, map[channel.Key]channel.Key, *indexStamper, error) {
+	var (
+		clocks  = make(map[channel.Key]channel.Key, len(channels))
+		indexes = make(map[cesium.ChannelKey]cesium.ChannelKey, len(channels))
+	)
+	for _, ch := range channels {
+		switch {
+		case ch.IsIndex:
+			clocks[channel.Key(ch.Key)] = channel.Key(ch.Key)
+		case ch.Index != 0:
+			clocks[channel.Key(ch.Key)] = channel.Key(ch.Index)
+			indexes[ch.Key] = ch.Index
+		}
+	}
+	if !*leased.AutoIndex {
+		return leased, channels, clocks, nil, nil
+	}
+	n := len(leased.Keys)
+	leased = withIndexes(leased, indexes)
+	if len(leased.Keys) > n {
+		added, err := s.cfg.TS.RetrieveChannels(ctx, leased.Keys[n:].Uint32()...)
+		if err != nil {
+			return leased, nil, nil, nil, err
+		}
+		for _, ch := range added {
+			clocks[channel.Key(ch.Key)] = channel.Key(ch.Key)
+		}
+		channels = append(channels, added...)
+	}
+	stamper := newIndexStamper(leased.Keys.Uint32(), indexes, leased.Start)
+	return leased, channels, clocks, stamper, nil
 }
 
 // resolve returns the Cesium channels of the keys that Cesium stores, the channels of

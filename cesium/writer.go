@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -26,17 +25,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// Writer writes frames to a set of channels and commits them. A Writer is not safe for
-// concurrent use.
+// Writer writes frames to one clock and the channels it times, and commits them. A
+// Writer is not safe for concurrent use.
 //
 // The first error breaks the writer: every later call returns that error, and Close
 // returns it after it releases the writer.
 type Writer struct {
 	WriterConfig
-	internal []*idxWriter
-	// keyToIdx maps every channel key the writer is responsible for to its owning
-	// idxWriter.
-	keyToIdx map[ChannelKey]*idxWriter
+	idx *idxWriter
 	// err is the error that broke the writer.
 	err    error
 	closed bool
@@ -76,22 +72,21 @@ func (w *Writer) Sync() error {
 	return w.fail(w.persist())
 }
 
-// persist persists each index before the data channels it indexes, as Commit commits
-// them, so a reopen never sees data that its index cannot resolve.
+// persist persists the clock before the data channels it times, as Commit commits
+// them, so a reopen never sees data that its clock cannot resolve.
 func (w *Writer) persist() error {
-	for _, idx := range w.internal {
-		if idx.writingToIdx {
-			if err := idx.internal[idx.idx.ch.Key].Persist(); err != nil {
-				return err
-			}
+	idx := w.idx
+	if idx.writingToIdx {
+		if err := idx.internal[idx.idx.ch.Key].Persist(); err != nil {
+			return err
 		}
-		for key, u := range idx.internal {
-			if key == idx.idx.ch.Key {
-				continue
-			}
-			if err := u.Persist(); err != nil {
-				return err
-			}
+	}
+	for key, u := range idx.internal {
+		if key == idx.idx.ch.Key {
+			continue
+		}
+		if err := u.Persist(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -105,10 +100,7 @@ func (w *Writer) Close() error {
 		return w.err
 	}
 	w.closed = true
-	err := w.persist()
-	for _, idx := range w.internal {
-		err = errors.Join(err, idx.Close())
-	}
+	err := errors.Join(w.persist(), w.idx.Close())
 	w.err = errors.Join(w.err, err)
 	return w.err
 }
@@ -130,10 +122,8 @@ func (w *Writer) Write(
 	}
 	var err error
 	w.excluded = w.excluded[:0]
-	for _, idx := range w.internal {
-		if fr, err = idx.write(skip, &w.excluded, fr); err != nil {
-			return Frame{}, false, w.fail(err)
-		}
+	if fr, err = w.idx.write(skip, &w.excluded, fr); err != nil {
+		return Frame{}, false, w.fail(err)
 	}
 	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
 }
@@ -150,43 +140,29 @@ func (w *Writer) Commit(
 	if err := w.check(); err != nil {
 		return 0, false, err
 	}
-	var (
-		maxTS   = telem.TimeStampMin
-		skipped bool
-	)
-	for _, idxW := range w.internal {
-		ts, idxSkipped, err := idxW.Commit(ctx, skip)
-		if err != nil {
-			return 0, false, w.fail(err)
-		}
-		skipped = skipped || idxSkipped
-		if ts > maxTS {
-			maxTS = ts
-		}
+	end, skipped, err := w.idx.Commit(ctx, skip)
+	if err != nil {
+		return 0, false, w.fail(err)
 	}
 	if skipped {
 		return 0, true, nil
 	}
-	return maxTS, false, nil
+	return end, false, nil
 }
 
-// EndDomain commits the given indexes and the data channels they index, then ends their
-// domains. The next write to an index starts a new domain at its first timestamp, which
-// frees the time before that timestamp for another writer. Indexes the writer does not
-// write are ignored, and an index with no data keeps its domains.
-func (w *Writer) EndDomain(ctx context.Context, indexes ...ChannelKey) error {
+// EndStretch commits, then ends the stretch of the writer's clock and of the channels
+// it times. The next write starts a new stretch at its first stamp, which frees the
+// time before that stamp for another writer. A writer that does not write its clock
+// only commits, and a clock with no data keeps its stretches.
+func (w *Writer) EndStretch(ctx context.Context) error {
 	if err := w.check(); err != nil {
 		return err
 	}
-	for _, idx := range w.internal {
-		if !idx.writingToIdx || !slices.Contains(indexes, idx.idx.ch.Key) {
-			continue
-		}
-		if err := idx.endDomain(ctx); err != nil {
-			return w.fail(err)
-		}
+	if !w.idx.writingToIdx {
+		_, _, err := w.Commit(ctx, nil)
+		return err
 	}
-	return nil
+	return w.fail(w.idx.endDomain(ctx))
 }
 
 type unaryWriterState struct {

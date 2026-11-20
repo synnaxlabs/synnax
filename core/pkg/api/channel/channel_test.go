@@ -330,12 +330,17 @@ var _ = Describe("Service", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Create(ctx, &ch)
 			})).To(Succeed())
-			Expect(dist.Storage.TS.WriteSeries(
-				ctx,
+			w := MustSucceed(dist.Storage.TS.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{uint32(ch.Key())},
+				Clock:    uint32(ch.Key()),
+				Start:    start,
+			}))
+			MustSucceed2(w.Write(ctx, telem.UnaryFrame(
 				uint32(ch.Key()),
-				start,
 				telem.NewSeriesSecondsTSV(10, 11, 12),
-			)).To(Succeed())
+			), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
 			outsider = MustSucceed(rbactestutil.CreateUser(
 				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 			))

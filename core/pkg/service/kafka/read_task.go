@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -641,9 +640,9 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 	for _, g := range t.groups {
 		keys = append(keys, g.keys...)
 	}
-	mode := cesium.WriterModePersistStream
+	mode := framer.WriterModePersistStream
 	if t.cfg.DataSavingDisabled {
-		mode = cesium.WriterModeStreamOnly
+		mode = framer.WriterModeStreamOnly
 	}
 	return t.factoryCfg.Framer.OpenWriter(ctx, framer.WriterConfig{
 		ControlSubject: control.Subject{

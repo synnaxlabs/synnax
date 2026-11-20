@@ -10,7 +10,6 @@
 package writer
 
 import (
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -33,17 +32,23 @@ const (
 	CommandEndDomain
 )
 
-// Mode configures the persistence and streaming behavior of a writer.
-type Mode = cesium.WriterMode
+// Mode sets whether a writer persists its frames, streams them, or both.
+type Mode uint8
 
 const (
 	// ModePersistStream persists and streams written frames.
-	ModePersistStream = cesium.WriterModePersistStream
-	// ModePersistOnly persists written frames and does not stream them.
-	ModePersistOnly = cesium.WriterModePersistOnly
-	// ModeStreamOnly streams written frames and does not persist them.
-	ModeStreamOnly = cesium.WriterModeStreamOnly
+	ModePersistStream Mode = iota + 1
+	// ModePersistOnly persists written frames and does not stream them. The writer
+	// holds
+	// only the time it has committed, so it can write behind a live writer.
+	ModePersistOnly
+	// ModeStreamOnly streams written frames and does not persist them. The writer opens
+	// no Cesium writer, and its frames take alignments in the unstored space.
+	ModeStreamOnly
 )
+
+// Stream returns true when the mode streams written frames.
+func (m Mode) Stream() bool { return m != ModePersistOnly }
 
 // AlwaysIndexPersistOnAutoCommit is the AutoIndexPersistInterval of a writer that syncs
 // every auto commit.

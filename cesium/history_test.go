@@ -77,6 +77,7 @@ var _ = Describe("History", func() {
 				GinkgoHelper()
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{key},
+					Clock:    key,
 					Start:    start,
 				}))
 				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
@@ -102,8 +103,8 @@ var _ = Describe("History", func() {
 				"Should not signal the first commit of a writer at the end",
 				func(ctx SpecContext) {
 					key := createIndex(ctx)
-					Expect(db.WriteSeries(
-						ctx,
+					Expect(writeSeries(
+						ctx, db,
 						key,
 						5*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(5, 6),
@@ -131,15 +132,15 @@ var _ = Describe("History", func() {
 				"Should signal a domain inserted before existing data",
 				func(ctx SpecContext) {
 					key := createIndex(ctx)
-					Expect(db.WriteSeries(
-						ctx,
+					Expect(writeSeries(
+						ctx, db,
 						key,
 						20*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(20, 21),
 					)).To(Succeed())
 					changes := observeHistory(db)
-					Expect(db.WriteSeries(
-						ctx,
+					Expect(writeSeries(
+						ctx, db,
 						key,
 						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11),
@@ -155,8 +156,8 @@ var _ = Describe("History", func() {
 				"Should signal each commit to a domain that is not the last",
 				func(ctx SpecContext) {
 					key := createIndex(ctx)
-					Expect(db.WriteSeries(
-						ctx,
+					Expect(writeSeries(
+						ctx, db,
 						key,
 						20*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(20, 21),
@@ -199,7 +200,7 @@ var _ = Describe("History", func() {
 						Index:    idxKey,
 						DataType: telem.Int64T,
 					})).To(Succeed())
-					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 10*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idxKey, dataKey},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12, 13),
@@ -227,8 +228,8 @@ var _ = Describe("History", func() {
 				"Should not signal a delete that removes nothing",
 				func(ctx SpecContext) {
 					key := createIndex(ctx)
-					Expect(db.WriteSeries(
-						ctx,
+					Expect(writeSeries(
+						ctx, db,
 						key,
 						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11),

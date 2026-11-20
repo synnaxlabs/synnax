@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 )
@@ -52,7 +53,7 @@ func (s *Service) newStorage(
 		release()
 		return nil, err
 	}
-	w, err := s.cfg.TS.OpenWriter(ctx, cfg.toStorage())
+	ws, err := s.openClocks(ctx, cfg, channels)
 	if err != nil {
 		g.release()
 		release()
@@ -60,7 +61,52 @@ func (s *Service) newStorage(
 		return nil, named
 	}
 	s.controls.notify(transfers)
-	return s.newSession(w, cfg, autoIndex, release, g), nil
+	return s.newSession(ws, cfg, autoIndex, release, g), nil
+}
+
+// openClocks opens one Cesium writer for each clock of channels, which are the stored
+// channels of cfg. On an error it closes the writers it opened.
+func (s *Service) openClocks(
+	ctx context.Context,
+	cfg Config,
+	channels []cesium.Channel,
+) (ws []*cesium.Writer, err error) {
+	var (
+		clocks []cesium.ChannelKey
+		keys   = make(map[cesium.ChannelKey][]cesium.ChannelKey, 1)
+	)
+	for _, ch := range channels {
+		clock := ch.Index
+		if ch.IsIndex {
+			clock = ch.Key
+		}
+		if _, ok := keys[clock]; !ok {
+			clocks = append(clocks, clock)
+		}
+		keys[clock] = append(keys[clock], ch.Key)
+	}
+	defer func() {
+		if err != nil {
+			for _, w := range ws {
+				err = errors.Combine(err, w.Close())
+			}
+			ws = nil
+		}
+	}()
+	ws = make([]*cesium.Writer, 0, len(clocks))
+	for _, clock := range clocks {
+		var w *cesium.Writer
+		if w, err = s.cfg.TS.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys[clock],
+			Clock:    clock,
+			Start:    cfg.Start,
+			Bounded:  cfg.Mode == ModePersistOnly,
+		}); err != nil {
+			return ws, err
+		}
+		ws = append(ws, w)
+	}
+	return ws, nil
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one

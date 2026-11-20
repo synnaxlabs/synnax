@@ -89,12 +89,17 @@ var _ = Describe("Sweep", func() {
 		Expect(node.Storage.TS.CreateChannel(ctx, cesium.Channel{
 			Key: key, Name: "orphan", IsIndex: true, DataType: telem.TimestampT,
 		})).To(Succeed())
-		Expect(node.Storage.TS.WriteSeries(
-			ctx,
+		w := MustSucceed(node.Storage.TS.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{key},
+			Clock:    key,
+			Start:    10 * telem.SecondTS,
+		}))
+		MustSucceed2(w.Write(ctx, telem.UnaryFrame(
 			key,
-			10*telem.SecondTS,
 			telem.NewSeriesSecondsTSV(10, 11, 12),
-		)).To(Succeed())
+		), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
 		return key
 	}
 	// keptStatus returns the status that names kept data.
@@ -231,13 +236,18 @@ var _ = Describe("Sweep", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-		Expect(ts.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
-			[]cesium.ChannelKey{idx, data},
-			[]telem.Series{
-				telem.NewSeriesSecondsTSV(10, 11, 12),
-				telem.NewSeriesV[int64](1, 2, 3),
-			},
-		))).To(Succeed())
+		keys := []cesium.ChannelKey{idx, data}
+		w := MustSucceed(ts.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Clock:    idx,
+			Start:    10 * telem.SecondTS,
+		}))
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(10, 11, 12),
+			telem.NewSeriesV[int64](1, 2, 3),
+		}), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
 		return idx, data
 	}
 

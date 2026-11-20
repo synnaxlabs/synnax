@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -95,7 +96,7 @@ var _ = Describe("Control moved from Cesium", func() {
 						},
 						Start:    start,
 						Channels: keys,
-						Mode:     cesium.WriterModePersistOnly,
+						Mode:     writer.ModePersistOnly,
 						Authorities: []xcontrol.Authority{
 							xcontrol.AuthorityAbsolute,
 						},
@@ -244,7 +245,7 @@ var _ = Describe("Control moved from Cesium", func() {
 					func(ctx SpecContext) {
 						live := openLive(ctx, xcontrol.AuthorityAbsolute)
 						cfg := persistConfig(1 * telem.SecondTS)
-						cfg.Mode = cesium.WriterModePersistStream
+						cfg.Mode = writer.ModePersistStream
 						cfg.Authorities = []xcontrol.Authority{1}
 						w := MustSucceed(db.OpenWriter(ctx, cfg))
 						expectUnauthorized(w.Write(ctx, frame(1, 2)))
