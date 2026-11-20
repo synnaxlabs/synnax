@@ -51,8 +51,6 @@ type unionVariantData struct {
 	// model. Populated only for inline variants, whose Synthetic payload has
 	// no standalone model to inherit.
 	Fields []fieldData
-	// Validators is the validator methods of Fields, or empty.
-	Validators string
 }
 
 // processUnion builds the template view for a discriminated union. Each variant
@@ -92,12 +90,10 @@ func processUnion(
 		if payload, ok := v.Type.Resolve(table); ok {
 			if v.Inline {
 				pform := resolution.MustForm[resolution.StructForm](payload)
-				fields := append(slices.Clone(declared), pform.Fields...)
-				for _, f := range fields {
+				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					vd.Fields = append(vd.Fields,
 						processField(f, table, data, nil))
 				}
-				vd.Validators = lessThanValidators(fields, data)
 			} else {
 				vd.Parents = append(
 					vd.Parents,

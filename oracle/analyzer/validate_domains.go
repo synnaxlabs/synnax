@@ -484,17 +484,18 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
-// validateComparisonRules errors on an lt rule outside a struct field, in a generic
-// struct, or whose field and compared field are not required numbers of one type in the
-// same struct.
+// validateComparisonRules errors on a `@go validate` rule that is not lt <field>, on
+// one
+// outside a struct field or in a generic struct, and on one whose field and compared
+// field are not two required numbers of one type in the same struct.
 func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		var problems []string
 		switch form := t.Form.(type) {
 		case resolution.AliasForm, resolution.DistinctForm:
-			if validation.LessThan(t.Domains, "go") != nil {
+			if _, set := t.Domains["go"].Expressions.Find("validate"); set {
 				problems = append(problems, t.QualifiedName+
-					" has an lt rule, but only a struct field can have one")
+					" has a @go validate rule, but only a struct field can have one")
 			}
 		case resolution.StructForm:
 			problems = structComparisonProblems(t, form, table)
@@ -514,18 +515,23 @@ func structComparisonProblems(
 	var problems []string
 	fields := resolution.UnifiedFields(t, table)
 	for _, f := range fields {
+		name := t.QualifiedName + "." + f.Name
+		_, declared := form.Field(f.Name)
 		lt := validation.LessThan(f.Domains, "go")
 		if lt == nil {
+			if _, set := f.Domains["go"].Expressions.Find("validate"); set && declared {
+				problems = append(problems, name+
+					" has a @go validate rule, but only lt <field> is supported")
+			}
 			continue
 		}
-		name := t.QualifiedName + "." + f.Name
 		if len(form.TypeParams) > 0 {
 			problems = append(problems, fmt.Sprintf(
 				"%s has an lt rule, but %s is generic", name, t.QualifiedName,
 			))
 			continue
 		}
-		if _, declared := form.Field(f.Name); !declared {
+		if !declared {
 			continue
 		}
 		prefix := name + " is less than " + lt.Field + ", but "
@@ -533,6 +539,8 @@ func structComparisonProblems(
 			return o.Name == lt.Field
 		})
 		switch {
+		case lt.Field == f.Name:
+			problems = append(problems, prefix+"a field cannot be less than itself")
 		case !ok:
 			problems = append(problems, fmt.Sprintf(
 				"%s%s has no field %s", prefix, t.QualifiedName, lt.Field,

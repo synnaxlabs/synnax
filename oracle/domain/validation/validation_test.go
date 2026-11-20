@@ -213,56 +213,41 @@ var _ = Describe("Parse", func() {
 })
 
 var _ = Describe("LessThan", func() {
-	ident := resolution.ExpressionValue{
-		Kind:       resolution.ValueKindIdent,
-		IdentValue: "max_val",
+	ident := func(name string) resolution.ExpressionValue {
+		return resolution.ExpressionValue{
+			Kind:       resolution.ValueKindIdent,
+			IdentValue: name,
+		}
 	}
 
-	It("should parse the field to compare against", func() {
-		Expect(parse("lt", ident).LessThan).To(Equal(
+	It("should read the field to compare against", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", ident("lt"), ident("max_val")),
+		}
+		Expect(validation.LessThan(domains, "go")).To(Equal(
 			&validation.Comparison{Field: "max_val"},
 		))
 	})
 
-	It("should parse a message", func() {
+	It("should read a message", func() {
 		message := resolution.ExpressionValue{
 			Kind:        resolution.ValueKindString,
 			StringValue: "Minimum must be less than maximum",
 		}
-		Expect(parse("lt", ident, message).LessThan).To(Equal(&validation.Comparison{
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", ident("lt"), ident("max_val"), message),
+		}
+		Expect(validation.LessThan(domains, "go")).To(Equal(&validation.Comparison{
 			Field:   "max_val",
 			Message: "Minimum must be less than maximum",
 		}))
 	})
 
-	It("should make the rules not empty", func() {
-		Expect(validation.IsEmpty(parse("lt", ident))).To(BeFalse())
-	})
-
-	It("should read an lt rule scoped to a language", func() {
-		lt := resolution.ExpressionValue{
-			Kind:       resolution.ValueKindIdent,
-			IdentValue: "lt",
+	It("should only read the rule of the given language", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", ident("lt"), ident("max_val")),
 		}
-		domains := map[string]resolution.Domain{"go": rule("validate", lt, ident)}
-		Expect(validation.LessThan(domains, "go")).To(Equal(
-			&validation.Comparison{Field: "max_val"},
-		))
 		Expect(validation.LessThan(domains, "ts")).To(BeNil())
-	})
-
-	It("should read an lt rule for every language", func() {
-		domains := map[string]resolution.Domain{"validate": rule("lt", ident)}
-		Expect(validation.LessThan(domains, "py")).To(Equal(
-			&validation.Comparison{Field: "max_val"},
-		))
-	})
-
-	It("should never apply to a type", func() {
-		compared := resolution.Type{
-			Domains: map[string]resolution.Domain{"validate": rule("lt", ident)},
-		}
-		Expect(validation.TypeRules([]resolution.Type{compared}).LessThan).To(BeNil())
 	})
 })
 
