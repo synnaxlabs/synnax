@@ -31,8 +31,8 @@ describe("project toolbar", () => {
       await client.projects.delete(p.key);
       await client.groups.delete(g.key);
     });
-    // The tree lists only what its subject can read, so it leaves out the projects and
-    // groups of every other spec.
+    // The tree lists only what its subject can read. Other specs leave their projects
+    // and groups in the Core.
     const reader = await createTestClientWithGrants(client, {
       retrieve: [project.resourceID(p.key), group.resourceID(g.key)],
     });

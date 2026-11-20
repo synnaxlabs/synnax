@@ -38,8 +38,8 @@ describe("device/Toolbar", () => {
   it("lists a created device under its rack in the devices tree", async () => {
     const dev = await createTestDevice(client);
     const rack = await client.racks.retrieve(dev.rack);
-    // The tree lists only the racks that its subject can read, so it leaves out the
-    // racks of every other spec.
+    // The tree lists only the racks that its subject can read. Other specs leave their
+    // racks in the Core.
     const reader = await createTestClientWithGrants(client, {
       retrieve: [rackClient.resourceID(rack.key), device.resourceID(dev.key)],
     });
