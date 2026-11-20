@@ -45,19 +45,24 @@ const LegendLine = ({
   return null;
 };
 
+const legend = (
+  lines: LegendLineProps[],
+  props: LinePlot.LegendProps = {},
+): ReactElement => (
+  <LinePlot.Frame aetherKey="plot">
+    {lines.map((l): ReactElement => (
+      <LegendLine key={l.lineKey} {...l} />
+    ))}
+    <LinePlot.Legend {...props} />
+  </LinePlot.Frame>
+);
+
+const OPTIONS = { render: true, registry: lineplot.REGISTRY };
+
 const renderLegend = (
   lines: LegendLineProps[],
   props: LinePlot.LegendProps = {},
-): HTMLElement =>
-  render(
-    <LinePlot.Frame aetherKey="plot">
-      {lines.map((l): ReactElement => (
-        <LegendLine key={l.lineKey} {...l} />
-      ))}
-      <LinePlot.Legend {...props} />
-    </LinePlot.Frame>,
-    { render: true, registry: lineplot.REGISTRY },
-  ).container;
+): HTMLElement => render(legend(lines, props), OPTIONS).container;
 
 const ZERO = TimeStamp.seconds(100);
 
@@ -95,6 +100,17 @@ describe("Legend", () => {
       expect(onHoverChange).toHaveBeenLastCalledWith("a");
       fireEvent.pointerEnter(screen.getByText("Y2"));
       expect(onHoverChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("should end the hover of an entry that unmounts under the pointer", async () => {
+      const onHoverChange = vi.fn();
+      const a = { lineKey: "a", legendGroup: "Y1" };
+      const b = { lineKey: "b", legendGroup: "Y1" };
+      const { rerender } = render(legend([a, b], { onHoverChange }), OPTIONS);
+      fireEvent.pointerEnter(await screen.findByText("a"));
+      rerender(legend([b], { onHoverChange }));
+      await waitFor(() => expect(screen.queryByText("a")).toBeNull());
+      expect(onHoverChange).toHaveBeenLastCalledWith(null);
     });
   });
 
