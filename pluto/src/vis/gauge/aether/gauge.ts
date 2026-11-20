@@ -73,9 +73,9 @@ export class Gauge
 {
   static readonly TYPE = "gauge";
   static readonly z = gaugeState;
-  schema = Gauge.z;
+  override schema = Gauge.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
@@ -131,7 +131,7 @@ export class Gauge
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.staleness?.cleanup();

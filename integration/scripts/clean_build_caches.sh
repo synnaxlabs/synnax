@@ -63,6 +63,20 @@ else
 fi
 echo ""
 
+# --- Bazel output root of the glibc floor container (.github/scripts/bazel_glibc_floor.sh) ---
+echo "Glibc floor Bazel root:"
+FLOOR_ROOT="$HOME/.cache/bazel-glibc-floor/${RUNNER_NAME:-local}"
+if [ -d "$FLOOR_ROOT" ]; then
+    before_floor=$(du -sm "$FLOOR_ROOT" 2> /dev/null | cut -f1 || echo 0)
+    chmod -R u+w "$FLOOR_ROOT" 2> /dev/null || true
+    rm -rf "$FLOOR_ROOT"
+    TOTAL_FREED=$((TOTAL_FREED + ${before_floor:-0}))
+    printf "  %-35s freed %dMB\n" "$FLOOR_ROOT" "${before_floor:-0}"
+else
+    printf "  %-35s skipped (not found)\n" "$FLOOR_ROOT"
+fi
+echo ""
+
 # --- Docker (unbounded image/layer growth, largest consumer on some bots) ---
 echo "Docker prune:"
 if command -v docker > /dev/null 2>&1; then

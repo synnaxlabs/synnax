@@ -21,6 +21,7 @@ const schema = z.object({
     rate: z.number(),
     channels: z.object({ key: z.string(), port: z.number() }).array(),
     tags: z.string().array(),
+    note: z.string().optional(),
   }),
 });
 
@@ -40,13 +41,14 @@ const createValues = (): Values => ({
   },
 });
 
-const renderForm = () => {
-  const store = createLocalStore(createValues());
+const renderForm = (values: Values = createValues()) => {
+  const store = createLocalStore(values);
   const set = vi.spyOn(store, "set");
+  const remove = vi.spyOn(store, "remove");
   const onChange = vi.fn();
   store.onChange(onChange);
   const { result } = renderHook(() => Form.use({ store, schema }));
-  return { form: result.current, set, onChange };
+  return { form: result.current, set, remove, onChange };
 };
 
 describe("setChanged", () => {
@@ -98,11 +100,28 @@ describe("setChanged", () => {
     expect(set.mock.calls).toEqual([["config.channels", channels]]);
   });
 
-  it("should set an object whole when its fields change", () => {
+  it("should set only the field that next adds to an object", () => {
     const { form, set } = renderForm();
-    const config = { rate: 10, channels: [], tags: ["x"], extra: true };
-    act(() => Form.setChanged(form, path.config, createValues().config, config));
-    expect(set.mock.calls).toEqual([["config", config]]);
+    const next = { ...createValues().config, note: "added" };
+    act(() => Form.setChanged(form, path.config, createValues().config, next));
+    expect(set.mock.calls).toEqual([["config.note", "added"]]);
+  });
+
+  it("should remove the field that next drops from an object", () => {
+    const base = { ...createValues().config, note: "old" };
+    const { form, set, remove } = renderForm({ ...createValues(), config: base });
+    act(() => Form.setChanged(form, path.config, base, createValues().config));
+    expect(set).not.toHaveBeenCalled();
+    expect(remove.mock.calls).toEqual([["config.note"]]);
+    expect(form.value().config).not.toHaveProperty("note");
+  });
+
+  it("should keep a later form edit when next adds a field", () => {
+    const { form } = renderForm();
+    const base = form.value().config;
+    act(() => form.set(path.config.rate, 30));
+    act(() => Form.setChanged(form, path.config, base, { ...base, note: "added" }));
+    expect(form.value().config).toEqual({ ...base, rate: 30, note: "added" });
   });
 
   it("should set a list without keys whole", () => {

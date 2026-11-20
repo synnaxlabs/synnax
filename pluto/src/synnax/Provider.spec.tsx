@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { connection, type Synnax as Client } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { testClientParams } from "@synnaxlabs/client/testutil";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
@@ -31,13 +31,13 @@ const probeStateZ = z.object({});
 const createProbe = (seen: Array<Client | null>) =>
   class Probe extends aether.Leaf<typeof probeStateZ> {
     static readonly TYPE = PROBE_TYPE;
-    schema = probeStateZ;
+    override schema = probeStateZ;
 
-    afterUpdate(ctx: aether.Context): void {
+    override afterUpdate(ctx: aether.Context): void {
       seen.push(synnax.use(ctx));
     }
 
-    afterDelete(): void {}
+    override afterDelete(): void {}
   };
 
 const ProbeComponent = (): null => {
@@ -65,10 +65,11 @@ describe("Synnax.Provider", () => {
       [PROBE_TYPE]: createProbe(seen),
     });
     let page: Client | null = null;
+    const connParams = testClientParams();
     const Tree = (): ReactElement => (
       <Aether.Provider worker={mainSide}>
         <Status.Aggregator log={() => {}}>
-          <Synnax.Provider connParams={TEST_CLIENT_PARAMS}>
+          <Synnax.Provider connParams={connParams}>
             <PageClient onClient={(c) => (page = c)} />
             <ProbeComponent />
           </Synnax.Provider>
@@ -97,10 +98,11 @@ describe("Synnax.Provider", () => {
       [PROBE_TYPE]: createProbe(seen),
     });
     const pages: Client[] = [];
+    const connParams = testClientParams();
     const Tree = ({ host }: { host: string }): ReactElement => (
       <Aether.Provider worker={mainSide}>
         <Status.Aggregator log={() => {}}>
-          <Synnax.Provider connParams={{ ...TEST_CLIENT_PARAMS, host }}>
+          <Synnax.Provider connParams={{ ...connParams, host }}>
             <PageClient onClient={(c) => c != null && pages.push(c)} />
             <ProbeComponent />
           </Synnax.Provider>
@@ -177,10 +179,11 @@ describe("Synnax.Provider", () => {
   it("should keep its client when the error handler changes", () => {
     // A new log makes the aggregator hand out a new error handler.
     let log = (): void => {};
+    const connParams = testClientParams();
     const wrapper = ({ children }: PropsWithChildren): ReactElement => (
       <AetherProvider>
         <Status.Aggregator log={log}>
-          <Synnax.Provider connParams={TEST_CLIENT_PARAMS}>{children}</Synnax.Provider>
+          <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
         </Status.Aggregator>
       </AetherProvider>
     );
