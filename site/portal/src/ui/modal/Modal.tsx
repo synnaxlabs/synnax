@@ -15,8 +15,8 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
-import { type z } from "zod";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
+import type { z } from "zod";
 
 import { Submit } from "@/ui/Submit";
 import { useAction } from "@/ui/useAction";

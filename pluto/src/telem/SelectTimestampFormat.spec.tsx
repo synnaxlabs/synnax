@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
-import { type TimestampFormat } from "@synnaxlabs/x";
+import type { TimestampFormat } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";

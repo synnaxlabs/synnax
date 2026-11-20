@@ -18,7 +18,7 @@ import { compare, id, json, search, TimeSpan, TimeStamp, unique } from "@synnaxl
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { type Device } from "@/feature/kafka/device/types";
+import type { Device } from "@/feature/kafka/device/types";
 import {
   defaultPicks,
   isExtendable,

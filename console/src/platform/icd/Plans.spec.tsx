@@ -10,7 +10,7 @@
 import { createRenderCounter } from "@synnaxlabs/lyra/testutil";
 import { deep } from "@synnaxlabs/x";
 import { render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";

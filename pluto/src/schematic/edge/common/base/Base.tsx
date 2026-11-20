@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";

@@ -19,12 +19,12 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import {
   array,
   DataType,
   deep,
-  type payload,
+  payload,
   TimeSpan,
   TimeStamp,
   uuid,
@@ -310,7 +310,16 @@ const createInferredField = (
   dataType: string,
   type: "number" | "boolean" | "string",
   timeFormat?: payload.TimeFormat,
-) => ({ pointer, dataType, type, timeFormat, enum: [], count: 2, mismatched: 0 });
+) => ({
+  pointer,
+  dataType,
+  kind: payload.kindOf(dataType),
+  type,
+  timeFormat,
+  enum: [],
+  count: 2,
+  mismatched: 0,
+});
 
 /** Two keys of values that hold a time, a temperature, and a state. */
 const OVEN_SHAPE = {

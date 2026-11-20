@@ -9,7 +9,7 @@
 
 import { alamos as alamosLib, type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 

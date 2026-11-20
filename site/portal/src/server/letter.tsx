@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button, COLOR, Footer, Page, type Rendered } from "@/server/mail";

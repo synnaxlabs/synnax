@@ -13,9 +13,9 @@ import {
   type TimeSpanStringFormat,
   type TimeStamp as XTimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Generic } from "@/generic";
+import type { Generic } from "@/generic";
 import { useNow } from "@/hooks";
 import { TimeSpan, type TimeSpanProps } from "@/telem/text/TimeSpan";
 
