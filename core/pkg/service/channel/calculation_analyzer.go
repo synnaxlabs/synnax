@@ -110,18 +110,32 @@ type CalculationAnalysisResult struct {
 	Unresolved []string
 }
 
-// Analyze parses the channel's expression, infers its return type, and extracts the set
-// of channel dependencies. The analyzed channel is cached so that subsequent calls can
-// reference it by name or key. An expression that fails analysis returns
-// *diagnostics.Diagnostics. A channel read that fails returns its error.
+// Analyze runs AnalyzeExpression on the expression and operations of ch.
 func (a *CalculationAnalyzer) Analyze(
 	ctx context.Context,
 	ch Channel,
 ) (CalculationAnalysisResult, error) {
+	derivative := lo.ContainsBy(ch.Operations, func(op Operation) bool {
+		return op.Type == OperationTypeDerivative
+	})
+	return a.AnalyzeExpression(ctx, ch, ch.Expression, derivative)
+}
+
+// AnalyzeExpression parses expression as the calculation that writes output, infers its
+// return type, and extracts the set of channel dependencies. A derivative operation
+// makes the output a float64 channel. The output is cached so that later calls can
+// reference it by name or key. An expression that fails analysis returns
+// *diagnostics.Diagnostics. A channel read that fails returns its error.
+func (a *CalculationAnalyzer) AnalyzeExpression(
+	ctx context.Context,
+	output Channel,
+	expression string,
+	derivative bool,
+) (CalculationAnalysisResult, error) {
 	a.resolver.SymbolResolver = NewConsistentResolver(a.symbols)
 	a.resolver.unresolved = make(set.Set[string])
 	a.resolver.readErr = nil
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expression), a.cfg)
 	if err != nil {
 		return CalculationAnalysisResult{}, err
 	}
@@ -140,14 +154,14 @@ func (a *CalculationAnalyzer) Analyze(
 		}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
-		Name: ch.Name,
+		Name: output.Name,
 		Kind: symbol.KindChannel,
 		Type: types.Chan(dataType),
 	}
-	if ch.LocalKey == 0 {
+	if output.LocalKey == 0 {
 		a.resolver.temp.unstored[s.Name] = s
 	} else {
-		s.ID = int(ch.Key())
+		s.ID = int(output.Key())
 		a.resolver.temp.keys[s.ID] = s
 		a.resolver.temp.names[s.Name] = s
 	}
@@ -159,9 +173,7 @@ func (a *CalculationAnalyzer) Analyze(
 		}
 	}
 	inferredDataType := dataType.ToTelem()
-	if lo.ContainsBy(ch.Operations, func(op Operation) bool {
-		return op.Type == OperationTypeDerivative
-	}) {
+	if derivative {
 		inferredDataType = telem.Float64T
 	}
 	return CalculationAnalysisResult{
