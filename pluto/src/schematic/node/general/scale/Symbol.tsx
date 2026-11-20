@@ -18,9 +18,11 @@ import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale as BaseScale } from "@/schematic/node/common/scale";
+import { Stale } from "@/schematic/node/common/stale";
 import { Scale } from "@/schematic/node/general/scale/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Scale as VisScale } from "@/vis/scale";
+import { Staleness } from "@/vis/staleness";
 
 export const Symbol = ({
   nodeKey,
@@ -30,6 +32,7 @@ export const Symbol = ({
   config,
 }: NodeProps<schematic.ScaleNodeConfig>): ReactElement => {
   const { label, dimensions: dims, orientation, channel, rollingAverage } = config;
+  const badged = Staleness.useBadged();
   const dir = location.direction(orientation);
   // The configured dimensions are the bar's own. The ticks live beside it, so the
   // symbol takes the gutter on top of them.
@@ -40,12 +43,13 @@ export const Symbol = ({
       ? { width: dims.width + gutter, height: dims.height }
       : { width: dims.width, height: dims.height + gutter };
   const telem = BaseScale.source({ channel, rollingAverage });
-  VisScale.use({
+  const { stale } = VisScale.use({
     ...vis,
     telem,
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, outer),
     direction: dir,
+    staleColorHidden: badged,
   });
   // The bar has one orientation per axis, so rotating it toggles between them.
   const handleRotate = (): void =>
@@ -70,6 +74,7 @@ export const Symbol = ({
       onResize={handleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
+      {stale && badged && <Stale.Indicator />}
       <div style={outer} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );

@@ -12,9 +12,9 @@ import { capture } from "@/index";
 import { TANK_PRESSURES, taskScript } from "./common/task";
 
 /**
- * Docs `reference/hardware/ethercat/read-task` (Create a read task): the task starts with
- * a channel for each input of the module. Set the rates, select a channel to read its
- * entry, remove a channel, and start the task.
+ * Docs `reference/hardware/ethercat/read-task` (Create a read task): the task starts
+ * with a channel for each input of the module. Set the rates, select a channel to read
+ * its entry, remove a channel, and start the task.
  */
 export default taskScript({
   device: TANK_PRESSURES,
