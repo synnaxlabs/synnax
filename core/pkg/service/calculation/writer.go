@@ -39,10 +39,11 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the calculation and gives it a key when it has none. Its output must
-// be a virtual channel that no other record writes. It returns an error wrapping
-// validate.ErrValidation when the calculation is not valid or its output breaks that
-// rule, and an error wrapping query.ErrNotFound when the output does not exist. The
-// commit broadcasts a create action that holds the stored calculation.
+// be a virtual channel that is not an index or a built-in channel, and that no other
+// record writes. It returns an error wrapping validate.ErrValidation when the
+// calculation is not valid or its output breaks that rule, and an error wrapping
+// query.ErrNotFound when the output does not exist. The commit broadcasts a create
+// action that holds the stored calculation.
 func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	if c.Key == uuid.Nil() {
 		c.Key = uuid.New()
@@ -60,8 +61,8 @@ func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	return nil
 }
 
-// checkOutput fails when the channel with key does not exist, stores its samples, or
-// has a record that writes it.
+// checkOutput fails when the channel with key does not exist, stores its samples, is an
+// index or a built-in channel, or has a record that writes it.
 func (w Writer) checkOutput(ctx context.Context, key channel.Key) error {
 	var ch channel.Channel
 	if err := w.channels.NewRetrieve().
@@ -70,9 +71,17 @@ func (w Writer) checkOutput(ctx context.Context, key channel.Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !ch.Virtual {
+	switch {
+	case !ch.Virtual:
 		return outputError(
 			"channel %s stores its samples, so no calculation writes it",
+			ch,
+		)
+	case ch.IsIndex:
+		return outputError("channel %s is an index, so no calculation writes it", ch)
+	case w.channels.IsBuiltIn(key):
+		return outputError(
+			"the Core writes channel %s, so no calculation writes it",
 			ch,
 		)
 	}
