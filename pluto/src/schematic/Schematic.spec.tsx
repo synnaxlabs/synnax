@@ -110,17 +110,17 @@ const looseZ = z.object({}).loose();
 
 class StubChip extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = control.Chip.TYPE;
-  schema = looseZ;
+  override schema = looseZ;
 }
 
 class StubIndicator extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = control.Indicator.TYPE;
-  schema = looseZ;
+  override schema = looseZ;
 }
 
 class StubLatestSample extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = latestSample.LatestSample.TYPE;
-  schema = looseZ;
+  override schema = looseZ;
 }
 
 const STALE_REGISTRY: aether.ComponentRegistry = {

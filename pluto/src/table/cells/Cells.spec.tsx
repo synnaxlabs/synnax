@@ -24,9 +24,9 @@ const valueState = z.object({ stalenessTimeout: z.number().optional() }).loose()
 class CapturingValue extends aether.Leaf<typeof valueState> {
   static readonly TYPE = "value";
   static readonly states: Array<z.infer<typeof valueState>> = [];
-  schema = valueState;
+  override schema = valueState;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     CapturingValue.states.push(this.state);
   }
 }

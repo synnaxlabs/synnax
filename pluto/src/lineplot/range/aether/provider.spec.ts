@@ -30,9 +30,9 @@ const requested = vi.fn<render.Requestor>();
 class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   static readonly TYPE = "range-provider-test-requestor";
   static readonly stateZ = z.object({});
-  schema = Requestor.stateZ;
+  override schema = Requestor.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     render.control(ctx, requested);
   }
 }
