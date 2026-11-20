@@ -948,6 +948,60 @@ describe("Kafka read form", () => {
       expect(dialog.getAllByText("In task")).toHaveLength(1);
     });
 
+    it("should carry the fields that Any key reads into the new record of a key", async () => {
+      const { draft, dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, { data: sampleOf(PRESSURE_SHAPE) });
+      const temperature = await dialog.findByRole("checkbox", {
+        name: "Record /temperature",
+      });
+      expect(temperature).toHaveProperty("disabled", true);
+      expect(temperature).toHaveProperty("checked", true);
+      dialog.getByText("Any key");
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Record /pressure" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(3);
+        return next;
+      });
+      expect(records.map(({ recordKey }) => recordKey)).toEqual([
+        "",
+        "oven-1",
+        "oven-2",
+      ]);
+      const { messages } = await client.icds.retrieve(records[1].icd);
+      const read = records[1].messages[0];
+      const message = messages.find(({ key }) => key === read.message);
+      const fields = message?.payload.format === "json" ? message.payload.fields : [];
+      expect(fields.map(({ pointer }) => pointer)).toEqual([
+        "/time",
+        "/temperature",
+        "/pressure",
+      ]);
+      expect(read.bindings).toHaveLength(3);
+    });
+
+    it("should keep a field that Any key reads pickable for a key with its own record", async () => {
+      const oven = await createRecord({
+        fields: [createField("pressure", "float")],
+        recordKey: "oven-1",
+      });
+      const { dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        records: [oven],
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, { data: sampleOf(PRESSURE_SHAPE) });
+      const temperature = await dialog.findByRole("checkbox", {
+        name: "Record /temperature",
+      });
+      expect(temperature).toHaveProperty("disabled", false);
+      expect(dialog.queryByText("Any key")).toBeNull();
+    });
+
     it("should lock a shape with a key whose record reads no JSON message", async () => {
       const format = await client.icds.create({
         name: uniqueName("format"),

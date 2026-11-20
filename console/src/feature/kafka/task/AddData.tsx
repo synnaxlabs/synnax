@@ -19,6 +19,7 @@ import { type ReactNode, useState } from "react";
 
 import type { Device } from "@/feature/kafka/device/types";
 import {
+  carriedFields,
   defaultPicks,
   isExtendable,
   type Picks,
@@ -52,6 +53,8 @@ const HINT =
   "Select the fields to read. Records that hold the same fields share a message.";
 
 const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
+
+const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
 const NO_JSON = "No JSON message";
 
@@ -118,11 +121,13 @@ const ShapeValues = ({
   const records = newestFirst(sample, shape);
   const extendable = isExtendable(shape, reads);
   const taken = takenPointers(shape, reads);
+  const carried = carriedFields(shape, reads);
   const values = shape.fields.map((f, i): ICD.Picker.Value => {
     const dataType = f.timeFormat == null ? f.dataType.toString() : "timestamp";
     let lock: ICD.Picker.Lock | undefined;
     if (i === shape.index) lock = INDEX;
-    else if (taken.has(f.pointer)) lock = ICD.Picker.TAKEN;
+    else if (taken.has(f.pointer))
+      lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
     else if (!extendable) lock = NOT_EXTENDABLE;
     return {
       key: f.pointer,
