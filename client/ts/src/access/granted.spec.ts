@@ -11,7 +11,7 @@ import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { allowRequest } from "@/access/enforce";
-import { type GrantedQuery } from "@/access/granted";
+import type { GrantedQuery } from "@/access/granted";
 import { ranger } from "@/ranger";
 import {
   createTestClient,

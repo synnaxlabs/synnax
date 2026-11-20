@@ -10,9 +10,9 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type position } from "@synnaxlabs/lyra/position";
+import type { position } from "@synnaxlabs/lyra/position";
 import { filter, location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
@@ -24,7 +24,7 @@ import {
   ChipValue,
 } from "@/platform/view/filter/Chip";
 import { type Condition, replace } from "@/platform/view/filter/codec";
-import { type Properties, type Property } from "@/platform/view/filter/types";
+import type { Properties, Property } from "@/platform/view/filter/types";
 import { useConditions } from "@/platform/view/filter/useConditions";
 
 /** A picker opens below its chip. */

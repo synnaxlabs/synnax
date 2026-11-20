@@ -9,9 +9,9 @@
 
 import "@/ranger/Timeline.css";
 
-import { type ranger } from "@synnaxlabs/client";
-import { type Button } from "@synnaxlabs/lyra/button";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { ranger } from "@synnaxlabs/client";
+import type { Button } from "@synnaxlabs/lyra/button";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";

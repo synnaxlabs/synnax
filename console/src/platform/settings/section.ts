@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Icon } from "@synnaxlabs/lyra/icon";
-import { type FC } from "react";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import type { FC } from "react";
 
 /** A page of Settings. The section list shows it by its icon and name. */
 export interface Section {

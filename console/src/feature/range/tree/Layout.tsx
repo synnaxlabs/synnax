@@ -9,15 +9,15 @@
 
 import "@/feature/range/tree/Layout.css";
 
-import { type ranger, type view } from "@synnaxlabs/client";
-import { type Button } from "@synnaxlabs/lyra/button";
+import type { ranger, view } from "@synnaxlabs/client";
+import type { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { ContextMenu } from "@/feature/range/tree/ContextMenu";
 import {

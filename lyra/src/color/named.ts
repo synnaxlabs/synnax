@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import { type theme } from "@/theme";
+import type { theme } from "@/theme";
 
 /** A color with a name and a value for each theme mode. */
 export interface Named extends theme.Pair {

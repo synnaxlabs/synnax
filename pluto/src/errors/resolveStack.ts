@@ -9,7 +9,7 @@
 
 import { scheduler } from "@synnaxlabs/x";
 import ErrorStackParser from "error-stack-parser";
-import { type RawSourceMap, type SourceMapConsumer } from "source-map-js";
+import type { RawSourceMap, SourceMapConsumer } from "source-map-js";
 
 type StackFrame = ReturnType<typeof ErrorStackParser.parse>[number];
 

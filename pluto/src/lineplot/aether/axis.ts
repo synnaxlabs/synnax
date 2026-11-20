@@ -22,9 +22,9 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import { type TickType } from "@/vis/axis/ticks";
+import type { TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
-import { type line } from "@/vis/line/aether";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const baseAxisStateZ = axis.axisStateZ

@@ -10,8 +10,8 @@
 import "@/telem/SelectTimestampFormat.css";
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type TimestampFormat } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { TimestampFormat } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 

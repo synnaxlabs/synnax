@@ -9,16 +9,16 @@
 
 import "@/platform/multiedit/Sections.css";
 
-import { type color } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
 import { notation, TimeSpan } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { ColorField, type ColorFieldProps } from "@/platform/multiedit/Colors";
-import { type ColorValue } from "@/platform/multiedit/selection";
+import type { ColorValue } from "@/platform/multiedit/selection";
 
 /**
  * Holds the color controls of several elements. The label column keeps its width as

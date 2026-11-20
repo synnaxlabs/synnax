@@ -11,10 +11,10 @@ import { panel, query } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Panel, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
-import { type TabOrigin } from "@/feature/panel/useMoveTab";
+import type { TabOrigin } from "@/feature/panel/useMoveTab";
 import { useTearOffTab } from "@/feature/panel/useTearOff";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Panel as PlatformPanel } from "@/platform/panel";

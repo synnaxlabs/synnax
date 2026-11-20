@@ -10,7 +10,7 @@
 import { DataType, id, math, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();

@@ -9,7 +9,7 @@
 
 import { useResize, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { box } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";

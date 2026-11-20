@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { label } from "@synnaxlabs/client";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { useResultMultiple } from "@/label/queries";

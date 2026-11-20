@@ -10,7 +10,7 @@
 import { device, type ethercat, type Synnax } from "@synnaxlabs/client";
 import { id, TimeStamp } from "@synnaxlabs/x";
 
-import { type Description } from "@/feature/ethercat/device/settings";
+import type { Description } from "@/feature/ethercat/device/settings";
 import {
   MAKE,
   type PDOs,
