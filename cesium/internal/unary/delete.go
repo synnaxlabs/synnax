@@ -24,10 +24,44 @@ import (
 // Delete deletes the specified time range from the database. Note that the start of the
 // time range is inclusive whereas the end is note.
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
-	if db.closed.Load() {
-		return ErrDBClosed
+	del, release, err := db.OpenDelete(tr)
+	if err != nil {
+		return err
 	}
-	return db.wrapError(db.delete(ctx, tr))
+	defer release()
+	return del(ctx)
+}
+
+// OpenDelete takes control of tr so that del deletes it, and returns an error if a
+// writer controls part of tr. No writer can take tr until the caller calls release.
+func (db *DB) OpenDelete(
+	tr telem.TimeRange,
+) (del func(context.Context) error, release func(), err error) {
+	if db.closed.Load() {
+		return nil, nil, ErrDBClosed
+	}
+	if !tr.Valid() {
+		return nil, nil, db.wrapError(errors.Newf(
+			"delete start %d cannot be after delete end %d",
+			tr.Start,
+			tr.End,
+		))
+	}
+	if release, err = db.lockControllerForNonWriteOp(tr, "delete"); err != nil {
+		return nil, nil, db.wrapError(err)
+	}
+	return func(ctx context.Context) error {
+		if err := db.domain.Delete(
+			ctx,
+			tr,
+			db.calculateStartOffset,
+			db.calculateEndOffset,
+		); err != nil {
+			return db.wrapError(err)
+		}
+		db.resolver.invalidate()
+		return nil
+	}, release, nil
 }
 
 // GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
@@ -76,31 +110,6 @@ func (db *DB) lockControllerForNonWriteOp(
 		},
 	})
 	return func() { g.Release() }, err
-}
-
-func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
-	if !tr.Valid() {
-		return errors.Newf(
-			"delete start %d cannot be after delete end %d",
-			tr.Start,
-			tr.End,
-		)
-	}
-	release, err := db.lockControllerForNonWriteOp(tr, "delete")
-	if err != nil {
-		return err
-	}
-	defer release()
-	if err := db.domain.Delete(
-		ctx,
-		tr,
-		db.calculateStartOffset,
-		db.calculateEndOffset,
-	); err != nil {
-		return err
-	}
-	db.resolver.invalidate()
-	return nil
 }
 
 // calculateStartOffset calculates the distance from a domain's start to the given time

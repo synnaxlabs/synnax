@@ -1660,6 +1660,40 @@ var _ = Describe("Delete", func() {
 						},
 					)
 					It(
+						"Should delete nothing when a writer controls a later channel",
+						func(ctx SpecContext) {
+							data2 := GenerateChannelKey()
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Name:     "Queequeg",
+								Key:      data2,
+								Index:    index,
+								DataType: telem.Int64T,
+							})).To(Succeed())
+							Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{index, data, data2},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+									telem.NewSeriesV[int64](200, 201, 202, 203, 204),
+								},
+							))).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{data2},
+								Start:    15 * telem.SecondTS,
+							}))
+							Expect(db.DeleteTimeRange(
+								ctx,
+								[]cesium.ChannelKey{data, data2},
+								(11 * telem.SecondTS).Range(16*telem.SecondTS),
+							)).To(MatchError(ContainSubstring("cannot access time range")))
+							Expect(w.Close()).To(Succeed())
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+							))
+						},
+					)
+					It(
 						"Should delete nothing when a later index channel fails the check",
 						func(ctx SpecContext) {
 							index2 := GenerateChannelKey()
