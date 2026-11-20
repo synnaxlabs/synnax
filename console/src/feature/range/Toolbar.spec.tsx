@@ -203,10 +203,18 @@ describe("range/Toolbar", () => {
         })),
       );
       onTestFinished(async () => await client.ranges.delete(newer.map((r) => r.key)));
+      const deleted = await client.ranges.create({
+        name: uniqueName("deleted"),
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
       await renderToolbar();
       await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
         timeout: 10_000,
       });
+      // A delete shrinks the page below its size, which is not a read for a page.
+      await waitForLine("Running", deleted.name);
+      await client.ranges.delete(deleted.key);
+      await waitFor(() => expect(queryLine("Running", deleted.name)).toBeNull());
       expect(queryLine("Running", oldest.name)).toBeNull();
       expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
       // A read for a range that ends keeps Show more enabled.

@@ -62,6 +62,10 @@ export const useGroups = (): Groups => {
   const [at, setAt] = useState(() => TimeStamp.now());
   // Show more grows the size, so a read for a new `at` keeps the pages already shown.
   const [runningSize, setRunningSize] = useState(RUNNING_PAGE);
+  // The sizes of the read in flight and of the last read that landed. A delete shrinks
+  // an answer, so its length cannot tell whether a read pages.
+  const [readingSize, setReadingSize] = useState<number | null>(null);
+  const [answeredSize, setAnsweredSize] = useState(0);
   const runningList = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: Ranger.stageWhere("in_progress", at), order: NEWEST },
@@ -85,6 +89,12 @@ export const useGroups = (): Groups => {
     ...(reading ? held : []),
   ]);
   if (!reading && !array.equal(held, keys)) setHeld(keys);
+  const runningLoading = runningList.variant === "loading";
+  if (runningLoading && readingSize !== runningSize) setReadingSize(runningSize);
+  if (!runningLoading && readingSize != null) {
+    setAnsweredSize(readingSize);
+    setReadingSize(null);
+  }
   const ranges = Store.useItems({
     keys,
     subscribe: runningList.subscribe,
@@ -117,11 +127,7 @@ export const useGroups = (): Groups => {
     runningComplete: runningList.complete,
     moreRunning: () => setRunningSize((size) => size + RUNNING_PAGE),
     reading,
-    // Show more grows the size past the answer shown, so a crossing's read never pages.
-    paging:
-      runningList.variant === "loading" &&
-      !runningList.complete &&
-      runningList.data.length < runningSize,
+    paging: runningLoading && answeredSize < runningSize,
     getItem: runningList.getItem,
     subscribe: runningList.subscribe,
   };
