@@ -205,6 +205,32 @@ describe("AnalogRead", () => {
     expect(screen.queryByText("Custom scaling")).toBeNull();
   });
 
+  it("should show the range after the scale, in the scale's units", async () => {
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, {
+          name: "chan_scaled",
+          customScale: {
+            type: "linear",
+            slope: 10,
+            yIntercept: 0,
+            preScaledUnits: "Volts",
+            scaledUnits: "psi",
+          },
+        }),
+        createChannel("ai_thermocouple", 1, { name: "chan_unscaled", units: "DegC" }),
+      ],
+    });
+    fireEvent.click(await findChannelListItem("chan_scaled"));
+    const min = await screen.findByLabelText("Minimum value");
+    const position = screen.getByText("Custom scaling").compareDocumentPosition(min);
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByText("psi")).toHaveLength(2);
+    fireEvent.click(await findChannelListItem("chan_unscaled"));
+    await waitFor(() => expect(screen.getAllByText("°C")).toHaveLength(2));
+  });
+
   it("should render the scale form matching each channel's custom scale", async () => {
     const cases = [
       ["linear", "Slope"],

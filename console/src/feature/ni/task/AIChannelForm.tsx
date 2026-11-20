@@ -315,6 +315,64 @@ const TemperatureUnitsField = Form.buildSelectField<TemperatureUnits>({
   },
 });
 
+type MeasureUnits = Extract<AIChannel, { units: unknown }>["units"];
+
+const MEASURE_UNIT_SYMBOLS = {
+  ...TEMPERATURE_UNIT_SYMBOLS,
+  g: "g",
+  MetersPerSecondSquared: "m/s²",
+  InchesPerSecondSquared: "in/s²",
+  Coulombs: "C",
+  PicoCoulombs: "pC",
+  mVoltsPerVolt: "mV/V",
+  VoltsPerVolt: "V/V",
+  Newtons: "N",
+  Pounds: "lb",
+  KilogramForce: "kgf",
+  PoundsPerSquareInch: "psi",
+  Pascals: "Pa",
+  Bar: "bar",
+  NewtonMeters: "N·m",
+  InchOunces: "in·oz",
+  InchPounds: "in·lb",
+  FootPounds: "ft·lb",
+  MetersPerSecond: "m/s",
+  InchesPerSecond: "in/s",
+} as const satisfies Record<MeasureUnits, string>;
+
+// The units of the range of each type that has no units field.
+const FIXED_UNIT_SYMBOLS: Partial<Record<AIChannelType, string>> = {
+  ai_current: "A",
+  ai_current_rms: "A",
+  ai_freq_voltage: "Hz",
+  ai_resistance: "Ω",
+  ai_strain_gauge: "strain",
+  ai_voltage: "V",
+  ai_voltage_rms: "V",
+  ai_voltage_with_excit: "V",
+};
+
+const rangeUnits = (channel: AIChannel): string | undefined => {
+  if ("customScale" in channel && channel.customScale.type !== "none")
+    return channel.customScale.scaledUnits;
+  if ("units" in channel) return MEASURE_UNIT_SYMBOLS[channel.units];
+  return FIXED_UNIT_SYMBOLS[channel.type];
+};
+
+/** The Range section, or nothing for a channel type without a range. */
+const RangeSection = ({ path }: { path: deep.Path<AIChannel> }) => {
+  const channel = Form.useFieldValue(path);
+  if (!("minVal" in channel)) return null;
+  return (
+    <Form.Section title="Range">
+      <MinMaxValueFields
+        path={deep.variant(path, "type", channel.type)}
+        units={rangeUnits(channel)}
+      />
+    </Form.Section>
+  );
+};
+
 const THERMOCOUPLE_TYPE_NAMES = {
   B: "B",
   E: "E",
@@ -452,9 +510,6 @@ const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
   const cjcSource = Form.useFieldValue(path.cjc.source, {
     optional: true,
   });
-  const units = Form.useFieldValue(path.units, {
-    optional: true,
-  });
   return (
     <>
       <ThermocoupleTypeField path={path.thermocoupleType} />
@@ -472,10 +527,6 @@ const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
         />
       )}
       <TemperatureUnitsField path={path.units} />
-      <MinMaxValueFields
-        path={path}
-        units={units == null ? undefined : TEMPERATURE_UNIT_SYMBOLS[units]}
-      />
     </>
   );
 };
@@ -484,7 +535,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_accel: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <AccelUnitsField path={path.units} />
       <SensitivityField
         path={path.sensitivity}
@@ -509,7 +559,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_accel_4_wire_dc_voltage: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <AccelUnitsField path={path.units} />
       <SensitivityField
         path={path.sensitivity}
@@ -538,7 +587,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_accel_charge: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <AccelUnitsField path={path.units} />
       <SensitivityField
         path={path.sensitivity}
@@ -557,7 +605,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_bridge: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <ElectricalUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -574,14 +621,12 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_charge: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <ChargeUnitsField path={path.units} />
     </>
   ),
   ai_current: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <ShuntResistorLocField path={path.shuntResistorLoc} />
       <Form.NumericField path={path.extShuntResistorVal} label="Shunt resistance" />
     </>
@@ -589,14 +634,12 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_current_rms: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <ShuntResistorLocField path={path.shuntResistorLoc} />
       <Form.NumericField path={path.extShuntResistorVal} label="Shunt resistance" />
     </>
   ),
   ai_force_bridge_polynomial: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <ForceUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -616,7 +659,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_force_bridge_table: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <ForceUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -635,7 +677,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_force_bridge_two_point_lin: ({ path }) => (
     <>
       <ForceUnitsField path={path.units} />
-      <MinMaxValueFields path={path} />
       <ExcitSourceField
         path={path.voltageExcitSource}
         label="Voltage excitation source"
@@ -657,7 +698,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_force_iepe: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <ForceUnitsField
         path={path.units}
         inputProps={{ children: Task.selectItems(IEPE_FORCE_UNITS_NAMES) }}
@@ -684,7 +724,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
 
   ai_freq_voltage: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <Form.NumericField path={path.thresholdLevel} label="Threshold level" />
       <Form.NumericField path={path.hysteresis} label="Hysteresis" />
     </>
@@ -706,7 +745,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_pressure_bridge_polynomial: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <PressureUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -726,7 +764,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_pressure_bridge_table: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <PressureUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <ExcitSourceField
@@ -744,7 +781,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_pressure_bridge_two_point_lin: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <PressureUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -766,7 +802,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_resistance: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <ResistanceConfigField path={path.resistanceConfig} />
       <ExcitSourceField
         path={path.currentExcitSource}
@@ -777,7 +812,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_rtd: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <TemperatureUnitsField path={path.units} />
       <RTDTypeField path={path.rtdType} />
       <ResistanceConfigField path={path.resistanceConfig} />
@@ -818,13 +852,11 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
         label="Initial bridge voltage"
         inputProps={{ endContent: "V" }}
       />
-      <MinMaxValueFields path={path} units="strain" />
     </>
   ),
   ai_temp_builtin: ({ path }) => <TemperatureUnitsField path={path.units} />,
   ai_thermistor_iex: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <TemperatureUnitsField path={path.units} />
       <ResistanceConfigField path={path.resistanceConfig} />
       <ExcitSourceField
@@ -839,7 +871,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_thermistor_vex: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <TemperatureUnitsField path={path.units} />
       <ResistanceConfigField path={path.resistanceConfig} />
       <ExcitSourceField
@@ -856,7 +887,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_thermocouple: ThermocoupleForm,
   ai_torque_bridge_polynomial: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <TorqueUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -876,7 +906,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_torque_bridge_table: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <TorqueUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -894,7 +923,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ),
   ai_torque_bridge_two_point_lin: ({ path }) => (
     <>
-      <MinMaxValueFields path={path} />
       <TorqueUnitsField path={path.units} />
       <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
@@ -917,7 +945,6 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_velocity_iepe: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <VelocityUnitsField path={path.units} />
       <Form.NumericField
         path={path.sensitivity}
@@ -944,22 +971,11 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
       <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
     </>
   ),
-  ai_voltage: ({ path }) => (
-    <>
-      <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
-    </>
-  ),
-  ai_voltage_rms: ({ path }) => (
-    <>
-      <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
-    </>
-  ),
+  ai_voltage: ({ path }) => <TerminalConfigField path={path} />,
+  ai_voltage_rms: ({ path }) => <TerminalConfigField path={path} />,
   ai_voltage_with_excit: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
       <BridgeConfigField path={path.bridgeConfig} />
       <ExcitSourceField
         path={path.voltageExcitSource}
@@ -1013,6 +1029,7 @@ export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) 
         <TypeFields type={type} path={path} />
       </Form.Section>
       <CustomScaleSection path={path} />
+      <RangeSection path={path} />
     </Form.Sections>
   );
 };
