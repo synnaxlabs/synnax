@@ -584,7 +584,7 @@ jobs:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           disable_search: true
-          fail_ci_if_error: true
+          fail_ci_if_error: ${{ github.event_name != 'merge_group' }}
           files: console/src-tauri/lcov.info
           flags: desktop-shell
           token: ${{ secrets.CODECOV_TOKEN }}
