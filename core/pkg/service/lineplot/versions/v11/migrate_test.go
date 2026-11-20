@@ -66,6 +66,20 @@ var _ = Describe("Migration", func() {
 		},
 	)
 
+	It("Should drop a repeated range reference", func(ctx SpecContext) {
+		rng := uuid.New()
+		window := telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.Second}}
+		key := rangerv1.Ref{Variant: rangerv1.KeyRef{Key: rng}}
+		win := rangerv1.Ref{Variant: rangerv1.WindowRef{Window: window}}
+		lp := MustSucceed(v11.MigrateLinePlot(ctx, v10.LinePlot{
+			Ranges: []rangerv1.Ref{key, win, key, win},
+		}))
+		Expect(lp.Ranges).To(Equal([]rangerv4.Ref{
+			{Variant: rangerv4.KeyRef{Key: rng}},
+			{Variant: rangerv4.WindowRef{Window: window}},
+		}))
+	})
+
 	It("Should reject a range reference with no variant", func(ctx SpecContext) {
 		Expect(rangerv4.MigrateRef(ctx, rangerv1.Ref{})).Error().
 			To(MatchError(ContainSubstring("unknown range reference variant")))
