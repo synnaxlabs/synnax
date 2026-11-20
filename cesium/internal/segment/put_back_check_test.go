@@ -51,11 +51,8 @@ var _ = Describe("Put back check", func() {
 	It("Should put the writer back to its last commit after a failed write", func() {
 		fail := false
 		fs := failFS{FS: xfs.NewMem(), fail: &fail}
-		h := MustSucceed(
-			MustSucceed(
-				segment.NewBudget(8, 8, segment.GoExecutor),
-			).Create(fs, "3.seg"),
-		)
+		budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+		h := MustSucceed(budget.Create(fs, "3.seg"))
 		w := segment.NewWriter(h, cfg)
 		data := pattern(40)
 		Expect(w.Write(data[:16])).To(Succeed())
