@@ -10,9 +10,9 @@
 import "zod/compile";
 import "fake-indexeddb/auto";
 
+import { shortenKeepAlive } from "@synnaxlabs/client/testutil";
 import { installDragEvent, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
-import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 

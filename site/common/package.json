@@ -6,6 +6,7 @@
     "./Analytics.astro": "./src/Analytics.astro",
     "./analytics": "./src/analytics.ts",
     "./consent": "./src/consent.ts",
+    "./contact": "./src/contact.ts",
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
     "./Head.astro": "./src/Head.astro",
