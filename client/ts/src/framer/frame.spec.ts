@@ -360,6 +360,12 @@ describe("framer.Frame", () => {
       expect(pld.keys).toEqual([12, 13]);
       expect(pld.series?.[0].data.byteLength).toEqual(12);
     });
+
+    it("should send only the bytes inside a series' view", () => {
+      const data = new Float32Array([1, 2, 3, 4]).subarray(1, 3);
+      const pld = new framer.Frame(12, new Series({ data })).toPayload();
+      expect(Array.from(new Float32Array(pld.series[0].data))).toEqual([2, 3]);
+    });
   });
 
   describe("latest", () => {
