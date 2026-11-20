@@ -10,7 +10,7 @@
 import { kafka } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { WriteSelectable } from "@/feature/kafka/task/create";
+import { ReadSelectable, WriteSelectable } from "@/feature/kafka/task/create";
 import { PREFIX, READ_TYPE } from "@/feature/kafka/task/types";
 import { Task } from "@/platform/task";
 
@@ -30,6 +30,6 @@ export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "Kafka",
   icon: <Icon.Logo.Kafka />,
-  selectables: [WriteSelectable],
+  selectables: [ReadSelectable, WriteSelectable],
   plotChannels: { [READ_TYPE]: readPlotChannels },
 };

@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { KAFKA, serverTaskScript } from "./common/server";
-import { choose, setText } from "./common/task";
+import { setText } from "./common/task";
 
 export const driver = true;
 export const integrations = ["modbus"];
 
 /**
  * Docs `reference/hardware/kafka/read-task` (Create a Kafka read task): enter the
- * topic, add a record with a key, add a field with a pointer and a data type, and start
- * the task. The fake broker publishes these records, so the task reads real values.
+ * topic, add a record with a key, add a field with a name and a pointer, and start the
+ * task. The fake broker publishes these records, so the task reads real values.
  */
 export default serverTaskScript(KAFKA, {
   item: "Create read task",
@@ -27,10 +27,9 @@ export default serverTaskScript(KAFKA, {
     await session.click(form.getByRole("button", { name: "Add record", exact: true }));
     await session.hold(800);
     await setText(session, form, "Record key", "oven");
-    const adder = form.getByRole("treeitem").getByText("Add field", { exact: true });
-    await session.click(adder, { text: true });
+    await session.click(form.getByRole("button", { name: "Add field", exact: true }));
     await session.hold(800);
+    await setText(session, form, "Name", "temperature");
     await setText(session, form, "Pointer", "/temperature");
-    await choose(session, form, "Data type", "float32", { search: true });
   },
 });

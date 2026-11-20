@@ -27,6 +27,56 @@ const topicZ = z.string().min(1, "Topic is required");
 
 export const READ_TYPE = `${PREFIX}_read`;
 
+export interface ReadRecord extends kafka.ReadRecord {}
+
+export type StartOffset = kafka.StartOffset;
+
+// The Core skips disabled records, so they may share a key with an enabled one.
+const validateRecords = (
+  ctx: z.core.ParsePayload<Pick<ReadRecord, "disabled" | "recordKey">[]>,
+) => {
+  if (ctx.value.every(({ disabled }) => disabled))
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: "At least one record must be enabled",
+      path: [],
+    });
+  const seen = new Set<string>();
+  ctx.value.forEach(({ disabled, recordKey }, i) => {
+    if (disabled) return;
+    if (!seen.has(recordKey)) {
+      seen.add(recordKey);
+      return;
+    }
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message:
+        recordKey === ""
+          ? "Only one record can read any key"
+          : `Record key "${recordKey}" is used by another record`,
+      path: [i, "recordKey"],
+    });
+  });
+};
+
+export const deployReadConfigZ = kafka.readConfigZ.extend({
+  device: Task.deviceKeyZ,
+  topic: topicZ,
+  records: kafka.readRecordZ.array().check(validateRecords),
+});
+
+export const READ_SCHEMAS = {
+  type: z.literal(READ_TYPE),
+  config: kafka.readConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type ReadSchemas = typeof READ_SCHEMAS;
+
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export interface WriteChannel extends kafka.WriteChannel {}

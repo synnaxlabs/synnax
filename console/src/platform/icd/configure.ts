@@ -81,13 +81,15 @@ export interface MessagePlan {
 
 /**
  * Plans the channel of each field that a message reads: the one it has, the one stored
- * for its pointer, or a new one of the binding's data type. A channel that no longer
- * suits its field is replaced, and leaves the stored channels. Reads from the Core, and
- * changes neither bound nor props.
+ * for its pointer, or a new one of the binding's data type. A channel that is gone or
+ * no longer suits its field is replaced, and leaves the stored channels. Reads from the
+ * Core, and changes neither bound nor props.
  *
  * @param namer - Names the new channels of every source that the task plans.
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
+ * @param written - The channels that other bindings write, which no field takes from
+ * props.
  */
 export const planMessage = async (
   client: Synnax,
@@ -95,6 +97,7 @@ export const planMessage = async (
   { source, read: r, fields }: BoundMessage<ReadSource>,
   prefix: string,
   props?: Task.ReadChannelProps,
+  written: ReadonlySet<channel.Key> = new Set(),
 ): Promise<MessagePlan> => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
@@ -105,6 +108,10 @@ export const planMessage = async (
       channel: 0,
       dataType: "",
     };
+  // The Core refuses a channel that two bindings write.
+  for (const f of fields)
+    if (bindingOf(f).channel === 0 && written.has(held[f.pointer]))
+      delete held[f.pointer];
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
   const live = new Map(
@@ -136,7 +143,8 @@ export const planMessage = async (
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    const replaced = stale(f, ch);
+    // A deleted channel needs a new channel too.
+    const replaced = stale(f, ch) || (reused[i] !== 0 && ch == null);
     if (stale(f, live.get(storedKeys[i]))) delete held[f.pointer];
     return {
       key: f.key,
@@ -146,7 +154,7 @@ export const planMessage = async (
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f.type),
       channel: replaced ? 0 : binding.channel,
-      replaces: replaced ? ch.key : 0,
+      replaces: replaced && ch != null ? ch.key : 0,
       binding: { ...binding, dataType },
     };
   });

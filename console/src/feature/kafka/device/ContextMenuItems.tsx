@@ -14,6 +14,11 @@ import { Device } from "@/platform/device";
 
 const TASK_CONTEXT_MENU_ITEMS = [
   Device.createTaskContextMenuItem({
+    itemKey: "kafka.readTask",
+    label: "Create read task",
+    useCreate: Task.useCreateRead,
+  }),
+  Device.createTaskContextMenuItem({
     itemKey: "kafka.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,

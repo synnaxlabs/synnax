@@ -5,8 +5,10 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -34,6 +36,8 @@ The task reads a field into a channel only when the record binds the field to on
 - **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
   text labels to channel values.
 
+The Console has no topic browser. Type the topic, the record keys, and the pointers.
+
 <Divider.Divider x />
 
 ## Create a Kafka read task
@@ -41,7 +45,24 @@ The task reads a field into a channel only when the record binds the field to on
 <Client.Tabs>
   <Fragment slot="console">
 
-The Console cannot create a Kafka read task. Use Python or TypeScript.
+1. In the devices toolbar, right-click the cluster and select **Create read task**. You
+   can also run the "Create Kafka read task" command.
+2. Enter the **Topic**, such as `sensor-readings`.
+3. Click **Add record**, then set **Record key**, or leave it empty for any key. The
+   first record creates an ICD named after the task.
+4. Click **Add field**, then set the **Name**, **Pointer**, and **Type** of the field.
+   Each edit saves to the ICD.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a channel for each field that the task reads, and an index channel
+for each message with a field of fixed size, such as a number. A message with only
+string, JSON, or bytes fields gets no index channel: its channels stream the values and
+do not store them. The Console names the channels from the cluster, the topic, the
+record key, and the field. A message after the first adds its name. To rename a channel,
+edit **Channel** after you start. Click the dot of a field to stop or start reading it.
+Click **Add message** on a record when one key carries more than one message.
+
+<Video id="hardware/kafka/read-task" label="Create and start a Kafka read task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -162,9 +183,8 @@ The **Source** of a message sets the timestamps of its samples:
 
 - **Kafka timestamp** -> the timestamp of the Kafka record, in milliseconds. The
   default.
-- **A timestamp field** -> a time in the JSON value, at the pointer of a timestamp field
-  of the message, in the time format of that field: ISO 8601, or Unix time in seconds,
-  milliseconds, microseconds, or nanoseconds. The task writes the value to the index
+- **Payload value** -> a timestamp **Field** of the message: ISO 8601, or Unix time in
+  seconds, milliseconds, microseconds, or nanoseconds. The value goes to the index
   channel of the message.
 
 Timestamps in an index channel must increase. A topic with more than one partition can

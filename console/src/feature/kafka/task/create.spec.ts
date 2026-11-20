@@ -17,6 +17,31 @@ import { createWithHook } from "@/platform/task/testutil";
 const client = createTestClient();
 
 describe("Kafka.Task create", () => {
+  it("should create a read task on the given device", async () => {
+    const dev = await createTestDevice(client);
+    const tsk = await createWithHook(
+      Kafka.Task.useCreateRead,
+      Kafka.Task.READ_SCHEMAS,
+      {
+        deviceKey: dev.key,
+      },
+    );
+    expect(tsk.name).toBe("Kafka read task");
+    expect(tsk.config.device).toBe(dev.key);
+  });
+
+  it("should create a read task with the given config", async () => {
+    const config = Kafka.Task.READ_SCHEMAS.config.parse({ topic: "pressure" });
+    const tsk = await createWithHook(
+      Kafka.Task.useCreateRead,
+      Kafka.Task.READ_SCHEMAS,
+      {
+        config,
+      },
+    );
+    expect(tsk.config.topic).toBe("pressure");
+  });
+
   it("should create a write task that publishes the channel and timestamp", async () => {
     const dev = await createTestDevice(client);
     const tsk = await createWithHook(
