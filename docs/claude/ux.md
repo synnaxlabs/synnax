@@ -468,8 +468,8 @@ bound, a log precision, or the line plot X channel.
   loads after the select opens joins the values listed first, until the user scrolls,
   moves the cursor, or searches. A search lists its matches in their own order. GitHub
   and GitLab do the same.
-- Every other select keeps its order, such as `Select.Simple` and the selects built on
-  `Select.Frame`. A filter menu keeps its own order.
+- Every other select keeps its order, such as `Select.Simple` and `Rack.SelectSingle`. A
+  filter menu keeps its own order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
