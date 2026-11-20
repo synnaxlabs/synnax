@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -98,6 +99,16 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Security security.Provider
+	// CA reads the CA certificates of the Core, whose expiry the certificate service
+	// reports.
+	//
+	// [OPTIONAL] - Nil in insecure mode.
+	CA *cert.Loader
+	// Listeners are the listeners of the Core that serve TLS, whose certificates'
+	// expiry the certificate service reports.
+	//
+	// [OPTIONAL] - Empty in insecure mode.
+	Listeners []certificate.Listener
 	// Distribution is the underlying distribution layer.
 	//
 	// [REQUIRED]
@@ -163,6 +174,8 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
+	c.CA = override.Nil(c.CA, other.CA)
+	c.Listeners = override.Slice(c.Listeners, other.Listeners)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.FIPS = override.Nil(c.FIPS, other.FIPS)
@@ -1037,6 +1050,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Status:          l.Status,
 		Signals:         l.Signals,
 		Rack:            coreRack.Key,
+		HostKey:         cfg.Distribution.Identity.HostKey,
+		CA:              cfg.CA,
+		Listeners:       cfg.Listeners,
 	}); !ok(err, l.Certificate) {
 		return nil, err
 	}
