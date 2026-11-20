@@ -964,12 +964,14 @@ describe("wrapForm", () => {
           "The task still runs its last deployed config. The device has no port 7",
         ),
       ).toBeTruthy();
-      expect(statuses).toContainEqual(
-        expect.objectContaining({
-          name: "New Test Task",
-          message: "Failed to deploy changes",
-          description: "The device has no port 7",
-        }),
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            name: "New Test Task",
+            message: "Failed to deploy changes",
+            description: "The device has no port 7",
+          }),
+        ),
       );
     });
 
