@@ -20,15 +20,23 @@ import { Fragment } from "react";
 import { CSS } from "@/platform/css";
 import { CheckSkeleton } from "@/platform/icd/picker/Picker";
 
+/** Fixes the checkbox of a value that cannot be picked. */
+export interface Lock {
+  checked: boolean;
+  /** Says why, in place of the type of the value. */
+  label: string;
+}
+
+/** The lock of a value that the task reads already. */
+export const TAKEN: Lock = { checked: true, label: "In task" };
+
 /** A value the pane offers, such as one field of a message. */
 export interface Value {
   key: string;
   name: string;
   sample: string | null;
   dataType: string;
-  /** The task reads it already. */
-  taken: boolean;
-  unsupported?: boolean;
+  lock?: Lock;
 }
 
 export interface ValueGroup {
@@ -103,10 +111,8 @@ const Item = (props: List.ItemRenderProps<string>) => {
   const value = List.useItem<string, Value>(props.itemKey);
   const { selected, onSelect } = Select.useItemState(props.itemKey);
   if (value == null) return null;
-  const locked = value.taken || value.unsupported === true;
-  let dataType = value.dataType;
-  if (value.taken) dataType = "In task";
-  else if (value.unsupported === true) dataType = "Not supported";
+  const { lock } = value;
+  const locked = lock != null;
   return (
     <Select.Item<string>
       {...props}
@@ -114,7 +120,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
       className={CSS.BE("icd-picker", "value")}
     >
       <Input.Checkbox
-        value={value.taken || selected}
+        value={lock?.checked ?? selected}
         onChange={onSelect}
         disabled={locked}
         size="small"
@@ -127,7 +133,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
         {value.sample ?? "–"}
       </Text.Text>
       <Text.Text level="small" color={9} overflow="fade">
-        {dataType}
+        {lock?.label ?? value.dataType}
       </Text.Text>
     </Select.Item>
   );

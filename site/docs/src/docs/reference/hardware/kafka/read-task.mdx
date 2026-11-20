@@ -36,8 +36,6 @@ The task reads a field into a channel only when the record binds the field to on
 - **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
   text labels to channel values.
 
-The Console has no topic browser. Type the topic, the record keys, and the pointers.
-
 <Divider.Divider x />
 
 ## Create a Kafka read task
@@ -48,11 +46,20 @@ The Console has no topic browser. Type the topic, the record keys, and the point
 1. In the devices toolbar, right-click the cluster and select **Create read task**. You
    can also run the "Create Kafka read task" command.
 2. Enter the **Topic**, such as `sensor-readings`.
-3. Click **Add record**, then set **Record key**, or leave it empty for any key. The
-   first record creates an ICD named after the task.
-4. Click **Add field**, then set the **Name**, **Pointer**, and **Type** of the field.
-   Each edit saves to the ICD.
+3. Click **Add data**. The dialog reads up to 100 records of the topic, spread back in
+   time, and groups their keys by the fields that their values hold.
+4. Select the fields to record, then click **Add** _N_ **fields**. Each group becomes a
+   message in the ICD of the task, with a record for each key that has no record yet. A
+   timestamp that the dialog finds becomes the index of the message.
 5. Click <Icon.Play /> (**Start**).
+
+The first message creates an ICD named after the task. For a topic with no records yet,
+click **Add an empty record** in the dialog, then click **Add field** to set the
+**Name**, **Pointer**, and **Type** of each field.
+
+A key with no record of its own goes to the **Any key** record. The dialog marks the
+fields that **Any key** reads for the key as **Any key**. A new record of the key reads
+them too, into new channels, so the key keeps every field.
 
 The Console creates a channel for each field that the task reads, and an index channel
 for each message with a field of fixed size, such as a number. A message with only

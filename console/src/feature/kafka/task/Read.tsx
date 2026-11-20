@@ -42,6 +42,16 @@ import { use } from "@/feature/kafka/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/kafka/device/Select";
 import { type Device, SCHEMAS } from "@/feature/kafka/device/types";
 import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
+import { useAddDataModal } from "@/feature/kafka/task/AddData";
+import {
+  createAdditions,
+  createExtensions,
+  createRecords,
+  type Extension,
+  type MessagesOf,
+  readsOf,
+  uniqueName,
+} from "@/feature/kafka/task/additions";
 import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
 import {
   deployReadConfigZ,
@@ -151,15 +161,6 @@ const writtenChannels = (records: ReadRecord[]): Set<channel.Key> => {
   );
   written.delete(0);
   return written;
-};
-
-/** @returns base, numbered from 2 until no message of the ICD has the name. */
-const uniqueName = (base: string, taken: icd.Message[]): string => {
-  const names = new Set(taken.map(({ name }) => name));
-  if (!names.has(base)) return base;
-  let n = 2;
-  while (names.has(`${base} ${n}`)) n++;
-  return `${base} ${n}`;
 };
 
 const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
@@ -405,30 +406,94 @@ const Records: FC<RecordsProps> = ({
       onExpand,
     });
 
+  const addData = useAddDataModal();
+  const label = (recordKey: string) => recordLabel({ recordKey });
+
   /**
-   * Adds a record that reads any key, with a new message in the ICD of the first
-   * record. A task with no record gets a new ICD.
+   * Puts messages in the ICD of the first record, or in a new ICD for a task with no
+   * record, then adds the records that read them.
    */
-  const add = async () => {
+  const addRecords = async (
+    messages: icd.Message[],
+    recordsOf: (icdKey: icd.Key) => ReadRecord[],
+  ) => {
     if (client == null) throw new DisconnectedError();
     const first = records.at(0);
-    let rec: ReadRecord;
+    let icdKey: icd.Key;
     if (first == null) {
-      const message = createMessage(ANY_KEY);
       const name = icdName(ctx.get(root.name).value);
-      const { key } = await client.icds.create({ name, messages: [message] });
-      rec = recordOf(key, message.key);
+      icdKey = (await client.icds.create({ name, messages })).key;
     } else {
-      const format = ICD.formatOf(formats, first.icd);
-      const held = format.value().messages;
-      const message = createMessage(uniqueName(ANY_KEY, held));
-      format.insert(PICD.formPath.messages, message, held.at(-1)?.key);
-      rec = recordOf(first.icd, message.key);
+      icdKey = first.icd;
+      const format = ICD.formatOf(formats, icdKey);
+      let after = format.value().messages.at(-1)?.key;
+      format.batch(() => {
+        for (const message of messages) {
+          format.insert(PICD.formPath.messages, message, after);
+          after = message.key;
+        }
+      });
     }
-    push(rec);
-    onSelect([rec.key]);
-    tree.expand(rec.key);
+    const added = recordsOf(icdKey);
+    push(added);
+    onSelect([added[0].key]);
+    tree.expand(added[0].key);
   };
+
+  /** @returns the messages of the ICD of the first record. */
+  const heldMessages = (): icd.Message[] => {
+    const first = records.at(0);
+    return first == null ? [] : ICD.formatOf(formats, first.icd).value().messages;
+  };
+
+  /** Adds a record that reads any key. */
+  const addRecord = async () => {
+    const message = createMessage(uniqueName(ANY_KEY, heldMessages()));
+    await addRecords([message], (icdKey) => [recordOf(icdKey, message.key)]);
+  };
+
+  const messagesOf: MessagesOf = (icdKey) =>
+    ICD.formatOf(formats, icdKey).value().messages;
+
+  /** Puts new fields in messages that records read, and reads them on those records. */
+  const extend = (extensions: Extension[]) =>
+    ctx.batch(() => {
+      for (const { icd: icdKey, message, fields, bindings } of extensions) {
+        const format = ICD.formatOf(formats, icdKey);
+        let after = ICD.fieldsOf(formats, icdKey, message).at(-1)?.key;
+        format.batch(() => {
+          for (const field of fields) {
+            format.insert(ICD.fieldsPath(message), field, after);
+            after = field.key;
+          }
+        });
+        for (const { record, read, fields: keys } of bindings) {
+          const path = recordPath(record).messages[read].bindings;
+          ctx.set(path, [
+            ...ctx.get(path).value,
+            ...keys.map((field) => kafka.readBindingZ.parse({ field })),
+          ]);
+        }
+      }
+    });
+
+  /** Adds the fields that the user picks from records of the topic, or one record. */
+  const add = async () => {
+    const topic = ctx.get(root.config.topic).value;
+    const reads = readsOf(records, messagesOf);
+    const result = await addData({ device, topic, reads, label });
+    if (result == null) return;
+    if (result.variant === "record") return await addRecord();
+    const { shapes, picks } = result;
+    extend(createExtensions(shapes, picks, records, messagesOf));
+    const additions = createAdditions(shapes, picks, reads, heldMessages(), label);
+    if (additions.length === 0) return;
+    await addRecords(
+      additions.map(({ message }) => message),
+      (icdKey) => createRecords(icdKey, additions),
+    );
+  };
+
   // Adds run one at a time, so a second click cannot make a second ICD.
   const adding = useRef(false);
   const handleAdd = () =>
@@ -442,7 +507,7 @@ const Records: FC<RecordsProps> = ({
         throw errors.fromUnknown(e);
       }
       adding.current = false;
-    }, "Failed to add record");
+    }, "Failed to add data");
 
   const rec =
     current == null ? undefined : records.find(({ key }) => key === current.source);
@@ -508,7 +573,7 @@ const Records: FC<RecordsProps> = ({
           onSelect={handleSelect}
           menu={contextMenu}
           emptyMessage="No records"
-          addLabel="Add record"
+          addLabel="Add data"
           onAdd={handleAdd}
         >
           {renderItem}
@@ -519,7 +584,9 @@ const Records: FC<RecordsProps> = ({
     >
       {details ?? (
         <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Add a record to read its messages</Text.Text>
+          <Text.Text status="disabled">
+            Add data to read the records of the topic
+          </Text.Text>
         </Flex.Box>
       )}
     </Task.Views.Panes>

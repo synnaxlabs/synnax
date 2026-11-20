@@ -1,0 +1,324 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { kafka } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { json } from "@synnaxlabs/x";
+import pluralize from "pluralize";
+import { type ReactNode, useState } from "react";
+
+import type { Device } from "@/feature/kafka/device/types";
+import {
+  carriedFields,
+  defaultPicks,
+  heldPointers,
+  isExtendable,
+  isPickable,
+  type Picks,
+  type Reads,
+  shapeKey,
+  takenPointers,
+} from "@/feature/kafka/task/additions";
+import { sampleTopic } from "@/feature/kafka/task/sample";
+import { CSS } from "@/platform/css";
+import { ICD } from "@/platform/icd";
+import { Modals } from "@/platform/modals";
+
+interface Params {
+  device: Device;
+  topic: string;
+  /** The fields that the task reads now. */
+  reads: Reads;
+  /** Names the Kafka key of a record, such as "Any key" for the empty key. */
+  label: (recordKey: string) => string;
+}
+
+/** What the dialog adds: the fields picked from a sample, or one empty record. */
+export type Result =
+  { variant: "picks"; shapes: json.Shape[]; picks: Picks } | { variant: "record" };
+
+const FRAME = "records";
+
+const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
+
+const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
+
+const NO_JSON = "No JSON message";
+
+const NOT_EXTENDABLE: ICD.Picker.Lock = { checked: false, label: NO_JSON };
+
+/** @returns the value at a JSON pointer of a document, or undefined for none. */
+const valueAt = (doc: unknown, pointer: string): unknown => {
+  let value = doc;
+  for (const token of json.parsePointer(pointer)) {
+    if (value == null || typeof value !== "object") return undefined;
+    value = (value as Record<string, unknown>)[token];
+  }
+  return value;
+};
+
+const parse = (payload: string): unknown => {
+  try {
+    return JSON.parse(payload);
+  } catch {
+    // The payload holds only the start of a value longer than 16 KiB.
+    return undefined;
+  }
+};
+
+/** @returns the parsed JSON records of a shape's keys, newest first. */
+const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
+  sample.records
+    .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
+    .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()))
+    .map(({ payload }) => parse(payload));
+
+/** @returns the value of a field in the newest record that holds it. */
+const newestValue = (records: unknown[], pointer: string): unknown => {
+  for (const record of records) {
+    const value = valueAt(record, pointer);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+};
+
+const show = (value: unknown): string | null => {
+  if (value === undefined) return null;
+  return typeof value === "string" ? value : JSON.stringify(value);
+};
+
+interface ShapeValuesProps {
+  sample: kafka.SampledTopic;
+  shape: json.Shape;
+  name: string;
+  reads: Reads;
+  value: Set<string>;
+  onChange: (value: Set<string>) => void;
+}
+
+/** The fields of one shape, to pick. */
+const ShapeValues = ({
+  sample,
+  shape,
+  name,
+  reads,
+  value,
+  onChange,
+}: ShapeValuesProps) => {
+  const records = newestFirst(sample, shape);
+  const extendable = isExtendable(shape, reads);
+  const taken = takenPointers(shape, reads);
+  const carried = carriedFields(shape, reads);
+  const held = new Set([...heldPointers(shape, reads), ...value]);
+  const values = shape.fields.map((f, i): ICD.Picker.Value => {
+    const dataType = f.timeFormat == null ? f.dataType.toString() : "timestamp";
+    let lock: ICD.Picker.Lock | undefined;
+    if (i === shape.index) lock = INDEX;
+    else if (taken.has(f.pointer))
+      lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
+    else if (!extendable) lock = NOT_EXTENDABLE;
+    else if (!isPickable(shape, held, f)) lock = { checked: false, label: dataType };
+    return {
+      key: f.pointer,
+      name: f.pointer === "" ? "Whole value" : f.pointer,
+      sample: show(newestValue(records, f.pointer)),
+      dataType,
+      lock,
+    };
+  });
+  const mixed = extendable && values.some(({ lock }) => lock?.checked === false);
+  return (
+    <>
+      <ICD.Picker.PaneHeader
+        title={name}
+        note={pluralize("record", shape.count, true)}
+        free={defaultPicks(shape, reads).size}
+        picked={value.size}
+        onPickAll={() => onChange(defaultPicks(shape, reads))}
+        onClear={() => onChange(new Set())}
+      />
+      <ICD.Picker.Values
+        noun="Field"
+        groups={[{ values }]}
+        value={[...value]}
+        onChange={(keys) => onChange(new Set(keys))}
+      />
+      {mixed && (
+        <Text.Text level="small" color={9} className={CSS.BE("kafka-add-data", "note")}>
+          A string field cannot share a message with number, boolean, or timestamp
+          fields.
+        </Text.Text>
+      )}
+    </>
+  );
+};
+
+const toItem = (
+  shape: json.Shape,
+  picks: Picks,
+  reads: Reads,
+  label: Params["label"],
+): ICD.Picker.TreeItem => {
+  const key = shapeKey(shape);
+  const picked = picks.get(key)?.size ?? 0;
+  const pickable = defaultPicks(shape, reads).size;
+  let meta = pluralize("record", shape.count, true);
+  if (picked > 0) meta = `${picked} selected`;
+  else if (!isExtendable(shape, reads)) meta = NO_JSON;
+  else if (pickable === 0 && takenPointers(shape, reads).size > 0) meta = "In task";
+  let state: ICD.Picker.TreeItem["picked"] = "none";
+  if (picked > 0) state = picked >= pickable ? "all" : "some";
+  return {
+    key,
+    name: shape.sources.map(label).join(", "),
+    meta,
+    picked: state,
+    disabled: pickable === 0,
+  };
+};
+
+const SKELETON: ICD.Picker.SkeletonItem[] = [
+  [0, "14ch"],
+  [0, "10ch"],
+  [0, "16ch"],
+];
+
+const Content = ({
+  device,
+  topic,
+  reads,
+  label,
+  close,
+}: Modals.ContentProps<Params, Result>) => {
+  const { result, listen } = ICD.Picker.useListen(
+    async (client) => (topic === "" ? null : await sampleTopic(client, device, topic)),
+    [device.key, topic],
+  );
+  const [picks, setPicks] = useState<Picks>(() => new Map());
+  const [selected, setSelected] = useState<string | null>(null);
+  const sample = result.data ?? null;
+  const shapes = sample?.shapes ?? [];
+  const items = shapes.map((s) => toItem(s, picks, reads, label));
+  const active = shapes.find((s) => shapeKey(s) === selected) ?? shapes.at(0) ?? null;
+  const loading = result.variant === "loading";
+  const count = shapes.reduce((n, s) => n + (picks.get(shapeKey(s))?.size ?? 0), 0);
+
+  const setPicked = (shape: json.Shape, pointers: Set<string>) => {
+    const next = new Map(picks);
+    if (pointers.size === 0) next.delete(shapeKey(shape));
+    else next.set(shapeKey(shape), pointers);
+    setPicks(next);
+  };
+
+  const handlePick = (key: string) => {
+    const shape = shapes.find((s) => shapeKey(s) === key);
+    if (shape == null) throw new Error(`No shape of records has the key ${key}`);
+    setPicked(shape, picks.has(key) ? new Set() : defaultPicks(shape, reads));
+    setSelected(key);
+  };
+
+  let list: ReactNode;
+  if (result.variant === "error")
+    list = (
+      <Status.Summary
+        center
+        variant="error"
+        message="Failed to read records"
+        description={result.status.description}
+      />
+    );
+  else if (topic === "")
+    list = (
+      <ICD.Picker.Notice message="Set the topic of the task to read its records." />
+    );
+  else if (sample == null) list = <ICD.Picker.TreeSkeleton items={SKELETON} />;
+  else if (shapes.length === 0 && sample.error !== "")
+    list = (
+      <Status.Summary
+        center
+        variant="warning"
+        message="Read no records"
+        description={sample.error}
+      />
+    );
+  else
+    list = (
+      <ICD.Picker.Tree
+        nodes={shapes.map((s) => ({ key: shapeKey(s) }))}
+        items={items}
+        active={active == null ? null : shapeKey(active)}
+        onActivate={setSelected}
+        onPick={handlePick}
+        emptyContent={
+          <ICD.Picker.Notice message="The topic holds no JSON records. Add a record to set its fields by hand." />
+        }
+      />
+    );
+
+  let pane: ReactNode;
+  if (sample != null && active != null) {
+    const key = shapeKey(active);
+    pane = (
+      <ShapeValues
+        key={key}
+        sample={sample}
+        shape={active}
+        name={active.sources.map(label).join(", ")}
+        reads={reads}
+        value={picks.get(key) ?? new Set()}
+        onChange={(pointers) => setPicked(active, pointers)}
+      />
+    );
+  } else if (sample == null && loading) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
+  else pane = <ICD.Picker.Notice message="Select a record key to see its fields." />;
+
+  let status = pluralize("record", sample?.records.length ?? 0, true);
+  if (loading) status = "Reading records";
+  else if (sample != null && sample.error !== "" && shapes.length > 0)
+    status += ", some unread";
+
+  return (
+    <ICD.Picker.Root value={FRAME} className={CSS.B("kafka-add-data")}>
+      <Modal.Header icon={<Icon.Logo.Kafka />}>{["Add data", topic]}</Modal.Header>
+      <ICD.Picker.Bar />
+      <ICD.Picker.Frame itemKey={FRAME}>
+        <ICD.Picker.Status status={status} loading={loading} onListen={listen} />
+        <ICD.Picker.Side>
+          <ICD.Picker.SideList>{list}</ICD.Picker.SideList>
+          <ICD.Picker.SideAction onClick={() => close({ variant: "record" })}>
+            Add an empty record
+          </ICD.Picker.SideAction>
+        </ICD.Picker.Side>
+        <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
+      </ICD.Picker.Frame>
+      <ICD.Picker.Footer
+        counts={[["field", count]]}
+        idle="field"
+        onAdd={() => close({ variant: "picks", shapes, picks })}
+        onCancel={() => close()}
+      >
+        <Text.Text level="small" color={count > 0 ? 10 : 9}>
+          {count > 0
+            ? `${pluralize("field", count, true)} selected`
+            : "Select the fields to read. Records that hold the same fields share a message."}
+        </Text.Text>
+      </ICD.Picker.Footer>
+    </ICD.Picker.Root>
+  );
+};
+
+/**
+ * Opens a dialog that reads records of the task's topic, so the user can pick the
+ * fields of each shape of their values. It resolves with the picks, or null when the
+ * user closes it.
+ */
+export const useAddDataModal = Modals.createPrompt<Result, Params>(Content);
