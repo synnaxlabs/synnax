@@ -10,7 +10,7 @@
 export * from "@/color/Field";
 export { HexText, type HexTextProps, parseHexInput } from "@/color/HexText";
 export * from "@/color/Input";
-export { type Library, type Named, type Palette } from "@/color/named";
+export type { Library, Named, Palette } from "@/color/named";
 export * from "@/color/Picker";
 export * from "@/color/Provider";
 export * from "@/color/Swatch";

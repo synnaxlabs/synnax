@@ -13,9 +13,9 @@ import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, deep, id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Enumeration } from "@/enumeration";
 import { Form } from "@/schematic/node/common/form";

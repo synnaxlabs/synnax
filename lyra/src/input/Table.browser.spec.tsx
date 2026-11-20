@@ -13,7 +13,7 @@ import { userEvent } from "vitest/browser";
 import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
-import { type Status } from "@/status";
+import type { Status } from "@/status";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 type ColumnType = "string" | "number";

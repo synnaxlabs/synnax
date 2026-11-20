@@ -9,7 +9,7 @@
 
 import { RootContextMenu } from "@/platform/group/RootContextMenu";
 import { SelectionContextMenu } from "@/platform/group/SelectionContextMenu";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 /** The tree menus that create groups. */
 export const TREE_CONTEXT_MENUS: Tree.ContextMenus = {

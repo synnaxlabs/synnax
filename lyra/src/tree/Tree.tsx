@@ -15,9 +15,9 @@ import {
   type state as xstate,
   unique,
 } from "@synnaxlabs/x";
-import { type FocusEvent, type KeyboardEvent, type ReactElement } from "react";
+import type { FocusEvent, KeyboardEvent, ReactElement } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";

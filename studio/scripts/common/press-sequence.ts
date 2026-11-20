@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type Synnax } from "@synnaxlabs/client";
+import type { channel, Synnax } from "@synnaxlabs/client";
 
 /** AUTOMATION names the Arc automation that runs the press sequence. */
 export const AUTOMATION = "Press sequence";

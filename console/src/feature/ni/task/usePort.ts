@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ni } from "@synnaxlabs/client";
+import type { ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 
 import { useByKey } from "@/feature/ni/device/queries";
-import { type Device } from "@/feature/ni/device/types";
+import type { Device } from "@/feature/ni/device/types";
 import { accepts } from "@/feature/ni/task/ports";
 
 interface ChannelSource {

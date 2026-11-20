@@ -9,7 +9,7 @@
 
 import { box, scheduler } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Cursor } from "@/cursor";

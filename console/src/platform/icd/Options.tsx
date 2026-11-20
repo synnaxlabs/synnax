@@ -9,7 +9,7 @@
 
 import "@/platform/icd/Options.css";
 
-import { type icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,7 +17,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, type TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";

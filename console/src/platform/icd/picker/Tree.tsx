@@ -9,7 +9,7 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
-import { type CSS as PCSS } from "@synnaxlabs/lyra/css";
+import type { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";

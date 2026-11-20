@@ -11,7 +11,7 @@ import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { assert, beforeAll, describe, expect, it } from "vitest";
 
 import { Box } from "@/schematic/node/general/box";

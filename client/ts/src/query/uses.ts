@@ -11,10 +11,10 @@ import { type destructor, type record, scheduler, sync, TimeSpan } from "@synnax
 import { z } from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
-import { type Cache } from "@/query/cache";
+import type { Cache } from "@/query/cache";
 import { type Retrieves, type Trigger, trigger } from "@/query/query";
 import { fetchSurvivors, type Keyed, type Table } from "@/query/table";
-import { type Params } from "@/query/types";
+import type { Params } from "@/query/types";
 
 /** A retrieve that can ask for the uses of the records it selects. */
 type Request = { includeUses?: boolean };
