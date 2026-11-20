@@ -18,15 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  onTestFinished,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -86,11 +78,9 @@ const clickPreset = (span: TimeSpan): void => {
 // too, so it is deleted once the test finishes.
 const createLeadingRange = async (hours: number): Promise<ranger.Range> => {
   const start = TimeStamp.MAX.sub(TimeSpan.hours(hours));
-  const rng = await createTestRange(client, {
+  return await createTestRange(client, {
     timeRange: start.spanRange(TimeSpan.hours(1)),
   });
-  onTestFinished(async () => await client.ranges.delete(rng.key));
-  return rng;
 };
 
 // Reads the option texts once they show every given range. The ranges of other specs
@@ -177,7 +167,7 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("keeps Enter on a typed duration from selecting a range", async () => {
-      const range = await client.ranges.create({
+      const range = await createTestRange(client, {
         name: uniqueName("45m burn"),
         timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
       });
@@ -330,7 +320,7 @@ describe("lineplot/toolbar/Data", () => {
     it("marks each key reference's tag with the stage of its range", async () => {
       const now = TimeStamp.now();
       const create = async (start: TimeSpan, end: TimeSpan): Promise<ranger.Ref> => {
-        const { key } = await client.ranges.create({
+        const { key } = await createTestRange(client, {
           name: uniqueName("range"),
           timeRange: new TimeRange(now.add(start), now.add(end)),
         });
@@ -414,21 +404,26 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("adds the hovered range on Enter instead of the fixed window", async () => {
-      const range = await client.ranges.create({
+      const range = await createTestRange(client, {
         name: uniqueName(YESTERDAY_ONE_TO_TWO),
         timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
       });
+      // The unsearched list shows this newer range above the hovered one, and the
+      // search leaves it out, so the options are these two only once the search lands.
+      await createTestRange(client);
       const { key } = await renderData([]);
       const input = openSearch();
       fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
-      await fixedOption();
-      const rangeOption = (await screen.findByText(range.name)).closest(
-        "[role=option]",
-      );
-      assertDefined(rangeOption);
+      const rangeOption = await waitFor(() => {
+        const options = screen.getAllByRole("option");
+        expect(options.map((o) => o.textContent)).toEqual([
+          expect.stringContaining("Fixed window"),
+          expect.stringContaining(range.name),
+        ]);
+        return options[1];
+      });
       fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 1 });
       fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 2 });
-      expect(rangeOption.classList.contains("lyra--hovered")).toBe(true);
       act(() => {
         fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
       });

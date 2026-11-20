@@ -24,6 +24,7 @@ import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/status/explorer/Explorer";
 import { TAB_TYPE } from "@/feature/status/explorer/external";
+import { createTestLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { createTabWrapper, findToolbarIconButton } from "@/platform/view/testutil";
 import {
@@ -58,7 +59,7 @@ describe("status explorer", () => {
   });
 
   it("should show a chip for each field of a view saved by 0.61", async () => {
-    const saved = await client.labels.create({
+    const saved = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#F00000" },
     });

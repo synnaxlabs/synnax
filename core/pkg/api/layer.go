@@ -60,7 +60,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -919,7 +918,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Held:        auth.HeldTables(),
 		Owned:       panel.OwnedTables(),
 		OwnedPlaces: panel.OwnedPlaces(),
-		Vouched:     []resource.Type{resource.TypeSecret},
+		Vouched:     secret.Vouched(cfg.Service.Certificate),
 	}); err != nil {
 		return nil, err
 	}
@@ -1127,11 +1126,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
-		Secret: cfg.Service.Secret,
-		RBAC:   cfg.Service.RBAC,
-		Task:   cfg.Service.Task,
-		Rack:   cfg.Service.Rack,
-		DB:     cfg.Distribution.DB,
+		Secret:      cfg.Service.Secret,
+		RBAC:        cfg.Service.RBAC,
+		Task:        cfg.Service.Task,
+		Rack:        cfg.Service.Rack,
+		Certificate: cfg.Service.Certificate,
+		DB:          cfg.Distribution.DB,
 	}); err != nil {
 		return nil, err
 	}
