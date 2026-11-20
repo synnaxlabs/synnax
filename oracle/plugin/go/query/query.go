@@ -1085,6 +1085,27 @@ func newIndexes() indexes {
 			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
+{{- if not $ref.IsID}}
+			Retarget: func(e *{{$ret.GoName}}, to map[{{$ref.ElemGoType}}]{{$ref.ElemGoType}}) {
+{{- if $ref.IsSlice}}
+				for i, k := range e.{{$ref.GoName}} {
+					if t, ok := to[k]; ok {
+						e.{{$ref.GoName}}[i] = t
+					}
+				}
+{{- else if $ref.IsOptional}}
+				if e.{{$ref.GoName}} != nil {
+					if t, ok := to[*e.{{$ref.GoName}}]; ok {
+						e.{{$ref.GoName}} = &t
+					}
+				}
+{{- else}}
+				if t, ok := to[e.{{$ref.GoName}}]; ok {
+					e.{{$ref.GoName}} = t
+				}
+{{- end}}
+			},
+{{- end}}
 		}),
 {{- end}}
 {{- range $ref := $ret.NestedRefs}}
@@ -1451,6 +1472,11 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 {{- if .DetachBody}}
 			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
 				{{.DetachBody -}}
+			},
+{{- end}}
+{{- if .RetargetBody}}
+			Retarget: func(e *{{.EntryType}}, to map[{{.TargetType}}]{{.TargetType}}) {
+				{{.RetargetBody -}}
 			},
 {{- end}}
 {{- if .InlineBody}}

@@ -1557,6 +1557,88 @@ var _ = Describe("@ref", func() {
 				),
 			)
 		})
+
+		Describe("Retarget", func() {
+			It("Should move a zero key in place", func() {
+				generate("", `
+				rack rack.Key = 0 @ref on_delete restrict @ref kind use
+			`).
+					ToContain(
+						"Retarget: func(e *ReadConfig, to map[rack.Key]rack.Key) {",
+						"if t, ok := to[e.Rack]; ok {",
+						"e.Rack = t",
+					).
+					ToBeValidGoSource()
+			})
+
+			It("Should move the key of each element of an array in place", func() {
+				generate(`
+				Binding struct {
+					name    string
+					channel channel.Key @ref on_delete weak @ref kind use
+				}
+			`, `
+				bindings Binding[]
+			`).
+					ToContain(
+						"Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {",
+						"for i3 := range e.Bindings {",
+						"if t, ok := to[e.Bindings[i3].Channel]; ok {",
+						"e.Bindings[i3].Channel = t",
+					).
+					ToBeValidGoSource()
+			})
+
+			It("Should keep the position of each key of a nested array", func() {
+				generate(`
+				Group struct {
+					channels channel.Key[] @ref on_delete weak @ref kind use
+				}
+			`, `
+				groups Group[]
+			`).
+					ToContain(
+						"for i5 := range e.Groups {",
+						"for i6, k7 := range e.Groups[i5].Channels {",
+						"if t, ok := to[k7]; ok {",
+						"e.Groups[i5].Channels[i6] = t",
+					).
+					ToBeValidGoSource()
+			})
+
+			It("Should give a moved optional key a new pointer", func() {
+				generate(`
+				Port struct {
+					spare rack.Key? @ref on_delete detach @ref kind use
+				}
+			`, `
+				port Port?
+			`).
+					ToContain(
+						"if e.Port != nil {",
+						"if e.Port.Spare != nil {",
+						"if t, ok := to[*e.Port.Spare]; ok {",
+						"e.Port.Spare = &t",
+					).
+					ToBeValidGoSource()
+			})
+
+			It("Should write back each union variant that holds a key", func() {
+				generate("", `
+				fills swatch.Ref[]
+			`).
+					ToContain(
+						"Retarget: func(e *ReadConfig, to map[swatch.Key]swatch.Key) {",
+						"for i5 := range e.Fills {",
+						"switch v6 := e.Fills[i5].Variant.(type) {",
+						"case swatch.NamedRef:",
+						"if t, ok := to[v6.Key]; ok {",
+						"v6.Key = t",
+						"e.Fills[i5].Variant = v6",
+					).
+					ToBeValidGoSource()
+			})
+		})
 	})
 
 	Describe("weak and direction on a retrieved type", func() {
@@ -1618,5 +1700,68 @@ var _ = Describe("@ref", func() {
 					ToBeValidGoSource()
 			},
 		)
+	})
+
+	Describe("Retarget on a retrieved type", func() {
+		DescribeTable(
+			"Should move a scalar key in place whatever its on_delete",
+			func(field string) {
+				resp := MustGenerate(device(field), "device", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"Retarget: func(e *Device, to map[rack.Key]rack.Key) {",
+						"if t, ok := to[e.Spare]; ok {",
+						"e.Spare = t",
+					).
+					ToBeValidGoSource()
+			},
+			Entry("restrict", `spare rack.Key @ref on_delete restrict @ref kind use`),
+			Entry("cascade", `spare rack.Key @ref on_delete cascade @ref kind place`),
+			Entry("weak", `spare rack.Key @ref on_delete weak @ref kind use`),
+			Entry(
+				"a zero default",
+				`spare rack.Key = 0 @ref on_delete detach @ref kind use`,
+			),
+		)
+
+		It("Should move each key of an array in place", func() {
+			resp := MustGenerate(device(`
+			labels label.Key[] @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain(
+					"Retarget: func(e *Device, to map[label.Key]label.Key) {",
+					"for i, k := range e.Labels {",
+					"if t, ok := to[k]; ok {",
+					"e.Labels[i] = t",
+				).
+				ToBeValidGoSource()
+		})
+
+		It("Should give a moved optional key a new pointer", func() {
+			resp := MustGenerate(device(`
+			shelf rack.Key? @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain(
+					"if e.Shelf != nil {",
+					"if t, ok := to[*e.Shelf]; ok {",
+					"e.Shelf = &t",
+				).
+				ToBeValidGoSource()
+		})
+
+		It("Should not retarget a reference that holds resource IDs", func() {
+			resp := MustGenerate(device(`
+			owner resource.ID {
+				@ref on_delete restrict
+				@ref kind      use
+				@ref types     rack
+			}
+		`), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain("gorp.NewTargetReference(").
+				ToNotContain("Retarget:")
+		})
 	})
 })

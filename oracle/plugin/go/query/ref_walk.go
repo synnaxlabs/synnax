@@ -404,6 +404,9 @@ type nestedRef struct {
 	// InlineBody is the body of the reference's Inline function, empty unless OnDelete
 	// is "Inline".
 	InlineBody string
+	// RetargetBody is the body of the reference's Retarget function, empty when the
+	// reference holds resource IDs.
+	RetargetBody string
 	// usesSlices is true when the generated code calls the slices package.
 	usesSlices bool
 }
@@ -726,6 +729,44 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	return b.String(), nil
 }
 
+// retargetBody returns the code that replaces each target of e that is a key of to with
+// its value, in place, so that every element of an array keeps its position.
+func (rd *renderer) retargetBody(ref *walkedRef) string {
+	var b strings.Builder
+	steps := make([][]refStep, len(ref.sites))
+	for i, s := range ref.sites {
+		steps[i] = s.steps
+	}
+	mode := ref.sites[0].mode
+	rd.walk(&b, buildTree(steps), "e", true, func(b *strings.Builder, expr string) {
+		switch mode {
+		case leafRequired, leafZero:
+			fmt.Fprintf(b, "if t, ok := to[%s]; ok {\n%s = t\n}\n", expr, expr)
+		case leafOptional:
+			fmt.Fprintf(
+				b,
+				"if %s != nil {\nif t, ok := to[*%s]; ok {\n%s = &t\n}\n}\n",
+				expr,
+				expr,
+				expr,
+			)
+		case leafSlice:
+			i, k := rd.nextVar("i"), rd.nextVar("k")
+			fmt.Fprintf(
+				b,
+				"for %s, %s := range %s {\nif t, ok := to[%s]; ok {\n%s[%s] = t\n}\n}\n",
+				i,
+				k,
+				expr,
+				k,
+				expr,
+				i,
+			)
+		}
+	})
+	return b.String()
+}
+
 // variantLeaf names a union variant and its field that holds an inlined key.
 type variantLeaf struct{ variant, field string }
 
@@ -926,6 +967,9 @@ func renderNestedRefs(
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
+		}
+		if !info.IsID {
+			nr.RetargetBody = rd.retargetBody(ref)
 		}
 		nr.usesSlices = rd.usesSlices
 		out = append(out, nr)
