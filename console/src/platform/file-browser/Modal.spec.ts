@@ -208,7 +208,7 @@ describe("FileBrowser.useModal", () => {
   });
 
   describe("start folder", () => {
-    it("should open the folder of the last picked file and list it as recent", async () => {
+    it("should open the folder of the last pick and list it as recent", async () => {
       const { result, reopen } = await openBrowser(LISTINGS);
       await openEtc();
       fireEvent.doubleClick(await findEntry("client.crt"));
@@ -591,11 +591,21 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
-    it("should show hidden entries to select the hidden folder left by Up", async () => {
+    it("should show hidden entries to select a hidden folder left by Up", async () => {
       await openBrowser([TOP, ROOT, HIDDEN_ETC, SSH], "/etc/.ssh/key.pem");
       await findEntry("key.pem", true);
       fireEvent.click(screen.getByRole("button", { name: "Up" }));
       expect(await findEntry(".ssh", true)).toBeDefined();
+    });
+
+    it("should show hidden entries when the start file is hidden", async () => {
+      const certs = createListing({
+        path: "/etc/certs",
+        parent: "/etc",
+        entries: [{ name: ".ca.pem", path: "/etc/certs/.ca.pem", kind: "file" }],
+      });
+      await openBrowser([TOP, certs], "/etc/certs/.ca.pem");
+      expect(await findEntry(".ca.pem", true)).toBeDefined();
     });
 
     it("should say when a folder holds only hidden entries", async () => {

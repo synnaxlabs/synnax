@@ -29,7 +29,7 @@ export interface StoreState {
 
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({});
 
-export interface AddRecentPayload {
+interface AddRecentPayload {
   rack: rack.Key;
   folder: string;
 }
