@@ -163,7 +163,8 @@ const CommitProbe = ({ onCommit }: CommitProbeProps): null => {
 describe("Tree.Tree", () => {
   it("should render nothing when the root is null", async () => {
     const { container } = await renderTree(null);
-    expect(container.innerHTML).toBe("");
+    // The test wrapper draws only its window box.
+    expect(container.firstElementChild?.innerHTML).toBe("");
   });
 
   it("should load a group's children when it is expanded", async () => {

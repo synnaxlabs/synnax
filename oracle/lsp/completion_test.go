@@ -124,6 +124,15 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	Describe("Non-ASCII Lines", func() {
+		It("should read the prefix in UTF-16 code units", func(ctx SpecContext) {
+			openDoc(ctx, "file:///unicode.oracle", "  é in\n")
+			list := completionFor(ctx, "file:///unicode.oracle", 0, 6)
+			Expect(labels(list.Items)).To(ContainElement("int32"))
+			Expect(labels(list.Items)).ToNot(ContainElement("import"))
+		})
+	})
+
 	Describe("Domain Name Completions", func() {
 		It("should return domain names after the @ sigil", func(ctx SpecContext) {
 			openDoc(ctx, "file:///domain.oracle", "  @\n")
@@ -392,6 +401,17 @@ var _ = Describe("Hover", func() {
 			To(HavePrefix("**request_output**"))
 		Expect(HoverContents(hoverAt(ctx, "file:///request.oracle", 1, 13))).
 			To(ContainSubstring("marks a key type"))
+	})
+
+	It("should read the hover column in UTF-16 code units", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///utf16.oracle", Version: 1,
+				Text: "°° string\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///utf16.oracle", 0, 4))).
+			To(HavePrefix("**string**"))
 	})
 
 	It("should return nil for unknown document", func(ctx SpecContext) {

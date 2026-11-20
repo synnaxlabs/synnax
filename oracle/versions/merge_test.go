@@ -944,6 +944,29 @@ Channel struct {
 		Expect(merged).To(ContainSubstring("telem.TimeStamp"))
 	})
 
+	It("Should import the dependency an inline union variant extends", func(
+		ctx SpecContext,
+	) {
+		write(
+			"schemas/x/versions/telem/v0.oracle",
+			"Base struct {\n    port uint8\n}\n",
+		)
+		write("schemas/x/telem.oracle", "Base struct {\n    port uint8\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Chan union on type {
+    ai extends telem.Base { units string }
+
+    @go marshal
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring("ai extends telem.Base"))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
+	})
+
 	It("Should qualify a dependency that shares the resource name", func(
 		ctx SpecContext,
 	) {

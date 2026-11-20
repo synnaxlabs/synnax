@@ -134,6 +134,28 @@ describe("SelectionColors", () => {
     await waitFor(() => expect(getSwatches("Selection")).toHaveLength(2));
   });
 
+  it("should hide the palettes of a group that holds a color value", async () => {
+    await createInPalette();
+    render(
+      <MultiEdit.SelectionColors
+        refs={[
+          { key: "a", path: "fillColor", value: MultiEdit.fixedRef(GREEN) },
+          {
+            key: "b",
+            path: "strokeColor",
+            value: MultiEdit.fixedRef(GREEN),
+            valueOnly: true,
+          },
+        ]}
+        onChange={vi.fn()}
+      />,
+      { wrapper },
+    );
+    fireEvent.click(getSwatches("Selection")[0]);
+    await screen.findByLabelText("Hex");
+    expect(screen.queryByText("Library")).toBeNull();
+  });
+
   it("should recolor every holder of a group with a named reference", async () => {
     const c = await createInPalette();
     const onChange = vi.fn();
@@ -147,22 +169,5 @@ describe("SelectionColors", () => {
     fireEvent.click(await screen.findByText("Library"));
     fireEvent.click(await screen.findByRole("button", { name: c.name }));
     expect(onChange).toHaveBeenCalledWith(refs, named(c.key));
-  });
-
-  it("should hide the palettes when palettesHidden is set", async () => {
-    const c = await createInPalette();
-    render(
-      <MultiEdit.SelectionColors
-        refs={[{ key: "a", path: "fillColor", value: named(c.key) }]}
-        onChange={vi.fn()}
-        palettesHidden
-      />,
-      { wrapper },
-    );
-    // The named color shows once the named colors load.
-    await waitFor(() => expect(getSwatches("Selection")).toHaveLength(1));
-    fireEvent.click(getSwatches("Selection")[0]);
-    await screen.findByLabelText("Hex");
-    expect(screen.queryByText("Library")).toBeNull();
   });
 });

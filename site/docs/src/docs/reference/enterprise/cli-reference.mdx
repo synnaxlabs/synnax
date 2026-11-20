@@ -86,8 +86,9 @@ Prints the help message for the `start` command.
 <Field.Item name="--config" short="-c" type="path" default='"/usr/local/synnax/config.yaml"'>
 
 A JSON, YAML, or TOML file that sets the Core's configuration in place of flags or
-environment variables. See [Configuration files](#configuration-files). The Core ignores
-a file that is missing or cannot be read, with no message.
+environment variables. See [Configuration files](#configuration-files). The Core stops
+with exit code 78 when the file cannot be read or does not parse. A missing file at the
+default path is ignored, but a missing file passed with `--config` stops the Core.
 
 </Field.Item>
 

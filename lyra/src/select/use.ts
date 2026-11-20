@@ -272,12 +272,16 @@ export const useMultiple = <K extends record.Key>({
     const shiftValue = shiftValueRef.current;
     let nextSelected: K[];
     const value = array.toArray(valueRef.current).filter((v) => v != null);
+    const order = getOrder();
     // If the control key is held, we can still allow multiple selection.
     if (ctrl.current.held && replaceOnSingle)
       if (value.includes(key)) nextSelected = array.remove(value, key);
       else nextSelected = [...value, key];
-    else if (shift.current.held && shiftValue !== null) {
-      const order = getOrder();
+    else if (shift.current.held && shiftValue !== null && !order.includes(shiftValue)) {
+      // The anchor left the order, so the click extends the selection by itself.
+      nextSelected = [...value, key];
+      shiftValueRef.current = key;
+    } else if (shift.current.held && shiftValue !== null) {
       // We might select in reverse order, so we need to sort the indexes.
       const [start, end] = [order.indexOf(key), order.indexOf(shiftValue)].sort(
         (a, b) => a - b,

@@ -16,7 +16,9 @@ in `tests/` (Python).
 
 Client (TS/Python/C++) tests, Pluto and Console live-Core specs, and Driver tests
 connect to a Core (login `synnax`/`seldon`). They read `SYNNAX_TEST_HOST` and
-`SYNNAX_TEST_PORT`, and default to `localhost:9090`.
+`SYNNAX_TEST_PORT`, and default to `localhost:9090`. A browser has no environment, so a
+browser project passes that address to its specs as `synnaxTestCore` (Vitest `provide`),
+as `console/vite.config.ts` does.
 
 Parallel sessions share this machine. Build a Core from your worktree and run it on a
 free port. Never use, stop, or replace a Core that you did not start.
@@ -45,6 +47,10 @@ SYNNAX_TEST_PORT=9190 bazel test //client/cpp/channel:all
   it after a merge.
 - `//driver/rack:config_test` and `channel/calc_type_cascade` need a Core on 9090. They
   ignore `SYNNAX_TEST_PORT`.
+- A Pluto spec that changes a built-in record, such as a series color, goes in a
+  `*.builtins.spec.ts` or `*.builtins.spec.tsx` file. The `builtins` project runs these
+  files one at a time, after every other spec, because every spec file shares the
+  built-ins of one Core.
 
 ### Dev Console on a free port
 

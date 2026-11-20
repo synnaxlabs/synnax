@@ -377,7 +377,7 @@ export abstract class Node implements Component {
   /** Removes this node from every provider's subscriber set and drops its own. For a
    * {@link Composite}, the child-first delete recursion has already torn down (and
    * unsubscribed) descendants before this runs. */
-  private unsubscribeAll(): void {
+  protected unsubscribeAll(): void {
     for (const [key, provider] of this.ctxSubscriptions)
       provider.ctxSubscribers.get(key)?.delete(this);
     this.ctxSubscriptions.clear();
@@ -535,6 +535,7 @@ export abstract class Leaf<
    * {@link Composite} must not call this. */
   _updateState({ path, state }: UpdateStateParams): void {
     if (this.deleted) return;
+    const first = this._state == null;
     try {
       this.initializeMethods();
       const endSpan = this.instrumentation.T.debug(this.updateStateSpan);
@@ -551,6 +552,8 @@ export abstract class Leaf<
       this.runAfterUpdate();
       endSpan();
     } catch (e) {
+      // A component whose first update fails never joins the tree.
+      if (first) this.unsubscribeAll();
       throw newTreeError(e, `${this.toString()}.updateState`);
     }
   }

@@ -2313,12 +2313,7 @@ func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Fi
 		if !ok {
 			continue
 		}
-		typeArgMap := make(map[string]resolution.TypeRef)
-		for j, tp := range parentForm.TypeParams {
-			if j < len(ext.TypeArgs) {
-				typeArgMap[tp.Name] = ext.TypeArgs[j]
-			}
-		}
+		typeArgMap := resolution.TypeArgMap(parentForm.TypeParams, ext.TypeArgs)
 		for _, pf := range resolution.UnifiedFields(parent, c.table) {
 			if own.Contains(pf.Name) || seen.Contains(pf.Name) {
 				continue

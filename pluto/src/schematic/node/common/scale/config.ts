@@ -9,6 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 
+import { Color } from "@/color";
 import { Telem } from "@/schematic/node/common/telem";
 import type { telem } from "@/telem/aether";
 import type { Scale as VisScale } from "@/vis/scale";
@@ -43,8 +44,8 @@ export type VisConfig = Pick<
   | "scaleHidden"
 >;
 
-/** visProps translates the stored indicator fields into the vis scale's props. */
-export const visProps = ({
+/** useVisProps translates the stored indicator fields into the vis scale's props. */
+export const useVisProps = ({
   levelColor,
   axisColor,
   levelHidden,
@@ -62,20 +63,23 @@ export const visProps = ({
   level,
 }: VisConfig): Omit<VisScale.UseProps, "aetherKey" | "box"> & {
   showScale: boolean;
-} => ({
-  bounds,
-  color: levelColor,
-  axisColor,
-  textColor,
-  units,
-  stalenessColor,
-  stalenessTimeout,
-  notation,
-  precision,
-  side,
-  caretSide,
-  level,
-  showFill: !levelHidden,
-  showCaret: !caretHidden,
-  showScale: !scaleHidden,
-});
+} => {
+  const resolve = Color.useResolve();
+  return {
+    bounds,
+    color: resolve(levelColor),
+    axisColor: resolve(axisColor),
+    textColor: resolve(textColor),
+    units,
+    stalenessColor,
+    stalenessTimeout,
+    notation,
+    precision,
+    side,
+    caretSide,
+    level,
+    showFill: !levelHidden,
+    showCaret: !caretHidden,
+    showScale: !scaleHidden,
+  };
+};

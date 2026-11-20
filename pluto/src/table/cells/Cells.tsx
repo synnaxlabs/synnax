@@ -15,6 +15,7 @@ import { Text as BaseText } from "@synnaxlabs/lyra/text";
 import { type border, box, color, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Cell as Base } from "@/table/cells/Cell";
 import { Value as BaseValue } from "@/vis/value";
@@ -50,11 +51,14 @@ export const Text = ({
   fillColor,
   textColor,
 }: CellProps<TextConfig>): ReactElement => {
+  const resolve = Color.useResolve();
+  const fill = resolve(fillColor);
+  const text = resolve(textColor);
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   const handleValueChange = (value: string) =>
     onChange({ variant: "text", value, level, weight, align, fillColor, textColor });
   const cellStyle = {
-    backgroundColor: color.cssString(fillColor),
+    backgroundColor: color.cssString(fill),
     width: box.width(b),
   };
   const editableStyle = { justifyContent: align };
@@ -76,7 +80,7 @@ export const Text = ({
         level={level}
         value={value}
         weight={weight}
-        color={textColor == null ? undefined : color.cssString(textColor)}
+        color={text == null ? undefined : color.cssString(text)}
         onChange={handleValueChange}
         style={editableStyle}
         allowDoubleClick={editable}
@@ -107,16 +111,17 @@ export const Value = ({
   stalenessTimeout = 5,
   stalenessColor,
 }: CellProps<ValueConfig>) => {
+  const resolve = Color.useResolve();
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
-  const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
+  const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
   BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
     level,
-    color: textColor,
+    color: resolve(textColor),
     stalenessTimeout: TimeSpan.seconds(stalenessTimeout).nanoseconds,
-    stalenessColor,
+    stalenessColor: resolve(stalenessColor),
     backgroundTelem,
     location: { x: "center", y: "center" },
     clip: true,

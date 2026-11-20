@@ -12,6 +12,8 @@ import fs from "fs";
 import matter from "gray-matter";
 import path from "path";
 
+import type { Releases } from "@/util/releases";
+
 /** The directory that holds each version's notes. */
 export const RELEASE_NOTES_DIR = path.join(import.meta.dirname, "../releases");
 
@@ -68,6 +70,20 @@ export interface Release {
   /** The TypeScript client's version, or null if none shipped. Defaults to version. */
   npmVersion?: string | null;
 }
+
+/**
+ * Returns the day a release shipped: the date its notes pass, else the publish date of
+ * its stable Core release, else undefined if it has not shipped.
+ * @throws {Error} if the GitHub API is unreachable.
+ */
+export const shippedOn = async (
+  releases: Releases,
+  { version, date }: Pick<Release, "version" | "date">,
+): Promise<string | undefined> => {
+  if (date != null) return date;
+  const publishedAt = await releases.publishedAt("core", version);
+  return publishedAt == null ? undefined : releaseDate(publishedAt);
+};
 
 export interface Links {
   github: string;

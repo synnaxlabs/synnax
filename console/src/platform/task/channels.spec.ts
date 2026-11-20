@@ -162,6 +162,36 @@ describe("channels", () => {
       expect(data).toMatchObject({ name: `${prefix}_temperature`, index: index.key });
     });
 
+    it("should keep the channel of the index field when the device stores no index", async () => {
+      const prefix = uniqueName("src");
+      const index = await createIndex(`${prefix}_time`);
+      const fields = [
+        createField("f1", "/temperature"),
+        { ...createField("ts", "/ts", "timestamp"), channel: index.key },
+      ];
+      await configure({ fields, namePrefix: prefix, indexKey: "ts" });
+      expect(fields[1].channel).toBe(index.key);
+      expect((await client.channels.retrieve(fields[0].channel)).index).toBe(index.key);
+    });
+
+    it("should create an index when the channel of the index field is not one", async () => {
+      const prefix = uniqueName("src");
+      const time = await client.channels.create({
+        name: `${prefix}_ts`,
+        dataType: "timestamp",
+        virtual: true,
+      });
+      const fields = [
+        createField("f1", "/temperature"),
+        { ...createField("ts", "/ts", "timestamp"), channel: time.key },
+      ];
+      await configure({ fields, namePrefix: prefix, indexKey: "ts" });
+      const index = await client.channels.retrieve(fields[1].channel);
+      expect(index.key).not.toBe(time.key);
+      expect(index.isIndex).toBe(true);
+      expect((await client.channels.retrieve(fields[0].channel)).index).toBe(index.key);
+    });
+
     it("should create no channel or index for a disabled field", async () => {
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/temperature"), disabled: true }];

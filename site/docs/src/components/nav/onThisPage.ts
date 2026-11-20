@@ -47,6 +47,7 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
   const indicator = menu.querySelector<HTMLElement>("[data-outline-indicator]");
   const current = menu.closest(BAR)?.querySelector(CURRENT);
   const panel = menu.closest<HTMLElement>("[popover]");
+  let group: HTMLDetailsElement | null = null;
 
   // Above the first entry's heading, the first entry is the one being read.
   const activate = (id: string | null): HTMLElement | undefined => {
@@ -55,10 +56,18 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
       items.find((item) => !item.hidden);
     if (active == null) return;
     for (const item of items) item.classList.toggle(ACTIVE_CLASS, item === active);
+    // A group the reader closes stays closed until reading moves to another group.
+    const reading = active.closest("details");
+    if (reading !== group) {
+      group = reading;
+      if (reading != null) reading.open = true;
+    }
     const label = active.querySelector(LABEL);
     if (current != null && label != null)
       current.replaceChildren(...label.cloneNode(true).childNodes);
-    if (indicator != null) {
+    if (indicator != null && active.closest("details:not([open])") != null)
+      indicator.style.opacity = "0";
+    else if (indicator != null) {
       indicator.style.transform = `translateY(${active.offsetTop}px)`;
       indicator.style.height = `${active.offsetHeight}px`;
       indicator.style.opacity = "1";
@@ -91,6 +100,11 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
     },
     { signal },
   );
+  // Opening or closing a group moves the entries below it.
+  menu.addEventListener("toggle", () => activate(findReading(headings)), {
+    capture: true,
+    signal,
+  });
   // A closed panel lays out nothing, so the indicator is placed again once it opens,
   // with the entry being read in the middle of the panel.
   panel?.addEventListener(
@@ -106,9 +120,9 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
 };
 
 /**
- * Starts marking the heading being read in each outline menu of the page and hiding
- * entries for headings in hidden tab panels. Call it once, before the tabs script
- * starts; it follows page swaps by itself.
+ * Starts marking the heading being read in each outline menu of the page, opening the
+ * `details` group that holds its entry, and hiding entries for headings in hidden tab
+ * panels. Call it once, before the tabs script starts; it follows page swaps by itself.
  */
 export const start = (): void => {
   let bound: AbortController | null = null;

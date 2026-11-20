@@ -13,6 +13,7 @@ import (
 	"context"
 	"strings"
 
+	xlsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -129,7 +130,7 @@ func getWordAtPosition(content string, pos protocol.Position) string {
 		return ""
 	}
 	line := lines[pos.Line]
-	col := min(int(pos.Character), len(line))
+	col := xlsp.CharacterToByte(line, pos.Character)
 
 	start := col
 	for start > 0 && isWordChar(line[start-1]) {

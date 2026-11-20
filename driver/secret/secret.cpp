@@ -17,6 +17,7 @@
 
 #include "x/cpp/fs/fs.h"
 #include "x/cpp/strings/strings.h"
+#include "x/cpp/uuid/uuid.h"
 #include "x/cpp/x509/x509.h"
 
 #include "driver/secret/secret.h"
@@ -118,6 +119,23 @@ std::pair<synnax::secret::Values, x::errors::Error> Reader::read(
     return {std::move(values), x::errors::NIL};
 }
 
+std::pair<std::optional<synnax::secret::Grant>, x::errors::Error>
+Reader::spend(const synnax::task::Command &cmd) const {
+    const auto arg = cmd.args.find("grant");
+    if (arg == cmd.args.end()) return {std::nullopt, x::errors::NIL};
+    const x::errors::Error invalid(
+        x::errors::VALIDATION,
+        "The grant argument must be the key of a grant."
+    );
+    if (!arg->second.is_string()) return {std::nullopt, invalid};
+    auto [key, parse_err] = x::uuid::UUID::parse(arg->second.get<std::string>());
+    if (parse_err) return {std::nullopt, invalid};
+    auto [grant, err] = this->client->secrets.resolve(key, cmd.task);
+    if (err) return {std::nullopt, err};
+    grant.command.key = cmd.key;
+    return {std::move(grant), x::errors::NIL};
+}
+
 std::pair<Certificate, x::errors::Error> Reader::read_certificate(
     const synnax::certificate::Key &key,
     const std::optional<synnax::secret::Grant> &grant
@@ -135,6 +153,14 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
         return {std::move(out), x::errors::NIL};
     }
     const auto &file = std::get<synnax::certificate::FileCertificate>(record);
+    if (grant.has_value() && !std::ranges::contains(grant->certificates, key))
+        return {
+            Certificate{},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "The grant does not name certificate " + key.to_string() + "."
+            )
+        };
     if (const auto rack_err = check_rack(
             "certificate \"" + file.name + "\"",
             file.rack,
@@ -150,10 +176,38 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
         if (key_err) return {Certificate{}, key_err};
         out.private_key = std::move(private_key);
     }
+    auto [pem, chain_err] = this->read_file_chain(key, file);
+    if (chain_err) return {Certificate{}, chain_err};
+    out.pem = std::move(pem);
+    return {std::move(out), x::errors::NIL};
+}
+
+std::pair<std::string, x::errors::Error>
+Reader::read_chain(const synnax::certificate::Key &key) const {
+    auto [record, err] = this->client->certificates.retrieve(key);
+    if (err) return {"", err};
+    if (const auto *stored = std::get_if<synnax::certificate::StoredCertificate>(
+            &record
+        ))
+        return {stored->pem, x::errors::NIL};
+    const auto &file = std::get<synnax::certificate::FileCertificate>(record);
+    if (const auto rack_err = check_rack(
+            "certificate \"" + file.name + "\"",
+            file.rack,
+            this->cfg
+        ))
+        return {"", rack_err};
+    return this->read_file_chain(key, file);
+}
+
+std::pair<std::string, x::errors::Error> Reader::read_file_chain(
+    const synnax::certificate::Key &key,
+    const synnax::certificate::FileCertificate &file
+) const {
     auto [data, read_err] = x::fs::read_file(file.certificate_path);
     if (read_err)
         return {
-            Certificate{},
+            "",
             x::errors::Error(
                 read_err,
                 "Failed to read certificate \"" + file.name + "\": " + read_err.data
@@ -162,18 +216,19 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
     auto [cert, parse_err] = x::x509::Certificate::parse(data);
     if (parse_err)
         return {
-            Certificate{},
+            "",
             x::errors::Error(
                 parse_err,
                 "Failed to read certificate \"" + file.name + "\": " + parse_err.data
             )
         };
+    std::string pem;
     const auto blocks = x::x509::Certificate::pem_blocks(data);
-    if (blocks.empty()) out.pem = cert.pem();
+    if (blocks.empty()) pem = cert.pem();
     for (const auto &block: blocks)
-        out.pem.append(block).push_back('\n');
+        pem.append(block).push_back('\n');
     if (file.details.has_value() && file.details->sha256 == cert.sha256())
-        return {std::move(out), x::errors::NIL};
+        return {std::move(pem), x::errors::NIL};
     const synnax::certificate::Details details{
         .subject = cert.subject(),
         .issuer = cert.issuer(),
@@ -183,7 +238,7 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
         .sha256 = cert.sha256(),
     };
     if (const auto refresh_err = this->client->certificates.refresh(key, details))
-        return {Certificate{}, refresh_err};
-    return {std::move(out), x::errors::NIL};
+        return {"", refresh_err};
+    return {std::move(pem), x::errors::NIL};
 }
 }
