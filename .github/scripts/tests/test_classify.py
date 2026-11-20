@@ -209,8 +209,7 @@ class FakeGH:
         self.labels: list[str] = []
         self.author = "User"
         self.comments: list[dict[str, Any]] = []
-        self.requested: list[str] = []
-        self.reviewers: list[str] = []
+        self.events: list[str] = []
         self.writes: list[tuple[tuple[str, ...], str | None]] = []
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -219,18 +218,11 @@ class FakeGH:
             head = {**same, "sha": self.heads.pop(0)}
             labels = [{"name": n} for n in self.labels]
             user = {"type": self.author}
-            requested = [{"login": n} for n in self.requested]
             return json.dumps(
-                {
-                    "head": head,
-                    "base": same,
-                    "labels": labels,
-                    "user": user,
-                    "requested_reviewers": requested,
-                }
+                {"head": head, "base": same, "labels": labels, "user": user}
             )
-        if f"repos/{REPO}/pulls/5/reviews" in args:
-            return "".join(f"{login}\n" for login in self.reviewers)
+        if f"repos/{REPO}/issues/5/timeline" in args:
+            return "".join(f"{event}\n" for event in self.events)
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):
@@ -327,22 +319,15 @@ class TestMain:
             ("api", "-X", "POST", reviewers, "-f", "reviewers[]=someone")
         ]
 
-    def test_asks_the_reviewer_only_once(
-        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize("event", ["review_requested", "reviewed"])
+    def test_asks_no_reviewer_once_anyone_was_asked_or_reviewed(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch, event: str
     ) -> None:
+        """Should leave a pull request alone after a request, even one a person
+        removed or handed to someone else."""
         gh.author = "Bot"
         gh.labels = [HUMAN]
-        gh.requested = ["someone"]
-        monkeypatch.setenv("REVIEWER", "someone")
-        classify.main()
-        assert not any("requested_reviewers" in str(args) for args, _ in gh.writes)
-
-    def test_asks_no_reviewer_who_already_reviewed(
-        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        gh.author = "Bot"
-        gh.labels = [HUMAN]
-        gh.reviewers = ["someone"]
+        gh.events = [event]
         monkeypatch.setenv("REVIEWER", "someone")
         classify.main()
         assert not any("requested_reviewers" in str(args) for args, _ in gh.writes)
