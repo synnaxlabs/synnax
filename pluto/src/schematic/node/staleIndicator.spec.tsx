@@ -12,9 +12,7 @@ import { render, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
 import { Gauge } from "@/schematic/node/general/gauge";
 import { Scale } from "@/schematic/node/general/scale";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
@@ -24,40 +22,26 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { gauge } from "@/vis/gauge/aether";
 import { scale } from "@/vis/scale/aether";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 import { value } from "@/vis/value/aether";
 
-const stubState = z
-  .object({
-    stale: z.boolean().default(false),
-    staleColorHidden: z.boolean().default(false),
-  })
-  .loose();
-
 const staleColorHidden = vi.fn();
-
-// Stands in for a readout's worker component and reports its source as stale.
-const createStub = (type: string) =>
-  class extends aether.Leaf<typeof stubState> {
-    static readonly TYPE = type;
-    schema = stubState;
-
-    afterUpdate(): void {
-      staleColorHidden(this.state.staleColorHidden);
-      if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-    }
-  };
+const onUpdate = (state: { staleColorHidden: boolean }): void =>
+  staleColorHidden(state.staleColorHidden);
 
 const Wrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: Object.fromEntries(
-    [
-      value.Value.TYPE,
-      gauge.Gauge.TYPE,
-      scale.Scale.TYPE,
+  additionalRegistry: {
+    ...stalenessTest.createRegistry(value.Value.TYPE, value.Value.z, onUpdate),
+    ...stalenessTest.createRegistry(gauge.Gauge.TYPE, gauge.Gauge.z, onUpdate),
+    ...stalenessTest.createRegistry(scale.Scale.TYPE, scale.Scale.z, onUpdate),
+    ...stalenessTest.createRegistry(
       stringValue.StringValue.TYPE,
-    ].map((type) => [type, createStub(type)]),
-  ),
+      stringValue.StringValue.z,
+      onUpdate,
+    ),
+  },
   telemFactories: [],
 });
 
