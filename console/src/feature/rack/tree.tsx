@@ -27,7 +27,6 @@ import { Access, Rack } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
 import { Device } from "@/feature/device";
-import { NI } from "@/feature/ni";
 import { FLAGS } from "@/flags";
 import { Arc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
@@ -209,7 +208,13 @@ const TreeItem = Tree.createItem({
       Tree.toResource("device"),
     ),
     ...(FLAGS.typedNIDevices
-      ? [NI.Chassis.createRackSource(client, Number(id.key))]
+      ? [
+          Tree.createSource(
+            client.ni.chassis,
+            { where: { rack: { eq: Number(id.key) } } },
+            Tree.toResource("ni_chassis"),
+          ),
+        ]
       : []),
   ],
   canDrop: (props) =>
