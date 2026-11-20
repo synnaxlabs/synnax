@@ -15,7 +15,7 @@ import {
   type HookParameters,
 } from "astro";
 
-import { API_HOST as POSTHOG } from "./analytics";
+import { API_HOST } from "./analytics";
 
 type Csp = Exclude<
   NonNullable<AstroUserConfig["security"]>["csp"],
@@ -59,8 +59,8 @@ const TOOLBAR: Record<Directive | "script-src" | "style-src", string[]> = {
 
 /** POSTHOG_SOURCES lists what the analytics load. */
 const POSTHOG_SOURCES: Partial<Record<keyof typeof TOOLBAR, string[]>> = {
-  "connect-src": [POSTHOG],
-  "script-src": [POSTHOG],
+  "connect-src": [API_HOST],
+  "script-src": [API_HOST],
 };
 
 export interface PolicyConfig {
