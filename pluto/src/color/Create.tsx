@@ -15,6 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
@@ -169,10 +170,13 @@ const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement 
             triggerProps={{ size: "small" }}
             grow
             footer={
-              <Select.Item<group.Key> itemKey={NO_PALETTE} textValue="No palette">
-                <Icon.None />
-                No palette
-              </Select.Item>
+              <>
+                <Menu.Divider />
+                <Select.Item<group.Key> itemKey={NO_PALETTE} textValue="No palette">
+                  <Icon.None />
+                  No palette
+                </Select.Item>
+              </>
             }
           >
             {palettes.map(({ key, name }) => (
