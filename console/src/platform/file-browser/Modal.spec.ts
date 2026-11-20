@@ -460,6 +460,15 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("hosts")).toBeDefined();
     });
 
+    it("should list the places that failed again when a typed folder opens", async () => {
+      const listings = [ROOT, ETC];
+      await openBrowser(listings);
+      await screen.findByText("Failed to list files");
+      listings.push(TOP);
+      submit(openField(), "/etc");
+      expect(await screen.findByText("Secrets folder")).toBeDefined();
+    });
+
     it("should open the folder of a typed file with the file selected", async () => {
       await openBrowser(LISTINGS);
       await findEntry("secrets");
