@@ -405,20 +405,16 @@ describe("Enumeration.Settings", () => {
     });
     await renderEnumerations();
     // The other browser's run can mark its own built-in edited on the same page.
-    const heading = async (): Promise<HTMLElement> => {
-      const el = (await screen.findByText(shipped.name)).closest<HTMLElement>(
-        "[data-menu-key]",
-      );
+    const heading = (): HTMLElement => {
+      const el = screen.getByText(shipped.name).closest<HTMLElement>("[aria-expanded]");
       assert(el != null);
       return el;
     };
-    expect(await within(await heading()).findByText("Edited")).toBeTruthy();
+    await waitFor(() => expect(within(heading()).getByText("Edited")).toBeTruthy());
     await openContextMenu(shipped.name);
     await clickAndSettle("Restore default");
     await expect.poll(async () => await stored(shipped.key)).toEqual(shipped.entries);
-    await waitFor(async () =>
-      expect(within(await heading()).queryByText("Edited")).toBeNull(),
-    );
+    await waitFor(() => expect(within(heading()).queryByText("Edited")).toBeNull());
   });
 
   it("should not offer to delete a built-in", async () => {
