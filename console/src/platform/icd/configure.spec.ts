@@ -19,19 +19,22 @@ import { Task } from "@/platform/task";
 const client = createTestClient();
 
 /**
- * @returns a message of float fields, as a source reads it. Each field is named by a
- * key of channels and bound to its value.
+ * @returns a message of fields of one type, as a source reads it. Each field is named
+ * by a key of channels and bound to its value.
  * @param index - The name of a timestamp field to read as the index.
+ * @param type - The type of each field but the index.
  */
-const createBound = (channels: Record<string, number>, index?: string) => {
+const createBound = (
+  channels: Record<string, number>,
+  index?: string,
+  type: "float" | "string" = "float",
+) => {
   const fields = Object.keys(channels).map((name) =>
     icd.jsonFieldZ.parse({
       key: uuid.create(),
       name,
       pointer: `/${name}`,
-      ...(name === index
-        ? { type: "timestamp", timeFormat: "unix_ms" }
-        : { type: "float" }),
+      ...(name === index ? { type: "timestamp", timeFormat: "unix_ms" } : { type }),
     }),
   );
   const message: icd.Message = {
@@ -179,6 +182,34 @@ describe("planMessage", () => {
       `${prefix}_temp_2`,
       `${prefix}_pressure`,
     ]);
+  });
+
+  it("should leave a stored virtual channel that another message writes", async () => {
+    const prefix = uniqueName("src");
+    const createVirtual = async (name: string) =>
+      await client.channels.create({
+        name: `${prefix}_${name}`,
+        dataType: "string",
+        virtual: true,
+      });
+    const own = await createVirtual("mode");
+    const shared = await createVirtual("state");
+    const bound = createBound({ mode: own.key, state: 0 }, undefined, "string");
+    const plan = await ICD.planMessage(
+      client,
+      Task.createNamer(client),
+      bound,
+      prefix,
+      { index: 0, channels: { "/state": shared.key } },
+      new Set([shared.key]),
+    );
+    await ICD.applyMessage(client, bound, plan);
+    const [mode, state] = bound.source.messages[0].bindings.map(
+      ({ channel }) => channel,
+    );
+    expect(mode).toBe(own.key);
+    expect(state).not.toBe(0);
+    expect(state).not.toBe(shared.key);
   });
 
   it("should leave a stored index that another message writes", async () => {
