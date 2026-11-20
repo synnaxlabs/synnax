@@ -18,12 +18,12 @@ export const GET: APIRoute = ({ site }) => {
   const blog = new URL("/blog", site).href;
   const items = POSTS.map(({ route, title, description, published }) => {
     const link = new URL(route, site).href;
-    const date = published == null ? "" : new Date(published).toUTCString();
+    const date = published?.toUTCString() ?? "";
     return `<item>
 <title>${escape(title)}</title>
 <link>${link}</link>
 <guid>${link}</guid>
-<description>${escape(description ?? "")}</description>
+<description>${escape(description)}</description>
 <pubDate>${date}</pubDate>
 </item>`;
   });

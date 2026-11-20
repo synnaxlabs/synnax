@@ -54,7 +54,11 @@ const renderPost = async (
     request: new Request(new URL(path, "https://docs.synnaxlabs.com")),
     props: {
       headings: [],
-      frontmatter: { title: "A post", description: "A post.", published: "2024-10-15" },
+      frontmatter: {
+        title: "A post",
+        description: "A post.",
+        published: new Date("2024-10-15"),
+      },
     },
   });
   return elements(fromHtml(html, { fragment: true }));
@@ -74,6 +78,14 @@ describe("Blog", () => {
       expect(await segmentHrefs(path)).toEqual(["/blog", "/blog/a-post"]);
     },
   );
+
+  it("should show the day the post was published", async () => {
+    const time = (await renderPost("/blog/a-post")).find(
+      ({ tagName }) => tagName === "time",
+    );
+    expect(time?.properties.dateTime).toBe("2024-10-15");
+    expect(time == null ? null : text(time)).toBe("Oct 15, 2024");
+  });
 
   it("should end with a Desktop download that reports the blog as its location", async () => {
     const tracked = (await renderPost("/blog/a-post")).filter(
