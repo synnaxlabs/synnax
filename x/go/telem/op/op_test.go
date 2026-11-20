@@ -10,6 +10,8 @@
 package op_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -1141,6 +1143,146 @@ var _ = Describe("Vectorized Operations", func() {
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", -20.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", -15.0, 0.01))
+		})
+	})
+	Describe("Avg", func() {
+		It("should average integer samples whose sum exceeds the sample type", func() {
+			output := telem.Series{DataType: telem.Int8T}
+			var mean op.Mean
+			Expect(op.AvgI8(telem.NewSeriesV[int8](100, 100), 0, &mean, &output)).
+				To(BeEquivalentTo(2))
+			Expect(output.Unmarshal[int8]()).To(Equal([]int8{100}))
+		})
+
+		It("should keep a running integer average over many calls", func() {
+			output := telem.Series{DataType: telem.Int32T}
+			var (
+				mean  op.Mean
+				count int64
+			)
+			for range 3 {
+				count = op.AvgI32(
+					telem.NewSeriesV[int32](1_000_000_000),
+					count,
+					&mean,
+					&output,
+				)
+			}
+			Expect(count).To(BeEquivalentTo(3))
+			Expect(output.Unmarshal[int32]()).
+				To(Equal([]int32{1_000_000_000}))
+		})
+
+		DescribeTable("should average 64-bit signed samples exactly",
+			func(samples []int64, expected int64) {
+				output := telem.Series{DataType: telem.Int64T}
+				op.AvgI64(telem.NewSeriesV(samples...), 0, &op.Mean{}, &output)
+				Expect(output.Unmarshal[int64]()).To(Equal([]int64{expected}))
+			},
+			Entry("above 2^53", []int64{1<<53 + 1}, int64(1<<53+1)),
+			Entry("max", []int64{math.MaxInt64, math.MaxInt64}, int64(math.MaxInt64)),
+			Entry("min", []int64{math.MinInt64, math.MinInt64}, int64(math.MinInt64)),
+			Entry("extremes", []int64{math.MinInt64, math.MaxInt64}, int64(0)),
+			Entry("negative toward zero", []int64{-1, -2}, int64(-1)),
+			Entry("positive toward zero", []int64{1, 2}, int64(1)),
+		)
+
+		DescribeTable(
+			"should average 64-bit unsigned samples exactly",
+			func(samples []uint64, expected uint64) {
+				output := telem.Series{DataType: telem.Uint64T}
+				op.AvgU64(telem.NewSeriesV(samples...), 0, &op.Mean{}, &output)
+				Expect(output.Unmarshal[uint64]()).To(Equal([]uint64{expected}))
+			},
+			Entry("above 2^53", []uint64{1<<53 + 1}, uint64(1<<53+1)),
+			Entry(
+				"max",
+				[]uint64{math.MaxUint64, math.MaxUint64},
+				uint64(math.MaxUint64),
+			),
+			Entry("extremes", []uint64{0, math.MaxUint64}, uint64(math.MaxUint64/2)),
+		)
+
+		It("should keep a running 64-bit average over many calls", func() {
+			output := telem.Series{DataType: telem.Uint64T}
+			var (
+				mean  op.Mean
+				count int64
+			)
+			for range 3 {
+				count = op.AvgU64(
+					telem.NewSeriesV[uint64](math.MaxUint64),
+					count,
+					&mean,
+					&output,
+				)
+			}
+			Expect(count).To(BeEquivalentTo(3))
+			Expect(output.Unmarshal[uint64]()).
+				To(Equal([]uint64{math.MaxUint64}))
+		})
+
+		DescribeTable(
+			"should keep a running 64-bit signed average toward zero",
+			func(first, second []int64, expected int64) {
+				output := telem.Series{DataType: telem.Int64T}
+				var mean op.Mean
+				count := op.AvgI64(telem.NewSeriesV(first...), 0, &mean, &output)
+				count = op.AvgI64(telem.NewSeriesV(second...), count, &mean, &output)
+				Expect(count).To(BeEquivalentTo(len(first) + len(second)))
+				Expect(output.Unmarshal[int64]()).To(Equal([]int64{expected}))
+			},
+			Entry("negative", []int64{-1, -2}, []int64{-5}, int64(-2)),
+			Entry("positive", []int64{1, 2}, []int64{5}, int64(2)),
+			Entry(
+				"extremes",
+				[]int64{math.MinInt64},
+				[]int64{math.MinInt64, math.MaxInt64, math.MaxInt64},
+				int64(0),
+			),
+		)
+
+		It("should not drift from a truncated running integer average", func() {
+			output := telem.Series{DataType: telem.Int32T}
+			var (
+				mean  op.Mean
+				count int64
+			)
+			for i := range int32(100) {
+				count = op.AvgI32(telem.NewSeriesV(i+1), count, &mean, &output)
+			}
+			Expect(output.Unmarshal[int32]()).To(Equal([]int32{50}))
+		})
+
+		It("should not drift from a truncated running 64-bit average", func() {
+			output := telem.Series{DataType: telem.Int64T}
+			var (
+				mean  op.Mean
+				count int64
+			)
+			for i := range int64(100) {
+				count = op.AvgI64(telem.NewSeriesV(i+1), count, &mean, &output)
+			}
+			Expect(output.Unmarshal[int64]()).To(Equal([]int64{50}))
+		})
+
+		It("should restart the running average when prevCount is zero", func() {
+			output := telem.Series{DataType: telem.Uint16T}
+			var mean op.Mean
+			op.AvgU16(telem.NewSeriesV[uint16](100), 0, &mean, &output)
+			Expect(op.AvgU16(telem.NewSeriesV[uint16](2), 0, &mean, &output)).
+				To(BeEquivalentTo(1))
+			Expect(output.Unmarshal[uint16]()).To(Equal([]uint16{2}))
+		})
+
+		It("should restart the running average when the output is empty", func() {
+			output := telem.Series{DataType: telem.Uint64T}
+			var mean op.Mean
+			count := op.AvgU64(telem.NewSeriesV[uint64](100), 0, &mean, &output)
+			output = output.Resized(0)
+			Expect(op.AvgU64(telem.NewSeriesV[uint64](2), count, &mean, &output)).
+				To(BeEquivalentTo(1))
+			Expect(output.Unmarshal[uint64]()).To(Equal([]uint64{2}))
 		})
 	})
 })

@@ -156,7 +156,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, output *telem.Series) {
 {{end}}`
 
 const reductionFuncTemplate = `{{range $.Reductions}}
-func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, {{if eq .Name "Avg"}}mean *Mean, {{end}}output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -165,29 +165,24 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 
 	{{if eq .Name "Avg"}}
-	// Compute sum of new input samples
-	var newSum {{$.Type.GoType}}
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
-
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / {{$.Type.GoType}}(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg * {{$.Type.GoType}}(prevCount) + newSum) / {{$.Type.GoType}}(totalCount)
+	count := prevCount + inputLen
+	{{if and (eq $.Type.Size 8) (not $.Type.IsFloat)}}
+	outData[0] = mean.add{{$.Type.Name}}(inData[:inputLen], count)
+	{{else}}
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
-
-	return prevCount + inputLen
+	outData[0] = {{$.Type.GoType}}(mean.sum / float64(count))
+	{{end}}
+	return count
 	{{else if eq .Name "Min"}}
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()

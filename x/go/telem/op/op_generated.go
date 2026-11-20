@@ -5710,7 +5710,7 @@ func NegateI8(input telem.Series, output *telem.Series) {
 	}
 }
 
-func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgF64(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -5718,29 +5718,22 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float64](input.Data)
 
-	// Compute sum of new input samples
-	var newSum float64
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / float64(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*float64(prevCount) + newSum) / float64(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = float64(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -5816,7 +5809,7 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgF32(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -5824,29 +5817,22 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float32](input.Data)
 
-	// Compute sum of new input samples
-	var newSum float32
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / float32(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*float32(prevCount) + newSum) / float32(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = float32(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -5922,7 +5908,7 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgI64(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -5930,29 +5916,19 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int64](input.Data)
 
-	// Compute sum of new input samples
-	var newSum int64
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / int64(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int64(prevCount) + newSum) / int64(totalCount)
-	}
+	outData[0] = mean.addI64(inData[:inputLen], count)
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -6028,7 +6004,7 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgI32(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -6036,29 +6012,22 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int32](input.Data)
 
-	// Compute sum of new input samples
-	var newSum int32
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / int32(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int32(prevCount) + newSum) / int32(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = int32(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -6134,7 +6103,7 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgI16(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -6142,29 +6111,22 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int16](input.Data)
 
-	// Compute sum of new input samples
-	var newSum int16
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / int16(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int16(prevCount) + newSum) / int16(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = int16(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -6240,7 +6202,7 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgI8(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -6248,29 +6210,22 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int8](input.Data)
 
-	// Compute sum of new input samples
-	var newSum int8
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / int8(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int8(prevCount) + newSum) / int8(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = int8(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -6346,7 +6301,7 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgU64(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -6354,29 +6309,19 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint64](input.Data)
 
-	// Compute sum of new input samples
-	var newSum uint64
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / uint64(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint64(prevCount) + newSum) / uint64(totalCount)
-	}
+	outData[0] = mean.addU64(inData[:inputLen], count)
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -6452,7 +6397,7 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgU32(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -6460,29 +6405,22 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint32](input.Data)
 
-	// Compute sum of new input samples
-	var newSum uint32
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / uint32(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint32(prevCount) + newSum) / uint32(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = uint32(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -6558,7 +6496,7 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgU16(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -6566,29 +6504,22 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint16](input.Data)
 
-	// Compute sum of new input samples
-	var newSum uint16
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / uint16(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint16(prevCount) + newSum) / uint16(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = uint16(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
@@ -6664,7 +6595,7 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
-func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
+func AvgU8(input telem.Series, prevCount int64, mean *Mean, output *telem.Series) int64 {
 	inputLen := input.Len()
 	if inputLen == 0 {
 		return prevCount
@@ -6672,29 +6603,22 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint8](input.Data)
 
-	// Compute sum of new input samples
-	var newSum uint8
-	for i := int64(0); i < inputLen; i++ {
-		newSum += inData[i]
+	if output.Len() == 0 {
+		prevCount = 0
 	}
-
-	// Check if we're starting fresh (either no previous samples or output was reset)
-	outputLen := output.Len()
-	freshStart := prevCount == 0 || outputLen == 0
+	if prevCount == 0 {
+		*mean = Mean{}
+	}
 	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
+	count := prevCount + inputLen
 
-	if freshStart {
-		// Fresh start: compute average of input samples
-		outData[0] = newSum / uint8(inputLen)
-	} else {
-		// Weighted average: combine previous average with new samples
-		prevAvg := outData[0]
-		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint8(prevCount) + newSum) / uint8(totalCount)
+	for i := int64(0); i < inputLen; i++ {
+		mean.sum += float64(inData[i])
 	}
+	outData[0] = uint8(mean.sum / float64(count))
 
-	return prevCount + inputLen
+	return count
 
 }
 
