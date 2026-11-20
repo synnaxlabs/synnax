@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { createFormPath } from "@/label/queries";

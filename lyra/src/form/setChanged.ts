@@ -9,7 +9,7 @@
 
 import { array, deep, narrow } from "@synnaxlabs/x";
 
-import { type ContextValue } from "@/form/Context";
+import type { ContextValue } from "@/form/Context";
 
 type Writer = Pick<ContextValue, "batch" | "set" | "remove">;
 

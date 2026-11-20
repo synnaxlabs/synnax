@@ -10,7 +10,7 @@
 import { color as xcolor } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type color } from "@/color";
+import type { color } from "@/color";
 import { log } from "@/log";
 
 const createChannelEntry = (

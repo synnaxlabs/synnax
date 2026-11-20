@@ -9,8 +9,8 @@
 
 import "@/schematic/node/general/box/box.css";
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -18,7 +18,7 @@ import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Box } from "@/schematic/node/general/box/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 export const Symbol = ({

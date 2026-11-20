@@ -12,7 +12,7 @@ import Admin from "@/layouts/Admin.astro";
 import { requireStaff, teamFor } from "@/access";
 import { Page } from "@/ui/Page";
 import { Admin as Console } from "@/ui/admin";
-import { type Team } from "@/server/member";
+import type { Team } from "@/server/member";
 import { type Activity, failure, loadScoped, readActivity } from "@/page";
 
 const loaded = await loadScoped(Astro);

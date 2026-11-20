@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { LogFactory } from "@/log/aether/telem/factory";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
-import { type LogSource } from "@/log/aether/telem/types";
+import type { LogSource } from "@/log/aether/telem/types";
 
 describe("NoopLogSource", () => {
   it("should return an empty array from value()", () => {

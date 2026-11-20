@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { color, group } from "@synnaxlabs/client";
-import { type Color } from "@synnaxlabs/lyra/color";
-import { type color as xcolor } from "@synnaxlabs/x";
+import type { Color } from "@synnaxlabs/lyra/color";
+import type { color as xcolor } from "@synnaxlabs/x";
 
 import { Access } from "@/access";
 import { CreatePalette, CreateSwatch, SaveToLibrary } from "@/color/Create";

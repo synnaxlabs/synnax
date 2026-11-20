@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Editor } from "@/color/Editor";
 import { Fields } from "@/color/View";

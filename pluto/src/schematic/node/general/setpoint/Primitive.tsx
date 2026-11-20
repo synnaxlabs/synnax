@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/setpoint/setpoint.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";

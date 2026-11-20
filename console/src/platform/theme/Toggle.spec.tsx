@@ -9,7 +9,7 @@
 
 import { Theming } from "@synnaxlabs/pluto";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Theme } from "@/platform/theme";

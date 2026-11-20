@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/client";
 import { Color as LyraColor } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -15,8 +15,8 @@ import { Color } from "@synnaxlabs/pluto";
 import { color as xcolor, state } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type ColorRef } from "@/platform/multiedit/config";
-import { type ColorValue } from "@/platform/multiedit/selection";
+import type { ColorRef } from "@/platform/multiedit/config";
+import type { ColorValue } from "@/platform/multiedit/selection";
 
 const refID = (ref?: color.Ref): string => {
   if (ref == null) return "";

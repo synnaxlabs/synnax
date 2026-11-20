@@ -11,7 +11,7 @@ import { color } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { color as xcolor, id } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Color } from "@/color";

@@ -9,7 +9,7 @@
 
 import "@/platform/label/filter/property.css";
 
-import { type label } from "@synnaxlabs/client";
+import type { label } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Color, Flux, Label } from "@synnaxlabs/pluto";
 import { array, record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { View } from "@/platform/view";

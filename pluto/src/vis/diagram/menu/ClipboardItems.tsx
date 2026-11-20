@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 /** Props for {@link ClipboardItems}. */
 export interface ClipboardItemsProps {

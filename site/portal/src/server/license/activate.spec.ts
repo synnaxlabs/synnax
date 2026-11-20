@@ -14,7 +14,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { activation, event, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { activate, decide, reissue, release } from "@/server/license/activate";
-import { type Signer } from "@/server/license/sign";
+import type { Signer } from "@/server/license/sign";
 import {
   activationOf,
   HASH_A,

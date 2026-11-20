@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EnhancedStore } from "@reduxjs/toolkit";
+import type { EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type connection,

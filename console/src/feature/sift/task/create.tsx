@@ -15,7 +15,7 @@ import {
   STREAM_TYPE,
   type StreamSchemas,
 } from "@/feature/sift/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const getStreamInitialValues: Task.GetInitialValues<StreamSchemas> = ({

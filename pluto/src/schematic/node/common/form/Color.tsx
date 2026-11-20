@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/client";
 import { Color as Base } from "@synnaxlabs/lyra/color";
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
-import { type ColorFallback } from "@/schematic/node/spec";
+import type { ColorFallback } from "@/schematic/node/spec";
 
 const path = deep.path<{ fillColor?: color.Ref }>();
 

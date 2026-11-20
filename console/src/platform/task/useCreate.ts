@@ -20,7 +20,7 @@ import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
 import { Panel } from "@/platform/panel";
-import { type GetInitialValues } from "@/platform/task/Form";
+import type { GetInitialValues } from "@/platform/task/Form";
 
 export interface CreateParams {
   deviceKey?: device.Key;

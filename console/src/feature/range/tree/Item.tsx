@@ -15,7 +15,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { type position } from "@synnaxlabs/lyra/position";
+import type { position } from "@synnaxlabs/lyra/position";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
@@ -24,12 +24,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { CSSProperties, MouseEvent, ReactElement, ReactNode } from "react";
 
 import { useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";

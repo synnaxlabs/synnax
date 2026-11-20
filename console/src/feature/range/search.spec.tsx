@@ -14,7 +14,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";

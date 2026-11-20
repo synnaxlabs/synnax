@@ -503,10 +503,10 @@ var _ = Describe("BindTo", func() {
 				Command: cmd,
 			}, &res),
 		).To(Succeed())
-		got, values := MustSucceed2(
+		spent, values := MustSucceed2(
 			svc.Secret.Resolve(ctx, rk.ResourceID(), t.Key, res.Grant),
 		)
-		Expect(got).To(Equal(cmd))
+		Expect(spent.Command).To(Equal(cmd))
 		Expect(values).To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("value")}))
 	})
 })

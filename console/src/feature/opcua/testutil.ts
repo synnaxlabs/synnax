@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import type { rack, Synnax, task } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
