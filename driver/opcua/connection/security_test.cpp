@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <filesystem>
-#include <fstream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -49,11 +48,6 @@ std::string mismatch_message(
            " instead of the trusted certificate " + trusted.thumbprint() +
            ". If the server certificate changed on purpose, trust the new one in the "
            "device's connection settings.";
-}
-
-void write_file(const std::filesystem::path &path, const std::string &data) {
-    std::ofstream out(path, std::ios::binary);
-    out << data;
 }
 
 class SecurityTest : public ::testing::Test {
@@ -318,17 +312,14 @@ TEST_F(SecurityTest, ServerTrustsClient) {
     ASSERT_TRUE(activated(client.get()));
 }
 
-/// @brief it should present the certificate files that the configuration names
+/// @brief it should present the client certificate that the configuration names
 /// instead of a Driver certificate.
-TEST_F(SecurityTest, CertificateFiles) {
+TEST_F(SecurityTest, ClientCertificate) {
     this->start_server(server_id, {client_id.certificate});
-    std::filesystem::create_directories(this->dir);
-    write_file(this->dir / "cert.pem", client_id.certificate.pem());
-    write_file(this->dir / "key.pem", client_id.private_key);
     auto cfg = config();
     cfg.server_certificate = server_id.certificate;
-    cfg.client_cert = (this->dir / "cert.pem").string();
-    cfg.client_private_key = (this->dir / "key.pem").string();
+    cfg.client_certificate_item = x::uuid::create();
+    cfg.client_identity = client_id;
     const auto pki = this->dir / "pki";
     certificate::Store store(certificate::StoreConfig{.dir = pki});
     const auto sec = ASSERT_NIL_P(resolve_security(cfg, store));
