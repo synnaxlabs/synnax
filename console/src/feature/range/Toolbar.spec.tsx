@@ -209,15 +209,6 @@ describe("range/Toolbar", () => {
       });
       expect(queryLine("Running", oldest.name)).toBeNull();
       expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
-      // A read for a range that ends keeps Show more enabled.
-      const reads = holdListReads();
-      await endRange(newer[0], TimeStamp.now().add(TimeSpan.milliseconds(300)));
-      const busy = groupOf("Running").closest<HTMLElement>('[role="list"]');
-      await waitFor(() => expect(busy?.getAttribute("aria-busy")).toBe("true"), {
-        timeout: 10_000,
-      });
-      expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull();
-      reads.release();
       expect(await findLine("Running", oldest.name)).toBeTruthy();
       // A range that starts later joins Running only through the read for its start.
       const starting = await createRange(

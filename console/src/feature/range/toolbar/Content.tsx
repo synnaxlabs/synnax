@@ -664,7 +664,6 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
                   size="small"
                   textColor={9}
                   className={CSS.BE(B, "show-more")}
-                  disabled={groups.paging}
                   onClick={groups.moreRunning}
                 >
                   Show more
