@@ -403,6 +403,17 @@ var _ = Describe("Hover", func() {
 			To(ContainSubstring("marks a key type"))
 	})
 
+	It("should read the hover column in UTF-16 code units", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///utf16.oracle", Version: 1,
+				Text: "°° string\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///utf16.oracle", 0, 4))).
+			To(HavePrefix("**string**"))
+	})
+
 	It("should return nil for unknown document", func(ctx SpecContext) {
 		hover := hoverAt(ctx, "file:///unknown.oracle", 0, 0)
 		Expect(hover).To(BeNil())
