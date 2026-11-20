@@ -11,8 +11,10 @@ import { enumeration, schematic, type Synnax } from "@synnaxlabs/client";
 import {
   createProxiedTestClient,
   createTestClient,
+  createTestClientWithPolicy,
   FAST_RETRY,
 } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -31,6 +33,7 @@ import { Tree } from "@/platform/tree";
 import {
   awaitGranted,
   awaitTextEditingElement,
+  CaptureStatuses,
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
@@ -76,8 +79,14 @@ const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   return shipped;
 };
 
-const renderEnumerations = async (as: Synnax = client): Promise<void> => {
+interface Rendered {
+  /** Returns the status notifications that the Console shows now. */
+  statuses: () => Status.NotificationSpec[];
+}
+
+const renderEnumerations = async (as: Synnax = client): Promise<Rendered> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
+  let statuses: Status.NotificationSpec[] = [];
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Tree.Provider items={{}}>
@@ -87,8 +96,15 @@ const renderEnumerations = async (as: Synnax = client): Promise<void> => {
     </Console>
   );
   await act(async () => {
-    render(<Enumeration.Settings />, { wrapper });
+    render(
+      <>
+        <Enumeration.Settings />
+        <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+      </>,
+      { wrapper },
+    );
   });
+  return { statuses: () => statuses };
 };
 
 /** Returns the section that holds an enumeration's heading and entries. */
@@ -307,6 +323,32 @@ describe("Enumeration.Settings", () => {
     await waitForDialogToClose();
     await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
       "enumeration was deleted",
+    );
+  });
+
+  it("should not name a hidden schematic in a refused delete", async () => {
+    const e = await createEnumeration();
+    await createSelectUser(e.key);
+    const limited = await createTestClientWithPolicy(client, {
+      name: uniqueName("policy"),
+      objects: [enumeration.TYPE_RESOURCE_ID],
+      actions: ["retrieve", "delete"],
+    });
+    await awaitGranted(limited, enumeration.TYPE_RESOURCE_ID, "delete");
+    const { statuses } = await renderEnumerations(limited);
+    const dialog = await openDelete(e.name);
+    expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
+    await clickWhenEnabled(dialog, "Delete");
+    await waitFor(() =>
+      expect(statuses()).toContainEqual(
+        expect.objectContaining({
+          message: "Failed to delete enumeration",
+          description:
+            `cannot delete enumeration ${e.name} because the schematic that uses it ` +
+            "as its nodes.config.enumeration is not visible to you; ask someone who " +
+            "can see it to remove the use",
+        }),
+      ),
     );
   });
 
