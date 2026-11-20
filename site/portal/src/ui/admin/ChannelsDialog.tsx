@@ -18,7 +18,7 @@ import { z } from "zod";
 import type { Organization } from "@/server/db/schema";
 import type { Account } from "@/server/directory";
 import { DESKTOP_CHANNELS, desktopCap } from "@/server/license/limits";
-import { post, reload } from "@/ui/api";
+import { post } from "@/ui/api";
 import { Modal } from "@/ui/modal";
 
 const CAPS = ["default", "limited", "unlimited"] as const;
@@ -52,6 +52,8 @@ const bodyOf = ({ cap, channels }: z.infer<typeof schema>): { channels: string }
 export interface ChannelsDialogProps {
   account: Account;
   personal: Organization;
+  /** Loads the page again after a save. */
+  reload: () => void;
 }
 
 /** ChannelsDialog sets the channel cap of a user's Desktop licenses. Staff only. */
@@ -70,7 +72,7 @@ export const ChannelsDialog = (props: ChannelsDialogProps): ReactElement => (
   </Modal.Frame>
 );
 
-const Content = ({ account, personal }: ChannelsDialogProps): ReactElement => {
+const Content = ({ account, personal, reload }: ChannelsDialogProps): ReactElement => {
   const methods = Form.use({
     values: {
       cap: capOf(personal.desktopChannels),

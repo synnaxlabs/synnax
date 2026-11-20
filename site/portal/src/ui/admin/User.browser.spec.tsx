@@ -25,12 +25,6 @@ import { NOW } from "@/server/license/testutil";
 import { NONE } from "@/server/usage";
 import { Admin } from "@/ui/admin";
 
-// A page load would end the spec.
-vi.mock("@/ui/api", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  reload: vi.fn(),
-}));
-
 const ACCOUNT = {
   userID: "user_ada",
   name: "Ada Lovelace",
@@ -74,6 +68,7 @@ describe("Admin.User", () => {
         teams={[]}
         activity={null}
         now={NOW}
+        reload={vi.fn()}
       />,
     );
   };
