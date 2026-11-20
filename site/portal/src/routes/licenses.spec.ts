@@ -99,9 +99,10 @@ describe("license routes", () => {
     res: Response,
     status: number,
     error: string,
+    code?: string,
   ): Promise<void> => {
     expect(res.status).toBe(status);
-    expect(await body(res)).toEqual({ error });
+    expect(await body(res)).toEqual(code == null ? { error } : { error, code });
   };
 
   const licenses = async (): Promise<License[]> =>
@@ -1109,6 +1110,7 @@ describe("license routes", () => {
         await post(),
         502,
         `"${lic.label}" is revoked, but the email about it failed.`,
+        "mail_failed",
       );
       expect((await licenses())[0].revokedAt).toEqual(NOW);
     });
@@ -1263,6 +1265,7 @@ describe("license routes", () => {
         await post(),
         502,
         `"${lic.label}" is restored, but the email about it failed.`,
+        "mail_failed",
       );
       expect((await licenses())[0].revokedAt).toEqual(null);
     });
