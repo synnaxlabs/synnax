@@ -43,3 +43,54 @@ func BenchmarkWrite(b *testing.B) {
 		})
 	}
 }
+
+// readSegment returns the committed part of a fixed-density segment of size bytes in
+// memory, and its handle.
+func readSegment(b *testing.B, size int) (*segment.Handle, segment.Committed) {
+	b.Helper()
+	budget, err := segment.NewBudget(1, 1, segment.GoExecutor)
+	if err != nil {
+		b.Fatal(err)
+	}
+	h, err := budget.Create(xfs.NewMem(), "1.seg")
+	if err != nil {
+		b.Fatal(err)
+	}
+	w := segment.NewWriter(h, cfg)
+	if err = w.Write(pattern(size)); err != nil {
+		b.Fatal(err)
+	}
+	length, tail := w.Commit()
+	return h, segment.Committed{Config: cfg, Length: int64(length), TailCRC: tail}
+}
+
+// BenchmarkReadScan measures a checked read of a whole segment of 16 MiB in memory,
+// which costs one copy and one checksum pass per byte.
+func BenchmarkReadScan(b *testing.B) {
+	h, com := readSegment(b, 16<<20)
+	rd := segment.NewReader()
+	p := make([]byte, com.Length)
+	b.SetBytes(com.Length)
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := rd.Read(h, com, p, 0); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkReadStride measures a wide-stride read: one 8-byte sample from each of 64
+// blocks, which checks one block per kept sample.
+func BenchmarkReadStride(b *testing.B) {
+	h, com := readSegment(b, 64*segment.BlockSize)
+	rd := segment.NewReader()
+	p := make([]byte, 8)
+	b.ReportAllocs()
+	for b.Loop() {
+		for blk := range int64(64) {
+			if err := rd.Read(h, com, p, blk*segment.BlockSize+100); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}

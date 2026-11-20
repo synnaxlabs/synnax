@@ -40,6 +40,8 @@ const (
 // Config is the identity of a segment, which every checksum of its blocks binds, and
 // the layout of its blocks.
 type Config struct {
+	// Key is the key whose samples the segment holds. Errors name it.
+	Key uint32
 	// DB is the identity of the database.
 	DB uint64
 	// ID is the identity of the segment.

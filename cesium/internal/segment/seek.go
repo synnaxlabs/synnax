@@ -17,39 +17,32 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Seek returns the stream offset where the sample at position pos of a variable-density
-// segment starts, or length when pos is samples. length and samples are the committed
-// length and sample count of the segment in r. buf is scratch space of at least 16
-// bytes, and Seek reads up to len(buf) bytes at once. Seek reads the trailers of a
-// logarithmic number of blocks, then walks the sample lengths of at most one block and
-// the tail. It checks no checksum, and returns an error that wraps place.ErrCorrupt
-// when a trailer or a length does not fit the segment.
-func (c Config) Seek(
-	r io.ReaderAt,
-	buf []byte,
-	pos uint32,
-	length int64,
-	samples uint32,
-) (int64, error) {
+// Seek returns the stream offset where the sample at position pos of the committed
+// variable-density segment s starts, or s.Length when pos is samples, its sample count.
+// It reads the trailers of a logarithmic number of blocks, each checked against its
+// tcrc, then walks the sample lengths of at most one block and the tail through
+// checked reads. Each read fails as Read does, and a trailer that does not fit the
+// segment returns an error that wraps place.ErrCorrupt.
+func (rd *Reader) Seek(r io.ReaderAt, s Committed, pos, samples uint32) (int64, error) {
 	if pos > samples {
 		return 0, errors.Newf("position %d is past the %d samples of the segment", pos,
 			samples)
 	}
 	if pos == samples {
-		return length, nil
+		return s.Length, nil
 	}
-	x, p, err := c.seekBlock(r, buf, pos, length/BlockSize, samples)
+	x, p, err := rd.seekBlock(r, s, pos, s.Length/BlockSize, samples)
 	if err != nil {
 		return 0, err
 	}
-	return c.walk(r, buf, x, p, pos, length)
+	return rd.walk(r, s, x, p, pos)
 }
 
 // seekBlock returns the stream offset and position of a sample that starts at or before
 // the sample at pos, in the last block of the n full blocks where such a sample starts.
-func (c Config) seekBlock(
+func (rd *Reader) seekBlock(
 	r io.ReaderAt,
-	buf []byte,
+	s Committed,
 	pos uint32,
 	n int64,
 	samples uint32,
@@ -59,7 +52,7 @@ func (c Config) seekBlock(
 		lo, hi := int64(0), n
 		for lo < hi {
 			mid := lo + (hi-lo)/2
-			firstPos, _, err := c.trailerAt(r, buf, mid, samples)
+			firstPos, _, err := rd.trailerAt(r, s, mid, samples)
 			if err != nil {
 				return 0, err
 			}
@@ -79,7 +72,7 @@ func (c Config) seekBlock(
 		return 0, 0, errors.Wrap(place.ErrCorrupt, "segment block 0 counts samples "+
 			"before it")
 	}
-	fp, off, err := c.trailerAt(r, buf, after-1, samples)
+	fp, off, err := rd.trailerAt(r, s, after-1, samples)
 	if err != nil || off != NoStart {
 		return (after-1)*BlockSize + int64(off), fp, err
 	}
@@ -92,7 +85,7 @@ func (c Config) seekBlock(
 	if run == 0 {
 		return 0, 0, errors.Wrap(place.ErrCorrupt, "segment block 0 starts no sample")
 	}
-	fp, off, err = c.trailerAt(r, buf, run-1, samples)
+	fp, off, err = rd.trailerAt(r, s, run-1, samples)
 	if err == nil && off == NoStart {
 		err = errors.Wrapf(place.ErrCorrupt, "segment block %d starts no sample, but "+
 			"the block after it counts more", run-1)
@@ -100,19 +93,45 @@ func (c Config) seekBlock(
 	return (run-1)*BlockSize + int64(off), fp, err
 }
 
-// trailerAt reads first_pos and first_off of the trailer of full block b.
-func (c Config) trailerAt(
+// trailerAt reads and checks the trailer of full block b, and returns its first_pos and
+// first_off. It reads once more when the first read fails.
+func (rd *Reader) trailerAt(
 	r io.ReaderAt,
-	buf []byte,
+	s Committed,
 	b int64,
 	samples uint32,
 ) (firstPos, firstOff uint32, err error) {
-	at := c.FileOffset((b+1)*BlockSize) - VariableTrailer
-	if _, err = r.ReadAt(buf[:8], at); err != nil {
-		return 0, 0, errors.Wrapf(err, "read of the trailer of segment block %d", b)
+	at := s.FileOffset((b+1)*BlockSize) - VariableTrailer
+	t := rd.block[:VariableTrailer]
+	read := func() error {
+		if _, err := r.ReadAt(t, at); err != nil {
+			return err
+		}
+		if s.place(at).Sum(t[:12]) != binary.LittleEndian.Uint32(t[12:]) {
+			return errors.Wrapf(
+				place.ErrCorrupt,
+				"trailer at file offset %d fails its "+
+					"check",
+				at,
+			)
+		}
+		return nil
 	}
-	firstPos = binary.LittleEndian.Uint32(buf)
-	firstOff = binary.LittleEndian.Uint32(buf[4:])
+	if err = read(); err != nil {
+		if err = read(); err != nil {
+			return 0, 0, errors.Wrapf(
+				place.ErrCorrupt,
+				"trailer of block %d of segment "+
+					"%d of key %d fails two reads: %v",
+				b,
+				s.ID,
+				s.Key,
+				err,
+			)
+		}
+	}
+	firstPos = binary.LittleEndian.Uint32(t)
+	firstOff = binary.LittleEndian.Uint32(t[4:])
 	if firstPos > samples || (firstOff >= BlockSize && firstOff != NoStart) {
 		return 0, 0, errors.Wrapf(place.ErrCorrupt, "trailer of segment block %d has "+
 			"first_pos %d and first_off %d in a segment of %d samples", b, firstPos,
@@ -122,31 +141,34 @@ func (c Config) trailerAt(
 }
 
 // walk returns the stream offset of the sample at pos, from the sample at position p
-// that starts at stream offset x.
-func (c Config) walk(
+// that starts at stream offset x. It reads the lengths through checked reads of a
+// window of one block.
+func (rd *Reader) walk(
 	r io.ReaderAt,
-	buf []byte,
+	s Committed,
 	x int64,
 	p, pos uint32,
-	length int64,
 ) (int64, error) {
+	if rd.window == nil {
+		rd.window = make([]byte, BlockSize)
+	}
 	var lo, hi int64
 	for ; ; p++ {
-		if x+lengthSize > length {
+		if x+lengthSize > s.Length {
 			return 0, errors.Wrapf(place.ErrCorrupt, "sample %d at stream offset %d "+
-				"starts past the length %d", p, x, length)
+				"starts past the length %d", p, x, s.Length)
 		}
 		if p == pos {
 			break
 		}
 		if x+lengthSize > hi {
-			n := min(int64(len(buf)), length-x)
-			if err := c.ReadAt(r, buf[:n], x); err != nil {
+			n := min(int64(len(rd.window)), s.Length-x)
+			if err := rd.Read(r, s, rd.window[:n], x); err != nil {
 				return 0, err
 			}
 			lo, hi = x, x+n
 		}
-		x += lengthSize + int64(binary.LittleEndian.Uint32(buf[x-lo:]))
+		x += lengthSize + int64(binary.LittleEndian.Uint32(rd.window[x-lo:]))
 	}
 	return x, nil
 }
