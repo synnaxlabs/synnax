@@ -14,6 +14,7 @@ package writer
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"sync/atomic"
 	"uuid"
@@ -139,10 +140,27 @@ func DefaultConfig() Config {
 func (c Config) split(
 	virtual set.Set[channel.Key],
 ) (stored, leased Config, free channel.Keys) {
+	var nStored, nLeased, nFree int
+	for _, key := range c.Keys {
+		switch {
+		case key.Free():
+			nFree++
+		case virtual.Contains(key):
+			nLeased++
+		default:
+			nStored++
+		}
+	}
 	stored, leased = c, c
-	stored.Keys = make(channel.Keys, 0, len(c.Keys))
-	stored.Authorities = make([]control.Authority, 0, len(c.Keys))
-	leased.Keys, leased.Authorities = nil, nil
+	stored.Keys, stored.Authorities = make(channel.Keys, 0, nStored), nil
+	leased.Keys, leased.Authorities = make(channel.Keys, 0, nLeased), nil
+	if nStored > 0 {
+		stored.Authorities = make([]control.Authority, 0, nStored)
+	}
+	if nLeased > 0 {
+		leased.Authorities = make([]control.Authority, 0, nLeased)
+	}
+	free = make(channel.Keys, 0, nFree)
 	for i, key := range c.Keys {
 		auth := c.Authorities[i%len(c.Authorities)]
 		switch {
@@ -408,7 +426,11 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	); err != nil {
 		return nil, err
 	}
-	freeAlignments = lo.Assign(freeAlignments, leasedAlignment)
+	if freeAlignments == nil {
+		freeAlignments = leasedAlignment
+	} else {
+		maps.Copy(freeAlignments, leasedAlignment)
+	}
 	// A writer on a leased virtual channel holds it against a delete, as a writer on a
 	// stored channel does. Free channels have no delete claim.
 	releaseLeased, err := s.claims.hold(leased.Keys)
@@ -480,25 +502,25 @@ func (s *Service) resolve(
 	records map[channel.Key]channel.Channel,
 	err error,
 ) {
-	var (
-		unresolved channel.Keys
-		notFound   = make(map[channel.Key]error)
+	stored, err = s.cfg.TS.FindChannels(
+		ctx,
+		lo.FilterMap(keys, func(k channel.Key, _ int) (uint32, bool) {
+			return uint32(k), !k.Free()
+		})...,
 	)
-	for _, k := range keys {
-		if k.Free() {
-			unresolved = append(unresolved, k)
-			continue
-		}
-		ch, err := s.cfg.TS.RetrieveChannel(ctx, uint32(k))
-		if errors.Is(err, cesium.ErrChannelNotFound) {
-			unresolved = append(unresolved, k)
-			notFound[k] = err
-			continue
-		}
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		stored = append(stored, ch)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	unresolved := keys
+	if len(stored) == len(keys) {
+		unresolved = nil
+	} else if len(stored) > 0 {
+		found := set.New(lo.Map(stored, func(ch cesium.Channel, _ int) channel.Key {
+			return channel.Key(ch.Key)
+		})...)
+		unresolved = lo.Reject(keys, func(k channel.Key, _ int) bool {
+			return found.Contains(k)
+		})
 	}
 	if len(unresolved) == 0 {
 		return stored, nil, nil, nil
@@ -519,7 +541,11 @@ func (s *Service) resolve(
 		}
 		r, ok := records[k]
 		if !ok || !r.Virtual {
-			return nil, nil, nil, notFound[k]
+			return nil, nil, nil, errors.Wrapf(
+				cesium.ErrChannelNotFound,
+				"channel with key %d not found",
+				k,
+			)
 		}
 		virtual = append(virtual, cesium.Channel{
 			Key:         uint32(k),

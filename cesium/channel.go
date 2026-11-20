@@ -57,6 +57,23 @@ func (db *DB) RetrieveChannels(
 	return chs, nil
 }
 
+// FindChannels returns the channels of keys that the database holds, in the order of
+// keys, and leaves out the others.
+func (db *DB) FindChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
+	if db.closed.Load() {
+		return nil, ErrDBClosed
+	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	chs := make([]Channel, 0, len(keys))
+	for _, key := range keys {
+		if u, ok := db.mu.dbs.unary[key]; ok {
+			chs = append(chs, u.Channel())
+		}
+	}
+	return chs, nil
+}
+
 // RetrieveChannel retrieves one channel from the database.
 func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, error) {
 	if db.closed.Load() {

@@ -198,6 +198,16 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(chs).To(BeEmpty())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 				})
+				It(
+					"Should find the channels that the DB holds and leave out the others",
+					func(ctx SpecContext) {
+						chs := MustSucceed(db.FindChannels(ctx, k3, math.MaxUint32, k1))
+						Expect(chs).To(HaveExactElements(
+							HaveField("Key", k3),
+							HaveField("Key", k1),
+						))
+					},
+				)
 			})
 
 			Describe("Variable Channel Lifecycle", func() {
