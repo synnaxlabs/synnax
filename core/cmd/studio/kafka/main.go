@@ -9,7 +9,6 @@
 
 // Command kafka runs one fake Kafka broker for Studio captures. It holds the topics of
 // the docs examples and publishes oven readings to sensor-readings until it is stopped.
-// Run it from the core module, which holds its dependencies.
 package main
 
 import (
@@ -29,18 +28,24 @@ import (
 func main() {
 	port := flag.Int("port", 9092, "the port the broker listens on")
 	flag.Parse()
+	if err := run(*port); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(port int) error {
 	cluster, err := kfake.NewCluster(
 		kfake.NumBrokers(1),
-		kfake.Ports(*port),
+		kfake.Ports(port),
 		kfake.SeedTopics(1, "sensor-readings", "synnax-samples"),
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer cluster.Close()
 	client, err := kgo.NewClient(kgo.SeedBrokers(cluster.ListenAddrs()...))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer client.Close()
 	ctx, stop := signal.NotifyContext(
@@ -55,7 +60,7 @@ func main() {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case now := <-ticker.C:
 			elapsed := now.Sub(start).Seconds()
 			value, err := json.Marshal(map[string]float64{
@@ -63,7 +68,7 @@ func main() {
 				"pressure":    14 + math.Cos(elapsed/3),
 			})
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			client.Produce(
 				ctx,
