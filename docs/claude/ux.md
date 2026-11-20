@@ -71,8 +71,9 @@ A new line takes the first series color in that order that no other line uses.
 On a plot in relative time, a range takes its own color when it is clearly apart from
 the other colors of the plot: an OKLab distance of 0.05 or more in normal vision and in
 three simulations of color blindness. Else it takes the series color that the fewest
-colors of the plot are close to. Rejected: an exact match only, which lets a range's red
-sit next to the series red.
+colors of the plot are close to. The Core picks the color when the range joins the plot
+and saves it on the plot. Rejected: an exact match only, which lets a range's red sit
+next to the series red.
 
 A user adds a series color in Settings, where they set its value. The Series palette in
 a color picker has no "+".
