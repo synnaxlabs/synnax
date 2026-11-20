@@ -955,6 +955,194 @@ var _ = Describe("Calculation", Ordered, func() {
 		)
 	})
 
+	Describe("Cancelled Requests", func() {
+		It(
+			"Should keep a running calculation when a request that joins its group "+
+				"is cancelled",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				calcs := []channel.Channel{
+					{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Int64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+						Expression:  fmt.Sprintf("return %s * 2", base.Name),
+					},
+					{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Int64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+						Expression:  fmt.Sprintf("return %s * 3", base.Name),
+					},
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+				})).To(Succeed())
+				held, joined := calcs[0], calcs[1]
+				reqCtx, cancelReq := context.WithCancel(ctx)
+				defer cancelReq()
+				svc := MustSucceed(calculation.OpenService(
+					ctx,
+					calculation.ServiceConfig{
+						DB:           dist.DB,
+						Framer:       dist.Framer,
+						Writer:       writerSvc,
+						Channel:      channelSvc,
+						ChannelGraph: channelGraph,
+						Compile: func(
+							compileCtx context.Context,
+							db *gorp.DB,
+							cfgs ...compiler.Config,
+						) (compiler.Module, error) {
+							if cfgs[0].Channel.Key() != joined.Key() {
+								return compiler.Compile(compileCtx, db, cfgs...)
+							}
+							bg := context.Background()
+							mod, err := compiler.Compile(bg, db, cfgs...)
+							cancelReq()
+							return mod, err
+						},
+					},
+				))
+				defer func() { Expect(svc.Close()).To(Succeed()) }()
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  channel.Keys{base.Key()},
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				s := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{held.Key()},
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				_, outlet := confluence.Attach(s, 1, 1)
+				s.Flow(sCtx)
+				Eventually(outlet.Outlet()).Should(Receive())
+				heldRM := svc.OpenRequestManager()
+				Expect(heldRM.Set(ctx, channel.Keys{held.Key()})).To(Succeed())
+				defer func() { Expect(heldRM.Close(ctx)).To(Succeed()) }()
+				joinedRM := svc.OpenRequestManager()
+				Expect(joinedRM.Set(reqCtx, channel.Keys{joined.Key()})).To(Succeed())
+				defer func() { Expect(joinedRM.Close(ctx)).To(Succeed()) }()
+				Expect(
+					w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](1, 2))),
+				).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(held.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[int64](2, 4))
+			},
+		)
+
+		It(
+			"Should reopen a group after a calculator in it fails to open",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				calcs := []channel.Channel{
+					{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Int64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+						Expression:  fmt.Sprintf("return %s * 2", base.Name),
+					},
+					{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Int64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+						Expression:  fmt.Sprintf("return %s * 3", base.Name),
+					},
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+				})).To(Succeed())
+				held, joined := calcs[0], calcs[1]
+				var compiled atomic.Int32
+				svc := MustSucceed(calculation.OpenService(
+					ctx,
+					calculation.ServiceConfig{
+						DB:           dist.DB,
+						Framer:       dist.Framer,
+						Writer:       writerSvc,
+						Channel:      channelSvc,
+						ChannelGraph: channelGraph,
+						Compile: func(
+							compileCtx context.Context,
+							db *gorp.DB,
+							cfgs ...compiler.Config,
+						) (compiler.Module, error) {
+							mod, err := compiler.Compile(compileCtx, db, cfgs...)
+							if err == nil && cfgs[0].Channel.Key() == joined.Key() &&
+								compiled.Add(1) == 1 {
+								mod.WASM = []byte{1, 2, 3}
+							}
+							return mod, err
+						},
+					},
+				))
+				defer func() { Expect(svc.Close()).To(Succeed()) }()
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  channel.Keys{base.Key()},
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				s := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{held.Key()},
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				_, outlet := confluence.Attach(s, 1, 1)
+				s.Flow(sCtx)
+				Eventually(outlet.Outlet()).Should(Receive())
+				heldRM := svc.OpenRequestManager()
+				Expect(heldRM.Set(ctx, channel.Keys{held.Key()})).To(Succeed())
+				defer func() { Expect(heldRM.Close(ctx)).To(Succeed()) }()
+				joinedRM := svc.OpenRequestManager()
+				Expect(
+					joinedRM.Set(ctx, channel.Keys{joined.Key()}),
+				).Error().
+					To(MatchError(ContainSubstring("failed to open calculator")))
+				defer func() { Expect(joinedRM.Close(ctx)).To(Succeed()) }()
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Rename(
+						ctx, joined.Key(), UniqueChannelName(), false,
+					)
+				})).To(Succeed())
+				var res framer.StreamerResponse
+				Eventually(func(g Gomega) {
+					g.Expect(w.Write(frame.NewUnary(
+						base.Key(),
+						telem.NewSeriesV[int64](1, 2),
+					))).To(BeTrue())
+					g.Expect(outlet.Outlet()).To(Receive(&res))
+				}).Should(Succeed())
+				Expect(
+					res.Frame.Get(held.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[int64](2, 4))
+			},
+		)
+	})
+
 	Describe("Calculation Status", func() {
 		// flushChanges returns after the Service handles each channel change made
 		// before the call: the channel graph notifies one batch at a time.

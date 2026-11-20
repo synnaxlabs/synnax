@@ -96,7 +96,7 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		SendOpenAck: new(true),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, cfg.calculators.Close())
 	}
 
 	wrt, err := cfg.writer.NewStream(ctx, writer.Config{
@@ -104,7 +104,7 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		Start: telem.Now(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, cfg.calculators.Close())
 	}
 
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](10)
