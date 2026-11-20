@@ -35,6 +35,10 @@ import { getRootElement } from "@/util/rootElement";
 export const inModal = (el: Element): boolean =>
   el.closest(`.${SURFACE_CLASS}`)?.classList.contains(CSS.M("modal")) === true;
 
+const notifyModalChange = (): void => {
+  document.dispatchEvent(new Event(Portal.MODAL_CHANGE_EVENT));
+};
+
 interface ModalProps extends PropsWithChildren {
   /** The id of the frame, so a click or focus in the modal counts as inside it. */
   owner: string;
@@ -74,16 +78,20 @@ const Modal = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     dialog.showModal();
+    notifyModalChange();
     setShown(dialog);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       dialog.close();
+      notifyModalChange();
     };
   }, []);
   // The owner kept the frame open after the browser closed the dialog.
   useLayoutEffect(() => {
     const dialog = ref.current;
-    if (nativeCloses > 0 && dialog != null && !dialog.open) dialog.showModal();
+    if (nativeCloses === 0 || dialog == null || dialog.open) return;
+    dialog.showModal();
+    notifyModalChange();
   }, [nativeCloses]);
   // React passes cancel and close up through a nested modal, so each modal acts only
   // on its own.
@@ -93,6 +101,7 @@ const Modal = ({
   };
   const handleClose = (e: SyntheticEvent<HTMLDialogElement>): void => {
     if (e.target !== e.currentTarget) return;
+    notifyModalChange();
     setNativeCloses((n) => n + 1);
     onClose();
   };

@@ -11,9 +11,10 @@ import "@/platform/notifications/Feed.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Status } from "@synnaxlabs/lyra/status";
+import { getRootElement } from "@synnaxlabs/lyra/util";
 import { type FC, type ReactElement, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 
 import { CSS } from "@/platform/css";
 
@@ -59,33 +60,34 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
     if (overflow <= 0) setExpanded(false);
   }, [overflow]);
   const visible = showAll ? rendered : rendered.slice(0, VISIBLE_CAP);
-  return createPortal(
-    <Flex.Box y className={CSS.B("notifications")}>
-      <Flex.Box y className={CSS.BE("notifications", "stack")}>
-        {visible.map(({ status, Render }) => (
-          <Render key={status.key} status={status} silence={silence} />
-        ))}
-      </Flex.Box>
-      {overflow > 0 && (
-        <Flex.Box
-          x
-          justify="end"
-          gap="small"
-          className={CSS.BE("notifications", "controls")}
-        >
-          <Button.Button
-            size="small"
-            variant="outlined"
-            onClick={() => setExpanded(!showAll)}
-          >
-            {showAll ? "Show less" : `+${overflow} more`}
-          </Button.Button>
-          <Button.Button size="small" variant="outlined" onClick={silenceAll}>
-            Clear all
-          </Button.Button>
+  return (
+    <Portal.Above element={getRootElement()}>
+      <Flex.Box y className={CSS.B("notifications")}>
+        <Flex.Box y className={CSS.BE("notifications", "stack")}>
+          {visible.map(({ status, Render }) => (
+            <Render key={status.key} status={status} silence={silence} />
+          ))}
         </Flex.Box>
-      )}
-    </Flex.Box>,
-    document.getElementById("root") as HTMLElement,
+        {overflow > 0 && (
+          <Flex.Box
+            x
+            justify="end"
+            gap="small"
+            className={CSS.BE("notifications", "controls")}
+          >
+            <Button.Button
+              size="small"
+              variant="outlined"
+              onClick={() => setExpanded(!showAll)}
+            >
+              {showAll ? "Show less" : `+${overflow} more`}
+            </Button.Button>
+            <Button.Button size="small" variant="outlined" onClick={silenceAll}>
+              Clear all
+            </Button.Button>
+          </Flex.Box>
+        )}
+      </Flex.Box>
+    </Portal.Above>
   );
 };
