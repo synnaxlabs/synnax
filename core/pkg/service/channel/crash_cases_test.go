@@ -12,6 +12,7 @@ package channel_test
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"hash/crc32"
 	"os"
 	"strings"
@@ -37,22 +38,23 @@ type deleteCases struct {
 	committed int
 	// cutRemoval is a removal that a crash cut short.
 	cutRemoval int
-	// cutRewrite is a rewrite of the intents that a crash cut short.
-	cutRewrite int
+	// cutClear is an intent whose directory is gone: a crash came before its clear.
+	cutClear int
+	// tornTail is an intents file that ends in a record that a crash tore.
+	tornTail int
 }
 
 // files counts the states that the Cesium files of image show, and returns the keys
-// with an intent.
+// with an intent. Each record of the intents file is a key, flags, and a CRC32C of the
+// record's offset, key, and flags. A record with the clear flag clears its key.
 func (c *deleteCases) files(image *fault.FS) []cesium.ChannelKey {
 	GinkgoHelper()
-	if MustSucceed(image.Exists("cesium/delete-intents.tmp")) {
-		c.cutRewrite++
+	if !MustSucceed(image.Exists("cesium")) {
+		return nil
 	}
-	if MustSucceed(image.Exists("cesium")) {
-		for _, info := range MustSucceed(image.List("cesium")) {
-			if strings.HasSuffix(info.Name(), "-DELETE") {
-				c.cutRemoval++
-			}
+	for _, info := range MustSucceed(image.List("cesium")) {
+		if strings.HasSuffix(info.Name(), "-DELETE") {
+			c.cutRemoval++
 		}
 	}
 	if !MustSucceed(image.Exists("cesium/delete-intents")) {
@@ -64,16 +66,34 @@ func (c *deleteCases) files(image *fault.FS) []cesium.ChannelKey {
 	if len(data) > 0 {
 		MustSucceed(f.ReadAt(data, 0))
 	}
-	keys := set.New[cesium.ChannelKey]()
-	table := crc32.MakeTable(crc32.Castagnoli)
-	for off := 0; off+8 <= len(data); off += 8 {
-		var b [12]byte
+	const recordSize, clearFlag = 12, 1
+	var (
+		keys  = set.New[cesium.ChannelKey]()
+		table = crc32.MakeTable(crc32.Castagnoli)
+		good  int
+	)
+	for off := 0; off+recordSize <= len(data); off += recordSize {
+		var b [16]byte
 		binary.LittleEndian.PutUint64(b[:], uint64(off))
-		copy(b[8:], data[off:off+4])
-		if binary.LittleEndian.Uint32(data[off+4:]) != crc32.Checksum(b[:], table) {
-			break
+		copy(b[8:], data[off:off+8])
+		if binary.LittleEndian.Uint32(data[off+8:]) != crc32.Checksum(b[:], table) {
+			continue
 		}
-		keys.Add(binary.LittleEndian.Uint32(data[off:]))
+		good = off + recordSize
+		key := binary.LittleEndian.Uint32(data[off:])
+		if binary.LittleEndian.Uint32(data[off+4:])&clearFlag != 0 {
+			keys.Remove(key)
+		} else {
+			keys.Add(key)
+		}
+	}
+	if good < len(data) {
+		c.tornTail++
+	}
+	for k := range keys {
+		if !MustSucceed(image.Exists(fmt.Sprintf("cesium/%d", k))) {
+			c.cutClear++
+		}
 	}
 	return keys.Slice()
 }
@@ -103,8 +123,12 @@ func (c *deleteCases) records(
 	return nil
 }
 
-// run runs the Strict crash table in one mode, and adds each case it reaches to c.
-func (c *deleteCases) run(ctx context.Context, dirsDurable bool) {
+// run runs the crash table in one mode under profile, and counts the cases it reaches.
+func (c *deleteCases) run(
+	ctx context.Context,
+	profile crash.Profile,
+	dirsDurable bool,
+) {
 	GinkgoHelper()
 	_, err := crash.Run(ctx, crash.Config{
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
@@ -121,21 +145,26 @@ func (c *deleteCases) run(ctx context.Context, dirsDurable bool) {
 		},
 		Commits:    4,
 		Stride:     1,
-		Profile:    crash.Strict,
+		Profile:    profile,
 		Exhaustive: true,
 	})
 	var v *crash.Violation
 	Expect(err == nil || errors.As(err, &v)).To(BeTrue(), "run failed: %v", err)
 }
 
-var _ = It("Should reach each crash case of a delete in the crash table",
-	func(ctx SpecContext) {
-		var cases deleteCases
-		cases.run(ctx, false)
-		cases.run(ctx, true)
-		Expect(cases.failedCommit).To(BeNumerically(">", 0))
-		Expect(cases.committed).To(BeNumerically(">", 0))
-		Expect(cases.cutRemoval).To(BeNumerically(">", 0))
-		Expect(cases.cutRewrite).To(BeNumerically(">", 0))
-	},
-)
+var _ = Describe("Crash adapter, delete cases", func() {
+	It("Should reach each crash case of a delete in the crash table",
+		func(ctx SpecContext) {
+			var cases deleteCases
+			for _, profile := range []crash.Profile{crash.Strict, crash.Partial} {
+				cases.run(ctx, profile, false)
+				cases.run(ctx, profile, true)
+			}
+			Expect(cases.failedCommit).To(BeNumerically(">", 0))
+			Expect(cases.committed).To(BeNumerically(">", 0))
+			Expect(cases.cutRemoval).To(BeNumerically(">", 0))
+			Expect(cases.cutClear).To(BeNumerically(">", 0))
+			Expect(cases.tornTail).To(BeNumerically(">", 0))
+		},
+	)
+})
