@@ -21,12 +21,13 @@ import { type ReactNode, useEffect, useState } from "react";
 import { type Device } from "@/feature/kafka/device/types";
 import {
   defaultPicks,
-  freeKeys,
+  isExtendable,
   type Picks,
+  type Reads,
   shapeKey,
+  takenPointers,
 } from "@/feature/kafka/task/additions";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
-import { type ReadRecord, type ReadTopic } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
@@ -35,8 +36,10 @@ interface Params {
   device: Device;
   /** The topic that the dialog shows first, or "" for the first that holds records. */
   topic: string;
-  /** The topics that the task holds now. */
-  topics: ReadTopic[];
+  /** The names of the topics that the task holds now. */
+  topics: string[];
+  /** What the task reads now from a topic, by its name. */
+  reads: (topic: string) => Reads;
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
 }
@@ -58,6 +61,8 @@ const HINT =
   "Select the fields to read. Records that hold the same fields share a message.";
 
 const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
+
+const NOT_EXTENDABLE: ICD.Picker.Lock = { checked: false, label: "No JSON message" };
 
 const FORMAT_NAMES: Record<kafka.Format, string> = {
   json: "JSON",
@@ -169,12 +174,14 @@ const describeTopic = (t: kafka.Topic, listedAt: TimeStamp): string =>
     .filter((part) => part != null)
     .join(" · ");
 
-/** @returns the fields that a click on a topic picks: each but the index, by shape. */
-const defaultsOf = (shapes: json.Shape[], records: ReadRecord[]): Picks =>
+/** @returns the fields that a click on a topic picks, by shape. */
+const defaultsOf = (shapes: json.Shape[], reads: Reads): Picks =>
   new Map(
     shapes
-      .filter((shape) => freeKeys(shape, records).length > 0)
-      .map((shape): [string, Set<string>] => [shapeKey(shape), defaultPicks(shape)])
+      .map((shape): [string, Set<string>] => [
+        shapeKey(shape),
+        defaultPicks(shape, reads),
+      ])
       .filter(([, pointers]) => pointers.size > 0),
   );
 
@@ -217,7 +224,7 @@ interface TopicValuesProps {
   /** Says what the browse or the sample could not read, or null for nothing. */
   warning: string | null;
   sample: kafka.SampledTopic;
-  records: ReadRecord[];
+  reads: Reads;
   label: Params["label"];
   value: Picks;
   onChange: (value: Picks) => void;
@@ -229,7 +236,7 @@ const TopicValues = ({
   note,
   warning,
   sample,
-  records,
+  reads,
   label,
   value,
   onChange,
@@ -239,7 +246,8 @@ const TopicValues = ({
   const fields = new Map<string, [shape: string, pointer: string]>();
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const newest = newestFirst(sample, shape);
-    const taken = freeKeys(shape, records).length === 0;
+    const extendable = isExtendable(shape, reads);
+    const taken = takenPointers(shape, reads);
     const keys = shape.sources.map(label).join(", ");
     return {
       title: `${keys} · ${pluralize("record", shape.count, true)}`,
@@ -248,7 +256,8 @@ const TopicValues = ({
         fields.set(key, [shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
         if (j === shape.index) lock = INDEX;
-        else if (taken) lock = ICD.Picker.TAKEN;
+        else if (taken.has(f.pointer)) lock = ICD.Picker.TAKEN;
+        else if (!extendable) lock = NOT_EXTENDABLE;
         return {
           key,
           name: f.pointer === "" ? "Whole value" : f.pointer,
@@ -272,7 +281,7 @@ const TopicValues = ({
     }
     onChange(next);
   };
-  const defaults = defaultsOf(shapes, records);
+  const defaults = defaultsOf(shapes, reads);
   return (
     <>
       <ICD.Picker.PaneHeader
@@ -321,6 +330,7 @@ const Content = ({
   device,
   topic: initial,
   topics: held,
+  reads: readsOf,
   label,
   close,
 }: Modals.ContentProps<Params, Result>) => {
@@ -371,14 +381,12 @@ const Content = ({
   const listed = listing?.topics ?? NO_TOPICS;
   const listedNames = new Set(listed.map(({ name }) => name));
   const unlisted = unique
-    .unique([...held.map(({ name }) => name), ...entered])
+    .unique([...held, ...entered])
     .filter((name) => name !== "" && !listedNames.has(name));
   const entries: Entry[] = [
     ...listed.map((t): Entry => ({ name: t.name, listed: t })),
     ...unlisted.map((name): Entry => ({ name, listed: null })),
   ].sort(compare.by(({ name }) => name));
-  const recordsOf = (topic: string): ReadRecord[] =>
-    held.find(({ name }) => name === topic)?.records ?? [];
   // A failed browse shows its error until the user selects a topic.
   let firstActive: string | null = null;
   if (listing != null)
@@ -402,14 +410,14 @@ const Content = ({
     const picked = countOf(picks.get(name)?.picks);
     const free =
       sample?.variant === "success"
-        ? countOf(defaultsOf(sample.data.shapes, recordsOf(name)))
+        ? countOf(defaultsOf(sample.data.shapes, readsOf(name)))
         : null;
     let meta =
       topic != null ? formatRate(topic.rate) : listing == null ? "" : "Not listed";
     if (picked > 0) meta = `${picked} selected`;
     else if (topic != null && !topic.readable) meta = "No access";
     else if (topic != null && !holdsRecords(topic)) meta = "Empty";
-    else if (held.some((h) => h.name === name)) meta = "In task";
+    else if (held.includes(name)) meta = "In task";
     const loading = sample?.variant === "loading";
     return {
       key: name,
@@ -426,7 +434,7 @@ const Content = ({
     const sample = samples.topics.get(topic);
     const data = sample?.variant === "success" ? sample.data : await loadSample(topic);
     if (data == null) return;
-    const defaults = defaultsOf(data.shapes, recordsOf(topic));
+    const defaults = defaultsOf(data.shapes, readsOf(topic));
     setPicks((prev) => {
       const picked = countOf(prev.get(topic)?.picks);
       const all = countOf(defaults) > 0 && picked >= countOf(defaults);
@@ -511,7 +519,7 @@ const Content = ({
         }
         warning={warning === "" ? null : warning}
         sample={data}
-        records={recordsOf(topic)}
+        reads={readsOf(topic)}
         label={label}
         value={picks.get(topic)?.picks ?? new Map()}
         onChange={(value) =>

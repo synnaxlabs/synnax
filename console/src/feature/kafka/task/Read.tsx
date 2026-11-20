@@ -45,7 +45,11 @@ import { useAddDataModal } from "@/feature/kafka/task/AddData";
 import {
   type Addition,
   createAdditions,
+  createExtensions,
   createRecords,
+  type Extension,
+  type MessagesOf,
+  readsOf,
   uniqueName,
 } from "@/feature/kafka/task/additions";
 import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
@@ -545,15 +549,51 @@ const Records: FC<RecordsProps> = ({
     return topics.find((t) => t.key === key)?.name ?? "";
   };
 
+  /** @returns the records of the topic named name. */
+  const topicRecords = (name: string): ReadRecord[] =>
+    topics.find((t) => t.name === name)?.records ?? [];
+
+  const messagesOf: MessagesOf = (icdKey) =>
+    ICD.formatOf(formats, icdKey).value().messages;
+
+  /** Puts new fields in messages that records read, and reads them on those records. */
+  const extend = (extensions: Extension[]) =>
+    ctx.batch(() => {
+      for (const { icd: icdKey, message, fields, bindings } of extensions) {
+        const format = ICD.formatOf(formats, icdKey);
+        let after = ICD.fieldsOf(formats, icdKey, message).at(-1)?.key;
+        format.batch(() => {
+          for (const field of fields) {
+            format.insert(ICD.fieldsPath(message), field, after);
+            after = field.key;
+          }
+        });
+        for (const { record, read, fields: keys } of bindings) {
+          const path = pathOf(record).messages[read].bindings;
+          ctx.set(path, [
+            ...ctx.get(path).value,
+            ...keys.map((field) => kafka.readBindingZ.parse({ field })),
+          ]);
+        }
+      }
+    });
+
   /** Adds the fields that the user picks from records of topics, or one record. */
   const add = async () => {
-    const result = await addData({ device, topic: selectedTopic(), topics, label });
+    const result = await addData({
+      device,
+      topic: selectedTopic(),
+      topics: topics.map(({ name }) => name),
+      reads: (name) => readsOf(topicRecords(name), messagesOf),
+      label,
+    });
     if (result == null) return;
     if (result.variant === "record") return await addRecord(result.topic);
     const additions = new Map<string, Addition[]>();
     let held = heldMessages();
     for (const { topic, shapes, picks } of result.topics) {
-      const records = topics.find((t) => t.name === topic)?.records ?? [];
+      const records = topicRecords(topic);
+      extend(createExtensions(shapes, picks, records, messagesOf));
       const added = createAdditions(shapes, picks, records, held, label);
       if (added.length === 0) continue;
       additions.set(topic, added);
