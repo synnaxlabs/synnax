@@ -122,4 +122,26 @@ var _ = Describe("Where", Ordered, func() {
 			MatchError(filter.ErrNoOperator),
 		))
 	})
+
+	DescribeTable("Should reject an unknown model",
+		func(w device.Where, path string) {
+			Expect(device.MatchWhere(w)).Error().To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(path+`: invalid model "t9"`)),
+			))
+		},
+		Entry(
+			"in eq",
+			device.Where{Model: &filter.Set[device.Model]{Eq: new(device.Model("t9"))}},
+			"model.eq",
+		),
+		Entry(
+			"in in",
+			device.Where{Model: &filter.Set[device.Model]{
+				In: []device.Model{device.ModelT4, "t9"},
+			}},
+			"model.in.1",
+		),
+	)
 })
