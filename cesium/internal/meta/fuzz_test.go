@@ -22,9 +22,8 @@ import (
 )
 
 // FuzzOpen checks that Open takes any meta file. A channel it opens validates, is at
-// the
-// current version, and opens again equal after Create. A channel that validates as it
-// is stored opens unchanged but for its version. Open leaves the file as it was.
+// the current version, and opens again equal after Create. A channel that validates as
+// it is stored opens unchanged but for its version. Open leaves the file as it was.
 func FuzzOpen(f *testing.F) {
 	for _, file := range []string{
 		// Version 3, as Create writes it today.
