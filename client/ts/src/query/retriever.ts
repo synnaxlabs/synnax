@@ -11,11 +11,11 @@ import { narrow, type record, unique, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
-import { type Cache } from "@/query/cache";
-import { type List, type ListQuery, type Lists } from "@/query/list";
-import { type Live, type Retrieves, type Trigger } from "@/query/query";
-import { type Keyed, type Table } from "@/query/table";
-import { type Data, type FetchOptions, type Params } from "@/query/types";
+import type { Cache } from "@/query/cache";
+import type { List, ListQuery, Lists } from "@/query/list";
+import type { Live, Retrieves, Trigger } from "@/query/query";
+import type { Keyed, Table } from "@/query/table";
+import type { Data, FetchOptions, Params } from "@/query/types";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
@@ -402,10 +402,15 @@ export abstract class Retriever<
                 ? undefined
                 : (query) => serverComputed(query as z.output<Z>),
             cursor: list.cursor,
-            triggers: triggers?.map(({ attach, version, contentOnly }) => ({
-              attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
+            triggers: triggers?.map(({ attach, version, contentOnly, covers }) => ({
+              attach: (query, onEvent, members) =>
+                attach(query as z.output<Z>, onEvent, members),
               version,
               contentOnly,
+              covers:
+                covers == null
+                  ? undefined
+                  : (query, members) => covers(query as z.output<Z>, members),
             })),
             compare: list.compare,
           });

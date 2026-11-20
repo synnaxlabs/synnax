@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+import type { Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -38,7 +38,10 @@ const client = createTestClient();
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(Modbus.Task.Read, options);
+  const rendered = await renderTaskFormTab(
+    Modbus.Task.FORMS[Modbus.Task.READ_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };
@@ -424,7 +427,7 @@ describe("Read", () => {
 
     it("should not open the order options without permission to update the task", async () => {
       const { draft } = await createRegisterDraft("float32", true);
-      await renderTaskFormTab(Modbus.Task.Read, {
+      await renderTaskFormTab(Modbus.Task.FORMS[Modbus.Task.READ_TYPE], {
         client,
         taskKey: draft.key,
         as: await createTaskReadOnlyClient(client),
@@ -543,11 +546,14 @@ describe("Read", () => {
         device: dev.key,
         channels: [holding(0, "uint16"), holding(3, "uint16")],
       });
-      const { container } = await renderTaskFormTab(Modbus.Task.Read, {
-        client,
-        taskKey: draft.key,
-        as: await createTaskReadOnlyClient(client),
-      });
+      const { container } = await renderTaskFormTab(
+        Modbus.Task.FORMS[Modbus.Task.READ_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+          as: await createTaskReadOnlyClient(client),
+        },
+      );
       await waitFor(() => expect(getItems()).toHaveLength(2));
       const track = container.querySelector<HTMLElement>(".console-modbus__track");
       if (track == null) throw new Error("no track");

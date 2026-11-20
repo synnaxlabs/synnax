@@ -423,6 +423,11 @@ article {
         cursor: zoom-in;
     }
 
+    /* The width and height attributes give the ratio, not the size. */
+    .docs-image {
+        height: auto;
+    }
+
     /* A lead-in sentence sits close to the block it introduces. Themed images render
        inside a picture, and videos inside a play button wrapper. A table keeps the full
        gap: its header is text, so a close lead-in reads as one more line. */
@@ -567,12 +572,6 @@ article {
                 background: var(--docs-marker-color);
             }
         }
-    }
-
-    .yt-video {
-        aspect-ratio: 3456 / 2240;
-        border-radius: 1rem;
-        border: var(--pluto-border);
     }
 
     :is(h1, h2, h3, h4).lyra-text {

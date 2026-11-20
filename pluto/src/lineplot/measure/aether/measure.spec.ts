@@ -15,7 +15,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { measure } from "@/lineplot/measure/aether";
 import { renderAether } from "@/testutil/renderAether";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -25,9 +25,9 @@ const MEASURE_KEY = "measure";
 class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   static readonly TYPE = "measure-test-requestor";
   static readonly stateZ = z.object({});
-  schema = Requestor.stateZ;
+  override schema = Requestor.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     render.control(ctx, () => {});
   }
 }

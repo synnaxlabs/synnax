@@ -10,8 +10,8 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Synnax } from "@/index";
-import { type project } from "@/project";
+import type { Synnax } from "@/index";
+import type { project } from "@/project";
 import { createTestClient } from "@/testutil";
 
 // Every document table declares a fetch that resolves keys against the cluster and

@@ -14,7 +14,7 @@ import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
 import { placement } from "@/platform/group/placement";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
   group: Pick<group.Group, "key" | "name">;

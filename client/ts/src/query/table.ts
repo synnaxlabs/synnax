@@ -29,8 +29,8 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { type LookupIndex } from "@/query/indexes";
-import { type Listener } from "@/query/streamer";
+import type { LookupIndex } from "@/query/indexes";
+import type { Listener } from "@/query/streamer";
 
 /**
  * Presence of a key in a table: "present" when a live entry exists, "tombstoned" when
@@ -175,7 +175,7 @@ export interface TableParams<
  * each vanished key stands alone, so a few vanished keys cost a few requests, not one
  * per cached key.
  */
-const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
+export const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
   fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
   keys: Key[],
 ): Promise<Array<Keyed<Key, Value>>> => {

@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, Suspense } from "react";
 
-import { type Project } from "@/feature/project";
+import type { Project } from "@/feature/project";
 import { Shell } from "@/feature/shell";
 import { Panel } from "@/platform/panel";
 import { Settings as PlatformSettings } from "@/platform/settings";

@@ -12,8 +12,8 @@
 // edited to track the production code. It is test-only and excluded from the package's
 // public surface.
 
-import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
-import { type location } from "@/spatial";
+import type { Delete, ID, Insert } from "@/crdt/types.gen";
+import type { location } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0 };
 
@@ -42,7 +42,8 @@ const sortedInsert = (children: RefElement[], e: RefElement): void => {
   let hi = children.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if (idLess(children[mid].id, e.id)) lo = mid + 1;
+    // lo <= mid < hi <= children.length.
+    if (idLess(children[mid]!.id, e.id)) lo = mid + 1;
     else hi = mid;
   }
   children.splice(lo, 0, e);
@@ -103,10 +104,10 @@ export class ReferenceText {
         inserts.push({ id: node.id, origin, side, char: node.char });
         if (node.deleted) deletes.push({ id: node.id });
       }
-      for (let i = node.right.length - 1; i >= 0; i--)
-        stack.push({ node: node.right[i], origin: node.id, side: "right" });
-      for (let i = node.left.length - 1; i >= 0; i--)
-        stack.push({ node: node.left[i], origin: node.id, side: "left" });
+      for (const child of node.right.toReversed())
+        stack.push({ node: child, origin: node.id, side: "right" });
+      for (const child of node.left.toReversed())
+        stack.push({ node: child, origin: node.id, side: "left" });
     }
     return { inserts, deletes };
   }
@@ -149,11 +150,11 @@ export class ReferenceText {
         continue;
       }
       const { node } = frame;
-      for (let i = node.right.length - 1; i >= 0; i--)
-        stack.push({ node: node.right[i], emit: false });
+      for (const child of node.right.toReversed())
+        stack.push({ node: child, emit: false });
       if (node !== this.root) stack.push({ node, emit: true });
-      for (let i = node.left.length - 1; i >= 0; i--)
-        stack.push({ node: node.left[i], emit: false });
+      for (const child of node.left.toReversed())
+        stack.push({ node: child, emit: false });
     }
   }
 
@@ -187,8 +188,8 @@ export class ReferenceText {
    * the index is out of range. */
   indexToID(index: number): ID | null {
     const vis = this.visible();
-    if (index < 0 || index >= vis.length) return null;
-    return vis[index].id;
+    if (index < 0) return null;
+    return vis[index]?.id ?? null;
   }
 
   /** insert inserts text at the given live index and returns the operations that
@@ -199,10 +200,7 @@ export class ReferenceText {
     const chars = Array.from(text);
     if (chars.length === 0) return [];
     const vis = this.visible();
-    let left: RefElement;
-    if (index <= 0) left = this.root;
-    else if (index - 1 < vis.length) left = vis[index - 1];
-    else left = vis.at(-1) ?? this.root;
+    let left = index <= 0 ? this.root : (vis[index - 1] ?? vis.at(-1) ?? this.root);
     const right = index >= 0 && index < vis.length ? vis[index] : null;
     const ops: Insert[] = [];
     for (const ch of chars) {
@@ -235,8 +233,10 @@ export class ReferenceText {
     if (length <= 0) return [];
     const vis = this.visible();
     const ops: Delete[] = [];
-    for (let i = index; i < index + length && i < vis.length; i++) {
-      const op: Delete = { id: vis[i].id };
+    for (let i = index; i < index + length; i++) {
+      const e = vis[i];
+      if (e == null) break;
+      const op: Delete = { id: e.id };
       this.applyDelete(op);
       ops.push(op);
     }

@@ -431,14 +431,14 @@ export abstract class Node implements Component {
  * @example
  * ```typescript
  * const buttonMethodsZ = {
- *   onMouseDown: z.function(),
- *   onMouseUp: z.function().returns(z.number()),
+ *   onMouseDown: z.function({ input: z.tuple([]), output: z.void() }),
+ *   onMouseUp: z.function({ input: z.tuple([]), output: z.number() }),
  * };
  *
  * class Button extends Leaf<typeof stateZ, {}, typeof buttonMethodsZ>
  *   implements HandlersFromSchema<typeof buttonMethodsZ> {
- *   schema = stateZ;
- *   methods = buttonMethodsZ;
+ *   override schema = stateZ;
+ *   override methods = buttonMethodsZ;
  *   onMouseDown(): void { ... }
  *   onMouseUp(): number { return 42; }
  * }
@@ -646,7 +646,7 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(params: UpdateStateParams): void {
+  override _updateState(params: UpdateStateParams): void {
     const { path, type, create } = params;
     if (this.deleted) return;
     const subPath = this.parsePath(path);
@@ -687,7 +687,7 @@ export abstract class Composite<
     this._children.clear();
   }
 
-  _delete(path: readonly string[]): void {
+  override _delete(path: readonly string[]): void {
     const subPath = this.parsePath(path);
     if (subPath.length === 0) {
       this.clearChildren();
@@ -762,7 +762,7 @@ export class Root extends Composite<typeof aetherRootState> {
   private readonly comms: WorkerComms;
   private readonly registry: ComponentRegistry;
 
-  schema = aetherRootState;
+  override schema = aetherRootState;
 
   constructor({
     worker = wrapWorkerScope(),

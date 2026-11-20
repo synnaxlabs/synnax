@@ -12,10 +12,10 @@ import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type PointerEvent, type ReactElement } from "react";
+import type { PointerEvent, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Selectable } from "@/platform/selector/types";
+import type { Selectable } from "@/platform/selector/types";
 
 export interface ItemProps {
   selectable: Selectable;

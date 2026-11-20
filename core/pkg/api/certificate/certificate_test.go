@@ -27,17 +27,22 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
 	certificateType = resource.ID{Type: resource.TypeCertificate}
 	secretType      = resource.ID{Type: resource.TypeSecret}
 	statusType      = resource.ID{Type: resource.TypeStatus}
+	rackType        = resource.ID{Type: resource.TypeRack}
+	retrieves       = []access.Action{access.ActionRetrieve}
 	creates         = []access.Action{access.ActionCreate}
 )
 
@@ -162,12 +167,14 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), creates, certificateType, statusType)
+				grant(ctx, u.ResourceID(), retrieves, rackType)
 				keyFile := "key.pem"
 				res := MustSucceed(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:          secret.SourceFile,
 						Name:            "Plant",
 						CertificatePath: "/etc/plant/cert.pem",
+						Rack:            svc.Rack.EmbeddedKey,
 						PrivateKeyFile:  &keyFile,
 						Details:         &certificate.Details{Subject: "CN=plant"},
 					}}},
@@ -186,6 +193,7 @@ var _ = Describe("Service", func() {
 					Source:          secret.SourceFile,
 					Name:            "Plant",
 					CertificatePath: "/etc/plant/cert.pem",
+					Rack:            svc.Rack.EmbeddedKey,
 				}}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
@@ -208,6 +216,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), creates, certificateType)
+				grant(ctx, u.ResourceID(), retrieves, rackType)
 				key := uuid.New()
 				res := MustSucceed(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
@@ -215,6 +224,7 @@ var _ = Describe("Service", func() {
 						Source:          secret.SourceFile,
 						Name:            "Plant",
 						CertificatePath: "/etc/plant/cert.pem",
+						Rack:            svc.Rack.EmbeddedKey,
 					}}},
 				))
 				Expect(res.Certificates[0].Base().Key).To(Equal(key))
@@ -228,10 +238,10 @@ var _ = Describe("Service", func() {
 				c := createCertificate(ctx, "Plant")
 				Expect(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
-						Key:             c.Base().Key,
-						Source:          secret.SourceFile,
-						Name:            "Replaced",
-						CertificatePath: "/etc/plant/cert.pem",
+						Key:    c.Base().Key,
+						Source: secret.SourceStored,
+						Name:   "Replaced",
+						Pem:    storedOf(c).Pem,
 					}}},
 				)).Error().To(SatisfyAll(
 					MatchError(access.ErrDenied),
@@ -245,6 +255,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), creates, certificateType)
+				grant(ctx, u.ResourceID(), retrieves, rackType)
 				c := createCertificate(ctx, "Plant")
 				Expect(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{
@@ -253,12 +264,13 @@ var _ = Describe("Service", func() {
 							Source:          secret.SourceFile,
 							Name:            "New",
 							CertificatePath: "/etc/plant/new.pem",
+							Rack:            svc.Rack.EmbeddedKey,
 						},
 						{
-							Key:             c.Base().Key,
-							Source:          secret.SourceFile,
-							Name:            "Replaced",
-							CertificatePath: "/etc/plant/cert.pem",
+							Key:    c.Base().Key,
+							Source: secret.SourceStored,
+							Name:   "Replaced",
+							Pem:    storedOf(c).Pem,
 						},
 					}},
 				)).Error().To(SatisfyAll(
@@ -278,10 +290,10 @@ var _ = Describe("Service", func() {
 			c := createCertificate(ctx, "Plant")
 			MustSucceed(set(AuthedCtx(ctx, u),
 				apicertificate.SetRequest{Certificates: []apicertificate.Input{{
-					Key:             c.Base().Key,
-					Source:          secret.SourceFile,
-					Name:            "Replaced",
-					CertificatePath: "/etc/plant/cert.pem",
+					Key:    c.Base().Key,
+					Source: secret.SourceStored,
+					Name:   "Replaced",
+					Pem:    storedOf(c).Pem,
 				}}},
 			))
 			Expect(
@@ -317,33 +329,22 @@ var _ = Describe("Service", func() {
 				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
 			},
 		)
-		It("Should deny a file replace without delete access on the key secret",
+		It("Should deny a file certificate on a rack the user cannot retrieve",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				c := createCertificateWithKey(ctx, "Plant")
-				key := *storedOf(c).PrivateKey
-				grant(
-					ctx,
-					u.ResourceID(),
-					[]access.Action{access.ActionUpdate},
-					c.ResourceID(),
-					statusType,
-				)
+				grant(ctx, u.ResourceID(), creates, certificateType)
 				Expect(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
-						Key:             c.Base().Key,
 						Source:          secret.SourceFile,
 						Name:            "Plant",
 						CertificatePath: "/etc/plant/cert.pem",
+						Rack:            svc.Rack.EmbeddedKey,
 					}}},
-				)).Error().To(SatisfyAll(
-					MatchError(access.ErrDenied),
-					MatchError(ContainSubstring(
-						u.ResourceID().String()+" cannot delete "+
-							secret.ResourceID(key).String(),
-					)),
+				)).Error().To(MatchError(
+					u.ResourceID().String() + " cannot retrieve " +
+						svc.Rack.EmbeddedKey.ResourceID().String() +
+						": access denied: auth error",
 				))
-				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
 			},
 		)
 		DescribeTable("Should reject an invalid input",
@@ -370,6 +371,16 @@ var _ = Describe("Service", func() {
 					CertificatePath: "/c.pem",
 				},
 				"certificate_path: must be empty for a stored certificate",
+			),
+			Entry(
+				"a stored certificate with a rack",
+				apicertificate.Input{
+					Source: secret.SourceStored,
+					Name:   "A",
+					Pem:    "pem",
+					Rack:   1,
+				},
+				"rack: must be empty for a stored certificate",
 			),
 			Entry(
 				"a file certificate with PEM",
@@ -601,6 +612,102 @@ var _ = Describe("Service", func() {
 			Expect(del(AuthedCtx(ctx, u),
 				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
 			)).Error().To(MatchError(access.ErrDenied))
+		})
+	})
+
+	Describe("Refresh", func() {
+		var (
+			rk   rack.Key
+			file certificate.Certificate
+		)
+		BeforeEach(func(ctx SpecContext) {
+			rk = svc.Rack.EmbeddedKey
+			file = certificate.Certificate{Variant: certificate.FileCertificate{
+				Base:            certificate.Base{Name: "Plant"},
+				CertificatePath: "/etc/plant/cert.pem",
+				Rack:            rk,
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Certificate.NewWriter(tx).Set(ctx, &file, nil)
+			})).To(Succeed())
+		})
+		details := certificate.Details{
+			Subject:   "CN=plant",
+			Issuer:    "CN=plant",
+			NotBefore: telem.TimeStamp(1),
+			NotAfter:  telem.TimeStamp(2),
+			Sha1:      "aa",
+			Sha256:    "bb",
+		}
+		It("Should save the details that the certificate's rack read",
+			func(ctx SpecContext) {
+				MustSucceed(refresh(
+					SubjectCtx(ctx, rk.ResourceID()),
+					apicertificate.RefreshRequest{
+						Key:     file.Base().Key,
+						Details: details,
+					},
+				))
+				got, ok := retrieveCertificate(ctx, file.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(Equal(&details))
+				Expect(got.CertificatePath).To(Equal("/etc/plant/cert.pem"))
+			},
+		)
+		It("Should deny a rack that the certificate does not name",
+			func(ctx SpecContext) {
+				other := rack.Rack{Name: "Other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				Expect(refresh(
+					SubjectCtx(ctx, other.Key.ResourceID()),
+					apicertificate.RefreshRequest{
+						Key:     file.Base().Key,
+						Details: details,
+					},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						`certificate "Plant" is read by `+rk.ResourceID().String()+
+							", not "+other.Key.ResourceID().String(),
+					)),
+				))
+				got, ok := retrieveCertificate(ctx, file.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(BeNil())
+			},
+		)
+		It("Should deny a subject that is not a rack", func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(ctx, u.ResourceID(), access.AllActions, certificateType)
+			Expect(refresh(
+				AuthedCtx(ctx, u),
+				apicertificate.RefreshRequest{Key: file.Base().Key, Details: details},
+			)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring("only a rack can refresh a certificate")),
+			))
+		})
+		It("Should refuse a stored certificate", func(ctx SpecContext) {
+			c := createCertificate(ctx, "Stored")
+			Expect(refresh(
+				SubjectCtx(ctx, rk.ResourceID()),
+				apicertificate.RefreshRequest{Key: c.Base().Key, Details: details},
+			)).Error().To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError(ContainSubstring(
+					`key: certificate "Stored" is stored, so the Core reads its details`,
+				)),
+			))
+		})
+		It("Should return not found for a missing certificate", func(ctx SpecContext) {
+			Expect(refresh(
+				SubjectCtx(ctx, rk.ResourceID()),
+				apicertificate.RefreshRequest{Key: uuid.New(), Details: details},
+			)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 })

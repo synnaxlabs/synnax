@@ -19,7 +19,7 @@ import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
-import { type position } from "@synnaxlabs/lyra/position";
+import type { position } from "@synnaxlabs/lyra/position";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
@@ -31,9 +31,11 @@ import {
   dynamicWindow,
   resolveWindow,
   type StaticWindow,
+  staticWindow,
   type TimeRange,
   TimeSpan,
   TimeStamp,
+  type Window,
 } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
@@ -227,42 +229,92 @@ const LiveRow = ({ span, onChange }: LiveRowProps): ReactElement => (
   </Flex.Box>
 );
 
-const parseSpan = (term: string): TimeSpan | undefined => {
-  const span = TimeSpan.parse(term);
-  return span == null || span.isZero ? undefined : span;
+const RECENT_RE = /^(?:the\s+)?(?:last|past)\s+(?:an?\s+)?(.+)$/i;
+const SHORT_UNIT_RE = /^(?:hour|minute|second)$/i;
+
+// `last 2 hours` and `past hour` read as their duration. Only a short unit drops its
+// number, because `last week` names the calendar week.
+const parseSpan = (term: string): TimeSpan | null => {
+  const recent = RECENT_RE.exec(term.trim());
+  if (recent == null) return TimeSpan.parse(term);
+  const [, length] = recent;
+  return TimeSpan.parse(SHORT_UNIT_RE.test(length) ? `1 ${length}` : length);
 };
 
-interface DurationSearchProps {
-  typed?: TimeSpan;
+// A duration reads as a rolling window. Other text that reads as one time range, such
+// as `yesterday from 1pm to 2pm`, reads as a static window.
+const readWindow = (
+  term: string,
+  language: Input.Language | null,
+  now: TimeStamp,
+): Window | undefined => {
+  const span = parseSpan(term);
+  if (span != null) return span.isZero ? undefined : dynamicWindow(span);
+  if (language == null) return undefined;
+  const timeRange = Input.suggestTimeRange(term, language, now);
+  return timeRange == null ? undefined : staticWindow(timeRange);
+};
+
+interface WindowSearchProps {
   onSearch: (term: string) => void;
-  onDuration: (span: TimeSpan) => void;
+  /** The typed window. Undefined while the search reads as no window. */
+  typed?: Entry;
+  onEnter: (typed: Entry) => void;
 }
 
-// Enter on a typed duration sets the rolling window and closes the dialog. The wrapper
-// packs, so the field takes the dialog's top corners.
-const DurationSearch = ({
-  typed,
+// Enter on the typed window's option takes it and closes the dialog. Enter on another
+// option goes to the list. The wrapper packs, so the field takes the dialog's top
+// corners.
+const WindowSearch = ({
   onSearch,
-  onDuration,
-}: DurationSearchProps): ReactElement => {
+  typed,
+  onEnter,
+}: WindowSearchProps): ReactElement => {
   const { close } = Dialog.useContext();
+  const { getState } = Select.useContext<string>();
   return (
     <Flex.Box
       y
       pack
       onKeyDown={(e) => {
         if (e.key !== "Enter" || typed == null) return;
+        const { hover } = getState();
+        if (hover != null && hover !== typed.key) return;
         // Keeps the list's window-level Enter trigger from clicking a range.
         e.stopPropagation();
-        onDuration(typed);
+        onEnter(typed);
         close();
       }}
     >
       <Select.Search
-        placeholder="Search ranges or type a duration"
+        placeholder="Search ranges or type a duration or time"
         onSearch={onSearch}
       />
     </Flex.Box>
+  );
+};
+
+interface WindowOptionProps {
+  itemKey: string;
+  term: string;
+  window: Window;
+}
+
+// Its text is the term, so the search that typed it never hides it.
+const WindowOption = ({ itemKey, term, window }: WindowOptionProps): ReactElement => {
+  const now = useNow((now) => Telem.Text.nextMidnight(now));
+  const timeRange = resolveWindow(window, now);
+  const live = window.variant === "dynamic";
+  return (
+    <Select.Item itemKey={itemKey} textValue={term} justify="between">
+      <Text.Text>
+        {live ? liveIcon : <Ranger.StageIcon timeRange={timeRange} />}
+        {live ? timeRange.span.toString() : formatWindow(timeRange, now)}
+      </Text.Text>
+      <Text.Text level="small" color={9}>
+        {live ? "Live window" : "Fixed window"}
+      </Text.Text>
+    </Select.Item>
   );
 };
 
@@ -289,8 +341,9 @@ export interface RangeSelectProps extends Omit<
 
 /**
  * Selects what the plot shows: at most one rolling window, Core ranges, and static
- * windows. A duration typed into the search lists a live option, and Enter sets it. A
- * static window's tag edits the window in place. A range dropped on it joins the plot.
+ * windows. A duration typed into the search lists a live option, and a time range such
+ * as `yesterday from 1pm to 2pm` lists a fixed one. Enter takes the option. A range
+ * dropped on it joins the plot.
  */
 export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const refs = LinePlot.useRanges();
@@ -300,7 +353,12 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     (c) => c.ranges,
     { name: "ranges", query: { order: NEWEST } },
   );
-  const [term, setTerm] = useState("");
+  // `1h ago` reads against the time it was typed, so Enter adds what the option shows.
+  const [{ term, typedAt }, setTerm] = useState(() => ({
+    term: "",
+    typedAt: TimeStamp.now(),
+  }));
+  const language = Input.useLanguage();
   const entryOf = (ref: ranger.Ref): Entry => ({
     ref,
     key:
@@ -309,11 +367,11 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
         : (Session.Range.findKey(ref, states) ?? windowKey(ref)),
   });
   const entries = refs.map(entryOf);
-  const typedSpan = parseSpan(term);
+  const typedWindow = readWindow(term, language, typedAt);
   const typed =
-    typedSpan == null
+    typedWindow == null
       ? undefined
-      : { span: typedSpan, key: entryOf(rollingRef(typedSpan)).key };
+      : { window: typedWindow, ...entryOf({ variant: "window", window: typedWindow }) };
   const rolling = refs.find(isRolling);
   const span = rolling == null ? undefined : new TimeSpan(rolling.window.timeSpan);
   const setRanges = (ranges: ranger.Ref[]) =>
@@ -341,13 +399,17 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
       }),
     );
   };
+  const take = ({ ref }: Entry) => {
+    if (isRolling(ref)) return setRolling(new TimeSpan(ref.window.timeSpan));
+    setRanges([...refs, ref]);
+  };
   const handleChange = (keys: string[]) => {
     if (
       typed != null &&
       keys.includes(typed.key) &&
       !entries.some(({ key }) => key === typed.key)
     )
-      return setRolling(typed.span);
+      return take(typed);
     const held = new Map(entries.map(({ key, ref }) => [key, ref]));
     setRanges(
       keys.map((key): ranger.Ref => {
@@ -401,27 +463,18 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
             {renderTag}
           </Select.MultipleTrigger>
           <Select.Dialog>
-            <DurationSearch
-              typed={typed?.span}
+            <WindowSearch
               onSearch={(next) => {
-                setTerm(next);
+                setTerm({ term: next, typedAt: TimeStamp.now() });
                 search(next);
               }}
-              onDuration={setRolling}
+              typed={typed}
+              onEnter={take}
             />
             <LiveRow span={span} onChange={setRolling} />
             <Select.List bordered borderColor={6} grow rounded full="x">
               {typed != null && (
-                // Its text is the term, so the search that typed it never hides it.
-                <Select.Item itemKey={typed.key} textValue={term} justify="between">
-                  <Text.Text>
-                    {liveIcon}
-                    {typed.span.toString()}
-                  </Text.Text>
-                  <Text.Text level="small" color={9}>
-                    Live window
-                  </Text.Text>
-                </Select.Item>
+                <WindowOption itemKey={typed.key} term={term} window={typed.window} />
               )}
               <Select.Items<string> emptyContent={empty}>{rangeItem}</Select.Items>
             </Select.List>

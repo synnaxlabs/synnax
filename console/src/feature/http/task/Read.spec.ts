@@ -13,7 +13,7 @@ import { DataType } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
@@ -33,7 +33,7 @@ import { findIconButton, getLabeledInput } from "@/testutil";
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(HTTP.Task.Read, {
+  const rendered = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.READ_TYPE], {
     task: ZERO_DRAFT,
     ...options,
   });

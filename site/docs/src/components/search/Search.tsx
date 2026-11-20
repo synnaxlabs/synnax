@@ -10,28 +10,20 @@
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Keys } from "@/components/keys/Keys";
 import { Results } from "@/components/search/Results";
 
 const TRIGGER: Triggers.Trigger = ["Control", "K"];
 
-export interface SearchProps {
-  initialVisible?: boolean;
-}
-
 /**
  * Renders the search button and dialog. The page renders it closed, which also puts
- * the results' styles in the page, and the search island mounts it open.
+ * the results' styles in the page, and the island hydrates on its first click.
  */
-export const Search = ({ initialVisible }: SearchProps): ReactElement => (
+export const Search = (): ReactElement => (
   <Triggers.Provider>
-    <Dialog.Frame
-      variant="modal"
-      className="search-box"
-      initialVisible={initialVisible}
-    >
+    <Dialog.Frame variant="modal" className="search-box">
       <Dialog.Trigger
         variant="outlined"
         justify="center"

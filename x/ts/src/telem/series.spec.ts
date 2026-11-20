@@ -11,7 +11,7 @@ import { describe, expect, it, type Mock, test, vi } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { type GLBufferController } from "@/telem/gl";
+import type { GLBufferController } from "@/telem/gl";
 import { type CrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,
@@ -59,14 +59,27 @@ class MockGLBufferController implements GLBufferController {
     return v;
   }
 
+  /** @returns the bytes of the buffer with the given key. */
+  buffer(key: number): ArrayBuffer {
+    const buffer = this.buffers[key];
+    if (buffer == null) throw new Error(`no buffer with key ${key}`);
+    return buffer;
+  }
+
+  private bound(target: number): number {
+    const key = this.targets[target];
+    if (key == null) throw new Error(`no buffer bound to target ${target}`);
+    return key;
+  }
+
   bufferData(
     target: number,
     dataOrSize: AllowSharedBufferSource | number,
     usage: number,
   ): void {
     if (typeof dataOrSize === "number")
-      this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);
-    else this.buffers[this.targets[target]] = viewBytes(dataOrSize).slice().buffer;
+      this.buffers[this.bound(target)] = new ArrayBuffer(dataOrSize);
+    else this.buffers[this.bound(target)] = viewBytes(dataOrSize).slice().buffer;
 
     this.bufferDataMock(target, dataOrSize as ArrayBuffer, usage);
   }
@@ -78,7 +91,7 @@ class MockGLBufferController implements GLBufferController {
   }
 
   bufferSubData(target: number, offset: number, data: AllowSharedBufferSource): void {
-    let buffer = this.buffers[this.targets[target]];
+    let buffer = this.buffers[this.bound(target)];
     if (buffer == null) {
       buffer = new ArrayBuffer(offset + data.byteLength);
       this.buffers[target] = buffer;
@@ -1014,8 +1027,7 @@ describe("Series", () => {
       expect(controller.bindBufferMock).toHaveBeenCalledTimes(1);
       expect(controller.bufferDataMock).toHaveBeenCalledTimes(1);
       expect(controller.bufferSubDataMock).not.toHaveBeenCalled();
-      const buf = controller.buffers[series.glBuffer as number];
-      expect(buf).toBeDefined();
+      const buf = controller.buffer(series.glBuffer as number);
       expect(buf.byteLength).toEqual(12);
       expect(buf).toEqual(new Float32Array([1, 2, 3]).buffer);
     });
@@ -1028,15 +1040,14 @@ describe("Series", () => {
       expect(controller.bindBufferMock).not.toHaveBeenCalled();
       expect(controller.bufferDataMock).not.toHaveBeenCalled();
       expect(controller.bufferSubDataMock).not.toHaveBeenCalled();
-      let buf = controller.buffers[series.glBuffer as number];
-      expect(buf).toBeDefined();
+      let buf = controller.buffer(series.glBuffer as number);
       expect(buf.byteLength).toEqual(0);
       const writeOne = new Series({ data: new Float32Array([1]) });
       series.write(writeOne);
       series.updateGLBuffer(controller);
       expect(controller.bufferDataMock).toHaveBeenCalledTimes(1);
       expect(controller.bufferSubDataMock).toHaveBeenCalledTimes(1);
-      buf = controller.buffers[series.glBuffer as number];
+      buf = controller.buffer(series.glBuffer as number);
       expect(buf.byteLength).toEqual(series.byteCapacity.valueOf());
       expect(new Float32Array(buf)[0]).toEqual(1);
       const writeTwo = new Series({ data: new Float32Array([2, 3]) });
@@ -1044,7 +1055,7 @@ describe("Series", () => {
       series.updateGLBuffer(controller);
       expect(controller.bufferDataMock).not.toHaveBeenCalledTimes(2);
       expect(controller.bufferSubDataMock).toHaveBeenCalledTimes(2);
-      buf = controller.buffers[series.glBuffer as number];
+      buf = controller.buffer(series.glBuffer as number);
       expect(buf.byteLength).toEqual(series.byteCapacity.valueOf());
       expect(new Float32Array(buf)[0]).toEqual(1);
       expect(new Float32Array(buf)[1]).toEqual(2);
@@ -1073,7 +1084,7 @@ describe("Series", () => {
       series.release();
       series.acquire(controller);
       expect(controller.createBufferMock).toHaveBeenCalledTimes(2);
-      const buf = controller.buffers[series.glBuffer as number];
+      const buf = controller.buffer(series.glBuffer as number);
       expect(buf.byteLength).toEqual(series.byteCapacity.valueOf());
     });
 
@@ -1081,7 +1092,7 @@ describe("Series", () => {
       const series = new Series({ data: new Float64Array([1.5, 2.5, 3.5]) });
       const controller = new MockGLBufferController();
       series.updateGLBuffer(controller);
-      const buf = controller.buffers[series.glBuffer as number];
+      const buf = controller.buffer(series.glBuffer as number);
       expect(new Float32Array(buf)).toEqual(new Float32Array([1.5, 2.5, 3.5]));
       expect(series.dataType).toEqual(DataType.FLOAT64);
     });
@@ -1094,7 +1105,7 @@ describe("Series", () => {
       });
       const controller = new MockGLBufferController();
       series.updateGLBuffer(controller);
-      const buf = controller.buffers[series.glBuffer as number];
+      const buf = controller.buffer(series.glBuffer as number);
       expect(new Float32Array(buf)).toEqual(new Float32Array([0, 1000, 2000]));
       expect(series.glOffset).toEqual(first);
       expect(series.at(2)).toEqual(first + 2000n);
@@ -1108,8 +1119,8 @@ describe("Series", () => {
       series.write(new Series({ data: new BigInt64Array([105n]) }));
       series.updateGLBuffer(controller);
       expect(controller.bufferSubDataMock).toHaveBeenCalledTimes(2);
-      expect(controller.bufferSubDataMock.mock.calls[1][1]).toEqual(8);
-      const buf = controller.buffers[series.glBuffer as number];
+      expect(controller.bufferSubDataMock.mock.calls[1]?.[1]).toEqual(8);
+      const buf = controller.buffer(series.glBuffer as number);
       expect(buf.byteLength).toEqual(40);
       expect(new Float32Array(buf).subarray(0, 3)).toEqual(new Float32Array([0, 1, 5]));
       expect(series.glOffset).toEqual(100n);
@@ -1134,7 +1145,7 @@ describe("Series", () => {
         series.updateGLBuffer(controller);
         expect(controller.createBufferMock).toHaveBeenCalledTimes(2);
         expect(series.glBuffer).not.toEqual(lost);
-        const buf = controller.buffers[series.glBuffer as number];
+        const buf = controller.buffer(series.glBuffer as number);
         expect(new Float32Array(buf)).toEqual(new Float32Array([1, 2, 0, 0]));
       });
 
@@ -1324,7 +1335,7 @@ describe("Series", () => {
       new Uint8Array(buf).set(raw, 4);
       const s = new Series({ data: buf, dataType: DataType.JSON });
       const out = s.parseJSON(schema);
-      expect(Object.keys(out[0].cells)).toEqual(["UnSv19BHjPB", "x5kWGi0DZha"]);
+      expect(Object.keys(out[0]?.cells ?? {})).toEqual(["UnSv19BHjPB", "x5kWGi0DZha"]);
     });
   });
 
@@ -2499,6 +2510,28 @@ describe("Series", () => {
 });
 
 describe("MultiSeries", () => {
+  it("should throw when the series have different data types", () => {
+    const a = new Series(new Float32Array([1, 2, 3]));
+    const b = new Series(new Float64Array([4, 5, 6]));
+    expect(() => new MultiSeries([a, b])).toThrow("must have the same data type");
+  });
+
+  describe("alignment", () => {
+    it("should return the alignment of the first series", () => {
+      const a = new Series({ data: new Float32Array([1, 2]), alignment: 10n });
+      const b = new Series({ data: new Float32Array([3]), alignment: 12n });
+      const multi = new MultiSeries([a, b]);
+      expect(multi.alignment).toEqual(10n);
+      expect(multi.alignmentBounds).toEqual({ lower: 10n, upper: 13n });
+    });
+
+    it("should return zero for an empty multi-series", () => {
+      const multi = new MultiSeries([]);
+      expect(multi.alignment).toEqual(0n);
+      expect(multi.alignmentBounds).toEqual({ lower: 0n, upper: 0n });
+    });
+  });
+
   describe("length", () => {
     it("should correctly return the length of the multi-series", () => {
       const a = new Series(new Float32Array([1, 2, 3]));

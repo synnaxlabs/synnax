@@ -9,7 +9,7 @@
 
 import { type device, icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -124,7 +124,7 @@ const renderRead = async ({
   );
   await beforeRender?.(dev);
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormTab(MQTT.Task.Read, {
+  const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
     client,
     taskKey: draft.key,
     onStatuses: (next) => {
@@ -2262,7 +2262,7 @@ describe("MQTT read form", () => {
         { name: "MQTT read task", type: MQTT.Task.READ_TYPE, config },
         MQTT.Task.READ_SCHEMAS,
       );
-      const rendered = await renderTaskFormTab(MQTT.Task.Read, {
+      const rendered = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
         client,
         taskKey: second.key,
       });

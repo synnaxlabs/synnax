@@ -25,8 +25,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type status } from "@/status/aether";
-import { type CreateOptions } from "@/telem/aether/factory";
+import type { status } from "@/status/aether";
+import type { CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type Edge,
@@ -175,7 +175,7 @@ class ChannelValue<V>
     return { data: this.converted?.value ?? empty, status, time, appended };
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.generation++;
     this.subscription?.close();
     this.subscription = null;
@@ -595,7 +595,7 @@ export class ChannelData
       }
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.generation++;
     this.retryNotifier.notify();
     this.draw?.close();

@@ -9,7 +9,7 @@
 
 import "@/menu/Divider.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Divider as Base } from "@/divider";

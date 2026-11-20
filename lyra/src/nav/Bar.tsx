@@ -10,7 +10,7 @@
 import "@/nav/Bar.css";
 
 import { direction, location } from "@synnaxlabs/x";
-import { type FunctionComponent, type ReactElement } from "react";
+import type { FunctionComponent, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";

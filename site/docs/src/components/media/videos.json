@@ -1,115 +1,597 @@
 {
-  "blog/introducing-synnax-desktop/download": "6b529ebd4290",
-  "blog/introducing-synnax-desktop/notebook": "27e6e551ffd9",
-  "client/calculated-channels/create": "2f24f8139230",
-  "client/calculated-channels/edit": "b7680e7b7709",
-  "client/channels/create": "a2e17503f442",
-  "client/channels/create-virtual": "42d41e9f83b4",
-  "client/channels/delete": "8ce780820ca5",
-  "client/channels/find": "8c96a95d9bd3",
-  "client/channels/rename": "efcc77a18db9",
-  "client/channels/search": "0f02f4df34e8",
-  "client/channels/toolbar": "e637876ff7ea",
-  "client/connect/desktop": "d716093b7038",
-  "client/ranges/create": "62135bb1c7f7",
-  "client/ranges/create-child": "1ff7540749c3",
-  "client/ranges/labels": "92189e011026",
-  "client/ranges/set-metadata": "1a2fca52d3cf",
-  "client/resources/build-device-driver/console-setup": "a7c593320a78",
-  "client/resources/build-device-driver/line-plot": "a4781d2d399b",
-  "client/resources/build-device-driver/schematic": "192a2bdc9bb2",
-  "console/clusters/connect": "39dba891a6c6",
-  "console/line-plots/create": "4f6b240a2128",
-  "console/line-plots/range-zoom": "84b021bfaa75",
-  "console/line-plots/slope": "fba85ff0cbbe",
-  "console/line-plots/toolbar": "662dfaed287d",
-  "console/logs/create": "33ba3c11319f",
-  "console/logs/example": "6ad3a59e842b",
-  "console/panels/create": "94a3e9cd6a54",
-  "console/panels/focus": "e782c554db63",
-  "console/panels/move": "85798b6f538b",
-  "console/panels/open-tab": "10ce025fccb1",
-  "console/panels/rename-and-delete": "43a769d432a8",
-  "console/panels/split": "070abd3e5ba7",
-  "console/racks/create-key": "ffdcc67e03f7",
-  "console/redlines/add": "9328abeea5d8",
-  "console/schematics/align-items": "003d53ad9ec8",
-  "console/schematics/connections": "d26047e4a7f3",
-  "console/schematics/control-tab": "93423076eade",
-  "console/schematics/create": "acd03f58fa3d",
-  "console/schematics/edit-several-elements": "94a01455d1d4",
-  "console/schematics/symbol-create-group": "34518acec2ad",
-  "console/schematics/symbol-import-svg": "5d6b335df764",
-  "console/schematics/tooltip": "984a1ba00db4",
-  "console/schematics/value": "0b26d142607f",
-  "console/schematics/valve": "2ca8fabb8c99",
-  "console/statuses/create": "a657f5956868",
-  "console/tables/create": "ab94135707ed",
-  "console/users/manage-credentials": "da6258defcfa",
-  "console/users/modal-change-role": "c2f06f5112bf",
-  "console/users/register": "8f833b8d066f",
-  "console/workspaces/create": "4286b861f9d3",
-  "console/workspaces/load": "cc739ba47bac",
-  "control/arc/get-started/abort": "befb6f831d22",
-  "control/arc/get-started/create-automation": "88633caf5c73",
-  "control/arc/get-started/first-stages": "e43f1213388e",
-  "control/arc/start-from-schematic/start-button": "63fd81307141",
-  "control/authority/hand-off": "417bd9025c3d",
-  "control/manual/absolute-control": "0081e9939436",
-  "desktop/troubleshooting/diagnostics": "5d17fec93444",
-  "device-drivers/ethercat/configure-device/ethercat-configure": "48e115dcf7af",
-  "device-drivers/http/connect-server/connect-server": "50baa4b4a75f",
-  "device-drivers/labjack/configure-device/lj-configure": "04be4350958f",
-  "device-drivers/modbus/connect-server/modbus-connect": "15e4500b0be9",
-  "device-drivers/ni/configure-device/ni-configure-device": "cc17d06c6d74",
-  "device-drivers/opc-ua/connect-server/connect-server": "f0cc35236fd7",
-  "device-drivers/pagerduty/alert-task/create": "7c8a114ab8fc",
-  "device-drivers/task/task-basic": "adc9eab21e40",
-  "get-started/first-run": "80373de507f7",
-  "get-started/sample-project/abort": "32da5186be95",
-  "get-started/sample-project/open": "a5db11826159",
-  "get-started/sample-project/run-test": "fb58a2199de6",
-  "get-started/sample-project/take-control": "a78f0630c74e",
-  "hardware/devices/connect-picker": "9b8fd5702947",
-  "hardware/devices/toolbar": "db4c3ec6db32",
-  "hardware/ethercat/read-task": "6d71b97ae9ea",
-  "hardware/ethercat/startup-parameters": "d0407b5e494e",
-  "hardware/ethercat/sync-mode": "414da9636b5f",
-  "hardware/ethercat/write-task": "389428d15e92",
-  "hardware/http/read-task": "cb0f7b2f5524",
-  "hardware/http/write-task": "9e73e8536b42",
-  "hardware/kafka/connect-cluster": "fe980de41e67",
-  "hardware/kafka/read-task": "eed1fab5a677",
-  "hardware/kafka/write-task": "332ee9404415",
-  "hardware/labjack/read-task": "65603d29824d",
-  "hardware/labjack/write-task": "662d10818243",
-  "hardware/modbus/connect-serial": "ee56d9ec7d6e",
-  "hardware/modbus/read-task": "007509aec632",
-  "hardware/modbus/write-task": "9ec6bbd5421c",
-  "hardware/mqtt/connect-broker": "4680bc4f5e72",
-  "hardware/mqtt/edge-node": "0df673b08fdb",
-  "hardware/mqtt/read-task": "ba6fecbb420d",
-  "hardware/mqtt/sparkplug-read": "d6ed9a1584a5",
-  "hardware/mqtt/write-task": "aff9e8869b14",
-  "hardware/ni/analog-read-task": "7388f84dada7",
-  "hardware/ni/analog-write-task": "9387bfacd66d",
-  "hardware/ni/counter-read-task": "60a62860b59c",
-  "hardware/ni/digital-read-task": "8f1d9adb49c8",
-  "hardware/ni/digital-write-task": "6393756021e8",
-  "hardware/ni/ports-view": "db48248c9c58",
-  "hardware/opc-ua/add-folder": "c68734ff3769",
-  "hardware/opc-ua/read-task": "a1ebf8a46370",
-  "hardware/opc-ua/trust-server-certificate": "a23312829255",
-  "hardware/opc-ua/write-task": "cf461460e8b7",
-  "releases/0-35-0/schematic-q-cmd": "4c5fbc328744",
-  "releases/0-36-0/schematic-undo": "06ee865b6930",
-  "releases/0-56-0/schematic-collaborative-editing": "d1e03881b0b7",
-  "releases/0-57-0/panels": "6b3708e853ef",
-  "releases/0-60-0/change-symbol": "636626e9811d",
-  "releases/0-60-0/line-plots": "d6ac5703fed7",
-  "releases/0-60-0/table-reorder": "c9a9e20892ab",
-  "releases/0-61-0/arc-modules": "a5a84a772e5b",
-  "releases/0-61-0/ethercat-sync": "b0d596491301",
-  "releases/0-61-0/logs": "d520cc1efb06",
-  "releases/0-61-0/mqtt": "b9a4d9672628"
+  "blog/introducing-synnax-desktop/download": {
+    "version": "6b529ebd4290",
+    "width": 1720,
+    "height": 1080
+  },
+  "blog/introducing-synnax-desktop/notebook": {
+    "version": "27e6e551ffd9",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/calculated-channels/create": {
+    "version": "474a8e036bae",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/calculated-channels/edit": {
+    "version": "1531cd9f3fdb",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/channels/create": {
+    "version": "3833072cbc0e",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/channels/create-virtual": {
+    "version": "36e1e0bd3f12",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/channels/delete": {
+    "version": "9cb14d5a744e",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/channels/find": {
+    "version": "a8d934cddd25",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/channels/rename": {
+    "version": "2638f4d62f49",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/channels/search": {
+    "version": "700e55f9fa58",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/channels/toolbar": {
+    "version": "a33203769d30",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/connect/desktop": {
+    "version": "5d79e29c0c12",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/ranges/create": {
+    "version": "943438e14e2b",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/ranges/create-child": {
+    "version": "8ddf275d6f7b",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/ranges/labels": {
+    "version": "3574d1b1e679",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/ranges/set-metadata": {
+    "version": "45d4fea980a3",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/resources/build-device-driver/console-setup": {
+    "version": "3f96dbe2ea3c",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/resources/build-device-driver/line-plot": {
+    "version": "6763c4a94273",
+    "width": 1920,
+    "height": 1080
+  },
+  "client/resources/build-device-driver/schematic": {
+    "version": "6a3c68e4d850",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/clusters/connect": {
+    "version": "76d51fbebe0c",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/line-plots/create": {
+    "version": "7d38f3282364",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/line-plots/range-zoom": {
+    "version": "43fa99b09c58",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/line-plots/slope": {
+    "version": "cdd9a4d65f40",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/line-plots/toolbar": {
+    "version": "b0d8a7af3fbe",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/logs/create": {
+    "version": "6fff5d04787d",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/logs/example": {
+    "version": "70b5ac387e42",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/panels/create": {
+    "version": "e9ba65890f8d",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/panels/focus": {
+    "version": "778f10e93570",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/panels/move": {
+    "version": "940080fda12b",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/panels/open-tab": {
+    "version": "853ebad85993",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/panels/rename-and-delete": {
+    "version": "dfe372b9f24d",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/panels/split": {
+    "version": "0a0ccfcbe8be",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/racks/create-key": {
+    "version": "973cd2bbb3c0",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/redlines/add": {
+    "version": "eef7490a05a4",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/align-items": {
+    "version": "e7beaa021f8f",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/connections": {
+    "version": "789b8bdc69b4",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/control-tab": {
+    "version": "70f90c7b25d4",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/create": {
+    "version": "b1783f8a8462",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/edit-several-elements": {
+    "version": "51056c203688",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/symbol-create-group": {
+    "version": "a7aa5cdd2ac7",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/symbol-import-svg": {
+    "version": "b750f89c664b",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/tooltip": {
+    "version": "051fb5c639a6",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/value": {
+    "version": "008598690895",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/schematics/valve": {
+    "version": "436565519dd9",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/statuses/create": {
+    "version": "2a5c6b27246e",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/tables/create": {
+    "version": "06d2238178bf",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/users/manage-credentials": {
+    "version": "32f5d5158a86",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/users/modal-change-role": {
+    "version": "12d751eb9646",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/users/register": {
+    "version": "3a91a479ac9f",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/workspaces/create": {
+    "version": "2d1c07ff1d74",
+    "width": 1920,
+    "height": 1080
+  },
+  "console/workspaces/load": {
+    "version": "7555f855c538",
+    "width": 1920,
+    "height": 1080
+  },
+  "control/arc/get-started/abort": {
+    "version": "1ae081e69724",
+    "width": 1920,
+    "height": 1080
+  },
+  "control/arc/get-started/create-automation": {
+    "version": "40b96d185779",
+    "width": 1920,
+    "height": 1080
+  },
+  "control/arc/get-started/first-stages": {
+    "version": "28042256f549",
+    "width": 1920,
+    "height": 1080
+  },
+  "control/arc/start-from-schematic/start-button": {
+    "version": "129c7ad291a2",
+    "width": 1920,
+    "height": 1080
+  },
+  "control/authority/hand-off": {
+    "version": "8401572fb148",
+    "width": 1920,
+    "height": 1080
+  },
+  "control/manual/absolute-control": {
+    "version": "e6b0795daf8b",
+    "width": 1920,
+    "height": 1080
+  },
+  "desktop/troubleshooting/diagnostics": {
+    "version": "5fab94bfdd89",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/ethercat/configure-device/ethercat-configure": {
+    "version": "06c1a91377a1",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/http/connect-server/connect-server": {
+    "version": "ff0c312e178b",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/labjack/configure-device/lj-configure": {
+    "version": "51d3b53e20c5",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/modbus/connect-server/modbus-connect": {
+    "version": "19f129e03ff2",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/ni/configure-device/ni-configure-device": {
+    "version": "ab5494d4828f",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/opc-ua/connect-server/connect-server": {
+    "version": "a14bd4664458",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/pagerduty/alert-task/create": {
+    "version": "4f17cbc66499",
+    "width": 1920,
+    "height": 1080
+  },
+  "device-drivers/task/task-basic": {
+    "version": "85ecbfd07e96",
+    "width": 1920,
+    "height": 1080
+  },
+  "get-started/first-run": {
+    "version": "e356b27c8131",
+    "width": 1920,
+    "height": 1080
+  },
+  "get-started/sample-project/abort": {
+    "version": "95b3829b69b0",
+    "width": 1920,
+    "height": 1080
+  },
+  "get-started/sample-project/open": {
+    "version": "0af7786c8028",
+    "width": 1920,
+    "height": 1080
+  },
+  "get-started/sample-project/run-test": {
+    "version": "fc2bcc9dbccb",
+    "width": 1920,
+    "height": 1080
+  },
+  "get-started/sample-project/take-control": {
+    "version": "e9d7a279b876",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/devices/connect-picker": {
+    "version": "7291ea301901",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/devices/toolbar": {
+    "version": "b6e401ee252c",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ethercat/read-task": {
+    "version": "98e7ece62a0c",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ethercat/startup-parameters": {
+    "version": "1d663c6d2945",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ethercat/sync-mode": {
+    "version": "e8b54a2a500a",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ethercat/write-task": {
+    "version": "470fda052ac2",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/http/read-task": {
+    "version": "cdeb0774cbc8",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/http/write-task": {
+    "version": "7b004ff43591",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/kafka/connect-cluster": {
+    "version": "1b4c55d9a7bc",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/kafka/read-task": {
+    "version": "07d819fc8ac2",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/kafka/write-task": {
+    "version": "8f531c80426d",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/labjack/read-task": {
+    "version": "26d7d82c2bb4",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/labjack/write-task": {
+    "version": "18423050598d",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/modbus/connect-serial": {
+    "version": "7456cf77c23c",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/modbus/read-task": {
+    "version": "e4812c4c684e",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/modbus/write-task": {
+    "version": "c3d900d4e199",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/mqtt/connect-broker": {
+    "version": "a031c46bcd6c",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/mqtt/edge-node": {
+    "version": "c498a5a93ddb",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/mqtt/read-task": {
+    "version": "8adaa0f01f24",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/mqtt/sparkplug-read": {
+    "version": "1bc431c61aca",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/mqtt/write-task": {
+    "version": "3bfc781973c1",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ni/analog-read-task": {
+    "version": "79a53805ad50",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ni/analog-write-task": {
+    "version": "740390f32f1a",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ni/counter-read-task": {
+    "version": "a5821e261f53",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ni/digital-read-task": {
+    "version": "5a98c32fb67e",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ni/digital-write-task": {
+    "version": "1fb204caec58",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/ni/ports-view": {
+    "version": "42c4ec2681bc",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/opc-ua/add-folder": {
+    "version": "cd433bb87f4c",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/opc-ua/read-task": {
+    "version": "1fe047f99516",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/opc-ua/trust-server-certificate": {
+    "version": "9f1509f6a440",
+    "width": 1920,
+    "height": 1080
+  },
+  "hardware/opc-ua/write-task": {
+    "version": "413440f2d0b9",
+    "width": 1920,
+    "height": 1080
+  },
+  "ranges/sift/connect": {
+    "version": "356c1239591e",
+    "width": 1920,
+    "height": 1080
+  },
+  "ranges/sift/stream-task": {
+    "version": "80304e5ad1fd",
+    "width": 1920,
+    "height": 1080
+  },
+  "ranges/sift/upload": {
+    "version": "1874fd1d972f",
+    "width": 1920,
+    "height": 1080
+  },
+  "ranges/sift/upload-region": {
+    "version": "6a837b7445cc",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-35-0/schematic-q-cmd": {
+    "version": "4c5fbc328744",
+    "width": 1588,
+    "height": 1080
+  },
+  "releases/0-36-0/schematic-undo": {
+    "version": "06ee865b6930",
+    "width": 1592,
+    "height": 1080
+  },
+  "releases/0-56-0/schematic-collaborative-editing": {
+    "version": "d1e03881b0b7",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-57-0/panels": {
+    "version": "6b3708e853ef",
+    "width": 3024,
+    "height": 1890
+  },
+  "releases/0-60-0/change-symbol": {
+    "version": "636626e9811d",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-60-0/line-plots": {
+    "version": "d6ac5703fed7",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-60-0/table-reorder": {
+    "version": "c9a9e20892ab",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-61-0/arc-modules": {
+    "version": "a5a84a772e5b",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-61-0/ethercat-sync": {
+    "version": "b0d596491301",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-61-0/logs": {
+    "version": "d520cc1efb06",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-61-0/mqtt": {
+    "version": "b9a4d9672628",
+    "width": 1920,
+    "height": 1080
+  },
+  "releases/0-62-0/ranges": {
+    "version": "ddb1f0028bee",
+    "width": 1920,
+    "height": 1200
+  },
+  "releases/0-62-0/sift": {
+    "version": "a9a0c68ef76a",
+    "width": 1920,
+    "height": 1080
+  }
 }

@@ -15,6 +15,7 @@ import { EOF } from "@synnaxlabs/freighter";
 import {
   breaker,
   type destructor,
+  disposable,
   errors,
   observe,
   sync,
@@ -22,7 +23,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import {
   AuthError,
   ExpiredTokenError,
@@ -30,13 +31,13 @@ import {
   LicenseError,
   SessionEndedError,
 } from "@/errors";
-import { type Frame } from "@/framer/frame";
+import type { Frame } from "@/framer/frame";
 import { isDefinitive } from "@/framer/retry";
-import {
-  type Streamer,
-  type StreamerConfig,
-  type StreamerUpdateOptions,
-  type StreamOpener,
+import type {
+  Streamer,
+  StreamerConfig,
+  StreamerUpdateOptions,
+  StreamOpener,
 } from "@/framer/streamer";
 
 type NormalizedStreamerConfig = Extract<StreamerConfig, { channels: unknown }>;
@@ -72,6 +73,12 @@ export interface HardenedStreamerOptions {
  * logic when the connection is lost or errors occur.
  */
 export class HardenedStreamer implements Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private current: Streamer | null = null;
   private readonly breaker: breaker.Breaker;
   private readonly opener: StreamOpener;
@@ -283,6 +290,11 @@ type Transform<V> = (frame: Frame) => [V, true] | [V | null, false];
  * to channel values through an onChange handler.
  */
 export class ObservableStreamer<V = Frame> implements observe.Observable<V> {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly observer = new observe.Observer<V>();
   private readonly streamer: Streamer;
   private readonly transform?: Transform<V>;

@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Theme } from "@/session/theme";
+import type { Theme } from "@/session/theme";
 
 export interface Option {
   key: Theme.Mode;

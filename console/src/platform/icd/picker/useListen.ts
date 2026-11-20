@@ -10,7 +10,7 @@
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { useAsyncEffect, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Flux, Synnax } from "@synnaxlabs/pluto";
-import { type state } from "@synnaxlabs/x";
+import type { state } from "@synnaxlabs/x";
 import { type DependencyList, useState } from "react";
 
 /** Asks the broker for something through the Core. */

@@ -13,8 +13,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 
 import { Base } from "@/arc/graph/node/Base";
-import { type Config } from "@/arc/graph/node/status/config";
-import { type types } from "@/arc/graph/node/types";
+import type { Config } from "@/arc/graph/node/status/config";
+import type { types } from "@/arc/graph/node/types";
 
 const RED_HEX = color.construct("#DC136C");
 

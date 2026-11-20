@@ -16,7 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Tree } from "@synnaxlabs/lyra/tree";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
@@ -42,12 +42,13 @@ import {
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
+import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
+import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
-import { type Leaf } from "@/feature/mqtt/task/leaves";
+import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   sparkplugChannelName,
@@ -58,7 +59,6 @@ import {
   deployReadConfigZ,
   type PlainReadEntry,
   READ_SCHEMAS,
-  READ_TYPE,
   type ReadEntry,
   type ReadSchemas,
   type SparkplugReadEntry,
@@ -66,12 +66,9 @@ import {
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
-
-const DEFAULT_NAME = "MQTT read task";
 
 const plainPath = (key: string) =>
   deep.variant(root.config.entries[key], "type", "plain");
@@ -322,7 +319,8 @@ type Bind = (
 ) => icd.ReadBinding[];
 
 /** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
+const icdName = (name: string): string =>
+  name.trim() === "" ? DEFAULT_READ_NAME : name;
 
 /** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
@@ -926,14 +924,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     })),
   ];
   const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
-    const plan = await planRead(
-      client,
-      device,
-      bound,
-      tags,
-      writtenChannels(entries),
-      signal,
-    );
+    const plan = await planRead(client, device, bound, tags, written, signal);
     return [
       ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
       ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
@@ -1012,15 +1003,6 @@ const Form = PlatformDevice.wrapTaskForm({
   Content,
 });
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: DEFAULT_NAME, type: READ_TYPE, config: cfg };
-};
-
 /** The channels that deploying gives the messages and tags that a task reads. */
 interface ReadPlan {
   /** The plan of each message, in the order that planRead takes them. */
@@ -1031,19 +1013,20 @@ interface ReadPlan {
 
 /**
  * Plans the channels of each message and then each tag, in deploy order with one
- * namer. A message plans with the channels that earlier ones keep added to written, so
- * it leaves a stored channel that another binding writes. Reads from the Core alone.
- * Throws between sources once signal aborts.
+ * namer. A message plans with written and the channels that earlier ones keep, so it
+ * leaves a stored channel that another binding writes. Reads from the Core alone, and
+ * changes no argument. Throws between sources once signal aborts.
  */
 const planRead = async (
   client: Synnax,
   dev: Pick<Device, "name" | "properties">,
   bound: ICD.BoundMessage<PlainReadEntry>[],
   tags: SparkplugReadEntry[],
-  written: Set<channel.Key>,
+  written: ReadonlySet<channel.Key>,
   signal?: AbortSignal,
 ): Promise<ReadPlan> => {
   const namer = Task.createNamer(client);
+  const kept = new Set(written);
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
     signal?.throwIfAborted();
@@ -1053,9 +1036,9 @@ const planRead = async (
       namer,
       b,
       messagePrefix(dev.name, entry.topic, r, message.name),
-      storedProps(dev.properties.read, entry.topic, b, written),
+      storedProps(dev.properties.read, entry.topic, b, kept),
     );
-    ICD.keptChannels(plan).forEach((ch) => written.add(ch));
+    ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
     messages.push(plan);
   }
   const plans: Task.ReadChannelPlan[] = [];
@@ -1156,16 +1139,3 @@ export const Read = Task.wrapForm({
   type: "mqtt_read",
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: DEFAULT_NAME,
-  label: "Read",
-  icon: <Icon.Logo.MQTT />,
-  useOnSelect: useCreateRead,
-};

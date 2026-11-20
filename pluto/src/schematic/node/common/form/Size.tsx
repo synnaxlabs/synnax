@@ -10,7 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, type text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { LEVEL_SIZES, SIZE_LEVELS } from "@/schematic/node/common/size";
 

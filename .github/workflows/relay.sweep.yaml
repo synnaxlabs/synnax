@@ -41,6 +41,7 @@ jobs:
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
+    timeout-minutes: 10
     steps:
       - name: Checkout the default branch scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -114,8 +115,20 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    timeout-minutes: 10
     steps:
       - name: Label from changed paths
         uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
         with:
           pr-number: ${{ needs.sweep.outputs.prs }}
+
+  relay-failure:
+    name: Relay the failure
+    needs: [sweep, label]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

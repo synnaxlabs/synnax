@@ -9,7 +9,7 @@
 
 import "@/list/Item.css";
 
-import { type optional, type record } from "@synnaxlabs/x";
+import type { optional, record } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type MouseEventHandler,
@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { type RenderProp } from "@/component/renderProp";
+import type { RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { useItemsContext } from "@/list/scope";

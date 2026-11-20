@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 
 /** Where a group of steps sits in the Console. */
 export interface Group {
@@ -98,8 +98,8 @@ export const STEPS: Step[] = [
   part("panels", "Panel selector", "top"),
   {
     ...part("help", "Help and updates", "top", "getting-help"),
-    regions: ["help", "code"],
-    hotspots: { code: "Connect from code" },
+    regions: ["help", "settings", "code"],
+    hotspots: { settings: "Settings", code: "Connect from code" },
   },
 ];
 

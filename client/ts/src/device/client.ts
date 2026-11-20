@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -43,7 +43,7 @@ import {
 } from "@/device/where.gen";
 import { group } from "@/group";
 import { query } from "@/query";
-import { type status } from "@/status";
+import type { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const ACTION_CHANNEL_NAME = "sy_device_action_set";
@@ -248,7 +248,7 @@ export class Client extends query.Retriever<
     );
   }
 
-  async retrieve<
+  override async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
@@ -257,9 +257,11 @@ export class Client extends query.Retriever<
       RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Device>;
+  override async retrieve(
+    params: Key | RetrieveSingleParams | OneParams,
+  ): Promise<Device>;
 
-  async retrieve<
+  override async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
@@ -268,11 +270,11 @@ export class Client extends query.Retriever<
       RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(
+  override async retrieve(
     params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Array<Device>>;
 
-  async retrieve(
+  override async retrieve(
     rawParams:
       | Key
       | Key[]

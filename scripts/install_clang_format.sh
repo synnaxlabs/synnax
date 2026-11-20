@@ -14,6 +14,6 @@
 
 set -euo pipefail
 
-VERSION=23.1.3
+VERSION=23.1.4
 
 uv tool install --force "clang-format==$VERSION"

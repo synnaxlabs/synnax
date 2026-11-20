@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
-import { type capture } from "@/index";
+import type { capture } from "@/index";
 
 /** switchFor returns the switch input beside a label in the create channel dialog. */
 export const switchFor = (modal: Locator, label: string): Locator =>

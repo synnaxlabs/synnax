@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { CDN } from "@/components/media/cdn";
-import { type Check } from "@/util/checks/check";
+import type { Check } from "@/util/checks/check";
 import { locate } from "@/util/checks/crawl";
-import { attrValues } from "@/util/checks/html";
+import { attrOf, attrValues } from "@/util/checks/html";
 
 interface Ref {
   route: string;
@@ -18,6 +18,14 @@ interface Ref {
   /** String to search for in the page source to resolve a line number. */
   needle: string;
 }
+
+const VERCEL_IMAGE = "/_vercel/image?";
+
+// Vercel serves a resized image only once deployed, so check the image it resizes.
+const original = (url: string): string =>
+  url.startsWith(VERCEL_IMAGE)
+    ? (new URLSearchParams(url.slice(VERCEL_IMAGE.length)).get("url") ?? url)
+    : url;
 
 // The page source names a docs asset by its id, not its URL.
 const needle = (url: string): string =>
@@ -28,7 +36,30 @@ const needle = (url: string): string =>
         .replace(/(\/[0-9a-f]{12})?(-light|-dark)?\.\w+$/, "")
     : url;
 
-// Verifies every image, video, and poster a page references loads.
+interface Unnamed {
+  /** The source URL of the image or the first source of the video. */
+  url: string;
+  problem: string;
+}
+
+const unnamed = (html: string): Unnamed[] => [
+  ...[...html.matchAll(/<img\b[^>]*>/g)]
+    // Astro renders an empty alt as a bare attribute.
+    .filter(([tag]) => !/\salt(?=[\s=/>])/.test(tag))
+    .map(([tag]) => ({
+      url: attrOf(tag, "src") ?? "",
+      problem: "image has no alt text",
+    })),
+  ...[...html.matchAll(/<video\b[^>]*>/g)]
+    .filter(([tag]) => attrOf(tag, "aria-label") == null)
+    .map(({ index }) => {
+      const source = /<source\b[^>]*>/.exec(html.slice(index))?.[0] ?? "";
+      return { url: attrOf(source, "src") ?? "", problem: "video has no label" };
+    }),
+];
+
+// Verifies every image, video, and poster a page references loads, and that each image
+// and video has a name for screen readers.
 export const media = (fullCrawl: boolean): Check => {
   const refs: Ref[] = [];
   return {
@@ -40,11 +71,14 @@ export const media = (fullCrawl: boolean): Check => {
           set.split(",").map((candidate) => candidate.trim().split(/\s+/)[0]),
         ),
         ...attrValues(html, "video", "poster"),
-      ];
+      ].map(original);
       // A media fragment such as #t=0.001 seeks the video; it names no anchor.
       for (const url of urls)
         refs.push({ route, url: url.replace(/#.*$/, ""), needle: needle(url) });
-      return [];
+      return unnamed(html).map(
+        ({ url, problem }) =>
+          `${locate(route, needle(original(url)))} - ${problem}: ${original(url)}`,
+      );
     },
     finish: async (ctx, report, progress) => {
       // Canary for the media markup silently matching nothing.
