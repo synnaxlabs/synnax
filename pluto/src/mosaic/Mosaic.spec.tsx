@@ -11,7 +11,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { fireDragEvent, mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Mosaic } from "@/mosaic";

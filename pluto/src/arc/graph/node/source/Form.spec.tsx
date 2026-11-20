@@ -11,9 +11,9 @@ import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { configZ } from "@/arc/graph/node/source/config";
 import { Form } from "@/arc/graph/node/source/Form";

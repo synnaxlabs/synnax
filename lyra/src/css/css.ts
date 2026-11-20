@@ -9,12 +9,12 @@
 
 import { color, direction, location, type text } from "@synnaxlabs/x";
 import clsx, { type ClassValue } from "clsx";
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 
 import { newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
-import { type Theming } from "@/theming";
+import type { Theming } from "@/theming";
 
 const PREFIX = "lyra";
 // Custom properties keep the prefix of the theme tokens.

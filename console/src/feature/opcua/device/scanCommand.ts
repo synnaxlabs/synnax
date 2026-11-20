@@ -9,7 +9,7 @@
 
 import { status, type Synnax, type task } from "@synnaxlabs/client";
 import { type record, TimeSpan } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { type SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/opcua/task/types";
 

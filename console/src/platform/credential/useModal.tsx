@@ -9,7 +9,7 @@
 
 import "@/platform/credential/useModal.css";
 
-import { type resource } from "@synnaxlabs/client";
+import type { resource } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";

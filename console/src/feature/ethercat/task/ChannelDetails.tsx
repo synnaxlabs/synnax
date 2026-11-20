@@ -14,8 +14,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax, Telem } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type FC, type ReactNode } from "react";
-import { type z } from "zod";
+import type { FC, ReactNode } from "react";
+import type { z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
 import {

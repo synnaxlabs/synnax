@@ -11,7 +11,7 @@ import { rack, status } from "@synnaxlabs/client";
 import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Rack } from "@/rack";

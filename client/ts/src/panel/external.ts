@@ -13,4 +13,4 @@ export * from "@/panel/client";
 export * from "@/panel/tree";
 export * from "@/panel/types.gen";
 export * from "@/panel/where";
-export { type WhereInput } from "@/panel/where.gen";
+export type { WhereInput } from "@/panel/where.gen";

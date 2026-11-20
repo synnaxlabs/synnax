@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type ReactElement, useState } from "react";
 
-import { type Activation } from "@/server/db/schema";
+import type { Activation } from "@/server/db/schema";
 import { filename } from "@/server/license/limits";
 import { post, postFile, reload, save } from "@/ui/api";
 import { machineName } from "@/ui/format";

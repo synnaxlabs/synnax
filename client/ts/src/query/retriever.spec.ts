@@ -12,7 +12,7 @@ import { type record, sleep, TimeSpan, zod } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 

@@ -11,7 +11,7 @@ import { status } from "@synnaxlabs/client";
 import { bounds, color, math, notation, type numeric } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
   type BooleanSinkSpec,

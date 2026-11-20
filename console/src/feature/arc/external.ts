@@ -9,8 +9,8 @@
 
 import { Editor } from "@/feature/arc/editor";
 import { Selectable } from "@/feature/arc/Selectable";
-import { type Panel } from "@/platform/panel";
-import { type Selector } from "@/platform/selector";
+import type { Panel } from "@/platform/panel";
+import type { Selector } from "@/platform/selector";
 
 export * from "@/feature/arc/commands";
 export * from "@/feature/arc/editor";

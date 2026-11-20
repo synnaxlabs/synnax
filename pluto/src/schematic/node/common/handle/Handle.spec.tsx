@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location } from "@synnaxlabs/x";
+import type { location } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { Position as RFPosition, ReactFlowProvider } from "@xyflow/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Handle } from "@/schematic/node/common/handle";

@@ -9,7 +9,7 @@
 
 import { Range } from "@/feature/sift/range";
 import { Task } from "@/feature/sift/task";
-import { type Notifications } from "@/platform/notifications";
+import type { Notifications } from "@/platform/notifications";
 
 const RULE: Notifications.Rule = { kind: () => "state", warningsDelayed: true };
 

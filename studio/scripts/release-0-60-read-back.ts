@@ -9,7 +9,7 @@
 
 import { type channel, schematic, type Synnax, TimeStamp } from "@synnaxlabs/client";
 import { sleep, TimeSpan } from "@synnaxlabs/x";
-import { type Page } from "playwright";
+import type { Page } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
