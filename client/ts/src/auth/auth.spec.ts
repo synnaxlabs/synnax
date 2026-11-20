@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Context } from "@synnaxlabs/freighter";
-import { errors, id, url } from "@synnaxlabs/x";
+import { errors, id, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { auth } from "@/auth";
@@ -19,6 +19,7 @@ import {
   InvalidTokenError,
   MissingCredentialsError,
   SessionEndedError,
+  ValidationError,
 } from "@/errors";
 import {
   createEmptyRole,
@@ -165,6 +166,18 @@ describe("auth", () => {
       ]);
       expect(second).toEqual(first);
       expect(await auth.retrieveMethods(client)).toEqual(first);
+    });
+  });
+
+  describe("retrieveProviders", () => {
+    it("should list no providers when the Core sets none", async () => {
+      const providers = await auth.retrieveProviders(
+        auth.createTokenlessClient({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      );
+      expect(providers).toEqual([]);
     });
   });
 
@@ -651,6 +664,41 @@ describe("auth", () => {
           errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("OpenID Connect links", () => {
+    const makeClient = () => {
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      });
+      const client = new auth.Client(transport.unary, {
+        credentials: TEST_CREDENTIALS,
+      });
+      transport.use(client.middleware());
+      return client;
+    };
+
+    it("should list no links for a user without any", async () => {
+      expect(await makeClient().retrieveOIDCLinks()).toEqual([]);
+    });
+
+    it("should ignore an unknown link when unlinking", async () => {
+      await expect(makeClient().unlinkOIDC(uuid.create())).resolves.toBeUndefined();
+    });
+
+    it("should refuse a link while the Core accepts no provider", async () => {
+      await expect(
+        makeClient().linkOIDC({
+          provider: "idp",
+          code: "code",
+          verifier: "verifier",
+          redirectUri: "http://127.0.0.1:4242/callback",
+        }),
+      ).rejects.toThrow(ValidationError);
     });
   });
 
