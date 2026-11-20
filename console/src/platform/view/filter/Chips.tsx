@@ -14,6 +14,7 @@ import { type position } from "@synnaxlabs/lyra/position";
 import { filter, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 import {
   Chip,
@@ -46,7 +47,11 @@ const PropertyChip = ({
   <Chip>
     <ChipName icon={icon}>{name}</ChipName>
     <Operator value={value} onChange={onChange} />
-    <Dialog.Frame variant="floating" location={BELOW}>
+    <Dialog.Frame
+      variant="floating"
+      location={BELOW}
+      className={CSS.BE("view", "filter-value")}
+    >
       <ChipTrigger>
         <Value value={value} onChange={onChange} />
       </ChipTrigger>
