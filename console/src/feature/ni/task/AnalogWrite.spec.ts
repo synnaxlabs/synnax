@@ -433,6 +433,30 @@ describe("AnalogWrite ports", () => {
     );
   });
 
+  it("should mark a scaled voltage channel that maps past every range", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const customScale: NI.Task.Scale = {
+      type: "linear",
+      slope: 2,
+      yIntercept: 0,
+      preScaledUnits: "Volts",
+      scaledUnits: "psi",
+    };
+    await renderAnalogWrite(
+      createConfig(
+        [createChannel("ao_voltage", 0, { minVal: 0, maxVal: 30, customScale })],
+        dev.key,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Maximum value").getAttribute("aria-invalid")).toBe(
+        "true",
+      ),
+    );
+  });
+
   it("should give a channel switched to current the device's current range", async () => {
     const hardware = createHardware();
     hardware.analogOutputs[0].types.push("ao_current");
