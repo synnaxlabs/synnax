@@ -269,6 +269,11 @@ var _ = Describe("Multi", func() {
 			Expect(m.Current(txn, 2, nil)).To(BeFalse())
 		})
 
+		It("Should report staged values over committed ones", func() {
+			m.Stage(txn, 1, []string{"c"})
+			Expect(m.Current(txn, 1, []string{"a", "b"})).To(BeFalse())
+		})
+
 		It("Should report nothing as current before the load finishes", func() {
 			loading := index.NewMulti[*scope, int, string]()
 			_, finish := loading.Populate()
