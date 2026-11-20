@@ -476,7 +476,9 @@ export const Frame = ({
     const dialog = dialogRef.current;
     if (stage !== "start" || visibleRef.current === false || dialog == null) return;
     if (overlayOpen(dialog)) return;
-    if (variant === "modal" && dialog.parentElement?.contains(target) !== true) {
+    // Triggers also hears a key dispatched on the window, which is no node.
+    const inModal = target instanceof Node && dialog.parentElement?.contains(target);
+    if (variant === "modal" && inModal !== true) {
       closeOnCancel.current = true;
       stopPropagation();
       return;
