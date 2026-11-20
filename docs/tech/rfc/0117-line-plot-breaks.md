@@ -81,6 +81,9 @@ collapse: a gap shorter than the two margins merges.
   is the floor, so its bound does not move as it grows.
 - **Rolling window**: Its margin comes from its span, which does not change. The gap
   before it grows from zero, so its seam appears with no jump.
+- **Outer edges**: The first and last segments end at their windows. In place of a
+  margin, they take the axis's auto bound padding as a share of the total span of all
+  segments, so a far range does not stretch the padding.
 - **Manual bounds**: Segments clip to manual x bounds
   (`console/src/feature/lineplot/toolbar/Axes.tsx`).
 - **XY lines**: A line with a channel on x has no segments.
@@ -130,12 +133,11 @@ In relative time, each trace reads its own window plus the margin on both sides,
 traces do not split time. Each range is a separate test.
 
 `PointsLimit` (`client/ts/src/framer/subscription.ts:23`) gets a NEW `bound`. When it is
-set, the `viewed` exception (`points.ts:552`) does not apply, and tiles are cut at the
-bound. An edge of a bound that moves, such as the start of a rolling window, keeps whole
-tiles, and the draw clips them, so the tile keys do not change on each frame. When
-`bound` is not set, the read works as today. The span also bounds the y auto-bounds
-read. Today, a window that streams reads its y bounds over the whole x axis
-(`pluto/src/telem/aether/remote.ts:476-478`).
+set, the subscription draws only the tiles that overlap it. A tile that crosses an edge
+of the bound stays whole, so the tile keys do not change as a bound moves, and each
+trace draws inside a GL scissor cut to its span. When `bound` is not set, the read works
+as today. The span also bounds the y auto-bounds read. Today, a window that streams
+reads its y bounds over the whole x axis (`pluto/src/telem/aether/remote.ts:476-478`).
 
 ### 4.3 Drawing
 
@@ -144,12 +146,12 @@ before the segment. This is the same per-trace translate that relative mode uses
 zero (RFC 0116 §2.2). GL binds a transform for each draw operation
 (`pluto/src/vis/line/aether/line.ts:569-570`), so the shaders do not change.
 
-Each segment draws inside a scissor cut to the segment, so a series that recorded
-through a gap stops at the seam. Today, a series joins all of its finite samples, and
-two series join when their spans touch (`pluto/src/vis/line/aether/draw.ts:95`). The GL
-scissor does not nest, because its cleanup turns the test off
-(`pluto/src/vis/render/context.ts:480`). Its cleanup becomes a restore of the box before
-it.
+The scissor of §4.2 cuts each trace to its span, which stays inside its segment, so a
+series that recorded through a gap stops at the seam. Today, a series joins all of its
+finite samples, and two series join when their spans touch
+(`pluto/src/vis/line/aether/draw.ts:95`). The GL scissor did not nest, because its
+cleanup turned the test off (`pluto/src/vis/render/context.ts:480`). Its cleanup is now
+a restore of the box before it.
 
 A closed break draws a band over its seam, about 8 px wide at every zoom, through the
 plot and the range strip, with `//` on the axis. The band covers about 4 px on each side
@@ -161,29 +163,33 @@ All segments share one tick interval, from the visible span and the plot width, 
 time tick factory picks it today (`pluto/src/vis/axis/ticks.ts`). Each segment places
 ticks at that interval. The first label of each segment is an anchor with the full date
 and time, for example "Nov 18 10:00:30". The other labels keep the short form
-(`ticks.ts:108`). A label that would overlap a seam or an anchor is dropped. A plot with
-no breaks keeps today's axis.
+(`ticks.ts:108`). When the anchor of the first tick does not fit, the next tick that
+fits becomes the anchor. A label that would overlap a seam or an anchor is dropped. A
+plot with no breaks keeps today's axis.
 
 ### 4.5 Opening and closing breaks
 
 - A click on a band, or on its `//`, opens the break in every plot mode. A drag that
   starts on a band still pans, zooms, or selects.
 - An open gap keeps a faint mark on the axis. A click on the mark closes it.
-- The break menu and the plot menu hold "Open all breaks" and "Close all breaks".
+- The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
+  while one is open. A separate break menu adds nothing that these two items do not.
 - On an open or a close, the layout maps the viewport, the selection, and the zoom
   history (`pluto/src/lineplot/Frame.tsx:133`) through time, so the same times stay in
   view.
 - Reset zoom closes all breaks. A change to the plot's ranges resets the zoom, so it
   closes them too.
 - Open breaks are window state. The Console saves the viewport
-  (`console/src/session/lineplot/slice.ts:20`) as it would be with every break closed,
-  so a restart, which starts with every break closed, shows the same times.
+  (`console/src/session/lineplot/slice.ts:20`) as the plot shows it. A restart starts
+  with every break closed, so a view saved with a break open can show other times. The
+  conversion to closed coordinates is not worth its code for a view that the next reset
+  replaces.
 
 ### 4.6 Tooltip, measure, and selection
 
 | Pointer or tool   | Closed break                                          | Segment or open gap                  |
 | ----------------- | ----------------------------------------------------- | ------------------------------------ |
-| Tooltip           | "Hidden: Nov 17 10:01:03 to Nov 18 09:59:57, 23h 58m" | Pointer's segment only, one per line |
+| Tooltip           | "Hidden" span, "From", "To", and "Click to show"      | Pointer's segment only, one per line |
 | Measure across it | True ΔX marked "//", ΔY; no oblique line, no slope    | As today                             |
 | Selection drag    | Stops at the seam, on the side where the drag started | As today                             |
 | Zoom box          | Crosses seams                                         | As today                             |
@@ -201,9 +207,9 @@ trace that owns the time under the pointer, within the 12 px limit
 - A range that crosses a seam draws a bar on each side, cut at the seam. A cut side gets
   square corners and the 40 px fade, as at the plot edge (`docs/claude/ux.md:831`):
   hidden time counts as outside the view.
-- The strip asks the Core only for the time of the segments. Today a gap makes the query
-  span days and can pass the 100-range cap
-  (`pluto/src/lineplot/range/aether/provider.ts:77`).
+- The strip asks the Core only for the time of the segments, with one `overlaps` filter
+  per segment joined by `or`. Today a gap makes the query span days and can pass the
+  100-range cap (`pluto/src/lineplot/range/aether/provider.ts:77`).
 - A click on a cut bar zooms to the range as laid out, with its breaks closed.
 
 ### 4.8 Live ranges
@@ -215,13 +221,15 @@ with older ones, the user switches to relative mode.
 
 ### 4.9 Export
 
-The plot export reads only the time the plot shows: each range, and the time between
-ranges that is visible in one segment or in an open break. It never reads a closed gap.
-The read request (`core/pkg/api/framer/framer.go:184`, RFC 0059 §4.0) takes a list of
-spans. The Core writes one file with one header, and the samples of the spans in time
-order. A shipped client that sends one `bounds` reads as before. The dialog shows one
-span as today, and lists several spans with no edit. To export another span, the user
-makes a selection. The multi-range export of the range menu uses the same list.
+The plot export reads only the time the plot shows with every break closed: each range,
+and the time between ranges inside one segment. It never reads a gap. Open breaks are
+window state that the toolbar export cannot see; to export the time in an open break,
+the user selects it. The read request (`core/pkg/api/framer/framer.go:184`, RFC 0059
+§4.0) takes a list of spans. The Core writes one file with one header, and the samples
+of the spans in time order. A shipped client that sends one `bounds` reads as before.
+The dialog shows one span as today, and lists several spans with no edit. To export
+another span, the user makes a selection. The multi-range export of the range menu uses
+the same list.
 
 ### 4.10 Stored state
 
@@ -246,24 +254,28 @@ interaction, and the release.
 - **Phase 4: Draw breaks.** Segments, margins, and seams in the layout. Each segment
   draws with its offset, inside a scissor that nests. Ticks per segment with anchor
   labels, the band and its `//`, and cut bars in the range strip.
-- **Phase 5: Work across breaks.** Open and close by click and by menu, with held boxes
-  mapped through time. The tooltip and measure stay in one segment, a selection stops at
-  a closed break, and the plot export reads only the shown spans.
+- **Phase 5a: Open and close breaks.** Open and close by click and by menu, with the
+  view, the held boxes, and the selection mapped through time.
+- **Phase 5b: Work across breaks.** The tooltip over a band, the measure across a break,
+  and a selection that stops at a closed break.
+- **Phase 5c: Export the shown spans.** The plot export reads only the shown spans.
 - **Phase 6: Release.** The docs page, and removal of the flag and the Pluto prop.
 
-Phases 4 and 5 hide behind a `breaks` flag in `console/src/flags.ts`, which the Console
+Phases 4 to 5c hide behind a `breaks` flag in `console/src/flags.ts`, which the Console
 passes to Pluto as a prop. Console phases add their rules to `docs/claude/ux.md`. Phases
 2 to 5 change `line.ts` and `axis.ts`, as RFC 0116 phase 2 does, and phase 3 bounds its
 relative traces. Phase 2 stacks on RFC 0116 phase 2 and does not wait for it to merge.
 
 | Phase | Scope                                              | Touches                                                                                                                 | Depends on |
 | ----- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Read a list of time spans in one file read         | `core/pkg/api/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `console/src/feature/lineplot`                | -          |
+| 1     | Read a list of time spans in one file read         | `core/pkg/api/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `console/src/platform/framer`                 | -          |
 | 2     | Map line plot x time through one layout            | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `console/src/feature/lineplot`                                       | -          |
 | 3     | Bound each line plot trace to its span             | `client/ts/src/framer/cache`, `pluto/src/lineplot/aether`, `pluto/src/vis/line/aether`, `pluto/src/telem/aether`        | 2          |
 | 4     | Collapse gaps between line plot ranges into breaks | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `pluto/src/vis/axis`, `pluto/src/vis/render`, `console/src/flags.ts` | 3          |
-| 5     | Open line plot breaks and work across them         | `pluto/src/lineplot`, `pluto/src/viewport`, `console/src/feature/lineplot`, `console/src/platform/framer`               | 1, 4       |
-| 6     | Document line plot breaks and remove their flag    | `site/docs/src/pages/reference/visualize`, `console/src/flags.ts`, `pluto/src/lineplot`                                 | 5          |
+| 5a    | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `console/src/feature/lineplot`                                              | 4          |
+| 5b    | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                              | 5a         |
+| 5c    | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                             | 1, 5b      |
+| 6     | Document line plot breaks and remove their flag    | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`, `pluto/src/lineplot`                                  | 5c         |
 
 Compatibility: no stored shape changes. The read request accepts one `bounds` from
 shipped clients.
