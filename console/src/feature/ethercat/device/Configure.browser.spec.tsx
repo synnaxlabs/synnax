@@ -171,7 +171,11 @@ const commit = (name: string, value: string) => {
 const paste = (name: string, text: string) => {
   const input = cell(name);
   fireEvent.focus(input);
-  fireEvent.paste(input, { clipboardData: { getData: () => text } });
+  const clipboardData = new DataTransfer();
+  clipboardData.setData("text/plain", text);
+  // fireEvent.paste copies only own properties onto a new DataTransfer, which drops
+  // the data set above.
+  fireEvent(input, new ClipboardEvent("paste", { clipboardData, bubbles: true }));
 };
 
 const save = async (label = "Save") => {
