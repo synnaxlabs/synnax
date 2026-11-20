@@ -141,8 +141,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	}
 	// A lone name bound to a reactive variable is itself reactive; one bound to a
 	// value variable is a computed copy and registers below.
-	if head, tail := parser.ExpressionNameParts(expr); head != "" {
-		ref, rerr := ctx.Scope.ResolveMember(ctx, head, tail)
+	if n := parser.ExpressionNameParts(expr); n.Head != "" {
+		ref, rerr := ctx.Scope.ResolveName(ctx, n)
 		if rerr != nil {
 			return
 		}
@@ -198,11 +198,11 @@ func rhsBindsChannel[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (bound, bare bool) {
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	n := parser.ExpressionNameParts(expr)
+	if n.Head == "" {
 		return false, false
 	}
-	ref, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	ref, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil {
 		return false, true
 	}
@@ -264,8 +264,8 @@ func synthReadsChannel[T antlr.ParserRuleContext](
 		return true
 	}
 	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		head, tail := parser.PrimaryNameParts(pe)
-		if ref, err := synth.ResolveMember(ctx, head, tail); err == nil &&
+		n := parser.PrimaryNameParts(pe)
+		if ref, err := synth.ResolveName(ctx, n); err == nil &&
 			ref.IsReactive() {
 			return true
 		}
@@ -279,8 +279,8 @@ func rhsReadsVariable[T antlr.ParserRuleContext](
 	expr parser.IExpressionContext,
 ) bool {
 	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		head, tail := parser.PrimaryNameParts(pe)
-		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		n := parser.PrimaryNameParts(pe)
+		sym, err := ctx.Scope.ResolveName(ctx, n)
 		if err != nil {
 			continue
 		}
@@ -521,11 +521,11 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 // getChannelSymbol checks if an expression is a simple identifier referencing
 // a global channel symbol (KindChannel). Returns the symbol if so, nil otherwise.
 func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Symbol {
-	head, tail := parser.ExpressionNameParts(ctx.AST)
-	if head == "" {
+	n := parser.ExpressionNameParts(ctx.AST)
+	if n.Head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	sym, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil {
 		return nil
 	}
@@ -544,11 +544,11 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	expr parser.IExpressionContext,
 ) *int {
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	n := parser.ExpressionNameParts(expr)
+	if n.Head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	sym, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil {
 		return nil
 	}
@@ -1142,7 +1142,7 @@ func analyzeChannelAssignment(
 		isLiteral := isLiteralExpression(ctx.Child(expr))
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, chanValueType, exprType, ctx.AST)) ||
 			(!isLiteral && !assignable(chanValueType, exprType)) {
-			channelName := ctx.AST.IDENTIFIER().GetText()
+			channelName := parser.AssignmentName(ctx.AST).String()
 			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				ctx.AST, "type mismatch: cannot write %s to channel '%s' (type %s)",
 				exprType,
@@ -1537,8 +1537,9 @@ func checkUnits[ASTNode antlr.ParserRuleContext](
 }
 
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
-	name := ctx.AST.IDENTIFIER().GetText()
-	varScope, err := ctx.Resolve(name)
+	target := parser.AssignmentName(ctx.AST)
+	name := target.String()
+	varScope, err := ctx.ResolveName(target)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return

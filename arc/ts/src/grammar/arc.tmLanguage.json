@@ -18,6 +18,9 @@
       "include": "#keywords"
     },
     {
+      "include": "#channel-names"
+    },
+    {
       "include": "#strings"
     },
     {
@@ -160,6 +163,14 @@
         {
           "name": "keyword.other.arc",
           "match": "\\b(func|sequence|stage|next|authority|import|export|as)\\b"
+        }
+      ]
+    },
+    "channel-names": {
+      "patterns": [
+        {
+          "name": "support.type.channel.arc",
+          "match": "'(?:[^'\\\\\\r\\n]|\\\\['\\\\])*'"
         }
       ]
     },

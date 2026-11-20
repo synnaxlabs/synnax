@@ -31,7 +31,7 @@ func RejectReactiveAssignment(
 	d *diagnostics.Diagnostics,
 	assign parser.IAssignmentContext,
 ) {
-	name := assign.IDENTIFIER().GetText()
+	name := parser.AssignmentName(assign).String()
 	d.Add(
 		codes.AssignmentTarget.Atf(
 			assign,
@@ -47,8 +47,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	assign parser.IAssignmentContext,
 ) {
-	name := assign.IDENTIFIER().GetText()
-	sym, err := ctx.Resolve(name)
+	sym, err := ctx.ResolveName(parser.AssignmentName(assign))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, assign))
 		return
@@ -114,11 +113,11 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, false
 	}
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	n := parser.ExpressionNameParts(expr)
+	if n.Head == "" {
 		return nil, false
 	}
-	sym, err := ctx.ResolveQualified(head, tail)
+	sym, err := ctx.ResolveName(n)
 	if err != nil {
 		return nil, false
 	}

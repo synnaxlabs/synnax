@@ -14,6 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -23,21 +24,18 @@ import (
 
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
-	head, tail string,
+	n parser.Name,
 ) (types.Type, error) {
-	name := head
-	if tail != "" {
-		name = head + "." + tail
+	name := n.String()
+	var scope *symbol.Symbol
+	// A quoted channel name never binds a variable, a lifted input included.
+	if !n.Channel {
+		scope = liftedInput(ctx.Scope, name)
 	}
-	scope := liftedInput(ctx.Scope, name)
 	if scope == nil {
 		var err error
-		if scope, err = ctx.Scope.ResolveMember(
-			ctx,
-			head,
-			tail,
-			symbol.IncludeInternal,
-		); err != nil {
+		scope, err = ctx.Scope.ResolveName(ctx, n, symbol.IncludeInternal)
+		if err != nil {
 			return types.Type{}, err
 		}
 	}

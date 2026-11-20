@@ -233,7 +233,7 @@ func identifierUpstreamType(
 	prevIDNode parser.IIdentifierContext,
 ) (types.Type, bool) {
 	idName := parser.IdentifierName(prevIDNode)
-	idSym, err := ctx.ResolveQualified(parser.IdentifierParts(prevIDNode))
+	idSym, err := ctx.ResolveName(parser.IdentifierParts(prevIDNode))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 		return types.Type{}, false
@@ -401,7 +401,7 @@ func analyzeIdentifier(
 	isLastNode bool,
 ) {
 	name := parser.IdentifierName(ctx.AST)
-	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
+	sym, err := ctx.ResolveName(parser.IdentifierParts(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
@@ -517,7 +517,7 @@ func flowSourceType(
 	}
 	if prevID := prevNode.Identifier(); prevID != nil {
 		srcName := parser.IdentifierName(prevID)
-		srcSym, err := ctx.ResolveQualified(parser.IdentifierParts(prevID))
+		srcSym, err := ctx.ResolveName(parser.IdentifierParts(prevID))
 		if err != nil {
 			return types.Type{}, ""
 		}
@@ -1088,7 +1088,7 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 			"the next node in the chain expects an input")
 	}
 	if idNode := ctx.AST.Identifier(); idNode != nil {
-		sym, err := ctx.ResolveQualified(parser.IdentifierParts(idNode))
+		sym, err := ctx.ResolveName(parser.IdentifierParts(idNode))
 		if err != nil {
 			return types.Type{}
 		}

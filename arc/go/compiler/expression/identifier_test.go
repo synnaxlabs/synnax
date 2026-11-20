@@ -236,6 +236,23 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
+		It("Should compile a quoted channel read the same as a bare one", func(
+			bCtx SpecContext,
+		) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "pt-01",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I32()),
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "'pt-01'")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpCall, uint32(0),
+			))
+		})
+
 		It(
 			"Should correctly compile a channel read inside of an addition expression",
 			func(bCtx SpecContext) {

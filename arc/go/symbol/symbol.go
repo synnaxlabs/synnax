@@ -35,6 +35,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
@@ -614,6 +615,8 @@ type resolveOpts struct {
 	// consulted. Read-only callers operating on an already-analyzed tree
 	// set this so the lookup leaves no trace; see WithoutUsageTracking.
 	suppressUsage bool
+	// channel restricts the lookup to channels; see ChannelOnly.
+	channel bool
 }
 
 // IncludeInternal causes Resolve to walk past the user-visibility filters:
@@ -630,6 +633,11 @@ func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
 // such snapshots and must pass this; the analysis pass that builds the tree and
 // reports unused imports must not, since it relies on the usage record.
 func WithoutUsageTracking(o *resolveOpts) { o.suppressUsage = true }
+
+// ChannelOnly causes Resolve to look name up as a channel path. It finds only a
+// channel, which a scope holds or a global resolver gives, so a variable of the same
+// name never matches. A quoted channel name resolves this way.
+func ChannelOnly(o *resolveOpts) { o.channel = true }
 
 // Resolve looks up a single name using lexical scoping rules: children →
 // global resolver → parent. A KindModule or KindModuleAlias searches only its own
@@ -707,6 +715,19 @@ func (s *Symbol) resolve(
 	return s.resolveLexical(ctx, name, opts, origin)
 }
 
+// ResolveName resolves n from s: a quoted channel name as ChannelOnly does, so it never
+// binds a variable, and any other name as ResolveMember does.
+func (s *Symbol) ResolveName(
+	ctx context.Context,
+	n parser.Name,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	if n.Channel {
+		return s.Resolve(ctx, n.Head, append(options, ChannelOnly)...)
+	}
+	return s.ResolveMember(ctx, n.Head, n.Tail, options...)
+}
+
 // resolveMember finds the member of module s that the caller may see.
 func (s *Symbol) resolveMember(
 	ctx context.Context,
@@ -727,12 +748,45 @@ func (s *Symbol) resolveMember(
 	return child, nil
 }
 
+// resolveChannel finds the channel at path in s or its ancestors: a channel child, or
+// one that a global resolver gives.
+func (s *Symbol) resolveChannel(
+	ctx context.Context,
+	path string,
+	origin *Symbol,
+) (*Symbol, error) {
+	isChannel := func(child *Symbol) bool {
+		return child.Kind == KindChannel && child.Name == path
+	}
+	for scope := s; scope != nil; scope = scope.Parent {
+		if child := scope.findChild(isChannel); child != nil {
+			return child, nil
+		}
+		if scope.globalResolver == nil {
+			continue
+		}
+		sym, err := scope.globalResolver.Resolve(ctx, path)
+		if err != nil && !isUndefined(err) {
+			return nil, err
+		}
+		if err == nil && sym.Kind == KindChannel {
+			return sym, nil
+		}
+	}
+	return nil, codes.SymbolUndefined.Mark(
+		&UndefinedSymbolError{ctx: ctx, Name: path, scope: origin},
+	)
+}
+
 func (s *Symbol) resolveLexical(
 	ctx context.Context,
 	name string,
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
+	if opts.channel {
+		return s.resolveChannel(ctx, name, origin)
+	}
 	matches := func(child *Symbol) bool { return child.Name == name }
 	if id, err := strconv.ParseUint(name, 10, 31); err == nil {
 		matches = func(child *Symbol) bool { return child.ID == int(id) }
