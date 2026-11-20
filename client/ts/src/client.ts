@@ -153,9 +153,9 @@ export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
 }
 
 /**
- * The authority a client logs in with: its credentials when both are given or its API
- * key, else the token or cookie. A client with none fails its first request with an
- * AuthError.
+ * The authority a client logs in with: its credentials when both are given, its API
+ * key, or its OpenID Connect code, else the token or cookie. A client with none fails
+ * its first request with an AuthError.
  */
 const authorityOf = ({
   username,

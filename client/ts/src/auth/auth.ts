@@ -642,9 +642,9 @@ export class Client {
   }
 
   /**
-   * Logs in with the credentials or API key, or resumes the session a token or cookie
-   * names. A token the Core rejects is forgotten, so the next attempt needs
-   * credentials; a Core that cannot be reached has not rejected it.
+   * Logs in with the credentials, API key, or OpenID Connect code, or resumes the
+   * session a token or cookie names. A token the Core rejects is forgotten, so the next
+   * attempt needs a proof; a Core that cannot be reached has not rejected it.
    */
   private async login(): Promise<Error | null> {
     // a login issued before a setCredentials is stale: its result must not touch the
