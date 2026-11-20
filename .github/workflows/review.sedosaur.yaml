@@ -93,6 +93,7 @@ jobs:
       fork: ${{ steps.pr.outputs.fork }}
       carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
+    timeout-minutes: 10
     steps:
       - name: Read the pull request
         id: pr
@@ -375,6 +376,7 @@ jobs:
       'true' && !inputs.replay
     name: Unwatch the pull request
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Mint the GitHub App token
         id: app
@@ -406,6 +408,7 @@ jobs:
       needs.start.outputs.carried != 'true'
     name: End the check run
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Mint the GitHub App token
         id: app
@@ -442,6 +445,7 @@ jobs:
     permissions:
       checks: read
       pull-requests: read
+    timeout-minutes: 10
     steps:
       - name: Read the pull request
         id: pr
