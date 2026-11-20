@@ -27,6 +27,8 @@ type opFS struct {
 	dirErr   error
 	inSync   int
 	maxSyncs int
+	// sizes holds the length of each write.
+	sizes []int
 	// held receives once for each sync that waits, while release is set.
 	held    chan string
 	release chan struct{}
@@ -54,6 +56,13 @@ func (f *opFS) MaxOpen() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.maxOpen
+}
+
+// Sizes returns the length of each write.
+func (f *opFS) Sizes() []int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]int(nil), f.sizes...)
 }
 
 // MaxSyncs returns the most file and directory syncs that ran at once.
@@ -144,6 +153,13 @@ type opFile struct {
 	xfs.File
 	fs   *opFS
 	name string
+}
+
+func (f *opFile) WriteAt(p []byte, off int64) (int, error) {
+	f.fs.mu.Lock()
+	f.fs.sizes = append(f.fs.sizes, len(p))
+	f.fs.mu.Unlock()
+	return f.File.WriteAt(p, off)
 }
 
 func (f *opFile) Sync() error {
