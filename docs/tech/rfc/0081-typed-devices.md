@@ -378,9 +378,9 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    `master` set to the new key. A LabJack row maps `model` `LJM_dtT4`, `LJM_dtT7`, and
    `LJM_dtT8` to `t4`, `t7`, and `t8`, and its string key to the `uint32` `serial`; a
    key that is not a `uint32` is quarantined. Its `location` becomes `connection`:
-   `LJM_ctUSB` stays, `LJM_ctETHERNET` and `LJM_ctWIFI` become `LJM_ctTCP`, and any
-   other value becomes `LJM_ctUSB` with a warning, because the scanner rewrites
-   `connection` on its next scan.
+   `LJM_ctUSB` and `LJM_ctTCP` stay, `LJM_ctETHERNET` and `LJM_ctWIFI` become
+   `LJM_ctTCP`, and any other value becomes `LJM_ctUSB` with a warning, because the
+   scanner rewrites `connection` on its next scan.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map.
