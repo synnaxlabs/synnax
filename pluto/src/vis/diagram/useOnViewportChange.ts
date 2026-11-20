@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactFlowState, useStoreApi, type Viewport } from "@xyflow/react";
+import { useReactFlowStoreApi, type Viewport, type ViewportStore } from "@xyflow/react";
 import { useEffect } from "react";
 
 /**
@@ -16,15 +16,17 @@ import { useEffect } from "react";
  * than `useOnViewportChange`, whose callbacks React Flow drops when it unmounts.
  */
 export const useOnViewportChange = (onChange: (viewport: Viewport) => void): void => {
-  const store = useStoreApi();
+  const { optionsStore, viewportStore } = useReactFlowStoreApi();
   useEffect(() => {
-    const sync = ({ panZoom, transform: [x, y, zoom] }: ReactFlowState): void => {
-      if (panZoom == null) return;
+    const sync = ({ transform: [x, y, zoom] }: ViewportStore): void => {
+      // React Flow resets the viewport store before the options store when it
+      // unmounts, so only a detached pane marks the placeholder transform.
+      if (optionsStore.getState().domNode?.isConnected !== true) return;
       onChange({ x, y, zoom });
     };
-    sync(store.getState());
-    return store.subscribe((state, prev) => {
+    sync(viewportStore.getState());
+    return viewportStore.subscribe((state, prev) => {
       if (state.transform !== prev.transform) sync(state);
     });
-  }, [store, onChange]);
+  }, [optionsStore, viewportStore, onChange]);
 };

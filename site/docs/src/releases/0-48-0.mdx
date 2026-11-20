@@ -1,20 +1,15 @@
 ---
-title: "Version 0.48 release notes"
+title: "Login page, status toolbar, NI counter read tasks, and improved measure tool"
+version: "0.48.0"
+date: "Nov 12, 2025"
 ---
 
 import { Hero } from "@/components/hero";
 import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.48.0"
-    date="Nov 12, 2025"
-    title="Login page, status toolbar, NI counter read tasks, and improved measure tool"
->
 
 <Hero.Hero
   image="releases/0-48-0/thumbnail"
@@ -102,5 +97,3 @@ line plot.
   circular dependencies and intelligently grouping nested calculations.
 - Fixed an issue where the docker image would not correctly grant permissions to the
   embedded driver.
-
-</Release>
