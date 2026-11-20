@@ -836,6 +836,32 @@ var _ = Describe("Graph", func() {
 			})
 
 			It(
+				"Should reject a node type qualified by a non-module head",
+				func(ctx SpecContext) {
+					nodes, inputs := buildNodes(
+						nodeSpec{key: "n", typ: "source.sink"},
+					)
+					g := MustSucceed(graph.Parse(graph.Graph{
+						Functions: []ir.Function{
+							{Key: "source"},
+							{
+								Key: "sink",
+								Inputs: types.Params{
+									{Name: ir.DefaultInputParam, Type: types.F32()},
+								},
+							},
+						},
+						Nodes:  nodes,
+						Inputs: inputs,
+					}))
+					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+					Expect(
+						diagnostics.String(),
+					).To(ContainSubstring("undefined symbol: source.sink"))
+				},
+			)
+
+			It(
 				"Should handle invalid parameter references in edges",
 				func(ctx SpecContext) {
 					nodes, inputs := buildNodes(

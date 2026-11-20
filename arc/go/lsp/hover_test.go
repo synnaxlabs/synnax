@@ -931,6 +931,15 @@ func add() {a i32, b i32} i32 {
 		)
 
 		It(
+			"Should not provide hover for a member of a non-module head",
+			func(ctx SpecContext) {
+				content := "func b() {}\n\nfunc test() {\n    a := 1\n    a.b()\n}"
+				OpenArcDocument(server, ctx, uri, content)
+				Expect(Hover(server, ctx, uri, 4, 6)).To(BeNil())
+			},
+		)
+
+		It(
 			"Should provide hover for a member of an imported module",
 			func(ctx SpecContext) {
 				content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"

@@ -524,28 +524,16 @@ func cleanDocComment(comments []string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-// resolveDotted resolves a possibly-qualified name like "time.now" by
-// splitting on dots and walking: the head is resolved in scope, each
-// subsequent segment is resolved against the previous result's children.
-// Resolution mirrors user-code resolution (no IncludeInternal), so a
-// module that is reachable only through the ambient prelude — i.e. one the
-// document has not imported — does not resolve. Hovering a member of an
-// unimported module therefore returns nothing, matching the analyzer's
-// "undefined" diagnostic instead of rendering docs as if it were valid.
+// resolveDotted resolves a possibly-qualified name like "time.now". Resolution mirrors
+// user-code resolution (no IncludeInternal), so hovering a member of a module the
+// document has not imported returns nothing, matching the analyzer's diagnostic.
 func resolveDotted(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
-	head, tail, hasDot := strings.Cut(name, ".")
-	sym, err := scope.Resolve(ctx, head, symbol.WithoutUsageTracking)
-	if err != nil {
-		return nil, err
-	}
-	if !hasDot {
-		return sym, nil
-	}
-	return resolveDotted(ctx, sym, tail)
+	head, tail, _ := strings.Cut(name, ".")
+	return scope.ResolveMember(ctx, head, tail, symbol.WithoutUsageTracking)
 }
 
 // variableTypeDetail renders a value variable's hover type, tagged by its kind.

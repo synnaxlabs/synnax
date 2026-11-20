@@ -47,11 +47,7 @@ func resolveQualified(
 	if !ok {
 		return scope.Resolve(ctx, name)
 	}
-	headSym, err := scope.Resolve(ctx, head, symbol.IncludeInternal)
-	if err != nil {
-		return nil, err
-	}
-	return headSym.Resolve(ctx, tail)
+	return scope.ResolveMember(ctx, head, tail, symbol.IncludeInternal)
 }
 
 // Analyze compiles a visual graph into executable IR with type inference,
