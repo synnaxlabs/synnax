@@ -70,7 +70,7 @@ const renderAnalogRead = async (
   config: task.Payload<NI.Task.AnalogReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.AnalogRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.ANALOG_READ_TYPE], {
     client,
     taskKey: draft.key,
   });
@@ -93,10 +93,13 @@ describe("AnalogRead", () => {
     });
     await reportTaskRunning(client, draft);
     const args = await awaitTare(client, draft.key, async () => {
-      const { container } = await renderNITaskForm(NI.Task.AnalogRead, {
-        client,
-        taskKey: draft.key,
-      });
+      const { container } = await renderNITaskForm(
+        NI.Task.FORMS[NI.Task.ANALOG_READ_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
       fireEvent.click(await findIconButton(container, "tare"));
     });
     expect(args).toEqual({ keys: [float.key] });
