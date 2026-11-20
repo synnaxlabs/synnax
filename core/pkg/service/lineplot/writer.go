@@ -30,6 +30,7 @@ type Writer struct {
 	table      *gorp.Table[Key, LinePlot]
 	dispatcher actions.Dispatcher[Key, Action]
 	color      *color.Service
+	ranger     *ranger.Service
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -181,10 +182,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 func (w Writer) fillColors(ctx context.Context, lp LinePlot) ([]Action, error) {
 	lines := lo.Map(lp.Lines, func(l Line, _ int) *color.Ref { return l.Color })
 	rules := lo.Map(lp.Rules, func(r Rule, _ int) *color.Ref { return r.Color })
-	refs := lo.Map(
-		lp.Ranges,
-		func(r ranger.Ref, _ int) *color.Ref { return refColor(r) },
-	)
+	refs := lo.Map(lp.Ranges, func(r ranger.Ref, _ int) *color.Ref {
+		_, c := settings(r)
+		return c
+	})
 	if !slices.Contains(lines, nil) &&
 		!slices.Contains(rules, nil) &&
 		!slices.Contains(refs, nil) {
@@ -248,10 +249,9 @@ func (w Writer) rangeColors(
 		return own, nil
 	}
 	var ranges []ranger.Range
-	if err := gorp.NewRetrieve[ranger.Key, ranger.Range]().
-		Where(gorp.MatchKeysFunc[ranger.Key, ranger.Range](
-			func(gorp.Context) ([]ranger.Key, error) { return keys, nil },
-		)).
+	if err := w.ranger.NewRetrieve().
+		Where(ranger.MatchKeys(keys...)).
+		SkipMissingKeys().
 		Entries(&ranges).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
@@ -292,17 +292,6 @@ func (w Writer) namedColors(
 	return lo.SliceToMap(named, func(n color.Named) (color.Key, color.Named) {
 		return n.Key, n
 	}), nil
-}
-
-// refColor returns the color of r, or nil if it has none.
-func refColor(r ranger.Ref) *color.Ref {
-	switch v := r.Variant.(type) {
-	case ranger.KeyRef:
-		return v.Color
-	case ranger.WindowRef:
-		return v.Color
-	}
-	return nil
 }
 
 // minRangeDistance is the least OKLab distance between two colors of a plot's ranges,

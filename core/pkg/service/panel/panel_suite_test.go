@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -108,6 +109,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   node.DB,
 		ImEx: imex.NewService(),
 		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
+			DB:    node.DB,
+			Group: groupSvc,
+		})),
+		Ranger: MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:    node.DB,
 			Group: groupSvc,
 		})),
