@@ -1093,7 +1093,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
-			ClearUnissuedChannelLinks(l.Schematic, l.Table),
+			ClearUnissuedChannelLinks(
+				l.Schematic,
+				l.Table,
+				cfg.Distribution.Channel.IssuedAtOpen,
+			),
 		),
 	}); !ok(err, nil) {
 		return nil, err

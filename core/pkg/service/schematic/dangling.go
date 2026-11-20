@@ -9,31 +9,11 @@
 
 package schematic
 
-import (
-	"context"
+import "github.com/synnaxlabs/gorp"
 
-	"github.com/synnaxlabs/gorp"
-)
-
-// DropDangling removes from each stored schematic the links that
-// gorp.Table.DropDangling removes, such as a channel key that the Core never issued,
-// and writes each schematic that it changes. A deleted channel's key stays.
-func (s *Service) DropDangling(ctx context.Context, tx gorp.Tx) error {
-	var stored []Schematic
-	if err := s.table.NewRetrieve().Entries(&stored).Exec(ctx, tx); err != nil {
-		return err
-	}
-	for i := range stored {
-		dropped, err := s.table.DropDangling(ctx, tx, &stored[i])
-		if err != nil {
-			return err
-		}
-		if !dropped {
-			continue
-		}
-		if err = s.table.NewCreate().Entry(&stored[i]).Exec(ctx, tx); err != nil {
-			return err
-		}
-	}
-	return nil
+// DanglingMigration returns a migration identified by key that streams every stored
+// schematic and removes the links that gorp.Table.DropDangling removes, asking issued
+// whether a channel key was issued.
+func (s *Service) DanglingMigration(key string, issued gorp.IssuedFunc) gorp.Migration {
+	return s.table.IssuedDanglingMigration(key, issued)
 }

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -35,13 +36,14 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 	var (
 		layer *service.Layer
 		db    *gorp.DB
+		dist  testutil.Node
 		proj  project.Project
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := testutil.NewNode(ctx)
-		db = node.DB
-		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
+		dist = testutil.NewNode(ctx)
+		db = dist.DB
+		layer = MustOpen(svctestutil.OpenLayer(ctx, dist))
 		proj = project.Project{Name: "Upgraded"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return layer.Project.NewWriter(tx).Create(ctx, &proj)
@@ -107,13 +109,18 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 		return sch, tbl
 	}
 
+	// clearLinks runs the step as a Core that opened after every channel so far.
 	clearLinks := func(ctx SpecContext) {
 		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: uuid.New().String(),
 			Migrations: []gorp.Migration{
-				service.ClearUnissuedChannelLinks(layer.Schematic, layer.Table),
+				service.ClearUnissuedChannelLinks(
+					layer.Schematic,
+					layer.Table,
+					dist.Channel.Issued,
+				),
 			},
 		})).To(Succeed())
 	}
@@ -151,8 +158,12 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 	}
 
 	It("Should keep its key, which the applied set holds forever", func() {
-		Expect(service.ClearUnissuedChannelLinks(layer.Schematic, layer.Table).Key()).
-			To(Equal("v63_clear_unissued_channel_links"))
+		step := service.ClearUnissuedChannelLinks(
+			layer.Schematic,
+			layer.Table,
+			dist.Channel.Issued,
+		)
+		Expect(step.Key()).To(Equal("v63_clear_unissued_channel_links"))
 	})
 
 	It("Should clear a never-issued key and keep a deleted and a live key", func(
@@ -172,6 +183,33 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 		Expect(tableKeys(ctx, tbl.Key)).To(Equal(
 			[]channel.Key{0, dead.Key(), live.Key()},
 		))
+	})
+
+	It("Should keep a key leased to another node", func(ctx SpecContext) {
+		live := createChannel(ctx)
+		other := distchannel.NewKey(node.Key(2), live.LocalKey+500)
+		sch, tbl := storeUpgraded(ctx, other)
+		clearLinks(ctx)
+		Expect(schematicKeys(ctx, sch.Key)).To(Equal([]channel.Key{other}))
+		Expect(tableKeys(ctx, tbl.Key)).To(Equal([]channel.Key{other}))
+	})
+
+	It("Should let a write hold a key leased to another node", func(ctx SpecContext) {
+		live := createChannel(ctx)
+		var value schematic.ValueNodeConfig
+		value.SetDefaults()
+		value.Channel = distchannel.NewKey(node.Key(2), live.LocalKey+600)
+		sch := schematic.Schematic{
+			Name:    "other node",
+			Project: &proj.Key,
+			Nodes: []schematic.Node{{
+				Key:    "value",
+				Config: schematic.NodeConfig{Variant: value},
+			}},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
+		})).To(Succeed())
 	})
 
 	It("Should let an upgraded schematic be copied", func(ctx SpecContext) {
