@@ -18,6 +18,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -290,6 +291,109 @@ var _ = Describe("References across holders", Ordered, func() {
 				Holder:    gorp.NewTarget("schematic", sch.Key),
 				Direction: channel.DirectionRead,
 			}))
+		},
+	)
+
+	retarget := func(
+		ctx SpecContext,
+		to map[channel.Key]channel.Key,
+		holders ...gorp.Dependent,
+	) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Retarget(ctx, to, holders)
+		})).To(Succeed())
+	}
+
+	It(
+		"Should swap the state and command channels of a valve with one map and send "+
+			"the schematic to open Consoles",
+		func(ctx SpecContext) {
+			state, command := createChannel(ctx), createChannel(ctx)
+			var valve schematic.ValveNodeConfig
+			valve.SetDefaults()
+			valve.StateChannel, valve.CommandChannel = state.Key(), command.Key()
+			sch := schematic.Schematic{
+				Name:    "swap",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{{
+					Key:    "valve",
+					Config: schematic.NodeConfig{Variant: valve},
+				}},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
+			})).To(Succeed())
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(layer.Schematic.OnAction(rec.Record))
+			holder := gorp.NewTarget("schematic", sch.Key)
+			retarget(
+				ctx,
+				map[channel.Key]channel.Key{
+					state.Key():   command.Key(),
+					command.Key(): state.Key(),
+				},
+				gorp.Dependent{Holder: holder, Reference: "nodes.config.state_channel"},
+				gorp.Dependent{
+					Holder:    holder,
+					Reference: "nodes.config.command_channel",
+				},
+			)
+			var stored schematic.Schematic
+			Expect(layer.Schematic.NewRetrieve().
+				Where(schematic.MatchKeys(sch.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			moved, ok := stored.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(moved.StateChannel).To(Equal(command.Key()))
+			Expect(moved.CommandChannel).To(Equal(state.Key()))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(sch.Key))
+			Expect(seen[0].Actions).To(HaveLen(1))
+			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+			Expect(seen[0].Actions[0].Create.Schematic.Nodes).To(Equal(stored.Nodes))
+		},
+	)
+
+	It(
+		"Should keep each cell of a table in place when a retarget moves its channel "+
+			"onto another cell's and send the table to open Consoles",
+		func(ctx SpecContext) {
+			a, b := createChannel(ctx), createChannel(ctx)
+			t := valueTable(a.Key(), b.Key())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Table.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
+			rec := &Recorder[table.Key, table.Action]{}
+			DeferCleanup(layer.Table.OnAction(rec.Record))
+			retarget(
+				ctx,
+				map[channel.Key]channel.Key{a.Key(): b.Key()},
+				gorp.Dependent{
+					Holder:    gorp.NewTarget("table", t.Key),
+					Reference: "rows.cells.config.channel",
+				},
+			)
+			var stored table.Table
+			Expect(layer.Table.NewRetrieve().
+				Where(table.MatchKeys(t.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			cells := stored.Rows[0].Cells
+			Expect(cells).To(HaveLen(2))
+			for i, c := range cells {
+				v, ok := c.Config.Variant.(table.ValueCellConfig)
+				Expect(ok).To(BeTrue())
+				Expect(c.Key).To(Equal(t.Rows[0].Cells[i].Key))
+				Expect(v.Channel).To(Equal(b.Key()))
+			}
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(t.Key))
+			Expect(seen[0].Actions).To(HaveLen(1))
+			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
 		},
 	)
 })

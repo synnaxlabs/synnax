@@ -99,8 +99,9 @@ type Store interface {
 	// exported envelopes.
 	Version() imex.Version
 	// OnRewrite sets the hook that runs in the transaction of each delete that detaches
-	// a target from a record, with the key of the record. An error from the hook fails
-	// the delete. Set it before the store serves deletes.
+	// a target from a record, and of each retarget that moves one, with the key of the
+	// record. An error from the hook fails the delete or the retarget. Set it before
+	// the store serves deletes.
 	OnRewrite(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
 	// OnTargetSet sets the hook that runs in the transaction of each write that sets a
 	// record of one of HashedTables that a record uses, with the key of the record. An
