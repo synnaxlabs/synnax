@@ -130,7 +130,7 @@ export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
 };
 
 /** @returns the Kafka keys of a shape that no record of the task reads yet. */
-export const freeKeys = (shape: json.Shape, records: ReadRecord[]): string[] =>
+const freeKeys = (shape: json.Shape, records: ReadRecord[]): string[] =>
   shape.sources.filter((key) => !records.some(({ recordKey }) => recordKey === key));
 
 const toJSONField = (
