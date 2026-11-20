@@ -28,7 +28,10 @@ import { getIconButton } from "@/testutil";
 const client = createTestClient();
 
 const renderWrite = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(Kafka.Task.Write, options);
+  const rendered = await renderTaskFormTab(
+    Kafka.Task.FORMS[Kafka.Task.WRITE_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };
