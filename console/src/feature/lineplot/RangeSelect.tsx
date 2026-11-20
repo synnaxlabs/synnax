@@ -95,13 +95,11 @@ interface RollingTagProps {
   window: DynamicWindow;
 }
 
-const RollingTag = ({ onRemove, window }: RollingTagProps): ReactElement => {
-  return (
-    <Tag.Tag icon={liveIcon} onClose={onRemove} level="small" size="small">
-      {new TimeSpan(window.timeSpan).toString()}
-    </Tag.Tag>
-  );
-};
+const RollingTag = ({ onRemove, window }: RollingTagProps): ReactElement => (
+  <Tag.Tag icon={liveIcon} onClose={onRemove} level="small" size="small">
+    {new TimeSpan(window.timeSpan).toString()}
+  </Tag.Tag>
+);
 
 interface KeyTagProps {
   onRemove: () => void;
