@@ -1447,22 +1447,33 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      checks: read
     steps:
+      # GraphQL filters the jobs by conclusion, and its budget is apart from the REST
+      # budget that every job of the repository shares.
       - name: Cancel the run when a job fails
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          url="$run/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
+          query='query($url: URI!) {
+            resource(url: $url) { ... on WorkflowRun { checkSuite {
+              failed: checkRuns(first: 100, filterBy: {checkType: LATEST,
+                conclusions: [FAILURE, TIMED_OUT, CANCELLED]}) { nodes { name } }
+              ok: checkRuns(first: 1, filterBy: {checkType: LATEST, checkName: "OK"}) {
+                nodes { status }
+              }
+            } } }
+          }'
           while true; do
             # The next poll retries a failed API call.
-            if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
+            if ! suite=$(gh api graphql -f url="$url" -f query="$query" \
+              --jq .data.resource.checkSuite); then
               sleep 90
               continue
             fi
-            failed=$(jq -r '.[] | select(.conclusion == "failure"
-              or .conclusion == "timed_out" or .conclusion == "cancelled")
-              | .name' <<< "$jobs")
+            failed=$(jq -r '.failed.nodes[].name' <<< "$suite")
             if [ -n "$failed" ]; then
               echo "$failed"
               echo "::error::A job failed, so the run is cancelled."
@@ -1470,8 +1481,8 @@ jobs:
               exit 1
             fi
             # OK starts only after every other job finished.
-            jq -e '.[] | select(.name == "OK" and (.status == "in_progress"
-              or .status == "completed"))' <<< "$jobs" > /dev/null && exit 0
+            jq -e '.ok.nodes[] | select(.status == "IN_PROGRESS"
+              or .status == "COMPLETED")' <<< "$suite" > /dev/null && exit 0
             sleep 90
           done
 
