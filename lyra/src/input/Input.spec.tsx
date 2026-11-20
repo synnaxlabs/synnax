@@ -11,7 +11,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Dialog } from "@/dialog";
 import { Input } from "@/input";
+import { Triggers } from "@/triggers";
 
 describe("Input", () => {
   describe("Text", () => {
@@ -397,6 +399,64 @@ describe("Input", () => {
         const input = c.getByRole("textbox");
         fireEvent.keyDown(input, { key: "Escape" });
         expect(onKeyDown).toHaveBeenCalled();
+      });
+
+      it("should stop Escape at an input outside a modal", () => {
+        const onKeyDown = vi.fn();
+        render(
+          <div onKeyDown={onKeyDown}>
+            <Input.Text value="" onChange={vi.fn()} />
+          </div>,
+        );
+        fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+        expect(onKeyDown).not.toHaveBeenCalled();
+      });
+
+      it("should close a modal on one Escape from an input in it", () => {
+        const c = render(
+          <Triggers.Provider>
+            <Dialog.Frame variant="modal">
+              <Dialog.Trigger>Open</Dialog.Trigger>
+              <Dialog.Dialog>
+                <Input.Text value="" onChange={vi.fn()} aria-label="Name" />
+              </Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        fireEvent.click(c.getByText("Open"));
+        const input = c.getByLabelText("Name");
+        act(() => input.focus());
+        fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
+        expect(c.queryByLabelText("Name")).toBeNull();
+      });
+
+      it("should close only a dropdown in a modal on Escape from its search", () => {
+        const c = render(
+          <Triggers.Provider>
+            <Dialog.Frame variant="modal">
+              <Dialog.Trigger>Open</Dialog.Trigger>
+              <Dialog.Dialog>
+                <p>Modal content</p>
+                <Dialog.Frame variant="connected">
+                  <Dialog.Trigger>Pick</Dialog.Trigger>
+                  <Dialog.Dialog>
+                    <Input.Search value="" onChange={vi.fn()} aria-label="Search" />
+                  </Dialog.Dialog>
+                </Dialog.Frame>
+              </Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        fireEvent.click(c.getByText("Open"));
+        fireEvent.click(c.getByText("Pick"));
+        const search = c.getByLabelText("Search");
+        act(() => search.focus());
+        fireEvent.keyDown(search, { key: "Escape", code: "Escape" });
+        fireEvent.keyUp(document.body, { key: "Escape", code: "Escape" });
+        expect(c.queryByLabelText("Search")).toBeNull();
+        expect(c.getByText("Modal content")).toBeTruthy();
+        fireEvent.keyDown(c.container, { key: "Escape", code: "Escape" });
+        expect(c.queryByText("Modal content")).toBeNull();
       });
     });
 

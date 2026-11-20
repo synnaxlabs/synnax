@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Generic, Literal, TypeVar, overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, JsonValue
 
@@ -30,10 +30,8 @@ from x import filter
 from x.lists import normalize
 from x.params import require_named_params
 
-D = TypeVar("D")
 
-
-class _SetRequest(BaseModel, Generic[D]):
+class _SetRequest[D](BaseModel):
     statuses: list[Status[D]]
 
 
@@ -76,12 +74,12 @@ class Client:
         self.client = transport
 
     @overload
-    def set(self, status: Status[D]) -> Status[JsonValue]: ...
+    def set[D](self, status: Status[D]) -> Status[JsonValue]: ...
 
     @overload
-    def set(self, status: list[Status[D]]) -> list[Status[JsonValue]]: ...
+    def set[D](self, status: list[Status[D]]) -> list[Status[JsonValue]]: ...
 
-    def set(
+    def set[D](
         self, status: Status[D] | list[Status[D]] | None = None
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
         """Creates or updates one or more statuses. A status with an owner updates the

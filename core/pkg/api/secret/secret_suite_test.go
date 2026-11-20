@@ -63,6 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc := MustSucceed(apisecret.NewService(apisecret.ServiceConfig{
 		Secret: svc.Secret,
 		RBAC:   svc.RBAC,
+		Task:   svc.Task,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,

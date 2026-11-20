@@ -21,7 +21,7 @@ import {
   type ReactFlowInstance,
   ReactFlowProvider,
   useReactFlow,
-  useStoreApi,
+  useReactFlowStoreApi,
 } from "@xyflow/react";
 import { type ReactElement, useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -45,7 +45,7 @@ const TRANSPARENT = "rgba(0, 0, 0, 0)";
 const ZOOMS = [0.5, 0.75, 1, 1.5];
 const COLOR = color.construct("#00ff00");
 
-type Store = ReturnType<typeof useStoreApi>;
+type Store = ReturnType<typeof useReactFlowStoreApi>;
 type ValueNode = Node<{ units: string }, "custom">;
 
 const ValueNodeRenderer = ({ data }: NodeProps<ValueNode>): ReactElement => (
@@ -76,7 +76,7 @@ interface FlowProps {
 }
 
 const Tap = ({ contextRef }: Pick<FlowProps, "contextRef">): null => {
-  const store = useStoreApi();
+  const store = useReactFlowStoreApi();
   const flow = useReactFlow<ValueNode>();
   useEffect(() => {
     contextRef.current = { store, flow };
@@ -157,7 +157,7 @@ const outerBox = (nodeKey: string): DOMRect =>
   queryRect(`.react-flow__node[data-id="${nodeKey}"] .${CSS.B("value")}`);
 
 const internalNode = (store: Store, nodeKey: string): InternalNode => {
-  const node = store.getState().nodeLookup.get(nodeKey);
+  const node = store.nodesStore.getState().nodeLookup.get(nodeKey);
   if (node == null) throw new Error(`node ${nodeKey} not found`);
   return node;
 };
@@ -186,7 +186,7 @@ const screenSize = (handle: HTMLElement, pseudo: string, zoom: number): number =
   return outer * parseFloat(style.scale) * zoom;
 };
 
-const zoomOf = (store: Store): number => store.getState().transform[2];
+const zoomOf = (store: Store): number => store.viewportStore.getState().transform[2];
 
 const toFlow = (store: Store, nodeKey: string, screen: xy.XY): xy.XY => {
   const { left, top } = nodeBox(nodeKey);
