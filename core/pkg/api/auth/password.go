@@ -18,9 +18,90 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// PasswordCreateRequest gives a user its first password.
+type PasswordCreateRequest struct {
+	// Subject is the user to give the password. Empty means the caller.
+	Subject resource.ID `json:"subject" msgpack:"subject"`
+	// Credentials is the username and password to create for the user.
+	Credentials
+}
+
+// PrepareCreatePassword hashes the password that CreatePassword stores. It returns a
+// validation error when the password method is off or the subject is not a user, and
+// an error wrapping access.ErrDenied when the caller cannot create another user.
+func (s *Service) PrepareCreatePassword(
+	ctx context.Context,
+	req PasswordCreateRequest,
+) (password.Hash, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return password.Hash{}, err
+	}
+	caller := GetSubject(ctx)
+	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
+	if subject.Type != resource.TypeUser {
+		return password.Hash{}, errors.Wrapf(
+			validate.ErrValidation,
+			"a %s has no password",
+			subject.Type,
+		)
+	}
+	if subject != caller {
+		// Each hash is slow, so a caller that cannot create the user costs none.
+		if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+				Subject: caller,
+				Action:  access.ActionCreate,
+				Objects: []resource.ID{subject},
+			})
+		}); err != nil {
+			return password.Hash{}, err
+		}
+	}
+	return s.password.Hash(req.Password)
+}
+
+// CreatePassword gives the caller, or another user, its first password. It returns
+// [auth.ErrRepeatedUsername] when another user holds the username, a validation error
+// when the user already has a password, and an error wrapping query.ErrNotFound when
+// the user does not exist.
+func (s *Service) CreatePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req PasswordCreateRequest,
+	hash password.Hash,
+) (struct{}, error) {
+	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
+	key, err := user.KeyFromResourceID(subject)
+	if err != nil {
+		return struct{}{}, err
+	}
+	exists, err := s.user.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if !exists {
+		return struct{}{}, errors.Wrapf(query.ErrNotFound, "%s", subject)
+	}
+	if exists, err = s.password.NewRetrieve().
+		Where(password.MatchSubjects(subject)).
+		Exists(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if exists {
+		return struct{}{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s already has a password",
+			subject,
+		)
+	}
+	return struct{}{}, s.password.NewWriter(tx).Set(ctx, subject, req.Username, hash)
+}
 
 // PasswordSetRequest sets a user's password.
 type PasswordSetRequest struct {
