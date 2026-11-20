@@ -9,7 +9,7 @@
 
 import path from "path";
 
-import { type Source } from "@/util/checks/check";
+import type { Source } from "@/util/checks/check";
 
 const escapeData = (s: string): string =>
   s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");

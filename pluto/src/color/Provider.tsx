@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Color as Base } from "@synnaxlabs/lyra/color";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { color } from "@/color/aether";

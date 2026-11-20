@@ -10,14 +10,14 @@
 import "@/triggers/Text.css";
 
 import { runtime } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Generic } from "@/generic";
+import type { Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text as Base } from "@/text";
 import { useReserved } from "@/triggers/Provider";
-import { type Key, type Trigger } from "@/triggers/triggers";
+import type { Key, Trigger } from "@/triggers/triggers";
 
 /** Props for {@link Text}. */
 export type TextProps<E extends Generic.ElementType = "p"> = Base.TextProps<E> & {

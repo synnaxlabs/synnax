@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { Context, type ContextMenus } from "@/platform/tree/context";
-import { type Items } from "@/platform/tree/item";
+import type { Items } from "@/platform/tree/item";
 import { CopyContextMenu, FallbackContextMenu } from "@/platform/tree/menu";
 
 const FALLBACK_CONTEXT_MENUS: ContextMenus = {

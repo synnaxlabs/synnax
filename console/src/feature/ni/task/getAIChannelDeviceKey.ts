@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AIChannel } from "@/feature/ni/task/types";
+import type { AIChannel } from "@/feature/ni/task/types";
 
 /** The key the built-in temperature sensor is stored under. It has no port. */
 const BUILT_IN_TEMP_KEY = "boardTempSensor";

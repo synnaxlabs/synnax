@@ -10,7 +10,7 @@
 import { array } from "@/array";
 import { equal } from "@/deep/equal";
 import { narrow } from "@/narrow";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 const reuseList = (prev: unknown[], next: unknown[]): unknown[] => {
   let out: unknown[];

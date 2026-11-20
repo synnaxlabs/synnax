@@ -10,10 +10,10 @@
 import "@/viewport/Mask.css";
 
 import { box } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Mode, type UseReturn } from "@/viewport/use";
+import type { Mode, UseReturn } from "@/viewport/use";
 
 type DivProps = React.DetailedHTMLProps<
   React.HTMLAttributes<HTMLDivElement>,

@@ -11,7 +11,7 @@ import "@/platform/settings/Page.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { useCardBackground } from "@/platform/settings/background";

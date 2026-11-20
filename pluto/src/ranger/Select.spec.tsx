@@ -11,7 +11,7 @@ import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";

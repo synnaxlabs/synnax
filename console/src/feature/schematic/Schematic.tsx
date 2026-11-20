@@ -15,7 +15,7 @@ import {
   Schematic as Base,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Controller } from "@/feature/schematic/Controller";
 import { Controls } from "@/feature/schematic/Controls";
@@ -24,7 +24,7 @@ import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { Framer } from "@/platform/framer";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 

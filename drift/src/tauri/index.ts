@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type UnknownAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { box, deep, dimensions, runtime, scheduler, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   emit,
@@ -29,7 +29,7 @@ import {
   type PhysicalSize,
 } from "@tauri-apps/api/window";
 
-import { type Event, type Runtime } from "@/runtime";
+import type { Event, Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
 import {
   runtimeSetWindowProps,

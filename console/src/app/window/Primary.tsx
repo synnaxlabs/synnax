@@ -11,7 +11,7 @@ import "@/app/window/Primary.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Code, OS } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Link } from "@/app/link";
 import { Mosaic } from "@/app/mosaic";

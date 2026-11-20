@@ -9,10 +9,10 @@
 
 import { File as NodeFile } from "node:buffer";
 
-import { type UploadBody } from "@synnaxlabs/freighter";
+import type { UploadBody } from "@synnaxlabs/freighter";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
-import { type DragEvent, type ReactElement } from "react";
+import type { DragEvent, ReactElement } from "react";
 
 const START_FILE_DRAG = "start file drag";
 

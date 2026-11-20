@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 export interface EditConnectionMenuItemProps extends Pick<
   Tree.ContextMenuProps,
