@@ -11,7 +11,7 @@ import { Synnax as Client } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
 } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { scheduler } from "@synnaxlabs/x";
@@ -61,7 +61,7 @@ export interface DesktopUser {
 export const createDesktopUser = async (): Promise<DesktopUser> => {
   const client = await createTestClientWithRole(createTestClient(), "Owner");
   const { username = "", password = "" } = client.params;
-  const { host, port } = TEST_CLIENT_PARAMS;
+  const { host, port } = testClientParams();
   return {
     client,
     live: {
@@ -88,7 +88,7 @@ export const retrieveKeyIDs = async (client: Client): Promise<string[]> =>
 
 /** Creates a client of the test Core that logs in with an API key, as a script does. */
 export const createScriptClient = (apiKey: string): Client => {
-  const { host, port } = TEST_CLIENT_PARAMS;
+  const { host, port } = testClientParams();
   const script = new Client({ host, port: Number(port), apiKey });
   onTestFinished(() => script.close());
   return script;
