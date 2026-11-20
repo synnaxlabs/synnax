@@ -46,10 +46,10 @@ export class Toggle
   static readonly METHODS = toggleMethodsZ;
   static readonly z = toggleStateZ;
 
-  schema = toggleStateZ;
-  methods = toggleMethodsZ;
+  override schema = toggleStateZ;
+  override methods = toggleMethodsZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.internal.addStatus = status.useOptionalAdder(ctx);
     const { sink: sinkProps, source: sourceProps } = this.state;
     const { internal: i } = this;
@@ -76,7 +76,7 @@ export class Toggle
       this.setState((p) => ({ ...p, enabled: nextEnabled }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.stopListening?.();
     this.internal.staleness?.cleanup();
     this.internal.source.cleanup?.();

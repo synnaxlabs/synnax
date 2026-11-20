@@ -36,7 +36,7 @@ const invalidArea = (region: box.Box): boolean =>
 
 export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
-  schema = baseAxisStateZ;
+  override schema = baseAxisStateZ;
 
   xBounds(): line.DataBounds[] {
     return this.visibleLines.map((el) => el.xBounds());

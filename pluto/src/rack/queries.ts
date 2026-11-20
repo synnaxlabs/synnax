@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { type auth, rack } from "@synnaxlabs/client";
+import { errors, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
@@ -86,5 +86,46 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
     const { key, name } = data;
     await client.racks.rename(key, name);
     return data;
+  },
+});
+
+export interface CreateParams {
+  name: string;
+}
+
+export interface CreateResult {
+  rack: rack.Rack;
+  /** The rack's first API key. */
+  key: auth.APIKey;
+  /** The only copy of the key's secret. */
+  token: string;
+}
+
+/**
+ * Creates a rack together with the API key its Driver logs in with. Deletes the rack
+ * when the key cannot be created. If that delete also fails, the thrown error names
+ * the rack and carries the key error as its cause.
+ */
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateResult>({
+  name: RESOURCE_NAME,
+  verbs: verbs.CREATE,
+  update: async ({ client, data: { name } }) => {
+    const created = await client.racks.create({ name });
+    try {
+      const { key, token } = await client.auth.createKey({
+        subject: rack.resourceID(created.key),
+        name,
+      });
+      return { rack: created, key, token };
+    } catch (keyErr) {
+      // a rack without a key is one no Driver can log in as
+      await client.racks.delete(created.key).catch((deleteErr: unknown) => {
+        const { message } = errors.fromUnknown(deleteErr);
+        throw new Error(`rack ${created.key} was not deleted: ${message}`, {
+          cause: keyErr,
+        });
+      });
+      throw errors.fromUnknown(keyErr);
+    }
   },
 });

@@ -22,14 +22,14 @@ const testStateZ = z.object({
 
 class TestLeaf extends aether.Leaf<typeof testStateZ> {
   static readonly TYPE = "TestLeaf";
-  schema = testStateZ;
+  override schema = testStateZ;
   updateFn = vi.fn();
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     this.updateFn();
   }
 
-  afterDelete(): void {}
+  override afterDelete(): void {}
 }
 
 describe("createAetherProvider", () => {

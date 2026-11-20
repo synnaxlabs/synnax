@@ -22,18 +22,18 @@ export type CompositeState = z.infer<typeof compositeStateZ>;
 export class Composite extends aether.Composite<typeof compositeStateZ> {
   static readonly TYPE: string = "aetherTest.Composite";
   static readonly stateZ = compositeStateZ;
-  schema = Composite.stateZ;
+  override schema = Composite.stateZ;
 
   /** Every call to {@link afterUpdate}, in order. */
   readonly updateCalls: UpdateCall[] = [];
   /** Number of `afterDelete` invocations. */
   deleteCallCount = 0;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     this.updateCalls.push({ state: this.state, prevState: this.prevState });
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deleteCallCount += 1;
   }
 }

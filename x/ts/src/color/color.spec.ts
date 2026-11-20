@@ -169,6 +169,11 @@ describe("color.Color", () => {
         color.construct("#000000"),
       );
     });
+    test("throw when no colors are given", () => {
+      expect(() => color.pickByContrast("#000000")).toThrow(
+        "must provide at least one color",
+      );
+    });
   });
 
   describe("isDark", () => {
