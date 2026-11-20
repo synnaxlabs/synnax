@@ -12,9 +12,10 @@ import { describe, expect, it } from "vitest";
 
 import { Media } from "@/components/media";
 import { CDN } from "@/components/media/cdn";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-const [[ID, VERSION]] = Object.entries(versions);
+const [[ID, { version: VERSION, width: WIDTH, height: HEIGHT }]] =
+  Object.entries(videos);
 
 const show = (html: string): void => {
   document.body.innerHTML = html;
@@ -60,6 +61,13 @@ describe("Media", () => {
       expect(video.hasAttribute("playsinline")).toBe(true);
       expect(video.getAttribute("preload")).toBe("metadata");
       expect(document.querySelector(".docs-video__play")).not.toBeNull();
+    });
+
+    it("should reserve the space of the video before it loads", () => {
+      show(renderToString(<Media.Video id={ID} label="A video" />));
+      expect(document.querySelector("video")?.style.aspectRatio).toBe(
+        `auto ${WIDTH} / ${HEIGHT}`,
+      );
     });
 
     it("should name the video with its label", () => {
