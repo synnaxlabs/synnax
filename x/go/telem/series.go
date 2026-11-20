@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/stringer"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Series is a strongly-typed array of telemetry samples backed by a binary buffer.
@@ -46,7 +47,77 @@ type Series struct {
 	// one.
 	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
 	// Clock is the key of the clock that timed the samples. Zero means no clock.
-	Clock uint32 `json:"clock,omitzero" msgpack:"clock"`
+	Clock uint32 `json:"clock,omitzero" msgpack:"clock,omitempty"`
+}
+
+var _ msgpack.CustomEncoder = (*Series)(nil)
+
+// EncodeMsgpack implements msgpack.CustomEncoder. It writes the map that the struct
+// tags of Series give, with no allocation, so the msgpack library must reach it through
+// a pointer: encode a *Series, or a Series in a slice or a struct that is reached
+// through a pointer. The library fails to encode a Series it cannot address.
+func (s *Series) EncodeMsgpack(enc *msgpack.Encoder) error {
+	fields := 4
+	if s.AlignmentMultiple != 0 {
+		fields++
+	}
+	if s.Clock != 0 {
+		fields++
+	}
+	if err := enc.EncodeMapLen(fields); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("time_range"); err != nil {
+		return err
+	}
+	if err := enc.EncodeMapLen(2); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("start"); err != nil {
+		return err
+	}
+	if err := enc.EncodeInt64(int64(s.TimeRange.Start)); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("end"); err != nil {
+		return err
+	}
+	if err := enc.EncodeInt64(int64(s.TimeRange.End)); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("data_type"); err != nil {
+		return err
+	}
+	if err := enc.EncodeString(string(s.DataType)); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("data"); err != nil {
+		return err
+	}
+	if err := enc.EncodeBytes(s.Data); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("alignment"); err != nil {
+		return err
+	}
+	if err := enc.EncodeUint64(uint64(s.Alignment)); err != nil {
+		return err
+	}
+	if s.AlignmentMultiple != 0 {
+		if err := enc.EncodeString("alignment_multiple"); err != nil {
+			return err
+		}
+		if err := enc.EncodeUint32(s.AlignmentMultiple); err != nil {
+			return err
+		}
+	}
+	if s.Clock != 0 {
+		if err := enc.EncodeString("clock"); err != nil {
+			return err
+		}
+		return enc.EncodeUint32(s.Clock)
+	}
+	return nil
 }
 
 // Multiple returns the number of alignment steps between consecutive samples.

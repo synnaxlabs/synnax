@@ -12,6 +12,8 @@ package telem_test
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"reflect"
 	"testing"
 	"unsafe"
 	"uuid"
@@ -33,6 +35,15 @@ func valueAtTest[T telem.FixedSample](value T, dt telem.DataType) func() {
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
 		ExpectWithOffset(1, s.ValueAt[T](0)).To(Equal(value))
 	}
+}
+
+// unclocked has the msgpack fields of a Series apart from its clock.
+type unclocked struct {
+	TimeRange         telem.TimeRange `msgpack:"time_range"`
+	DataType          telem.DataType  `msgpack:"data_type"`
+	Data              []byte          `msgpack:"data"`
+	Alignment         telem.Alignment `msgpack:"alignment"`
+	AlignmentMultiple uint32          `msgpack:"alignment_multiple,omitempty"`
 }
 
 var _ = Describe("Series", func() {
@@ -1361,22 +1372,64 @@ var _ = Describe("Series", func() {
 			Expect(string(encoded)).ToNot(ContainSubstring(`"clock"`))
 		})
 
-		It("Should carry a zero clock in the msgpack form", func() {
-			encoded := MustSucceed(msgpack.Codec.Encode(telem.NewSeriesV[int64](1)))
-			Expect(string(encoded)).To(ContainSubstring("clock"))
+		It("Should leave a zero clock out of the msgpack form", func() {
+			s := telem.NewSeriesV[int64](1)
+			var fields map[string]any
+			Expect(msgpack.Codec.Decode(
+				MustSucceed(msgpack.Codec.Encode(&s)),
+				&fields,
+			)).To(Succeed())
+			Expect(fields).To(HaveKey("data"))
+			Expect(fields).ToNot(HaveKey("clock"))
+			u := unclocked{
+				TimeRange: s.TimeRange,
+				DataType:  s.DataType,
+				Data:      s.Data,
+				Alignment: s.Alignment,
+			}
+			Expect(msgpack.Codec.Encode(&s)).
+				To(Equal(MustSucceed(msgpack.Codec.Encode(&u))))
+		})
+
+		It("Should encode every field of a series through msgpack", func() {
+			var (
+				s    telem.Series
+				n    int64
+				fill func(v reflect.Value)
+			)
+			// fill sets each field to a value that no other field holds, so a field
+			// that the encoder leaves out or swaps fails the match.
+			fill = func(v reflect.Value) {
+				n++
+				switch v.Kind() {
+				case reflect.Struct:
+					for _, field := range v.Fields() {
+						fill(field)
+					}
+				case reflect.Int64:
+					v.SetInt(n)
+				case reflect.Uint32, reflect.Uint64:
+					v.SetUint(uint64(n))
+				case reflect.String:
+					v.SetString(fmt.Sprintf("field %d", n))
+				case reflect.Slice:
+					v.SetBytes([]byte{byte(n)})
+				default:
+					Fail(fmt.Sprintf("fill sets no field of kind %s", v.Kind()))
+				}
+			}
+			fill(reflect.ValueOf(&s).Elem())
+			var decoded telem.Series
+			Expect(msgpack.Codec.Decode(
+				MustSucceed(msgpack.Codec.Encode(&s)),
+				&decoded,
+			)).To(Succeed())
+			Expect(decoded).To(Equal(s))
 		})
 
 		It(
 			"Should encode a clock through msgpack with no allocation of its own",
 			func() {
-				// unclocked has the msgpack fields of a Series apart from its clock.
-				type unclocked struct {
-					TimeRange         telem.TimeRange `msgpack:"time_range"`
-					DataType          telem.DataType  `msgpack:"data_type"`
-					Data              []byte          `msgpack:"data"`
-					Alignment         telem.Alignment `msgpack:"alignment"`
-					AlignmentMultiple uint32          `msgpack:"alignment_multiple,omitempty"`
-				}
 				s := telem.NewSeriesV[int64](1)
 				s.Clock = 300
 				u := unclocked{DataType: s.DataType, Data: s.Data}
@@ -1390,7 +1443,7 @@ var _ = Describe("Series", func() {
 						err = msgpack.Codec.EncodeStream(&buf, v)
 					})
 				}
-				Expect(allocs(&s)).To(Equal(allocs(&u)))
+				Expect(allocs(&s)).To(BeNumerically("<=", allocs(&u)))
 				Expect(err).To(Succeed())
 			},
 		)
@@ -1398,10 +1451,10 @@ var _ = Describe("Series", func() {
 		DescribeTable("Should carry a set clock through the encoded form",
 			func(codec encoding.Codec) {
 				s := telem.NewSeriesV[int64](1)
-				s.Clock = 5
+				s.Clock = 300
 				var decoded telem.Series
 				Expect(codec.Decode(
-					MustSucceed(codec.Encode(s)),
+					MustSucceed(codec.Encode(&s)),
 					&decoded,
 				)).To(Succeed())
 				Expect(decoded).To(telem.MatchSeries(s))
