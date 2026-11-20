@@ -15,8 +15,8 @@ import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
-import { type Element } from "@/vis/diagram/aether/Diagram";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import type { Element } from "@/vis/diagram/aether/Diagram";
+import type { FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 

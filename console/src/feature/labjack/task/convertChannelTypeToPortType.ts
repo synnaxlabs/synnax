@@ -18,10 +18,7 @@ import {
   type DOPortType,
   type PortType,
 } from "@/feature/labjack/device/types";
-import {
-  type ReadChannelType,
-  type WriteChannelType,
-} from "@/feature/labjack/task/types";
+import type { ReadChannelType, WriteChannelType } from "@/feature/labjack/task/types";
 
 const READ_CHANNEL_TO_PORT_MAP = {
   analog: AI_PORT_TYPE,

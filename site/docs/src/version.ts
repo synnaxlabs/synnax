@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Version } from "@/util/version";
+import type { Version } from "@/util/version";
 
 /**
  * The docs version this build describes, set at build time from `DOCS_VERSION`. Null

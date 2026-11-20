@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Settings } from "@/app/settings";
 import { Account } from "@/feature/account";
@@ -35,7 +35,7 @@ import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
 import { FLAGS } from "@/flags";
-import { type Palette } from "@/platform/palette";
+import type { Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
   ...Channel.COMMANDS,

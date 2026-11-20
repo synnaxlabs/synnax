@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { navigate } from "@/ui/api";
-import { type Clerk } from "@/ui/clerk";
+import type { Clerk } from "@/ui/clerk";
 
 /**
  * start makes a new sign-in's session the active one and sends the user to `target`.

@@ -23,7 +23,7 @@ import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { formatRelativeTime } from "@/vis/axis/relative";
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);

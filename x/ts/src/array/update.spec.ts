@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { array } from "@/array";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 describe("isKeyed", () => {
   it("should be true for a list of plain objects with string keys", () => {

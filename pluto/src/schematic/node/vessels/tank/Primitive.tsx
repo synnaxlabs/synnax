@@ -9,9 +9,9 @@
 
 import "@/schematic/node/vessels/tank/tank.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { border, color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";

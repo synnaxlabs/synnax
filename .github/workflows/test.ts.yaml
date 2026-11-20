@@ -94,7 +94,8 @@ on:
         type: string
         default: ""
       test_timeout:
-        description: Minutes the Test step can run; an unsharded Console run needs more
+        description:
+          Minutes the Test step can run, at most 95; an unsharded Console needs more
         required: false
         type: number
         default: 20
@@ -176,12 +177,23 @@ jobs:
             node: ""
             lint: true
     runs-on: ${{ matrix.os }}
+    # An expression cannot add, so a raised step bound gets the larger job bound.
+    timeout-minutes: ${{ inputs.test_timeout > 20 && 120 || 45 }}
     steps:
       # The matrix holds four shards, so a larger count would skip test files.
       - name: Check the shard count
         if: inputs.shards < 1 || inputs.shards > 4
         run: |
           echo "::error::shards must be from 1 to 4, not ${{ inputs.shards }}."
+          exit 1
+
+      # The job bound leaves 25 minutes for the steps before and after the tests.
+      - name: Check the test timeout
+        if: inputs.test_timeout > 95
+        env:
+          TEST_TIMEOUT: ${{ inputs.test_timeout }}
+        run: |
+          echo "::error::test_timeout must be at most 95, not $TEST_TIMEOUT."
           exit 1
 
       - name: Checkout repository

@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { crdt, deep, id } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import {
   afterEach,
   assert,

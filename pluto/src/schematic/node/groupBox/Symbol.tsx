@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
-import { type Config } from "@/schematic/node/groupBox/config";
+import type { Config } from "@/schematic/node/groupBox/config";
 import { useMembers } from "@/schematic/node/groupBox/context";
 import { Primitive } from "@/schematic/node/groupBox/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
   nodeKey,

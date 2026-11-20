@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type text } from "@synnaxlabs/x";
+import type { text } from "@synnaxlabs/x";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { isSize } from "@/component/size";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
-import { type ThemeSpec } from "@/theme/theme";
+import type { ThemeSpec } from "@/theme/theme";
 
 interface FontStringOptions {
   level: text.Level | Component.Size;

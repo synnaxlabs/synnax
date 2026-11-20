@@ -15,7 +15,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { measure } from "@/lineplot/measure/aether";
 import { renderAether } from "@/testutil/renderAether";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 

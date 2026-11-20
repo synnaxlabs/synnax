@@ -11,7 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { TareItem } from "@/platform/task/TareItem";

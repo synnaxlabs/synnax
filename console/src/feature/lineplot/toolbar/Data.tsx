@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { RangeSelect } from "@/feature/lineplot/RangeSelect";
 import { XAxisChannelSelect, YAxisChannelSelect } from "@/feature/lineplot/SelectAxis";

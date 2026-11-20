@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { AbsoluteFill, Img, staticFile, useCurrentFrame } from "remotion";
 
 import { crop, motionBlur } from "@/director/camera";
-import { type Tracks } from "@/director/director";
+import type { Tracks } from "@/director/director";
 import { Cursor } from "@/remotion/Cursor";
 import { Ripple, RIPPLE_TICKS } from "@/remotion/Ripple";
-import { type Meta, type Timeline } from "@/timeline";
+import type { Meta, Timeline } from "@/timeline";
 
 export type StudioVideoProps = {
   meta: Meta;
