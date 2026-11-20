@@ -12,6 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { box, text, xy } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
@@ -48,12 +49,13 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const badged = Staleness.useBadged();
+  const resolve = Color.useResolve();
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
-  const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
+  const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
   const { width: oWidth, stale } = BaseValue.use({
     aetherKey: nodeKey,
-    color: textColor,
+    color: resolve(textColor),
     level,
     box: box.construct(xy.translateY(position ?? xy.ZERO, 1), {
       height: valueBoxHeight,
@@ -80,7 +82,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && badged && <Stale.Indicator />}
       <Value
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

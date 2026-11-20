@@ -123,7 +123,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       log.setChannelAlias({ channel: sequence.key, alias: "Sequence" }),
       log.addChannel({ channel: alarms.key }),
       log.setChannelAlias({ channel: alarms.key, alias: "Alarms" }),
-      log.setChannelColor({ channel: alarms.key, color: "#d97706" }),
+      log.setChannelColor({
+        channel: alarms.key,
+        color: { type: "fixed", value: "#d97706" },
+      }),
       log.setTimestampPrecision({ timestampPrecision: 3 }),
       log.setChannelNamesHidden({ channelNamesHidden: false }),
     ]);

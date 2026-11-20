@@ -16,9 +16,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_, group as group_, project as project_
+from synnax import channel as channel_, color, group as group_, project as project_
 from synnax.resource import ID
-from x import color, filter, notation as notation_, text
+from x import color as color_, filter, notation as notation_, text
 from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
@@ -72,8 +72,8 @@ class TextCellConfig(BaseModel):
     level: text.Level = "h5"
     weight: float = Field(default=400, ge=1, le=1000, allow_inf_nan=False)
     align: FlexAlignment = "center"
-    fill_color: color.Color | None = None
-    text_color: color.Color | None = None
+    fill_color: color.Ref | None = None
+    text_color: color.Ref | None = None
 
 
 class ValueCellConfig(BaseModel):
@@ -84,13 +84,13 @@ class ValueCellConfig(BaseModel):
     rolling_average: int = Field(default=1, ge=1, le=2147483647)
     precision: int | None = Field(default=None, ge=-2147483648, le=2147483647)
     notation: notation_.Notation = "standard"
-    redline: color.Scale = Field(default_factory=lambda: color.Scale())
-    fill_color: color.Color | None = None
+    redline: color_.Scale = Field(default_factory=lambda: color_.Scale())
+    fill_color: color.Ref | None = None
     level: text.Level = "h5"
-    text_color: color.Color | None = None
+    text_color: color.Ref | None = None
     units: str = ""
     staleness_timeout: float = Field(default=5, ge=1, allow_inf_nan=False)
-    staleness_color: color.Color | None = None
+    staleness_color: color.Ref | None = None
 
 
 # Is the configuration of one cell. The variant selects which Pluto cell component

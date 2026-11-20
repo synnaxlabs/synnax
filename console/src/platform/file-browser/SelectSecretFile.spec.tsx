@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { rack } from "@synnaxlabs/client";
+import type { rack, Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Synnax } from "@synnaxlabs/pluto";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
+import { afterEach, describe, expect, it, type Mock, onTestFinished, vi } from "vitest";
 
 import { FileBrowser } from "@/platform/file-browser";
 import {
@@ -102,6 +103,54 @@ describe("FileBrowser.SelectSecretFile", () => {
     fireEvent.click(await screen.findByRole("option", { name: "No file" }));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
     await findDialogTriggerByText("No file");
+  });
+
+  it("should share each listing between two selects of one rack", async () => {
+    const files = await createFileRack(client);
+    const served = await serveListings(client, files, [
+      createListing({ secretsDir: SECRETS_DIR }),
+      createListing({
+        path: SECRETS_DIR,
+        secret: true,
+        entries: [{ name: "token", path: `${SECRETS_DIR}/token`, kind: "file" }],
+      }),
+    ]);
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(
+      <>
+        <Fixture rack={files.rack.key} onChange={vi.fn()} allowNone={false} />
+        <Fixture rack={files.rack.key} onChange={vi.fn()} allowNone={false} />
+      </>,
+      { wrapper },
+    );
+    const [first] = await screen.findAllByText("Select a file");
+    fireEvent.click(first);
+    await screen.findByRole("option", { name: "token" });
+    expect(served.paths).toEqual(["", SECRETS_DIR]);
+  });
+
+  it("should list again through a new Core connection", async () => {
+    const files = await createFileRack(client);
+    const served = await serveListings(client, files, [
+      createListing({ secretsDir: SECRETS_DIR }),
+      createListing({ path: SECRETS_DIR, secret: true }),
+    ]);
+    const Connected = ({ connection }: { connection: Client }): ReactElement => (
+      <Synnax.TestProvider client={connection}>
+        <FileBrowser.Provider>
+          <Fixture rack={files.rack.key} onChange={vi.fn()} allowNone={false} />
+        </FileBrowser.Provider>
+      </Synnax.TestProvider>
+    );
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { rerender } = render(<Connected connection={client} />, { wrapper });
+    await waitFor(() => expect(served.paths).toEqual(["", SECRETS_DIR]));
+    const next = createTestClient();
+    onTestFinished(async () => await next.close());
+    rerender(<Connected connection={next} />);
+    await waitFor(() =>
+      expect(served.paths).toEqual(["", SECRETS_DIR, "", SECRETS_DIR]),
+    );
   });
 
   it("should say when the Driver has no secrets folder", async () => {
