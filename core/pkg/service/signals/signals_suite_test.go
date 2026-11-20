@@ -113,6 +113,7 @@ func testResource[K gorp.Key](k K) resource.ID {
 var (
 	db          *gorp.DB
 	channelSvc  *channel.Service
+	labelSvc    *label.Service
 	framerSvc   *framer.Service
 	nodeFramer  *distframer.Service
 	uuidTable   *gorp.Table[uuid.UUID, testUUIDEntry]
@@ -168,7 +169,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	nodeFramer = node.Framer
-	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{

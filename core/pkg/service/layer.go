@@ -1109,6 +1109,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	if err = l.Signals.PublishReferenceChanges(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	// The change channels send no commit before Start, so the migrations above send
 	// nothing.
 	signalsCloser, err := l.Signals.Start(ctx)
