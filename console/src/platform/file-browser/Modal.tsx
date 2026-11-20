@@ -48,7 +48,6 @@ import {
   dirnameOf,
   expandHome,
   normalize,
-  trimSeparator,
   withSeparator,
 } from "@/platform/file-browser/path";
 import { PathBar } from "@/platform/file-browser/PathBar";
@@ -126,6 +125,10 @@ const Content = ({
   const [editing, setEditing] = useState<string | null>(null);
   const holderRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // Each navigation counts, so a typed path that resolves late does not undo a later
+  // one.
+  const navigations = useRef(0);
+  const [resolving, setResolving] = useState(false);
 
   const path = history.stack[history.index];
   const places = placesOf(snapshot.listings.get(""));
@@ -161,7 +164,12 @@ const Content = ({
   const { data, getItem } = List.useStaticData<string, KeyedEntry>({ data: entries });
 
   // A folder opens with the entry selected, such as the folder the user came up from.
+  const countNavigation = (): void => {
+    navigations.current++;
+    setResolving(false);
+  };
   const go = (to: string, select: string | null = null): void => {
+    countNavigation();
     setSelected(select);
     if (to === path) return;
     setHistory((h) => ({
@@ -171,11 +179,13 @@ const Content = ({
   };
   const back = (): void => {
     if (history.index === 0) return;
+    countNavigation();
     setSelected(path);
     setHistory((h) => ({ ...h, index: h.index - 1 }));
   };
   const forward = (): void => {
     if (history.index === history.stack.length - 1) return;
+    countNavigation();
     setSelected(null);
     setHistory((h) => ({ ...h, index: h.index + 1 }));
   };
@@ -219,15 +229,19 @@ const Content = ({
   const goTyped = async (text: string): Promise<void> => {
     cancelEditing();
     let typed = text.trim();
+    if (typed === "") return;
+    const navigation = ++navigations.current;
+    setResolving(true);
     if (typed.startsWith("~"))
       typed = expandHome(
         typed,
         placesOf(await listingOf("")).find((p) => p.kind === "home")?.path,
       );
-    const target = trimSeparator(typed);
-    if (target === "") return;
+    // The Driver says why it cannot list a path that is not absolute.
+    const target = normalize(typed) || typed;
     const folder = dirnameOf(target);
     const entry = (await listingOf(folder))?.entries.find((e) => e.path === target);
+    if (navigations.current !== navigation) return;
     if (entry?.kind === "file") go(folder, target);
     else go(target);
   };
@@ -398,7 +412,7 @@ const Content = ({
                   onGo={go}
                   onSubmit={(text) => void goTyped(text)}
                 />
-                {loading && stale && (
+                {((loading && stale) || resolving) && (
                   <Progress.Progress
                     thin
                     className={CSS.BE("file-browser", "progress")}

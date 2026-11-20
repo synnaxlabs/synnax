@@ -40,19 +40,10 @@ export const dirnameOf = (path: string): string => {
   return /^[A-Za-z]:$/.test(dir) ? `${dir}${sep}` : dir;
 };
 
-const DRIVE_ROOT = /^[A-Za-z]:\\$/;
-
 /** @returns the path with one separator at its end, as a folder is typed. */
 export const withSeparator = (path: string): string => {
   const sep = separatorOf(path);
   return path.endsWith(sep) ? path : `${path}${sep}`;
-};
-
-/** @returns the path without a separator at its end, unless it is a root. */
-export const trimSeparator = (path: string): string => {
-  const sep = separatorOf(path);
-  if (path === sep || DRIVE_ROOT.test(path) || !path.endsWith(sep)) return path;
-  return path.slice(0, -1);
 };
 
 /** @returns the text with a leading ~ replaced by the home folder, once it is known. */

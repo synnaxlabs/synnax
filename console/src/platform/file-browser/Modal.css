@@ -131,7 +131,7 @@
     border-radius: 0;
 
     &.console--active {
-        background: var(--pluto-fill-hover);
+        --pluto-bg: var(--pluto-fill-hover);
     }
 }
 
