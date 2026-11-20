@@ -11,7 +11,7 @@ import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { panel } from "@/panel";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 const a = uuid.create();
 const b = uuid.create();
@@ -618,13 +618,16 @@ describe("reduceAll", () => {
   describe("setColor", () => {
     it("should set the color of the panel's icon", () => {
       const { next } = panel.reduceAll(state(leaf(a)), [
-        panel.setColor({ color: "#dc136c" }),
+        panel.setColor({ color: { type: "fixed", value: "#dc136c" } }),
       ]);
-      expect(next.color).toEqual(color.construct("#dc136c"));
+      expect(next.color).toEqual({ type: "fixed", value: color.construct("#dc136c") });
     });
 
     it("should reset the color when the payload holds none", () => {
-      const prev = { ...state(leaf(a)), color: color.construct("#dc136c") };
+      const prev = {
+        ...state(leaf(a)),
+        color: { type: "fixed" as const, value: color.construct("#dc136c") },
+      };
       const { next } = panel.reduceAll(prev, [panel.setColor({})]);
       expect(next.color).toBeUndefined();
     });

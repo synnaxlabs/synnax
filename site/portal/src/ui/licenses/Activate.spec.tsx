@@ -23,8 +23,8 @@ import {
   vi,
 } from "vitest";
 
-import { type License, type Organization } from "@/server/db/schema";
-import { type Held, type Owned } from "@/server/license/list";
+import type { License, Organization } from "@/server/db/schema";
+import type { Held, Owned } from "@/server/license/list";
 import { HASH_A, NOW } from "@/server/license/testutil";
 import { Licenses } from "@/ui/licenses";
 

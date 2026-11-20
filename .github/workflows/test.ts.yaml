@@ -94,7 +94,8 @@ on:
         type: string
         default: ""
       test_timeout:
-        description: Minutes the Test step can run; an unsharded Console run needs more
+        description:
+          Minutes the Test step can run, at most 95; an unsharded Console needs more
         required: false
         type: number
         default: 20
@@ -152,19 +153,19 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         shard: [1, 2, 3, 4]
-        # An empty node is the one in devEngines. The test tooling (undici 8) needs
-        # 22.19.0, so it stands in for the 22.12 floor.
-        node: ${{ fromJSON(inputs.node_lts && '["", "22.19.0", "24"]' || '[""]') }}
+        # An empty node is the one in devEngines. The test tooling (jsdom 31 and
+        # Stylelint 18) needs 22.22.2, so it stands in for the 22.12 floor.
+        node: ${{ fromJSON(inputs.node_lts && '["", "22.22.2", "24"]' || '[""]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
           - os: macos-latest
-            node: "22.19.0"
+            node: "22.22.2"
           - os: macos-latest
             node: "24"
           - os: windows-latest
-            node: "22.19.0"
+            node: "22.22.2"
           - os: windows-latest
             node: "24"
           - shard: ${{ inputs.shards < 2 && 2 }}
@@ -176,12 +177,23 @@ jobs:
             node: ""
             lint: true
     runs-on: ${{ matrix.os }}
+    # An expression cannot add, so a raised step bound gets the larger job bound.
+    timeout-minutes: ${{ inputs.test_timeout > 20 && 120 || 45 }}
     steps:
       # The matrix holds four shards, so a larger count would skip test files.
       - name: Check the shard count
         if: inputs.shards < 1 || inputs.shards > 4
         run: |
           echo "::error::shards must be from 1 to 4, not ${{ inputs.shards }}."
+          exit 1
+
+      # The job bound leaves 25 minutes for the steps before and after the tests.
+      - name: Check the test timeout
+        if: inputs.test_timeout > 95
+        env:
+          TEST_TIMEOUT: ${{ inputs.test_timeout }}
+        run: |
+          echo "::error::test_timeout must be at most 95, not $TEST_TIMEOUT."
           exit 1
 
       - name: Checkout repository
@@ -236,6 +248,8 @@ jobs:
         shell: bash
         env:
           PACKAGE: ${{ inputs.package }}
+          # Typed linting of the Console needs more than 4 GB of heap.
+          NODE_OPTIONS: "--max_old_space_size=6144"
         run: pnpm lint:"$PACKAGE"
 
       # The packages are ES modules only, so the profile skips CommonJS and node10.
@@ -258,7 +272,8 @@ jobs:
           package: ${{ inputs.package }}
 
       # Only the Linux runners start a Core, and not for a fork, so the others run only
-      # the spec files that create no test client.
+      # the spec files that create no test client. A spec also needs a Core when it
+      # imports a helper module that creates one.
       - name: Skip the specs that need a Core
         if:
           inputs.test && inputs.core_image != '' && (runner.os != 'Linux' || env.FORK ==
@@ -266,9 +281,14 @@ jobs:
         shell: bash
         working-directory: ${{ inputs.directory }}
         run: |
-          specs=$(git grep -L -E \
-            'create(Proxied)?TestClient|TEST_(CLIENT_PARAMS|CORE_ADDRESS)' \
-            -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
+          pattern='create(Proxied)?TestClient|test(ClientParams|CoreAddress)'
+          pattern+='|CONNECTION_PARAMS'
+          while read -r helper; do
+            module=${helper#src/}
+            pattern+="|\"@/${module%.*}\""
+          done < <(git grep -l -E 'create(Proxied)?TestClient' -- 'src/*.ts' \
+            'src/*.tsx' ':!*.spec.ts' ':!*.spec.tsx')
+          specs=$(git grep -L -E "$pattern" -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
           echo "SPECS=$specs" >> "$GITHUB_ENV"
 
       # Without a limit, a hung test run holds the job for up to 6 hours. Turbo holds a
@@ -308,18 +328,25 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
+      # Vitest rejects more shards than files, so a sharded package needs more browser
+      # spec files than shards.
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
         shell: bash
         timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
+          SHARD_ARG:
+            ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
+            inputs.shards) || '' }}
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
-        run: >-
-          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
-          webkit
+        run: |
+          read -ra args <<< "$SHARD_ARG"
+          read -ra specs <<< "$SPECS"
+          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
+            --project '*webkit' "${args[@]}" "${specs[@]}"
 
       - name: Set up Deno
         if: inputs.runtimes && matrix.lint

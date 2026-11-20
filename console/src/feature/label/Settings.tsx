@@ -18,8 +18,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Label } from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { color } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";

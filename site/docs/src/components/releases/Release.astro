@@ -15,8 +15,8 @@ import "@/styles/release-diagrams.css";
 import {
     type Release,
     releaseAnchor,
-    releaseDate,
     releaseLinks,
+    shippedOn,
 } from "@/util/releaseNotes";
 
 interface Props extends Release {
@@ -25,11 +25,7 @@ interface Props extends Release {
 }
 
 const { version, title, breakingChanges, desktopVersion } = Astro.props;
-let { date } = Astro.props;
-if (date == null) {
-    const publishedAt = await Astro.locals.releases.publishedAt("core", version);
-    if (publishedAt != null) date = releaseDate(publishedAt);
-}
+const date = await shippedOn(Astro.locals.releases, Astro.props);
 const majorMinor = (v: string) => v.split(".").slice(0, 2).join(".");
 const firstPart = majorMinor(version);
 const links = releaseLinks({ ...Astro.props, date });

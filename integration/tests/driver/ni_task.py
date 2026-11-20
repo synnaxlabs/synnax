@@ -18,10 +18,10 @@ from collections.abc import Callable, Sequence
 import synnax as sy
 from framework import resources
 from tests.driver.task import (
+    ReadTask,
     ReadTaskCase,
-    ReadTaskT,
+    Task,
     TaskCase,
-    TaskT,
     WriteTaskCase,
 )
 
@@ -89,7 +89,7 @@ def retrieve_present_device(client: sy.Synnax, location: str) -> sy.Device:
     return device
 
 
-class _NITaskMixin(TaskCase[TaskT]):
+class _NITaskMixin[TaskT: Task](TaskCase[TaskT]):
     """Shared setup for all NI task tests.
 
     Skips on non-Windows platforms. The NI driver scanner discovers devices and
@@ -135,7 +135,9 @@ class _NITaskMixin(TaskCase[TaskT]):
         return self.devices[self.device_locations[0]]
 
 
-class _NIReadTaskBase(_NITaskMixin[ReadTaskT], ReadTaskCase[ReadTaskT]):
+class _NIReadTaskBase[ReadTaskT: ReadTask](
+    _NITaskMixin[ReadTaskT], ReadTaskCase[ReadTaskT]
+):
     """Shared create() for all NI read task types.
 
     Subclasses set ``_task_class`` to the concrete sy.ni task type and
@@ -168,7 +170,7 @@ class _NIReadTaskBase(_NITaskMixin[ReadTaskT], ReadTaskCase[ReadTaskT]):
         )
 
 
-class _NIWriteTaskBase(_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
+class _NIWriteTaskBase[TaskT: Task](_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
     """Shared create() for all NI write task types.
 
     Subclasses set ``_task_class`` to the concrete sy.ni task type and

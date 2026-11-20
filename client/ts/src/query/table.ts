@@ -29,8 +29,8 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { type LookupIndex } from "@/query/indexes";
-import { type Listener } from "@/query/streamer";
+import type { LookupIndex } from "@/query/indexes";
+import type { Listener } from "@/query/streamer";
 
 /**
  * Presence of a key in a table: "present" when a live entry exists, "tombstoned" when
@@ -396,15 +396,27 @@ export class Table<
       .filter((key) => !held.has(key) && touchOf(key) <= since)
       .sort((a, b) => touchOf(a) - touchOf(b))
       .slice(0, over);
-    if (dropped.length === 0) return dropped;
-    dropped.forEach((key) => {
+    this.drop(dropped);
+    return dropped;
+  }
+
+  /**
+   * Drops the given entries as {@link trim} does: silently, telling each holder what
+   * dropped. Skips keys the table does not hold. Call only for keys no subscriber
+   * holds.
+   */
+  drop(keys: Iterable<Key>): void {
+    const oldest = this.inFlight.at(0) ?? Infinity;
+    const dropped = new Set<Key>();
+    for (const key of keys) {
+      if (!this.entries.has(key)) continue;
       const stamp = this.writeStamps.get(key) ?? this.dropped.get(key);
       this.applyDelete(key);
       if (stamp != null && stamp > oldest) this.dropped.set(key, stamp);
-    });
-    const set = new Set(dropped);
-    this.holders.forEach((holder) => holder.drop?.(set));
-    return dropped;
+      dropped.add(key);
+    }
+    if (dropped.size === 0) return;
+    this.holders.forEach((holder) => holder.drop?.(dropped));
   }
 
   /**

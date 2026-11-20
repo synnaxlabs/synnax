@@ -9,10 +9,10 @@
 
 import { connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Account } from "@/feature/account";

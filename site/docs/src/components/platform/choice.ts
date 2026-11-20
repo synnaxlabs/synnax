@@ -7,22 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Tabs } from "@/components/tabs";
+import type { Tabs } from "@/components/tabs";
 
 export const PLATFORMS = ["Linux", "Windows", "macOS", "Docker"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
 
+const SYSTEMS = ["Linux", "Windows", "macOS"] as const;
+
 /**
  * Shows the reader's own operating system first, as the page head marks it on the root,
  * and marks the platform the reader picks, so keys on the page follow it. Docker runs
- * on any system, so it leaves the mark alone.
+ * on any system, so it leaves the mark alone, as does a link that names no system.
  */
 export const QUERY: Tabs.Query = {
   initial: () =>
     PLATFORMS.find((platform) => platform === document.documentElement.dataset.os) ??
     null,
   onChange: (platform) => {
-    if (platform !== "Docker") document.documentElement.dataset.os = platform;
+    if (SYSTEMS.some((os) => os === platform))
+      document.documentElement.dataset.os = platform;
   },
 };

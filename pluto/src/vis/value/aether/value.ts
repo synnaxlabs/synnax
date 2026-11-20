@@ -15,8 +15,8 @@ import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
-import { type Element } from "@/vis/diagram/aether/Diagram";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import type { Element } from "@/vis/diagram/aether/Diagram";
+import type { FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -74,9 +74,9 @@ export class Value
 {
   static readonly TYPE = "value";
   static readonly z = valueState;
-  schema = Value.z;
+  override schema = Value.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
@@ -102,7 +102,7 @@ export class Value
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -801,6 +803,41 @@ var _ = Describe("Import", func() {
 		Expect(firstTabResource(p)).
 			To(Equal(childOfType(deck, resource.TypeLog).ID))
 	})
+
+	DescribeTable("Should keep a panel's named color only when the Core holds it",
+		func(ctx SpecContext, held bool) {
+			c := color.Named{Name: "Fault", Light: xcolor.Color{R: 255, A: 255}}
+			if held {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &c)
+				})).To(Succeed())
+			} else {
+				c.Key = uuid.New()
+			}
+			named := &color.Ref{Variant: color.NamedRef{Key: c.Key}}
+			member := MustSucceed(json.Marshal(map[string]any{
+				"version": 6,
+				"type":    "panel",
+				"name":    "Controls",
+				"root":    map[string]any{"variant": "leaf", "tabs": []any{}},
+				"color":   named,
+			}))
+			tx = DeferClose(db.OpenTx())
+			proj := importProject(ctx, zip.Files{
+				"manifest.json": bundleManifest("Colored"),
+				"Controls.json": member,
+			})
+			children := childrenOf(ctx, project.ResourceID(proj.Key))
+			p := retrievePanel(ctx, childOfType(children, resource.TypePanel).ID)
+			if held {
+				Expect(p.Color).To(Equal(named))
+			} else {
+				Expect(p.Color).To(BeNil())
+			}
+		},
+		Entry("a named color the Core holds", true),
+		Entry("a named color of another Core", false),
+	)
 
 	It("Should leave imported tasks under the rack", func(ctx SpecContext) {
 		src := createProject(ctx, "Panel Tasks")

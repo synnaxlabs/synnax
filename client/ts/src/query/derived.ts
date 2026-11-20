@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, type state } from "@synnaxlabs/x";
+import type { destructor, record, state } from "@synnaxlabs/x";
 
-import { type Keyed, type Table, type TableEvent } from "@/query/table";
+import type { Keyed, Table, TableEvent } from "@/query/table";
 
 /**
  * A foreign-table trigger for a derived table: projects that table's events onto the
@@ -96,7 +96,10 @@ export const bindDerived = <
     ),
     ...(triggers ?? []).map((t) => t.attach(recompose)),
     // A record the derived table needs is needed in the source, which composes it.
-    source.hold({ held: () => into.held() }),
+    source.hold({
+      held: () => into.held(),
+      drop: (keys) => into.drop(keys),
+    }),
   ];
   recompose("all");
   return () => detach.forEach((d) => d());

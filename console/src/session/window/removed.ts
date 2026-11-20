@@ -14,7 +14,7 @@ import {
   type PayloadAction,
 } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 
 export interface RemovedPayload {
   windowKey: string;

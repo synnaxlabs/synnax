@@ -18,7 +18,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -163,7 +163,8 @@ const CommitProbe = ({ onCommit }: CommitProbeProps): null => {
 describe("Tree.Tree", () => {
   it("should render nothing when the root is null", async () => {
     const { container } = await renderTree(null);
-    expect(container.innerHTML).toBe("");
+    // The test wrapper draws only its window box.
+    expect(container.firstElementChild?.innerHTML).toBe("");
   });
 
   it("should load a group's children when it is expanded", async () => {

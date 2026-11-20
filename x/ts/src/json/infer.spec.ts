@@ -15,6 +15,7 @@ import { DataType } from "@/telem";
 const field = {
   pointer: "/ts",
   dataType: "timestamp",
+  kind: "timestamp",
   type: "number",
   timeFormat: "unix_ms",
   enum: [],
@@ -23,7 +24,7 @@ const field = {
 };
 
 describe("shapeZ", () => {
-  it("should parse the index and the data type of each field", () => {
+  it("should parse the index, the data type, and the kind of each field", () => {
     const shape = json.shapeZ.parse({
       sources: ["tank-1"],
       fields: [field],
@@ -31,8 +32,9 @@ describe("shapeZ", () => {
       count: 2,
     });
     expect(shape.index).toEqual(0);
-    expect(shape.fields[0].dataType.equals(DataType.TIMESTAMP)).toBe(true);
-    expect(shape.fields[0].timeFormat).toEqual("unix_ms");
+    expect(shape.fields[0]?.dataType.equals(DataType.TIMESTAMP)).toBe(true);
+    expect(shape.fields[0]?.kind).toEqual("timestamp");
+    expect(shape.fields[0]?.timeFormat).toEqual("unix_ms");
   });
 
   it("should read a negative index as no index", () => {

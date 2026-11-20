@@ -181,5 +181,5 @@ type ICD = v1.ICD
 // ReadBinding writes the value of one message field to a channel.
 type ReadBinding = v1.ReadBinding
 
-// ReadMessage reads the documents of one ICD message.
+// ReadMessage reads one message of an ICD.
 type ReadMessage = v1.ReadMessage

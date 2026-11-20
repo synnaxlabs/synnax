@@ -10,7 +10,7 @@
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { text } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Value } from "@/vis/value/aether/value";
@@ -42,6 +42,7 @@ export const use = ({
   location,
   stalenessColor,
   stalenessTimeout,
+  staleColorHidden,
   useWidthForBackground,
   valueBackgroundOverScan,
   valueBackgroundShift,
@@ -59,6 +60,7 @@ export const use = ({
     backgroundTelem,
     stalenessColor,
     stalenessTimeout,
+    staleColorHidden,
     location,
     useWidthForBackground,
     valueBackgroundOverScan,

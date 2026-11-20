@@ -72,6 +72,9 @@ type core struct {
 	mu       struct {
 		stopped  chan struct{}
 		routines []*routine
+		// live counts routines between prelude and the end of postlude, retries and
+		// deferrals included.
+		live int
 		sync.RWMutex
 	}
 }
@@ -84,21 +87,16 @@ func (c *core) Stopped() <-chan struct{} {
 	return c.mu.stopped
 }
 
-// maybeStop checks if all routines have stopped and closes the stopped channel if they
-// have. This is called after each routine completes to potentially signal that all
-// routines are done.
+// maybeStop closes the stopped channel when no routine is live. The caller must hold
+// the lock.
 func (c *core) maybeStop() {
 	select {
 	case <-c.mu.stopped:
 		return
 	default:
-		for _, r := range c.mu.routines {
-			if r.state.state == RoutineStateStarting ||
-				r.state.state == RoutineStateRunning {
-				return
-			}
+		if c.mu.live == 0 {
+			close(c.mu.stopped)
 		}
-		close(c.mu.stopped)
 	}
 }
 

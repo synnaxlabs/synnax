@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type task } from "@synnaxlabs/client";
+import type { rack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -24,7 +24,9 @@ const client = createTestClient();
 const SCANNER: Task.Scanner = { make: "ethercat", scanType: "ethercat_scan" };
 const OTHER_SCAN_TYPE = "opc_scan";
 
-const RULE = Task.createNotificationRule([SCANNER]);
+const IN_PLACE_TYPE = "file_browser";
+
+const RULE = Task.createNotificationRule([SCANNER], [IN_PLACE_TYPE]);
 
 const createRack = async (): Promise<rack.Rack> =>
   await client.racks.create({ name: uniqueName("rack") });
@@ -84,6 +86,25 @@ describe("Task.createNotificationRule", () => {
 
     it("should not hold a task that no longer exists in use", async () => {
       expect(await checkInUse(client, RULE, uuid.create())).toBe(false);
+    });
+  });
+
+  describe("repliesInPlace", () => {
+    const checkRepliesInPlace = async (key: string): Promise<boolean | undefined> =>
+      await RULE.repliesInPlace?.({ client, key });
+
+    it("should show the replies of a task of an in-place type in place", async () => {
+      const tsk = await createTask(await createRack(), { type: IN_PLACE_TYPE });
+      expect(await checkRepliesInPlace(tsk.key)).toBe(true);
+    });
+
+    it("should not show the replies of a task of another type in place", async () => {
+      const tsk = await createTask(await createRack(), { internal: false });
+      expect(await checkRepliesInPlace(tsk.key)).toBe(false);
+    });
+
+    it("should not show the replies of a missing task in place", async () => {
+      expect(await checkRepliesInPlace(uuid.create())).toBe(false);
     });
   });
 });

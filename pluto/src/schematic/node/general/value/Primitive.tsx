@@ -9,21 +9,19 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, type dimensions, type text } from "@synnaxlabs/x";
-import { type CSSProperties, type PropsWithChildren, type ReactElement } from "react";
+import type { CSSProperties, PropsWithChildren, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends PropsWithChildren<
-  Pick<
-    schematic.ValueNodeConfig,
-    "strokeColor" | "orientation" | "units" | "inlineSize"
-  >
+  Pick<schematic.ValueNodeConfig, "orientation" | "units" | "inlineSize">
 > {
+  strokeColor?: color.Crude;
   className?: string;
   dimensions?: dimensions.Dimensions;
   unitsLevel?: text.Level;

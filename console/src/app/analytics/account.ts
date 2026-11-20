@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 
-import { type Transport } from "@/app/analytics/posthog";
-import { type Analytics } from "@/platform/analytics";
+import type { Transport } from "@/app/analytics/posthog";
+import type { Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
 interface WatchParams {

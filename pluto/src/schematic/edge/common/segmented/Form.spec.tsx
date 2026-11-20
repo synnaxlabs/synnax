@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { deep } from "@synnaxlabs/x";
+import type { schematic } from "@synnaxlabs/client";
+import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -29,6 +29,21 @@ const input = (container: HTMLElement): HTMLInputElement => {
 };
 
 describe("Segmented form", () => {
+  it("should write a typed stroke as a fixed color reference", async () => {
+    const { getAllByLabelText, value } = renderPipeForm(CONFIG);
+    const hex = getAllByLabelText("Stroke").find(
+      (el): el is HTMLInputElement => el instanceof HTMLInputElement,
+    );
+    if (hex == null) throw new Error("expected a stroke input");
+    fireEvent.change(hex, { target: { value: "ff0000" } });
+    await waitFor(() =>
+      expect(value(path.strokeColor)).toEqual({
+        type: "fixed",
+        value: color.construct("#ff0000"),
+      }),
+    );
+  });
+
   it("should show the default stroke width of a new edge", () => {
     const { container } = renderPipeForm(CONFIG);
     expect(input(container).value).toBe("2");

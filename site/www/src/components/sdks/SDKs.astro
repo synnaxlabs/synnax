@@ -8,12 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { highlighter } from "@synnaxlabs/site-common/shiki";
+import { highlight } from "@/highlight";
 import { EcosystemDiagram } from "@/components/sdks/EcosystemDiagram";
 import { type Samples, SDKShowcase } from "@/components/sdks/SDKShowcase";
 import SectionHero from "@/components/common/SectionHero.astro";
-
-const highlight = await highlighter(["python", "typescript"]);
 
 // -- Stream --
 

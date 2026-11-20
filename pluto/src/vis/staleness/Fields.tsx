@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color, deep, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { staleness } from "@/vis/staleness/aether";
 
@@ -49,24 +49,31 @@ export const Fields = ({ unit = TimeSpan.NANOSECOND }: FieldsProps): ReactElemen
         path={path.stalenessColor}
         fallback={staleness.resolveColor(undefined, theme)}
       />
-      <Form.Field<number | undefined>
-        path={path.stalenessTimeout}
-        label="Timeout"
-        padHelpText={false}
-      >
-        {({ value, onChange, ...p }) => (
-          <Input.TimeSpan
-            {...p}
-            {...INPUT_PROPS}
-            inline
-            value={value == null ? undefined : Number(unit.mult(value).valueOf())}
-            onChange={(ns) => onChange(ns / Number(unit.valueOf()))}
-            check={checkTimeout}
-          />
-        )}
-      </Form.Field>
+      <TimeoutField unit={unit} />
     </>
   );
 };
+
+/** Edits the staleness timeout without the staleness color. */
+export const TimeoutField = ({
+  unit = TimeSpan.NANOSECOND,
+}: FieldsProps): ReactElement => (
+  <Form.Field<number | undefined>
+    path={path.stalenessTimeout}
+    label="Timeout"
+    padHelpText={false}
+  >
+    {({ value, onChange, ...p }) => (
+      <Input.TimeSpan
+        {...p}
+        {...INPUT_PROPS}
+        inline
+        value={value == null ? undefined : Number(unit.mult(value).valueOf())}
+        onChange={(ns) => onChange(ns / Number(unit.valueOf()))}
+        check={checkTimeout}
+      />
+    )}
+  </Form.Field>
+);
 
 const INPUT_PROPS = { style: { maxWidth: "18rem" } } as const;

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { narrow } from "@/narrow";
-import { type record } from "@/record";
+import type { record } from "@/record";
 import { zod } from "@/zod";
 
 /** Marks Zod schemas whose keys must not be converted. */
@@ -224,7 +224,8 @@ const getSchemaShape = (
       const result = getSchemaShape(option);
       if (result == null) continue;
       if (merged == null) merged = { ...result };
-      else for (const k in result) if (!(k in merged)) merged[k] = result[k];
+      else
+        for (const [k, v] of Object.entries(result)) if (!(k in merged)) merged[k] = v;
     }
     return merged;
   }
@@ -237,7 +238,9 @@ const getSchemaShape = (
 const snakeToCamelStr = (str: string): string => {
   if (str.length === 0) return str;
   const hasUnderscore = str.indexOf("_") !== -1;
-  const c = hasUnderscore ? str.replace(/_[a-z]/g, (m) => m[1].toUpperCase()) : str;
+  const c = hasUnderscore
+    ? str.replace(/_[a-z]/g, (m) => m.charAt(1).toUpperCase())
+    : str;
   const first = c.charCodeAt(0);
   if (first < 65 || first > 90) return c; // not uppercase A-Z
   if (c.length > 1 && c.charCodeAt(1) >= 65 && c.charCodeAt(1) <= 90) return c;
@@ -335,9 +338,7 @@ const createConverter = (
     const recordEncode =
       encodes && shape == null ? encoderOf(getRecordValueSchema(schema)) : undefined;
     const childOpt: Options = { schema: undefined };
-    const keys = Object.keys(anyObj);
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
+    for (const key of Object.keys(anyObj)) {
       let value = anyObj[key];
       const nkey = f(key);
 
@@ -460,7 +461,8 @@ const selector = (
     (d) =>
       d.path.length === path.length + 1 && path.every((seg, i) => d.path[i] === seg),
   );
-  return found == null ? undefined : { [found.path[path.length]]: found.value };
+  const key = found?.path[path.length];
+  return found == null || key == null ? undefined : { [key]: found.value };
 };
 
 /** A path converted the way the converter of the same direction converts keys. */

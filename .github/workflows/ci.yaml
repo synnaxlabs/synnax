@@ -112,6 +112,7 @@ jobs:
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
       arc_cpp: ${{ steps.filter.outputs.arc_cpp }}
       arc_go: ${{ steps.filter.outputs.arc_go }}
+      arc_ts: ${{ steps.filter.outputs.arc_ts }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
       base: ${{ steps.base.outputs.sha }}
@@ -167,30 +168,19 @@ jobs:
       x_go: ${{ steps.filter.outputs.x_go }}
       x_py: ${{ steps.filter.outputs.x_py }}
       x_ts: ${{ steps.filter.outputs.x_ts }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
           persist-credentials: false
 
-      # A merge group diffs against its target branch, not the entry ahead of it. Its
-      # run then covers every pull request ahead of it in the queue. Any other checkout
-      # diffs against its first parent, which for a pull request is its current base.
+      # Each checkout diffs against its first parent: the base of a pull request, or the
+      # group ahead of a merge group. The queue merges a group only after every group
+      # ahead passes, so a group tests only its own pull request.
       - name: Find the base
         id: base
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
-          GROUP_TARGET: ${{ github.event.merge_group.base_ref }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
-            compare="${GROUP_TARGET#refs/heads/}...$GROUP_HEAD"
-            base=$(.github/scripts/gh_api.sh \
-              "repos/$GITHUB_REPOSITORY/compare/$compare" --jq .merge_base_commit.sha)
-          else
-            base=$(git rev-parse HEAD^1)
-          fi
-          echo "sha=$base" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(git rev-parse HEAD^1)" >> "$GITHUB_OUTPUT"
 
       # A pull request lists its changes through the API and ignores base.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
@@ -329,6 +319,23 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  arc-ts:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.arc_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'arc-ts')
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: arc-ts
+      directory: arc/ts
+      macos: *full
+      package: arc
+      windows: *full
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   buildifier:
     needs: changes
     if:
@@ -451,6 +458,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'console')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: console
       directory: console
@@ -505,6 +513,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5
         with:
@@ -524,6 +533,7 @@ jobs:
         exclude:
           - os: ${{ !inputs.full && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -585,6 +595,7 @@ jobs:
       inputs.full || needs.changes.outputs.console_deps == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell-audit')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -716,6 +727,7 @@ jobs:
       GOPROXY: https://proxy.golang.org|direct
       MODULES: >-
         alamos/go arc/go cesium core freighter/go freighter/integration gorp oracle x/go
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -798,6 +810,7 @@ jobs:
       inputs.full || needs.changes.outputs.exports_py == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'exports-py')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -820,6 +833,7 @@ jobs:
       inputs.full || needs.changes.outputs.suppressions_py == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1032,6 +1046,7 @@ jobs:
       inputs.full || needs.changes.outputs.knip == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'knip')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1262,6 +1277,7 @@ jobs:
       inputs.full || needs.changes.outputs.stylelint == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'stylelint')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1429,22 +1445,48 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      checks: read
+    # It lasts as long as the run, which can wait for the groups ahead. A GitHub-hosted
+    # job runs at most 360.
+    timeout-minutes: 360
     steps:
+      # GraphQL filters the jobs by conclusion, and its budget is apart from the REST
+      # budget that every job of the repository shares.
       - name: Cancel the run when a job fails
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          url="$run/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # The check suite keeps the check runs of earlier attempts, so the job reads
+          # only the check runs that this attempt started or ended.
+          since=""
+          if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
+            attempt="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            attempt="$attempt/attempts/$GITHUB_RUN_ATTEMPT"
+            until since=$(gh api "$attempt" --jq .run_started_at); do sleep 90; done
+          fi
+          # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
+          query='query($url: URI!) {
+            resource(url: $url) { ... on WorkflowRun { checkSuite {
+              failed: checkRuns(first: 100, filterBy: {checkType: LATEST,
+                conclusions: [FAILURE, TIMED_OUT, CANCELLED]}) {
+                nodes { name completedAt }
+              }
+              ok: checkRuns(first: 1, filterBy: {checkType: LATEST, checkName: "OK"}) {
+                nodes { status startedAt }
+              }
+            } } }
+          }'
           while true; do
-            # The next poll retries a failed API call.
-            if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
+            # The next poll retries a failed call, or a run GraphQL does not show yet.
+            if ! suite=$(gh api graphql -f url="$url" -f query="$query" \
+              --jq .data.resource.checkSuite) ||
+              ! jq -e '.failed.nodes and .ok.nodes' <<< "$suite" > /dev/null; then
               sleep 90
               continue
             fi
-            failed=$(jq -r '.[] | select(.conclusion == "failure"
-              or .conclusion == "timed_out" or .conclusion == "cancelled")
-              | .name' <<< "$jobs")
+            failed=$(jq -r --arg since "$since" '.failed.nodes[]
+              | select(.completedAt >= $since) | .name' <<< "$suite")
             if [ -n "$failed" ]; then
               echo "$failed"
               echo "::error::A job failed, so the run is cancelled."
@@ -1452,8 +1494,9 @@ jobs:
               exit 1
             fi
             # OK starts only after every other job finished.
-            jq -e '.[] | select(.name == "OK" and (.status == "in_progress"
-              or .status == "completed"))' <<< "$jobs" > /dev/null && exit 0
+            jq -e --arg since "$since" '.ok.nodes[] | select(.startedAt >= $since
+              and (.status == "IN_PROGRESS" or .status == "COMPLETED"))' \
+              <<< "$suite" > /dev/null && exit 0
             sleep 90
           done
 
@@ -1470,6 +1513,7 @@ jobs:
       - alamos-ts
       - arc-cpp
       - arc-go
+      - arc-ts
       - buildifier
       - cesium
       - changes
@@ -1533,6 +1577,7 @@ jobs:
       - x-py-lowest
       - x-ts
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Fail on a failed or cancelled job
         env:
@@ -1554,6 +1599,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout the default branch scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
@@ -23,7 +23,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export const modeZ = z.enum(["one", "two"]);
@@ -139,9 +139,9 @@ export interface MeasureProps {
 
 export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
-  schema = measureStateZ;
+  override schema = measureStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const renderCtx = render.Context.use(ctx);
     this.internal.theme = theming.use(ctx);
     this.internal.renderCtx = renderCtx;
@@ -151,7 +151,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.dotColorContrast = this.internal.theme.colors.textInverted;
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 

@@ -26,11 +26,15 @@ class FakeStatusElement:
 
 
 class FakeTaskPage(TaskPage):
-    def __init__(self, classes: str | None, text: str) -> None:
+    def __init__(self, classes: str | None, text: str, description: str = "") -> None:
         self.element = FakeStatusElement(classes, text)
+        self.description = description
 
     def _status_element(self) -> FakeStatusElement:
         return self.element
+
+    def _status_description(self) -> str:
+        return self.description
 
 
 class TestStatus:
@@ -38,6 +42,10 @@ class TestStatus:
         status = FakeTaskPage("lyra-text lyra--status-success", "Task running").status()
         assert status.variant == "success"
         assert status.message == "Task running"
+
+    def test_should_read_the_description(self) -> None:
+        page = FakeTaskPage("lyra--status-error", "Failed to start task", "No entries")
+        assert page.status().description == "No entries"
 
     def test_should_reject_a_box_without_a_variant_class(self) -> None:
         with pytest.raises(ValidationError):

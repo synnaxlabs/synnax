@@ -9,10 +9,10 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -20,8 +20,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.TextBoxNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "textColor"
 > {
+  textColor?: color.Crude;
   className?: string;
   onChange?: (value: string) => void;
 }

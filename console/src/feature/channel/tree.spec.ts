@@ -15,7 +15,7 @@ import {
   query,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { binary, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -121,7 +121,12 @@ describe("channel/tree", () => {
     // The preview renders above every provider, so the spec renders it with none.
     const factsOf = (ch: { key: channelClient.Key; name: string }): string | null => {
       const resource = createResource(channelClient.resourceID(ch.key), ch.name);
-      const preview = Item.haulPreview({ resource, client, count: 1 });
+      const preview = Item.haulPreview({
+        resource,
+        client,
+        count: 1,
+        resolveColor: () => undefined,
+      });
       const { container } = render(preview);
       return container.querySelector(".lyra-haul-preview__facts")?.textContent ?? null;
     };

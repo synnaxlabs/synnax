@@ -9,11 +9,11 @@
 
 import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
 import {
@@ -142,7 +142,7 @@ const renderWithNode = async (
     onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
   });
   await root.answered;
-  return { scan, draft, statuses };
+  return { scan, draft, statuses, device };
 };
 
 // Moves the task from the device named from to the device named to.
@@ -541,7 +541,7 @@ describe("Read", () => {
   it("should add the variables under a dropped folder, named from their path", async () => {
     const folder = createFolder();
     const held = createReadChannel();
-    const { scan, draft, statuses } = await renderWithNode(folder, [held]);
+    const { scan, draft, statuses, device } = await renderWithNode(folder, [held]);
     const pressure = `${folder.nodeId}.Tank.Pressure`;
     const search = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
@@ -571,7 +571,9 @@ describe("Read", () => {
       },
     });
     await dragNode(folder.name, held.nodeName);
-    expect((await search.answered).args).toMatchObject({ nodeId: folder.nodeId });
+    const { args } = await search.answered;
+    expect(args).toMatchObject({ device: device.key, nodeId: folder.nodeId });
+    expect(args).not.toHaveProperty("connection");
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(statuses).toContainEqual(
       expect.objectContaining({

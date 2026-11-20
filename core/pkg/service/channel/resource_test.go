@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -192,6 +193,16 @@ var _ = Describe("Resource", Ordered, func() {
 				Operations: []channel.Operation{{Type: channel.OperationTypeAvg}},
 			}
 			Expect(ch.ToPayload()).To(HaveKeyWithValue("operations", ch.Operations))
+		})
+		It("Should include the concurrency of the channel", func() {
+			ch := channel.Channel{
+				Name:        "shared",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Concurrency: control.ConcurrencyShared,
+			}
+			Expect(ch.ToPayload()).
+				To(HaveKeyWithValue("concurrency", control.ConcurrencyShared))
 		})
 		It("Should omit the operations key when the channel has no operations", func() {
 			ch := channel.Channel{Name: "no_ops", DataType: telem.Float64T}

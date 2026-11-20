@@ -12,7 +12,7 @@ import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { id, uuid, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -110,17 +110,17 @@ const looseZ = z.object({}).loose();
 
 class StubChip extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = control.Chip.TYPE;
-  schema = looseZ;
+  override schema = looseZ;
 }
 
 class StubIndicator extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = control.Indicator.TYPE;
-  schema = looseZ;
+  override schema = looseZ;
 }
 
 class StubLatestSample extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = latestSample.LatestSample.TYPE;
-  schema = looseZ;
+  override schema = looseZ;
 }
 
 const STALE_REGISTRY: aether.ComponentRegistry = {

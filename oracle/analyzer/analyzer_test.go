@@ -3336,6 +3336,29 @@ Node union on variant {
 		)
 
 		It(
+			"Should substitute a defaulted type parameter of an extended struct",
+			func() {
+				source := `
+				Box struct<T = string> {
+					data T
+				}
+
+				Container struct {
+					key uuid
+
+					action Load extends Box {}
+				}
+			`
+				table, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				action := findAction(table, "test.Container", "Load")
+				Expect(action.Fields).To(HaveLen(1))
+				Expect(action.Fields[0].Type.IsTypeParam()).To(BeFalse())
+				Expect(action.Fields[0].Type.Name).To(Equal("string"))
+			},
+		)
+
+		It(
 			"Should error when an action extends an unresolved type",
 			func() {
 				source := `

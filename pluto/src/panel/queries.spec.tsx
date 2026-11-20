@@ -30,7 +30,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import {
   afterEach,
   beforeAll,
@@ -50,6 +50,9 @@ const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client
 // must pick up through the action channel.
 const writer = createTestClient();
+
+const PINK = { type: "fixed", value: "#dc136c" } as const;
+const PINK_REF = { type: "fixed", value: color.construct("#dc136c") };
 
 const newTab = (): panel.Tab => ({
   variant: "view",
@@ -1055,16 +1058,13 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatchAsync({
           key: created.key,
-          actions: [
-            panel.setIcon({ icon: "valve" }),
-            panel.setColor({ color: "#dc136c" }),
-          ],
+          actions: [panel.setIcon({ icon: "valve" }), panel.setColor({ color: PINK })],
         });
       });
       await waitFor(() =>
         expect(result.current.data).toEqual({
           icon: "valve",
-          color: color.construct("#dc136c"),
+          color: PINK_REF,
         }),
       );
     });
@@ -1075,23 +1075,21 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatchAsync({
           key: created.key,
-          actions: [panel.setColor({ color: "#dc136c" })],
+          actions: [panel.setColor({ color: PINK })],
         });
       });
       const { result } = renderHook(
         () => Panel.useResultAppearance({ key: created.key }),
         { wrapper },
       );
-      await waitFor(() =>
-        expect(result.current.data?.color).toEqual(color.construct("#dc136c")),
-      );
+      await waitFor(() => expect(result.current.data?.color).toEqual(PINK_REF));
       const before = result.current.data;
       await act(async () => {
         await ops.result.current.dispatchAsync({
           key: created.key,
           actions: [
             panel.insertTabs({ tabs: [newTab()], targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.setColor({ color: "#dc136c" }),
+            panel.setColor({ color: PINK }),
           ],
         });
       });
@@ -1445,10 +1443,10 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatchAsync({
           key: created.key,
-          actions: [panel.setColor({ color: "#dc136c" })],
+          actions: [panel.setColor({ color: PINK })],
         });
       });
-      await waitFor(() => expect(result.current).toEqual(color.construct("#dc136c")));
+      await waitFor(() => expect(result.current).toEqual(PINK_REF));
     });
 
     it("useTabLeaf returns the leaf holding the given tab", async () => {

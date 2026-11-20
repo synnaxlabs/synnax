@@ -9,8 +9,8 @@
 
 import "@/schematic/node/groupBox/groupBox.css";
 
-import { useStore } from "@xyflow/react";
-import { type ReactElement } from "react";
+import { type NodesStore, useEqualSelector, useNodesStore } from "@xyflow/react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { PADDING, TOP_PADDING } from "@/schematic/node/groupBox/config";
@@ -35,24 +35,26 @@ export const Primitive = ({
   members,
   className,
 }: PrimitiveProps): ReactElement => {
-  const size = useStore(
-    (s): Size => {
-      const self = s.nodeLookup.get(nodeKey);
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      for (const m of members) {
-        const node = s.nodeLookup.get(m);
-        if (node == null) continue;
-        const { x, y } = node.internals.positionAbsolute;
-        maxX = Math.max(maxX, x + (node.measured.width ?? 0));
-        maxY = Math.max(maxY, y + (node.measured.height ?? 0));
-      }
-      if (self == null || maxX === -Infinity)
-        return { width: 2 * PADDING, height: TOP_PADDING + PADDING };
-      const { x, y } = self.internals.positionAbsolute;
-      return { width: maxX - x + PADDING, height: maxY - y + PADDING };
-    },
-    (a, b) => a.width === b.width && a.height === b.height,
+  const size = useNodesStore(
+    useEqualSelector(
+      (s: NodesStore): Size => {
+        const self = s.nodeLookup.get(nodeKey);
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (const m of members) {
+          const node = s.nodeLookup.get(m);
+          if (node == null) continue;
+          const { x, y } = node.internals.positionAbsolute;
+          maxX = Math.max(maxX, x + (node.measured.width ?? 0));
+          maxY = Math.max(maxY, y + (node.measured.height ?? 0));
+        }
+        if (self == null || maxX === -Infinity)
+          return { width: 2 * PADDING, height: TOP_PADDING + PADDING };
+        const { x, y } = self.internals.positionAbsolute;
+        return { width: maxX - x + PADDING, height: maxY - y + PADDING };
+      },
+      (a, b) => a.width === b.width && a.height === b.height,
+    ),
   );
   return (
     <div

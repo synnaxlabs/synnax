@@ -138,7 +138,7 @@ describe("Table", () => {
                     ],
                     smooth: true,
                   },
-                  fillColor: [0, 255, 0, 255],
+                  fillColor: { type: "fixed", value: [0, 255, 0, 255] },
                   units: "psi",
                   stalenessTimeout: 5,
                 },
@@ -160,7 +160,7 @@ describe("Table", () => {
         bands: [{ key: "hi", threshold: 90, color: [255, 0, 0, 255], flashing: true }],
         smooth: true,
       });
-      expect(cfg.fillColor).toEqual([0, 255, 0, 255]);
+      expect(cfg.fillColor).toEqual({ type: "fixed", value: [0, 255, 0, 255] });
       expect(cfg.units).toEqual("psi");
       expect(cfg.stalenessTimeout).toEqual(5);
     });

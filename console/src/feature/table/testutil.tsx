@@ -15,7 +15,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
-import { type aether } from "@synnaxlabs/pluto/ether";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
@@ -25,7 +25,7 @@ import {
   type ReactElement,
   Suspense,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -58,8 +58,18 @@ export const createCellRow = (
 // createCellGrid builds a two-cell text table body: cells "a" and "b" in one row.
 export const createCellGrid = (): Pick<table.New, "rows" | "columns"> =>
   createCellRow({
-    a: { variant: "text", value: "Cell A", level: "h5", fillColor: "#ff0000ff" },
-    b: { variant: "text", value: "Cell B", level: "h5", fillColor: "#00ff00ff" },
+    a: {
+      variant: "text",
+      value: "Cell A",
+      level: "h5",
+      fillColor: { type: "fixed", value: "#ff0000ff" },
+    },
+    b: {
+      variant: "text",
+      value: "Cell B",
+      level: "h5",
+      fillColor: { type: "fixed", value: "#00ff00ff" },
+    },
   });
 
 /** @returns the config of the cell with the key, or undefined when no row holds it. */

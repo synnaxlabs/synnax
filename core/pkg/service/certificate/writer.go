@@ -42,15 +42,16 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Set creates the certificate, or replaces the one with the same key, and writes its
-// expiry status. It returns a validation error for an invalid certificate or key.
+// expiry status. It returns a validation error for an invalid certificate or key, or
+// for a replace of a certificate of another source. It returns a gorp.RestrictError
+// for a replace that moves a file certificate that anything uses to another rack.
 //
 // For a stored certificate, Set reads the details from the PEM and keeps only its
 // certificate blocks. An optional PEM privateKey must match the leaf, and replaces the
-// value of the certificate's key secret. Without one, a replacement keeps the old key
-// only when the public key is unchanged, and renames its secret after a new name. A
-// file certificate takes no privateKey, and replacing a stored certificate with one
-// deletes the old key secret. The commit carries a create action that holds the
-// certificate.
+// value of the certificate's key secret. A replace cannot add a key to a certificate
+// saved without one. Without privateKey, a replacement keeps the old key only when the
+// public key is unchanged, and renames its secret after a new name. A file certificate
+// takes no privateKey. The commit carries a create action that holds the certificate.
 func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) error {
 	if c.Variant == nil {
 		v := validate.New("certificate")
@@ -73,10 +74,31 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	prevStored, _ := prev.Variant.(StoredCertificate)
-	var orphanedKey *secret.Key
+	if prev.Variant != nil && prev.Source() != c.Source() {
+		v := validate.New("certificate")
+		v.Ternaryf(
+			"source",
+			true,
+			"cannot change from %s to %s",
+			prev.Source(),
+			c.Source(),
+		)
+		return v.Error()
+	}
+	// A rack may use a certificate that has no key, so a key added later would reach
+	// the rack through a use that no user vouched for.
 	switch variant := c.Variant.(type) {
 	case StoredCertificate:
+		prevStored, replaced := prev.Variant.(StoredCertificate)
+		if replaced && prevStored.PrivateKey == nil && len(privateKey) != 0 {
+			v := validate.New("certificate")
+			v.Ternary(
+				"private_key_pem",
+				true,
+				"must be empty for a certificate saved without a private key",
+			)
+			return v.Error()
+		}
 		if variant, err = w.prepareStored(
 			ctx,
 			variant,
@@ -87,11 +109,22 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		}
 		c.Variant = variant
 	case FileCertificate:
+		prevFile, replaced := prev.Variant.(FileCertificate)
+		if replaced && prevFile.Rack != variant.Rack {
+			if err = w.table.RestrictChange(ctx, w.tx, base.Key, "rack"); err != nil {
+				return err
+			}
+		}
 		v := validate.New("certificate")
 		v.NotEmptyString("certificate_path", variant.CertificatePath)
 		if variant.PrivateKeyFile != nil {
 			secret.ValidateFileName(v, "private_key_file", *variant.PrivateKeyFile)
 		}
+		v.Ternary(
+			"private_key_file",
+			replaced && prevFile.PrivateKeyFile == nil && variant.PrivateKeyFile != nil,
+			"must be empty for a certificate saved without a private key file",
+		)
 		v.Ternary(
 			"private_key_pem",
 			len(privateKey) != 0,
@@ -100,25 +133,33 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		if err = v.Error(); err != nil {
 			return err
 		}
-		orphanedKey = prevStored.PrivateKey
 	}
 	if err = w.table.NewCreate().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Certificate: *c}))
-	if orphanedKey != nil {
-		if err = w.secrets.Delete(ctx, *orphanedKey); err != nil {
-			return err
-		}
-	}
-	return w.writeStatus(ctx, *c)
+	return w.writeStatus(ctx, prev, *c)
 }
 
-func (w Writer) writeStatus(ctx context.Context, c Certificate) error {
-	if st, ok := expiryStatus(c, w.now()); ok {
+// writeStatus writes the expiry status of next, which replaces prev. A certificate with
+// no details keeps the status it owns, such as a migration warning, under its new name.
+// When prev had details, writeStatus deletes that status, a stale expiry status.
+func (w Writer) writeStatus(ctx context.Context, prev, next Certificate) error {
+	if st, ok := expiryStatus(next, w.now()); ok {
 		return w.statuses.Set(ctx, &st)
 	}
-	return w.statuses.DeleteOwned(ctx, c.ResourceID())
+	if _, ok := prev.Details(); ok {
+		return w.statuses.DeleteOwned(ctx, next.ResourceID())
+	}
+	name := next.Base().Name
+	if prev.Variant == nil || prev.Base().Name == name {
+		return nil
+	}
+	// A certificate with no details may own no status.
+	return errors.Skip(
+		w.statuses.RenameOwned(ctx, next.ResourceID(), name),
+		query.ErrNotFound,
+	)
 }
 
 func (w Writer) prepareStored(
@@ -211,7 +252,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		}
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return w.writeStatus(ctx, next)
+	return w.writeStatus(ctx, prev, next)
 }
 
 // Rename renames the certificate with the given key, its key secret, and its expiry

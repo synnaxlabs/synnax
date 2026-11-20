@@ -13,11 +13,12 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Label } from "@/platform/label";
+import { createTestLabel } from "@/platform/label/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { renderSuspended } from "@/testutil";
@@ -73,7 +74,7 @@ const createLabels = async (count: number): Promise<label.Label[]> =>
     Array.from(
       { length: count },
       async (_, i) =>
-        await client.labels.create({
+        await createTestLabel(client, {
           name: uniqueName(`label-${i}`),
           color: "#F00000",
         }),

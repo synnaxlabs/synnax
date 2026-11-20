@@ -14,7 +14,7 @@ import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { Core } from "@/platform/core";

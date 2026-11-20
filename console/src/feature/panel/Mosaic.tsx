@@ -22,14 +22,14 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Errors, Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
-import { memo, type PropsWithChildren, type ReactElement, useState } from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { useCreate } from "@/feature/panel/useCreate";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
-import { type Import } from "@/platform/import";
+import type { Import } from "@/platform/import";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
@@ -403,7 +403,7 @@ const KeepAlivePanel = ({ panelKey, ...rest }: KeepAlivePanelProps): ReactElemen
   </Portal.In>
 );
 
-const PortaledInPanels = memo((props: MosaicProps) => {
+const PortaledInPanels = (props: MosaicProps) => {
   const mounted = Session.Panel.useSelectMounted();
   return (
     <>
@@ -412,17 +412,17 @@ const PortaledInPanels = memo((props: MosaicProps) => {
       ))}
     </>
   );
-});
+};
 PortaledInPanels.displayName = "PortaledInPanels";
 
-const PortaledOutPanel = memo(({ onFileDrop }: EmptyContentProps) => {
+const PortaledOutPanel = ({ onFileDrop }: EmptyContentProps) => {
   const selected = Session.Panel.useSelectSelected();
   return selected == null ? (
     <EmptyContent onFileDrop={onFileDrop} />
   ) : (
     <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
   );
-});
+};
 PortaledOutPanel.displayName = "PortaledOutPanel";
 
 export interface MosaicProps {

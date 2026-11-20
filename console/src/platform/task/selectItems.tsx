@@ -9,7 +9,7 @@
 
 import { Select } from "@synnaxlabs/lyra/select";
 import { record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 /**
  * Renders one select item per entry of a name lookup, in declaration order. Declare

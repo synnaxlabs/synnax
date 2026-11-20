@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Control, Schematic } from "@synnaxlabs/pluto";
-import { type color, type sticky } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import type { color, sticky } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Session } from "@/session";
 
-export const Legend = memo((): ReactElement | null => {
+export const Legend = (): ReactElement | null => {
   const key = Schematic.useKey();
   const { visible, position, colors } = Session.Schematic.useSelectLegend();
   const dispatch = Session.useDispatch();
@@ -31,5 +31,5 @@ export const Legend = memo((): ReactElement | null => {
       allowEntryVisibleChange={false}
     />
   );
-});
+};
 Legend.displayName = "Schematic.Legend";

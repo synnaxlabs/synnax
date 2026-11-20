@@ -1,0 +1,243 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/color/v0"
+import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
+import "schemas/synnax/versions/symbol/v4"
+import "schemas/x/versions/border/v0"
+import "schemas/x/versions/color/v2"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/telem/v0"
+import "schemas/x/versions/text/v0"
+
+Key = v0.Key
+
+Node struct extends v13.Node {}
+
+Handle = v7.Handle
+
+Edge struct extends v13.Edge {}
+
+Segment = v9.Segment
+
+SegmentedEdgeConfig struct extends v13.SegmentedEdgeConfig {
+    stroke_color color.Ref? {
+        @doc value "is the stroke color of the edge, a named color or a fixed color."
+    }
+}
+
+EdgeConfig union on variant extends v13.EdgeConfig {}
+
+FlexAlignment = v9.FlexAlignment
+
+ComponentSize = v9.ComponentSize
+
+ButtonMode = v9.ButtonMode
+
+LabelConfig = v13.LabelConfig
+
+LabeledConfig = v13.LabeledConfig
+
+ScaledConfig = v9.ScaledConfig
+
+StalenessConfig = v13.StalenessConfig
+
+NumericTelemConfig = v13.NumericTelemConfig
+
+ControlStateConfig = v9.ControlStateConfig
+
+ToggleConfig = v13.ToggleConfig
+
+StaticSymbolConfig = v13.StaticSymbolConfig
+
+ToggleSymbolConfig = v13.ToggleSymbolConfig
+
+DummyToggleSymbolConfig = v13.DummyToggleSymbolConfig
+
+ScaleIndicatorConfig struct extends v13.ScaleIndicatorConfig {
+    level_color color.Ref? {
+        @doc value """
+            is the color of the filled portion, the caret, and the value readout border,
+            a named color or a fixed color.
+        """
+    }
+    axis_color  color.Ref? {
+        @doc value """
+            is the color of the axis and its ticks, a named color or a fixed color.
+        """
+    }
+    text_color  color.Ref? {
+        @doc value "is the color of the tick labels, a named color or a fixed color."
+    }
+}
+
+StateMapping = v13.StateMapping
+
+PageType = v9.PageType
+
+Page = v9.Page
+
+NodeConfig union on variant extends v13.NodeConfig {
+    box {
+        stroke_color color.Ref? {
+            @doc value "is the border color of the box, a named color or a fixed color."
+        }
+        fill_color   color.Ref? {
+            @doc value "is the fill color of the box, a named color or a fixed color."
+        }
+    }
+    button {
+        fill_color color.Ref? {
+            @doc value """
+                is the fill color of the button, which its border follows, a named color
+                or a fixed color.
+            """
+        }
+    }
+    circle {
+        stroke_color color.Ref? {
+            @doc value """
+                is the border color of the circle, a named color or a fixed color.
+            """
+        }
+        fill_color   color.Ref? {
+            @doc value """
+                is the fill color of the circle, a named color or a fixed color.
+            """
+        }
+    }
+    gauge {
+        stroke_color color.Ref? {
+            @doc value "is the color of the gauge arc, a named color or a fixed color."
+        }
+    }
+    line {
+        stroke_color color.Ref? {
+            @doc value """
+                is the stroke color of the line, a named color or a fixed color.
+            """
+        }
+    }
+    off_page_reference {
+        fill_color color.Ref? {
+            @doc value """
+                is the fill color of a linked reference, a named color or a fixed color.
+                An unlinked reference draws its outline in this color.
+            """
+        }
+    }
+    polygon {
+        stroke_color color.Ref? {
+            @doc value """
+                is the border color of the polygon, a named color or a fixed color.
+            """
+        }
+        fill_color   color.Ref? {
+            @doc value """
+                is the fill color of the polygon, a named color or a fixed color.
+            """
+        }
+    }
+    input {
+        fill_color color.Ref? {
+            @doc value """
+                is the fill color of the Set button, which the input border follows, a
+                named color or a fixed color.
+            """
+        }
+    }
+    select {
+        fill_color color.Ref? {
+            @doc value """
+                is the fill color of the Set button, which the select border follows, a
+                named color or a fixed color.
+            """
+        }
+    }
+    setpoint {
+        fill_color color.Ref? {
+            @doc value """
+                is the fill color of the Set button, which the setpoint border follows,
+                a named color or a fixed color.
+            """
+        }
+    }
+    state_indicator {
+        stroke_color color.Ref? {
+            @doc value """
+                is the border color of the indicator, a named color or a fixed color.
+            """
+        }
+    }
+    string_display {
+        stroke_color color.Ref? {
+            @doc value """
+                is the border color of the display, a named color or a fixed color.
+            """
+        }
+        text_color   color.Ref? {
+            @doc value """
+                is the color of the displayed text, a named color or a fixed color.
+            """
+        }
+    }
+    text_box {
+        text_color color.Ref? {
+            @doc value "is the text color, a named color or a fixed color."
+        }
+    }
+    value {
+        stroke_color color.Ref? {
+            @doc value """
+                is the color of the value's border and units divider, a named color or a
+                fixed color.
+            """
+        }
+        text_color   color.Ref? {
+            @doc value """
+                is the color of the displayed value, a named color or a fixed color.
+            """
+        }
+        fill_color   color.Ref? {
+            @doc value """
+                is the fill behind the value where no redline band paints, a named color
+                or a fixed color. When absent the value paints no fill.
+            """
+        }
+    }
+    tank {
+        stroke_color color.Ref? {
+            @doc value """
+                is the color of the tank's wall, a named color or a fixed color.
+            """
+        }
+        fill_color   color.Ref? {
+            @doc value """
+                is the fill color of the tank body, a named color or a fixed color.
+            """
+        }
+    }
+    cylinder {
+        stroke_color color.Ref? {
+            @doc value """
+                is the border color of the cylinder, a named color or a fixed color.
+            """
+        }
+        fill_color   color.Ref? {
+            @doc value """
+                is the fill color of the cylinder, a named color or a fixed color.
+            """
+        }
+    }
+}
+
+Schematic struct extends v13.Schematic {}

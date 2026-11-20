@@ -10,13 +10,14 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import {
   useCombinedRefs,
   useDebouncedCallback,
   useSyncedRef,
 } from "@synnaxlabs/lyra/hooks";
 import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { blockActivation, isInputOrContentEditable } from "@synnaxlabs/lyra/util";
 import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
@@ -26,9 +27,11 @@ import {
   ConnectionMode,
   type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
+  type EdgeChangeset,
   type EdgeProps as RFEdgeProps,
   type IsValidConnection,
   type NodeChange as RFNodeChange,
+  type NodeChangeset,
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
@@ -51,7 +54,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -106,7 +109,7 @@ const EDITABLE_PROPS: ReactFlowProps = {
   elementsSelectable: true,
   nodesFocusable: true,
   zoomOnDoubleClick: false,
-  nodeClickDistance: 5,
+  nodeDragThreshold: 5,
   reconnectRadius: 15,
   connectionRadius: 30,
 };
@@ -382,7 +385,7 @@ export const create = ({
       RFChange extends RFEdgeChange | RFNodeChange,
       Change extends EdgeChange | NodeChange,
     >(
-      rfChanges: RFChange[],
+      rfChanges: Iterable<RFChange>,
       translate: (c: RFChange) => Change | null,
       onMutations: (changes: Change[]) => void,
     ): void => {
@@ -410,7 +413,7 @@ export const create = ({
       if (mutations.length > 0) onMutations(mutations);
     };
 
-    const handleNodesChange = (changes: RFNodeChange[]) => {
+    const handleNodesChange = (changes: NodeChangeset) => {
       const { passthrough, sizes, removed } = partitionNodeChanges(changes);
       if (sizes.length > 0 || removed.length > 0)
         setMeasured((prev) => {
@@ -423,7 +426,7 @@ export const create = ({
         processChanges(passthrough, translateNodeChangeForward, onNodesChange);
     };
 
-    const handleEdgesChange = (changes: RFEdgeChange[]) =>
+    const handleEdgesChange = (changes: EdgeChangeset) =>
       processChanges(changes, translateEdgeChangeForward, onEdgesChange);
 
     const handleConnect = (conn: RFConnection) =>
@@ -433,6 +436,7 @@ export const create = ({
       onEdgesChange([diagram.createReconnect(oldEdge.id, conn)]);
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
+    const { dark } = Theming.use();
 
     Triggers.use({
       triggers: triggers.modes.zoomReset,
@@ -467,6 +471,7 @@ export const create = ({
       fitViewOptions,
       viewportMode,
       onViewportModeChange,
+      triggers,
     };
 
     const defautlViewport = translateViewportForward(viewport);
@@ -556,6 +561,7 @@ export const create = ({
                 proOptions={PRO_OPTIONS}
                 deleteKeyCode={DELETE_KEY_CODES}
                 snapToGrid={snapToGrid}
+                forceColorMode={dark ? "dark" : "light"}
                 {...rest}
                 {...editableProps}
                 nodesDraggable={editable}
@@ -575,5 +581,5 @@ export const create = ({
     </ReactFlowProvider>
   );
 
-  return memo(Diagram);
+  return Diagram;
 };

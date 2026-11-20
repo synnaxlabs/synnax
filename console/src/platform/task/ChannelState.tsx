@@ -16,7 +16,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Flux } from "@synnaxlabs/pluto";
 import { location, type state } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

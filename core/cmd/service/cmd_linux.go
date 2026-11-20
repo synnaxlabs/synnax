@@ -45,16 +45,7 @@ func NewCmd() *cobra.Command {
 			"--auto-cert --license-file /etc/synnax/license.lic",
 		Args:    cobra.NoArgs,
 		PreRunE: syncFlagsToViper,
-		RunE: func(c *cobra.Command, _ []string) error {
-			c.SilenceUsage = true
-			if err := install(viper.GetBool(flagAutoStart)); err != nil {
-				return err
-			}
-			c.Printf("Installed service %s.\n", name)
-			c.Printf("Configuration saved to: %s\n", ConfigPath())
-			c.Printf("Use 'synnax service start' to start %s.\n", name)
-			return nil
-		},
+		RunE:    runInstall,
 	}
 	installCmd.Flags().Bool(
 		flagAutoStart,
@@ -69,41 +60,20 @@ func NewCmd() *cobra.Command {
 			Short: "Uninstall the systemd service",
 			Long:  "Stops the service and removes it. The config file stays.",
 			Args:  cobra.NoArgs,
-			RunE: func(c *cobra.Command, _ []string) error {
-				c.SilenceUsage = true
-				if err := uninstall(); err != nil {
-					return err
-				}
-				c.Printf("Uninstalled service %s.\n", name)
-				return nil
-			},
+			RunE:  runUninstall,
 		},
 		&cobra.Command{
 			Use:   "start",
 			Short: "Start the systemd service",
 			Args:  cobra.NoArgs,
-			RunE: func(c *cobra.Command, _ []string) error {
-				c.SilenceUsage = true
-				if err := Start(); err != nil {
-					return err
-				}
-				c.Printf("%s started.\n", name)
-				return nil
-			},
+			RunE:  runStart,
 		},
 		&cobra.Command{
 			Use:   "stop",
 			Short: "Stop the systemd service",
 			Long:  "Stops the systemd service and waits until the Core exits.",
 			Args:  cobra.NoArgs,
-			RunE: func(c *cobra.Command, _ []string) error {
-				c.SilenceUsage = true
-				if err := Stop(); err != nil {
-					return err
-				}
-				c.Printf("%s stopped.\n", name)
-				return nil
-			},
+			RunE:  runStop,
 		},
 		&cobra.Command{
 			Use:   "status",
@@ -112,18 +82,58 @@ func NewCmd() *cobra.Command {
 				"configuration, and the last warnings and errors when it is not " +
 				"running.",
 			Args: cobra.NoArgs,
-			RunE: func(c *cobra.Command, _ []string) error {
-				c.SilenceUsage = true
-				info, err := status()
-				if err != nil {
-					return err
-				}
-				FormatStatus(c, info)
-				return nil
-			},
+			RunE: runStatus,
 		},
 	)
 	return group
+}
+
+func runInstall(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
+	if err := install(viper.GetBool(flagAutoStart)); err != nil {
+		return err
+	}
+	c.Printf("Installed service %s.\n", name)
+	c.Printf("Configuration saved to: %s\n", ConfigPath())
+	c.Printf("Use 'synnax service start' to start %s.\n", name)
+	return nil
+}
+
+func runUninstall(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
+	if err := uninstall(); err != nil {
+		return err
+	}
+	c.Printf("Uninstalled service %s.\n", name)
+	return nil
+}
+
+func runStart(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
+	if err := Start(); err != nil {
+		return err
+	}
+	c.Printf("%s started.\n", name)
+	return nil
+}
+
+func runStop(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
+	if err := Stop(); err != nil {
+		return err
+	}
+	c.Printf("%s stopped.\n", name)
+	return nil
+}
+
+func runStatus(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
+	info, err := status()
+	if err != nil {
+		return err
+	}
+	FormatStatus(c, info)
+	return nil
 }
 
 func syncFlagsToViper(cmd *cobra.Command, _ []string) error {

@@ -14,11 +14,11 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Panel as PPanel, Table as Base } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 

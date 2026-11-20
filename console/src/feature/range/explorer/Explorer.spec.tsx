@@ -27,7 +27,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { Explorer } from "@/feature/range/explorer/Explorer";
 import { TAB_TYPE } from "@/feature/range/explorer/external";
 import { createSiftDevice } from "@/feature/sift/testutil";
-import { searchAndClickLabelOption } from "@/platform/label/testutil";
+import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
@@ -101,7 +101,7 @@ const createLabeled = async (
   labeled: ranger.Range;
   other: ranger.Range;
 }> => {
-  const label = await client.labels.create({
+  const label = await createTestLabel(client, {
     name: uniqueName("label"),
     color: "#000000",
   });
@@ -131,6 +131,17 @@ const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { nam
 /** Waits for the list item of the named range. A search tints its term in names. */
 const findItem = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("listitem", { name });
+
+/**
+ * Waits for the list item of the named range once the search for term lands. The item
+ * mounts again when the search lands, which closes a picker or swatch opened before.
+ */
+const findSearchedItem = async (name: string, term: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const item = itemOf(name);
+    within(item).getByText(term, { selector: "mark" });
+    return item;
+  });
 
 /** @returns the keys of the tabs that the selected panel shows. */
 const focusedTabs = (store: TestStore): string[] => {
@@ -505,12 +516,13 @@ describe("range/explorer/Explorer", () => {
       // Ended long ago, so the ranges never crowd the running or recent ranges that
       // specs in parallel read from the shared Core.
       const start = TimeStamp.now().sub(TimeSpan.days(365));
-      await client.ranges.create(
+      const matches = await client.ranges.create(
         Array.from({ length: 101 }, (_, i) => ({
           name: `${token} ${i}`,
           timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
         })),
       );
+      onTestFinished(async () => await client.ranges.delete(matches.map((r) => r.key)));
       await renderExplorer();
       await search(token);
       await screen.findByText(/Showing the first 100 matches\./);
@@ -588,7 +600,6 @@ describe("range/explorer/Explorer", () => {
       const planned = await createRange(uniqueName("planned"), {
         timeRange: new TimeRange(end.sub(TimeSpan.HOUR), end),
       });
-      onTestFinished(async () => await client.ranges.delete(planned.key));
       await renderExplorer();
       await openMenuOf(planned);
       fireEvent.click(await menuItem("Start"));
@@ -689,7 +700,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should add a label that the menu search finds", async () => {
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("found"),
         color: "#000000",
       });
@@ -807,14 +818,14 @@ describe("range/explorer/Explorer", () => {
   describe("labels", () => {
     it("should add and remove a label from the picker of an item", async () => {
       const token = uniqueToken();
-      const label = await client.labels.create({
+      const label = await createTestLabel(client, {
         name: uniqueName("label"),
         color: "#000000",
       });
       const rng = await createRange(`${token} labeled`);
       await renderExplorer();
       await search(token);
-      const item = await findItem(rng.name);
+      const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Labels" }));
       await searchAndClickLabelOption(label.name);
       await waitFor(async () =>
@@ -833,11 +844,8 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(`${token} colored`);
       await renderExplorer();
       await search(token);
-      // The item remounts when the search lands, and the swatch drops a held color.
-      await waitFor(() =>
-        within(itemOf(rng.name)).getByText(token, { selector: "mark" }),
-      );
-      fireEvent.click(within(itemOf(rng.name)).getByRole("button", { name: "Color" }));
+      const item = await findSearchedItem(rng.name, token);
+      fireEvent.click(within(item).getByRole("button", { name: "Color" }));
       const hex = await screen.findByLabelText("Hex");
       fireEvent.change(hex, { target: { value: "123456" } });
       fireEvent.keyDown(hex, { code: "Escape" });
@@ -855,16 +863,17 @@ describe("range/explorer/Explorer", () => {
       const running = await createRange(`${token} running`);
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
-      // The search keeps the ranges of other specs off the axis.
+      // The search keeps the ranges of other specs off the axis. Only the tinted term
+      // proves that it landed, as the unsearched list can also show just these two.
       await search(token);
-      await waitFor(() =>
-        expect(
-          screen
-            .getAllByRole("listitem")
-            .map((el) => el.getAttribute("aria-label"))
-            .toSorted(),
-        ).toEqual([planned.name, running.name].toSorted()),
-      );
+      await findSearchedItem(planned.name, token);
+      await findSearchedItem(running.name, token);
+      expect(
+        screen
+          .getAllByRole("listitem")
+          .map((el) => el.getAttribute("aria-label"))
+          .toSorted(),
+      ).toEqual([planned.name, running.name].toSorted());
       // A window that reached the unset start would mark years on its axis.
       expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
     });
@@ -916,7 +925,6 @@ describe("range/explorer/Explorer", () => {
 
   describe("layout", () => {
     it("should keep the children of an expanded range in sort order in a list", async () => {
-      // Ranges that start later than the others sort first, so the spec deletes them.
       const start = TimeStamp.now().add(TimeSpan.days(30));
       const at = (days: number) => ({
         timeRange: new TimeRange(start.sub(TimeSpan.days(days)), start),
@@ -927,7 +935,6 @@ describe("range/explorer/Explorer", () => {
         ...at(2),
         parent: parent.key,
       });
-      onTestFinished(async () => await client.ranges.delete([parent.key, other.key]));
       const names = [parent.name, other.name, child.name];
       const listed = () =>
         screen

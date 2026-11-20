@@ -9,7 +9,7 @@
 
 import type { Action as BaseAction, UnknownAction } from "@reduxjs/toolkit";
 
-import { type Action } from "@/state";
+import type { Action } from "@/state";
 
 const DRIFT_ACTION_INDICATOR = "DA@";
 const DRIFT_PREFIX_SPLITTER = "://";

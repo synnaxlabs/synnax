@@ -20,14 +20,15 @@ import {
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs, useResize } from "@/hooks";
 import { ItemBoundary, useItemStatus, useLabelledBy } from "@/input/Item";
-import { type InputProps, type Variant } from "@/input/types";
-import { type Status } from "@/status";
+import type { InputProps, Variant } from "@/input/types";
+import type { Status } from "@/status";
 import { Text as BaseText } from "@/text";
-import { type Tooltip } from "@/tooltip";
+import type { Tooltip } from "@/tooltip";
 
 const NATIVE_PREVIEW_TYPES = new Set(["date", "time", "datetime-local", "password"]);
 
@@ -69,7 +70,8 @@ export interface TextProps
  * @param props.flush - Marks the input as its surface's sole keystroke target,
  * removing the focus ring and widening the content inset.
  * @param props.onKeyDown - Called before the input handles Escape, which blurs the
- * input and stops there unless `onKeyDown` prevents the default.
+ * input and stops there unless `onKeyDown` prevents the default. In a modal, Escape
+ * goes on to close the modal.
  */
 export const Text = ({
   size = "medium",
@@ -163,10 +165,13 @@ export const Text = ({
 
   // Start and end content ignore the pointer, and a textarea leaves slack around
   // itself, so a press on the frame focuses the input. Preventing the default keeps
-  // the press from first moving focus to the body.
+  // the press from first moving focus to the body. A button in a slot, or in a dialog
+  // that it opens, keeps its own press.
   const handleFrameMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (disabled || internalRef.current == null || e.target === internalRef.current)
       return;
+    if (!(e.target instanceof Element)) return;
+    if (e.target.closest(`.${CSS.B("btn")}`) !== e.currentTarget) return;
     e.preventDefault();
     internalRef.current?.focus();
   };
@@ -189,7 +194,7 @@ export const Text = ({
     }
     if (e.defaultPrevented) return;
     e.currentTarget.blur();
-    e.stopPropagation();
+    if (!Dialog.inTopModal(e.currentTarget)) e.stopPropagation();
   };
 
   // An input's text is no scroll container a CSS scroll timeline can watch, so the
@@ -297,6 +302,7 @@ export const Text = ({
       )}
       {startContent != null && (
         <BaseText.Text
+          el="div"
           className={CSS.BE("input", "start-content")}
           level={level ?? SIZE_TEXT_LEVELS[size]}
         >
@@ -338,6 +344,7 @@ export const Text = ({
       )}
       {endContent != null && (
         <BaseText.Text
+          el="div"
           className={CSS.BE("input", "end-content")}
           level={level ?? SIZE_TEXT_LEVELS[size]}
         >
