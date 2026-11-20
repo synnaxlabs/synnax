@@ -116,8 +116,8 @@ var _ = Describe("ClearUnissuedChannelLinks on the first start", func() {
 			Exec(ctx, n.DB)).To(Succeed())
 		held, ok := stored.Nodes[0].Config.Variant.(schematic.ValueNodeConfig)
 		Expect(ok).To(BeTrue())
-		far, ok := stored.Nodes[1].Config.Variant.(schematic.ValueNodeConfig)
-		Expect(ok).To(BeTrue())
+		far, farOK := stored.Nodes[1].Config.Variant.(schematic.ValueNodeConfig)
+		Expect(farOK).To(BeTrue())
 		Expect(far.Channel).To(BeZero())
 		// The imported symbol never named the metrics channel.
 		Expect(held.Channel).To(BeZero())
