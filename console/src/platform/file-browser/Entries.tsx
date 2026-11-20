@@ -313,10 +313,12 @@ export const Entries = ({
 }: EntriesProps): ReactElement => {
   const keyboard = Select.useKeyboard();
   const { getData, getItem, scrollToIndex } = List.useUtilContext<string, KeyedEntry>();
+  // A new folder opens at its top. The selected entry, if any, then scrolls into view.
+  useEffect(() => scrollToIndex(0), [folder]);
   useEffect(() => {
     const index = selected == null ? -1 : getData().indexOf(selected);
-    scrollToIndex(Math.max(index, 0));
-  }, [folder]);
+    if (index >= 0) scrollToIndex(index);
+  }, [folder, selected]);
   const ref = useRef<HTMLDivElement>(null);
   const combinedRef = useCombinedRefs(ref, propsRef);
   const typed = useRef({ text: "", at: TimeStamp.ZERO });

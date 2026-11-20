@@ -153,7 +153,10 @@ const Content = ({
       index: h.index,
     }));
 
-  useEffect(() => session?.prefetch(""), [session]);
+  // Each open lists the places again, so one failed list does not leave them empty.
+  useEffect(() => {
+    session?.list("").catch(() => {});
+  }, [session]);
 
   // Each visit lists the folder again. The snapshot shows the result or the failure. A
   // recent folder that fails leaves Recent. As the start folder, it gives way to home.
@@ -200,8 +203,11 @@ const Content = ({
   };
   const go = (to: string, entry: string | null = null): void => {
     countNavigation();
+    if (to === path) {
+      if (entry != null) select(entry);
+      return;
+    }
     select(entry);
-    if (to === path) return;
     setHistory((h) => ({
       stack: [...h.stack.slice(0, h.index + 1), to],
       index: h.index + 1,

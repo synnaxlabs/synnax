@@ -99,7 +99,9 @@ const Segments = ({ path, onGo, onEdit }: SegmentsProps): ReactElement => {
               onGo(s.path);
             }}
           >
-            {s.label}
+            <Text.Text el="span" overflow="fade">
+              {s.label}
+            </Text.Text>
           </Button.Button>
         </Flex.Box>
       ))}
