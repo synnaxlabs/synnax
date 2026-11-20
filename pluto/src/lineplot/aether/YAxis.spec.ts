@@ -78,6 +78,9 @@ interface Mount {
   calls: canvasTest.RecordingGL["calls"];
 }
 
+// across returns a layout of one segment over b, so a y axis bounds its lines inside b.
+const across = (b: bounds.Bounds): Layout => new Layout([b], box.DECIMAL);
+
 describe("YAxis", () => {
   const teardowns: (() => void)[] = [];
   afterEach(() => {
@@ -192,29 +195,49 @@ describe("YAxis", () => {
   describe("bounds", () => {
     it("should cover every visible line", () => {
       const m = mount();
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 100,
+      });
     });
 
     it("should exclude a hidden line", () => {
       const m = mount();
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
+    });
+
+    it("should bound each line over its own span", () => {
+      const m = mount();
+      const spans = new Map([["railed", { lower: 20, upper: 60 }]]);
+      const layout = new Layout([{ lower: 0, upper: 100 }], box.DECIMAL, spans);
+      expect(m.axis.bounds(false, layout)).toEqual({ lower: 1, upper: 3 });
+    });
+
+    it("should give no bounds for a line whose span holds no time", () => {
+      const m = mount();
+      const spans = new Map([["railed", { lower: 30, upper: 30 }]]);
+      const layout = new Layout([{ lower: 0, upper: 100 }], box.DECIMAL, spans);
+      expect(m.axis.bounds(false, layout)).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should exclude a hidden line inside a finite x window", () => {
       const m = mount();
       const xWindow = { lower: 0, upper: 5 };
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 100 });
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 2 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 2 });
     });
 
     it("should exclude a hidden line when the x window clips out every sample", () => {
       const m = mount();
       const xWindow = { lower: 20, upper: 30 };
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 100 });
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should use the x axis bounds of the visible lines as its window", () => {
@@ -222,21 +245,24 @@ describe("YAxis", () => {
       m.setVisible("railed", false);
       const xBounds = m.xAxis.bounds(false);
       expect(xBounds).toEqual({ lower: 0, upper: 10 });
-      expect(m.axis.bounds(false, xBounds)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(xBounds))).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should include a line again when it is shown", () => {
       const m = mount();
       m.setVisible("railed", false);
       m.setVisible("railed", true);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 100,
+      });
     });
 
     it("should fall back to decimal bounds when every line is hidden", () => {
       const m = mount();
       m.setVisible("nominal", false);
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual(bounds.DECIMAL);
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual(bounds.DECIMAL);
     });
 
     it("should pad the data bounds by the auto bound padding", () => {
@@ -244,14 +270,20 @@ describe("YAxis", () => {
         lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) } },
         axis: { autoBoundPadding: 0.1 },
       });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: -1, upper: 11 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: -1,
+        upper: 11,
+      });
     });
 
     it("should expand equal data bounds by one", () => {
       const m = mount({
         lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([5, 5]) } },
       });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 4, upper: 6 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 4,
+        upper: 6,
+      });
     });
 
     it("should ignore a line without data", () => {
@@ -261,7 +293,10 @@ describe("YAxis", () => {
           line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) },
         },
       });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 0, upper: 10 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 0,
+        upper: 10,
+      });
     });
 
     it("should fall back to an hour from now on an empty time axis", () => {
@@ -269,7 +304,7 @@ describe("YAxis", () => {
       vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
       const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
       const now = TimeStamp.now();
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
         lower: Number(now.valueOf()),
         upper: Number(now.add(TimeSpan.HOUR).valueOf()),
       });
@@ -279,23 +314,29 @@ describe("YAxis", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
       const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
-      const first = m.axis.bounds(false, bounds.INFINITE);
+      const first = m.axis.bounds(false, across(bounds.INFINITE));
       vi.setSystemTime(new Date("2030-01-02T04:04:05Z"));
-      const second = m.axis.bounds(false, bounds.INFINITE);
+      const second = m.axis.bounds(false, across(bounds.INFINITE));
       expect(second.lower).toBeGreaterThan(first.lower);
       expect(second.lower).toBe(Number(TimeStamp.now().valueOf()));
     });
 
     it("should exclude a line that is hidden when it mounts", () => {
       const m = mount({ hidden: ["railed"] });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
     });
 
     it("should keep the held bounds when a line is hidden during a hold", () => {
       const m = mount();
-      m.axis.bounds(false, bounds.INFINITE);
+      m.axis.bounds(false, across(bounds.INFINITE));
       m.setVisible("railed", false);
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 100,
+      });
     });
 
     it("should drop the held x bounds when the x axis changes tick type", () => {
@@ -308,10 +349,13 @@ describe("YAxis", () => {
 
     it("should exclude a hidden line when the hold ends", () => {
       const m = mount();
-      m.axis.bounds(false, bounds.INFINITE);
+      m.axis.bounds(false, across(bounds.INFINITE));
       m.setVisible("railed", false);
-      m.axis.bounds(true, bounds.INFINITE);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      m.axis.bounds(true, across(bounds.INFINITE));
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
     });
 
     it("should hold bounds only once its lines load", () => {
@@ -320,12 +364,21 @@ describe("YAxis", () => {
       const m = mount({
         lines: { loading: { x: sourceSpec([0, 5, 10]), y: specOf(y) } },
       });
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
       y.status = telem.SUCCESS_STATUS;
       y.setValue(seriesValue([1, 200]));
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 200,
+      });
       y.setValue(seriesValue([1, 2]));
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 200,
+      });
     });
 
     it("should change only the automatic bound of a partly manual axis", () => {
@@ -333,14 +386,17 @@ describe("YAxis", () => {
         axis: { bounds: { lower: -5, upper: 500 }, manualBounds: { lower: true } },
       });
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: -5, upper: 3 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: -5,
+        upper: 3,
+      });
     });
   });
 
   describe("xBounds", () => {
     it("should return the x bounds of every visible line", () => {
       const m = mount();
-      expect(m.axis.xBounds().map((b) => b.bounds)).toEqual([
+      expect(m.axis.traces().map((b) => b.bounds)).toEqual([
         { lower: 0, upper: 10 },
         { lower: 0, upper: 50 },
       ]);
@@ -349,19 +405,19 @@ describe("YAxis", () => {
     it("should exclude a hidden line", () => {
       const m = mount();
       m.setVisible("railed", false);
-      expect(m.axis.xBounds().map((b) => b.bounds)).toEqual([{ lower: 0, upper: 10 }]);
+      expect(m.axis.traces().map((b) => b.bounds)).toEqual([{ lower: 0, upper: 10 }]);
     });
 
     it("should return no bounds when every line is hidden", () => {
       const m = mount({ hidden: ["nominal", "railed"] });
-      expect(m.axis.xBounds()).toEqual([]);
+      expect(m.axis.traces()).toEqual([]);
     });
 
     it("should report loading while a visible line's x source loads", () => {
       const x = telemTest.source(seriesValue([0, 5, 10]));
       x.status = telem.LOADING_STATUS;
       const m = mount({ lines: { loading: { x: specOf(x), y: sourceSpec([1, 2]) } } });
-      expect(m.axis.xBounds()[0].loading).toBe(true);
+      expect(m.axis.traces()[0].loading).toBe(true);
     });
   });
 });

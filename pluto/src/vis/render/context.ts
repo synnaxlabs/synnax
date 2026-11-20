@@ -116,6 +116,8 @@ export class Context {
   private readonly restore2DHandlers = new Set<() => void>();
   private readonly atlases = new text.AtlasRegistry();
   private frames?: Frames;
+  // glScissors holds the box of each GL scissor in place, outermost first.
+  private readonly glScissors: box.Box[] = [];
 
   /**
    * Creates a render context and sets it on ctx.
@@ -468,16 +470,30 @@ export class Context {
     return () => destructor.forEach((d) => d());
   }
 
+  // A GL scissor inside another draws only where both boxes overlap. Its cleanup puts
+  // back the box before it.
   private scissorGL(region: box.Box, overscan: xy.XY = xy.ZERO): destructor.Destructor {
+    const outer = this.glScissors.at(-1);
+    const b = applyOverScan(region, overscan);
+    const clipped = outer == null ? b : box.intersection(outer, b);
+    this.glScissors.push(clipped);
+    this.applyGLScissor(clipped);
+    return () => {
+      this.glScissors.pop();
+      const prev = this.glScissors.at(-1);
+      if (prev == null) this.gl.disable(this.gl.SCISSOR_TEST);
+      else this.applyGLScissor(prev);
+    };
+  }
+
+  private applyGLScissor(region: box.Box): void {
     this.gl.enable(this.gl.SCISSOR_TEST);
-    region = applyOverScan(region, overscan);
     this.gl.scissor(
       box.left(region) * this.dpr,
       (box.height(this.region) - box.bottom(region)) * this.dpr,
       box.width(region) * this.dpr,
       box.height(region) * this.dpr,
     );
-    return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
   erase(

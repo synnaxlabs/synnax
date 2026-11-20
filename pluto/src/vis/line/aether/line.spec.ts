@@ -26,6 +26,7 @@ import {
   TimeSpan,
   TimeStamp,
   type Window,
+  xy,
 } from "@synnaxlabs/x";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -153,6 +154,72 @@ describe("line", () => {
       m.line.findByXValue(props, 1);
       const read = { bounds: { lower: 100, upper: 300 } };
       values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
+    });
+
+    describe("span", () => {
+      // The x values 0 to 2 fill the region from left to right.
+      const x = scale.Scale.scale<number>(0, 2).scale(0, 1);
+      const spanned = (span: bounds.Bounds): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(x),
+        span,
+      });
+
+      it("should pass its span to its sources as their bound", () => {
+        const m = mount([X1], [Y1]);
+        const value = vi.spyOn(m.xSource, "value");
+        const span = { lower: -Infinity, upper: 1 };
+        m.line.render(spanned(span));
+        expect(value.mock.calls[0][0]?.bound).toEqual(span);
+      });
+
+      it("should clip its draw to its span", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(spanned({ lower: -Infinity, upper: 1 }));
+        expect(m.recorder.scissorCalls).toEqual([
+          {
+            region: box.construct({ x: 0, y: 0 }, { x: 400, y: 600 }),
+            overScan: xy.ZERO,
+            canvases: ["gl"],
+          },
+        ]);
+        expect(m.draws().length).toBeGreaterThan(0);
+      });
+
+      it("should not clip a line that spans every value", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(spanned(bounds.INFINITE));
+        expect(m.recorder.scissorCalls).toEqual([]);
+      });
+
+      it("should draw and read nothing when its span holds no time", () => {
+        const m = mount([X1], [Y1]);
+        const value = vi.spyOn(m.xSource, "value");
+        m.line.render(spanned({ lower: 1, upper: 1 }));
+        expect(m.draws()).toEqual([]);
+        expect(value).not.toHaveBeenCalled();
+        expect(m.line.loading).toBe(false);
+      });
+
+      it("should find no drawn point for a target outside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: -Infinity, upper: 1.5 });
+        m.line.render(props);
+        expect(m.line.findDrawnByXValue(props, 1.6).value.x).toBeNaN();
+      });
+
+      it("should find the nearest drawn point inside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: -Infinity, upper: 1.5 });
+        m.line.render(props);
+        expect(m.line.findDrawnByXValue(props, 1.4).value.x).toBe(1);
+      });
+
+      it("should find no point for a target outside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: 0.5, upper: Infinity });
+        expect(m.line.findByXValue(props, 0.2).value.x).toBeNaN();
+      });
     });
 
     describe("zoom settle", () => {

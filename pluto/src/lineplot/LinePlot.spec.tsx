@@ -311,6 +311,12 @@ describe("LinePlot", () => {
       expect(screen.queryByText("Range 1")).toBeNull();
     });
 
+    it("should group the traces of a stored line on an absolute axis", async () => {
+      await renderTraces({ relativeDisabled: true });
+      await waitFor(() => expect(traces().size).toBe(3));
+      [...traces().values()].forEach((t) => expect(t.state.group).toEqual("line"));
+    });
+
     it("should name a range that has no label by its key", async () => {
       await renderTraces();
       expect(await screen.findByText("r2")).toBeDefined();

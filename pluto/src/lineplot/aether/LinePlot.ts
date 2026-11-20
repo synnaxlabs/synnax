@@ -160,11 +160,12 @@ export class LinePlot
     const bounds: AxesBounds = {};
     this.axes.forEach((v) => {
       const axisKey = v.state.axisKey ?? v.key;
-      const xBounds = v.bounds(this.state.hold);
-      bounds[axisKey] = xBounds;
+      const { hold, viewport } = this.state;
+      const layout = v.layout(hold, viewport);
+      bounds[axisKey] = layout.bounds;
       v.yAxes.forEach((y) => {
         const yAxisKey = y.state.axisKey ?? y.key;
-        bounds[yAxisKey] = y.bounds(this.state.hold, xBounds);
+        bounds[yAxisKey] = y.bounds(hold, layout);
       });
     });
     return bounds;

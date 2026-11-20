@@ -10,12 +10,13 @@
 import { bounds, type box, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import {
+  align,
   type AxisRenderProps,
   BaseAxis,
   baseAxisStateZ,
   newestSample,
 } from "@/lineplot/aether/axis";
-import { Layout } from "@/lineplot/aether/layout";
+import { Layout, spans, type Trace } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import type { line } from "@/vis/line/aether";
@@ -107,12 +108,13 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   }
 
   bounds(hold: boolean): bounds.Bounds {
-    const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
+    const [bound, err] = this.iBounds(hold, this.traces.bind(this));
     if (err != null) throw err;
     return bound;
   }
 
-  private layout(hold: boolean, viewport: box.Box): Layout {
+  /** @returns the layout of the axis for the viewport. */
+  layout(hold: boolean, viewport: box.Box): Layout {
     const [layout, err] = this.iLayout(hold, viewport);
     if (err != null) throw err;
     return layout;
@@ -121,8 +123,9 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   // iLayout returns the layout with the error that its bounds met, so a render can draw
   // the axis before it throws.
   private iLayout(hold: boolean, viewport: box.Box): [Layout, Error | null] {
-    const [b, err] = this.iBounds(hold, this.dataBounds.bind(this));
-    return [new Layout([b], viewport), err];
+    const traces = this.traces();
+    const [b, err] = this.iBounds(hold, () => traces);
+    return [new Layout([b], viewport, spans(align(traces), this.state.type)), err];
   }
 
   private renderRanges(props: AxisRenderProps, layout: Layout): void {
@@ -131,7 +134,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
       TimeRange.MAX.numericBounds,
     ]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
-    const newest = newestSample(this.dataBounds());
+    const newest = newestSample(this.traces());
     this.ranges.forEach((el) =>
       el.render({
         layout,
@@ -142,7 +145,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     );
   }
 
-  private dataBounds(): line.DataBounds[] {
-    return this.yAxes.flatMap((el) => el.xBounds());
+  private traces(): Trace[] {
+    return this.yAxes.flatMap((el) => el.traces());
   }
 }

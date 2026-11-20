@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, box, direction, location, scale, xy } from "@synnaxlabs/x";
+import { bounds, box, direction, location, scale, xy } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
-import type { Layout } from "@/lineplot/aether/layout";
+import type { Layout, Trace } from "@/lineplot/aether/layout";
 import { rule } from "@/lineplot/rule/aether";
 import { line } from "@/vis/line/aether";
 
@@ -38,12 +38,17 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
   override schema = baseAxisStateZ;
 
-  xBounds(): line.DataBounds[] {
-    return this.visibleLines.map((el) => el.xBounds());
+  /** @returns the window of each visible line. */
+  traces(): Trace[] {
+    return this.visibleLines.map((el) => ({
+      ...el.xBounds(),
+      key: el.key,
+      group: el.state.group,
+    }));
   }
 
-  bounds(hold: boolean, xBounds: bounds.Bounds): bounds.Bounds {
-    const [bound, err] = this.iBounds(hold, () => this.dataBounds(xBounds));
+  bounds(hold: boolean, layout: Layout): bounds.Bounds {
+    const [bound, err] = this.iBounds(hold, () => this.dataBounds(layout));
     if (err != null) throw err;
     return bound;
   }
@@ -71,11 +76,9 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     raised: Array<() => void>,
   ): void {
     if (!canvases.includes("gl") || invalidArea(plot)) return;
-    const props: line.LineProps = {
-      region: plot,
-      dataToDecimalScale: new scale.XY(layout.segments[0].scale, yScale),
-    };
+    const dataToDecimalScale = new scale.XY(layout.segments[0].scale, yScale);
     this.lines.forEach((el) => {
+      const props = { region: plot, dataToDecimalScale, span: layout.span(el.key) };
       if (el.raised) raised.push(() => el.render(props));
       else el.render(props);
     });
@@ -103,7 +106,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   findByXValue(props: Omit<YAxisProps, "canvases">, target: number): line.FindResult[] {
     const p = this.lineProps(props);
     return this.lines.map((el) => ({
-      ...el.findByXValue(p, target),
+      ...el.findByXValue({ ...p, span: props.layout.span(el.key) }, target),
       units: this.state.label,
     }));
   }
@@ -115,7 +118,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   ): line.FindResult[] {
     const p = this.lineProps(props);
     return this.lines.map((el) => ({
-      ...el.findDrawnByXValue(p, target),
+      ...el.findDrawnByXValue({ ...p, span: props.layout.span(el.key) }, target),
       units: this.state.label,
     }));
   }
@@ -137,7 +140,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     layout,
     viewport,
   }: Omit<YAxisProps, "canvases">): [scale.Scale, Error | null] {
-    const [b, err] = this.iBounds(hold, () => this.dataBounds(layout.bounds));
+    const [b, err] = this.iBounds(hold, () => this.dataBounds(layout));
     const dir = direction.swap(direction.construct(this.state.location));
     return [
       scale.Scale.scale<number>(b)
@@ -156,8 +159,13 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     return this.lines.some((el) => el.fetching);
   }
 
-  private dataBounds(xBounds: bounds.Bounds): line.DataBounds[] {
-    return this.visibleLines.map((el) => el.yBounds(xBounds));
+  // dataBounds returns the y bounds of each visible line over its span inside the
+  // bounds of the x axis. A line with no time there gives none.
+  private dataBounds(layout: Layout): line.DataBounds[] {
+    return this.visibleLines.flatMap((el) => {
+      const window = bounds.intersection([layout.span(el.key), layout.bounds]);
+      return window.lower < window.upper ? [el.yBounds(window)] : [];
+    });
   }
 
   private get lines(): readonly line.Line[] {

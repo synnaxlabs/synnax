@@ -756,6 +756,30 @@ describe("remote", () => {
         ]);
       });
 
+      it("should draw only the tiles inside the bound it is passed", async () => {
+        const core = createCore();
+        const client = connect(core);
+        const subscribe = vi.spyOn(client.feed, "subscribe");
+        const y = create(client, { channel: core.data[0].key, window: OPEN });
+        const lower = ns(FROM);
+        const upper = lower + ns(new TimeStamp(TimeSpan.minutes(1)));
+        await expect
+          .poll(() => {
+            y.value({
+              bounds: { lower, upper },
+              points: 100,
+              bound: { lower, upper: Infinity },
+            });
+            return subscribe.mock.calls.length;
+          }, POLL)
+          .toBeGreaterThan(0);
+        expect(subscribe.mock.calls[0][0].limit).toEqual(
+          expect.objectContaining({
+            bound: new TimeRange(BigInt(lower), TimeStamp.MAX),
+          }),
+        );
+      });
+
       it("should have no bounds for a range that has not started", async () => {
         const core = createCore();
         const x = create(connect(core), {

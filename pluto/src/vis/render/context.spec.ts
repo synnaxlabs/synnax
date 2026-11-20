@@ -295,6 +295,35 @@ describe("render.Context", () => {
     });
   });
 
+  describe("GL scissor", () => {
+    const scissors = (calls: canvasTest.Call[]) =>
+      calls.filter((c) => c.op === "scissor").map((c) => c.args);
+
+    it("should draw a scissor inside another only where both boxes overlap", () => {
+      const m = mount();
+      m.calls.length = 0;
+      const outer = m.renderCtx.scissor(box.construct(0, 0, 100, 100), xy.ZERO, ["gl"]);
+      const inner = m.renderCtx.scissor(box.construct(50, 0, 100, 100), xy.ZERO, [
+        "gl",
+      ]);
+      expect(scissors(m.calls).at(-1)).toEqual([50, 0, 50, 100]);
+      inner();
+      outer();
+    });
+
+    it("should put back the box before it when an inner scissor ends", () => {
+      const m = mount();
+      const outer = m.renderCtx.scissor(box.construct(0, 0, 60, 100), xy.ZERO, ["gl"]);
+      const inner = m.renderCtx.scissor(box.construct(20, 0, 20, 100), xy.ZERO, ["gl"]);
+      m.calls.length = 0;
+      inner();
+      expect(scissors(m.calls)).toEqual([[0, 0, 60, 100]]);
+      expect(m.count("disable")).toBe(0);
+      outer();
+      expect(m.count("disable")).toBe(1);
+    });
+  });
+
   describe("when the WebGL context is restored", () => {
     it("should increment the generation", () => {
       const m = mount();

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x";
+import { bounds, box, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Layout } from "@/lineplot/aether/layout";
+import { Layout, spans, type Trace } from "@/lineplot/aether/layout";
 
 describe("Layout", () => {
   describe("one segment", () => {
@@ -88,5 +88,97 @@ describe("Layout", () => {
     it("should give the bounds from the first segment to the last", () => {
       expect(layout.bounds).toEqual({ lower: 0, upper: 5060 });
     });
+  });
+});
+
+const MINUTE = Number(TimeSpan.MINUTE.valueOf());
+const SECOND = Number(TimeSpan.SECOND.valueOf());
+
+const trace = (
+  key: string,
+  lower: number,
+  upper: number,
+  extra: Partial<Trace> = {},
+): Trace => ({ key, group: "a", bounds: { lower, upper }, loading: false, ...extra });
+
+describe("spans", () => {
+  describe("time", () => {
+    it("should split the time between two windows at its middle", () => {
+      const s = spans([trace("1", 0, 10), trace("2", 30, 40)], "time");
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 20 });
+      expect(s.get("2")).toEqual({ lower: 20, upper: Infinity });
+    });
+
+    it("should give an overlap to the window that starts first", () => {
+      const s = spans([trace("2", 5, 20), trace("1", 0, 10)], "time");
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 10 });
+      expect(s.get("2")).toEqual({ lower: 10, upper: Infinity });
+    });
+
+    it("should give no time to a window that an earlier window holds", () => {
+      const s = spans([trace("1", 0, 100), trace("2", 10, 20)], "time");
+      expect(s.get("1")).toEqual(bounds.INFINITE);
+      const empty = s.get("2");
+      expect(empty?.lower).toEqual(empty?.upper);
+    });
+
+    it("should give a rolling window only the newest time that fixed windows leave", () => {
+      const s = spans(
+        [trace("live", 0, 100, { edge: "rolling" }), trace("fixed", 40, 60)],
+        "time",
+      );
+      expect(s.get("fixed")).toEqual({ lower: -Infinity, upper: 60 });
+      expect(s.get("live")).toEqual({ lower: 60, upper: Infinity });
+    });
+
+    it("should split each group on its own", () => {
+      const s = spans(
+        [trace("1", 0, 10), trace("2", 0, 10, { group: "b" }), trace("3", 30, 40)],
+        "time",
+      );
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 20 });
+      expect(s.get("2")).toEqual(bounds.INFINITE);
+    });
+
+    it("should give no span to a trace with no group or no window", () => {
+      const s = spans(
+        [trace("1", 0, 10, { group: undefined }), trace("2", Infinity, -Infinity)],
+        "time",
+      );
+      expect(s.size).toBe(0);
+    });
+  });
+
+  describe("relative", () => {
+    it("should pad each window by a share of its span on each side", () => {
+      const s = spans([trace("1", 0, 10 * MINUTE)], "relative");
+      expect(s.get("1")).toEqual({ lower: -0.5 * MINUTE, upper: 10.5 * MINUTE });
+    });
+
+    it("should pad a short window by at least the floor", () => {
+      const s = spans([trace("1", 0, SECOND)], "relative");
+      expect(s.get("1")).toEqual({ lower: -SECOND, upper: 2 * SECOND });
+    });
+
+    it("should not split windows of one group", () => {
+      const s = spans([trace("1", 0, MINUTE), trace("2", 0, MINUTE)], "relative");
+      expect(s.get("1")).toEqual(s.get("2"));
+    });
+
+    it("should leave the end of a growing window open, past a fixed margin", () => {
+      const s = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
+      expect(s.get("1")).toEqual({ lower: -SECOND, upper: Infinity });
+    });
+  });
+
+  it("should give no spans on a linear axis", () => {
+    expect(spans([trace("1", 0, 10)], "linear").size).toBe(0);
+  });
+});
+
+describe("Layout.span", () => {
+  it("should give a line with no span every value", () => {
+    const layout = new Layout([{ lower: 0, upper: 1 }], box.DECIMAL);
+    expect(layout.span("x")).toEqual(bounds.INFINITE);
   });
 });

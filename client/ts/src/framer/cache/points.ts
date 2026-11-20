@@ -101,6 +101,10 @@ interface Live {
 const nextEdge = (ts: TimeStamp, level: number): bigint =>
   tileRange({ level, index: tileIndex(ts, level) + 1 }).start.valueOf();
 
+// placeless returns the limit without its view and bound, which move a subscription
+// inside the tiles it draws.
+const placeless = ({ view, bound, ...rest }: PointsLimit): Partial<PointsLimit> => rest;
+
 /**
  * Serves one channel under a points limit: reduced tiles across the window, and raw
  * samples at its edge when it reaches the commit point. The edge streams through a join
@@ -203,7 +207,7 @@ export class Points {
     const wasDynamic = this.dynamic;
     if (!moved && deep.equal(limit, this.limit)) return;
     const prev = this.limit;
-    const slid = !moved && deep.equal({ ...prev, view: limit.view }, limit);
+    const slid = !moved && deep.equal(placeless(prev), placeless(limit));
     const prevKeys = slid ? (this.tileKeys ?? this.tilesOf(prev)) : null;
     this.window = window;
     this.limit = limit;
@@ -554,9 +558,10 @@ export class Points {
     const raw = this.rawRange(home, boundary);
     const end =
       viewed && !raw.start.before(raw.end) ? undefined : this.tilesEnd(boundary);
+    const { bound } = this.limit;
     const tiled = new TimeRange(
-      start == null ? view.start : TimeStamp.max(view.start, start),
-      end == null ? view.end : TimeStamp.min(view.end, end),
+      TimeStamp.max(view.start, start ?? view.start, bound?.start ?? view.start),
+      TimeStamp.min(view.end, end ?? view.end, bound?.end ?? view.end),
     );
     if (!tiled.start.before(tiled.end)) return [];
     const level = tileLevel(view);
