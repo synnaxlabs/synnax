@@ -233,7 +233,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   });
 
   const selectionRefs = Array.from(cellsByKey).flatMap(([key, cell]) =>
-    MultiEdit.colorRefs(key, cell, COLOR_FIELDS),
+    MultiEdit.fixedColorRefs(key, cell, COLOR_FIELDS),
   );
 
   const levels = new Set(Array.from(cellsByKey.values(), (cell) => cell.level));
@@ -244,19 +244,32 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
       <MultiEdit.ColorsSection>
         <MultiEdit.ColorField
           label="Text"
-          values={selection.colors("textColor", () =>
-            Table.Cell.colorFallbacks.textColor(theme),
+          values={MultiEdit.fixedValues(
+            selection.colors("textColor", () =>
+              Table.Cell.colorFallbacks.textColor(theme),
+            ),
           )}
-          onChange={(c) => selection.set("textColor", c)}
+          onChange={(c) =>
+            selection.set("textColor", c == null ? undefined : MultiEdit.fixedColor(c))
+          }
+          palettesHidden
         />
         <MultiEdit.ColorField
           label="Fill"
-          values={selection.colors("fillColor", Table.Cell.colorFallbacks.fillColor)}
-          onChange={(c) => selection.set("fillColor", c)}
+          values={MultiEdit.fixedValues(
+            selection.colors("fillColor", Table.Cell.colorFallbacks.fillColor),
+          )}
+          onChange={(c) =>
+            selection.set("fillColor", c == null ? undefined : MultiEdit.fixedColor(c))
+          }
+          palettesHidden
         />
         <MultiEdit.SelectionColors
           refs={selectionRefs}
-          onChange={selection.setColors}
+          onChange={(holders, c) =>
+            selection.setColors(holders, MultiEdit.fixedColor(c))
+          }
+          palettesHidden
         />
       </MultiEdit.ColorsSection>
       <Form.Section title="Text">
@@ -269,12 +282,20 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
       </Form.Section>
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor", () =>
-            Staleness.resolveColor(undefined, theme),
+          colors={MultiEdit.fixedValues(
+            selection.colors("stalenessColor", () =>
+              Staleness.resolveColor(undefined, theme),
+            ),
           )}
           timeout={selection.first("stalenessTimeout")}
           unit={TimeSpan.SECOND}
-          onColorChange={(c) => selection.set("stalenessColor", c)}
+          onColorChange={(c) =>
+            selection.set(
+              "stalenessColor",
+              c == null ? undefined : MultiEdit.fixedColor(c),
+            )
+          }
+          palettesHidden
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
         />
       )}

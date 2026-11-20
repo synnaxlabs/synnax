@@ -52,8 +52,13 @@ export const stateZ = z.object({
   x: telem.seriesSourceSpecZ,
   y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
-  /** The name of the set the line belongs to, such as its range. */
-  group: z.string().optional(),
+  /**
+   * Lines with one tooltip group list under one heading in a tooltip, such as the lines
+   * of one channel across ranges.
+   */
+  tooltipGroup: z.string().optional(),
+  /** The name of the line in its tooltip group, such as its range. */
+  tooltipLabel: z.string().optional(),
   color: color.colorZ,
   strokeWidth: z.number().default(1),
   visible: z.boolean().default(true),
@@ -116,7 +121,8 @@ export interface FindResult {
   value: xy.XY;
   color: color.Color;
   label?: string;
-  group?: string;
+  tooltipGroup?: string;
+  tooltipLabel?: string;
   units?: string;
   bounds: bounds.Bounds;
 }
@@ -490,12 +496,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (series !== -1) index = xData.series[series].length - 1;
     }
     const { key } = this;
-    const { color, label, group } = this.state;
+    const { color, label, tooltipGroup, tooltipLabel } = this.state;
     const result = {
       key,
       color,
       label,
-      group,
+      tooltipGroup,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
@@ -538,12 +545,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    */
   findDrawnByXValue(props: LineProps, axisTarget: number): FindResult {
     const { key, shift } = this;
-    const { color, label, group, visible } = this.state;
+    const { color, label, tooltipGroup, tooltipLabel, visible } = this.state;
     const result: FindResult = {
       key,
       color,
       label,
-      group,
+      tooltipGroup,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },

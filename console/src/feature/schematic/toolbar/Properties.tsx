@@ -27,7 +27,6 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   box,
-  color,
   deep,
   type dimensions,
   type direction,
@@ -157,11 +156,15 @@ const selectionColorRefs = (
   key: string,
   cfg: Schematic.ElementConfig,
 ): MultiEdit.ColorRef[] => {
-  const refs = MultiEdit.colorRefs(key, cfg, COLOR_FIELDS);
+  const refs = MultiEdit.fixedColorRefs(key, cfg, COLOR_FIELDS);
   if (cfg.variant === "state_indicator")
     cfg.options.forEach((o, i) => {
       if (o.color != null)
-        refs.push({ key, path: `options.${i}.color`, value: color.construct(o.color) });
+        refs.push({
+          key,
+          path: `options.${i}.color`,
+          value: MultiEdit.fixedRef(o.color),
+        });
     });
   return refs;
 };
@@ -497,33 +500,60 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           {hasStroke && (
             <MultiEdit.ColorField
               label="Stroke"
-              values={selection.colors("strokeColor", (c) =>
-                Schematic.colorFallback("strokeColor", c.variant, theme),
+              values={MultiEdit.fixedValues(
+                selection.colors("strokeColor", (c) =>
+                  Schematic.colorFallback("strokeColor", c.variant, theme),
+                ),
               )}
-              onChange={(c) => selection.set("strokeColor", c)}
+              onChange={(c) =>
+                selection.set(
+                  "strokeColor",
+                  c == null ? undefined : MultiEdit.fixedColor(c),
+                )
+              }
+              palettesHidden
             />
           )}
           {hasFill && (
             <MultiEdit.ColorField
               label="Fill"
-              values={selection.colors("fillColor", (c) =>
-                Schematic.colorFallback("fillColor", c.variant, theme),
+              values={MultiEdit.fixedValues(
+                selection.colors("fillColor", (c) =>
+                  Schematic.colorFallback("fillColor", c.variant, theme),
+                ),
               )}
-              onChange={(c) => selection.set("fillColor", c)}
+              onChange={(c) =>
+                selection.set(
+                  "fillColor",
+                  c == null ? undefined : MultiEdit.fixedColor(c),
+                )
+              }
+              palettesHidden
             />
           )}
           {hasText && (
             <MultiEdit.ColorField
               label="Text"
-              values={selection.colors("textColor", (c) =>
-                Schematic.colorFallback("textColor", c.variant, theme),
+              values={MultiEdit.fixedValues(
+                selection.colors("textColor", (c) =>
+                  Schematic.colorFallback("textColor", c.variant, theme),
+                ),
               )}
-              onChange={(c) => selection.set("textColor", c)}
+              onChange={(c) =>
+                selection.set(
+                  "textColor",
+                  c == null ? undefined : MultiEdit.fixedColor(c),
+                )
+              }
+              palettesHidden
             />
           )}
           <MultiEdit.SelectionColors
             refs={selectionRefs}
-            onChange={selection.setColors}
+            onChange={(holders, c) =>
+              selection.setColors(holders, MultiEdit.fixedColor(c))
+            }
+            palettesHidden
           />
         </MultiEdit.ColorsSection>
       )}
@@ -583,12 +613,20 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       )}
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor", () =>
-            Staleness.resolveColor(undefined, theme),
+          colors={MultiEdit.fixedValues(
+            selection.colors("stalenessColor", () =>
+              Staleness.resolveColor(undefined, theme),
+            ),
           )}
           timeout={selection.first("stalenessTimeout")}
-          onColorChange={(c) => selection.set("stalenessColor", c)}
+          onColorChange={(c) =>
+            selection.set(
+              "stalenessColor",
+              c == null ? undefined : MultiEdit.fixedColor(c),
+            )
+          }
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
+          palettesHidden
         />
       )}
       {selection.has("precision") && (

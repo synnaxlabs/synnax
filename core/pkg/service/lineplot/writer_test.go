@@ -1890,6 +1890,29 @@ var _ = Describe("Range compare", func() {
 				}))
 			})
 
+		It("Should compare the colors of ranges only inside one theme",
+			func(ctx SpecContext) {
+				// The dark value is the light value of the third series color, which
+				// no theme shows next to it.
+				custom := color.Named{
+					Name:  "Custom",
+					Light: xcolor.Color{R: 0x40, G: 0x40, B: 0x40, A: 255},
+					Dark:  &xcolor.Color{R: 0x45, G: 0xA7, B: 0x3A, A: 255},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &custom)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						colored(createRange(ctx, nil), named(series[0])),
+						colored(createRange(ctx, nil), named(series[1])),
+						colored(createRange(ctx, nil), named(custom.Key)),
+						createRange(ctx, nil),
+					},
+				})
+				Expect(refColors(p)[3]).To(Equal(named(series[2])))
+			})
+
 		It("Should skip a series color close to the own color of another range",
 			func(ctx SpecContext) {
 				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
@@ -2099,6 +2122,41 @@ var _ = Describe("Range compare", func() {
 			Expect(res.Axes.X1.TimeMode).To(HaveValue(Equal(mode)))
 			Expect(res.Axes.X2.TimeMode).To(BeNil())
 		})
+
+		It(
+			"Should return the bounds to auto on a change of mode",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{})
+				relative := lineplot.TimeModeRelative
+				absolute := lineplot.TimeModeAbsolute
+				manual := lineplot.ManualBounds{Lower: true, Upper: true}
+				setBounds := lineplot.NewSetAxisBoundsAction(
+					lineplot.SetAxisBoundsPayload{
+						Key:          lineplot.AxisKeyX1,
+						Bounds:       spatial.Bounds{Lower: 10, Upper: 20},
+						ManualBounds: manual,
+					},
+				)
+				setMode := func(m *lineplot.TimeMode) lineplot.Action {
+					return lineplot.NewSetAxisTimeModeAction(
+						lineplot.SetAxisTimeModePayload{
+							Key: lineplot.XAxisKeyX1, TimeMode: m,
+						},
+					)
+				}
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					setBounds,
+					setMode(&absolute),
+				})).To(Succeed())
+				Expect(retrieve(ctx, p.Key).Axes.X1.ManualBounds).To(Equal(manual))
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					setMode(&relative),
+				})).To(Succeed())
+				x1 := retrieve(ctx, p.Key).Axes.X1
+				Expect(x1.Bounds).To(Equal(spatial.Bounds{}))
+				Expect(x1.ManualBounds).To(Equal(lineplot.ManualBounds{}))
+			},
+		)
 
 		It("Should reject a time mode for an unknown x axis", func(ctx SpecContext) {
 			p := create(ctx, lineplot.LinePlot{})

@@ -128,6 +128,7 @@ const Entry = ({
         )}
         <Text.MaybeEditable
           color={entry.visible ? shade : 7}
+          className={CSS.BE("legend-entry", "label")}
           level="small"
           onChange={onLabelChange == null ? undefined : (l) => onLabelChange(key, l)}
           onDoubleClick={stopPropagation}

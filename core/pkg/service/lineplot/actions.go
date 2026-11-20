@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -340,13 +341,15 @@ func (p SetAxisTypePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle sets where the x axis named by Key draws the ranges. A nil mode is absolute.
+// Handle sets where the x axis named by Key draws the ranges. A nil mode is absolute. A
+// change of mode resets the axis bounds to auto, as they mean nothing in another mode.
 func (p SetAxisTimeModePayload) Handle(state LinePlot) (LinePlot, error) {
+	var axis *Axis
 	switch p.Key {
 	case XAxisKeyX1:
-		state.Axes.X1.TimeMode = p.TimeMode
+		axis = &state.Axes.X1
 	case XAxisKeyX2:
-		state.Axes.X2.TimeMode = p.TimeMode
+		axis = &state.Axes.X2
 	default:
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
@@ -354,8 +357,15 @@ func (p SetAxisTimeModePayload) Handle(state LinePlot) (LinePlot, error) {
 			p.Key,
 		)
 	}
+	if isRelative(axis.TimeMode) != isRelative(p.TimeMode) {
+		axis.Bounds = spatial.Bounds{}
+		axis.ManualBounds = ManualBounds{}
+	}
+	axis.TimeMode = p.TimeMode
 	return state, nil
 }
+
+func isRelative(m *TimeMode) bool { return m != nil && *m == TimeModeRelative }
 
 func unknownAxisKey(k AxisKey) error {
 	return errors.Wrapf(validate.ErrValidation, "unknown axis_key %q", k)

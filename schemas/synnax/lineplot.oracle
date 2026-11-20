@@ -466,7 +466,10 @@ LinePlot struct {
         key       XAxisKey
         time_mode TimeMode?
 
-        @doc value "sets where the x axis named by key draws the ranges."
+        @doc value """
+            sets where the x axis named by key draws the ranges. A change of mode
+            returns the axis bounds to auto.
+        """
     }
 
     action SetAxisLabel {

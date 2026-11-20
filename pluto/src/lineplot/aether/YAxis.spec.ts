@@ -74,6 +74,7 @@ interface Mount {
   xAxis: XAxis;
   axis: YAxis;
   setVisible: (line: string, visible: boolean) => void;
+  setXAxis: (state: Record<string, unknown>) => void;
   calls: canvasTest.RecordingGL["calls"];
 }
 
@@ -109,11 +110,14 @@ describe("YAxis", () => {
     const xPath = [...stack.basePath, "host", "x1"];
     const path = [...xPath, "y1"];
     stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
-    stack.driver.update(xPath, XAxis.TYPE, {
-      location: "bottom",
-      autoBoundPadding: 0,
-      ...xAxis,
-    });
+    const setXAxis = (state: Record<string, unknown>): void =>
+      stack.driver.update(xPath, XAxis.TYPE, {
+        location: "bottom",
+        autoBoundPadding: 0,
+        ...xAxis,
+        ...state,
+      });
+    setXAxis({});
     stack.driver.update(path, YAxis.TYPE, {
       location: "left",
       autoBoundPadding: 0,
@@ -131,6 +135,7 @@ describe("YAxis", () => {
       xAxis: stack.driver.find<XAxis>(xPath),
       axis: stack.driver.find<YAxis>(path),
       setVisible,
+      setXAxis,
       calls,
     };
   };
@@ -287,6 +292,14 @@ describe("YAxis", () => {
       m.axis.bounds(false, bounds.INFINITE);
       m.setVisible("railed", false);
       expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+    });
+
+    it("should drop the held x bounds when the x axis changes tick type", () => {
+      const m = mount({ xAxis: { type: "time" } });
+      m.xAxis.bounds(false);
+      m.setVisible("railed", false);
+      m.setXAxis({ type: "relative" });
+      expect(m.xAxis.bounds(true)).toEqual({ lower: 0, upper: 10 });
     });
 
     it("should exclude a hidden line when the hold ends", () => {

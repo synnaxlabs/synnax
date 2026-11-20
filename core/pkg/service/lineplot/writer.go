@@ -43,9 +43,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. Each
 // line and rule with no color gets a series color, and a repeated range reference is
-// dropped. The line plot must belong to a
-// project. A line plot in a group belongs to the project that holds the group. Create
-// returns an error wrapping validate.ErrValidation when a line plot with lp.Key exists.
+// dropped. The line plot must belong to a project. A line plot in a group belongs to
+// the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a line plot with lp.Key exists.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
@@ -301,37 +301,48 @@ func (w Writer) namedColors(
 // in normal vision and under each color vision deficiency.
 const minRangeDistance = 0.05
 
-// apart returns true if every color in as is at least minRangeDistance from every color
-// in bs, in normal vision and under each color vision deficiency.
-func apart(as, bs []xcolor.Color) bool {
+// themed is a color as the light and the dark theme show it.
+type themed struct{ light, dark xcolor.Color }
+
+func fixedThemed(c xcolor.Color) themed { return themed{light: c, dark: c} }
+
+// distinct returns true if a and b are at least minRangeDistance apart, in normal
+// vision and under each color vision deficiency.
+func distinct(a, b xcolor.Color) bool {
+	if xcolor.Distance(a, b) < minRangeDistance {
+		return false
+	}
+	for _, d := range xcolor.Deficiencies {
+		sa, sb := xcolor.Simulate(a, d), xcolor.Simulate(b, d)
+		if xcolor.Distance(sa, sb) < minRangeDistance {
+			return false
+		}
+	}
+	return true
+}
+
+// apart returns true if every color in as is distinct from every color in bs in the
+// light theme and in the dark theme.
+func apart(as, bs []themed) bool {
 	for _, a := range as {
 		for _, b := range bs {
-			if xcolor.Distance(a, b) < minRangeDistance {
+			if !distinct(a.light, b.light) || !distinct(a.dark, b.dark) {
 				return false
-			}
-			for _, d := range xcolor.Deficiencies {
-				sa, sb := xcolor.Simulate(a, d), xcolor.Simulate(b, d)
-				if xcolor.Distance(sa, sb) < minRangeDistance {
-					return false
-				}
 			}
 		}
 	}
 	return true
 }
 
-// refValues returns the values of r: its fixed value, or both theme values of the named
-// color in named. A named color with no dark value has only its light value.
-func refValues(r *color.Ref, named map[color.Key]color.Named) []xcolor.Color {
+// refValues returns r as each theme shows it: its fixed value, or the values of the
+// named color in named. A named color with no dark value shows its light value in both.
+func refValues(r *color.Ref, named map[color.Key]color.Named) []themed {
 	switch v := r.Variant.(type) {
 	case color.FixedRef:
-		return []xcolor.Color{v.Value}
+		return []themed{fixedThemed(v.Value)}
 	case color.NamedRef:
 		n := named[v.Key]
-		if n.Dark == nil {
-			return []xcolor.Color{n.Light}
-		}
-		return []xcolor.Color{n.Light, *n.Dark}
+		return []themed{{light: n.Light, dark: lo.FromPtrOr(n.Dark, n.Light)}}
 	}
 	return nil
 }
@@ -347,8 +358,8 @@ func pickRangeColors(
 	own []*xcolor.Color,
 	named map[color.Key]color.Named,
 ) []*color.Ref {
-	values := func(r *color.Ref) []xcolor.Color { return refValues(r, named) }
-	var taken []xcolor.Color
+	values := func(r *color.Ref) []themed { return refValues(r, named) }
+	var taken []themed
 	for _, c := range colors {
 		if c != nil {
 			taken = append(taken, values(c)...)
@@ -356,16 +367,16 @@ func pickRangeColors(
 	}
 	picks := make([]*color.Ref, len(colors))
 	for i, c := range colors {
-		if c == nil && own[i] != nil && apart([]xcolor.Color{*own[i]}, taken) {
-			taken = append(taken, *own[i])
+		if c == nil && own[i] != nil && apart([]themed{fixedThemed(*own[i])}, taken) {
+			taken = append(taken, fixedThemed(*own[i]))
 			picks[i] = &color.Ref{Variant: color.FixedRef{Value: *own[i]}}
 		}
 	}
-	seriesValues := lo.Map(series, func(k color.Key, _ int) []xcolor.Color {
+	seriesValues := lo.Map(series, func(k color.Key, _ int) []themed {
 		return values(&color.Ref{Variant: color.NamedRef{Key: k}})
 	})
 	uses := make([]int, len(series))
-	use := func(vs []xcolor.Color) {
+	use := func(vs []themed) {
 		for i, sv := range seriesValues {
 			if !apart(vs, sv) {
 				uses[i]++
