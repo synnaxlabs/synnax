@@ -98,6 +98,8 @@ export interface ContextValue {
    */
   toggleAt: (target: HTMLElement) => void;
   visible: boolean;
+  /** Whether the dialog is open and placed, at the height it shows at. */
+  placed: boolean;
   variant: Variant;
   /** The corner of the trigger the dialog opens from. */
   location: location.XY;
@@ -117,6 +119,7 @@ const [Context, useContext] = context.create<ContextValue>({
     toggleAt: () => {},
     variant: "floating",
     visible: false,
+    placed: false,
     triggerRef: () => {},
   },
   displayName: "Dialog.Context",
@@ -396,6 +399,15 @@ export const Frame = ({
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   };
 
+  // A closed dialog drops its placement, so it opens again hidden until it is placed.
+  useEffect(() => {
+    if (visible) return;
+    prevBox.current = undefined;
+    setState((prev) =>
+      Object.keys(prev.style).length === 0 ? prev : { ...prev, style: {} },
+    );
+  }, [visible]);
+
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
@@ -511,6 +523,7 @@ export const Frame = ({
     toggle,
     toggleAt,
     visible,
+    placed: visible && (variant === "modal" || Object.keys(style).length > 0),
     onPointerEnter,
     variant,
     location: targetCorner,

@@ -9,10 +9,11 @@
 
 import "@/select/Dialog.css";
 
-import { destructor } from "@synnaxlabs/x";
+import { array, destructor } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactNode,
+  useLayoutEffect,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -20,10 +21,15 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
+import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
+import { List } from "@/list";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
+import { useContext } from "@/select/Context";
+import { useRegistryContext } from "@/select/registry";
 import { ClosedContext, InlineContext } from "@/select/scope";
+import { useOrder } from "@/select/use";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends BaseDialog.DialogProps {
@@ -50,6 +56,57 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
   return createPortal(<ClosedContext value>{children}</ClosedContext>, detached);
 };
 
+// Inputs that scroll the list or move its cursor. The first one ends a reveal that
+// still waits, so the list never moves under the user.
+const STOP_EVENTS = ["wheel", "touchmove", "pointerdown"] as const;
+const STOP_KEYS: ReadonlySet<string> = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+]);
+
+// The dialog opens on its first choice, as a native dropdown does. A fetched list can
+// load the choice after the dialog is placed, so the reveal waits for it once, until
+// the user scrolls or searches.
+const useRevealChoice = (placed: boolean): void => {
+  const registry = useRegistryContext("Select.Dialog");
+  const order = useOrder();
+  const { scrollToIndex, getData } = List.useUtilContext();
+  const { getState } = useContext();
+  // Read through a ref, so the reveal runs once per open as these change identity.
+  const readRef = useSyncedRef({ order, scrollToIndex, getData, getState });
+  useLayoutEffect(() => {
+    if (!placed) return;
+    const { order, scrollToIndex, getData, getState } = readRef.current;
+    const selected = array.toArray(getState().value);
+    const stops: destructor.Destructor[] = [];
+    const stop = (): void => stops.splice(0).forEach((s) => s());
+    const tryReveal = (): void => {
+      // A search lists its matches in their own order.
+      if (registry.getTerm() !== "") return stop();
+      const key = order.getOrder().find((k) => selected.includes(k));
+      if (key == null) return;
+      stop();
+      const element = order.getElement(key);
+      if (element != null) element.scrollIntoView({ block: "nearest" });
+      else scrollToIndex(getData().indexOf(key));
+    };
+    const handleKey = (e: KeyboardEvent): void => {
+      if (STOP_KEYS.has(e.key)) stop();
+    };
+    const controller = new AbortController();
+    const options = { capture: true, passive: true, signal: controller.signal };
+    STOP_EVENTS.forEach((type) => window.addEventListener(type, stop, options));
+    window.addEventListener("keydown", handleKey, options);
+    stops.push(() => controller.abort(), order.subscribe(tryReveal));
+    tryReveal();
+    return stop;
+  }, [placed, registry, readRef]);
+};
+
 /**
  * The floating surface of a selection. While closed it renders its children into an
  * element outside the page, so a selected fixed {@link Item} can still show its label
@@ -63,7 +120,8 @@ export const Dialog = ({
   filtered = false,
   ...rest
 }: DialogProps): ReactNode => {
-  const { visible } = BaseDialog.useContext();
+  const { visible, placed } = BaseDialog.useContext();
+  useRevealChoice(placed);
   // Under a submenu that the menu filter passes, a selection shows its options in the
   // menu or nothing.
   const nested = usePath().length > 0;

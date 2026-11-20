@@ -51,6 +51,7 @@ export const useResize = <E extends HTMLElement>(
   const debouncePeriod = new TimeSpan(debounce).valueOf();
   const prev = useRef<box.Box>(box.ZERO);
   const ref = useRef<E | null>(null);
+  const observed = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
   const memoTriggers = useMemoCompare(() => triggers, compareArrayDeps, [
     triggers,
@@ -76,7 +77,11 @@ export const useResize = <E extends HTMLElement>(
 
   return (el: E | null) => {
     ref.current = el;
-    if (el != null && enabled) startObserving(el);
+    if (el == null || !enabled) return;
+    // A new element reports its first box, even one that the last element had.
+    if (el !== observed.current) prev.current = box.ZERO;
+    observed.current = el;
+    startObserving(el);
   };
 };
 

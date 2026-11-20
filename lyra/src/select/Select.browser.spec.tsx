@@ -9,11 +9,21 @@
 
 import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
+import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
@@ -178,6 +188,67 @@ const renderFooter = async (): Promise<Element> => {
   await expect.element(dialog).toBeVisible();
   await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
   return document.getElementById("footer") as Element;
+};
+
+const MANY_KEYS = Array.from({ length: 60 }, (_, i) => `key-${i}`);
+const CHOICE = "key-50";
+
+const fixedOptions = (): ReactElement[] =>
+  MANY_KEYS.map((key) => (
+    <Select.Item key={key} itemKey={key}>
+      {key}
+    </Select.Item>
+  ));
+
+const listSelect = (
+  virtual: boolean,
+  data: string[] = MANY_KEYS,
+  onSearch?: (term: string) => void,
+): ReactElement => (
+  <Dialog.Frame>
+    <Select.Frame<string, undefined>
+      data={data}
+      value={CHOICE}
+      onChange={() => {}}
+      virtual={virtual}
+    >
+      <Select.SingleTrigger placeholder="Pick" />
+      <Select.Dialog>
+        <Select.Body<string> resourceName="key" onSearch={onSearch}>
+          {({ key, ...p }) => (
+            <Select.Item key={key} {...p}>
+              {p.itemKey}
+            </Select.Item>
+          )}
+        </Select.Body>
+      </Select.Dialog>
+    </Select.Frame>
+  </Dialog.Frame>
+);
+
+const renderChoice = async (select: ReactElement): Promise<Element> => {
+  const { container } = await renderThemed(
+    <Triggers.Provider>{select}</Triggers.Provider>,
+  );
+  return container.querySelector(".lyra-dialog__trigger") as Element;
+};
+
+const openDialog = async (trigger: Element): Promise<Element> => {
+  await userEvent.click(trigger);
+  const dialog = page.getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return dialog;
+};
+
+const isInView = (dialog: Element, text: string): boolean => {
+  const option = Array.from(dialog.querySelectorAll("[role='option']")).find(
+    (el) => el.textContent === text,
+  );
+  const scroll = option?.closest(".lyra-list__scroll");
+  if (option == null || scroll == null) return false;
+  const { top, bottom } = option.getBoundingClientRect();
+  const view = scroll.getBoundingClientRect();
+  return top >= view.top && bottom <= view.bottom;
 };
 
 interface PinnedOptions {
@@ -535,7 +606,8 @@ const renderSearchless = async (
   await userEvent.click(getByRole("button", { name: multiple ? "Levels" : /^Level/ }));
   const dialog = getByRole("dialog").element();
   await expect.poll(() => computed(dialog, "opacity")).toBe("1");
-  await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+  // The first arrow key moves on from the choice.
+  await userEvent.keyboard("{ArrowDown}{Enter}");
   await expect.poll(() => onChange).toHaveBeenCalledOnce();
   return onChange;
 };
@@ -993,6 +1065,173 @@ describe("Select", () => {
     });
   });
 
+  describe("opening", () => {
+    it("should scroll a static list to the choice", async () => {
+      const dialog = await openDialog(await renderChoice(listSelect(false)));
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a virtual list to the choice", async () => {
+      const dialog = await openDialog(await renderChoice(listSelect(true)));
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a list of fixed options to the choice", async () => {
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={() => {}}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      const dialog = await openDialog(trigger);
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a multiple select to its first choice in the list", async () => {
+      const trigger = await renderChoice(
+        <Select.Simple<string>
+          resourceName="key"
+          multiple
+          value={["key-59", "key-30"]}
+          onChange={() => {}}
+        >
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      const dialog = await openDialog(trigger);
+      await expect.poll(() => isInView(dialog, "key-30")).toBe(true);
+    });
+
+    it("should scroll to a choice that loads after the dialog opens", async () => {
+      const { container, rerender } = await renderThemed(
+        <Triggers.Provider>{listSelect(true, [])}</Triggers.Provider>,
+      );
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      // The first try at the reveal finds no options.
+      await scheduler.nextFrame();
+      await rerender(<Triggers.Provider>{listSelect(true)}</Triggers.Provider>);
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it.each([
+      [
+        "scrolls",
+        (scroll: Element) =>
+          scroll.dispatchEvent(new WheelEvent("wheel", { bubbles: true })),
+      ],
+      ["moves the cursor", async () => await userEvent.keyboard("{ArrowDown}")],
+    ])("should not scroll to a late choice once the user %s", async (_, act) => {
+      const early = MANY_KEYS.filter((key) => key !== CHOICE);
+      const { container, rerender } = await renderThemed(
+        <Triggers.Provider>{listSelect(true, early)}</Triggers.Provider>,
+      );
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      const scroll = dialog.querySelector(".lyra-list__scroll") as Element;
+      // The reveal waits for the choice once the dialog shows.
+      await scheduler.nextFrame();
+      await act(scroll);
+      await rerender(<Triggers.Provider>{listSelect(true)}</Triggers.Provider>);
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(scroll.scrollTop).toBe(0);
+    });
+
+    it("should not scroll to a late choice once the user searches", async () => {
+      const early = MANY_KEYS.filter((key) => key !== CHOICE);
+      const select = (data: string[]): ReactElement => (
+        <Triggers.Provider>{listSelect(true, data, () => {})}</Triggers.Provider>
+      );
+      const { container, rerender } = await renderThemed(select(early));
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      await scheduler.nextFrame();
+      (dialog.querySelector("input") as HTMLInputElement).focus();
+      await userEvent.keyboard("k");
+      await rerender(select(MANY_KEYS));
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(dialog.querySelector(".lyra-list__scroll")?.scrollTop).toBe(0);
+    });
+
+    it("should move the hover on from the choice", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={onChange}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      await openDialog(trigger);
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith("key-51", expect.anything());
+    });
+
+    it("should not scroll to the choice of a list outside a select dialog", async () => {
+      const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+      onTestFinished(() => scroll.mockRestore());
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame variant="modal" visible>
+            <Dialog.Dialog>
+              <Select.Frame<string, undefined>
+                data={MANY_KEYS}
+                value={CHOICE}
+                onChange={() => {}}
+              >
+                <Select.List>
+                  <Select.Items<string>>
+                    {({ key, ...p }) => (
+                      <Select.Item key={key} {...p}>
+                        {p.itemKey}
+                      </Select.Item>
+                    )}
+                  </Select.Items>
+                </Select.List>
+              </Select.Frame>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(scroll).not.toHaveBeenCalled();
+    });
+
+    it("should show the dialog already scrolled to the choice", async () => {
+      const trigger = await renderChoice(listSelect(false));
+      const shown: boolean[] = [];
+      const observer = new MutationObserver(() => {
+        const dialog = document.querySelector("[role='dialog']");
+        if (shown.length > 0 || !dialog?.classList.contains(CSS.visible(true))) return;
+        shown.push(isInView(dialog, CHOICE));
+      });
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributeFilter: ["class"],
+      });
+      onTestFinished(() => observer.disconnect());
+      await openDialog(trigger);
+      expect(shown).toEqual([true]);
+    });
+
+    it("should scroll a virtual list to the choice when it opens again", async () => {
+      const trigger = await renderChoice(listSelect(true));
+      const first = await openDialog(trigger);
+      await expect.poll(() => isInView(first, CHOICE)).toBe(true);
+      first.querySelector(".lyra-list__scroll")?.scrollTo({ top: 0 });
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => document.querySelector("[role='dialog']")).toBeNull();
+      const second = await openDialog(trigger);
+      await expect.poll(() => isInView(second, CHOICE)).toBe(true);
+    });
+  });
+
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();
@@ -1182,6 +1421,10 @@ describe("Select", () => {
       );
       const scroll = getByRole("listbox").element();
       await expect.poll(() => scroll.scrollHeight).toBeGreaterThan(5000);
+      // The dialog scrolls to its choice a frame after it shows.
+      const dialog = getByRole("dialog").element();
+      await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+      await scheduler.nextFrame();
       scroll.scrollTop = scroll.scrollHeight;
       await expect.poll(() => getByText("old-199").elements().length).toBe(1);
 

@@ -105,7 +105,7 @@ start.
 ## Environment variables
 
 The Driver reads each parameter from a variable named `SYNNAX_DRIVER_` and the key in
-upper case. The integrations have no variable.
+upper case. The integrations and the secrets folder have no variable.
 
 ```bash
 SYNNAX_DRIVER_HOST=10.0.0.45
@@ -165,7 +165,8 @@ The file cannot hold comments.
     "shutdown_timeout": 30,
     "worker_count": 4
   },
-  "integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"]
+  "integrations": ["arc", "ethercat", "file", "http", "labjack", "modbus", "ni", "opc"],
+  "secrets_dir": "/etc/synnax/secrets"
 }
 ```
 
@@ -252,10 +253,16 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="integrations" default="all">
-  The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`,
-  and `opc`. The default is every integration that the Driver for your platform has.
-  Linux has no `labjack`, macOS has no `ni`, and NI Linux RT has no `labjack` or
-  `modbus`.
+  The device integrations to run: `arc`, `ethercat`, `file`, `http`, `labjack`,
+  `modbus`, `ni`, and `opc`. The default is every integration that the Driver for your
+  platform has. Linux has no `labjack`, macOS has no `ni`, and NI Linux RT has no
+  `labjack` or `modbus`.
+</Field.Item>
+
+<Field.Item name="secrets_dir">
+  The folder of the Driver's file secrets and certificate keys. The `file` integration
+  shows only the names of the files in it, never their contents. A relative path starts
+  from the folder that the Driver starts in. Set it only in the configuration file.
 </Field.Item>
 
 </Field.List>

@@ -459,15 +459,17 @@ bound, a log precision, or the line plot X channel.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
-- An open select marks the current value.
-- An open search select lists its current values first, with no divider: the joined tint
-  of several values marks where they end. `Select.Single`, `Select.Multiple`, the line
-  plot's Ranges select, and the range Labels menu do this. The order is set when the
-  select opens and holds while it stays open, so an item never moves under the pointer.
-  A current value that loads after the select opens joins the values listed first. A
-  search lists its matches in their own order. GitHub and GitLab do the same.
-- A select of fixed options, such as `Select.Simple`, keeps its order and opens scrolled
-  to its current value. A filter menu keeps its own order.
+- An open select marks the current value and opens scrolled to it. The first arrow key
+  moves on from the current value, as in a native dropdown.
+- `Select.Single`, `Select.Multiple`, the line plot's Ranges select, and the range
+  Labels menu list their current values first, with no divider: the joined tint of
+  several values marks where they end. The order is set when the select opens and holds
+  while it stays open, so an item never moves under the pointer. A current value that
+  loads after the select opens joins the values listed first, until the user scrolls,
+  moves the cursor, or searches. A search lists its matches in their own order. GitHub
+  and GitLab do the same.
+- Every other select keeps its order, such as `Select.Simple` and the selects built on
+  `Select.Frame`. A filter menu keeps its own order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
