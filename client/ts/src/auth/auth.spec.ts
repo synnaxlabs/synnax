@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context } from "@synnaxlabs/freighter";
+import type { Context } from "@synnaxlabs/freighter";
 import { errors, id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
@@ -146,6 +146,25 @@ describe("auth", () => {
         }),
       ).rejects.toThrow(InvalidTokenError);
       expect(onFailure).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("retrieveMethods", () => {
+    const client = auth.createTokenlessClient({
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
+    });
+    it("should list the methods the Core accepts without logging in", async () => {
+      const methods = await auth.retrieveMethods(client);
+      expect(methods.toSorted()).toEqual(["api_key", "password"]);
+    });
+    it("should serve repeated requests through one client", async () => {
+      const [first, second] = await Promise.all([
+        auth.retrieveMethods(client),
+        auth.retrieveMethods(client),
+      ]);
+      expect(second).toEqual(first);
+      expect(await auth.retrieveMethods(client)).toEqual(first);
     });
   });
 

@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { type View, type Viewer } from "@/server/referral";
+import type { View, Viewer } from "@/server/referral";
 import { referralPath } from "@/shell";
 import { post } from "@/ui/api";
 import { Auth } from "@/ui/auth";

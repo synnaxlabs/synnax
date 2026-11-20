@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { type CameraSample, crop, motionBlur, simulate } from "@/director/camera";
 import { BLUR_MAX_PX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { fitAmount, plan } from "@/director/zoom";
-import { type Event, type Rect, type Timeline } from "@/timeline";
+import type { Event, Rect, Timeline } from "@/timeline";
 
 const FPS = 60;
 const W = 1920;

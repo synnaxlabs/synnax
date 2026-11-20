@@ -10,7 +10,7 @@
 import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
-import { type Flex } from "@synnaxlabs/lyra/flex";
+import type { Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";

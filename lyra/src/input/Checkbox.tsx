@@ -9,7 +9,7 @@
 
 import "@/input/Checkbox.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Boolean, type BooleanProps } from "@/input/Boolean";

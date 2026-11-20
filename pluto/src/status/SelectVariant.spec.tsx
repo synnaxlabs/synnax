@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Status as Base } from "@synnaxlabs/lyra/status";
+import type { Status as Base } from "@synnaxlabs/lyra/status";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";

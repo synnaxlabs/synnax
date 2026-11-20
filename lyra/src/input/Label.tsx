@@ -9,7 +9,7 @@
 
 import "@/input/Label.css";
 
-import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "react";
+import type { DetailedHTMLProps, HTMLAttributes, ReactElement } from "react";
 
 import { CSS } from "@/css";
 

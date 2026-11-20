@@ -26,7 +26,7 @@ import {
   type Trigger,
 } from "@/query/query";
 import { isChange, type Keyed, type Table, type TableEvent } from "@/query/table";
-import { type Data, type FetchOptions, type Params } from "@/query/types";
+import type { Data, FetchOptions, Params } from "@/query/types";
 
 /** The most records a search returns. */
 export const MAX_SEARCH_LIMIT = 1000;

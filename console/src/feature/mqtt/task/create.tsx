@@ -21,7 +21,7 @@ import {
   WRITE_TYPE,
   type WriteSchemas,
 } from "@/feature/mqtt/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 export const DEFAULT_READ_NAME = "MQTT read task";

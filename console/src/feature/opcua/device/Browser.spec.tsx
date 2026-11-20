@@ -9,8 +9,8 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Haul } from "@synnaxlabs/lyra/haul";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";

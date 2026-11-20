@@ -36,7 +36,7 @@ vi.mock("@tauri-apps/plugin-fs", async () => {
   };
 });
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";

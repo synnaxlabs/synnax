@@ -9,7 +9,7 @@
 
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, type direction, math, xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,

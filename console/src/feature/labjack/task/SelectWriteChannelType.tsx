@@ -9,7 +9,7 @@
 
 import { Select } from "@synnaxlabs/lyra/select";
 
-import { type WriteChannelType } from "@/feature/labjack/task/types";
+import type { WriteChannelType } from "@/feature/labjack/task/types";
 
 const TRIGGER_PROPS: Select.SingleTriggerProps = { variant: "shadow" };
 
