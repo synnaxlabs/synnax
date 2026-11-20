@@ -9,11 +9,12 @@
 
 import { type xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
+import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { type Status } from "@/status";
@@ -61,12 +62,20 @@ interface RenderOptions {
   resourceName?: string;
   cellStatus?: (at: xy.XY) => Status.Crude | undefined;
   onRemove?: (index: number) => void;
+  onMove?: (from: number, to: number) => void;
 }
 
-const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
+/** @returns a row key that reads the row's first cell. */
+const keyByFirstCell =
+  (value: Input.TableCell[][]) =>
+  (index: number): string =>
+    String(value[index][0]);
+
+const renderTable = ({ value = [[1, 10]], onMove, ...rest }: RenderOptions = {}) => {
   const onChange = vi.fn();
+  const moves = onMove == null ? {} : { onMove, rowKey: keyByFirstCell(value) };
   render(
-    <Input.Table value={value} onChange={onChange} {...rest}>
+    <Input.Table value={value} onChange={onChange} {...rest} {...moves}>
       {COLUMNS}
     </Input.Table>,
   );
@@ -991,6 +1000,352 @@ describe("Input.Table", () => {
       from.focus();
       fireEvent.keyDown(from, { key: "ArrowDown" });
       expect(document.activeElement).toBe(cell("Label", "2"));
+    });
+  });
+
+  describe("move", () => {
+    const ROWS: Input.TableCell[][] = [
+      [1, 10],
+      [2, 20],
+      [3, 30],
+    ];
+
+    const handle = (row: string, table = 0): HTMLElement =>
+      screen.getAllByRole("button", { name: `Move row ${row}` })[table];
+
+    const rowOf = (row: string, table = 0): HTMLElement => {
+      const tr = handle(row, table).closest("tr");
+      if (tr == null) throw new Error(`Row ${row} has no element`);
+      return tr;
+    };
+
+    interface MovableProps {
+      initial: Input.TableCell[][];
+      /** Ignores each move, as a caller that keeps a row in place would. */
+      refused?: boolean;
+      preview?: boolean;
+      renderHaulPreview?: (index: number) => ReactNode;
+    }
+
+    interface KeyedRow {
+      key: string;
+      cells: Input.TableCell[];
+    }
+
+    // Holds keyed rows and applies each edit, removal, and move, as a form would.
+    const Movable = ({
+      initial,
+      refused = false,
+      ...rest
+    }: MovableProps): ReactElement => {
+      const [rows, setRows] = useState<KeyedRow[]>(() =>
+        initial.map((cells, i) => ({ key: `row-${i}`, cells })),
+      );
+      const handleChange = (next: Input.TableCell[][]) =>
+        setRows((prev) =>
+          next.map((cells, i) => ({ key: prev[i]?.key ?? `new-${i}`, cells })),
+        );
+      const handleRemove = (index: number) =>
+        setRows((prev) => prev.filter((_, i) => i !== index));
+      const handleMove = (from: number, to: number) => {
+        if (refused) return;
+        setRows((prev) => {
+          const next = [...prev];
+          const [row] = next.splice(from, 1);
+          next.splice(to, 0, row);
+          return next;
+        });
+      };
+      return (
+        <Haul.Provider>
+          <Input.Table
+            value={rows.map(({ cells }) => cells)}
+            onChange={handleChange}
+            onRemove={handleRemove}
+            onMove={handleMove}
+            rowKey={(i) => rows[i].key}
+            {...rest}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>
+      );
+    };
+
+    const renderDraggable = (onMove: (from: number, to: number) => void) =>
+      render(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+
+    it("should move a row down and up with the arrow keys on its handle", () => {
+      const onMove = vi.fn();
+      renderTable({ value: ROWS, onMove });
+      fireEvent.keyDown(handle("2"), { key: "ArrowDown" });
+      fireEvent.keyDown(handle("2"), { key: "ArrowUp" });
+      expect(onMove.mock.calls).toEqual([
+        [1, 2],
+        [1, 0],
+      ]);
+    });
+
+    it("should keep each cell's input when the table leaves preview", () => {
+      const value: Input.TableCell[][] = [
+        [1, true],
+        [2, false],
+      ];
+      const props = { value, onChange: vi.fn(), onMove: vi.fn(), rowKey: String };
+      const columns = [
+        <Input.TableColumn key="raw" name="Raw" />,
+        <Input.TableColumn key="on" name="On" type="boolean" />,
+      ];
+      const { rerender } = render(
+        <Haul.Provider>
+          <Input.Table {...props} preview>
+            {columns}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      const on = cell("On", "1");
+      rerender(
+        <Haul.Provider>
+          <Input.Table {...props}>{columns}</Input.Table>
+        </Haul.Provider>,
+      );
+      expect(cell("On", "1")).toBe(on);
+    });
+
+    it("should not move the first row up or the last row down", () => {
+      const onMove = vi.fn();
+      renderTable({ value: ROWS, onMove });
+      fireEvent.keyDown(handle("1"), { key: "ArrowUp" });
+      fireEvent.keyDown(handle("3"), { key: "ArrowDown" });
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should keep focus on the handle of the row it moves", () => {
+      render(<Movable initial={ROWS} />);
+      handle("1").focus();
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      expect(cell("Raw", "2").value).toBe("1");
+      expect(document.activeElement).toBe(handle("2"));
+    });
+
+    it("should drop a dragged row in the place of the row it lands on", () => {
+      const onMove = vi.fn();
+      renderDraggable(onMove);
+      fireEvent.dragStart(handle("1"));
+      fireEvent.drop(rowOf("3"));
+      expect(onMove).toHaveBeenCalledWith(0, 2);
+    });
+
+    it("should not drag a row from one of its cells", () => {
+      const onMove = vi.fn();
+      renderDraggable(onMove);
+      fireEvent.dragStart(cell("Raw", "1"));
+      fireEvent.drop(rowOf("3"));
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should not take a row from another table", () => {
+      const onMove = vi.fn();
+      render(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={vi.fn()}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(handle("1", 0));
+      fireEvent.drop(rowOf("3", 1));
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should move a mark with its row", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      expect(marked(cell("Raw", "2"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should move the mark of a row that a paste added with its row", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "3"), "3\t30\nx\t40");
+      expect(marked(cell("Raw", "4"))).toBe(true);
+      fireEvent.keyDown(handle("4"), { key: "ArrowUp" });
+      expect(cell("Scaled", "3").value).toBe("40");
+      expect(marked(cell("Raw", "3"))).toBe(true);
+      expect(marked(cell("Raw", "4"))).toBe(false);
+    });
+
+    it("should show no gutter in preview", () => {
+      renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
+      expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
+      expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
+    });
+
+    it("should name a handle after its row's label", () => {
+      renderTable({ value: ROWS, onMove: vi.fn(), rowLabel: (i) => `c${i}` });
+      expect(screen.getByRole("button", { name: "Move row c0" })).toBeTruthy();
+    });
+
+    it("should keep focus in the cell being edited after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      const input = cell("Raw", "3");
+      input.focus();
+      paste(input, "4\t40");
+      expect(cell("Scaled", "3").value).toBe("40");
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("should keep a mark on its row after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      commit(cell("Scaled", "3"), "31");
+      expect(marked(cell("Raw", "1"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+    });
+
+    it("should not take a remove after a refused move as the move", () => {
+      render(<Movable initial={ROWS} refused />);
+      paste(cell("Raw", "3"), "x\t31");
+      fireEvent.keyDown(handle("2"), { key: "ArrowUp" });
+      fireEvent.click(screen.getByRole("button", { name: "Remove row 1" }));
+      expect(marked(cell("Raw", "2"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should move a mark with its row on a drop", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.dragStart(handle("1"));
+      fireEvent.drop(rowOf("3"));
+      expect(marked(cell("Raw", "3"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    const renderKeyed = (
+      rows: Input.TableCell[][],
+      keys: string[],
+      onMove = vi.fn(),
+    ) => (
+      <Haul.Provider>
+        <Input.Table
+          value={rows}
+          onChange={vi.fn()}
+          onMove={onMove}
+          rowKey={(i) => keys[i]}
+        >
+          {COLUMNS}
+        </Input.Table>
+      </Haul.Provider>
+    );
+
+    it("should keep a mark on its row when the caller reorders the rows", () => {
+      const { rerender } = render(renderKeyed(ROWS, ["a", "b", "c"]));
+      paste(cell("Raw", "2"), "x\t21");
+      rerender(renderKeyed([ROWS[1], ROWS[0], ROWS[2]], ["b", "a", "c"]));
+      expect(marked(cell("Raw", "1"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+    });
+
+    it("should drop the dragged row by its key after the rows above it change", () => {
+      const onMove = vi.fn();
+      const { rerender } = render(renderKeyed(ROWS, ["a", "b", "c"], onMove));
+      fireEvent.dragStart(handle("1"));
+      rerender(renderKeyed([[0, 0], ...ROWS], ["z", "a", "b", "c"], onMove));
+      fireEvent.drop(rowOf("4"));
+      expect(onMove).toHaveBeenCalledWith(1, 3);
+    });
+
+    it("should draw the drop line on the side the row lands on", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("1"));
+      fireEvent.dragOver(rowOf("3"));
+      expect(rowOf("3").classList).toContain(CSS.BEM("input", "table-row", "below"));
+      fireEvent.dragLeave(rowOf("3"));
+      expect(rowOf("3").classList).not.toContain(
+        CSS.BEM("input", "table-row", "below"),
+      );
+      fireEvent.dragEnd(handle("1"));
+      fireEvent.dragStart(handle("3"));
+      fireEvent.dragOver(rowOf("1"));
+      expect(rowOf("1").classList).toContain(CSS.BEM("input", "table-row", "above"));
+      fireEvent.drop(rowOf("1"));
+      expect(rowOf("1").classList).not.toContain(
+        CSS.BEM("input", "table-row", "above"),
+      );
+    });
+
+    it("should picture a dragged row with its name by default", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("2"));
+      expect(screen.getByText("Row 2")).toBeTruthy();
+    });
+
+    it("should picture a dragged row with the caller's preview", () => {
+      render(
+        <Movable initial={ROWS} renderHaulPreview={(i) => <span>Pump {i}</span>} />,
+      );
+      fireEvent.dragStart(handle("2"));
+      expect(screen.getByText("Pump 1")).toBeTruthy();
+    });
+
+    it("should take no drop in preview", () => {
+      const onMove = vi.fn();
+      const { rerender } = render(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(handle("1"));
+      const target = rowOf("3");
+      rerender(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+            preview
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.drop(target);
+      expect(onMove).not.toHaveBeenCalled();
     });
   });
 
