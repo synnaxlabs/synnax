@@ -315,6 +315,18 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("hosts")).toBeDefined();
     });
 
+    it("should keep the selection when the open folder opens again", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.click(await findEntry("hosts"));
+      await findEntry("hosts", true);
+      const path = screen.getByLabelText("Path");
+      fireEvent.click(within(path).getByRole("button", { name: "etc" }));
+      expect(
+        screen.getByRole("option", { name: /^hosts/, selected: true }),
+      ).toBeDefined();
+    });
+
     it("should select a folder on a single click and not open it", async () => {
       await openBrowser(LISTINGS);
       await openFolder("/");

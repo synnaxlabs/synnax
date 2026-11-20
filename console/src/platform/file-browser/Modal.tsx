@@ -173,8 +173,11 @@ const Content = ({
   };
   const go = (to: string, select: string | null = null): void => {
     countNavigation();
+    if (to === path) {
+      if (select != null) setSelected(select);
+      return;
+    }
     setSelected(select);
-    if (to === path) return;
     setHistory((h) => ({
       stack: [...h.stack.slice(0, h.index + 1), to],
       index: h.index + 1,
