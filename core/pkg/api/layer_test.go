@@ -37,10 +37,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -472,13 +475,32 @@ var _ = Describe("BindTo", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("value"))
 		})).To(Succeed())
-		rk := rack.Key(7)
+		rk := svc.Rack.EmbeddedKey
+		t := task.Task{
+			Type:   sift.ScanTaskType,
+			Rack:   rk,
+			Name:   "Scanner",
+			Config: msgpack.EncodedJSON{"rate": 1},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Task.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
+		cmd := task.Command{
+			Task: t.Key,
+			Type: "test_connection",
+			Key:  "cmd",
+			Args: msgpack.EncodedJSON{"host": "plc"},
+		}
 		var res apisecret.GrantCreateResponse
 		Expect(post("/api/v1/secret/grant/create", apisecret.GrantCreateRequest{
 			Subject: rk.ResourceID(),
 			Secrets: []secret.Key{s.Base().Key},
+			Command: cmd,
 		}, &res)).To(Succeed())
-		Expect(svc.Secret.Resolve(ctx, rk.ResourceID(), res.Grant, s.Base().Key)).
-			To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("value")}))
+		got, values := MustSucceed2(
+			svc.Secret.Resolve(ctx, rk.ResourceID(), t.Key, res.Grant),
+		)
+		Expect(got).To(Equal(cmd))
+		Expect(values).To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("value")}))
 	})
 })

@@ -1,23 +1,18 @@
 ---
-title: "Version 0.44 release notes"
+title: "Embedded Console"
+version: "0.44.0"
+npmVersion: "0.44.1"
+date: "Aug 11, 2025"
 ---
 
 import { Hero } from "@/components/hero";
 import { Image } from "@/components/media/Media";
-import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.44.0"
-    npmVersion="0.44.1"
-    date="Aug 11, 2025"
-    title="Embedded Console"
->
 
 <Hero.Hero
   image="releases/0-44-0/thumbnail"
@@ -139,5 +134,3 @@ console.log(await client.readLatest(["daq_time", "ox_pt_1"], 1));
 - Fixed an issue where the Palette would not properly switch between search and command
   modes when closed and re-opened.
 - Added drag and drop importing and exporting of tasks.
-
-</Release>
