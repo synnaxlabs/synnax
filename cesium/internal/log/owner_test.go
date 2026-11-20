@@ -22,10 +22,49 @@ import (
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const logSize = 2 << 20
+
+// goExec runs each step of a log owner on a new goroutine, as production does.
+func goExec(f func()) { go f() }
+
+// bigEntry returns an entry of n bytes, a multiple of 8, that holds no Commit.
+func bigEntry(n int) *log.Entry {
+	GinkgoHelper()
+	var e log.Entry
+	e.Add(&log.Replace{Pointers: make([]log.Pointer, (n-48)/40)})
+	return fill(&e, n)
+}
+
+// commitEntry returns an entry of n bytes, a multiple of 8, that holds a Commit.
+func commitEntry(n int) *log.Entry {
+	GinkgoHelper()
+	var e log.Entry
+	e.Add(&log.Commit{Samples: 1, Slots: make([]log.Slot, (n-48)/16)})
+	return fill(&e, n)
+}
+
+// fill adds Restart records of 8 bytes to e until it is n bytes long.
+func fill(e *log.Entry, n int) *log.Entry {
+	GinkgoHelper()
+	for len(e.Bytes()) < n {
+		e.Add(&log.Restart{})
+	}
+	Expect(e.Bytes()).To(HaveLen(n))
+	return e
+}
+
+func of(records ...log.Record) *log.Entry {
+	var e log.Entry
+	for _, r := range records {
+		e.Add(r)
+	}
+	return &e
+}
 
 var logName = log.Name(generation)
 
@@ -38,11 +77,11 @@ func fileBytes(fs xfs.FS) []byte {
 }
 
 // walk returns the frames of a log file in order. It looks for each next frame at the
-// end of the last one, then at the next block boundary, and checks the sequence and
-// the link of each.
+// end of the last one, then at the next block boundary, and checks the sequence and the
+// link of each.
 func walk(b []byte) []log.Frame {
 	GinkgoHelper()
-	h := MustSucceed(log.DecodeHeader(b, 0))
+	h := MustSucceed(log.DecodeHeader(b, db, generation, 0))
 	var (
 		frames []log.Frame
 		at     = int64(log.FramesStart)
@@ -106,258 +145,369 @@ func writes(ops []string) []int64 {
 }
 
 var _ = Describe("Log", func() {
-	var (
-		fs  *opFS
-		l   *log.Log
-		ran chan error
-	)
-
-	open := func(size int64) {
-		GinkgoHelper()
-		Expect(log.Prepare(fs, generation, size)).To(Succeed())
-		l = MustSucceed(log.Start(log.Config{
-			FS:         fs,
-			DB:         db,
-			Generation: generation,
-			Sequence:   5,
-			PrevCRC:    0xBEEF,
-			Size:       size,
-		}))
-		ran = make(chan error, 1)
-		ctx, cancel := context.WithCancel(context.Background())
-		go func() { ran <- l.Run(ctx) }()
-		DeferCleanup(cancel)
-	}
-
-	BeforeEach(func() { fs = newOpFS() })
-
-	Describe("Prepare", func() {
-		It("Should make a synced file of zeros and sync its entry", func() {
-			Expect(log.Prepare(fs, generation, 3<<20)).To(Succeed())
-			Expect(fileBytes(fs)).To(Equal(make([]byte, 3<<20)))
-			Expect(fs.Ops()).To(HaveExactElements(
-				"write "+logName+" 0 1048576",
-				"write "+logName+" 1048576 1048576",
-				"write "+logName+" 2097152 1048576",
-				"sync "+logName,
-				"syncdir ",
-			))
-		})
-	})
-
 	It("Should name a log by its generation in 16 hex digits", func() {
 		Expect(log.Name(0xAB)).To(Equal("00000000000000ab.log"))
 	})
 
-	It("Should write and sync both header copies at start", func() {
-		open(logSize)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		b := fileBytes(fs)
-		want := log.Header{
-			DB:         db,
-			Generation: generation,
-			Sequence:   5,
-			Size:       logSize,
-			PrevCRC:    0xBEEF,
-		}
-		Expect(log.DecodeHeader(b, 0)).To(Equal(want))
-		Expect(log.DecodeHeader(b[log.HeaderCopy:], log.HeaderCopy)).To(Equal(want))
-		Expect(fs.Ops()[len(fs.Ops())-1]).To(Equal("sync " + logName))
-	})
-
-	It("Should ack an entry with its sequence once its frame is synced", func() {
-		open(logSize)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		entry := entryOf(&log.Drop{Key: 3})
-		Expect(l.Append(entry, false).Wait()).To(Equal(uint64(5)))
-		ops := fs.Ops()
-		at := len(ops) - 1
-		for ops[at] != fmt.Sprintf("write %s 8192 %d", logName, 32+len(entry)) {
-			at--
-		}
-		Expect(ops[at+1]).To(Equal("sync " + logName))
-		f := walk(fileBytes(fs))[0]
-		Expect(f.Count).To(Equal(uint32(1)))
-		Expect(f.Entries).To(Equal(entry))
-	})
-
-	It("Should mark an isolated frame at the next block, and pack the next frame "+
-		"after the mark", func() {
-		open(logSize)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		entry := entryOf(&log.Drop{Key: 3})
-		Expect(l.Append(entry, false).Wait()).To(Equal(uint64(5)))
-		Eventually(func() []int64 { return writes(fs.Ops()) }).
-			Should(Equal([]int64{8_192, 12_288}))
-		Expect(l.Append(entry, false).Wait()).To(Equal(uint64(6)))
-		Eventually(func() []int64 { return writes(fs.Ops()) }).
-			Should(Equal([]int64{8_192, 12_288, 12_320, 16_384}))
-		frames := walk(fileBytes(fs))
-		Expect(frames).To(HaveLen(4))
-		Expect(frames[1].Count).To(BeZero())
-		Expect(frames[1].Sequence).To(Equal(uint64(6)))
-	})
-
-	It("Should write every entry queued during a sync as one frame", func() {
-		open(logSize)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		release := fs.Hold()
-		first := l.Append(entryOf(&log.Drop{Key: 1}), false)
-		Eventually(fs.held).Should(Receive())
-		second := l.Append(entryOf(&log.Drop{Key: 2}), false)
-		third := l.Append(entryOf(&log.Drop{Key: 3}), false)
-		fs.Unhold()
-		release <- struct{}{}
-		Expect(first.Wait()).To(Equal(uint64(5)))
-		Expect(second.Wait()).To(Equal(uint64(6)))
-		Expect(third.Wait()).To(Equal(uint64(7)))
-		frames := walk(fileBytes(fs))
-		Expect(frames[0].Count).To(Equal(uint32(1)))
-		Expect(frames[1].Count).To(Equal(uint32(2)))
-		Expect(decodeAll(frames[1].Entries)).To(Equal([]any{log.Drop{Key: 2}}))
-	})
-
-	It("Should start a frame at the next block when its block holds a confirmed "+
-		"frame", func() {
-		open(logSize)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		entry := entryOf(&log.Drop{Key: 3})
-		size := int64(32 + len(entry))
-		release := fs.Hold()
-		a := l.Append(entry, false)
-		Eventually(fs.held).Should(Receive())
-		b := l.Append(entry, false)
-		release <- struct{}{}
-		Expect(a.Wait()).To(Equal(uint64(5)))
-		Eventually(fs.held).Should(Receive())
-		c := l.Append(entry, false)
-		fs.Unhold()
-		release <- struct{}{}
-		Expect(b.Wait()).To(Equal(uint64(6)))
-		Expect(c.Wait()).To(Equal(uint64(7)))
-		Expect(writes(fs.Ops())[:3]).To(Equal([]int64{8_192, 8_192 + size, 12_288}))
-	})
-
-	It("Should split a batch larger than a frame into frames", func() {
-		open(32 << 20)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		release := fs.Hold()
-		first := l.Append(entryOf(&log.Restart{}), false)
-		Eventually(fs.held).Should(Receive())
-		big := make([]byte, 10<<20)
-		second := l.Append(big, false)
-		third := l.Append(big, false)
-		fs.Unhold()
-		release <- struct{}{}
-		Expect(first.Wait()).To(Equal(uint64(5)))
-		Expect(second.Wait()).To(Equal(uint64(6)))
-		Expect(third.Wait()).To(Equal(uint64(7)))
-		frames := walk(fileBytes(fs))
-		Expect(frames[1].Count).To(Equal(uint32(1)))
-		Expect(frames[2].Count).To(Equal(uint32(1)))
-	})
-
-	It(
-		"Should refuse an entry past the delete reserve, and take a delete there",
-		func() {
-			open(logSize)
-			DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-			entry := make([]byte, logSize-log.DeleteReserve-log.FramesStart-31)
-			Expect(l.Append(entry, false).Wait()).Error().To(SatisfyAll(
-				MatchError(log.ErrFull),
-				MatchError(ContainSubstring("does not fit in log 3")),
-			))
-			Expect(l.Append(entry, true).Wait()).To(Equal(uint64(5)))
-		},
-	)
-
-	It("Should refuse an entry larger than a frame", func() {
-		open(logSize)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		Expect(l.Append(make([]byte, log.MaxFrame), true).Wait()).Error().
-			To(MatchError(log.ErrFull))
-	})
-
 	DescribeTable(
-		"Should fail every entry after a failed write or sync, until a restart",
-		func(fail func(error)) {
-			open(logSize)
-			fault := errors.New("disk fault")
-			fail(fault)
-			Expect(l.Append([]byte{1}, false).Wait()).Error().To(SatisfyAll(
-				MatchError(fault),
-				MatchError(ContainSubstring("no entry is durable until a restart")),
+		"Should refuse a config with a field that is not set",
+		func(change func(*log.Config), field string) {
+			cfg := log.Config{
+				FS:         xfs.NewMem(),
+				Executor:   goExec,
+				Generation: 1,
+				Sequence:   1,
+			}
+			change(&cfg)
+			Expect(cfg.Validate()).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(field)),
 			))
-			fail(nil)
-			Expect(l.Append([]byte{1}, false).Wait()).Error().To(MatchError(fault))
-			Expect(l.Close()).To(MatchError(fault))
+			Expect(log.Start(cfg)).Error().To(MatchError(validate.ErrValidation))
 		},
-		Entry("sync", func(err error) { fs.FailSync(err) }),
-		Entry("write", func(err error) { fs.FailWrite(err) }),
+		Entry("file system", func(c *log.Config) { c.FS = nil }, "fs"),
+		Entry("executor", func(c *log.Config) { c.Executor = nil }, "executor"),
+		Entry("generation", func(c *log.Config) { c.Generation = 0 }, "generation"),
+		Entry("sequence", func(c *log.Config) { c.Sequence = 0 }, "sequence"),
 	)
 
-	It("Should write queued entries and a clean mark at Close, then refuse "+
-		"entries", func() {
-		open(logSize)
-		Expect(l.Append(entryOf(&log.Drop{Key: 1}), false).Wait()).To(Equal(uint64(5)))
-		Expect(l.Close()).To(Succeed())
-		Expect(<-ran).To(Succeed())
-		frames := walk(fileBytes(fs))
-		last := frames[len(frames)-1]
-		Expect(last.Clean).To(BeTrue())
-		Expect(last.Sequence).To(Equal(uint64(6)))
-		Expect(l.Append([]byte{1}, false).Wait()).Error().To(MatchError(log.ErrClosed))
-	})
+	for fsName, makeFS := range fstestutil.FileSystems {
+		Context(fsName, func() {
+			var (
+				fs    *opFS
+				l     *log.Log
+				ran   chan error
+				steps chan struct{}
+			)
 
-	It("Should fail queued and later entries when the context of Run ends", func() {
-		Expect(log.Prepare(fs, generation, logSize)).To(Succeed())
-		l = MustSucceed(log.Start(log.Config{
-			FS:         fs,
-			DB:         db,
-			Generation: generation,
-			Sequence:   1,
-			Size:       logSize,
-		}))
-		ctx, cancel := context.WithCancel(context.Background())
-		ran = make(chan error, 1)
-		go func() { ran <- l.Run(ctx) }()
-		cancel()
-		Expect(<-ran).To(MatchError(context.Canceled))
-		Expect(l.Append([]byte{1}, false).Wait()).Error().
-			To(MatchError(context.Canceled))
-		Expect(l.Close()).To(Succeed())
-	})
+			start := func(size int64, sequence uint64) {
+				GinkgoHelper()
+				Expect(log.Prepare(fs, generation, size)).To(Succeed())
+				steps = make(chan struct{}, 1<<16)
+				l = MustSucceed(log.Start(log.Config{
+					FS: fs,
+					Executor: func(f func()) {
+						steps <- struct{}{}
+						go f()
+					},
+					DB:         db,
+					Generation: generation,
+					Sequence:   sequence,
+					PrevCRC:    0xBEEF,
+				}))
+			}
 
-	It("Should give each of many concurrent entries one sequence, in linked "+
-		"frames", func() {
-		open(8 << 20)
-		DeferCleanup(func() { Expect(l.Close()).To(Succeed()) })
-		var (
-			wg   sync.WaitGroup
-			mu   sync.Mutex
-			seqs []uint64
-		)
-		for w := range 8 {
-			wg.Go(func() {
-				defer GinkgoRecover()
-				for i := range 100 {
-					seq := MustSucceed(l.Append(
-						entryOf(&log.Drop{Key: uint32(w*100 + i)}),
-						false,
-					).Wait())
-					mu.Lock()
-					seqs = append(seqs, seq)
-					mu.Unlock()
-				}
+			open := func(size int64) {
+				GinkgoHelper()
+				start(size, 5)
+				ran = make(chan error, 1)
+				ctx, cancel := context.WithCancel(context.Background())
+				go func() { ran <- l.Run(ctx) }()
+				DeferCleanup(cancel)
+			}
+
+			closeLog := func() {
+				GinkgoHelper()
+				Expect(l.Close()).To(Succeed())
+				Eventually(ran).Should(Receive(BeNil()))
+			}
+
+			BeforeEach(func() { fs = newOpFS(makeFS()) })
+
+			Describe("Prepare", func() {
+				It("Should make a synced file of zeros and sync its entry", func() {
+					Expect(log.Prepare(fs, generation, 3<<20)).To(Succeed())
+					Expect(fileBytes(fs)).To(Equal(make([]byte, 3<<20)))
+					Expect(fs.Ops()).To(HaveExactElements(
+						"write "+logName+" 0 1048576",
+						"write "+logName+" 1048576 1048576",
+						"write "+logName+" 2097152 1048576",
+						"sync "+logName,
+						"syncdir ",
+					))
+				})
 			})
-		}
-		wg.Wait()
-		Expect(seqs).To(HaveLen(800))
-		Expect(seqs).To(ContainElements(uint64(5), uint64(804)))
-		var entries uint32
-		for _, f := range walk(fileBytes(fs)) {
-			entries += f.Count
-		}
-		Expect(entries).To(Equal(uint32(800)))
-	})
+
+			DescribeTable(
+				"Should refuse a log file that is not a whole number of blocks with "+
+					"room "+
+					"for the reserve",
+				func(size int64) {
+					Expect(log.Prepare(fs, generation, size)).To(Succeed())
+					Expect(log.Start(log.Config{
+						FS:         fs,
+						Executor:   goExec,
+						Generation: generation,
+						Sequence:   1,
+					})).Error().To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("is not a whole number of blocks")),
+					))
+				},
+				Entry(
+					"too small",
+					int64(log.FramesStart+log.DeleteReserve+log.BlockSize),
+				),
+				Entry("not whole blocks", int64(logSize+100)),
+			)
+
+			It("Should write and sync both header copies at start, with the size of "+
+				"the file", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				b := fileBytes(fs)
+				want := log.Header{
+					DB:         db,
+					Generation: generation,
+					Sequence:   5,
+					Size:       logSize,
+					PrevCRC:    0xBEEF,
+				}
+				Expect(log.DecodeHeader(b, db, generation, 0)).To(Equal(want))
+				Expect(log.DecodeHeader(b[log.HeaderCopy:], db, generation,
+					log.HeaderCopy)).To(Equal(want))
+				Expect(fs.Ops()[len(fs.Ops())-1]).To(Equal("sync " + logName))
+			})
+
+			It(
+				"Should ack an entry with its sequence once its frame is synced",
+				func() {
+					open(logSize)
+					DeferCleanup(closeLog)
+					entry := entryOf(&log.Drop{Key: 3})
+					Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).To(Equal(uint64(5)))
+					ops := fs.Ops()
+					at := len(ops) - 1
+					want := fmt.Sprintf("write %s 8192 %d", logName, 32+len(entry))
+					for ops[at] != want {
+						at--
+					}
+					Expect(ops[at+1]).To(Equal("sync " + logName))
+					f := walk(fileBytes(fs))[0]
+					Expect(f.Count).To(Equal(uint32(1)))
+					Expect(f.Entries).To(Equal(entry))
+				},
+			)
+
+			It("Should run each step of the owner on its executor", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).To(Equal(uint64(5)))
+				Eventually(steps).Should(Receive())
+				Eventually(func() []int64 { return writes(fs.Ops()) }).
+					Should(HaveLen(2))
+				Consistently(steps).ShouldNot(Receive())
+			})
+
+			It("Should keep a copy of an entry that the caller resets", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				release := fs.Hold()
+				first := l.Append(of(&log.Drop{Key: 1}))
+				Eventually(fs.held).Should(Receive())
+				e := of(&log.Drop{Key: 2})
+				second := l.Append(e)
+				e.Reset()
+				e.Add(&log.Drop{Key: 9})
+				fs.Unhold()
+				release <- struct{}{}
+				Expect(first.Wait()).To(Equal(uint64(5)))
+				Expect(second.Wait()).To(Equal(uint64(6)))
+				Expect(decodeAll(walk(fileBytes(fs))[1].Entries)).
+					To(Equal([]any{log.Drop{Key: 2}}))
+			})
+
+			It("Should mark an isolated frame at the next block, and pack the next "+
+				"frame after the mark", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).To(Equal(uint64(5)))
+				Eventually(func() []int64 { return writes(fs.Ops()) }).
+					Should(Equal([]int64{8_192, 12_288}))
+				Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).To(Equal(uint64(6)))
+				Eventually(func() []int64 { return writes(fs.Ops()) }).
+					Should(Equal([]int64{8_192, 12_288, 12_320, 16_384}))
+				frames := walk(fileBytes(fs))
+				Expect(frames).To(HaveLen(4))
+				Expect(frames[1].Count).To(BeZero())
+				Expect(frames[1].Sequence).To(Equal(uint64(6)))
+			})
+
+			It("Should write every entry queued during a sync as one frame", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				release := fs.Hold()
+				first := l.Append(of(&log.Drop{Key: 1}))
+				Eventually(fs.held).Should(Receive())
+				second := l.Append(of(&log.Drop{Key: 2}))
+				third := l.Append(of(&log.Drop{Key: 3}))
+				fs.Unhold()
+				release <- struct{}{}
+				Expect(first.Wait()).To(Equal(uint64(5)))
+				Expect(second.Wait()).To(Equal(uint64(6)))
+				Expect(third.Wait()).To(Equal(uint64(7)))
+				frames := walk(fileBytes(fs))
+				Expect(frames[0].Count).To(Equal(uint32(1)))
+				Expect(frames[1].Count).To(Equal(uint32(2)))
+				Expect(decodeAll(frames[1].Entries)).To(Equal([]any{log.Drop{Key: 2}}))
+			})
+
+			It("Should start a frame at the next block when its block holds a "+
+				"confirmed frame", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				size := int64(32 + len(entryOf(&log.Drop{Key: 3})))
+				release := fs.Hold()
+				a := l.Append(of(&log.Drop{Key: 3}))
+				Eventually(fs.held).Should(Receive())
+				b := l.Append(of(&log.Drop{Key: 3}))
+				release <- struct{}{}
+				Expect(a.Wait()).To(Equal(uint64(5)))
+				Eventually(fs.held).Should(Receive())
+				c := l.Append(of(&log.Drop{Key: 3}))
+				fs.Unhold()
+				release <- struct{}{}
+				Expect(b.Wait()).To(Equal(uint64(6)))
+				Expect(c.Wait()).To(Equal(uint64(7)))
+				Expect(writes(fs.Ops())[:3]).
+					To(Equal([]int64{8_192, 8_192 + size, 12_288}))
+			})
+
+			It("Should split a batch larger than a frame into frames", func() {
+				open(32 << 20)
+				DeferCleanup(closeLog)
+				release := fs.Hold()
+				first := l.Append(of(&log.Restart{}))
+				Eventually(fs.held).Should(Receive())
+				second := l.Append(bigEntry(10 << 20))
+				third := l.Append(bigEntry(10 << 20))
+				fs.Unhold()
+				release <- struct{}{}
+				Expect(first.Wait()).To(Equal(uint64(5)))
+				Expect(second.Wait()).To(Equal(uint64(6)))
+				Expect(third.Wait()).To(Equal(uint64(7)))
+				frames := walk(fileBytes(fs))
+				Expect(frames[1].Count).To(Equal(uint32(1)))
+				Expect(frames[2].Count).To(Equal(uint32(1)))
+			})
+
+			It("Should stop an entry with a Commit at the delete reserve, and take "+
+				"another entry there", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				n := logSize - log.DeleteReserve - log.FramesStart - 24
+				Expect(l.Append(commitEntry(n)).Wait()).Error().To(SatisfyAll(
+					MatchError(log.ErrFull),
+					MatchError(ContainSubstring("does not fit in log 3")),
+				))
+				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+			})
+
+			It("Should stop an entry with no Commit two blocks before the end, so "+
+				"both last marks fit", func() {
+				open(logSize)
+				n := logSize - 2*log.BlockSize - log.FramesStart - 32
+				Expect(l.Append(bigEntry(n + 8)).Wait()).Error().
+					To(MatchError(log.ErrFull))
+				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+				Eventually(func() []int64 { return writes(fs.Ops()) }).
+					Should(Equal([]int64{8_192, logSize - 2*log.BlockSize}))
+				closeLog()
+				Expect(writes(fs.Ops())).To(Equal([]int64{
+					8_192, logSize - 2*log.BlockSize, logSize - log.BlockSize,
+				}))
+				Expect(MustSucceed(fs.Stat(logName)).Size()).To(Equal(int64(logSize)))
+			})
+
+			It("Should refuse an entry larger than a frame", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				Expect(l.Append(bigEntry(log.MaxFrame)).Wait()).Error().
+					To(MatchError(log.ErrFull))
+			})
+
+			DescribeTable(
+				"Should fail every entry after a failed write or sync, until a restart",
+				func(fail func(error)) {
+					open(logSize)
+					fault := errors.New("disk fault")
+					fail(fault)
+					Expect(
+						l.Append(of(&log.Drop{Key: 1})).Wait(),
+					).Error().
+						To(SatisfyAll(
+							MatchError(fault),
+							MatchError(
+								ContainSubstring("no entry is durable until a restart"),
+							),
+						))
+					fail(nil)
+					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
+						To(MatchError(fault))
+					Expect(l.Close()).To(MatchError(fault))
+					Eventually(ran).Should(Receive(BeNil()))
+				},
+				Entry("sync", func(err error) { fs.FailSync(err) }),
+				Entry("write", func(err error) { fs.FailWrite(err) }),
+			)
+
+			It("Should write queued entries and a clean mark at Close, then refuse "+
+				"entries", func() {
+				open(logSize)
+				Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).To(Equal(uint64(5)))
+				closeLog()
+				frames := walk(fileBytes(fs))
+				last := frames[len(frames)-1]
+				Expect(last.Clean).To(BeTrue())
+				Expect(last.Sequence).To(Equal(uint64(6)))
+				Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
+					To(MatchError(log.ErrClosed))
+			})
+
+			It("Should fail queued and later entries when the context of Run ends, "+
+				"and return that error at Close", func() {
+				start(logSize, 1)
+				ctx, cancel := context.WithCancel(context.Background())
+				ran = make(chan error, 1)
+				go func() { ran <- l.Run(ctx) }()
+				cancel()
+				Eventually(ran).Should(Receive(MatchError(context.Canceled)))
+				Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
+					To(MatchError(context.Canceled))
+				Expect(l.Close()).To(MatchError(context.Canceled))
+			})
+
+			It("Should give each of many concurrent entries one sequence, in linked "+
+				"frames", func() {
+				open(8 << 20)
+				DeferCleanup(closeLog)
+				var (
+					wg   sync.WaitGroup
+					mu   sync.Mutex
+					seqs []uint64
+				)
+				for w := range 8 {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						for i := range 100 {
+							seq := MustSucceed(
+								l.Append(of(&log.Drop{Key: uint32(w*100 + i)})).Wait(),
+							)
+							mu.Lock()
+							seqs = append(seqs, seq)
+							mu.Unlock()
+						}
+					})
+				}
+				wg.Wait()
+				Expect(seqs).To(HaveLen(800))
+				Expect(seqs).To(ContainElements(uint64(5), uint64(804)))
+				var entries uint32
+				for _, f := range walk(fileBytes(fs)) {
+					entries += f.Count
+				}
+				Expect(entries).To(Equal(uint32(800)))
+			})
+		})
+	}
 })

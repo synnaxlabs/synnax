@@ -18,15 +18,20 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
-	// ErrFull is the error of an entry that does not fit in the log file. Only an
-	// entry of deletes may use the last DeleteReserve bytes.
+	// ErrFull is the error of an entry that does not fit in the log file. An entry
+	// that holds a Commit stops DeleteReserve bytes before the end of the file.
 	ErrFull = errors.New("log file is full")
 	// ErrClosed is the error of an entry appended after Close.
 	ErrClosed = errors.New("log is closed")
 )
+
+// minSize is the smallest log file: the frames start, the delete reserve, and the two
+// blocks that the last marks need.
+const minSize = FramesStart + DeleteReserve + 2*BlockSize
 
 // Name returns the file name of the log of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.log", generation) }
@@ -44,11 +49,11 @@ func Prepare(fs xfs.FS, generation uint64, size int64) error {
 			zeros[:min(int64(len(zeros)), size-off)],
 			off,
 		); err != nil {
-			return errors.Combine(err, f.Close())
+			return errors.Join(err, f.Close())
 		}
 	}
 	if err = f.Sync(); err != nil {
-		return errors.Combine(err, f.Close())
+		return errors.Join(err, f.Close())
 	}
 	if err = f.Close(); err != nil {
 		return err
@@ -60,22 +65,34 @@ func Prepare(fs xfs.FS, generation uint64, size int64) error {
 type Config struct {
 	// FS is the root of the database.
 	FS xfs.FS
+	// Executor runs each step of the log owner: one batch of entries, or a mark. It
+	// must run every function it gets.
+	Executor func(f func())
 	// DB is the identity of the database.
 	DB uint64
-	// Generation is the generation of the log.
+	// Generation is the generation of the log, from 1.
 	Generation uint64
 	// Sequence is the sequence of the first entry of the log, from 1.
 	Sequence uint64
 	// PrevCRC is the crc field of the last frame of the generation before, or 0.
 	PrevCRC uint32
-	// Size is the size of the prepared log file, at most FileSize.
-	Size int64
+}
+
+// Validate returns an error that wraps validate.ErrValidation when a field of c is not
+// set.
+func (c Config) Validate() error {
+	v := validate.New("log.Config")
+	v.NotNil("fs", c.FS)
+	v.NotNil("executor", c.Executor)
+	v.Positive("generation", c.Generation)
+	v.Positive("sequence", c.Sequence)
+	return v.Error()
 }
 
 type pending struct {
-	entry   []byte
-	deletes bool
-	done    chan result
+	entry  []byte
+	commit bool
+	done   chan result
 }
 
 type result struct {
@@ -83,11 +100,12 @@ type result struct {
 	err      error
 }
 
-// Log appends entries to one log file. One goroutine runs it, and it writes every
-// entry queued while its last sync ran as one frame. It is safe for concurrent use.
+// Log appends entries to one log file. Each step of its owner writes every entry queued
+// while the last sync ran as one frame. It is safe for concurrent use.
 type Log struct {
 	cfg  Config
 	file xfs.File
+	size int64
 	wake chan struct{}
 	exit chan struct{}
 	mu   struct {
@@ -96,7 +114,9 @@ type Log struct {
 		err     error
 		closing bool
 	}
-	// The fields below belong to the goroutine of Run.
+	// The fields below belong to the steps of the owner.
+	step     func()
+	stepped  chan bool
 	seq      uint64
 	prevCRC  uint32
 	prevEnd  int64
@@ -105,21 +125,37 @@ type Log struct {
 	buf      []byte
 	wbuf     []byte
 	frame    Frame
-	runErr   error
 }
 
-// Start writes both header copies of the prepared log of cfg, syncs it, and returns
-// the log, ready for its first frame.
+// Start writes both header copies of the prepared log of cfg, syncs it, and returns the
+// log, ready for its first frame. The size of the file is the size of the log, a whole
+// number of blocks that holds the frames start, the delete reserve, and two blocks.
 func Start(cfg Config) (*Log, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	file, err := cfg.FS.Open(Name(cfg.Generation), os.O_RDWR)
 	if err != nil {
 		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return nil, errors.Join(err, file.Close())
+	}
+	size := info.Size()
+	if size < minSize || size%BlockSize != 0 {
+		return nil, errors.Join(errors.Wrapf(
+			validate.ErrValidation,
+			"log file of %d bytes is not a whole number of blocks of at least %d",
+			size,
+			minSize,
+		), file.Close())
 	}
 	h := Header{
 		DB:         cfg.DB,
 		Generation: cfg.Generation,
 		Sequence:   cfg.Sequence,
-		Size:       uint64(cfg.Size),
+		Size:       uint64(size),
 		PrevCRC:    cfg.PrevCRC,
 	}
 	first := h.Encode(0)
@@ -129,18 +165,22 @@ func Start(cfg Config) (*Log, error) {
 		}
 	}
 	if err != nil {
-		return nil, errors.Combine(err, file.Close())
+		return nil, errors.Join(err, file.Close())
 	}
-	return &Log{
+	l := &Log{
 		cfg:     cfg,
 		file:    file,
+		size:    size,
 		wake:    make(chan struct{}, 1),
 		exit:    make(chan struct{}),
+		stepped: make(chan bool, 1),
 		seq:     cfg.Sequence,
 		prevCRC: binary.LittleEndian.Uint32(first[60:]),
 		prevEnd: FramesStart,
 		lastEnd: FramesStart,
-	}, nil
+	}
+	l.step = l.run
+	return l, nil
 }
 
 // Ack reports when an appended entry is durable.
@@ -153,11 +193,11 @@ func (a Ack) Wait() (uint64, error) {
 	return r.sequence, r.err
 }
 
-// Append queues a copy of entry and returns at once. Entries reach the log in the order
-// of their Append calls. An entry with deletes may use the last DeleteReserve bytes of
-// the file. After a failed write or sync, every entry fails with that error until a
-// restart.
-func (l *Log) Append(entry []byte, deletes bool) Ack {
+// Append queues a copy of the bytes of e and returns at once. Entries reach the log in
+// the order of their Append calls. An entry that holds no Commit may use the last
+// DeleteReserve bytes of the file. After a failed write or sync, every entry fails with
+// that error until a restart.
+func (l *Log) Append(e *Entry) Ack {
 	a := Ack{done: make(chan result, 1)}
 	l.mu.Lock()
 	if err := l.refusal(); err != nil {
@@ -166,9 +206,9 @@ func (l *Log) Append(entry []byte, deletes bool) Ack {
 		return a
 	}
 	l.mu.queue = append(l.mu.queue, pending{
-		entry:   append([]byte(nil), entry...),
-		deletes: deletes,
-		done:    a.done,
+		entry:  append([]byte(nil), e.Bytes()...),
+		commit: e.commit,
+		done:   a.done,
 	})
 	l.mu.Unlock()
 	l.signal()
@@ -193,9 +233,10 @@ func (l *Log) signal() {
 	}
 }
 
-// Run writes queued entries until Close, or until ctx is done. At Close, it writes the
-// queued entries and a clean mark, and returns nil. When ctx is done first, it fails
-// the queued entries and returns the error of ctx.
+// Run runs one step of the owner on the executor of the log each time entries are
+// queued, until Close or until ctx is done. At Close, it writes the queued entries and
+// a clean mark, and returns nil. When ctx is done first, it fails the log and the
+// queued entries, and returns the error of ctx.
 func (l *Log) Run(ctx context.Context) error {
 	defer close(l.exit)
 	for {
@@ -205,16 +246,24 @@ func (l *Log) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-l.wake:
 		}
-		queue, closing := l.take()
-		l.write(queue)
-		if closing {
-			l.runErr = l.closeClean()
+		l.cfg.Executor(l.step)
+		if <-l.stepped {
 			return nil
 		}
-		if l.needMark && l.idle() {
-			l.mark(false)
-		}
 	}
+}
+
+// run is one step of the owner: it writes the queued entries, then a mark when the log
+// is idle, or a clean mark at Close.
+func (l *Log) run() {
+	queue, closing := l.take()
+	l.write(queue)
+	if closing {
+		l.mark(true)
+	} else if l.needMark && l.idle() {
+		l.mark(false)
+	}
+	l.stepped <- closing
 }
 
 func (l *Log) take() ([]pending, bool) {
@@ -234,7 +283,10 @@ func (l *Log) idle() bool {
 // write writes queue as frames of at most MaxFrame bytes, one sync each, and acks each
 // entry after the sync of its frame.
 func (l *Log) write(queue []pending) {
-	var batch []pending
+	var (
+		batch  []pending
+		failed error
+	)
 	l.buf = l.buf[:0]
 	start := l.nextStart()
 	flush := func() {
@@ -243,9 +295,9 @@ func (l *Log) write(queue []pending) {
 		}
 		l.frame = Frame{Count: uint32(len(batch)), Sequence: l.seq, PrevCRC: l.prevCRC}
 		l.frame.Entries = l.buf
-		if err := l.writeFrame(start); err != nil {
+		if failed = l.writeFrame(start); failed != nil {
 			for _, p := range batch {
-				p.done <- result{err: err}
+				p.done <- result{err: failed}
 			}
 		} else {
 			for i, p := range batch {
@@ -257,8 +309,8 @@ func (l *Log) write(queue []pending) {
 		start = l.nextStart()
 	}
 	for _, p := range queue {
-		if err := l.failure(); err != nil {
-			p.done <- result{err: err}
+		if failed != nil {
+			p.done <- result{err: failed}
 			continue
 		}
 		size := int64(FrameHeaderSize + len(l.buf) + len(p.entry))
@@ -266,10 +318,10 @@ func (l *Log) write(queue []pending) {
 			flush()
 			size = int64(FrameHeaderSize + len(p.entry))
 		}
-		// A mark must still fit at the block after the last frame.
-		limit := l.cfg.Size - DeleteReserve
-		if p.deletes {
-			limit = l.cfg.Size - BlockSize
+		// An idle mark and the clean mark of Close must still fit after the frame.
+		limit := l.size - 2*BlockSize
+		if p.commit {
+			limit = l.size - DeleteReserve
 		}
 		if size > MaxFrame || start+size > limit {
 			p.done <- result{err: errors.Wrapf(
@@ -287,8 +339,8 @@ func (l *Log) write(queue []pending) {
 }
 
 // nextStart returns where the next frame with entries starts. It starts where the last
-// frame ends, unless the block there holds a frame before the last one, which the
-// last one's sync confirmed.
+// frame ends, unless the block there holds a frame before the last one, which the last
+// one's sync confirmed.
 func (l *Log) nextStart() int64 {
 	block := l.lastEnd &^ (BlockSize - 1)
 	if l.lastEnd == block || l.prevEnd <= block {
@@ -328,11 +380,6 @@ func (l *Log) mark(clean bool) {
 	}
 }
 
-func (l *Log) closeClean() error {
-	l.mark(true)
-	return l.failure()
-}
-
 func (l *Log) failure() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -358,13 +405,13 @@ func (l *Log) fail(err error) {
 }
 
 // Close refuses new entries, waits for Run to write the queued ones and a clean mark,
-// and closes the file. It returns the error of the log, if it failed. Call it while
-// Run runs, or after Run returns.
+// and closes the file. It returns the error of the log when the log failed, also when
+// the context of Run ended first. Call it while Run runs, or after Run returns.
 func (l *Log) Close() error {
 	l.mu.Lock()
 	l.mu.closing = true
 	l.mu.Unlock()
 	l.signal()
 	<-l.exit
-	return errors.Combine(l.runErr, l.file.Close())
+	return errors.Join(l.failure(), l.file.Close())
 }

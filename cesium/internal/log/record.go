@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package log holds the pointer log of Cesium: the log file, its frames, the entries
-// of a frame, and the records of an entry. A byte of a segment is part of the database
-// only when a durable record covers it.
+// Package log holds the pointer log of Cesium: the log file, its frames, the entries of
+// a frame, and the records of an entry. A byte of a segment is part of the database
+// only when a durable record covers it. The codec checks the structure of its bytes:
+// lengths, counts against lengths, zero fields, and types. The state checks values.
 package log
 
 import (
@@ -24,30 +25,34 @@ import (
 var ErrUnknown = errors.New("unknown log record")
 
 const (
-	typeReserve uint16 = 1
-	typeCreate  uint16 = 2
-	typeCommit  uint16 = 3
-	typeSeal    uint16 = 4
-	typeDrop    uint16 = 7
-	typeRestart uint16 = 8
-	typeIntent  uint16 = 10
+	typeReserve   uint16 = 1
+	typeCreate    uint16 = 2
+	typeCommit    uint16 = 3
+	typeSeal      uint16 = 4
+	typeTombstone uint16 = 5
+	typeReplace   uint16 = 6
+	typeDrop      uint16 = 7
+	typeRestart   uint16 = 8
+	typeCheck     uint16 = 9
+	typeIntent    uint16 = 10
 	// typeSkippable marks a record type that an older binary skips.
 	typeSkippable uint16 = 1 << 15
 
-	headerSize     = 8
-	commitBaseSize = 32
-	slotSize       = 16
-	// MaxAlignment is the limit of alignment numbers that the log reserves. Numbers
-	// from it up are for data that is not stored.
-	MaxAlignment = 1 << 31
-	// SegmentVersion is the only segment format version that this binary writes and
-	// opens.
-	SegmentVersion  uint16 = 1
-	flagIntentClear uint32 = 1
+	headerSize      = 8
+	commitBaseSize  = 32
+	slotSize        = 16
+	tombstoneSize   = 72
+	cutSize         = 24
+	replaceBaseSize = 32
+	pointerSize     = 40
+
+	flagIntentCleared uint32 = 1
+	flagLeftCut       uint32 = 1
+	flagRightCut      uint32 = 2
 )
 
-// Record is a record of a log entry: a *Reserve, *Create, *Commit, *Seal, *Drop,
-// *Restart, or *Intent.
+// Record is a record of a log entry: a *Reserve, *Create, *Commit, *Seal, *Tombstone,
+// *Replace, *Drop, *Restart, *Check, or *Intent.
 type Record interface {
 	append(dst []byte) []byte
 	decode(body []byte) error
@@ -58,13 +63,13 @@ type Record interface {
 type Reserve struct {
 	// Segments is the segment identity limit.
 	Segments uint64
-	// Alignments is the alignment number limit, at most MaxAlignment.
+	// Alignments is the alignment number limit.
 	Alignments uint64
 }
 
 // Create creates a segment.
 type Create struct {
-	// Segment is the identity of the segment, from 1.
+	// Segment is the identity of the segment.
 	Segment uint64
 	// Key is the key whose samples the segment holds.
 	Key uint32
@@ -90,36 +95,99 @@ type Slot struct {
 // Commit is one clock write: every slot gains the same samples, which take the time of
 // the clock's samples.
 type Commit struct {
-	// Samples is the number of samples that each slot gains, at least 1.
+	// Samples is the number of samples that each slot gains.
 	Samples uint32
 	// Alignment is the alignment of the first sample.
 	Alignment uint64
-	// First and Last are the stamps of the first and last samples. First is at most
-	// Last.
+	// First and Last are the stamps of the first and last samples.
 	First, Last int64
-	// Slots hold at least one slot, in rising order of segment identity. A decoded
-	// Commit's Slots stay valid only until the next call of Decoder.Next.
+	// Slots hold one range per segment. A decoded Commit's Slots stay valid only
+	// until the next call of Decoder.Next.
 	Slots []Slot
 }
 
 // Seal seals a segment at a committed length.
 type Seal struct {
+	// Segment is the identity of the segment.
 	Segment uint64
-	Length  uint32
+	// Length is the committed length at which the segment seals, in stream bytes.
+	Length uint32
+	// TailCRC is the running checksum of the unfinished last block at Length.
 	TailCRC uint32
 }
 
+// Cut is where a Tombstone cuts a pointer.
+type Cut struct {
+	// Segment is the identity of the segment of the pointer.
+	Segment uint64
+	// Offset is the stream offset of the cut.
+	Offset uint32
+	// Alignment is the alignment of the sample at the cut.
+	Alignment uint64
+}
+
+// Tombstone deletes a time range of a key.
+type Tombstone struct {
+	// Key is the key whose samples the range deletes.
+	Key uint32
+	// Start and End bound the deleted time range. End is not in it.
+	Start, End int64
+	// Left cuts the pointer that keeps the bytes below the cut, at the first dead
+	// sample. Nil when no pointer has a left cut.
+	Left *Cut
+	// Right cuts the pointer that keeps the bytes from the cut on, at the first live
+	// sample. Nil when no pointer has a right cut.
+	Right *Cut
+	// left and right hold the cuts of a decoded Tombstone.
+	left, right Cut
+}
+
+// Pointer is a committed byte range that a Replace gives its new segment.
+type Pointer struct {
+	// Offset and Length are the stream offset and the byte length of the range.
+	Offset, Length uint32
+	// Samples is the number of samples in the range.
+	Samples uint32
+	// Alignment is the alignment of the first sample.
+	Alignment uint64
+	// First and Last are the stamps of the first and last samples.
+	First, Last int64
+}
+
+// Replace replaces an old sealed segment with a new one that a Create earlier in the
+// entry made, and seals the new one.
+type Replace struct {
+	// Old and New are the identities of the old and the new segment.
+	Old, New uint64
+	// Length is the final length of the new segment, and TailCRC the running checksum
+	// of its unfinished last block there.
+	Length, TailCRC uint32
+	// Pointers are the ranges of the new segment. A decoded Replace's Pointers stay
+	// valid only until the next call of Decoder.Next.
+	Pointers []Pointer
+}
+
 // Drop drops every segment of a key and clears the key's delete intent.
-type Drop struct{ Key uint32 }
+type Drop struct {
+	// Key is the key that the record drops.
+	Key uint32
+}
 
 // Restart seals every open segment at its committed length.
 type Restart struct{}
 
+// Check turns on the checks of a version 0 segment that now has a check file.
+type Check struct {
+	// Segment is the identity of the segment.
+	Segment uint64
+}
+
 // Intent sets or clears the delete intent of a key.
 type Intent struct {
+	// Key is the key of the intent.
 	Key uint32
-	// Clear is true when the record clears the intent.
-	Clear bool
+	// Cleared is true when the record clears the intent.
+	Cleared bool
 }
 
 func appendHeader(dst []byte, t uint16, size int) []byte {
@@ -128,10 +196,22 @@ func appendHeader(dst []byte, t uint16, size int) []byte {
 	return binary.LittleEndian.AppendUint32(dst, uint32(size))
 }
 
+func le32(dst []byte, vs ...uint32) []byte {
+	for _, v := range vs {
+		dst = binary.LittleEndian.AppendUint32(dst, v)
+	}
+	return dst
+}
+
+func le64(dst []byte, vs ...uint64) []byte {
+	for _, v := range vs {
+		dst = binary.LittleEndian.AppendUint64(dst, v)
+	}
+	return dst
+}
+
 func (r *Reserve) append(dst []byte) []byte {
-	dst = appendHeader(dst, typeReserve, 16)
-	dst = binary.LittleEndian.AppendUint64(dst, r.Segments)
-	return binary.LittleEndian.AppendUint64(dst, r.Alignments)
+	return le64(appendHeader(dst, typeReserve, 16), r.Segments, r.Alignments)
 }
 
 func (r *Reserve) decode(b []byte) error {
@@ -140,25 +220,14 @@ func (r *Reserve) decode(b []byte) error {
 	}
 	r.Segments = binary.LittleEndian.Uint64(b)
 	r.Alignments = binary.LittleEndian.Uint64(b[8:])
-	if r.Alignments > MaxAlignment {
-		return errors.Wrapf(
-			place.ErrCorrupt,
-			"reserve record has alignment limit %d, above %d",
-			r.Alignments,
-			uint64(MaxAlignment),
-		)
-	}
 	return nil
 }
 
 func (r *Create) append(dst []byte) []byte {
-	dst = appendHeader(dst, typeCreate, 24)
-	dst = binary.LittleEndian.AppendUint64(dst, r.Segment)
-	dst = binary.LittleEndian.AppendUint32(dst, r.Key)
-	dst = binary.LittleEndian.AppendUint32(dst, r.Clock)
+	dst = le64(appendHeader(dst, typeCreate, 24), r.Segment)
+	dst = le32(dst, r.Key, r.Clock)
 	dst = binary.LittleEndian.AppendUint16(dst, r.Version)
-	dst = append(dst, r.DataType)
-	return append(dst, 0, 0, 0, 0, 0)
+	return append(dst, r.DataType, 0, 0, 0, 0, 0)
 }
 
 func (r *Create) decode(b []byte) error {
@@ -170,48 +239,28 @@ func (r *Create) decode(b []byte) error {
 	r.Clock = binary.LittleEndian.Uint32(b[12:])
 	r.Version = binary.LittleEndian.Uint16(b[16:])
 	r.DataType = b[18]
-	if r.Segment == 0 {
-		return errors.Wrap(place.ErrCorrupt, "create record has segment 0")
-	}
-	if r.Version != SegmentVersion {
-		return errors.Wrapf(
-			ErrUnknown,
-			"create record of segment %d has format version %d",
-			r.Segment,
-			r.Version,
-		)
-	}
 	return zeros("create", b[19:])
 }
 
 func (r *Commit) append(dst []byte) []byte {
 	dst = appendHeader(dst, typeCommit, commitBaseSize+slotSize*len(r.Slots))
-	dst = binary.LittleEndian.AppendUint32(dst, uint32(len(r.Slots)))
-	dst = binary.LittleEndian.AppendUint32(dst, r.Samples)
-	dst = binary.LittleEndian.AppendUint64(dst, r.Alignment)
-	dst = binary.LittleEndian.AppendUint64(dst, uint64(r.First))
-	dst = binary.LittleEndian.AppendUint64(dst, uint64(r.Last))
+	dst = le32(dst, uint32(len(r.Slots)), r.Samples)
+	dst = le64(dst, r.Alignment, uint64(r.First), uint64(r.Last))
 	for _, s := range r.Slots {
-		dst = binary.LittleEndian.AppendUint64(dst, s.Segment)
-		dst = binary.LittleEndian.AppendUint32(dst, s.Length)
-		dst = binary.LittleEndian.AppendUint32(dst, s.TailCRC)
+		dst = le32(le64(dst, s.Segment), s.Length, s.TailCRC)
 	}
 	return dst
 }
 
 func (r *Commit) decode(b []byte) error {
-	if len(b) < commitBaseSize+slotSize || (len(b)-commitBaseSize)%slotSize != 0 {
-		return errors.Wrapf(
-			place.ErrCorrupt,
-			"commit record has %d bytes, not 32 plus 16 per slot",
-			len(b),
-		)
+	k := uint64(0)
+	if len(b) >= 4 {
+		k = uint64(binary.LittleEndian.Uint32(b))
 	}
-	k := int(binary.LittleEndian.Uint32(b))
-	if k != (len(b)-commitBaseSize)/slotSize {
+	if len(b) < commitBaseSize || uint64(len(b)) != commitBaseSize+slotSize*k {
 		return errors.Wrapf(
 			place.ErrCorrupt,
-			"commit record of %d bytes names %d slots",
+			"commit record of %d bytes does not hold 32 bytes and its %d slots",
 			len(b),
 			k,
 		)
@@ -220,47 +269,19 @@ func (r *Commit) decode(b []byte) error {
 	r.Alignment = binary.LittleEndian.Uint64(b[8:])
 	r.First = int64(binary.LittleEndian.Uint64(b[16:]))
 	r.Last = int64(binary.LittleEndian.Uint64(b[24:]))
-	if r.Samples == 0 {
-		return errors.Wrap(place.ErrCorrupt, "commit record gains no samples")
-	}
-	if r.First > r.Last {
-		return errors.Wrapf(
-			place.ErrCorrupt,
-			"commit record starts at %d, after its end %d",
-			r.First,
-			r.Last,
-		)
-	}
 	r.Slots = r.Slots[:0]
-	for i := range k {
-		at := commitBaseSize + slotSize*i
-		s := Slot{
+	for at := commitBaseSize; at < len(b); at += slotSize {
+		r.Slots = append(r.Slots, Slot{
 			Segment: binary.LittleEndian.Uint64(b[at:]),
 			Length:  binary.LittleEndian.Uint32(b[at+8:]),
 			TailCRC: binary.LittleEndian.Uint32(b[at+12:]),
-		}
-		if i > 0 && s.Segment <= r.Slots[i-1].Segment {
-			return errors.Wrapf(
-				place.ErrCorrupt,
-				"commit record slot %d names segment %d, not above segment %d",
-				i,
-				s.Segment,
-				r.Slots[i-1].Segment,
-			)
-		}
-		if s.Segment == 0 {
-			return errors.Wrap(place.ErrCorrupt, "commit record names segment 0")
-		}
-		r.Slots = append(r.Slots, s)
+		})
 	}
 	return nil
 }
 
 func (r *Seal) append(dst []byte) []byte {
-	dst = appendHeader(dst, typeSeal, 16)
-	dst = binary.LittleEndian.AppendUint64(dst, r.Segment)
-	dst = binary.LittleEndian.AppendUint32(dst, r.Length)
-	return binary.LittleEndian.AppendUint32(dst, r.TailCRC)
+	return le32(le64(appendHeader(dst, typeSeal, 16), r.Segment), r.Length, r.TailCRC)
 }
 
 func (r *Seal) decode(b []byte) error {
@@ -270,16 +291,116 @@ func (r *Seal) decode(b []byte) error {
 	r.Segment = binary.LittleEndian.Uint64(b)
 	r.Length = binary.LittleEndian.Uint32(b[8:])
 	r.TailCRC = binary.LittleEndian.Uint32(b[12:])
-	if r.Segment == 0 {
-		return errors.Wrap(place.ErrCorrupt, "seal record has segment 0")
+	return nil
+}
+
+func appendCut(dst []byte, c *Cut) []byte {
+	if c == nil {
+		return append(dst, make([]byte, cutSize)...)
+	}
+	return le64(le32(le64(dst, c.Segment), c.Offset, 0), c.Alignment)
+}
+
+func (r *Tombstone) append(dst []byte) []byte {
+	var flags uint32
+	if r.Left != nil {
+		flags |= flagLeftCut
+	}
+	if r.Right != nil {
+		flags |= flagRightCut
+	}
+	dst = le32(appendHeader(dst, typeTombstone, tombstoneSize), r.Key, flags)
+	dst = le64(dst, uint64(r.Start), uint64(r.End))
+	return appendCut(appendCut(dst, r.Left), r.Right)
+}
+
+// decodeCut decodes the cut in b into c when set, and checks that an absent cut is
+// zero.
+func decodeCut(b []byte, set bool, c *Cut) (*Cut, error) {
+	if !set {
+		return nil, zeros("tombstone", b[:cutSize])
+	}
+	*c = Cut{
+		Segment:   binary.LittleEndian.Uint64(b),
+		Offset:    binary.LittleEndian.Uint32(b[8:]),
+		Alignment: binary.LittleEndian.Uint64(b[16:]),
+	}
+	return c, zeros("tombstone", b[12:16])
+}
+
+func (r *Tombstone) decode(b []byte) error {
+	if len(b) != tombstoneSize {
+		return sizeError("tombstone", len(b), tombstoneSize)
+	}
+	r.Key = binary.LittleEndian.Uint32(b)
+	flags := binary.LittleEndian.Uint32(b[4:])
+	if flags&^(flagLeftCut|flagRightCut) != 0 {
+		return errors.Wrapf(
+			place.ErrCorrupt,
+			"tombstone record of key %d has unknown flags %#x",
+			r.Key,
+			flags,
+		)
+	}
+	r.Start = int64(binary.LittleEndian.Uint64(b[8:]))
+	r.End = int64(binary.LittleEndian.Uint64(b[16:]))
+	var err error
+	if r.Left, err = decodeCut(b[24:], flags&flagLeftCut != 0, &r.left); err != nil {
+		return err
+	}
+	r.Right, err = decodeCut(b[48:], flags&flagRightCut != 0, &r.right)
+	return err
+}
+
+func (r *Replace) append(dst []byte) []byte {
+	dst = appendHeader(dst, typeReplace, replaceBaseSize+pointerSize*len(r.Pointers))
+	dst = le32(le64(dst, r.Old, r.New), r.Length, r.TailCRC, uint32(len(r.Pointers)), 0)
+	for _, p := range r.Pointers {
+		dst = le32(dst, p.Offset, p.Length, p.Samples, 0)
+		dst = le64(dst, p.Alignment, uint64(p.First), uint64(p.Last))
+	}
+	return dst
+}
+
+func (r *Replace) decode(b []byte) error {
+	n := uint64(0)
+	if len(b) >= 28 {
+		n = uint64(binary.LittleEndian.Uint32(b[24:]))
+	}
+	if len(b) < replaceBaseSize || uint64(len(b)) != replaceBaseSize+pointerSize*n {
+		return errors.Wrapf(
+			place.ErrCorrupt,
+			"replace record of %d bytes does not hold 32 bytes and its %d pointers",
+			len(b),
+			n,
+		)
+	}
+	r.Old = binary.LittleEndian.Uint64(b)
+	r.New = binary.LittleEndian.Uint64(b[8:])
+	r.Length = binary.LittleEndian.Uint32(b[16:])
+	r.TailCRC = binary.LittleEndian.Uint32(b[20:])
+	if err := zeros("replace", b[28:32]); err != nil {
+		return err
+	}
+	r.Pointers = r.Pointers[:0]
+	for at := replaceBaseSize; at < len(b); at += pointerSize {
+		if err := zeros("replace", b[at+12:at+16]); err != nil {
+			return err
+		}
+		r.Pointers = append(r.Pointers, Pointer{
+			Offset:    binary.LittleEndian.Uint32(b[at:]),
+			Length:    binary.LittleEndian.Uint32(b[at+4:]),
+			Samples:   binary.LittleEndian.Uint32(b[at+8:]),
+			Alignment: binary.LittleEndian.Uint64(b[at+16:]),
+			First:     int64(binary.LittleEndian.Uint64(b[at+24:])),
+			Last:      int64(binary.LittleEndian.Uint64(b[at+32:])),
+		})
 	}
 	return nil
 }
 
 func (r *Drop) append(dst []byte) []byte {
-	dst = appendHeader(dst, typeDrop, 8)
-	dst = binary.LittleEndian.AppendUint32(dst, r.Key)
-	return binary.LittleEndian.AppendUint32(dst, 0)
+	return le32(appendHeader(dst, typeDrop, 8), r.Key, 0)
 }
 
 func (r *Drop) decode(b []byte) error {
@@ -299,14 +420,24 @@ func (*Restart) decode(b []byte) error {
 	return nil
 }
 
-func (r *Intent) append(dst []byte) []byte {
-	dst = appendHeader(dst, typeIntent, 8)
-	dst = binary.LittleEndian.AppendUint32(dst, r.Key)
-	var flags uint32
-	if r.Clear {
-		flags = flagIntentClear
+func (r *Check) append(dst []byte) []byte {
+	return le64(appendHeader(dst, typeCheck, 8), r.Segment)
+}
+
+func (r *Check) decode(b []byte) error {
+	if len(b) != 8 {
+		return sizeError("check", len(b), 8)
 	}
-	return binary.LittleEndian.AppendUint32(dst, flags)
+	r.Segment = binary.LittleEndian.Uint64(b)
+	return nil
+}
+
+func (r *Intent) append(dst []byte) []byte {
+	var flags uint32
+	if r.Cleared {
+		flags = flagIntentCleared
+	}
+	return le32(appendHeader(dst, typeIntent, 8), r.Key, flags)
 }
 
 func (r *Intent) decode(b []byte) error {
@@ -315,7 +446,7 @@ func (r *Intent) decode(b []byte) error {
 	}
 	r.Key = binary.LittleEndian.Uint32(b)
 	flags := binary.LittleEndian.Uint32(b[4:])
-	if flags&^flagIntentClear != 0 {
+	if flags&^flagIntentCleared != 0 {
 		return errors.Wrapf(
 			place.ErrCorrupt,
 			"intent record of key %d has unknown flags %#x",
@@ -323,7 +454,7 @@ func (r *Intent) decode(b []byte) error {
 			flags,
 		)
 	}
-	r.Clear = flags&flagIntentClear != 0
+	r.Cleared = flags&flagIntentCleared != 0
 	return nil
 }
 
@@ -342,163 +473,4 @@ func zeros(name string, b []byte) error {
 		return errors.Wrapf(place.ErrCorrupt, "%s record has a set reserved byte", name)
 	}
 	return nil
-}
-
-// Entry builds the bytes of one entry, which applies all or nothing. The zero value is
-// an empty entry.
-type Entry struct {
-	b     []byte
-	count uint32
-}
-
-// Add appends r to the entry.
-func (e *Entry) Add(r Record) {
-	if len(e.b) == 0 {
-		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
-	}
-	e.b = r.append(e.b)
-	e.count++
-}
-
-// Len returns the number of records in the entry.
-func (e *Entry) Len() int { return int(e.count) }
-
-// Bytes returns the encoded entry. The bytes stay valid until the next Add or Reset.
-func (e *Entry) Bytes() []byte {
-	if len(e.b) == 0 {
-		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
-	}
-	binary.LittleEndian.PutUint32(e.b, uint32(len(e.b)-headerSize))
-	binary.LittleEndian.PutUint32(e.b[4:], e.count)
-	return e.b
-}
-
-// Reset empties the entry and keeps its buffer.
-func (e *Entry) Reset() {
-	e.b = e.b[:0]
-	e.count = 0
-}
-
-// Decoder reads the records of entries. It owns one record of each type, so it
-// allocates nothing per record. The zero value is ready for Reset.
-type Decoder struct {
-	b       []byte
-	left    uint32
-	reserve Reserve
-	create  Create
-	commit  Commit
-	seal    Seal
-	drop    Drop
-	restart Restart
-	intent  Intent
-}
-
-// Reset starts reading the entry at the start of b, and returns the length of the
-// entry in b.
-func (d *Decoder) Reset(b []byte) (int, error) {
-	if len(b) < headerSize {
-		return 0, errors.Wrapf(
-			place.ErrCorrupt,
-			"entry header needs 8 bytes, but %d remain",
-			len(b),
-		)
-	}
-	size := binary.LittleEndian.Uint32(b)
-	count := binary.LittleEndian.Uint32(b[4:])
-	if uint64(size) > uint64(len(b)-headerSize) {
-		return 0, errors.Wrapf(
-			place.ErrCorrupt,
-			"entry holds %d bytes of records, but %d remain",
-			size,
-			len(b)-headerSize,
-		)
-	}
-	if uint64(count)*headerSize > uint64(size) {
-		return 0, errors.Wrapf(
-			place.ErrCorrupt,
-			"entry of %d bytes cannot hold %d records",
-			size,
-			count,
-		)
-	}
-	d.b = b[headerSize : headerSize+int(size)]
-	d.left = count
-	return headerSize + int(size), nil
-}
-
-// Next returns the next record of the entry, or false at its end. The record stays
-// valid until the next call. Next skips a record of an unknown type that an older
-// binary may skip, and returns ErrUnknown for one that it may not.
-func (d *Decoder) Next() (Record, bool, error) {
-	for d.left > 0 {
-		if len(d.b) < headerSize {
-			return nil, false, errors.Wrapf(
-				place.ErrCorrupt,
-				"entry ends with %d records left",
-				d.left,
-			)
-		}
-		t := binary.LittleEndian.Uint16(d.b)
-		zero := binary.LittleEndian.Uint16(d.b[2:])
-		size := binary.LittleEndian.Uint32(d.b[4:])
-		if zero != 0 {
-			return nil, false, errors.Wrapf(
-				place.ErrCorrupt,
-				"record of type %d has a set reserved field",
-				t,
-			)
-		}
-		if uint64(size) > uint64(len(d.b)-headerSize) {
-			return nil, false, errors.Wrapf(
-				place.ErrCorrupt,
-				"record of type %d holds %d bytes, but %d remain in its entry",
-				t,
-				size,
-				len(d.b)-headerSize,
-			)
-		}
-		body := d.b[headerSize : headerSize+int(size)]
-		d.b = d.b[headerSize+int(size):]
-		d.left--
-		r := d.record(t)
-		if r == nil {
-			if t&typeSkippable != 0 {
-				continue
-			}
-			return nil, false, errors.Wrapf(ErrUnknown, "record type %d", t)
-		}
-		if err := r.decode(body); err != nil {
-			return nil, false, err
-		}
-		return r, true, nil
-	}
-	if len(d.b) != 0 {
-		return nil, false, errors.Wrapf(
-			place.ErrCorrupt,
-			"entry has %d bytes after its last record",
-			len(d.b),
-		)
-	}
-	return nil, false, nil
-}
-
-func (d *Decoder) record(t uint16) Record {
-	switch t {
-	case typeReserve:
-		return &d.reserve
-	case typeCreate:
-		return &d.create
-	case typeCommit:
-		return &d.commit
-	case typeSeal:
-		return &d.seal
-	case typeDrop:
-		return &d.drop
-	case typeRestart:
-		return &d.restart
-	case typeIntent:
-		return &d.intent
-	default:
-		return nil
-	}
 }
