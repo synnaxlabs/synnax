@@ -12,37 +12,69 @@ package channel
 import (
 	"context"
 	"fmt"
-	"maps"
+	mathbits "math/bits"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// builtInSet holds the keys of the built-in channels.
+// builtInSet holds the keys of the built-in channels, shaped so that a key needs one
+// bit test or two compares: a bit for each local key of a free built-in channel, and
+// the few leased built-in channels in ascending order.
 type builtInSet struct {
-	keys set.Set[Key]
-	// lo and hi bound keys. Built-in channels take the first keys of free channels, so
-	// most other keys fall outside the bounds and need no lookup.
-	lo, hi Key
+	free   []uint64
+	leased []Key
 }
 
 func (b *builtInSet) contains(k Key) bool {
-	return k >= b.lo && k <= b.hi && b.keys.Contains(k)
+	if k.Free() {
+		local := uint32(k.LocalKey())
+		word := int(local / 64)
+		return word < len(b.free) && b.free[word]&(1<<(local%64)) != 0
+	}
+	n := len(b.leased)
+	if n == 0 || k < b.leased[0] || k > b.leased[n-1] {
+		return false
+	}
+	_, found := slices.BinarySearch(b.leased, k)
+	return found
 }
 
 // with returns a copy of b that holds k.
 func (b *builtInSet) with(k Key) *builtInSet {
-	next := &builtInSet{keys: maps.Clone(b.keys), lo: k, hi: k}
-	if len(b.keys) > 0 {
-		next.lo, next.hi = min(b.lo, k), max(b.hi, k)
+	next := &builtInSet{free: b.free, leased: b.leased}
+	if !k.Free() {
+		if i, found := slices.BinarySearch(b.leased, k); !found {
+			next.leased = slices.Insert(slices.Clone(b.leased), i, k)
+		}
+		return next
 	}
-	next.keys.Add(k)
+	local := uint32(k.LocalKey())
+	word := int(local / 64)
+	next.free = slices.Clone(b.free)
+	if word >= len(next.free) {
+		next.free = append(next.free, make([]uint64, word+1-len(next.free))...)
+	}
+	next.free[word] |= 1 << (local % 64)
 	return next
+}
+
+// keys returns the keys of b in ascending order.
+func (b *builtInSet) keys() Keys {
+	keys := slices.Clone(Keys(b.leased))
+	for word, bits := range b.free {
+		for ; bits != 0; bits &= bits - 1 {
+			local := LocalKey(word*64 + mathbits.TrailingZeros64(bits))
+			keys = append(keys, distchannel.NewKey(node.KeyFree, local))
+		}
+	}
+	return keys
 }
 
 // IsBuiltIn reports whether a Core service declared the channel with key k for its own
@@ -51,11 +83,7 @@ func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().contains(k) }
 
 // BuiltIns returns the keys of the channels that Core services declared, in ascending
 // order.
-func (s *Service) BuiltIns() Keys {
-	keys := Keys(s.builtIns.Load().keys.Slice())
-	slices.Sort(keys)
-	return keys
-}
+func (s *Service) BuiltIns() Keys { return s.builtIns.Load().keys() }
 
 // Declare finds the channel named ch.Name or creates ch, and makes its key a built-in
 // channel when the transaction commits. A channel of that name at the root, with the

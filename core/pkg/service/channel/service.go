@@ -145,7 +145,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
-	s.builtIns.Store(&builtInSet{keys: set.New[Key]()})
+	s.builtIns.Store(&builtInSet{})
 	s.builtInFilters = newBuiltInFilters(&s.builtIns)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
