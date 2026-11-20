@@ -43,7 +43,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc, framerSvc = svc.Channel, svc.Framer
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:          db,
+		Channel:     channelSvc,
+		Calculation: svc.Calculation,
+	}
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
 		DB:          db,
 		RBAC:        svc.RBAC,

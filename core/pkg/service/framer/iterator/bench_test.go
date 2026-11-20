@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -74,6 +75,13 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
+	calcSvc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
+		DB:      node.DB,
+		Channel: channelSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open calculation service: %v", err)
+	}
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DB:      node.DB,
@@ -88,10 +96,14 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			node, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, groupSvc, calcSvc, channelSvc, statusSvc, labelSvc,
 		},
-		channelSvc:  channelSvc,
-		creator:     calctestutil.Creator{DB: node.DB, Channel: channelSvc},
+		channelSvc: channelSvc,
+		creator: calctestutil.Creator{
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
+		},
 		iteratorSvc: iteratorSvc,
 	}
 }

@@ -202,7 +202,8 @@ func (s *Service) Create(
 		CreateMany(ctx, &translated, opts...); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.syncCalculations(ctx, tx, translated); err != nil {
+	if err := s.calculations.NewWriter(tx).
+		SyncChannels(ctx, translated); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{
@@ -469,60 +470,9 @@ func (s *Service) Dispatch(
 		Exec(ctx, tx); err != nil {
 		return DispatchResponse{}, err
 	}
-	if err = s.syncCalculations(ctx, tx, []channel.Channel{ch}); err != nil {
+	if err = s.calculations.NewWriter(tx).
+		SyncChannels(ctx, []channel.Channel{ch}); err != nil {
 		return DispatchResponse{}, err
 	}
 	return DispatchResponse{Actions: computed}, nil
-}
-
-// syncCalculations writes the calculation record of each channel from its expression
-// and operations: it creates or updates the record of a channel with an expression,
-// and deletes the record of a channel without one.
-func (s *Service) syncCalculations(
-	ctx context.Context,
-	tx gorp.Tx,
-	channels []channel.Channel,
-) error {
-	keys := make([]channel.Key, len(channels))
-	for i, ch := range channels {
-		keys[i] = ch.Key()
-	}
-	var stored []calculation.Calculation
-	if err := s.calculations.NewRetrieve().
-		Where(calculation.MatchOutputs(keys...)).
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	byOutput := make(map[channel.Key]calculation.Calculation, len(stored))
-	for _, c := range stored {
-		byOutput[c.Output] = c
-	}
-	w := s.calculations.NewWriter(tx)
-	for _, ch := range channels {
-		c, ok := byOutput[ch.Key()]
-		switch {
-		case ch.Expression == "" && ok:
-			if err := w.Delete(ctx, c.Key); err != nil {
-				return err
-			}
-		case ch.Expression == "":
-		case ok:
-			c.Expression = ch.Expression
-			c.Operations = calculation.FromChannelOperations(ch.Operations)
-			if err := w.Update(ctx, c); err != nil {
-				return err
-			}
-		default:
-			c = calculation.Calculation{
-				Output:     ch.Key(),
-				Expression: ch.Expression,
-				Operations: calculation.FromChannelOperations(ch.Operations),
-			}
-			if err := w.Create(ctx, &c); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

@@ -71,7 +71,11 @@ func openServiceLayer(b *testing.B) (*service.Layer, *gorp.DB) {
 // read it.
 func BenchmarkStreamKeyChange(b *testing.B) {
 	layer, db := openServiceLayer(b)
-	creator := calctestutil.Creator{DB: db, Channel: layer.Channel}
+	creator := calctestutil.Creator{
+		DB:          db,
+		Channel:     layer.Channel,
+		Calculation: layer.Calculation,
+	}
 	api := xtestutil.MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
 		DB:      db,
 		Framer:  layer.Framer,

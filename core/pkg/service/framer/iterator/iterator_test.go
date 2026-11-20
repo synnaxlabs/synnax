@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -82,7 +83,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
 		iteratorSvc, channelSvc = openServices(ctx, node)
-		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
+		creator = calctestutil.Creator{
+			DB:      node.DB,
+			Channel: channelSvc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
+			)),
+		}
 	})
 	Describe("Basic Iteration", func() {
 		It("Should read written frames correctly", func(ctx SpecContext) {
@@ -2719,7 +2727,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 				iteratorSvc, channelSvc = openServices(ctx, node)
-				creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
+				creator = calctestutil.Creator{
+					DB:      node.DB,
+					Channel: channelSvc,
+					Calculation: MustOpen(calculation.OpenService(
+						ctx,
+						calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
+					)),
+				}
 				createSensor(ctx, node, channelSvc)
 			})
 			// values returns the samples of every series in m, in order.
@@ -2970,7 +2985,14 @@ var _ = Describe("Read failure", func() {
 		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		iteratorSvc, channelSvc = openServices(ctx, node)
-		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
+		creator = calctestutil.Creator{
+			DB:      node.DB,
+			Channel: channelSvc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
+			)),
+		}
 	})
 
 	It("Should return the read error from Close", func(ctx SpecContext) {

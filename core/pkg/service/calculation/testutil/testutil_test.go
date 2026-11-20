@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	. "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -40,7 +41,14 @@ var _ = Describe("Creator", Ordered, func() {
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = Creator{DB: dist.DB, Channel: svc}
+		creator = Creator{
+			DB:      dist.DB,
+			Channel: svc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: dist.DB, Channel: svc},
+			)),
+		}
 		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, dist.DB, svc, 1))
 		var ch channel.Channel
 		Expect(svc.NewRetrieve().

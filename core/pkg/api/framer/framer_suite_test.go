@@ -91,7 +91,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = svc.Framer
 	channelSvc = svc.Channel
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:          db,
+		Channel:     channelSvc,
+		Calculation: svc.Calculation,
+	}
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{

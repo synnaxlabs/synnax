@@ -11,6 +11,8 @@ package calculation
 
 import (
 	"context"
+	"reflect"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -24,6 +26,7 @@ import (
 type Writer struct {
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Calculation]
+	indexes    indexes
 	channels   *channel.Service
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -145,4 +148,48 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Calculation](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// SyncChannels makes the calculation of each of the given channels match the channel's
+// expression and operations. It creates the calculation of a channel that has an
+// expression and none, deletes the calculation of a channel that has no expression,
+// and updates a calculation that differs.
+func (w Writer) SyncChannels(ctx context.Context, channels []channel.Channel) error {
+	stored := make([]Calculation, 0, len(channels))
+	if err := (Retrieve{gorp: w.table.NewRetrieve(), indexes: w.indexes}).
+		Where(MatchOutputs(channel.KeysFromChannels(channels)...)).
+		Entries(&stored).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	byOutput := make(map[channel.Key]Calculation, len(stored))
+	for _, c := range stored {
+		byOutput[c.Output] = c
+	}
+	for _, ch := range channels {
+		c, ok := byOutput[ch.Key()]
+		ops := FromChannelOperations(ch.Operations)
+		var err error
+		switch {
+		case ch.Expression == "" && ok:
+			err = w.Delete(ctx, c.Key)
+		case ch.Expression == "":
+		case !ok:
+			c = Calculation{
+				Output:     ch.Key(),
+				Expression: ch.Expression,
+				Operations: ops,
+			}
+			err = w.Create(ctx, &c)
+		case c.Expression != ch.Expression || !slices.EqualFunc(
+			c.Operations, ops, func(a, b Operation) bool { return reflect.DeepEqual(a, b) },
+		):
+			c.Expression, c.Operations = ch.Expression, ops
+			err = w.Update(ctx, c)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -113,6 +113,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         tx,
 		table:      s.table,
+		indexes:    s.indexes,
 		channels:   s.channels,
 		dispatcher: s.state.Dispatcher(),
 	}

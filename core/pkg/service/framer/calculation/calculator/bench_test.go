@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -62,13 +63,21 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
+	calcSvc := MustSucceed(calculation.OpenService(
+		b.Context(),
+		calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
+	))
 	return &benchEnv{
 		ctx:        b.Context(),
 		node:       node,
 		channelSvc: channelSvc,
-		creator:    calctestutil.Creator{DB: node.DB, Channel: channelSvc},
+		creator: calctestutil.Creator{
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
+		},
 		closer: io.MultiCloser{
-			node, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, groupSvc, calcSvc, channelSvc, statusSvc, labelSvc,
 		},
 	}
 }

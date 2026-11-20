@@ -15,6 +15,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -37,8 +38,10 @@ type Calculation struct {
 type Creator struct {
 	// DB is the database that holds the channels.
 	DB *gorp.DB
-	// Channel is the channel service that stores the calculations.
+	// Channel is the channel service that stores the output channels.
 	Channel *channel.Service
+	// Calculation is the calculation service that stores the calculations.
+	Calculation *calculation.Service
 }
 
 // Create creates calc and returns its output channel.
@@ -69,7 +72,10 @@ func (c Creator) CreateMany(
 		}
 	}
 	if err := c.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return c.Channel.NewWriter(tx).CreateMany(ctx, &channels)
+		if err := c.Channel.NewWriter(tx).CreateMany(ctx, &channels); err != nil {
+			return err
+		}
+		return c.Calculation.NewWriter(tx).SyncChannels(ctx, channels[:len(calcs)])
 	}); err != nil {
 		return nil, err
 	}

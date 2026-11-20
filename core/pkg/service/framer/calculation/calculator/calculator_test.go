@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -58,7 +59,14 @@ var _ = Describe("Calculator", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+		creator = calctestutil.Creator{
+			DB:      db,
+			Channel: channelSvc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: db, Channel: channelSvc},
+			)),
+		}
 	})
 
 	open := func(

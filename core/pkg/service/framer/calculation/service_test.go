@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcsvc "github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
@@ -138,7 +139,14 @@ var _ = Describe("Calculation", Ordered, func() {
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = calctestutil.Creator{DB: dist.DB, Channel: channelSvc}
+		creator = calctestutil.Creator{
+			DB:      dist.DB,
+			Channel: channelSvc,
+			Calculation: MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
+				DB:      dist.DB,
+				Channel: channelSvc,
+			})),
+		}
 		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      dist.DB,
 			Framer:  dist.Framer,

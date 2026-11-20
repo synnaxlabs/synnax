@@ -169,7 +169,11 @@ var _ = Describe("Service", func() {
 		It(
 			"Should refuse an edit that reads an unreadable channel through a stored one",
 			func(ctx SpecContext) {
-				creator := calctestutil.Creator{DB: db, Channel: channelSvc}
+				creator := calctestutil.Creator{
+					DB:          db,
+					Channel:     channelSvc,
+					Calculation: layer.Calculation,
+				}
 				stored := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,

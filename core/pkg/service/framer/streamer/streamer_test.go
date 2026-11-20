@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcsvc "github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -57,7 +58,14 @@ var _ = Describe("Streamer", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
+		creator = calctestutil.Creator{
+			DB:      node.DB,
+			Channel: channelSvc,
+			Calculation: MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
+				DB:      node.DB,
+				Channel: channelSvc,
+			})),
+		}
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      node.DB,
 			Framer:  node.Framer,

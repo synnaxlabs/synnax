@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -29,6 +30,7 @@ var (
 	groupSvc   *group.Service
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
+	calcSvc    *calculation.Service
 )
 
 func TestMetrics(t *testing.T) {
@@ -56,6 +58,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:      dist.DB,
 		HostKey: dist.Identity.HostKey,
 		Status:  statusSvc,
+	}))
+	calcSvc = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+		DB:      dist.DB,
+		Channel: channelSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      dist.DB,

@@ -67,7 +67,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			return nil
 		},
 	}))
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:      db,
+		Channel: channelSvc,
+		Calculation: MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+		})),
+	}
 })
 
 func openGraph(ctx context.Context) *graph.Graph {

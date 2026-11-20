@@ -104,7 +104,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rackSvc = svc.Rack
 	taskSvc = svc.Task
 	channelSvc = svc.Channel
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:          db,
+		Channel:     channelSvc,
+		Calculation: svc.Calculation,
+	}
 	arcSvc = svc.Arc
 	statusSvc = svc.Status
 	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{

@@ -1095,20 +1095,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Metrics, err = metrics.OpenService(
-		ctx,
-		metrics.ServiceConfig{
-			Instrumentation: cfg.Child("metrics"),
-			DB:              cfg.Distribution.DB,
-			Framer:          l.Framer,
-			Channel:         l.Channel,
-			HostKey:         cfg.Distribution.Identity.HostKey,
-			Storage:         cfg.Storage,
-			Group:           l.Group,
-		},
-	); !ok(err, l.Metrics) {
-		return nil, err
-	}
 	// Composition migrations move data across service boundaries, so they can only run
 	// once every service table above is open: a table's own chain runs at open, before
 	// later services have staged the legacy data these migrations consume. Table chains
@@ -1141,6 +1127,22 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		cfg.Distribution.DB,
 		l.Channel,
 	); !ok(err, nil) {
+		return nil, err
+	}
+	// Metrics writes calculations, so it opens after the migrations that build them.
+	if l.Metrics, err = metrics.OpenService(
+		ctx,
+		metrics.ServiceConfig{
+			Instrumentation: cfg.Child("metrics"),
+			DB:              cfg.Distribution.DB,
+			Framer:          l.Framer,
+			Channel:         l.Channel,
+			Calculation:     l.Calculation,
+			HostKey:         cfg.Distribution.Identity.HostKey,
+			Storage:         cfg.Storage,
+			Group:           l.Group,
+		},
+	); !ok(err, l.Metrics) {
 		return nil, err
 	}
 	// The change channels send no commit before Start, so the migrations above send
