@@ -59,8 +59,17 @@ field to open the range picker:
   The plot ends at the newest sample and moves only when new samples arrive. A plot
   shows one live span at most, so a new span replaces the old one. Click **Off** to show
   no live data.
-- **A typed duration** -> type a duration such as `1h 30min` in the search field, then
-  press **Enter**. The plot shows the live data of that span.
+- **A typed duration** -> type a duration such as `1h 30min` or `last 2 hours` in the
+  search field, then press **Enter**. The plot shows the live data of that span.
+- **A typed time range** -> type a time range in the search field, then press **Enter**.
+  The plot shows the data between those times. You can type:
+  - two ends, such as `yesterday from 1pm to 2pm`, `3h ago to 1h ago`, or
+    `monday 3pm to tuesday 4pm`.
+  - a start and a length, such as `2h ago for 1h` or `yesterday 1pm for 30m`.
+  - a start until now, such as `since 8am`.
+  - a start alone, such as `1h ago` or `yesterday 1pm`, to show the hour after it. The
+    hour stops at now.
+  - a day, week, or month, such as `last friday` or `last week`, to show all of it.
 - **A range** -> click a range to show its data. The list holds every range, newest
   first, and the search field finds a range by name. You can also drag a range from the
   ranges toolbar onto the field.

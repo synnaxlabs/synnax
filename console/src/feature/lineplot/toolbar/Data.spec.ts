@@ -48,7 +48,7 @@ const rolling = (span: TimeSpan): ranger.Ref => ({
 
 const label = (span: TimeSpan): string => span.toString();
 
-const SEARCH_PLACEHOLDER = "Search ranges or type a duration";
+const SEARCH_PLACEHOLDER = "Search ranges or type a duration or time";
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
@@ -168,6 +168,15 @@ describe("lineplot/toolbar/Data", () => {
       expect(first).toBe(liveOption());
       expect(within(first).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
       expect(screen.queryByText("No ranges found")).toBeNull();
+    });
+
+    it("lists a live option for a span after last or past", async () => {
+      await renderData([]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: "last 2 hours" } });
+      expect(within(liveOption()).getByText(label(TimeSpan.hours(2)))).toBeDefined();
+      fireEvent.change(input, { target: { value: "the past hour" } });
+      expect(within(liveOption()).getByText(label(TimeSpan.HOUR))).toBeDefined();
     });
 
     it("says no ranges match a search that finds none", async () => {
@@ -309,6 +318,75 @@ describe("lineplot/toolbar/Data", () => {
     await screen.findByText("Deleted range");
     fireEvent.click(findTagCloseButton("Deleted range"));
     await expectRanges(key, []);
+  });
+
+  describe("typed time range", () => {
+    // The day words depend on today, so the clock is fixed.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
+      vi.setSystemTime(new Date(2026, 10, 3, 15, 0));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const YESTERDAY_ONE_TO_TWO = "Yesterday from 1pm to 2pm";
+
+    const fixedOption = (): Promise<HTMLElement> =>
+      screen.findByRole("option", { name: /Fixed window/ });
+
+    it("lists a fixed option labeled with the times it reads", async () => {
+      await renderData([]);
+      search(YESTERDAY_ONE_TO_TWO);
+      const option = await fixedOption();
+      expect(within(option).getByText("Yesterday 13:00 → 14:00")).toBeDefined();
+      expect(screen.getAllByRole("option")[0]).toBe(option);
+    });
+
+    it("adds the fixed window beside the live one on Enter", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
+      await fixedOption();
+      fireEvent.keyDown(input, { key: "Enter" });
+      const start = new TimeStamp(new Date(2026, 10, 2, 13, 0));
+      await expectRanges(key, [
+        rolling(FIVE_MIN),
+        {
+          variant: "window",
+          window: staticWindow(new TimeRange(start, start.add(TimeSpan.HOUR))),
+        },
+      ]);
+      expect(screen.queryByPlaceholderText(SEARCH_PLACEHOLDER)).toBeNull();
+    });
+
+    it("adds the fixed window picked from the list", async () => {
+      const { key } = await renderData([]);
+      search(YESTERDAY_ONE_TO_TWO);
+      fireEvent.click(await fixedOption());
+      const start = new TimeStamp(new Date(2026, 10, 2, 13, 0));
+      await expectRanges(key, [
+        {
+          variant: "window",
+          window: staticWindow(new TimeRange(start, start.add(TimeSpan.HOUR))),
+        },
+      ]);
+    });
+
+    it("keeps last week a fixed calendar week", async () => {
+      await renderData([]);
+      search("last week");
+      await fixedOption();
+      expect(screen.queryByRole("option", { name: /Live window/ })).toBeNull();
+    });
+
+    it("lists no fixed option when other words name a range", async () => {
+      await renderData([]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
+      await fixedOption();
+      fireEvent.change(input, { target: { value: `monday ${uniqueToken()}` } });
+      await screen.findByText("No ranges found");
+      expect(screen.queryByRole("option", { name: /Fixed window/ })).toBeNull();
+    });
   });
 
   describe("static window", () => {
