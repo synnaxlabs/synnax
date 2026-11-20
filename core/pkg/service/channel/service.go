@@ -373,7 +373,7 @@ func (r channelResolver) Resolve(
 
 // ChannelResolver returns the resolver the distribution framer writer uses for the
 // records of free and virtual channels.
-func (s *Service) ChannelResolver() writer.ChannelResolver {
+func (s *Service) Resolver() writer.ChannelResolver {
 	return channelResolver{svc: s}
 }
 

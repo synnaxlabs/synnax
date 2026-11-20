@@ -227,6 +227,15 @@ func keptDataStatus(kept []cesium.KeptChannel) status.Status[any] {
 	}
 }
 
+// KeyList returns keys as prose: "12", "12 and 13", or "12, 13, and 14".
+func KeyList(keys Keys) string {
+	items := make([]string, len(keys))
+	for i, k := range keys {
+		items[i] = strconv.FormatUint(uint64(k), 10)
+	}
+	return joinAnd(items)
+}
+
 // joinAnd joins items as prose: "a", "a and b", or "a, b, and c".
 func joinAnd(items []string) string {
 	switch len(items) {

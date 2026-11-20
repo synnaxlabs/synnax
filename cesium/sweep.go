@@ -28,7 +28,7 @@ type KeptChannel struct {
 	Size  telem.Size
 }
 
-// Sweep reconciles the DB with keys, the keys of every channel record, and must run
+// Sweep reconciles the DB with records, the keys of every channel record, and must run
 // before any writer opens. A key with an intent and a record lost the commit of its
 // delete, so Sweep clears the intent and opens the channel. Sweep drops a key with an
 // intent and no record, and a key with no record and no samples. It keeps a key with
@@ -37,12 +37,13 @@ type KeptChannel struct {
 // recorded channel uses stays, with any intent of the index. Each drop is a durable
 // intent first. Sweep also returns the highest key that the DB holds in any form, so
 // that no new channel takes it. Only the first Sweep in one open of the DB decides. A
-// later call ignores keys, drops nothing, and returns the channels that the first kept
+// later call ignores records, drops nothing, and returns the channels that the first
+// kept
 // and that are still kept, with the highest key. When the first fails, every later
 // call returns its error.
 func (db *DB) Sweep(
 	ctx context.Context,
-	keys []ChannelKey,
+	records []ChannelKey,
 ) ([]KeptChannel, ChannelKey, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -56,7 +57,7 @@ func (db *DB) Sweep(
 		return db.keptChannels(db.mu.kept), db.highestKey(), nil
 	}
 	db.mu.swept = true
-	kept, err := db.decide(ctx, set.New(keys...))
+	kept, err := db.decide(ctx, set.New(records...))
 	if err != nil {
 		db.mu.sweepErr = err
 		return nil, 0, err
