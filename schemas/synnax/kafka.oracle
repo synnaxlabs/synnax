@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/http"
+import "schemas/synnax/icd"
 import "schemas/synnax/task"
 import "schemas/x/payload"
 import "schemas/x/telem"
@@ -114,9 +115,7 @@ ReadField struct {
         @doc value "is the name given to the channel when the task creates it."
     }
     channel     channel.Key = 0 {
-        @doc value     "is the Synnax channel the extracted value is written to."
-        @ref kind      use
-        @ref on_delete restrict
+        @doc value "is the Synnax channel the extracted value is written to."
     }
     pointer     string = "" {
         @doc value "is the JSON Pointer to the value within the record value."
@@ -139,6 +138,8 @@ ReadField struct {
 
     @doc value  "is a single value extracted from a record's JSON value."
     @go marshal
+    @py omit
+    @ts omit
 }
 
 ReadConfig struct extends task.PersistConfig {
@@ -162,10 +163,19 @@ ReadConfig struct extends task.PersistConfig {
     records      ReadRecord[] {
         @doc value "contains the records the task reads, one per record key."
     }
+    inline       InlineRead?  {
+        @doc value  """
+            holds the records of a config from before ICDs. A write moves their fields
+            into a new ICD, adds the records, and clears it.
+        """
+        @go marshal omit
+        @py omit
+        @ts omit
+    }
 
     @doc value           """
-        configures a Kafka read task, which consumes a topic and writes record fields
-        into channels.
+        configures a Kafka read task, which consumes a topic and writes the fields of
+        ICD messages into channels.
     """
     @go imex             body
     @go marshal
@@ -268,22 +278,96 @@ ReadRecord struct {
         @doc value "uniquely identifies the record within the task."
         @key
     }
+    disabled   bool = false {
+        @doc value "is true when the record is excluded from the task."
+    }
     record_key string = "" {
         @doc value """
             is the Kafka key of the records read here. Empty reads every record that no
             other record of the task claims, keyless ones included.
         """
     }
-    index      string = "" {
+    icd        icd.Key       {
+        @doc value     "is the key of the ICD that holds the messages of the records."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    messages   ReadMessage[] = [] {
         @doc value """
-            is the key of the field whose channel indexes the others. Empty when the
-            task stamps samples on arrival.
+            are the messages the records carry. Each record value is read as the message
+            whose match rule it meets.
         """
     }
-    fields     ReadField[] {
-        @doc value "contains the values to extract from the record."
+
+    @doc value  "reads the records with one Kafka key as the messages of an ICD."
+    @go marshal
+}
+
+ReadBinding struct {
+    field     icd.FieldKey   {
+        @doc value "is the key of the message field to read."
+    }
+    channel   channel.Key = 0 {
+        @doc value     "is the channel the value of the field is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+        @ts type   "string"
     }
 
-    @doc value  "is a set of fields read from the records with one Kafka key."
+    @doc value  "writes the value of one message field to a channel."
     @go marshal
+}
+
+ReadMessage struct {
+    message  icd.MessageKey {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    icd.FieldKey?  {
+        @doc value """
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples with the Kafka timestamp of the record.
+        """
+    }
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+
+    @doc value  "reads the record values of one ICD message."
+    @go marshal
+}
+
+InlineRecord struct {
+    key        string = "" {
+        @doc value "uniquely identifies the record within the task."
+    }
+    record_key string = "" {
+        @doc value "is the Kafka key of the records read here."
+    }
+    index      string = "" {
+        @doc value "is the key of the index field. Empty for Kafka timestamps."
+    }
+    fields     ReadField[] = [] {
+        @doc value "are the fields of the record."
+    }
+
+    @doc value "is a record from before ICDs, which held its fields inline."
+    @py omit
+    @ts omit
+}
+
+InlineRead struct {
+    records InlineRecord[] = [] {
+        @doc value "are the records that hold their fields inline."
+    }
+
+    @doc value "holds the records of a read config from before ICDs."
+    @py omit
+    @ts omit
 }

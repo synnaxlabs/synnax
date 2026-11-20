@@ -7,21 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { kafka } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ReadSelectable, WriteSelectable } from "@/feature/kafka/task/create";
-import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/kafka/task/types";
+import { WriteSelectable } from "@/feature/kafka/task/create";
+import { PREFIX, READ_TYPE } from "@/feature/kafka/task/types";
 import { Task } from "@/platform/task";
 
 const readPlotChannels: Task.PlotChannels = (config) =>
   Task.enabledChannels(
-    READ_SCHEMAS.config.parse(config).records.flatMap(({ fields }) => fields),
+    kafka.readConfigZ
+      .parse(config)
+      .records.filter(({ disabled }) => !disabled)
+      .flatMap(({ messages }) =>
+        messages.flatMap(({ bindings }) =>
+          bindings.map(({ channel }) => ({ channel, disabled: false })),
+        ),
+      ),
   );
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "Kafka",
   icon: <Icon.Logo.Kafka />,
-  selectables: [ReadSelectable, WriteSelectable],
+  selectables: [WriteSelectable],
   plotChannels: { [READ_TYPE]: readPlotChannels },
 };

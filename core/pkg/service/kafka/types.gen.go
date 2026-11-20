@@ -50,8 +50,8 @@ type ScanConfig = versions.ScanConfig
 // ReadField is a single value extracted from a record's JSON value.
 type ReadField = versions.ReadField
 
-// ReadConfig configures a Kafka read task, which consumes a topic and writes record
-// fields into channels.
+// ReadConfig configures a Kafka read task, which consumes a topic and writes the fields
+// of ICD messages into channels.
 type ReadConfig = versions.ReadConfig
 
 // WriteChannel is a channel whose samples a write task produces as records.
@@ -64,8 +64,20 @@ type Record = versions.Record
 // each channel to a topic.
 type WriteConfig = versions.WriteConfig
 
-// ReadRecord is a set of fields read from the records with one Kafka key.
+// ReadRecord reads the records with one Kafka key as the messages of an ICD.
 type ReadRecord = versions.ReadRecord
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = versions.ReadBinding
+
+// ReadMessage reads the record values of one ICD message.
+type ReadMessage = versions.ReadMessage
+
+// InlineRecord is a record from before ICDs, which held its fields inline.
+type InlineRecord = versions.InlineRecord
+
+// InlineRead holds the records of a read config from before ICDs.
+type InlineRead = versions.InlineRead
 
 // Credentials carries the username and password of a SASL mechanism.
 type Credentials struct {

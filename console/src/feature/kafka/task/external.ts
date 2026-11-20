@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/kafka/task/types";
+import { WRITE_TYPE } from "@/feature/kafka/task/types";
 import { Panel } from "@/platform/panel";
 import type { Task } from "@/platform/task";
 
@@ -17,7 +17,6 @@ export * from "@/feature/kafka/task/integration";
 export * from "@/feature/kafka/task/types";
 
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/kafka/task/Read"), "Read"),
   [WRITE_TYPE]: Panel.lazyComponent(
     () => import("@/feature/kafka/task/Write"),
     "Write",

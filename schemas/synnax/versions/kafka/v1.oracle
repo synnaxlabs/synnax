@@ -1,0 +1,154 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v1"
+import "schemas/synnax/versions/icd/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+StartOffset = v0.StartOffset
+
+RecordKey = v0.RecordKey
+
+ScanConfig = v0.ScanConfig
+
+ReadField = v0.ReadField
+
+ReadBinding struct {
+    field     icd.FieldKey   {
+        @doc value "is the key of the message field to read."
+    }
+    channel   channel.Key = 0 {
+        @doc value "is the channel the value of the field is written to."
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+    }
+
+    @doc value  "writes the value of one message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  icd.MessageKey {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    icd.FieldKey?  {
+        @doc value """
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples with the Kafka timestamp of the record.
+        """
+    }
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+
+    @doc value  "reads the record values of one ICD message."
+    @go marshal
+}
+
+ReadRecord struct {
+    key        string = create {
+        @doc value "uniquely identifies the record within the task."
+        @key
+    }
+    disabled   bool = false {
+        @doc value "is true when the record is excluded from the task."
+    }
+    record_key string = "" {
+        @doc value """
+            is the Kafka key of the records read here. Empty reads every record that no
+            other record of the task claims, keyless ones included.
+        """
+    }
+    icd        icd.Key       {
+        @doc value "is the key of the ICD that holds the messages of the records."
+    }
+    messages   ReadMessage[] = [] {
+        @doc value """
+            are the messages the records carry. Each record value is read as the message
+            whose match rule it meets.
+        """
+    }
+
+    @doc value  "reads the records with one Kafka key as the messages of an ICD."
+    @go marshal
+}
+
+InlineRecord struct {
+    key        string = "" {
+        @doc value "uniquely identifies the record within the task."
+    }
+    record_key string = "" {
+        @doc value "is the Kafka key of the records read here."
+    }
+    index      string = "" {
+        @doc value "is the key of the index field. Empty for Kafka timestamps."
+    }
+    fields     ReadField[] = [] {
+        @doc value "are the fields of the record."
+    }
+
+    @doc value "is a record from before ICDs, which held its fields inline."
+}
+
+InlineRead struct {
+    records InlineRecord[] = [] {
+        @doc value "are the records that hold their fields inline."
+    }
+
+    @doc value "holds the records of a read config from before ICDs."
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device       device.Key = "" {
+        @doc value "is the key of the Kafka cluster device to consume from."
+    }
+    topic        string = "" {
+        @doc value "is the topic the task consumes."
+    }
+    group        string = "" {
+        @doc value """
+            is the consumer group the task joins. Empty derives the group from the task
+            key.
+        """
+    }
+    start_offset StartOffset = latest {
+        @doc value "is where the group starts when it has no committed offset."
+    }
+    records      ReadRecord[] {
+        @doc value "contains the records the task reads, one per record key."
+    }
+    inline       InlineRead?  {
+        @doc value  """
+            holds the records of a config from before ICDs. A write moves their fields
+            into a new ICD, adds the records, and clears it.
+        """
+        @go marshal omit
+    }
+
+    @doc value  """
+        configures a Kafka read task, which consumes a topic and writes the fields of
+        ICD messages into channels.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+WriteChannel = v0.WriteChannel
+
+Record = v0.Record
+
+WriteConfig = v0.WriteConfig

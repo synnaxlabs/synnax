@@ -12,10 +12,12 @@
 package kafka
 
 import (
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
@@ -40,27 +42,52 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
+			Name:     "records.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ReadConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Records {
+					targets = append(targets, v1.ICD)
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t icd.Key) {
+				e.Records = slices.DeleteFunc(e.Records, func(v2 ReadRecord) bool {
+					if v2.ICD == t {
+						return true
+					}
+					return false
+				})
+			},
+		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
-			Name:     "records.fields.channel",
+			Name:     "records.messages.bindings.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Records {
-					for _, v2 := range v1.Fields {
-						if v2.Channel != 0 {
-							targets = append(targets, v2.Channel)
+					for _, v2 := range v1.Messages {
+						for _, v3 := range v2.Bindings {
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
 						}
 					}
 				}
 				return targets
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
-				for i3 := range e.Records {
-					for i4 := range e.Records[i3].Fields {
-						if e.Records[i3].Fields[i4].Channel == t {
-							e.Records[i3].Fields[i4].Channel = 0
+				for i4 := range e.Records {
+					for i5 := range e.Records[i4].Messages {
+						for i6 := range e.Records[i4].Messages[i5].Bindings {
+							if e.Records[i4].Messages[i5].Bindings[i6].Channel == t {
+								e.Records[i4].Messages[i5].Bindings[i6].Channel = 0
+							}
 						}
 					}
 				}

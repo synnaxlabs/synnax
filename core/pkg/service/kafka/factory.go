@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -53,6 +55,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// ICD holds the ICDs whose messages read tasks decode.
+	//
+	// [REQUIRED]
+	ICD *icd.Service
 	// PingTimeout bounds a connection test or health check ping.
 	//
 	// [OPTIONAL] - Defaults to 10 seconds.
@@ -81,6 +87,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.PingTimeout = override.Numeric(c.PingTimeout, other.PingTimeout)
 	c.FetchMaxWait = override.Numeric(c.FetchMaxWait, other.FetchMaxWait)
 	return c
@@ -94,6 +101,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("status", c.Status)
+	v.NotNil("icd", c.ICD)
 	v.Positive("ping_timeout", c.PingTimeout)
 	v.Positive("fetch_max_wait", c.FetchMaxWait)
 	return v.Error()
@@ -203,8 +211,8 @@ func resolveProperties(
 	return decodeProperties(dev)
 }
 
-// retrieveChannels resolves keys to their channel records. It returns an error
-// wrapping query.ErrNotFound when a key does not exist.
+// retrieveChannels resolves keys to their channel records. A key with no channel is
+// absent from the result.
 func retrieveChannels(
 	ctx context.Context,
 	db *gorp.DB,
@@ -215,6 +223,7 @@ func retrieveChannels(
 	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return svc.NewRetrieve().
 			Where(channel.MatchKeys(keys...)).
+			SkipMissingKeys().
 			Entries(&channels).
 			Exec(ctx, snap)
 	}); err != nil {
@@ -223,6 +232,33 @@ func retrieveChannels(
 	byKey := make(map[channel.Key]channel.Channel, len(channels))
 	for _, ch := range channels {
 		byKey[ch.Key()] = ch
+	}
+	return byKey, nil
+}
+
+// retrieveICDs resolves keys to their ICDs. It returns an error wrapping
+// validate.ErrValidation when a key does not exist.
+func retrieveICDs(
+	ctx context.Context,
+	db *gorp.DB,
+	svc *icd.Service,
+	keys []icd.Key,
+) (map[icd.Key]icd.ICD, error) {
+	var icds []icd.ICD
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return svc.NewRetrieve().
+			Where(icd.MatchKeys(keys...)).
+			Entries(&icds).
+			Exec(ctx, snap)
+	}); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return nil, errors.Wrap(validate.ErrValidation, err.Error())
+		}
+		return nil, err
+	}
+	byKey := make(map[icd.Key]icd.ICD, len(icds))
+	for _, ic := range icds {
+		byKey[ic.Key] = ic
 	}
 	return byKey, nil
 }

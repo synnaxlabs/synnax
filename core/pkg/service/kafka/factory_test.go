@@ -47,6 +47,16 @@ var _ = Describe("Factory", func() {
 				Status:  statusSvc,
 			})).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
+
+		It("Should reject a config without an ICD service", func() {
+			Expect(kafka.NewFactory(kafka.FactoryConfig{
+				DB:      db,
+				Device:  deviceSvc,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				Status:  statusSvc,
+			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
+		})
 	})
 
 	It("Should be named after the device make", func() {
@@ -113,7 +123,7 @@ var _ = Describe("Factory", func() {
 			Device:      dev,
 			Topic:       uniqueTopic(),
 			StartOffset: kafka.StartOffsetEarliest,
-			Records: []kafka.ReadRecord{{
+			Records: lift(ctx, kafka.InlineRecord{
 				Key: "r",
 				Fields: []kafka.ReadField{{
 					Key:      "v",
@@ -121,7 +131,7 @@ var _ = Describe("Factory", func() {
 					Pointer:  "/v",
 					DataType: telem.Float64T,
 				}},
-			}},
+			}),
 		}
 	}
 	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {

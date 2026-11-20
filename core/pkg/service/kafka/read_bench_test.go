@@ -332,11 +332,16 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 	return groups
 }
 
-func benchRecords(groups []benchGroup, sc benchScenario) []kafka.ReadRecord {
+func benchRecords(
+	ctx context.Context,
+	groups []benchGroup,
+	sc benchScenario,
+) []kafka.ReadRecord {
+	GinkgoHelper()
 	unixNs := payload.TimeFormatUnixNs
-	recs := make([]kafka.ReadRecord, len(groups))
+	recs := make([]kafka.InlineRecord, len(groups))
 	for gi, g := range groups {
-		rec := kafka.ReadRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}
+		rec := kafka.InlineRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}
 		if !sc.kafkaTime {
 			rec.Index = "ts"
 			rec.Fields = append(rec.Fields, kafka.ReadField{
@@ -361,7 +366,7 @@ func benchRecords(groups []benchGroup, sc benchScenario) []kafka.ReadRecord {
 		}
 		recs[gi] = rec
 	}
-	return recs
+	return lift(ctx, recs...)
 }
 
 // latencyLog collects end-to-end latency samples, keyed by when they were seen.
@@ -396,7 +401,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		Device:      dev.Key,
 		Topic:       topic,
 		StartOffset: kafka.StartOffsetEarliest,
-		Records:     benchRecords(groups, sc),
+		Records:     benchRecords(ctx, groups, sc),
 	}
 	t := newTask(ctx, kafka.ReadTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
