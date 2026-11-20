@@ -322,7 +322,8 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
-      # Vitest rejects more shards than files.
+      # Vitest rejects more shards than files, so a sharded package needs more browser
+      # spec files than shards.
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
         shell: bash
