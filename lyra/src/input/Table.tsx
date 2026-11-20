@@ -125,10 +125,13 @@ const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode 
     }
     case "custom":
       return column.children(props);
+    case "number":
+    case undefined: {
+      const cell = { ...props, value: Number(props.value) };
+      if (column.children != null) return column.children(cell);
+      return <Numeric {...cell} showDragHandle={false} />;
+    }
   }
-  const cell = { ...props, value: Number(props.value) };
-  if (column.children != null) return column.children(cell);
-  return <Numeric {...cell} showDragHandle={false} />;
 };
 
 /** The value a new row holds in this column. */
@@ -140,8 +143,10 @@ const emptyCell = (column: TableColumnProps): TableCell => {
       return false;
     case "custom":
       return column.empty;
+    case "number":
+    case undefined:
+      return 0;
   }
-  return 0;
 };
 
 /** Whether the column's default reader refuses words, as a heading holds. */
@@ -170,9 +175,12 @@ const parseCell = (text: string, column: TableColumnProps): TableCell | null => 
       return BOOLEANS.get(text.trim().toLowerCase()) ?? null;
     case "custom":
       return null;
+    case "number":
+    case undefined: {
+      const value = Number(text);
+      return isFinite(value) ? value : null;
+    }
   }
-  const value = Number(text);
-  return isFinite(value) ? value : null;
 };
 
 /** Pasted text bound for one cell, and its value when the cell's column reads it. */

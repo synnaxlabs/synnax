@@ -159,6 +159,17 @@ func newDeviceRefs() deviceRefs {
 				OnDelete: gorp.Detach,
 				Kind:     gorp.Use,
 				Targets:  func(d *refDevice) []string { return d.Labels },
+				// Only a device on rack 2 may hold the label "r2".
+				Check: func(_ context.Context, _ gorp.Tx, d *refDevice, l string) error {
+					if l == "r2" && d.Rack != 2 {
+						return errors.Wrapf(
+							validate.ErrValidation,
+							"%s needs rack 2",
+							l,
+						)
+					}
+					return nil
+				},
 				Detach: func(d *refDevice, l string) {
 					d.Labels = slices.DeleteFunc(
 						slices.Clone(d.Labels),
@@ -425,6 +436,73 @@ var _ = Describe("Reference", func() {
 				Exec(ctx, db)).To(MatchError(ContainSubstring(
 				"rack: rack 2 does not exist",
 			)))
+		})
+
+		Describe("Check", func() {
+			BeforeEach(func(ctx SpecContext) {
+				createRack(ctx, 1)
+				createRack(ctx, 2)
+				createLabels(ctx, "r2")
+			})
+
+			It("Should accept a target that the check allows", func(ctx SpecContext) {
+				Expect(
+					createDevice(
+						ctx,
+						refDevice{Key: "d1", Rack: 2, Labels: []string{"r2"}},
+					),
+				).
+					To(Succeed())
+			})
+
+			It("Should reject a create that the check refuses", func(ctx SpecContext) {
+				Expect(
+					createDevice(
+						ctx,
+						refDevice{Key: "d1", Rack: 1, Labels: []string{"r2"}},
+					),
+				).
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError("labels: r2 needs rack 2: validation error"),
+					))
+				Expect(deviceExists(ctx, "d1")).To(BeFalse())
+			})
+
+			It(
+				"Should check a target that an update keeps",
+				func(ctx SpecContext) {
+					Expect(createDevice(ctx, refDevice{
+						Key:    "d1",
+						Rack:   2,
+						Labels: []string{"r2"},
+					})).To(Succeed())
+					Expect(devices.NewUpdate().
+						Where(gorp.MatchKeys[string, refDevice]("d1")).
+						Change(func(_ gorp.Context, d refDevice) refDevice {
+							d.Rack = 1
+							return d
+						}).
+						Exec(ctx, db)).To(MatchError(
+						"labels: r2 needs rack 2: validation error",
+					))
+				},
+			)
+
+			It("Should roll back the transaction it fails", func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := racks.NewCreate().
+						Entry(&refRack{Key: 3}).
+						Exec(ctx, tx); err != nil {
+						return err
+					}
+					return devices.NewCreate().
+						Entry(&refDevice{Key: "d1", Rack: 3, Labels: []string{"r2"}}).
+						Exec(ctx, tx)
+				})).To(MatchError("labels: r2 needs rack 2: validation error"))
+				Expect(rackExists(ctx, 3)).To(BeFalse())
+				Expect(deviceExists(ctx, "d1")).To(BeFalse())
+			})
 		})
 
 		It(
@@ -743,6 +821,42 @@ var _ = Describe("Reference", func() {
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(ConsistOf(refDeviceName{Key: "b"}, refDeviceName{Key: "c"}))
+		})
+	})
+
+	Describe("RestrictChange", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It(
+			"Should name an entry that holds the target through a restrict reference",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(racks.RestrictChange(ctx, db, 1, "name")).To(SatisfyAll(
+					BeAssignableToTypeOf(gorp.RestrictError{}),
+					MatchError("cannot change the name of rack 1 because device a "+
+						"references it through rack: validation error"),
+				))
+			},
+		)
+
+		It(
+			"Should return nil when only other references hold the target",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				createLabels(ctx, "l1")
+				Expect(createDevice(ctx, refDevice{
+					Key:    "a",
+					Rack:   1,
+					Labels: []string{"l1"},
+				})).To(Succeed())
+				Expect(labels.RestrictChange(ctx, db, "l1", "name")).To(Succeed())
+			},
+		)
+
+		It("Should return nil for a target no entry holds", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(racks.RestrictChange(ctx, db, 1, "name")).To(Succeed())
 		})
 	})
 

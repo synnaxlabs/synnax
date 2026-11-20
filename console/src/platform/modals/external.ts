@@ -10,11 +10,7 @@
 export * from "@/platform/modals/factory";
 export { useBusy } from "@/platform/modals/Modal";
 export * from "@/platform/modals/Stack";
-export {
-  ConfirmLayout,
-  type ConfirmLayoutProps,
-  useConfirm,
-} from "@/platform/modals/useConfirm";
+export { ConfirmLayout, useConfirm } from "@/platform/modals/useConfirm";
 export * from "@/platform/modals/useConfirmDelete";
 export * from "@/platform/modals/useRename";
 export { type Content, type ContentProps } from "@/session/modals/Context";
