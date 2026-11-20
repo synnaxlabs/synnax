@@ -52,6 +52,8 @@ export class Session {
   };
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, Promise<Listing>>();
+  private prefetching = false;
+  private queued: string | null = null;
 
   constructor(client: Synnax, rack: rack.Key) {
     this.client = client;
@@ -86,11 +88,27 @@ export class Session {
     return await request;
   }
 
-  /** Lists a folder in the background, unless it has a listing or is being listed. */
+  /**
+   * Lists a folder in the background, unless it has a listing, a failure, or a request
+   * in flight. One background list runs at a time. Of the folders asked for while it
+   * runs, only the last one lists after it.
+   */
   prefetch(path: string): void {
-    if (this.snap.listings.has(path) || this.pending.has(path)) return;
+    const { listings, failures } = this.snap;
+    if (listings.has(path) || failures.has(path) || this.pending.has(path)) return;
+    if (this.prefetching) {
+      this.queued = path;
+      return;
+    }
+    this.prefetching = true;
+    const next = (): void => {
+      this.prefetching = false;
+      const queued = this.queued;
+      this.queued = null;
+      if (queued != null) this.prefetch(queued);
+    };
     // The folder lists again when it opens, and that shows the failure.
-    this.list(path).catch(() => {});
+    this.list(path).then(next, next);
   }
 
   private async request(path: string): Promise<Listing> {

@@ -47,6 +47,7 @@ import { type Entry, type Listing } from "@/platform/file-browser/list";
 import {
   dirnameOf,
   expandHome,
+  normalize,
   trimSeparator,
   withSeparator,
 } from "@/platform/file-browser/path";
@@ -95,8 +96,8 @@ export interface ModalParams {
   /** The rack whose files the modal lists. */
   rack: rack.Key;
   /**
-   * A file whose folder the modal opens first, with the file selected. Without it, the
-   * home folder opens.
+   * A file whose folder the modal opens first, with the file selected. Without it, or
+   * when it is not absolute, the home folder opens.
    */
   path?: string;
 }
@@ -110,12 +111,13 @@ const Content = ({
   const snapshot = useSnapshot(session);
   const now = useNow(nextMinute);
   const rackResult = Rack.useResult({ key: rack });
+  const startFile = normalize(start.trim());
   const [history, setHistory] = useState<History>(() => ({
-    stack: [dirnameOf(start.trim())],
+    stack: [dirnameOf(startFile)],
     index: 0,
   }));
   const [selected, setSelected] = useState<string | null>(() =>
-    start.trim() === "" ? null : start.trim(),
+    startFile === "" ? null : startFile,
   );
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
@@ -137,9 +139,10 @@ const Content = ({
   useEffect(() => session?.prefetch(""), [session]);
 
   // Each visit lists the folder again. The snapshot shows the result or the failure.
-  useEffect(() => {
+  const relist = (): void => {
     session?.list(path).catch(() => {});
-  }, [session, path]);
+  };
+  useEffect(relist, [session, path]);
 
   const listing = snapshot.listings.get(path);
   if (listing != null && shownPath !== path) setShownPath(path);
@@ -149,6 +152,8 @@ const Content = ({
   const stale = listing == null;
   const loading = snapshot.loading.has(path);
   const failure = snapshot.failures.get(path);
+  // While a folder loads or fails, the dimmed last folder offers no file to pick.
+  const current = !stale && failure == null;
   const entries: KeyedEntry[] =
     shown == null
       ? []
@@ -181,7 +186,7 @@ const Content = ({
   };
   const open = (entry: Entry): void => {
     if (entry.kind === "directory") go(entry.path);
-    else if (pickable(entry, type)) close(entry);
+    else if (current && pickable(entry, type)) close(entry);
   };
   const listAhead = (folder: string): void => session?.prefetch(folder);
   // A folder the user points at lists in the background, so it often opens at once.
@@ -195,7 +200,9 @@ const Content = ({
   };
   const selectedEntry = selected == null ? undefined : getItem(selected);
   const picked =
-    selectedEntry != null && pickable(selectedEntry, type) ? selectedEntry : undefined;
+    current && selectedEntry != null && pickable(selectedEntry, type)
+      ? selectedEntry
+      : undefined;
 
   const focusList = (): void => (listRef.current ?? holderRef.current)?.focus();
   const cancelEditing = (): void => {
@@ -255,11 +262,16 @@ const Content = ({
         <Text.Text level="small" color={10}>
           {failure.description}
         </Text.Text>
-        {history.index > 0 && (
-          <Button.Button variant="text" size="small" textColor={9} onClick={back}>
-            Go back
+        <Flex.Box x gap="small">
+          <Button.Button variant="text" size="small" textColor={9} onClick={relist}>
+            Try again
           </Button.Button>
-        )}
+          {history.index > 0 && (
+            <Button.Button variant="text" size="small" textColor={9} onClick={back}>
+              Go back
+            </Button.Button>
+          )}
+        </Flex.Box>
       </State>
     );
   else if (shown == null)
@@ -281,6 +293,8 @@ const Content = ({
   else
     body = (
       <Entries
+        folder={shownPath}
+        selected={selected}
         ref={listRef}
         now={now}
         type={type}
@@ -332,7 +346,12 @@ const Content = ({
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip="Back"
+                  aria-label="Back"
+                  tooltip={
+                    <PTriggers.Text trigger={["Alt", "ArrowLeft"]} level="small">
+                      Back
+                    </PTriggers.Text>
+                  }
                   disabled={history.index === 0}
                   onClick={back}
                 >
@@ -342,7 +361,12 @@ const Content = ({
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip="Forward"
+                  aria-label="Forward"
+                  tooltip={
+                    <PTriggers.Text trigger={["Alt", "ArrowRight"]} level="small">
+                      Forward
+                    </PTriggers.Text>
+                  }
                   disabled={history.index >= history.stack.length - 1}
                   onClick={forward}
                 >
@@ -352,7 +376,12 @@ const Content = ({
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip="Up"
+                  aria-label="Up"
+                  tooltip={
+                    <PTriggers.Text trigger={["Alt", "ArrowUp"]} level="small">
+                      Up
+                    </PTriggers.Text>
+                  }
                   disabled={!canGoUp}
                   onClick={up}
                 >
