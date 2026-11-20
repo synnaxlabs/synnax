@@ -11,6 +11,7 @@ package auth_test
 
 import (
 	"context"
+	"strings"
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
@@ -499,6 +500,7 @@ var _ = Describe("SetPassword", func() {
 
 var _ = Describe("CreatePassword", func() {
 	var (
+		bob       user.User
 		bobToken  string
 		rootToken string
 		nopass    user.User
@@ -518,7 +520,7 @@ var _ = Describe("CreatePassword", func() {
 		)).Token
 	}
 	BeforeEach(func(ctx SpecContext) {
-		bob := createUser(ctx, "bob-"+uuid.New().String(), "old")
+		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
 		bobToken = login(ctx, bob.Name, "old")
 		rootToken = login(ctx, creds.Username, creds.Password)
 		nopass = MustSucceed(rbactestutil.CreateUser(
@@ -541,6 +543,30 @@ var _ = Describe("CreatePassword", func() {
 			Subject:  nopass.ResourceID(),
 			Username: nopass.Name, Password: "p",
 		})).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should deny a caller that may only create users", func(ctx SpecContext) {
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			bob.Key,
+			[]access.Action{access.ActionCreate},
+			resource.ID{Type: resource.TypeUser},
+		))
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should refuse a user named by a key in another case", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject: resource.ID{
+				Type: resource.TypeUser,
+				Key:  strings.ToUpper(bob.Key.String()),
+			},
+			Username: "other", Password: "p",
+		})).Error().To(MatchError(ContainSubstring("already has a password")))
 	})
 	It("Should refuse a user that already has a password", func(ctx SpecContext) {
 		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{

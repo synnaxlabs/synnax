@@ -32,9 +32,29 @@ type PasswordCreateRequest struct {
 	Credentials
 }
 
+// passwordSubject returns the user that req names, or the caller, in canonical form.
+func passwordSubject(
+	ctx context.Context,
+	req PasswordCreateRequest,
+) (resource.ID, error) {
+	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
+	if subject.Type != resource.TypeUser {
+		return resource.ID{}, errors.Wrapf(
+			validate.ErrValidation,
+			"a %s has no password",
+			subject.Type,
+		)
+	}
+	key, err := user.KeyFromResourceID(subject)
+	if err != nil {
+		return resource.ID{}, err
+	}
+	return user.ResourceID(key), nil
+}
+
 // PrepareCreatePassword hashes the password that CreatePassword stores. It returns a
 // validation error when the password method is off or the subject is not a user, and
-// an error wrapping access.ErrDenied when the caller cannot create another user.
+// an error wrapping access.ErrDenied when the caller cannot update another user.
 func (s *Service) PrepareCreatePassword(
 	ctx context.Context,
 	req PasswordCreateRequest,
@@ -42,21 +62,17 @@ func (s *Service) PrepareCreatePassword(
 	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
 		return password.Hash{}, err
 	}
-	caller := GetSubject(ctx)
-	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
-	if subject.Type != resource.TypeUser {
-		return password.Hash{}, errors.Wrapf(
-			validate.ErrValidation,
-			"a %s has no password",
-			subject.Type,
-		)
+	subject, err := passwordSubject(ctx, req)
+	if err != nil {
+		return password.Hash{}, err
 	}
-	if subject != caller {
-		// Each hash is slow, so a caller that cannot create the user costs none.
+	if caller := GetSubject(ctx); subject != caller {
+		// A first password logs its holder in as the user, so it needs update, as
+		// setting one does. Each hash is slow, so a denied caller costs none.
 		if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 			return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
 				Subject: caller,
-				Action:  access.ActionCreate,
+				Action:  access.ActionUpdate,
 				Objects: []resource.ID{subject},
 			})
 		}); err != nil {
@@ -76,7 +92,10 @@ func (s *Service) CreatePassword(
 	req PasswordCreateRequest,
 	hash password.Hash,
 ) (struct{}, error) {
-	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
+	subject, err := passwordSubject(ctx, req)
+	if err != nil {
+		return struct{}{}, err
+	}
 	key, err := user.KeyFromResourceID(subject)
 	if err != nil {
 		return struct{}{}, err
