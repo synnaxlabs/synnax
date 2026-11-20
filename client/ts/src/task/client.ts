@@ -402,7 +402,8 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
-  private readonly statusHandlers = new Set<StatusHandlers>();
+  // Replies that the client stands in with. A wait skips them, as no Driver sent them.
+  private readonly standIns = new WeakSet<status.Status>();
   private readonly parsed = new WeakMap<Schemas, Parsed>();
 
   constructor(cfg: ClientConfig) {
@@ -443,18 +444,6 @@ export class Client extends query.Retriever<
       },
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
-    // Left unparsed: each wait parses statuses with the schema of its replies.
-    cache.listen({
-      channel: status.SET_CHANNEL_NAME,
-      schema: z.unknown(),
-      onChange: (written) =>
-        written.forEach((stat) => this.statusHandlers.forEach((h) => h.onStatus(stat))),
-    });
-    cache.onStreamDown(() =>
-      this.statusHandlers.forEach((h) =>
-        h.onError(new DisconnectedError("The connection to the Core dropped.")),
-      ),
-    );
     cache.listen({
       channel: COMMAND_CHANNEL_NAME,
       schema: commandZ,
@@ -468,7 +457,7 @@ export class Client extends query.Retriever<
             const held = statuses.ownedBy(resourceID(changed.task));
             if (held == null) return;
             const optimistic = this.optimisticStatus(changed, held.key);
-            statuses.setLocal(optimistic);
+            this.setStandIn(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
         ),
@@ -760,7 +749,7 @@ export class Client extends query.Retriever<
         status.detailsOf(held)?.cmd === pending.cmd.key;
       if (answered) continue;
       pending.optimistic = this.optimisticStatus(pending.cmd, pending.optimistic.key);
-      this.cfg.statuses.setLocal(pending.optimistic);
+      this.setStandIn(pending.optimistic);
     }
   }
 
@@ -775,7 +764,7 @@ export class Client extends query.Retriever<
       const held = statuses.ownedBy(owner);
       if (held == null) return;
       if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
-      statuses.setLocal(
+      this.setStandIn(
         status.create<StatusDetailsZodObject>({
           key: held.key,
           name: optimistic.name,
@@ -986,11 +975,25 @@ export class Client extends query.Retriever<
     });
   }
 
+  private setStandIn(stat: Status): void {
+    this.standIns.add(stat);
+    this.cfg.statuses.setLocal(stat);
+  }
+
   // The change stream carries every status, so a wait while it is live opens nothing.
-  private readonly openStatuses: StatusOpener = async (handlers) => {
-    if (!this.cfg.cache.live) return await streamStatuses(this.cfg.framer)(handlers);
-    this.statusHandlers.add(handlers);
-    return () => this.statusHandlers.delete(handlers);
+  private readonly openStatuses: StatusOpener = async ({ onStatus, onError }) => {
+    const { cache, framer, statuses } = this.cfg;
+    if (!cache.live) return await streamStatuses(framer)({ onStatus, onError });
+    const stopWrites = statuses.onWrite((stat) => {
+      if (!this.standIns.has(stat)) onStatus(stat);
+    });
+    const stopDown = cache.onStreamDown(() =>
+      onError(new DisconnectedError("The connection to the Core dropped.")),
+    );
+    return () => {
+      stopWrites();
+      stopDown();
+    };
   };
 
   // Reads only cached tasks: a fetch would make a command need read access to its task.
@@ -1064,7 +1067,7 @@ const executeCommands = async ({
 
 /** The handlers that a {@link StatusOpener} calls. */
 interface StatusHandlers {
-  /** Receives each status that the Core streams, decoded but not parsed. */
+  /** Receives each status that the Core streams. The wait parses it for its replies. */
   onStatus: (status: unknown) => void;
   /** Receives the error that ends the statuses, after which no reply arrives. */
   onError: (error: Error) => void;

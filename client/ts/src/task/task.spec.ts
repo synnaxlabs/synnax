@@ -1544,6 +1544,26 @@ describe("Task", async () => {
       expect(hold).toHaveBeenCalledOnce();
     });
 
+    it("should not take a stand-in status of the client as the reply", async () => {
+      const sender = createTestClient();
+      await sender.connect();
+      await waitForStreamLive(sender.connection);
+      const r = await createRunningRack(sender);
+      const t = await r.createTask({
+        name: `stand-in-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await setDriverNotRunning(r.key);
+      // A start to a task on a down Driver gets a stand-in warning that names it.
+      await expect
+        .poll(() => sender.statuses.ownedBy(rack.resourceID(r.key))?.message)
+        .toBe("Driver not running");
+      await expect(
+        t.executeCommandSync({ type: "start", timeout: TimeSpan.milliseconds(300) }),
+      ).rejects.toThrow(new Error(`Command to ${t.name} timed out after 300ms`));
+    });
+
     it("should end a wait on the change stream once the stream drops", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient();
       await proxied.connect();
