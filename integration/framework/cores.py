@@ -58,7 +58,10 @@ class Process:
         self._data = Path(tempfile.mkdtemp(prefix="synnax-core-"))
         core.log_path.parent.mkdir(parents=True, exist_ok=True)
         self._log = open(core.log_path, "wb")
+        secrets = self._data / "secrets"
+        secrets.mkdir()
         args = [str(binary), "start", "-l", core.address, "-d", str(self._data), "-i"]
+        args += ["--secrets-dir", str(secrets)]
         if not persisted:
             args.append("-m")
         if driver_disabled:

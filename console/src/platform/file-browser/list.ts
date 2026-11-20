@@ -17,7 +17,8 @@ import {
 } from "@synnaxlabs/client";
 import { z } from "zod";
 
-const TASK_TYPE = "file_browser";
+/** The type of the task that lists the files of a rack. */
+export const TASK_TYPE = "file_browser";
 
 const LIST_COMMAND_TYPE = "list";
 

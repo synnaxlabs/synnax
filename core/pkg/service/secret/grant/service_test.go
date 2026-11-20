@@ -158,11 +158,22 @@ var _ = Describe("Service", func() {
 					"subject: user:u is not a rack",
 				),
 				Entry(
-					"no secrets",
+					"no secrets and no certificates",
 					func(g *grant.Grant) { g.Secrets = nil },
-					"secrets: must be non-empty",
+					"secrets: required without certificates",
 				),
 			)
+			It("Should create a grant that names only certificates", func(
+				ctx SpecContext,
+			) {
+				g := grant.Grant{Subject: rk, Certificates: []uuid.UUID{uuid.New()}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
+				grants := stored(ctx)
+				Expect(grants).To(HaveLen(1))
+				Expect(grants[0].Certificates).To(Equal(g.Certificates))
+			})
 			It("Should delete the grants that have expired", func(ctx SpecContext) {
 				create(ctx)
 				clock.Advance(2 * time.Minute)
