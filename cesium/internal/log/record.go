@@ -338,14 +338,8 @@ func sizeError(name string, got, want int) error {
 }
 
 func zeros(name string, b []byte) error {
-	for _, c := range b {
-		if c != 0 {
-			return errors.Wrapf(
-				place.ErrCorrupt,
-				"%s record has a set reserved byte",
-				name,
-			)
-		}
+	if !allZero(b) {
+		return errors.Wrapf(place.ErrCorrupt, "%s record has a set reserved byte", name)
 	}
 	return nil
 }

@@ -66,3 +66,37 @@ func FuzzDecodeEntry(f *testing.F) {
 		}
 	})
 }
+
+// FuzzDecodeFrame checks that the frame decoder never panics, and that a frame it
+// accepts encodes to the same bytes.
+func FuzzDecodeFrame(f *testing.F) {
+	frame := log.Frame{Count: 1, Sequence: 9, PrevCRC: 7, Entries: entryOf(&commit)}
+	f.Add(frame.Append(nil, db, generation, 8_192))
+	mark := log.Frame{Sequence: 10, Clean: true}
+	f.Add(mark.Append(nil, db, generation, 8_192))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		decoded, err := log.DecodeFrame(b, db, generation, 8_192)
+		if err != nil {
+			return
+		}
+		again := decoded.Append(nil, db, generation, 8_192)
+		if !bytes.Equal(again, b[:decoded.Size()]) {
+			t.Fatalf("frame %x encodes to %x", b[:decoded.Size()], again)
+		}
+	})
+}
+
+// FuzzDecodeHeader checks that the header decoder never panics, and that a header it
+// accepts encodes to the same bytes.
+func FuzzDecodeHeader(f *testing.F) {
+	f.Add(header.Encode(0))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		decoded, err := log.DecodeHeader(b, 0)
+		if err != nil {
+			return
+		}
+		if again := decoded.Encode(0); !bytes.Equal(again, b[:log.HeaderSize]) {
+			t.Fatalf("header %x encodes to %x", b[:log.HeaderSize], again)
+		}
+	})
+}
