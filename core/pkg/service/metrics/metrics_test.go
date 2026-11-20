@@ -158,14 +158,15 @@ var _ = Describe("Metrics", func() {
 				).To(Succeed())
 				Expect(ch.Name).To(Equal(expectedName))
 				Expect(ch.DataType).To(Equal(telem.Float32T))
-				Expect(ch.IsCalculated()).To(BeTrue())
+				Expect(ch.Virtual).To(BeTrue())
 				var calc calculation.Calculation
 				Expect(calcSvc.NewRetrieve().
 					Where(calculation.MatchOutputs(ch.Key())).
 					Entry(&calc).
 					Exec(ctx, dist.DB),
 				).To(Succeed())
-				Expect(calc.Expression).To(Equal(ch.Expression))
+				Expect(calc.Expression).
+					To(Equal("return " + names[4] + " + " + names[5]))
 			},
 		)
 		It("Should create ts size metric channel", func(ctx SpecContext) {

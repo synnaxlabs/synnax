@@ -172,7 +172,8 @@ var _ = Describe("Writer", func() {
 	Describe("CreateOutput", func() {
 		createOutput := func(ctx SpecContext, c *calculation.Calculation, name string) error {
 			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).CreateOutput(ctx, c, name, nil)
+				_, err := svc.NewWriter(tx).CreateOutput(ctx, c, name, nil)
+				return err
 			})
 		}
 
@@ -314,24 +315,39 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("SetFromChannel", func() {
-		setFromChannel := func(ctx SpecContext, ch channel.Channel) error {
-			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).SetFromChannel(ctx, ch)
+	Describe("ApplyChannel", func() {
+		applyChannel := func(
+			ctx SpecContext,
+			key channel.Key,
+			acts ...channel.Action,
+		) ([]channel.Action, error) {
+			var computed []channel.Action
+			err := node.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				computed, err = svc.NewWriter(tx).ApplyChannel(ctx, key, acts...)
+				return err
 			})
+			return computed, err
+		}
+		set := func(path string, value any) channel.Action {
+			return channel.NewSetAction(
+				channel.SetPayload{Path: []string{path}, Value: value},
+			)
 		}
 
-		It("Should write the expression and operations over the calculation", func(
+		It("Should edit the expression and operations of the calculation", func(
 			ctx SpecContext,
 		) {
 			out := createVirtual(ctx, "doubled")
 			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
 			Expect(create(ctx, &c)).To(Succeed())
-			out.Expression = "return 3"
-			out.Operations = []channel.Operation{
-				{Type: channel.OperationTypeMax, Duration: telem.Second},
-			}
-			Expect(setFromChannel(ctx, out)).To(Succeed())
+			Expect(applyChannel(
+				ctx,
+				out.Key(),
+				set("expression", "return 3"),
+				set("operations", []channel.Operation{
+					{Type: channel.OperationTypeMax, Duration: telem.Second},
+				}),
+			)).Error().To(Succeed())
 			Expect(retrieve(ctx, out.Key())).To(ConsistOf(calculation.Calculation{
 				Key:        c.Key,
 				Output:     out.Key(),
@@ -342,16 +358,43 @@ var _ = Describe("Writer", func() {
 			}))
 		})
 
-		It("Should create the calculation of a channel that has none", func(
+		It("Should rename the channel and keep its calculation", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(applyChannel(
+				ctx,
+				out.Key(),
+				channel.NewRenameAction(channel.RenamePayload{Name: "tripled"}),
+			)).Error().To(Succeed())
+			Expect(retrieve(ctx, out.Key())).To(ConsistOf(c))
+		})
+
+		It("Should return a set of the data type that a new expression changes", func(
 			ctx SpecContext,
 		) {
+			createChannel(ctx, channel.Channel{
+				Name:     "wide",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			})
 			out := createVirtual(ctx, "doubled")
-			out.Expression = "return 3"
-			Expect(setFromChannel(ctx, out)).To(Succeed())
-			stored := retrieve(ctx, out.Key())
-			Expect(stored).To(HaveLen(1))
-			Expect(stored[0].Expression).To(Equal("return 3"))
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2.0"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(applyChannel(ctx, out.Key(), set("expression", "return wide * 2"))).
+				To(ConsistOf(set("data_type", telem.Int64T)))
 		})
+
+		It(
+			"Should refuse an edit of the expression of a channel with no calculation",
+			func(
+				ctx SpecContext,
+			) {
+				out := createVirtual(ctx, "plain")
+				Expect(applyChannel(ctx, out.Key(), set("expression", "return 3"))).
+					Error().To(MatchError(validate.ErrValidation))
+			},
+		)
 	})
 
 	Describe("Delete", func() {

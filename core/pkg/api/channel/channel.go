@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -199,9 +198,8 @@ func (s *Service) Create(
 		CreateChannels(ctx, &translated, req.RetrieveIfNameExists); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{
-		Channels: translateChannelsForward(translated, s.internal.IsBuiltIn),
-	}, nil
+	created, err := s.translateForward(ctx, tx, translated)
+	return CreateResponse{Channels: created}, err
 }
 
 // statusOwners returns the owner of the status of each of channels: the calculation
@@ -252,9 +250,11 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	res := RetrieveResponse{
-		Channels: translateChannelsForward(resChannels, s.internal.IsBuiltIn),
+	translated, err := s.translateForward(ctx, snap, resChannels)
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
+	res := RetrieveResponse{Channels: translated}
 	if req.IncludeStatus {
 		owners, err := s.statusOwners(ctx, snap, resChannels)
 		if err != nil {
@@ -350,6 +350,31 @@ func namesByName(where *channel.Where) bool {
 		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
+// translateForward returns the API form of channels, with the expression and operations
+// of each one that a calculation writes.
+func (s *Service) translateForward(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	channels []channel.Channel,
+) ([]Channel, error) {
+	calcs, err := s.calculations.Outputs(
+		ctx,
+		snap,
+		channel.KeysFromChannels(channels)...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	translated := translateChannelsForward(channels, s.internal.IsBuiltIn)
+	for i := range translated {
+		if c, ok := calcs[translated[i].Key]; ok {
+			translated[i].Expression = c.Expression
+			translated[i].Operations = calculation.ChannelOperations(c.Operations)
+		}
+	}
+	return translated, nil
+}
+
 func translateChannelsForward(
 	channels []channel.Channel,
 	builtIn func(channel.Key) bool,
@@ -365,8 +390,6 @@ func translateChannelsForward(
 			Index:       ch.Index(),
 			Virtual:     ch.Virtual,
 			Internal:    builtIn(ch.Key()),
-			Expression:  ch.Expression,
-			Operations:  ch.Operations,
 			Group:       ch.Group,
 		}
 	}
@@ -475,32 +498,11 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	var prev, next channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(req.Key)).
-		Entry(&prev).
-		Exec(ctx, tx); err != nil {
-		return DispatchResponse{}, err
-	}
-	computed, err := s.internal.NewWriter(tx).
+	computed, err := s.calculations.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
+		ApplyChannel(ctx, req.Key, req.Actions...)
 	if err != nil {
 		return DispatchResponse{}, err
-	}
-	if err = s.internal.NewRetrieve().
-		Where(channel.MatchKeys(req.Key)).
-		Entry(&next).
-		Exec(ctx, tx); err != nil {
-		return DispatchResponse{}, err
-	}
-	// Only an edit of the expression or the operations writes the calculation, so the
-	// other edits keep what the calculation API wrote.
-	if next.Expression != prev.Expression ||
-		!slices.Equal(next.Operations, prev.Operations) {
-		if err = s.calculations.NewWriter(tx).SetFromChannel(ctx, next); err != nil {
-			return DispatchResponse{}, err
-		}
 	}
 	return DispatchResponse{Actions: computed}, nil
 }

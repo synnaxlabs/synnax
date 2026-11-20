@@ -24,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -74,6 +75,18 @@ func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
 		Entry(&ch).
 		Exec(ctx, db)).To(Succeed())
 	return ch
+}
+
+// expressionOf returns the expression of the calculation that writes the channel with
+// key.
+func expressionOf(ctx SpecContext, key channel.Key) string {
+	GinkgoHelper()
+	var c calculation.Calculation
+	Expect(layer.Calculation.NewRetrieve().
+		Where(calculation.MatchOutputs(key)).
+		Entry(&c).
+		Exec(ctx, db)).To(Succeed())
+	return c.Expression
 }
 
 var _ = Describe("Service", func() {
@@ -196,7 +209,7 @@ var _ = Describe("Service", func() {
 				calc.Expression = fmt.Sprintf("return %s * 2", stored.Name)
 				Expect(create(ctx, plain, calc)).
 					Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveChannel(ctx, calc.Key).Expression).
+				Expect(expressionOf(ctx, calc.Key)).
 					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
 			},
 		)
@@ -206,7 +219,7 @@ var _ = Describe("Service", func() {
 				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
 				calc.Expression = fmt.Sprintf("return %s * 2", secret.Name)
 				Expect(create(ctx, calc)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveChannel(ctx, calc.Key).Expression).
+				Expect(expressionOf(ctx, calc.Key)).
 					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
 			},
 		)

@@ -101,17 +101,8 @@ func (c Creator) Apply(
 	acts ...channel.Action,
 ) error {
 	return c.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		if _, err := c.Channel.NewWriter(tx).Apply(ctx, key, acts...); err != nil {
-			return err
-		}
-		var output channel.Channel
-		if err := c.Channel.NewRetrieve().
-			Where(channel.MatchKeys(key)).
-			Entry(&output).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		return c.Calculation.NewWriter(tx).SetFromChannel(ctx, output)
+		_, err := c.Calculation.NewWriter(tx).ApplyChannel(ctx, key, acts...)
+		return err
 	})
 }
 

@@ -249,8 +249,8 @@ var _ = Describe("Engine", func() {
 				OnCheckpoint: rec.onCheckpoint,
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("channel "+ch.Name+" is calculated, and Sift can only "+
-					"take stored channels"),
+				MatchError("channel "+ch.Name+" is virtual, and the Core stores no "+
+					"data for virtual channels"),
 			))
 		})
 

@@ -68,7 +68,8 @@ var _ = Describe("Creator", Ordered, func() {
 					Expression: "return " + input + " * 2",
 				}))
 				Expect(out.Name).To(Equal(name))
-				Expect(out.Expression).To(Equal("return " + input + " * 2"))
+				Expect(MustSucceed(creator.CalculationOf(ctx, out.Key())).Expression).
+					To(Equal("return " + input + " * 2"))
 				Expect(out.Key()).ToNot(BeZero())
 				Expect(out.Index()).ToNot(BeZero())
 				Expect(out.Virtual).To(BeTrue())
@@ -78,7 +79,6 @@ var _ = Describe("Creator", Ordered, func() {
 					Where(channel.MatchKeys(out.Key())).
 					Entry(&stored).
 					Exec(ctx, creator.DB)).To(Succeed())
-				Expect(stored.Expression).To(Equal(out.Expression))
 			},
 		)
 		It(

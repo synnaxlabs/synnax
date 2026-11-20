@@ -27,18 +27,21 @@ import (
 
 // Writer creates, changes, and deletes calculations in a transaction.
 type Writer struct {
-	svc        *Service
-	tx         gorp.Tx
-	table      *gorp.Table[Key, Calculation]
-	indexes    indexes
-	channels   *channel.Service
-	dispatcher actions.Dispatcher[Key, Action]
+	svc *Service
+	tx  gorp.Tx
+	// dispatchKey is stamped onto the broadcasts of the channel edits the writer makes.
+	dispatchKey string
+	table       *gorp.Table[Key, Calculation]
+	indexes     indexes
+	channels    *channel.Service
+	dispatcher  actions.Dispatcher[Key, Action]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
 // broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	w.dispatchKey = dispatchKey
 	return w
 }
 
@@ -73,16 +76,17 @@ func (w Writer) Create(ctx context.Context, c *Calculation) error {
 // CreateOutput creates c with a new output: a virtual channel named name in the group
 // with key group, or at the root when group is nil, typed by the expression of c, with
 // a
-// free index that timestamps it. It returns an error wrapping validate.ErrValidation
-// when c names an output, and fails as Create does.
+// free index that timestamps it. It returns the output, then its index. It returns an
+// error wrapping validate.ErrValidation when c names an output, and fails as Create
+// does.
 func (w Writer) CreateOutput(
 	ctx context.Context,
 	c *Calculation,
 	name string,
 	group *group.Key,
-) error {
+) ([]channel.Channel, error) {
 	if c.Output != 0 {
-		return validate.PathedError(errors.Wrap(
+		return nil, validate.PathedError(errors.Wrap(
 			validate.ErrValidation,
 			"a calculation that makes its output names none",
 		), "output")
@@ -100,16 +104,17 @@ func (w Writer) CreateOutput(
 		HasDerivative(c.Operations),
 	)
 	if err != nil {
-		return validate.PathedError(err, "expression")
+		return nil, validate.PathedError(err, "expression")
 	}
 	output.DataType = result.ChanDataType
 	created := []channel.Channel{output}
 	if err = w.channels.NewWriter(w.tx).
+		WithDispatchKey(w.dispatchKey).
 		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
-		return err
+		return nil, err
 	}
 	c.Output = created[0].Key()
-	return w.Create(ctx, c)
+	return created, w.Create(ctx, c)
 }
 
 // checkOutput returns the channel with key. It fails when the channel does not exist,
@@ -323,49 +328,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// CreateChannels creates channels with the channel service, then the calculation of
-// each created channel that has an expression. When retrieveIfExists is true, a channel
-// whose name or key is stored is found as channel.RetrieveIfNameExists finds it, and
-// CreateChannels writes no calculation for it.
-func (w Writer) CreateChannels(
-	ctx context.Context,
-	channels *[]channel.Channel,
-	retrieveIfExists bool,
-) error {
-	n := len(*channels)
-	var (
-		found = set.New[channel.Key]()
-		opts  []channel.CreateOption
-	)
-	if retrieveIfExists {
-		opts = append(opts, channel.RetrieveIfNameExists())
-		stored, err := w.storedChannels(ctx, *channels)
-		if err != nil {
-			return err
-		}
-		found.Add(channel.KeysFromChannels(stored)...)
-	}
-	if err := w.channels.NewWriter(w.tx).
-		CreateMany(ctx, channels, opts...); err != nil {
-		return err
-	}
-	// The channel writer appends the index channels it creates after channels.
-	for _, ch := range (*channels)[:n] {
-		if ch.Expression == "" || found.Contains(ch.Key()) {
-			continue
-		}
-		c := Calculation{
-			Output:     ch.Key(),
-			Expression: ch.Expression,
-			Operations: fromChannelOperations(ch.Operations),
-		}
-		if err := w.Create(ctx, &c); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // storedChannels returns the stored channels that have the name or key of a channel in
 // channels.
 func (w Writer) storedChannels(
@@ -397,31 +359,4 @@ func (w Writer) storedChannels(
 		return nil, err
 	}
 	return slices.Concat(byName, byKey), nil
-}
-
-// SetFromChannel writes the expression and operations of ch to its calculation, and
-// creates the calculation when ch has none. It writes nothing for a channel with no
-// expression.
-func (w Writer) SetFromChannel(ctx context.Context, ch channel.Channel) error {
-	if ch.Expression == "" {
-		return nil
-	}
-	var stored []Calculation
-	if err := (Retrieve{gorp: w.table.NewRetrieve(), indexes: w.indexes}).
-		Where(MatchOutputs(ch.Key())).
-		Entries(&stored).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	ops := fromChannelOperations(ch.Operations)
-	if len(stored) == 0 {
-		c := Calculation{Output: ch.Key(), Expression: ch.Expression, Operations: ops}
-		return w.Create(ctx, &c)
-	}
-	return w.Apply(
-		ctx,
-		stored[0].Key,
-		NewSetAction(SetPayload{Path: []string{"expression"}, Value: ch.Expression}),
-		NewSetAction(SetPayload{Path: []string{"operations"}, Value: ops}),
-	)
 }
