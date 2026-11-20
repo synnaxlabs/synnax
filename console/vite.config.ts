@@ -113,7 +113,7 @@ export default defineConfig({
         }
       : {},
   },
-  envPrefix: ["VITE_", "TAURI_"],
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   // The Console's own CSS, left unlayered, overrides every layer.
   css: { postcss: { plugins: [layers(plutoLayers(repoRoot))] } },
   plugins: [

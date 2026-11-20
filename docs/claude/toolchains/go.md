@@ -24,7 +24,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
   GOOS. CI fails when `go fix -diff ./...` prints a diff for any GOOS that lint checks,
   so run it for `linux`, `windows`, and `darwin`.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
-  (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
+  (recursive), `ginkgo -v`, `ginkgo --focus "Name"`. `go tool ginkgo` runs the version
+  that the module's `go.mod` sets, as CI does.
+- Generate: `go generate ./...`. A module with `stringer` directives pins `stringer` in
+  its `go.mod` `tool` block, and the directives call `go tool stringer`.
 
 ## Style
 

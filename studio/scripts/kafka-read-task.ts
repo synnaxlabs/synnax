@@ -14,9 +14,9 @@ export const driver = true;
 export const integrations = ["modbus"];
 
 /**
- * Docs `reference/hardware/kafka/read-task` (Create a Kafka read task): enter the topic,
- * add a record with a key, add a field with a pointer and a data type, and start the
- * task. The fake broker publishes these records, so the task reads real values.
+ * Docs `reference/hardware/kafka/read-task` (Create a Kafka read task): enter the
+ * topic, add a record with a key, add a field with a pointer and a data type, and start
+ * the task. The fake broker publishes these records, so the task reads real values.
  */
 export default serverTaskScript(KAFKA, {
   item: "Create read task",
