@@ -197,7 +197,7 @@ paths_clean() {
 # Expired artifacts still appear in the API listing but cannot be downloaded.
 artifact_rows() {
     local page
-    for ((page = 1; page <= RECENT_RUN_LIMIT / 100; page++)); do
+    for ((page = 1; page <= (RECENT_RUN_LIMIT + 99) / 100; page++)); do
         gh api "repos/:owner/:repo/actions/artifacts?name=$1&per_page=100&page=$page" \
             --jq '.artifacts[] | select(.expired == false)
                 | "\(.workflow_run.id):\(.workflow_run.head_sha)"' 2> /dev/null || true
