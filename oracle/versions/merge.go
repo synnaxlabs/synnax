@@ -472,7 +472,7 @@ func (n qualifiedNames) fields(fields []resolution.Field) {
 }
 
 // union collects the names of the union's variants, walking an inline variant's payload
-// fields in place of the variant.
+// fields and extends in place of the variant.
 func (n qualifiedNames) union(
 	f resolution.UnionForm, resolve func(string) (resolution.Type, bool),
 ) {
