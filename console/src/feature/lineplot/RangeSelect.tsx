@@ -257,23 +257,32 @@ const readWindow = (
 
 interface WindowSearchProps {
   onSearch: (term: string) => void;
-  /** Takes the typed window. Undefined while the search reads as no window. */
-  onEnter?: () => void;
+  /** The typed window. Undefined while the search reads as no window. */
+  typed?: Entry;
+  onEnter: (typed: Entry) => void;
 }
 
-// Enter on a typed window takes it and closes the dialog. The wrapper packs, so the
-// field takes the dialog's top corners.
-const WindowSearch = ({ onSearch, onEnter }: WindowSearchProps): ReactElement => {
+// Enter on the typed window's option takes it and closes the dialog. Enter on another
+// option goes to the list. The wrapper packs, so the field takes the dialog's top
+// corners.
+const WindowSearch = ({
+  onSearch,
+  typed,
+  onEnter,
+}: WindowSearchProps): ReactElement => {
   const { close } = Dialog.useContext();
+  const { getState } = Select.useContext<string>();
   return (
     <Flex.Box
       y
       pack
       onKeyDown={(e) => {
-        if (e.key !== "Enter" || onEnter == null) return;
+        if (e.key !== "Enter" || typed == null) return;
+        const { hover } = getState();
+        if (hover != null && hover !== typed.key) return;
         // Keeps the list's window-level Enter trigger from clicking a range.
         e.stopPropagation();
-        onEnter();
+        onEnter(typed);
         close();
       }}
     >
@@ -459,7 +468,8 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
                 setTerm({ term: next, typedAt: TimeStamp.now() });
                 search(next);
               }}
-              onEnter={typed == null ? undefined : () => take(typed)}
+              typed={typed}
+              onEnter={take}
             />
             <LiveRow span={span} onChange={setRolling} />
             <Select.List bordered borderColor={6} grow rounded full="x">

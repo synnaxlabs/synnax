@@ -371,6 +371,28 @@ describe("lineplot/toolbar/Data", () => {
       ]);
     });
 
+    it("adds the hovered range on Enter instead of the fixed window", async () => {
+      const range = await client.ranges.create({
+        name: uniqueName(YESTERDAY_ONE_TO_TWO),
+        timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
+      });
+      const { key } = await renderData([]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
+      await fixedOption();
+      const rangeOption = (await screen.findByText(range.name)).closest(
+        "[role=option]",
+      );
+      assertDefined(rangeOption);
+      fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 1 });
+      fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 2 });
+      expect(rangeOption.classList.contains("lyra--hovered")).toBe(true);
+      act(() => {
+        fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      });
+      await expectRanges(key, [{ variant: "key", key: range.key }]);
+    });
+
     it("keeps last week a fixed calendar week", async () => {
       await renderData([]);
       search("last week");

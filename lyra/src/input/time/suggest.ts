@@ -398,6 +398,13 @@ interface Side {
   timeOfDay: boolean;
 }
 
+// The same time of day on another day. A day with a clock change is not 24 hours long.
+const addDays = (value: TimeStamp, days: number): TimeStamp => {
+  const d = value.date();
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+  return onDayOf(value, new TimeStamp(day));
+};
+
 /** Reads one side of a range: an instant, or a calendar unit with its whole span. */
 const readSide = (text: string, language: Language, now: TimeStamp): Side | null => {
   const trimmed = text.trim();
@@ -405,7 +412,12 @@ const readSide = (text: string, language: Language, now: TimeStamp): Side | null
   const range = exact.ok
     ? new TimeRange(exact.value, exact.value)
     : readPhrase(trimmed, language, now);
-  return range == null ? null : { range, timeOfDay: TIME_OF_DAY_RE.test(trimmed) };
+  if (range == null) return null;
+  const timeOfDay = TIME_OF_DAY_RE.test(trimmed);
+  // A time of day alone is the last one before now, so `10pm` at 01:00 is last night.
+  if (!timeOfDay || range.start.beforeEq(now)) return { range, timeOfDay };
+  const { start, end } = range;
+  return { range: new TimeRange(addDays(start, -1), addDays(end, -1)), timeOfDay };
 };
 
 type RangeForm = (text: string, language: Language, now: TimeStamp) => TimeRange | null;
@@ -448,8 +460,11 @@ const readBetween: RangeForm = (text, language, now) => {
   // A time of day alone falls on the day of the other side.
   if (to.timeOfDay && !from.timeOfDay) end = onDayOf(end, start);
   if (from.timeOfDay && !to.timeOfDay) start = onDayOf(start, to.range.start);
-  // An end time before the start crosses midnight, as in `10pm to 2am`.
-  if (to.timeOfDay && end.valueOf() <= start.valueOf()) end = end.add(TimeSpan.DAY);
+  // An end before the start crosses midnight: `10pm to 2am` ends the next day, and
+  // `10pm to 2am yesterday` starts the day before.
+  const crosses = end.beforeEq(start);
+  if (crosses && to.timeOfDay) end = addDays(end, 1);
+  else if (crosses && from.timeOfDay) start = addDays(start, -1);
   return new TimeRange(start, end);
 };
 

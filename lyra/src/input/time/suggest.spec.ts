@@ -212,6 +212,24 @@ describe("suggestTimeRange", () => {
     expect(suggestTimeRange("yesterday 10pm to 2am", language, NOW)).toEqual(
       new TimeRange(local(22, 22), local(23, 2)),
     );
+    expect(suggestTimeRange("10pm to 2am yesterday", language, NOW)).toEqual(
+      new TimeRange(local(21, 22), local(22, 2)),
+    );
+  });
+
+  it("should place a time of day alone before now", () => {
+    expect(suggestTimeRange("since 3pm", language, NOW)).toEqual(
+      new TimeRange(local(22, 15), NOW),
+    );
+    expect(suggestTimeRange("10pm to 2am", language, NOW)).toEqual(
+      new TimeRange(local(22, 22), local(23, 2)),
+    );
+    expect(suggestTimeRange("1pm to 3pm", language, NOW)).toEqual(
+      new TimeRange(local(23, 13), local(23, 15)),
+    );
+    expect(suggestTimeRange("22:00", language, NOW)).toEqual(
+      new TimeRange(local(22, 22), local(22, 23)),
+    );
   });
 
   it("should end on the last day of a span of days", () => {
