@@ -45,6 +45,7 @@ const createReqZ = z.object({ chassis: chassisZ.array() });
 const createResZ = z.object({ chassis: chassisZ.array() });
 const updateReqZ = z.object({ key: keyZ, update: updateZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
+const updateResZ = z.object({ chassis: chassisZ });
 const emptyResZ = z.object({});
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
@@ -208,25 +209,21 @@ export class Client extends query.Retriever<
    * Writes one field group to the chassis and keeps the other as stored. The update
    * replaces the whole group, so a field it leaves out is cleared, such as the serial
    * of an identity update.
+   * @returns the chassis as the Core stored it, without its status.
    * @throws {NotFoundError} if the chassis does not exist.
    * @throws {ValidationError} if the update is invalid.
    */
-  async update(key: Key, update: Update): Promise<void> {
-    await this.cfg.unary.send(
+  async update(key: Key, update: Update): Promise<Chassis> {
+    const { chassis } = await this.cfg.unary.send(
       "/ni/chassis/update",
       { key, update },
       updateReqZ,
-      emptyResZ,
+      updateResZ,
     );
-    // The stored record replaces the cached one, even when an older stream set
-    // arrived during the request.
-    const { chassis } = await this.cfg.unary.send(
-      "/ni/chassis/retrieve",
-      query.keysRequest([key]),
-      retrieveParamsZ,
-      retrieveResponseZ,
-    );
-    this.store.set(chassis.map(stripStatus));
+    // The reply replaces the cached chassis, even when an older stream set arrived
+    // during the request.
+    this.store.set([stripStatus(chassis)]);
+    return chassis;
   }
 
   /**
