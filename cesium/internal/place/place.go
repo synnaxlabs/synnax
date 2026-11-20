@@ -15,7 +15,13 @@ package place
 import (
 	"encoding/binary"
 	"hash/crc32"
+
+	"github.com/synnaxlabs/x/errors"
 )
+
+// ErrCorrupt is the error of bytes that fail their checksum, or that pass it and break
+// the format of their file.
+var ErrCorrupt = errors.New("corrupt")
 
 // Size is the number of bytes of an encoded place.
 const Size = 32
