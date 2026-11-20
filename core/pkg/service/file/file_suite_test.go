@@ -154,10 +154,11 @@ func (b browser) send(
 	}
 	Expect(b.instance.Exec(cmdCtx, cmd)).To(Succeed())
 	var stat task.Status
+	// A listing of a large folder can take over a second in a race build.
 	Eventually(func(g Gomega) {
 		stat = taskStatus(ctx, b.stored)
 		g.Expect(stat.Details.Cmd).To(Equal(cmd.Key))
-	}).Should(Succeed())
+	}).WithTimeout(10 * time.Second).Should(Succeed())
 	Expect(stat.Details.Running).To(BeTrue())
 	return stat
 }

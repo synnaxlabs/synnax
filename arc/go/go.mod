@@ -57,3 +57,8 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 )
+
+tool (
+	github.com/onsi/ginkgo/v2/ginkgo
+	golang.org/x/tools/cmd/stringer
+)

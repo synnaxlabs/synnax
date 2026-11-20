@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -303,6 +304,33 @@ func BootupCore(
 		}
 	}
 
+	listeners, err := cfg.listeners.Resolve(
+		securityProvider,
+		cfg.certFactoryConfig,
+		*cfg.insecure,
+		cfg.driverEnabled(),
+	)
+	if !ok(err, nil) {
+		return err
+	}
+	serverListeners := make([]server.Listener, len(listeners))
+	var presented []certificate.Listener
+	for i, l := range listeners {
+		serverListeners[i] = l.Listener
+		if l.Source != nil {
+			presented = append(
+				presented,
+				certificate.Listener{Address: l.Address, Source: l.Source},
+			)
+		}
+	}
+	var ca *cert.Loader
+	if !*cfg.insecure {
+		if ca, err = cert.NewLoader(cfg.certFactoryConfig.LoaderConfig); !ok(err, nil) {
+			return err
+		}
+	}
+
 	cacheDir, err := os.UserCacheDir()
 	if !ok(err, nil) {
 		return errors.Wrap(err, "failed to resolve cache directory")
@@ -346,6 +374,8 @@ func BootupCore(
 		Instrumentation:    cfg.Child("service"),
 		Distribution:       distributionLayer,
 		Security:           securityProvider,
+		CA:                 ca,
+		Listeners:          presented,
 		Storage:            storageLayer,
 		RootCredentials:    cfg.rootCredentials,
 		FIPS:               cfg.fips,
@@ -413,16 +443,6 @@ func BootupCore(
 	if embeddedConsole, err = console.New(
 		console.Config{Insecure: cfg.insecure},
 	); !ok(err, nil) {
-		return err
-	}
-
-	serverListeners, err := cfg.listeners.Resolve(
-		securityProvider,
-		cfg.certFactoryConfig,
-		*cfg.insecure,
-		cfg.driverEnabled(),
-	)
-	if !ok(err, nil) {
 		return err
 	}
 
