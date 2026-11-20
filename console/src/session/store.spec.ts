@@ -404,8 +404,8 @@ describe("createStore", () => {
       .filter(([, value]) => (value as Partial<Session.State>)[slice] != null)
       .map(([key]) => key);
 
-  // Statuses and ranges belong to the cluster, so a favorite made in one project is
-  // still a favorite in the next.
+  // Statuses, ranges, and recent folders belong to the cluster, so a favorite made in
+  // one project is still a favorite in the next.
   it("stores status favorites under the Core, not the project", async () => {
     const store = await createStore();
     await enterAndEdit(store, REMOTE_KEY, CLUSTER_KEY);
@@ -424,6 +424,20 @@ describe("createStore", () => {
     );
     await waitForPersisted(db, (p) => p.range != null, "range not persisted yet");
     const holders = holdersOf("range");
+    expect(holders.length).toBeGreaterThan(0);
+    expect(holders.every((key) => key.startsWith(`core.${CLUSTER_KEY}`))).toBe(true);
+  });
+
+  it("stores recent folders under the Core, not the project", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, REMOTE_KEY, CLUSTER_KEY);
+    store.dispatch(Session.FileBrowser.addRecent({ rack: 1, folder: "/etc" }));
+    await waitForPersisted(
+      db,
+      (p) => p.fileBrowser?.recent[1] != null,
+      "recent folder not persisted yet",
+    );
+    const holders = holdersOf("fileBrowser");
     expect(holders.length).toBeGreaterThan(0);
     expect(holders.every((key) => key.startsWith(`core.${CLUSTER_KEY}`))).toBe(true);
   });
