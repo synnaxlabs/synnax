@@ -15,7 +15,8 @@
 
 TimeStamp int64 {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a 64-bit signed integer representing nanoseconds since the Unix epoch
         (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
         telemetry timestamps.
@@ -26,13 +27,14 @@ TimeStamp int64 {
 
 TimeSpan int64 {
     @cpp hand
-    @doc value  """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a 64-bit signed integer representing a duration in nanoseconds. Used for
         expressing time intervals, sampling periods, and durations throughout the
         telemetry system.
     """
     @py hand
-    @py include "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -45,14 +47,15 @@ TimeRange struct {
     }
 
     @cpp hand
-    @doc value  """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a time interval defined by a start and end timestamp. The range is
         start-inclusive and end-exclusive, following standard interval conventions for
         predictable boundary handling.
     """
     @go marshal
     @py hand
-    @py include "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -115,6 +118,7 @@ Window union on variant {
 
 Rate float64 {
     @cpp hand
+    @cpp include  "x/cpp/telem/telem.h"
     @doc value    """
         is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
         frequencies and calculate sample counts over time intervals. A rate is never
@@ -127,7 +131,8 @@ Rate float64 {
 
 Size int64 {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a byte measurement used for storage capacity and data volume representation.
         Supports conversion to human-readable formats (B, kB, MB, GB, TB).
     """
@@ -137,7 +142,8 @@ Size int64 {
 
 Alignment uint64 {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a 64-bit index for positioning samples within multi-array structures. Packs a
         domain index (which array) and sample index (position within array) into a
         single value for efficient multi-dimensional data access.
@@ -148,13 +154,75 @@ Alignment uint64 {
 
 DataType string {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a string identifier specifying the format of telemetry samples. Supports
         fixed-density types (float64, int32, timestamp, etc.) with known byte sizes and
         variable-density types (String, JSON, Bytes) for flexible data storage.
     """
     @py hand
     @ts hand
+}
+
+DataTypeCode enum {
+    unknown   = 0 {
+        @doc value "is never valid on the wire."
+    }
+    uint8     = 1 {
+        @doc value "is the code of uint8."
+    }
+    uint16    = 2 {
+        @doc value "is the code of uint16."
+    }
+    uint32    = 3 {
+        @doc value "is the code of uint32."
+    }
+    uint64    = 4 {
+        @doc value "is the code of uint64."
+    }
+    int8      = 5 {
+        @doc value "is the code of int8."
+    }
+    int16     = 6 {
+        @doc value "is the code of int16."
+    }
+    int32     = 7 {
+        @doc value "is the code of int32."
+    }
+    int64     = 8 {
+        @doc value "is the code of int64."
+    }
+    float32   = 9 {
+        @doc value "is the code of float32."
+    }
+    float64   = 10 {
+        @doc value "is the code of float64."
+    }
+    timestamp = 11 {
+        @doc value "is the code of timestamp."
+    }
+    uuid      = 12 {
+        @doc value "is the code of uuid."
+    }
+    string    = 13 {
+        @doc value "is the code of string."
+    }
+    bytes     = 14 {
+        @doc value "is the code of bytes."
+    }
+    json      = 15 {
+        @doc value "is the code of json."
+    }
+    boolean   = 16 {
+        @doc value "is the code of boolean."
+    }
+
+    @doc value """
+        is the one-byte code of a data type in the frame codec and in Cesium segments. A
+        code never changes once a stable release ships it. Code 255 is reserved for a
+        wider code.
+    """
+    @pb omit
 }
 
 Aggregation enum {
