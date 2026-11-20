@@ -693,6 +693,13 @@ cache drop between its two processes. The gate method is in RFC 0117 §4.11. Two
 baselines move by design: Phase 6 raises `BenchmarkCommit` (commits sync), and Phase 7
 raises `BenchmarkReadSamples` and `BenchmarkStreamFixedSpan` (reads check).
 
+**Read checks**: Writes always store checksums, and every read checks them by default. A
+bad block fails only that read, with a typed error. The Core start flag
+`--disable-read-checks` (NEW) sets the Cesium config field `ReadChecksDisabled` (NEW,
+false by default), and reads then skip the check. The flag's description says that a
+damaged block then returns wrong data with no error. Writes do not change, so the flag
+can change at any start with no stored change. Phase 7 builds it with the read check.
+
 | Path                                           | Target                                                                                                                        | Napkin sketch                                                                                                                                                                                                                |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Append and visible commit                      | `BenchmarkWrite`: at most its time on `main` + bytes / `F_crc` + 5%. A series of 1 MiB or more: at least 0.6 × `F_cpu`        | One copy and one CRC pass per byte, and one request to the state owner per commit. A 25 kHz card writes 17,000 B in 33 series: 1.6 µs of CRC at 10 GiB/s                                                                     |
@@ -837,7 +844,7 @@ Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
 | 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                   | 3          |
 | 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `x/go/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp` | -          |
 | 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                             | 3, 4, 5    |
-| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`                                                                 | 6          |
+| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`                                               | 6          |
 
 ## 13 Resolved decisions
 
