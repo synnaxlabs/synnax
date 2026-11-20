@@ -13,6 +13,15 @@
     width: 44rem;
     padding: 1.5rem;
 
+    /* An open view's width outranks this one, so the view keeps its measured width. */
+    &:where(.lyra-color-picker--tabbed) {
+        width: calc(
+            var(--pluto-color-picker-columns) * var(--pluto-height-tiny) +
+                (var(--pluto-color-picker-columns) - 1) *
+                var(--pluto-color-picker-gap) + 2 * var(--pluto-color-picker-inset)
+        );
+    }
+
     /* Library and Custom tabs. One inset holds the tab boxes, the search icon, the
        titles, and the swatches: eight 21 px swatches across, with 6 px gaps. */
     &.lyra-color-picker--tabbed {
@@ -20,11 +29,6 @@
         --pluto-color-picker-inset: 1.5rem;
         --pluto-color-picker-gap: 1rem;
 
-        width: calc(
-            var(--pluto-color-picker-columns) * var(--pluto-height-tiny) +
-                (var(--pluto-color-picker-columns) - 1) *
-                var(--pluto-color-picker-gap) + 2 * var(--pluto-color-picker-inset)
-        );
         min-height: 0;
         padding: 0;
 
