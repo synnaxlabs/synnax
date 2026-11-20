@@ -9,4 +9,5 @@
 
 export { type Entry, TASK_TYPE } from "@/platform/file-browser/list";
 export * from "@/platform/file-browser/Modal";
+export { Provider } from "@/platform/file-browser/Provider";
 export * from "@/platform/file-browser/SelectSecretFile";

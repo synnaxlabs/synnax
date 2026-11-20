@@ -1,0 +1,31 @@
+{
+  "type": "log",
+  "timestamp_precision": 1,
+  "channel_names_hidden": false,
+  "time_zone": "",
+  "name": "Test Log V5",
+  "channels": [
+    {
+      "channel": 1,
+      "color": "#7f1d1d",
+      "notation": "scientific",
+      "precision": 2,
+      "alias": "temp",
+      "timestamp_config": {
+        "format": "ISO",
+        "time_zone": "UTC"
+      }
+    },
+    {
+      "channel": 5,
+      "notation": "standard",
+      "alias": "",
+      "timestamp_config": {
+        "format": "",
+        "time_zone": ""
+      }
+    }
+  ],
+  "timestamps_hidden": true,
+  "version": 5
+}

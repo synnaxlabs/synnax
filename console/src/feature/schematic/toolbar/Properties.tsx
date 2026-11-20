@@ -19,6 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import {
+  Color,
   Diagram,
   Direction,
   type Properties as PProperties,
@@ -38,6 +39,10 @@ import type { FC, ReactElement, ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
+import {
+  COLOR_FIELDS,
+  VALUE_COLOR_FIELDS,
+} from "@/feature/schematic/toolbar/colorFields";
 import { CSS } from "@/platform/css";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
@@ -141,22 +146,16 @@ const CustomVariantForm = ({
 
 const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
 
-// Every stored color field, role or not, that Selection lists.
-const COLOR_FIELDS = [
-  "strokeColor",
-  "fillColor",
-  "textColor",
-  "levelColor",
-  "axisColor",
-  "onColor",
-  "stalenessColor",
-] as const;
-
 const selectionColorRefs = (
   key: string,
   cfg: Schematic.ElementConfig,
 ): MultiEdit.ColorRef[] => {
-  const refs = MultiEdit.fixedColorRefs(key, cfg, COLOR_FIELDS);
+  const refs = MultiEdit.colorRefs(
+    key,
+    cfg,
+    COLOR_FIELDS,
+    VALUE_COLOR_FIELDS[cfg.variant],
+  );
   if (cfg.variant === "state_indicator")
     cfg.options.forEach((o, i) => {
       if (o.color != null)
@@ -164,6 +163,7 @@ const selectionColorRefs = (
           key,
           path: `options.${i}.color`,
           value: MultiEdit.fixedRef(o.color),
+          valueOnly: true,
         });
     });
   return refs;
@@ -199,6 +199,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const getViewport = Session.Schematic.useGetViewport();
   const parentOf = Schematic.useParentOf();
   const theme = Theming.use();
+  const seriesColors = Color.useSeriesValues();
   // Grouped symbols never move alone: boxes align, the dispatch fans out to members.
   const movable = selected.filter((k) => !parentOf.has(k));
   // The selection closure includes group configs, so shielding sees locked flags.
@@ -215,6 +216,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selection = MultiEdit.selection({
     configs: editableByKey,
     fields: FIELDS,
+    valueColorFields: VALUE_COLOR_FIELDS,
     onChange: (updates) => dispatch(updates.flatMap(schematic.setChanged)),
   });
 
@@ -500,60 +502,36 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           {hasStroke && (
             <MultiEdit.ColorField
               label="Stroke"
-              values={MultiEdit.fixedValues(
-                selection.colors("strokeColor", (c) =>
-                  Schematic.colorFallback("strokeColor", c.variant, theme),
-                ),
+              values={selection.colors("strokeColor", (c) =>
+                Schematic.colorFallback("strokeColor", c.variant, theme, seriesColors),
               )}
-              onChange={(c) =>
-                selection.set(
-                  "strokeColor",
-                  c == null ? undefined : MultiEdit.fixedColor(c),
-                )
-              }
-              palettesHidden
+              onChange={(c) => selection.setColor("strokeColor", c)}
+              palettesHidden={selection.valueOnly("strokeColor")}
             />
           )}
           {hasFill && (
             <MultiEdit.ColorField
               label="Fill"
-              values={MultiEdit.fixedValues(
-                selection.colors("fillColor", (c) =>
-                  Schematic.colorFallback("fillColor", c.variant, theme),
-                ),
+              values={selection.colors("fillColor", (c) =>
+                Schematic.colorFallback("fillColor", c.variant, theme, seriesColors),
               )}
-              onChange={(c) =>
-                selection.set(
-                  "fillColor",
-                  c == null ? undefined : MultiEdit.fixedColor(c),
-                )
-              }
-              palettesHidden
+              onChange={(c) => selection.setColor("fillColor", c)}
+              palettesHidden={selection.valueOnly("fillColor")}
             />
           )}
           {hasText && (
             <MultiEdit.ColorField
               label="Text"
-              values={MultiEdit.fixedValues(
-                selection.colors("textColor", (c) =>
-                  Schematic.colorFallback("textColor", c.variant, theme),
-                ),
+              values={selection.colors("textColor", (c) =>
+                Schematic.colorFallback("textColor", c.variant, theme, seriesColors),
               )}
-              onChange={(c) =>
-                selection.set(
-                  "textColor",
-                  c == null ? undefined : MultiEdit.fixedColor(c),
-                )
-              }
-              palettesHidden
+              onChange={(c) => selection.setColor("textColor", c)}
+              palettesHidden={selection.valueOnly("textColor")}
             />
           )}
           <MultiEdit.SelectionColors
             refs={selectionRefs}
-            onChange={(holders, c) =>
-              selection.setColors(holders, MultiEdit.fixedColor(c))
-            }
-            palettesHidden
+            onChange={selection.setColors}
           />
         </MultiEdit.ColorsSection>
       )}
@@ -613,20 +591,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       )}
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={MultiEdit.fixedValues(
-            selection.colors("stalenessColor", () =>
-              Staleness.resolveColor(undefined, theme),
-            ),
+          colors={selection.colors("stalenessColor", () =>
+            Staleness.resolveColor(undefined, theme),
           )}
           timeout={selection.first("stalenessTimeout")}
-          onColorChange={(c) =>
-            selection.set(
-              "stalenessColor",
-              c == null ? undefined : MultiEdit.fixedColor(c),
-            )
-          }
+          onColorChange={(c) => selection.setColor("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
-          palettesHidden
+          palettesHidden={selection.valueOnly("stalenessColor")}
         />
       )}
       {selection.has("precision") && (

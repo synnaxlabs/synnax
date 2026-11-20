@@ -410,17 +410,22 @@ describe("lineplot/toolbar/Data", () => {
         name: uniqueName(YESTERDAY_ONE_TO_TWO),
         timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
       });
+      // The unsearched list shows this newer range above the hovered one, and the
+      // search leaves it out, so the options are these two only once the search lands.
+      await createTestRange(client);
       const { key } = await renderData([]);
       const input = openSearch();
       fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
-      await fixedOption();
-      const rangeOption = (await screen.findByText(range.name)).closest(
-        "[role=option]",
-      );
-      assertDefined(rangeOption);
+      const rangeOption = await waitFor(() => {
+        const options = screen.getAllByRole("option");
+        expect(options.map((o) => o.textContent)).toEqual([
+          expect.stringContaining("Fixed window"),
+          expect.stringContaining(range.name),
+        ]);
+        return options[1];
+      });
       fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 1 });
       fireEvent.pointerMove(rangeOption, { pointerType: "mouse", clientX: 2 });
-      expect(rangeOption.classList.contains("lyra--hovered")).toBe(true);
       act(() => {
         fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
       });

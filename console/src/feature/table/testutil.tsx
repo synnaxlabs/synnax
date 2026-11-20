@@ -58,8 +58,18 @@ export const createCellRow = (
 // createCellGrid builds a two-cell text table body: cells "a" and "b" in one row.
 export const createCellGrid = (): Pick<table.New, "rows" | "columns"> =>
   createCellRow({
-    a: { variant: "text", value: "Cell A", level: "h5", fillColor: "#ff0000ff" },
-    b: { variant: "text", value: "Cell B", level: "h5", fillColor: "#00ff00ff" },
+    a: {
+      variant: "text",
+      value: "Cell A",
+      level: "h5",
+      fillColor: { type: "fixed", value: "#ff0000ff" },
+    },
+    b: {
+      variant: "text",
+      value: "Cell B",
+      level: "h5",
+      fillColor: { type: "fixed", value: "#00ff00ff" },
+    },
   });
 
 /** @returns the config of the cell with the key, or undefined when no row holds it. */

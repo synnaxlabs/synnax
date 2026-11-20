@@ -24,6 +24,7 @@ const RULE_PATH = [
   "status",
   "synnax",
   "theming",
+  "series",
   "telem",
   "staleness",
   "render",

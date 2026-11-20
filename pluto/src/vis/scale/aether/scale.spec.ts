@@ -26,7 +26,11 @@ const GUTTER = scale.gutter({ showScale: true });
 
 const ACCENT = color.construct("#00ff00");
 
-const setup = (state: Record<string, unknown> = {}, value = 50) => {
+const setup = (
+  state: Record<string, unknown> = {},
+  value = 50,
+  seriesColors: color.Color[] = [],
+) => {
   const source = telemTest.source<number>(value);
   const recorder = canvasTest.record();
   const h = renderAether(scale.Scale, {
@@ -36,6 +40,7 @@ const setup = (state: Record<string, unknown> = {}, value = 50) => {
       ...state,
     }),
     theming: { theme: THEME, fontURLs: [] },
+    series: { colors: seriesColors },
     render: recorder,
   });
   return { component: h.component, recorder, source };
@@ -298,6 +303,16 @@ describe("scale/aether/Scale", () => {
   });
 
   describe("color", () => {
+    it("should fill the level with the first series color while its color is absent", () => {
+      const { recorder } = setup({ showScale: false, showCaret: false }, 50, [
+        ACCENT,
+        color.construct("#0000ff"),
+      ]);
+      expect(canvasStyles(recorder, "lower2d", "fillStyle")).toContain(
+        color.hex(ACCENT),
+      );
+    });
+
     it("should stroke the ticks and the outline with the axis color", () => {
       const { recorder } = setup({ showCaret: false, axisColor: ACCENT });
       expect(styles(recorder, "strokeStyle")).toContain(color.hex(ACCENT));

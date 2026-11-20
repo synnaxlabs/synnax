@@ -70,7 +70,7 @@ const createHarness = async (): Promise<Harness> => {
   const source = await createPanel(projectKey, [tab]);
   const destination = await createPanel(projectKey, [createTab()], {
     icon: "valve",
-    color: "#dc136c",
+    color: { type: "fixed", value: "#dc136c" },
   });
   const other = await createPanel(projectKey, [createTab()]);
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });
