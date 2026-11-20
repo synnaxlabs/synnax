@@ -80,11 +80,15 @@ var _ = Describe("Writer Commit with a skip", func() {
 })
 
 var _ = Describe("Writer Write with a skip", func() {
-	It("Should allocate nothing for a write that skips every channel", func(
-		ctx SpecContext,
-	) {
+	var (
+		w           *cesium.Writer
+		fr          cesium.Frame
+		index, data cesium.ChannelKey
+		skipAll     = func(cesium.ChannelKey) bool { return true }
+	)
+	BeforeEach(func(ctx SpecContext) {
 		db := mustOpenDBOnFS(ctx, xfs.NewMem())
-		index, data := GenerateChannelKey(), GenerateChannelKey()
+		index, data = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
 			cesium.Channel{
@@ -100,15 +104,18 @@ var _ = Describe("Writer Write with a skip", func() {
 				DataType: telem.Int64T,
 			},
 		)).To(Succeed())
-		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+		w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{index, data},
 			Start:    10 * telem.SecondTS,
 		}))
-		fr := telem.MultiFrame([]cesium.ChannelKey{index, data}, []telem.Series{
+		fr = telem.MultiFrame([]cesium.ChannelKey{index, data}, []telem.Series{
 			telem.NewSeriesSecondsTSV(10, 11),
 			telem.NewSeriesV[int64](1, 2),
 		})
-		skipAll := func(cesium.ChannelKey) bool { return true }
+	})
+	It("Should allocate nothing for a write that skips every channel", func(
+		ctx SpecContext,
+	) {
 		var (
 			skipped bool
 			err     error
@@ -121,4 +128,17 @@ var _ = Describe("Writer Write with a skip", func() {
 		Expect(allocs).To(BeZero())
 		Expect(w.Close()).To(Succeed())
 	})
+	It(
+		"Should skip no channel of a write after a write that skipped every channel",
+		func(
+			ctx SpecContext,
+		) {
+			_, skipped := MustSucceed2(w.Write(ctx, fr, skipAll))
+			Expect(skipped).To(BeTrue())
+			written, skipped := MustSucceed2(w.Write(ctx, fr, nil))
+			Expect(skipped).To(BeFalse())
+			Expect(written.KeysSlice()).To(ConsistOf(index, data))
+			Expect(w.Close()).To(Succeed())
+		},
+	)
 })
