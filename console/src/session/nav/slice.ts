@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice } from "@reduxjs/toolkit";
-import { type Drift } from "@synnaxlabs/drift";
+import type { Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
 import { Window } from "@/session/window";

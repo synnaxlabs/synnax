@@ -19,7 +19,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import type { CrudeTimeSpan } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 

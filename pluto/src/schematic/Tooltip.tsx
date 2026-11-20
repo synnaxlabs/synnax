@@ -21,7 +21,7 @@ import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
-import { type Node } from "@/schematic/node";
+import type { Node } from "@/schematic/node";
 import { Synnax } from "@/synnax";
 import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";

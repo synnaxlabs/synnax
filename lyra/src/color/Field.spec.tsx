@@ -9,7 +9,7 @@
 
 import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 

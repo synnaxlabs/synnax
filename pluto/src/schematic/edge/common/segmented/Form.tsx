@@ -12,14 +12,14 @@ import "@/schematic/edge/common/segmented/Segmented.css";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color, deep } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Variant } from "@/schematic/edge/registry";
+import type { Variant } from "@/schematic/edge/registry";
 
 const path = deep.path<{
   strokeColor?: color.Color;

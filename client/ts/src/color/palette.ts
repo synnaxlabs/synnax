@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Named } from "@/color/types.gen";
-import { type group } from "@/group";
+import type { Named } from "@/color/types.gen";
+import type { group } from "@/group";
 
 /** The key of the palette that holds the series colors, which new plot lines take. */
 export const SERIES_PALETTE: group.Key = "4d2d0872-30f9-4573-92da-2b72db8f8c64";

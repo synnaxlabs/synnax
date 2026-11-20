@@ -9,7 +9,7 @@
 
 import "@/modal/Body.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";

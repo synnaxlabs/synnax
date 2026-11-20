@@ -22,9 +22,9 @@ import { Sift } from "@/feature/sift";
 import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { TAB } from "@/feature/task/tab";
 import { getIcon, getPlotChannels, parseType } from "@/feature/task/types";
-import { type Command } from "@/platform/command";
-import { type Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Command } from "@/platform/command";
+import type { Panel } from "@/platform/panel";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/task/link";
 export * from "@/feature/task/notifications";

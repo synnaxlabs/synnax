@@ -9,12 +9,12 @@
 
 import "@/platform/connection/Retry.css";
 
-import { type connection } from "@synnaxlabs/client";
+import type { connection } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useCountdown } from "@/platform/connection/useCountdown";
 import { useHeldChecking } from "@/platform/connection/useHeldChecking";

@@ -9,10 +9,10 @@
 
 import { generateKeyPairSync, verify } from "node:crypto";
 
-import { type APIContext } from "astro";
+import type { APIContext } from "astro";
 import { expect } from "vitest";
 
-import { type Portal } from "@/portal";
+import type { Portal } from "@/portal";
 import {
   type Analytics,
   type Capture,
@@ -32,7 +32,7 @@ import {
   type Referral,
   referral,
 } from "@/server/db/schema";
-import { type Memory } from "@/server/db/testutil";
+import type { Memory } from "@/server/db/testutil";
 import { type Directory, memory as directory, type Records } from "@/server/directory";
 import { local } from "@/server/license/sign";
 import { NOW } from "@/server/license/testutil";

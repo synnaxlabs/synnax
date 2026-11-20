@@ -24,7 +24,7 @@ import {
   vi,
 } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import type { Organization } from "@/server/db/schema";
 import { NOW } from "@/server/license/testutil";
 import { NONE } from "@/server/usage";
 import { Admin } from "@/ui/admin";

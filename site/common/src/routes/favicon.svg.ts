@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import favicon from "@synnaxlabs/lyra/static/logo/icon-white-favicon.svg?raw";
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 
 export const prerender = true;
 

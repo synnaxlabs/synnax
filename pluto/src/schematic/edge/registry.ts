@@ -16,7 +16,7 @@ import { Jacketed } from "@/schematic/edge/jacketed";
 import { Pipe } from "@/schematic/edge/pipe";
 import { Pneumatic } from "@/schematic/edge/pneumatic";
 import { Secondary } from "@/schematic/edge/secondary";
-import { type Spec } from "@/schematic/edge/spec";
+import type { Spec } from "@/schematic/edge/spec";
 
 export const REGISTRY = {
   pipe: Pipe.spec,
