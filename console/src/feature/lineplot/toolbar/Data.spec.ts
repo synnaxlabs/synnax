@@ -253,8 +253,8 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("lists the ranges newest first", async () => {
-      // Far in the future, so the ranges that other specs create now sort after them.
-      const start = TimeStamp.now().add(TimeSpan.days(365 * 100));
+      // Later than the far-future ranges of other specs, so none sort above these two.
+      const start = TimeStamp.now().add(TimeSpan.days(365 * 200));
       const create = async (offset: TimeSpan): Promise<ranger.Range> =>
         await client.ranges.create({
           name: uniqueName("range"),
@@ -264,14 +264,11 @@ describe("lineplot/toolbar/Data", () => {
       const newer = await create(TimeSpan.hours(1));
       await renderData([]);
       openSearch();
-      // A spec running at the same time can stream in newer ranges that push these out
-      // of the rendered rows until it deletes them.
-      await waitFor(() => {
-        const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
-        const at = (name: string) => names.findIndex((n) => n.includes(name));
-        expect(at(newer.name)).toBeGreaterThanOrEqual(0);
-        expect(at(older.name)).toBeGreaterThan(at(newer.name));
-      });
+      await screen.findByText(older.name);
+      await screen.findByText(newer.name);
+      const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+      const at = (name: string) => names.findIndex((n) => n.includes(name));
+      expect(at(newer.name)).toBeLessThan(at(older.name));
     });
 
     it("lists the plotted ranges first", async () => {
