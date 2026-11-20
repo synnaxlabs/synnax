@@ -8,6 +8,7 @@
     "sourceMap": true,
     "strict": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

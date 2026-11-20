@@ -39,10 +39,10 @@ export class Button
   static readonly METHODS = buttonMethodsZ;
   static readonly z = buttonStateZ;
 
-  schema = buttonStateZ;
-  methods = buttonMethodsZ;
+  override schema = buttonStateZ;
+  override methods = buttonMethodsZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { sink: sinkProps } = this.state;
     this.internal.sink = telem.useSink(ctx, sinkProps, this.internal.sink);
   }
@@ -59,7 +59,7 @@ export class Button
     else if (mode === "momentary") this.internal.sink.set(false);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.sink.cleanup?.();
   }
 }
