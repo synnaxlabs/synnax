@@ -14,9 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	colorv0 "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v11"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -97,6 +101,64 @@ var _ = Describe("LinePlot", func() {
 				MatchError(ContainSubstring("lines.0")),
 				MatchError(ContainSubstring("rules.0")),
 			))
+		})
+	})
+
+	Describe("Range references", func() {
+		k1, k2 := uuid.New(), uuid.New()
+		key := func(k uuid.UUID) ranger.Ref { return ranger.Ref{Variant: ranger.KeyRef{Key: k}} }
+		window := func(span telem.TimeSpan) ranger.Ref {
+			return ranger.Ref{Variant: ranger.WindowRef{
+				Window: telem.Window{Variant: telem.DynamicWindow{TimeSpan: span}},
+			}}
+		}
+		t0 := telem.TimeStamp(5)
+		red := &colorv0.Ref{
+			Variant: colorv0.FixedRef{Value: xcolor.Color{R: 255, A: 255}},
+		}
+
+		DescribeTable("SameRange",
+			func(a, b ranger.Ref, same bool) {
+				Expect(v11.SameRange(a, b)).To(Equal(same))
+			},
+			Entry("one key", key(k1), key(k1), true),
+			Entry("two keys", key(k1), key(k2), false),
+			Entry("one key with another T0 and color",
+				key(k1),
+				ranger.Ref{Variant: ranger.KeyRef{Key: k1, T0: &t0, Color: red}},
+				true,
+			),
+			Entry("one window", window(telem.Second), window(telem.Second), true),
+			Entry("two windows", window(telem.Second), window(telem.Minute), false),
+			Entry("one window with another color",
+				window(telem.Second),
+				ranger.Ref{Variant: ranger.WindowRef{
+					Window: telem.Window{
+						Variant: telem.DynamicWindow{TimeSpan: telem.Second},
+					},
+					Color: red,
+				}},
+				true,
+			),
+			Entry("a key and a window", key(k1), window(telem.Second), false),
+			Entry("a window and a key", window(telem.Second), key(k1), false),
+		)
+
+		Describe("UniqueRanges", func() {
+			It("Should keep the first reference to each range, in order", func() {
+				colored := ranger.Ref{Variant: ranger.KeyRef{Key: k1, Color: red}}
+				Expect(v11.UniqueRanges([]ranger.Ref{
+					colored,
+					window(telem.Second),
+					key(k2),
+					key(k1),
+					window(telem.Second),
+				})).To(Equal([]ranger.Ref{colored, window(telem.Second), key(k2)}))
+			})
+
+			It("Should return nil for nil", func() {
+				Expect(v11.UniqueRanges(nil)).To(BeNil())
+			})
 		})
 	})
 })

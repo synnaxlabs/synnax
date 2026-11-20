@@ -43,9 +43,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. Each
 // line and rule with no color gets a series color, and a repeated range reference is
-// dropped. The line plot must belong to a
-// project. A line plot in a group belongs to the project that holds the group. Create
-// returns an error wrapping validate.ErrValidation when a line plot with lp.Key exists.
+// dropped. The line plot must belong to a project. A line plot in a group belongs to
+// the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a line plot with lp.Key exists.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
