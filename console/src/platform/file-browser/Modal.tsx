@@ -151,11 +151,15 @@ const Content = ({
   useEffect(relist, [session, path]);
 
   const listing = snapshot.listings.get(path);
-  if (listing != null && shownPath !== path) setShownPath(path);
+  // The home folder replaces the top level, so the top level never shows as stale.
+  if (listing != null && shownPath !== path && (path !== "" || home == null))
+    setShownPath(path);
   // A folder that is still loading shows the folder before it, dimmed.
   const shown =
     listing ?? (shownPath == null ? undefined : snapshot.listings.get(shownPath));
   const stale = listing == null;
+  // The Driver sends no details in the secrets folder, so each file there passes.
+  const typeFilter: TypeFilter = shown?.secret === true ? "all" : type;
   const loading = snapshot.loading.has(path);
   const failure = snapshot.failures.get(path);
   // While a folder loads or fails, the dimmed last folder offers no file to pick.
@@ -202,7 +206,7 @@ const Content = ({
   };
   const open = (entry: Entry): void => {
     if (entry.kind === "directory") go(entry.path);
-    else if (current && pickable(entry, type)) close(entry);
+    else if (current && pickable(entry, typeFilter)) close(entry);
   };
   const listAhead = (folder: string): void => session?.prefetch(folder);
   // A folder the user points at lists in the background, so it often opens at once.
@@ -216,7 +220,7 @@ const Content = ({
   };
   const selectedEntry = selected == null ? undefined : getItem(selected);
   const picked =
-    current && selectedEntry != null && pickable(selectedEntry, type)
+    current && selectedEntry != null && pickable(selectedEntry, typeFilter)
       ? selectedEntry
       : undefined;
 
@@ -329,7 +333,7 @@ const Content = ({
         selected={selected}
         ref={listRef}
         now={now}
-        type={type}
+        type={typeFilter}
         onSelect={handleSelect}
         onOpen={open}
         onPoint={prefetch}
