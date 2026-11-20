@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -209,6 +210,7 @@ class FakeGH:
         self.labels: list[str] = []
         self.author = "User"
         self.comments: list[dict[str, Any]] = []
+        self.timeline: list[dict[str, Any]] = []
         self.writes: list[tuple[tuple[str, ...], str | None]] = []
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -220,6 +222,15 @@ class FakeGH:
             return json.dumps(
                 {"head": head, "base": same, "labels": labels, "user": user}
             )
+        if f"repos/{REPO}/issues/5/timeline" in args:
+            jq = args[args.index("--jq") + 1]
+            return subprocess.run(
+                ["jq", "-r", jq],
+                input=json.dumps(self.timeline),
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):
@@ -301,6 +312,62 @@ class TestMain:
         assert [args for args, _ in gh.writes if reviewers in args] == [
             ("api", "-X", "POST", reviewers, "-f", "reviewers[]=someone")
         ]
+
+    def test_requests_the_reviewer_for_a_bot_pull_request_already_human(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should ask for a review of a Dependabot pull request, which arrives
+        labeled review/human."""
+        gh.author = "Bot"
+        gh.labels = [HUMAN]
+        monkeypatch.setenv("REVIEWER", "someone")
+        classify.main()
+        reviewers = f"repos/{REPO}/pulls/5/requested_reviewers"
+        assert [args for args, _ in gh.writes if reviewers in args] == [
+            ("api", "-X", "POST", reviewers, "-f", "reviewers[]=someone")
+        ]
+
+    @pytest.mark.parametrize(
+        "event",
+        [
+            {"event": "review_requested", "actor": {"type": "Bot"}},
+            {"event": "reviewed", "user": {"type": "User"}},
+        ],
+    )
+    def test_asks_no_reviewer_once_anyone_was_asked_or_reviewed(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch, event: dict[str, Any]
+    ) -> None:
+        """Should leave a pull request alone after a request, even one a person
+        removed or handed to someone else."""
+        gh.author = "Bot"
+        gh.labels = [HUMAN]
+        gh.timeline = [event]
+        monkeypatch.setenv("REVIEWER", "someone")
+        classify.main()
+        assert not any("requested_reviewers" in str(args) for args, _ in gh.writes)
+
+    def test_requests_the_reviewer_after_a_bot_review(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should not count a review that Sedosaur posted."""
+        gh.author = "Bot"
+        gh.labels = [HUMAN]
+        gh.timeline = [
+            {"event": "commented"},
+            {"event": "reviewed", "user": {"type": "Bot"}},
+        ]
+        monkeypatch.setenv("REVIEWER", "someone")
+        classify.main()
+        assert any("requested_reviewers" in str(args) for args, _ in gh.writes)
+
+    def test_requests_no_reviewer_for_a_bot_tier(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        gh.author = "Bot"
+        gh.labels = [BOT]
+        monkeypatch.setenv("REVIEWER", "someone")
+        classify.main()
+        assert not any("requested_reviewers" in str(args) for args, _ in gh.writes)
 
     def test_requests_no_reviewer_when_it_raises_a_person_pull_request(
         self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
