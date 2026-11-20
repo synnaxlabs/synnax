@@ -13,7 +13,7 @@ import { box, color, type destructor, scale, text, xy } from "@synnaxlabs/x";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 

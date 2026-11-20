@@ -10,12 +10,12 @@
 import "@/select/MultipleTrigger.css";
 
 import { array, color, primitive, type record, unique } from "@synnaxlabs/x";
-import {
-  type DragEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
+import type {
+  DragEvent,
+  KeyboardEvent,
+  MouseEvent,
+  ReactElement,
+  ReactNode,
 } from "react";
 
 import { Button } from "@/button";

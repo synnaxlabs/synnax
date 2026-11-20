@@ -11,7 +11,7 @@ import { map } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type FrameProps, type GetItem } from "@/list/Frame";
+import type { FrameProps, GetItem } from "@/list/Frame";
 import { useCombinedData } from "@/list/useCombinedData";
 
 interface TestItem {

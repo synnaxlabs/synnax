@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/client";
 import { color as xcolor, type record } from "@synnaxlabs/x";
 
-import { type ColorRef } from "@/platform/multiedit/config";
-import { type ColorValue } from "@/platform/multiedit/selection";
+import type { ColorRef } from "@/platform/multiedit/config";
+import type { ColorValue } from "@/platform/multiedit/selection";
 
 // A field that stores fixed colors carries fixed references through the multi-edit
 // controls, which hide the palettes for it.

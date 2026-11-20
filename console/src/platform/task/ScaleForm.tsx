@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { CoefficientsField } from "@/platform/task/CoefficientsField";
 import { TableScaleForm } from "@/platform/task/TableScaleForm";

@@ -10,7 +10,7 @@
 import "@/schematic/node/groupBox/groupBox.css";
 
 import { type NodesStore, useEqualSelector, useNodesStore } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { PADDING, TOP_PADDING } from "@/schematic/node/groupBox/config";

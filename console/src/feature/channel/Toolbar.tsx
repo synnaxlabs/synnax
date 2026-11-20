@@ -10,13 +10,13 @@
 import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Channel } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { listTreeRoot } from "@/feature/channel/tree";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
 import { Group } from "@/platform/group";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 

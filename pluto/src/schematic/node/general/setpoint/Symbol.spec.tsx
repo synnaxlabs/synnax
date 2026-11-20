@@ -9,7 +9,7 @@
 
 import { type channel, schematic } from "@synnaxlabs/client";
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -20,7 +20,7 @@ import {
   within,
 } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { errors, unique } from "@synnaxlabs/x";
-import { type APIContext } from "astro";
+import type { APIContext } from "astro";
 import { z } from "zod";
 
-import { type Portal } from "@/portal";
-import { type Organization, type OrganizationKind } from "@/server/db/schema";
+import type { Portal } from "@/portal";
+import type { Organization, OrganizationKind } from "@/server/db/schema";
 import { ADMIN_ROLE } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
 import { isCategory, list, type Page, type Query } from "@/server/event";
@@ -23,7 +23,7 @@ import {
 } from "@/server/license/list";
 import { isStatus } from "@/server/license/status";
 import { organizationsFor, pick } from "@/server/organization";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 import { landing, scoped } from "@/shell";
 
 export interface Loaded {

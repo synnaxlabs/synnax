@@ -12,8 +12,8 @@
 // edited to track the production code. It is test-only and excluded from the package's
 // public surface.
 
-import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
-import { type location } from "@/spatial";
+import type { Delete, ID, Insert } from "@/crdt/types.gen";
+import type { location } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0 };
 

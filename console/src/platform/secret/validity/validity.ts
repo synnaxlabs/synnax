@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate, type secret } from "@synnaxlabs/client";
+import type { certificate, secret } from "@synnaxlabs/client";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 
 const EXPIRY_WARNING = TimeSpan.days(30);

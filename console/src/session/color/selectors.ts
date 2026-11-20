@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
-import { type Color } from "@synnaxlabs/lyra/color";
+import type { Dispatch } from "@reduxjs/toolkit";
+import type { Color } from "@synnaxlabs/lyra/color";
 import { useDispatch } from "react-redux";
 
 import {

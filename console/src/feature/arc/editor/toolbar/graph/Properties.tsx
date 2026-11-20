@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Arc, Diagram } from "@synnaxlabs/pluto";
 import { box, type direction, location, xy } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
