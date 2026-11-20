@@ -590,8 +590,8 @@ const Records: FC<RecordsProps> = ({
     if (result.variant === "record") return await addRecord(result.topic);
     const { shapes, picks } = result;
     const held = topicRecords(result.topic);
-    extend(createExtensions(shapes, picks, held, messagesOf));
     const reads = readsOf(held, messagesOf);
+    extend(createExtensions(shapes, picks, held, messagesOf));
     const additions = createAdditions(shapes, picks, reads, heldMessages(), label);
     if (additions.length === 0) return;
     await addRecords(
