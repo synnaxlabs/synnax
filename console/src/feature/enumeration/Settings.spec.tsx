@@ -352,6 +352,38 @@ describe("Enumeration.Settings", () => {
     );
   });
 
+  it("should keep the users and Replace after the Core refuses a replace", async () => {
+    const e = await createEnumeration();
+    const to = await createEnumeration();
+    const user = await createSelectUser(e.key);
+    const limited = await createTestClientWithPolicy(client, [
+      {
+        name: uniqueName("policy"),
+        objects: [enumeration.TYPE_RESOURCE_ID],
+        actions: ["retrieve", "delete"],
+      },
+      {
+        name: uniqueName("policy"),
+        objects: [schematic.TYPE_RESOURCE_ID],
+        actions: ["retrieve"],
+      },
+    ]);
+    await awaitGranted(limited, enumeration.TYPE_RESOURCE_ID, "delete");
+    const { statuses } = await renderEnumerations(limited);
+    const dialog = await openDelete(e.name);
+    expect(await dialog.findByText(user.name)).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    await clickWhenEnabled(dialog, "Replace");
+    await waitFor(() =>
+      expect(statuses()).toContainEqual(
+        expect.objectContaining({ message: "Failed to replace enumeration" }),
+      ),
+    );
+    expect(dialog.getByText(user.name)).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Replace" })).toBeTruthy();
+    expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
+  });
+
   it("should disable Cancel and Delete while the delete runs", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
