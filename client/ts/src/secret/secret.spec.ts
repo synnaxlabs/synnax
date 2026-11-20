@@ -31,8 +31,6 @@ import {
 
 const { pem: PEM, privateKeyPem: PRIVATE_KEY } = CERTIFICATE;
 
-const USES_CHANNEL = "sy_secret_uses_test";
-
 const usesOf = (key: secret.Key) => [{ type: "certificate", key }];
 
 const movedUsesOf = (key: secret.Key) => [{ type: "certificate", key: `${key}-moved` }];
@@ -47,7 +45,7 @@ interface RetrieveRequest {
  * that the transport returns has the uses of `core.usesOf`. A retrieve that asks for
  * uses waits in `core.held` while `core.holding` is set.
  * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
- * functions that push a frame, send one change on the channel of uses, and drop the
+ * functions that push a frame, send one reference change that names keys, and drop the
  * stream and wait for the reconnect.
  */
 const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => {
@@ -85,11 +83,17 @@ const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => 
     recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const secrets = new secret.Client({ unary, cache, usesChannels: [USES_CHANNEL] });
+  const secrets = new secret.Client({ unary, cache });
   await cache.ensureStreaming();
   const push = (frame: framer.Frame): void => streams.current.push(frame);
-  const change = (): void =>
-    push(new framer.Frame({ [USES_CHANNEL]: new Series(["changed"]) }));
+  const change = (...keys: string[]): void =>
+    push(
+      new framer.Frame({
+        [query.REFERENCE_CHANGE_CHANNEL_NAME]: new Series(
+          keys.map((key) => `${secret.TYPE_RESOURCE_ID.type}:${key}`),
+        ),
+      }),
+    );
   const reconnect = async (): Promise<void> => {
     const { epoch } = cache;
     const dropped = streams.current;
@@ -850,13 +854,13 @@ describe("Secret", () => {
       await secrets.retrieve(stopped);
       off();
       await vi.advanceTimersByTimeAsync(PAST_GRACE);
-      change();
+      change(stopped.key);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[stopped.key]]);
       const watched = { key: uuid.create(), includeUses: true };
       onTestFinished(secrets.watch(watched).onChange(() => {}));
       await secrets.retrieve(watched);
-      change();
+      change(stopped.key, watched.key);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[stopped.key], [watched.key], [watched.key]]);
     });
@@ -867,7 +871,7 @@ describe("Secret", () => {
       const q = { key: uuid.create(), includeUses: true };
       onTestFinished(secrets.watch(q).onChange(() => {}));
       await secrets.retrieve(q);
-      for (let i = 0; i < 10; i++) change();
+      for (let i = 0; i < 10; i++) change(q.key);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[q.key], [q.key]]);
     });
@@ -881,9 +885,38 @@ describe("Secret", () => {
       const q = { key: watched, includeUses: true };
       onTestFinished(secrets.watch(q).onChange(() => {}));
       await secrets.retrieve(q);
-      change();
+      change(watched, unwatched);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[unwatched], [watched], [watched]]);
+    });
+
+    it("should refetch only the watched uses that a change names", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, change } = await createFakeSecrets();
+      const [named, other] = [uuid.create(), uuid.create()];
+      for (const key of [named, other]) {
+        const q = { key, includeUses: true };
+        onTestFinished(secrets.watch(q).onChange(() => {}));
+        await secrets.retrieve(q);
+      }
+      change(named);
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[named], [other], [named]]);
+    });
+
+    it("should retrieve no uses for a change to a record of another type", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, push } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await secrets.retrieve(q);
+      push(
+        new framer.Frame({
+          [query.REFERENCE_CHANGE_CHANNEL_NAME]: new Series([`channel:${q.key}`]),
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[q.key]]);
     });
 
     it("should keep the uses of a query that watches again inside the grace", async () => {
@@ -898,7 +931,7 @@ describe("Secret", () => {
       await vi.advanceTimersByTimeAsync(PAST_GRACE);
       expect(expectLive(secrets.watch(q).getCached()).uses).toEqual(usesOf(q.key));
       expect(usesRequests).toEqual([[q.key]]);
-      change();
+      change(q.key);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[q.key], [q.key]]);
     });
@@ -924,7 +957,7 @@ describe("Secret", () => {
       await list.retrieve();
       off();
       await vi.advanceTimersByTimeAsync(PAST_GRACE);
-      change();
+      change(key);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(list.getCached()).toBeUndefined();
       onTestFinished(list.onChange(() => {}));
@@ -932,7 +965,7 @@ describe("Secret", () => {
     });
 
     it.each([
-      ["a change", async ({ change }: Fake) => change()],
+      ["a change", async ({ change }: Fake, key: secret.Key) => change(key)],
       ["a reconnect", async ({ reconnect }: Fake) => await reconnect()],
     ])("should not serve a closed query whose uses %s dropped", async (_, drop) => {
       useFakeTimers();
@@ -942,7 +975,7 @@ describe("Secret", () => {
       await fake.secrets.retrieve(q);
       off();
       await vi.advanceTimersByTimeAsync(PAST_GRACE);
-      await drop(fake);
+      await drop(fake, q.key);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(fake.secrets.watch(q).getCached()).toBeUndefined();
     });
@@ -954,7 +987,7 @@ describe("Secret", () => {
       const off = secrets.watch(q).onChange(() => {});
       await secrets.retrieve(q);
       core.holding = true;
-      change();
+      change(q.key);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       off();
       await vi.advanceTimersByTimeAsync(PAST_GRACE);

@@ -55,6 +55,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
+  TYPE_RESOURCE_ID,
   type Use,
 } from "@/channel/types.gen";
 import { createLines } from "@/channel/where";
@@ -300,11 +301,6 @@ export interface ClientConfig {
   statuses: status.Client;
   cache: query.Cache;
   batch: batch.Client;
-  /**
-   * The channels that announce changes to records that can use a channel. A change on
-   * one refetches the uses the client holds.
-   */
-  usesChannels: string[];
 }
 
 /**
@@ -329,6 +325,8 @@ export class Client extends query.Retriever<
   private readonly byName: query.LookupIndex<Key, Channel>;
   private readonly usesStore: query.Table<Key, Uses>;
   private readonly usesChanges: { count: number };
+  /** The keys, as text, of the channels that changes named since the last refetch. */
+  private readonly usesNamed: Set<string>;
   private readonly refetchUses: () => void;
 
   constructor(cfg: ClientConfig) {
@@ -395,9 +393,10 @@ export class Client extends query.Retriever<
     store.subscribe((event) => {
       if (event.variant === "delete") usesStore.evict(event.key);
     });
-    // The Core announces no change to uses. Refetches run one at a time, so an older
-    // reply cannot overwrite a newer one. A change that arrives while a refetch waits
-    // joins it.
+    // A reference change names the channels whose uses changed. Refetches run one at a
+    // time, so an older reply cannot overwrite a newer one. A change that arrives while
+    // a refetch waits joins it.
+    const named = new Set<string>();
     const refetchMu = sync.createMutex({ waiting: false });
     const refetchUses = () => {
       if (refetchMu.waiting) return;
@@ -405,7 +404,9 @@ export class Client extends query.Retriever<
       refetchMu
         .runExclusive(async () => {
           refetchMu.waiting = false;
-          await usesStore.reconcile();
+          const keys = usesStore.keys().filter((key) => named.has(String(key)));
+          named.clear();
+          if (keys.length > 0) await usesStore.retrieve(keys, { refresh: true });
         })
         .catch((exc: unknown) => {
           // The reconcile after the next reconnect fetches the uses again.
@@ -414,16 +415,11 @@ export class Client extends query.Retriever<
         });
     };
     const usesChanges = { count: 0 };
-    cfg.usesChannels.forEach((channel) =>
-      cache.listen({
-        channel,
-        schema: z.unknown(),
-        onChange: () => {
-          usesChanges.count++;
-          refetchUses();
-        },
-      }),
-    );
+    query.listenReferenceChanges(cache, TYPE_RESOURCE_ID.type, (keys) => {
+      usesChanges.count++;
+      keys.forEach((key) => named.add(key));
+      refetchUses();
+    });
     // The built-in keys arrive with the first connection, and the Core checks the
     // internal line until then. A reconnect fetches them again and keeps the last keys
     // until the answer lands, since a list that checks the line itself needs them.
@@ -497,6 +493,7 @@ export class Client extends query.Retriever<
     this.byName = byName;
     this.usesStore = usesStore;
     this.usesChanges = usesChanges;
+    this.usesNamed = named;
     this.refetchUses = refetchUses;
   }
 
@@ -829,7 +826,10 @@ export class Client extends query.Retriever<
     const payloads = await this.execRetrieve(req);
     this.usesStore.set(payloads.map(toUses));
     // A refetch that a change started can miss these keys or land first.
-    if (this.usesChanges.count !== changes) this.refetchUses();
+    if (this.usesChanges.count !== changes) {
+      payloads.forEach(({ key }) => this.usesNamed.add(String(key)));
+      this.refetchUses();
+    }
     return payloads.map((p) => this.sugar(stripComposed(p)));
   }
 }

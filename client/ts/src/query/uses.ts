@@ -25,8 +25,34 @@ type Single<K extends record.Key> = Request & { key: K };
 /** A record whose retrieve can fill the resources that use it. */
 type Used<K extends record.Key> = Keyed<K> & object & { uses?: unknown };
 
-/** Joins a burst of changes on the channels of uses, such as the moves of a drag. */
+/** Joins a burst of reference changes, such as the moves of a drag. */
 const REFETCH_DEBOUNCE = TimeSpan.milliseconds(100);
+
+/** The channel on which the Core names the records whose holders changed. */
+export const REFERENCE_CHANGE_CHANNEL_NAME = "sy_reference_change";
+
+/**
+ * Calls onChange with the keys, as text, of the records of type whose holders a commit
+ * changed. Call it before the cache streams.
+ * @param type - The resource type of the records, such as "channel".
+ */
+export const listenReferenceChanges = (
+  cache: Cache,
+  type: string,
+  onChange: (keys: Set<string>) => void,
+): void => {
+  const prefix = `${type}:`;
+  cache.listen({
+    channel: REFERENCE_CHANGE_CHANNEL_NAME,
+    schema: z.string(),
+    onChange: (ids) => {
+      const keys = new Set<string>();
+      for (const id of ids)
+        if (id.startsWith(prefix)) keys.add(id.slice(prefix.length));
+      if (keys.size > 0) onChange(keys);
+    },
+  });
+};
 
 /** The deletes of records that land while fetches of uses run. */
 interface Deletes<K extends record.Key> {
@@ -53,17 +79,18 @@ export interface UsesConfig<
   /** Builds a retrieve, with uses, of the records whose keys match the filter. */
   request: (key: { eq: K } | { in: K[] }) => Q;
   /**
-   * The channels that announce changes to the records that can use one. A change on
-   * one, or a reconnect, refetches the uses that a maintained query watches.
+   * The resource type of the records. A reference change that names one of them, or a
+   * reconnect, refetches its uses when a maintained query watches it.
    */
-  channels: string[];
+  type: string;
 }
 
 /**
  * Holds the uses of records, which are the resources that use each one, apart from the
- * records. A query that asks for uses gets them composed onto its records. A change on
- * a channel of the config, or a reconnect, refetches the uses that a maintained query
- * watches and drops the rest.
+ * records. A query that asks for uses gets them composed onto its records. A reference
+ * change refetches the uses of the records it names that a maintained query watches,
+ * and drops the uses of the other records it names. A reconnect does so for every
+ * record.
  */
 export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Request> {
   /** Updates the queries that ask for uses when the uses of a record change. */
@@ -77,6 +104,8 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
   private readonly store: Table<K, Pick<R, "key" | "uses">>;
   private readonly deletes: Deletes<K> = { inFlight: 0, seq: 0, at: new Map() };
   private readonly changes = { count: 0 };
+  /** The keys, as text, that changes named since the last refetch, or all of them. */
+  private named: Set<string> | "all" = new Set();
   /** The members of each maintained query that asks for uses. */
   private readonly watchers = new Set<() => readonly K[]>();
   private readonly refetch: () => void;
@@ -112,16 +141,16 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
         cache.onError(new Error(`failed to refetch ${name} uses`, { cause: exc }));
       });
     }, REFETCH_DEBOUNCE);
-    const onChange = (): void => {
+    const onChange = (keys: Set<string> | "all"): void => {
       this.changes.count++;
+      if (keys === "all" || this.named === "all") this.named = "all";
+      else keys.forEach((key) => (this.named as Set<string>).add(key));
       this.refetch();
     };
-    cfg.channels.forEach((channel) =>
-      cache.listen({ channel, schema: z.unknown(), onChange }),
-    );
+    listenReferenceChanges(cache, cfg.type, onChange);
     // A reopened stream missed the changes made while it was down.
     cache.onEpoch((epoch) => {
-      if (epoch > 1) onChange();
+      if (epoch > 1) onChange("all");
     });
     const base = trigger(
       store,
@@ -189,7 +218,11 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     const records = await this.retrieve(request);
     this.store.set(records.map(({ key, uses }) => ({ key, uses })));
     // A refetch that a change started can miss these keys or land first.
-    if (this.changes.count !== changes) this.refetch();
+    if (this.changes.count !== changes) {
+      const { named } = this;
+      if (named !== "all") records.forEach(({ key }) => named.add(String(key)));
+      this.refetch();
+    }
     return records.map((r) => {
       const stripped = { ...r };
       delete stripped.uses;
@@ -205,11 +238,15 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
 
   // Only the refetch mutex runs this, so no reply can put back the uses it drops.
   private async refetchWatched(): Promise<void> {
-    const { store, cfg } = this;
+    const { store, cfg, named } = this;
+    this.named = new Set();
+    const changed = store
+      .keys()
+      .filter((key) => named === "all" || named.has(String(key)));
     const watched = this.watched();
-    const unwatched = store.keys().filter((key) => !watched.has(key));
+    const unwatched = changed.filter((key) => !watched.has(key));
     if (unwatched.length > 0) store.evict(unwatched);
-    const keys = store.keys();
+    const keys = changed.filter((key) => watched.has(key));
     if (keys.length === 0) return;
     await store.track(async (since) => {
       const records = await fetchSurvivors(
