@@ -19,6 +19,7 @@ cc_library(
         "//x/cpp/date",
         "//x/cpp/defer",
         "//x/cpp/errors",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "@mbedtls",
     ],
@@ -32,6 +33,7 @@ cc_test(
         ":x509",
         "//x/cpp/telem",
         "//x/cpp/testutil",
+        "//x/cpp/x509/testutil",
         "@googletest//:gtest_main",
     ],
 )

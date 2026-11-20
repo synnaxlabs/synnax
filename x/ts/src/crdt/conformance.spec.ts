@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { crdt } from "@/crdt";
+import { assertDefined } from "@/testutil";
 
 // The conformance vectors are authored once and shared with the Go implementation so
 // that both runtimes materialize identically for the same edit schedule. The canonical
@@ -54,10 +55,14 @@ const runBehavior = (v: BehaviorVector): crdt.Text[] => {
     );
   for (const s of v.steps)
     if (s.type === "insert") {
-      const ops = docs[s.replica - 1].insert(s.index, s.text ?? "");
+      const doc = docs[s.replica - 1];
+      assertDefined(doc);
+      const ops = doc.insert(s.index, s.text ?? "");
       generated.push({ owner: s.replica - 1, apply: (t) => t.applyInsert(...ops) });
     } else if (s.type === "delete") {
-      const ops = docs[s.replica - 1].delete(s.index, s.length ?? 0);
+      const doc = docs[s.replica - 1];
+      assertDefined(doc);
+      const ops = doc.delete(s.index, s.length ?? 0);
       generated.push({ owner: s.replica - 1, apply: (t) => t.applyDelete(...ops) });
     } else if (s.type === "sync") sync();
   sync();
