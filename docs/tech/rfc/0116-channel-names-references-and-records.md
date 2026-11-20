@@ -72,29 +72,29 @@ delete.
 ### 4.0 The channel record
 
 Channel v1 shipped in `core/v0.61.0` and is still the version of `core/v0.62.0`. Phases
-1 to 3 share v2: a phase edits v2 in place while no stable release holds it, and mints
-the next version with the same lines if one does. RFC 0117 Phase 9 builds v3, after
-index channels stop being channels.
+1, 3, 11, and 18 share v2: a phase edits v2 in place while no stable release holds it,
+and mints the next version with the same lines if one does. RFC 0117 Phase 9 builds v3,
+after index channels stop being channels.
 
-| Field         | Bytes         | v1  | v2, Phase 1 | v2, Phase 2 | v2, Phase 3 | v2, tombstones | v3  |
-| ------------- | ------------- | --- | ----------- | ----------- | ----------- | -------------- | --- |
-| magic `ORC`   | 3             | x   | x           | x           | x           | x              | x   |
-| `key`         | 4             |     |             |             |             |                | x   |
-| `name`        | 4 + n         | x   | x           | x           | x           | x              | x   |
-| `leaseholder` | 2             | x   | x           | x           | x           | x              |     |
-| `data_type`   | 4 + t         | x   | x           | x           | x           | x              | x   |
-| `is_index`    | 1             | x   | x           | x           | x           | x              |     |
-| `local_key`   | 4             | x   | x           | x           | x           | x              |     |
-| `local_index` | 4             | x   | x           | x           | x           | x              |     |
-| `virtual`     | 1             | x   | x           | x           | x           | x              | x   |
-| `concurrency` | 8             | x   | x           | x           | x           | x              |     |
-| `internal`    | 1             | x   |             |             |             |                |     |
-| `operations`  | 1, or 5 + ops | x   | x           | x           |             |                |     |
-| `expression`  | 4 + e         | x   | x           | x           |             |                |     |
-| `group`       | 1 or 17       | x   | x           | x           | x           | x              | x   |
-| `description` | 4 + d         |     |             | x           | x           | x              | x   |
-| `rewires`     | 1, or 5 + 12r |     |             |             |             | x              | x   |
-| Example       |               | 69  | 68          | 72          | 67          | 68             | 53  |
+| Field         | Bytes         | v1  | v2, Phase 1 | v2, Phase 3 | v2, Phase 11 | v2, Phase 18 | v3  |
+| ------------- | ------------- | --- | ----------- | ----------- | ------------ | ------------ | --- |
+| magic `ORC`   | 3             | x   | x           | x           | x            | x            | x   |
+| `key`         | 4             |     |             |             |              |              | x   |
+| `name`        | 4 + n         | x   | x           | x           | x            | x            | x   |
+| `leaseholder` | 2             | x   | x           | x           | x            | x            |     |
+| `data_type`   | 4 + t         | x   | x           | x           | x            | x            | x   |
+| `is_index`    | 1             | x   | x           | x           | x            | x            |     |
+| `local_key`   | 4             | x   | x           | x           | x            | x            |     |
+| `local_index` | 4             | x   | x           | x           | x            | x            |     |
+| `virtual`     | 1             | x   | x           | x           | x            | x            | x   |
+| `concurrency` | 8             | x   | x           | x           | x            | x            |     |
+| `internal`    | 1             | x   |             |             |              |              |     |
+| `operations`  | 1, or 5 + ops | x   | x           |             |              |              |     |
+| `expression`  | 4 + e         | x   | x           |             |              |              |     |
+| `group`       | 1 or 17       | x   | x           | x           | x            | x            | x   |
+| `description` | 4 + d         |     |             |             | x            | x            | x   |
+| `rewires`     | 1, or 5 + 12r |     |             |             |              | x            | x   |
+| Example       |               | 69  | 68          | 63          | 67           | 68           | 53  |
 
 The Pebble key is `gorp.Channel` (12 B) and the big-endian key (4 B)
 (`gorp/internal/key/key.go:24-33`, `:90-105`). The value is the Orc form: the magic,
@@ -114,8 +114,8 @@ no description, in a folder. In v3:
 00                                                   rewires
 ```
 
-`schemas/synnax/versions/channel/v2.oracle` keeps the imports of `v1.oracle`. Phases 1
-and 2 also keep the alias lines of `OperationType` and `Operation`:
+`schemas/synnax/versions/channel/v2.oracle` keeps the imports of `v1.oracle`. Phase 1
+also keeps the alias lines of `OperationType` and `Operation`:
 
 ```
 Key = v0.Key
@@ -125,8 +125,8 @@ Channel struct extends v1.Channel {
     -internal                   // Phase 1
     -operations                 // Phase 3
     -expression                 // Phase 3
-    description string = ""     // Phase 2
-    rewires     Rewire[]?       // tombstones
+    description string = ""     // Phase 11
+    rewires     Rewire[]?       // Phase 18
 }
 ```
 
@@ -181,8 +181,8 @@ Rewire struct {
 - **Name clash with a built-in**: `Declare` adopts a channel at the root with the same
   name, `data_type`, and `virtual`. Any other holder of the name is a user channel:
   `Declare` renames it with the first free suffix, writes a warning status, and creates
-  the built-in. Until Phase 6 it looks in every folder. A release that changes the shape
-  of a built-in ships a migration that edits the record in place.
+  the built-in. Until Phase 31 it looks in every folder. A release that changes the
+  shape of a built-in ships a migration that edits the record in place.
 
 ### 4.1 Names and folders
 
@@ -195,8 +195,11 @@ Rewire struct {
   policy.
 - **One form**: The Core stores a name in NFC: it normalizes a name on write and a
   lookup string on read (`x/go/go.mod:26`). Two names are the same when their bytes are.
-- **The start flag goes**: So do its plumbing and the dashed-name lexer of Arc
-  (`core/cmd/start/flags.go:38`, `arc/go/parser/parser.go:47-49`, `:62-86`).
+- **The start flag goes** (Phase 7): So does its plumbing
+  (`core/cmd/start/flags.go:38`). The rule checks a name that a write sets or changes,
+  so a stored name made under the flag stays writable until the Phase 8 migration
+  renames it. The dashed-name lexer of Arc goes in Phase 9, after Phase 8 quotes stored
+  dashed text (`arc/go/parser/parser.go:47-49`, `:62-86`).
 - **`gorp.UniqueIndex`** (NEW, on `index.Lookup`,
   `gorp/internal/index/lookup.go:22-30`): `Name`, `Space`, and
   `Value func(*E) (V, bool)`, where false exempts an entry. Every index of one `Space`
@@ -214,12 +217,12 @@ Rewire struct {
   structure then refuses two channels, two folders, and a channel and a folder with one
   name in one parent, on every create, rename, and move. Today's move runs no name check
   (`writer.go:96-119`). The group service gains no code.
-- **Before the flip**: Phase 2 registers the sibling space and a hand-written unique
-  index on the channel name alone, so names stay unique across the Core. Phase 6 deletes
-  that index. `RetrieveIfNameExists` (`writer.go:66`) with a folder matches (folder,
-  name); with none it matches the name in any folder and fails on several.
-- **Naming rules** (Phase 7): A folder holds `name_rule string?`, an RE2 expression that
-  must match the whole name of each channel directly in the folder, not of child
+- **Before the flip**: Phase 10 registers the sibling space, and Phase 7 a hand-written
+  unique index on the channel name alone, so names stay unique across the Core. Phase 31
+  deletes that index. `RetrieveIfNameExists` (`writer.go:66`) with a folder matches
+  (folder, name); with none it matches the name in any folder and fails on several.
+- **Naming rules** (Phase 32): A folder holds `name_rule string?`, an RE2 expression
+  that must match the whole name of each channel directly in the folder, not of child
   folders. `group.CheckMember` (`core/pkg/service/group/member.go:30`) takes the name
   and checks the rule; the channel writer calls it on create, move, and now rename. The
   error names the rule and the folder. A rule is refused while a current name breaks it.
@@ -241,9 +244,9 @@ Rewire struct {
   covers lookups only. A stored value that the schema types as a channel key still
   parses from text: a JSON object key, and the TypeScript key schema that accepts a
   numeric string (`client/ts/src/channel/types.gen.ts:20-25`).
-- **Arc**: From Phase 6, a bare name is a channel at the root, and a channel in a folder
-  needs its path: a new channel in another folder must never change what a working
-  program means. Files, export, and import use exact paths only.
+- **Arc**: From Phase 31, a bare name is a channel at the root, and a channel in a
+  folder needs its path: a new channel in another folder must never change what a
+  working program means. Files, export, and import use exact paths only.
 
 ### 4.3 References
 
@@ -422,7 +425,7 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   keystroke and never fails; its lists wait for the next compile that succeeds.
 - **Start order**: Migrations, `Declare`, the heals and text passes of what `Declare`
   changed, then the API.
-- **The flip**: Phase 6 ships one migration step with a durable done marker. Before the
+- **The flip**: Phase 31 ships one migration step with a durable done marker. Before the
   Core-wide index goes, it rewrites bare names to paths by the Core-wide rule, and sets
   the marker after the last record. After it, "does not exist" for a bare name lists the
   matches in folders as fix-its. Core code that writes Arc or calculation text writes
@@ -484,7 +487,7 @@ the same gate run: F_keys is `BenchmarkRetrieveByKeys`, F_create is `BenchmarkCr
 F_tx is `BenchmarkWithTx` (`gorp/gorp_bench_test.go:235`, `:152`, `:438`), and F_name is
 `BenchmarkComposeAndIndexed` (`gorp/index_bench_test.go:388`). Sketches assume a 0.1 µs
 map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per channel
-(175 MB at 1,000,000), and the Core-wide index 125 B until Phase 6.
+(175 MB at 1,000,000), and the Core-wide index 125 B until Phase 31.
 
 | Path                             | Target                                                                                                                                                                | Sketch                                                                                                                                                                    |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -510,16 +513,16 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
   its counter are open and before the API serves: it clears every stored schematic and
   table link whose key this Core never issued, as `core/v0.62.0` import kept raw keys
   and those fields had no reference.
-- **Phase 2: Names.** The pass rewrites a name only when it breaks the rule, which
+- **Phase 8: Names.** The pass rewrites a name only when it breaks the rule, which
   includes a name not in NFC, or when a channel with a lower key holds it in the same
   folder after NFC. Each `.` becomes `_`, refused characters go, invalid bytes become
   U+FFFD, and an empty result becomes `channel_<key>`. A rewritten name that is taken
-  gets the first free suffix (`_2`, `_3`); until Phase 6, "taken" means anywhere in the
+  gets the first free suffix (`_2`, `_3`); until Phase 31, "taken" means anywhere in the
   Core. A name that needs no rewrite never moves, and a built-in is never renamed. The
   same pass runs on folders in the group chain; after both tables open, a folder that
   shares a name with a sibling channel takes a suffix. Duplicates in different folders
   stay. Each rename writes a warning status (`core/pkg/service/migrate.go:62`).
-- **Phase 2: Text.** The name pass writes each change under a staging prefix in its own
+- **Phase 8: Text.** The name pass writes each change under a staging prefix in its own
   transaction. One pass over Arc text and one over calculation expressions write each
   changed name in its new form, and quote a dashed token only when a channel holds that
   exact name. The last pass deletes the list in its transaction.
@@ -529,9 +532,9 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
   `reset_channel` copied (0 becomes absent). It deletes the statuses that channels own
   and each copy, and parses no Arc. A crash between the chains leaves the copies for the
   next start (precedent: `core/pkg/service/panel/versions/v0/composition.go:137`).
-- **Phases 5 to 7: Key lists, the flip, rules.** Arc v5 adds empty `reads` and `writes`,
-  and each compile from Phase 5 fills them. Phase 6 runs the step of §4.5 once. Group v2
-  adds `name_rule`.
+- **Phases 27, 31, and 32: Key lists, the flip, rules.** Arc v5 adds empty `reads` and
+  `writes`, and each compile from Phase 27 fills them. Phase 31 runs the step of §4.5
+  once. Group v2 adds `name_rule`.
 - **Tombstones and rewires**: The tombstone table is new and needs no migration.
   `rewires` joins channel v2 in place while no stable release holds v2, or mints the
   next version. `arc_task.oracle` gains the deployed `reads` and `writes`: one version
@@ -685,42 +688,69 @@ Tombstone struct {
 
 ## 5 Implementation phases
 
-Each phase is one PR of about 2,000 hand-written lines, the size the plan owner set for
-this program. Phases 6 and 8 are small switches.
+Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the rest
+200 to 400. Phases 31 and 38 are small switches.
 
-- **Phase 2: Quoted names.** Arc gets the quoted token here, with the path filter. Phase
-  5 adds bare paths, the two lists, the lookup at each compile, the text pass, the key
-  lookup, and files by path. Phase 2's specs pin both halves of the number rule: a
-  stored config that holds a key as a numeric string parses to the key, and a lookup by
-  a digit-only string resolves as a name or a path.
-- **Phase 4: A view version.** The `channel` view type mints view v4 from v3, which
+- **Names**: Phase 5 gives Arc the quoted token, and Phase 11 the path filter. Phases 26
+  to 30 add bare paths, the two lists, the lookup at each compile, the text pass, the
+  key lookup, and files by path. The specs of Phases 12 and 13 pin both halves of the
+  number rule: a stored config that holds a key as a numeric string parses to the key,
+  and a lookup by a digit-only string resolves as a name or a path.
+- **Phase 22: A view version.** The `channel` view type mints view v4 from v3, which
   `core/v0.62.0` shipped.
 - **Outside names**: An output that sends a channel's name, such as the Kafka key mode
   `channel_name`, sends the local name, as today. Sift channels take the local name, and
   a Sift flow takes the name stored in its config (RFC 0117 §4.9). Status details that
   hold channel keys stay untracked links.
-- **Phase 3: The whole calculation shape.** `reads` stays empty until Phase 5, and
+- **Phase 3: The whole calculation shape.** `reads` stays empty until Phase 27, and
   nothing reads `primary` until RFC 0117 Phase 5. The `weak` and `direction` tags on its
-  links are live-only and arrive with the later of Phases 1 and 3.
-- **Plans, tombstones, rewires** (§4.11 to §4.13): their PRs join the table when the
-  plan owner sets their count. Plans land after Phase 1, tombstones after Phases 1 and
-  2, both before Phases 4 and 5. Rewires and measured reads land after Phase 5, RFC 0117
-  Phase 6, and RFC 0118's alignment counter.
-- **Across RFCs**: Phases 3 and 5 land after RFC 0117 Phase 2. Phase 8 lands after RFC
-  0117 Phases 5, 6, and 7, and one minor after Phase 3 ships. RFC 0117 Phase 6 lifts the
-  key cap, and its Phase 9 builds channel v3. RFC 0118 moves the storage half of create,
+  links are live-only and arrive with Phase 1.
+- **Across RFCs**: Phases 3 and 26 land after RFC 0117 Phase 2. Phases 33 to 37 land
+  after RFC 0117 Phase 6 and RFC 0118's alignment counter. Phase 38 lands after RFC 0117
+  Phases 5, 6, and 7, and one minor after Phase 3 ships. RFC 0117 Phase 6 lifts the key
+  cap, and its Phase 9 builds channel v3. RFC 0118 moves the storage half of create,
   rename, and delete out of the commit hook.
 
-| Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                                                                                                                     | Depends on |
-| ----- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Track what uses each channel and what blocks its delete    | `gorp`, `oracle/plugin/go/query`, `oracle/domain`, `schemas/synnax`, `core/pkg/service/channel`, `core/pkg/service/task`, `core/pkg/service/signals`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`, `pluto/src/schematic`, `pluto/src/table`                                                                                                                                                 | -          |
-| 2     | Allow free-text names, unique in a folder, with full paths | `gorp`, `oracle`, `x/go/validate`, `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/service/channel`, `core/cmd/start`, `arc/go/parser`, `client/ts/src/channel`, `client/py/synnax/channel`, `client/cpp/channel`                                                                                                                                                                                        | -          |
-| 3     | Give calculations their own record                         | `schemas/synnax/channel.oracle`, `schemas/synnax/status.oracle`, `core/pkg/service/calculation`, `core/pkg/service/channel`, `core/pkg/service/channel/resolver`, `core/pkg/service/framer`, `core/pkg/service/arc`, `core/pkg/api/calculation`, `core/pkg/api/channel`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `pluto/src/calculation`, `console/src/platform/channel`, `client/ts/src/framer/cache` | -          |
-| 4     | Add the channel explorer, inspector, and path pickers      | `schemas/synnax/view.oracle`, `gorp`, `pluto/src/channel`, `console/src/feature/channel`, `console/src/platform/tree`                                                                                                                                                                                                                                                                                                       | 1, 2       |
-| 5     | Name channels by path in Arc and files, and follow renames | `arc/go/symbol`, `arc/go/parser`, `arc/go/analyzer`, `schemas/synnax/arc.oracle`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/channel/resolver`, `oracle/plugin/go`                                                                                                                                                                                                                           | 1, 2, 3    |
-| 6     | Make channel names unique only within their folder         | `core/pkg/service/channel`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/metrics`                                                                                                                                                                                                                                                                                                              | 2, 4, 5    |
-| 7     | Add naming rules to folders                                | `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/api/group`, `client/ts/src/group`, `client/py/synnax/group`, `console/src/platform/group`, `console/src/feature/group`                                                                                                                                                                                                                                   | 4, 6       |
-| 8     | Remove the old calculation API and document the new model  | `schemas/synnax/channel.oracle`, `core/pkg/api/channel`, `client/ts`, `client/py`, `client/cpp`, `site/docs`                                                                                                                                                                                                                                                                                                                | 3, 6, 7    |
+| Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                                                                                                                     | Depends on     |
+| ----- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 1     | Track what uses each channel and what blocks its delete    | `gorp`, `oracle/plugin/go/query`, `oracle/domain`, `schemas/synnax`, `core/pkg/service/channel`, `core/pkg/service/task`, `core/pkg/service/signals`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`, `pluto/src/schematic`, `pluto/src/table`                                                                                                                                                 | -              |
+| 2     | Signal every reference change on one channel               | `core/pkg/service/signals`, `client/ts/src/query`, `client/ts/src/channel`, `client/ts/src/secret`                                                                                                                                                                                                                                                                                                                          | 1              |
+| 3     | Give calculations their own record                         | `schemas/synnax/channel.oracle`, `schemas/synnax/status.oracle`, `core/pkg/service/calculation`, `core/pkg/service/channel`, `core/pkg/service/channel/resolver`, `core/pkg/service/framer`, `core/pkg/service/arc`, `core/pkg/api/calculation`, `core/pkg/api/channel`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `pluto/src/calculation`, `console/src/platform/channel`, `client/ts/src/framer/cache` | 1              |
+| 4     | Add unique indexes and spaces to Gorp                      | `gorp`                                                                                                                                                                                                                                                                                                                                                                                                                      | 1              |
+| 5     | Read single-quoted channel names in Arc                    | `arc/go/parser`, `arc/go/analyzer`                                                                                                                                                                                                                                                                                                                                                                                          | 4              |
+| 6     | Add the name rule and the passes that fix stored names     | `x/go/validate`, `core/pkg/service/channel`, `core/pkg/service/group`                                                                                                                                                                                                                                                                                                                                                       | 5              |
+| 7     | Check the name rule on writes and drop the validation flag | `core/pkg/service/channel`, `core/cmd/start`                                                                                                                                                                                                                                                                                                                                                                                | 6              |
+| 8     | Migrate stored names, folders, and text to the name rule   | `core/pkg/service`, `core/pkg/service/arc`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                                  | 3, 7           |
+| 9     | Remove the dashed-name lexer from Arc                      | `arc/go/parser`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                                                             | 8              |
+| 10    | Make sibling names unique in each folder                   | `oracle/domain/group`, `oracle/plugin/go/group`, `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                        | 9              |
+| 11    | Look channels up by path and add descriptions              | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/api/channel`                                                                                                                                                                                                                                                                                                                                         | 10             |
+| 12    | Look channels up by path in the TS client                  | `client/ts/src/channel`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                             | 11             |
+| 13    | Look channels up by path in Python and C++                 | `client/py/synnax/channel`, `client/cpp/channel`                                                                                                                                                                                                                                                                                                                                                                            | 12             |
+| 14    | Rename the Gorp detach hook to OnRewrite                   | `gorp`, `core/pkg/service`                                                                                                                                                                                                                                                                                                                                                                                                  | 1              |
+| 15    | Generate a retarget for every key reference                | `gorp`, `oracle/plugin/go/query`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/schematic`, `core/pkg/service/table`                                                                                                                                                                                                                                                                               | 14             |
+| 16    | Plan the records that a channel delete touches             | `core/pkg/service/impact`, `core/pkg/service/channel`, `core/pkg/service/task`                                                                                                                                                                                                                                                                                                                                              | 1              |
+| 17    | Serve impact plans and apply them in the Core API          | `core/pkg/api/impact`, `schemas/synnax/impact.oracle`, `core/pkg/api/channel`, `core/pkg/api/group`                                                                                                                                                                                                                                                                                                                         | 16             |
+| 18    | Keep a tombstone of a deleted channel's path               | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                      | 4, 16          |
+| 19    | Heal display links when a channel takes a tombstone path   | `core/pkg/service/impact`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                       | 15, 18         |
+| 20    | Plan and apply impact in the TS and Python clients         | `client/ts/src/impact`, `client/py/synnax/impact`                                                                                                                                                                                                                                                                                                                                                                           | 17             |
+| 21    | Filter channels that nothing uses                          | `gorp`, `core/pkg/service/channel`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`                                                                                                                                                                                                                                                                                                             | 1              |
+| 22    | Add the channel explorer by folder                         | `schemas/synnax/view.oracle`, `console/src/feature/channel`, `console/src/platform/tree`                                                                                                                                                                                                                                                                                                                                    | 11             |
+| 23    | Show a channel's uses in the inspector                     | `console/src/feature/channel`, `pluto/src/channel`                                                                                                                                                                                                                                                                                                                                                                          | 2, 22          |
+| 24    | Pick channels by path in Pluto                             | `pluto/src/channel`                                                                                                                                                                                                                                                                                                                                                                                                         | 12             |
+| 25    | Show one dialog for every impact plan                      | `console/src/feature/impact`                                                                                                                                                                                                                                                                                                                                                                                                | 20             |
+| 26    | Name channels by path in Arc                               | `arc/go/parser`, `arc/go/symbol`, `arc/go/analyzer`, `core/pkg/service/channel/resolver`                                                                                                                                                                                                                                                                                                                                    | 11             |
+| 27    | Store the keys of each compile on Arcs and calculations    | `schemas/synnax/arc.oracle`, `schemas/synnax/arc_task.oracle`, `core/pkg/service/arc`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                       | 3, 26          |
+| 28    | Name channels by path in exported files                    | `oracle/plugin/go`, `core/pkg/service/imex`, `core/pkg/service/arc`                                                                                                                                                                                                                                                                                                                                                         | 17, 26         |
+| 29    | Edit Arc and calculation text in rename plans              | `arc/go/text`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                            | 19, 27         |
+| 30    | Route every channel rename through the impact service      | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/impact`, `scripts`                                                                                                                                                                                                                                                                                                                                              | 29             |
+| 31    | Make channel names unique only within their folder         | `core/pkg/service/channel`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/metrics`                                                                                                                                                                                                                                                                                                              | 10, 22, 24, 30 |
+| 32    | Add naming rules to folders                                | `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/api/group`, `client/ts/src/group`, `client/py/synnax/group`, `console/src/platform/group`, `console/src/feature/group`                                                                                                                                                                                                                                   | 22, 31         |
+| 33    | Read channels as measurements on request                   | `core/pkg/service/framer/iterator`, `core/pkg/api/framer`                                                                                                                                                                                                                                                                                                                                                                   | 18             |
+| 34    | Check access and delete by path over measured pieces       | `core/pkg/api/framer`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                            | 33             |
+| 35    | Rewire a path to another channel                           | `core/pkg/service/impact`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                       | 30, 33         |
+| 36    | Publish a history change when a rewire commits             | `core/pkg/service/framer`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                           | 35             |
+| 37    | Ask for measured reads in clients and calculations         | `client/ts/src/framer`, `client/py/synnax/framer`, `console/src`, `core/pkg/service/calculation`, `core/pkg/service/sift`                                                                                                                                                                                                                                                                                                   | 20, 33         |
+| 38    | Remove the old calculation API and document the new model  | `schemas/synnax/channel.oracle`, `core/pkg/api/channel`, `client/ts`, `client/py`, `client/cpp`, `site/docs`                                                                                                                                                                                                                                                                                                                | 3, 31, 32      |
 
 ## 6 Resolved decisions
 
@@ -735,7 +765,7 @@ package. A parse in the migration ties frozen code to the live grammar.
 
 **6.2 The unique key is (parent, name), in one space per scope.** A key with the scope
 costs 48 B against 32 B (222 MB against 175 MB at 1,000,000). An index that turns
-invalid on a stored duplicate forces a dedupe across the Core at Phase 2.
+invalid on a stored duplicate forces a dedupe across the Core when the index lands.
 
 **6.3 A delete leaves a durable intent in storage.** A missing channel record does not
 prove a delete: a restored backup, lost metadata, or a Core pointed at the wrong
@@ -772,8 +802,8 @@ member win with a warning, so that the channel needs the quoted form. Not taken.
 **6.8 No fallback, and a bare name in a client matches any folder.** Root first, then
 any folder, lets a new root channel take a name with no error; a digit string that falls
 back to a key has the same fault. A root-only shorthand breaks every 0.62 script that
-names a channel in a folder at Phase 6. With any folder, those scripts run until someone
-repeats a name, and then fail with every path. `paths` is exact.
+names a channel in a folder at Phase 31. With any folder, those scripts run until
+someone repeats a name, and then fail with every path. `paths` is exact.
 
 **6.9 Exact names in NFC, no invisible characters, no stored path.** A case-blind rule
 renames legal names on upgrade. Only `Cc` lets two names look the same. The cost: a
