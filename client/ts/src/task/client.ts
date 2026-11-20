@@ -397,6 +397,7 @@ export class Client extends query.Retriever<
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
   private readonly parsed = new WeakMap<Schemas, Parsed>();
+  private readonly localStatuses = new WeakSet<status.Status>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -449,7 +450,7 @@ export class Client extends query.Retriever<
             const held = statuses.ownedBy(resourceID(changed.task));
             if (held == null) return;
             const optimistic = this.optimisticStatus(changed, held.key);
-            statuses.setLocal(optimistic);
+            this.setLocal(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
         ),
@@ -741,7 +742,7 @@ export class Client extends query.Retriever<
         status.detailsOf(held)?.cmd === pending.cmd.key;
       if (answered) continue;
       pending.optimistic = this.optimisticStatus(pending.cmd, pending.optimistic.key);
-      this.cfg.statuses.setLocal(pending.optimistic);
+      this.setLocal(pending.optimistic);
     }
   }
 
@@ -756,7 +757,7 @@ export class Client extends query.Retriever<
       const held = statuses.ownedBy(owner);
       if (held == null) return;
       if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
-      statuses.setLocal(
+      this.setLocal(
         status.create<StatusDetailsZodObject>({
           key: held.key,
           name: optimistic.name,
@@ -776,6 +777,18 @@ export class Client extends query.Retriever<
     this.commandDeadlines.set(cmd.task, { cmd, timer, optimistic });
   }
 
+  private setLocal(stat: Status): void {
+    this.localStatuses.add(stat);
+    this.cfg.statuses.setLocal(stat);
+  }
+
+  // The Core never holds a local status, so a fetch would replace it with an older one.
+  // Only a streamed write replaces it.
+  private holdsLocal(key: Key): boolean {
+    const held = this.cfg.statuses.ownedBy(resourceID(key));
+    return held != null && this.localStatuses.has(held);
+  }
+
   // Parsed because the status table holds every domain's statuses generically.
   private latestStatusOf(key: Key): Status | undefined {
     const parsed = defaultStatusZ.safeParse(this.cfg.statuses.ownedBy(resourceID(key)));
@@ -789,7 +802,7 @@ export class Client extends query.Retriever<
 
   private hydrate(task: Task, since: query.Stamp, statusSince: query.Stamp): void {
     this.store.ingest(task, { since });
-    if (task.status != null)
+    if (task.status != null && !this.holdsLocal(task.key))
       this.cfg.statuses.store.ingest(task.status, { since: statusSince });
   }
 
@@ -799,7 +812,8 @@ export class Client extends query.Retriever<
     return await statuses.track(async (since) => {
       const tasks = await this.execRetrieve({ ...req, includeStatus: true });
       tasks.forEach((t) => {
-        if (t.status != null) statuses.ingest(t.status, { since });
+        if (t.status != null && !this.holdsLocal(t.key))
+          statuses.ingest(t.status, { since });
       });
       return tasks;
     });
