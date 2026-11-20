@@ -118,7 +118,12 @@ var _ = Describe("Sweep", func() {
 		svc := start(ctx, cfg)
 		MustSucceed(keptStatus(ctx, node, cfg.Status))
 		Expect(svc.Close()).To(Succeed())
-		Expect(node.Storage.TS.Purge([]cesium.ChannelKey{key})).To(Succeed())
+		Expect(channel.Purge(
+			ctx,
+			node.DB,
+			node.Storage.TS,
+			[]channel.Key{channel.Key(key)},
+		)).To(BeEmpty())
 		DeferClose(start(ctx, cfg))
 		Expect(keptStatus(ctx, node, cfg.Status)).Error().
 			To(MatchError(query.ErrNotFound))
@@ -155,6 +160,39 @@ var _ = Describe("Sweep", func() {
 		},
 	)
 
+	It("Should keep the data of a channel with no record that a delete names", func(
+		ctx SpecContext,
+	) {
+		node := testutil.NewNode(ctx)
+		key := orphan(ctx, node, 60_000)
+		cfg, _ := serviceConfig(ctx, node, node.DB)
+		svc := start(ctx, cfg)
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Delete(ctx, channel.Key(key), false)
+		})).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
+		DeferClose(start(ctx, cfg))
+		s := MustSucceed(keptStatus(ctx, node, cfg.Status))
+		Expect(s.Description).To(ContainSubstring(fmt.Sprint(key)))
+	})
+
+	It("Should give a new channel no key that kept data holds", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		key := orphan(ctx, node, 60_000)
+		cfg, _ := serviceConfig(ctx, node, node.DB)
+		svc := DeferClose(start(ctx, cfg))
+		ch := channel.Channel{
+			Name:        UniqueChannelName(),
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
+			Leaseholder: 1,
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		Expect(ch.Key().LocalKey()).To(BeNumerically(">", channel.Key(key).LocalKey()))
+	})
+
 	It(
 		"Should refuse a delete whose intent cannot be made durable",
 		func(ctx SpecContext) {
@@ -181,9 +219,11 @@ var _ = Describe("Sweep", func() {
 				Where(channel.MatchKeys(ch.Key())).
 				Entry(&found).
 				Exec(ctx, node.DB)).To(Succeed())
+			// The state of the intents is unknown after a failed append, so no delete
+			// runs until a restart.
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
-			})).To(Succeed())
+			})).To(MatchError(ContainSubstring("until a restart")))
 		},
 	)
 })

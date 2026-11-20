@@ -20,13 +20,18 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// keptDataStatusKey is the key of the status that names the data Sweep keeps.
-const keptDataStatusKey = "channel_kept_data"
+const (
+	// keptDataStatusKey is the key of the status that names the data Sweep keeps.
+	keptDataStatusKey = "channel_kept_data"
+	// corruptIntentsStatusKey is the key of the status that reports damaged deletes.
+	corruptIntentsStatusKey = "channel_corrupt_intents"
+)
 
 // sweep reconciles storage with the channel records, before any writer opens, and
 // raises a warning status that names the data with no record and no delete. It clears
@@ -40,20 +45,47 @@ func (s *Service) sweep(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// A key that kept data holds must not go to a new channel, which would merge with
+	// the old samples.
+	if err = s.cfg.Channel.Reserve(
+		ctx,
+		lo.Map(kept, func(k cesium.KeptChannel, _ int) Key {
+			return Key(k.Key)
+		}),
+	); err != nil {
+		return err
+	}
 	return s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.cfg.Status.NewWriter(tx)
-		if len(kept) == 0 {
-			return w.Delete(ctx, keptDataStatusKey)
+		if err := setOrDelete(
+			ctx,
+			w,
+			keptDataStatusKey,
+			len(kept) > 0,
+			func() status.Status[any] {
+				return keptDataStatus(kept)
+			},
+		); err != nil {
+			return err
 		}
-		stat := keptDataStatus(kept)
-		return w.Set(ctx, &stat)
+		corrupt := s.cfg.TS.CorruptIntents()
+		return setOrDelete(
+			ctx,
+			w,
+			corruptIntentsStatusKey,
+			corrupt > 0,
+			func() status.Status[any] {
+				return corruptIntentsStatus(corrupt)
+			},
+		)
 	})
 }
 
 // Purge removes from ts the data of keys: data that has no channel record in db and no
-// delete. It returns the channels that still hold such data, so with no keys it lists
-// them. It refuses a key that has a channel record or holds no such data, and then
-// removes nothing. No Core may run on db or ts.
+// delete. It makes the deletes durable intents before it drops the data, as a channel
+// delete does. It returns the channels that still hold such data, so with no keys it
+// lists them. It refuses a key that has a channel record or holds no such data, and
+// then removes nothing. No Core may run on db or ts.
 func Purge(
 	ctx context.Context,
 	db *gorp.DB,
@@ -78,8 +110,25 @@ func Purge(
 	if err != nil {
 		return nil, err
 	}
-	if err = ts.Purge(Keys(keys).Uint32()); err != nil {
-		return nil, err
+	keptKeys := set.New(lo.Map(kept, func(k cesium.KeptChannel, _ int) Key {
+		return Key(k.Key)
+	})...)
+	for _, k := range keys {
+		if !keptKeys.Contains(k) {
+			return nil, errors.Wrapf(
+				query.ErrNotFound,
+				"channel %d holds no data without a channel record",
+				k,
+			)
+		}
+	}
+	if len(keys) > 0 {
+		if err = ts.Intend(Keys(keys).Uint32()); err != nil {
+			return nil, err
+		}
+		if err = ts.Drop(Keys(keys).Uint32()); err != nil {
+			return nil, err
+		}
 	}
 	purged := set.New(keys...)
 	return lo.Reject(kept, func(k cesium.KeptChannel, _ int) bool {
@@ -105,6 +154,38 @@ func sweepStorage(
 ) ([]cesium.KeptChannel, error) {
 	stored := lo.Reject(records, func(k Key, _ int) bool { return k.Free() })
 	return ts.Sweep(ctx, stored.Uint32())
+}
+
+// setOrDelete sets the status that build returns when raised, and deletes the status of
+// key otherwise.
+func setOrDelete(
+	ctx context.Context,
+	w status.Writer,
+	key string,
+	raised bool,
+	build func() status.Status[any],
+) error {
+	if !raised {
+		return w.Delete(ctx, key)
+	}
+	stat := build()
+	return w.Set(ctx, &stat)
+}
+
+// corruptIntentsStatus returns the warning status that reports n damaged deletes.
+func corruptIntentsStatus(n int) status.Status[any] {
+	return status.Status[any]{
+		Key:     corruptIntentsStatusKey,
+		Variant: status.VariantWarning,
+		Message: "Found damaged channel deletes",
+		Description: fmt.Sprintf(
+			"The storage engine found %d damaged records of channel deletes. The "+
+				"data of a deleted channel can stay on disk. The warning for data "+
+				"with no channel then names it.",
+			n,
+		),
+		Time: telem.Now(),
+	}
 }
 
 // keptDataStatus returns the warning status that names kept.

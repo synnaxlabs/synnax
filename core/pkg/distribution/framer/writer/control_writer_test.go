@@ -108,6 +108,57 @@ var _ = Describe("Writer control moved from Cesium", func() {
 					Expect(a.Close()).To(Succeed())
 				},
 			)
+			It(
+				"Should write nothing of a group whose index the writer does not control",
+				func(ctx SpecContext) {
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "idx",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "data",
+							Index:    idx,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					keys := []cesium.ChannelKey{idx, data}
+					holder := MustSucceed(db.OpenWriter(ctx, storageConfig{
+						ControlSubject: control.Subject{Key: "holder"},
+						Channels:       keys,
+						Start:          10 * telem.SecondTS,
+						Authorities:    []control.Authority{100},
+					}))
+					w := MustSucceed(db.OpenWriter(ctx, storageConfig{
+						ControlSubject: control.Subject{Key: "data_only"},
+						Channels:       keys,
+						Start:          10 * telem.SecondTS,
+						Authorities:    []control.Authority{50, 200},
+					}))
+					expectUnauthorized(
+						w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11),
+							telem.NewSeriesV[int64](1, 2),
+						})),
+					)
+					MustSucceed(w.Commit(ctx))
+					Expect(
+						MustSucceed(
+							db.Read(ctx, telem.TimeRangeMax, data),
+						).Get(data).
+							Len(),
+					).
+						To(BeZero())
+					Expect(w.Close()).To(Succeed())
+					Expect(holder.Close()).To(Succeed())
+				},
+			)
+
 			Describe("Write Authority", func() {
 				DescribeTable(
 					"Should reject an authority count that does not match the channels",

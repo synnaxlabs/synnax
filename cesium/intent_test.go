@@ -10,6 +10,8 @@
 package cesium_test
 
 import (
+	"encoding/binary"
+	"hash/crc32"
 	"io"
 	"maps"
 	"os"
@@ -22,7 +24,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -74,9 +76,29 @@ var _ = Describe("Delete intents", func() {
 			To(MatchError(cesium.ErrChannelNotFound))
 		Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 	}
-	intents := func(fs xfs.FS) int64 {
+	// intents returns the number of keys with an intent in the intents file of fs.
+	intents := func(fs xfs.FS) int {
 		GinkgoHelper()
-		return MustSucceed(fs.Stat("delete-intents")).Size()
+		data := MustSucceed(xfs.ReadFile(fs, "delete-intents"))
+		live := set.New[cesium.ChannelKey]()
+		for off := 0; off+12 <= len(data); off += 12 {
+			key := binary.LittleEndian.Uint32(data[off:])
+			flags := binary.LittleEndian.Uint32(data[off+4:])
+			var b [16]byte
+			binary.LittleEndian.PutUint64(b[:], uint64(off))
+			binary.LittleEndian.PutUint32(b[8:], key)
+			binary.LittleEndian.PutUint32(b[12:], flags)
+			if crc32.Checksum(b[:], crc32.MakeTable(crc32.Castagnoli)) !=
+				binary.LittleEndian.Uint32(data[off+8:]) {
+				continue
+			}
+			if flags&1 != 0 {
+				live.Remove(key)
+			} else {
+				live.Add(key)
+			}
+		}
+		return len(live)
 	}
 
 	Describe("Open", func() {
@@ -108,18 +130,13 @@ var _ = Describe("Delete intents", func() {
 				Expect(logged.Intend(keys)).To(Succeed())
 				ops = nil
 				Expect(logged.Drop(keys)).To(Succeed())
-				Expect(ops).To(HaveExactElements(
-					"syncdir",
-					"sync delete-intents.tmp",
-					"rename delete-intents.tmp delete-intents",
-					"syncdir",
-				))
+				Expect(ops).To(HaveExactElements("syncdir", "sync delete-intents"))
 			},
 		)
 
 		It("Should clear the intent after it removes the files", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
-			Expect(intents(mem)).To(Equal(int64(8)))
+			Expect(intents(mem)).To(Equal(1))
 			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
 			Expect(intents(mem)).To(BeZero())
 			Expect(mem.Exists(channelKeyToPath(data))).To(BeFalse())
@@ -181,6 +198,20 @@ var _ = Describe("Delete intents", func() {
 			},
 		)
 
+		It("Should open a kept channel after a delete drops its index", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Sweep(ctx, nil)).To(ConsistOf(
+				HaveField("Key", idx),
+				HaveField("Key", data),
+			))
+			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			restarted, fs := crash(ctx)
+			Expect(restarted.Sweep(ctx, nil)).To(ConsistOf(HaveField("Key", data)))
+			Expect(fs.Exists(channelKeyToPath(idx))).To(BeTrue())
+		})
+
 		It(
 			"Should keep the index of a kept channel, and the intent of the index",
 			func(ctx SpecContext) {
@@ -188,29 +219,24 @@ var _ = Describe("Delete intents", func() {
 				kept := MustSucceed(db.Sweep(ctx, nil))
 				Expect(kept).To(ConsistOf(HaveField("Key", data)))
 				Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
-				Expect(intents(mem)).To(Equal(int64(8)))
+				Expect(intents(mem)).To(Equal(1))
 			},
 		)
 	})
 
-	Describe("Purge", func() {
-		It("Should remove a kept key", func(ctx SpecContext) {
+	Describe("Drop of a kept key", func() {
+		It("Should remove a key that Sweep keeps", func(ctx SpecContext) {
 			Expect(db.Sweep(ctx, []cesium.ChannelKey{idx})).To(HaveLen(1))
-			Expect(db.Purge([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
 			expectGone(ctx, db, mem, data)
-		})
-
-		It("Should refuse a key that Sweep did not keep", func(ctx SpecContext) {
-			Expect(db.Purge([]cesium.ChannelKey{idx})).
-				To(MatchError(query.ErrNotFound))
-			MustSucceed(db.RetrieveChannel(ctx, idx))
+			Expect(intents(mem)).To(BeZero())
 		})
 	})
 
 	Describe("Crashes", func() {
 		It(
-			"Should make a removal durable, then sync the rewritten intents before "+
-				"the rename",
+			"Should make a removal durable before it appends the clear of its intent",
 			func(ctx SpecContext) {
 				var ops []string
 				logged := mustOpenDBOnFS(ctx, opLogFS{FS: xfs.NewMem(), ops: &ops})
@@ -220,12 +246,7 @@ var _ = Describe("Delete intents", func() {
 				Expect(logged.Intend([]cesium.ChannelKey{idx})).To(Succeed())
 				ops = nil
 				Expect(logged.Drop([]cesium.ChannelKey{idx})).To(Succeed())
-				Expect(ops).To(HaveExactElements(
-					"syncdir",
-					"sync delete-intents.tmp",
-					"rename delete-intents.tmp delete-intents",
-					"syncdir",
-				))
+				Expect(ops).To(HaveExactElements("syncdir", "sync delete-intents"))
 			},
 		)
 
@@ -272,7 +293,7 @@ var _ = Describe("Delete intents", func() {
 				expectGone(ctx, restarted, fs, other)
 			})
 
-			It("Should keep the intents that a rewrite keeps", func(ctx SpecContext) {
+			It("Should keep the intents that a clear leaves", func(ctx SpecContext) {
 				Expect(ldb.Intend([]cesium.ChannelKey{idx, other})).To(Succeed())
 				Expect(ldb.Drop([]cesium.ChannelKey{idx})).To(Succeed())
 				fs := lossy.crash()
@@ -300,19 +321,32 @@ var _ = Describe("Delete intents", func() {
 				MustSucceed(f.WriteAt([]byte{0xFF}, 4))
 				Expect(f.Close()).To(Succeed())
 			})
-			Expect(intents(fs)).To(Equal(int64(16)))
+			Expect(intents(fs)).To(Equal(1))
+			Expect(restarted.CorruptIntents()).To(Equal(1))
 			kept := MustSucceed(restarted.Sweep(ctx, []cesium.ChannelKey{idx}))
 			Expect(kept).To(ConsistOf(HaveField("Key", data)))
 			expectGone(ctx, restarted, fs, other)
 		})
 
+		It("Should fail every Intend after an append fails", func(ctx SpecContext) {
+			faulty := xfstestutil.WrapFaultyFS(xfs.NewMem())
+			fdb := mustOpenDBOnFS(ctx, faulty)
+			faulty.SetOptions(xfstestutil.WithFailWriteAt("delete-intents"))
+			Expect(fdb.Intend([]cesium.ChannelKey{idx})).
+				To(MatchError(xfstestutil.ErrFault))
+			faulty.SetOptions()
+			Expect(fdb.Intend([]cesium.ChannelKey{idx})).
+				To(MatchError(ContainSubstring("until a restart")))
+		})
+
 		It("Should ignore a torn intent append", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			f := MustSucceed(mem.Open("delete-intents", os.O_RDWR))
-			MustSucceed(f.WriteAt([]byte{1, 2, 3, 4, 5}, 8))
+			MustSucceed(f.WriteAt([]byte{1, 2, 3, 4, 5}, 12))
 			Expect(f.Close()).To(Succeed())
 			restarted, fs := crash(ctx)
-			Expect(intents(fs)).To(Equal(int64(8)))
+			Expect(intents(fs)).To(Equal(1))
+			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(Equal(int64(12)))
 			Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
 			expectGone(ctx, restarted, fs, data)
 		})
@@ -367,7 +401,7 @@ var _ = Describe("Delete intents", func() {
 		})
 
 		It(
-			"Should finish a Sweep whose rewrite a crash cut short",
+			"Should finish a Sweep whose clear a crash cut short",
 			func(ctx SpecContext) {
 				faulty := xfstestutil.WrapFaultyFS(xfs.NewMem())
 				fdb := mustOpenDBOnFS(ctx, faulty)
@@ -378,7 +412,7 @@ var _ = Describe("Delete intents", func() {
 				cp := xfs.NewMem()
 				Expect(xfs.CopyDir(faulty, cp, "")).To(Succeed())
 				restarted := mustOpenDBOnFS(ctx, xfstestutil.WrapFaultyFS(cp,
-					xfstestutil.WithFailRename("delete-intents.tmp"),
+					xfstestutil.WithFailWriteAt("delete-intents"),
 				))
 				Expect(
 					restarted.Sweep(ctx, nil),

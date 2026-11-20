@@ -95,6 +95,13 @@ func (db *DB) Drop(keys []ChannelKey) error {
 // dropLocked drops keys as Drop does. The caller must hold db.mu.
 func (db *DB) dropLocked(keys []ChannelKey) error {
 	keys = lo.Uniq(keys)
+	// A key that Sweep keeps drops as any other.
+	for _, k := range keys {
+		if u, ok := db.mu.dbs.hidden[k]; ok {
+			db.mu.dbs.unary[k] = u
+			delete(db.mu.dbs.hidden, k)
+		}
+	}
 	dropping := set.New(keys...)
 	indexes := make(map[ChannelKey]*latch)
 	for _, key := range keys {
@@ -156,9 +163,11 @@ func (db *DB) dropLocked(keys []ChannelKey) error {
 // indexesKept reports whether a channel outside dropping uses index as its index. The
 // caller must hold db.mu.
 func (db *DB) indexesKept(index ChannelKey, dropping set.Set[ChannelKey]) bool {
-	for key, other := range db.mu.dbs.unary {
-		if other.Channel().Index == index && !dropping.Contains(key) {
-			return true
+	for _, dbs := range []map[ChannelKey]unary.DB{db.mu.dbs.unary, db.mu.dbs.hidden} {
+		for key, other := range dbs {
+			if other.Channel().Index == index && !dropping.Contains(key) {
+				return true
+			}
 		}
 	}
 	return false

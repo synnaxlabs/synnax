@@ -55,19 +55,18 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	db.mu.virtualDirs = set.New[channel.Key]()
 	db.mu.dbs.hidden = make(map[channel.Key]unary.DB)
 	db.mu.skipped = set.New[channel.Key]()
-	var corrupt int
-	if db.intents, corrupt, err = openIntents(o.fs); err != nil {
+	if db.intents, db.corruptIntents, err = openIntents(o.fs); err != nil {
 		return nil, err
 	}
-	if corrupt > 0 {
+	if db.corruptIntents > 0 {
 		db.L.Warn(
 			"skipped corrupt delete intents, whose data Sweep keeps",
-			zap.Int("records", corrupt),
+			zap.Int("records", db.corruptIntents),
 		)
 	}
 	var detached []string
 	for _, i := range info {
-		if i.Name() == intentsFile || i.Name() == intentsTempFile {
+		if i.Name() == intentsFile {
 			continue
 		}
 		if !i.IsDir() {
