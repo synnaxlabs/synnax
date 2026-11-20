@@ -72,15 +72,15 @@ func roundTrip(t *testing.T, b []byte) {
 	}
 }
 
-// FuzzRead checks that the head reader never panics, and that a head it accepts
-// encodes to the same bytes.
+// FuzzRead checks that the head reader never panics, and that a head it accepts encodes
+// to the same bytes.
 func FuzzRead(f *testing.F) {
 	addHeads(f)
 	f.Fuzz(roundTrip)
 }
 
-// FuzzReadResealed sets the checksums of each input again before it decodes it, so
-// the fuzzer reaches the checks after the checksums.
+// FuzzReadResealed sets the checksums of each input again before it decodes it, so the
+// fuzzer reaches the checks after the checksums.
 func FuzzReadResealed(f *testing.F) {
 	addHeads(f)
 	f.Fuzz(func(t *testing.T, b []byte) { roundTrip(t, reseal(b)) })

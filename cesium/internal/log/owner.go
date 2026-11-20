@@ -22,16 +22,16 @@ import (
 )
 
 var (
-	// ErrFull is the error of an entry that does not fit in the log file. An entry
-	// that holds a Commit stops DeleteReserve bytes before the end of the file.
+	// ErrFull is the error of an entry that does not fit in the log file. An entry that
+	// holds a Commit stops DeleteReserve bytes before the end of the file.
 	ErrFull = errors.New("log file is full")
 	// ErrClosed is the error of an entry appended after Close.
 	ErrClosed = errors.New("log is closed")
 )
 
-// minSize is the smallest log file: the frames start, the delete reserve, and the two
-// blocks that the last marks need.
-const minSize = FramesStart + DeleteReserve + 2*BlockSize
+// minSize is the smallest log file, in which the switch at three quarters comes before
+// the delete reserve stops entries that hold a Commit.
+const minSize = 4 * DeleteReserve
 
 // Name returns the file name of the log of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.log", generation) }
@@ -134,12 +134,12 @@ type Log struct {
 		queue   []pending
 		err     error
 		closing bool
-		// prepared is the newest generation whose file is ready, and prepareErr
-		// the error of the last Prepare that failed.
+		// prepared is the newest generation whose file is ready, and prepareErr the
+		// error of the last Prepare that failed.
 		prepared   uint64
 		prepareErr error
-		// asked is true while the log waits for the answer to a Prepare that it
-		// asked again after a failure.
+		// asked is true while the log waits for the answer to a Prepare that it asked
+		// again after a failure.
 		asked bool
 	}
 	// The fields below belong to the steps of the owner.
@@ -230,10 +230,10 @@ func (a Ack) Wait() (uint64, error) {
 	return r.sequence, r.err
 }
 
-// Append queues a copy of the bytes of e and its records, and returns at once.
-// Entries reach the log in the order of their Append calls. An entry that holds no
-// Commit may use the last DeleteReserve bytes of the file. After a failed write or
-// sync, every entry fails with that error until a restart.
+// Append queues a copy of the bytes of e and its records, and returns at once. Entries
+// reach the log in the order of their Append calls. An entry that holds no Commit may
+// use the last DeleteReserve bytes of the file. After a failed write or sync, every
+// entry fails with that error until a restart.
 func (l *Log) Append(e *Entry) Ack {
 	a := Ack{done: make(chan result, 1)}
 	l.mu.Lock()
@@ -280,9 +280,8 @@ func (l *Log) signal() {
 
 // Run asks for the file of the next log, then runs one step of the owner on the
 // executor of the log each time entries are queued, until Close or until ctx is done.
-// At Close, it writes the queued entries and
-// a clean mark, and returns nil. When ctx is done first, it fails the log and the
-// queued entries, and returns the error of ctx.
+// At Close, it writes the queued entries and a clean mark, and returns nil. When ctx is
+// done first, it fails the log and the queued entries, and returns the error of ctx.
 func (l *Log) Run(ctx context.Context) error {
 	defer close(l.exit)
 	l.cfg.Prepare(l.gen + 1)

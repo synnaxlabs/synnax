@@ -174,12 +174,42 @@ var _ = Describe("Writer", func() {
 
 		It("Should refuse a commit over stored data", func() {
 			Expect(w.Commit(first())).To(Succeed())
-			Expect(w.Commit(commit(1, number, 2, 110, 110, slot(clk, 24),
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 110, 110, slot(clk, 24),
 				slot(data, 12)))).To(SatisfyAll(
 				MatchError(state.ErrConflict),
 				MatchError(
 					ContainSubstring("overlaps its stored data from 100 to 110"),
 				),
+			))
+		})
+
+		It("Should refuse a commit over stored data that a backfill wrote earlier in "+
+			"its segment", func() {
+			Expect(w.Commit(first())).To(Succeed())
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 50, 50, slot(clk, 24), slot(data, 12)))).
+				To(Succeed())
+			n = MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 50, 50, slot(clk, 32), slot(data, 16)))).
+				To(SatisfyAll(
+					MatchError(state.ErrConflict),
+					MatchError(
+						ContainSubstring("overlaps its stored data from 50 to 50"),
+					),
+				))
+		})
+
+		It("Should refuse a writer that starts inside stored data that a backfill "+
+			"wrote", func() {
+			Expect(w.Commit(first())).To(Succeed())
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(2, n, 0, 40, 60, slot(clk, 32), slot(data, 16)))).
+				To(Succeed())
+			Expect(w.Close()).To(Succeed())
+			Expect(s.OpenWriter(clockWriter(50, true, 5))).Error().To(SatisfyAll(
+				MatchError(state.ErrConflict),
+				MatchError(ContainSubstring("inside its stored data from 40 to 60")),
 			))
 		})
 
@@ -205,7 +235,33 @@ var _ = Describe("Writer", func() {
 			Entry("a length that does not grow", func() *log.Commit {
 				return commit(1, number, 0, 100, 100, slot(clk, 0))
 			}, "length 0, not above 0"),
+			Entry("fewer bytes than samples", func() *log.Commit {
+				return commit(4, number, 0, 100, 110, slot(clk, 2))
+			}, "pointer of 4 samples in 2 bytes"),
 		)
+
+		It("Should refuse a commit whose stamps go back inside its stretch, and keep "+
+			"its pointer", func() {
+			Expect(w.Commit(first())).To(Succeed())
+			Expect(w.Commit(commit(1, number, 2, 50, 50, slot(clk, 24),
+				slot(data, 12)))).To(SatisfyAll(
+				MatchError(state.ErrRefused),
+				MatchError(ContainSubstring("at 50 goes back inside its stretch, "+
+					"which reaches 110")),
+			))
+			Expect(s.Channel(5).Segments[0].Pointers).
+				To(Equal([]state.Pointer{pointer(number, 0, 100, 110, 0, 16, 2)}))
+		})
+
+		It("Should take back a segment whose Create the log never got, with no Seal",
+			func() {
+				Expect(w.Commit(first())).To(Succeed())
+				durable(create(clk, 5, 5))
+				Expect(w.TakeBack()).To(Equal([]log.Seal{{Segment: clk}}))
+				Expect(s.Channel(6).Segments).To(BeEmpty())
+				Expect(s.TakeDead()).To(Equal([]uint64{data}))
+				durable(&log.Seal{Segment: clk})
+			})
 
 		It("Should seal the held segment of a key at its committed length", func() {
 			Expect(w.Commit(first())).To(Succeed())

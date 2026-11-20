@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,8 +36,8 @@ type Config struct {
 	Append func(e *log.Entry)
 	// Executor runs each step of the owner. It must run every function it gets.
 	Executor func(f func())
-	// OnHead gets the durable snapshot that the head of the log of generation holds,
-	// on a step of the owner. It must return at once.
+	// OnHead gets the durable snapshot that the head of the log of generation holds, on
+	// a step of the owner. It must return at once.
 	OnHead func(generation uint64, s *Snapshot)
 }
 
@@ -64,8 +65,8 @@ type request interface {
 type State struct {
 	cfg  Config
 	core *core
-	// keys maps each key to its channel for readers. The owner replaces the map when
-	// it adds or drops a key.
+	// keys maps each key to its channel for readers. The owner replaces the map when it
+	// adds or drops a key.
 	keys atomic.Pointer[map[uint32]*chanState]
 	wake chan struct{}
 	exit chan struct{}
@@ -89,9 +90,9 @@ type State struct {
 	parked []request
 }
 
-// Open returns the state of the durable state head, in replay mode. It returns an
-// error that wraps ErrRefused when a value of head breaks a rule, or log.ErrUnknown
-// for a segment format version that this binary does not read.
+// Open returns the state of the durable state head, in replay mode. It returns an error
+// that wraps ErrRefused when a value of head breaks a rule, or log.ErrUnknown for a
+// segment format version that this binary does not read.
 func Open(cfg Config, head *Snapshot) (*State, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -119,8 +120,8 @@ func (s *State) Replay(sequence uint64, records []log.Record) error {
 }
 
 // Run ends replay mode, publishes the visible state of every key, and runs one step of
-// the owner on the executor each time requests are queued, until Close or until ctx
-// is done. It returns the error of ctx, or nil at Close.
+// the owner on the executor each time requests are queued, until Close or until ctx is
+// done. It returns the error of ctx, or nil at Close.
 func (s *State) Run(ctx context.Context) error {
 	defer close(s.exit)
 	s.core.endReplay()
@@ -254,6 +255,9 @@ func (r *durableRequest) run(s *State) {
 		s.fail(err)
 		return
 	}
+	if invariants.Enabled {
+		s.checkCommits(r.records)
+	}
 	if len(s.parked) > 0 {
 		s.unpark()
 	}
@@ -290,6 +294,17 @@ func (s *State) TakeDead() ([]uint64, error) {
 		return nil, err
 	}
 	return r.dead, nil
+}
+
+// checkCommits runs checkViews on each key that a Commit of records names.
+func (s *State) checkCommits(records []log.Record) {
+	for _, r := range records {
+		if c, ok := r.(*log.Commit); ok {
+			for _, slot := range c.Slots {
+				s.core.channels[s.core.segments[slot.Segment].key].checkViews()
+			}
+		}
+	}
 }
 
 type snapshotRequest struct {
