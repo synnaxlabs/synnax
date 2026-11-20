@@ -870,12 +870,12 @@ describe("auth", () => {
       const second = { username: id.create(), password: "seldon" };
       const { key: role } = await createEmptyRole(admin);
       await admin.users.create({ ...second, role });
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       let username: string | undefined;
       const client = new auth.Client(
         transport.unary,
