@@ -50,7 +50,8 @@ export type ProviderState = z.infer<typeof providerStateZ>;
 
 interface InternalState {
   retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
-  window?: TimeRange;
+  // The fetch window of each segment of the x axis.
+  windows: TimeRange[];
   client: Synnax | null;
   render: render.Context;
   requestRender: render.Requestor;
@@ -110,6 +111,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
+    i.windows ??= [];
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
     i.requestRender = render.useRequestor(ctx);
@@ -143,19 +145,35 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   render(props: ProviderProps): void {
     const { layout: xLayout, region, timeRange, newest } = props;
     const { internal: i } = this;
-    if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
+    // Each segment fetches its own time, so the strip never asks for a collapsed gap.
+    const pieces =
+      xLayout.segments.length < 2
+        ? [timeRange]
+        : xLayout.segments.map(({ bounds: b }) =>
+            new TimeRange(b.lower, b.upper).boundBy(timeRange),
+          );
+    if (
+      i.windows.length !== pieces.length ||
+      pieces.some((p, j) => !covers(i.windows[j], p))
+    )
+      i.windows = pieces.map(pad);
     if (i.client != null)
       i.retrieve.update(i.client, {
-        where: { overlaps: i.window },
+        where:
+          i.windows.length === 1
+            ? { overlaps: i.windows[0] }
+            : { or: i.windows.map((overlaps) => ({ overlaps })) },
         limit: FETCH_LIMIT,
       });
     const { draw } = i;
     const now = TimeStamp.now();
     const fetched = i.retrieve.value ?? [];
-    const start = timeRange.start.valueOf();
-    const end = timeRange.end.valueOf();
-    const inView = fetched.filter(
-      (r) => r.timeRange.end.valueOf() >= start && r.timeRange.start.valueOf() <= end,
+    const inView = fetched.filter((r) =>
+      pieces.some(
+        (p) =>
+          r.timeRange.end.valueOf() >= p.start.valueOf() &&
+          r.timeRange.start.valueOf() <= p.end.valueOf(),
+      ),
     );
     const saturated = fetched.length >= FETCH_LIMIT || inView.length > MAX_ANNOTATIONS;
     // Lanes pack over the axis bounds, not the viewport, so a range keeps its lane
@@ -167,11 +185,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       draw.theme,
       now,
       newest,
+      xLayout.segments.map((s) => s.extent),
     );
     const bars = packed.filter(
       (b) => b.end >= box.left(region) && b.start <= box.right(region),
     );
-    const count = packed.length;
+    const count = new Set(packed.map((b) => b.range.key)).size;
     const height = stripHeight(lanes);
     const { cursor, visible, menuOpen, hovered: shown } = this.state;
     // A bar changes when its range starts. A running bar enters a view ahead of now

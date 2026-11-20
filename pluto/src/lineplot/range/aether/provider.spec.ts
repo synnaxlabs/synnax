@@ -683,4 +683,93 @@ describe("Provider", () => {
       await createTestClient().ranges.delete(ranges.map((r) => r.key));
     }
   });
+
+  describe("breaks", () => {
+    // Props for an x axis with a segment for each [lower, upper] pair, in seconds past
+    // start.
+    const segmentedProps = (
+      start: TimeStamp,
+      segments: [number, number][],
+    ): range.ProviderProps => {
+      const at = (s: number) => Number(start.add(TimeSpan.seconds(s)).valueOf());
+      const b = segments.map(([lower, upper]) => ({
+        lower: at(lower),
+        upper: at(upper),
+      }));
+      return {
+        layout: new Layout(b, box.DECIMAL),
+        region: REGION,
+        timeRange: new TimeRange(b[0].lower, b[b.length - 1].upper),
+      };
+    };
+
+    it("should cut a bar at each seam that its range crosses", async () => {
+      const start = TimeStamp.now().add(TimeSpan.days(18250));
+      const ranges = await createRanges(start, [[5, 25]]);
+      try {
+        const recorder = canvasTest.record();
+        const provider = mount(recorder);
+        const props = segmentedProps(start, [
+          [0, 10],
+          [20, 30],
+        ]);
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toEqual(1);
+        recorder.upper2d.calls.length = 0;
+        provider.render(props);
+        const { calls } = recorder.upper2d;
+        // A fill and a stroke for each of the two bars.
+        expect(calls.filter((c) => c.op === "roundRect")).toHaveLength(4);
+        const gradients = calls.filter((c) => c.op === "createLinearGradient");
+        expect(gradients.length).toBeGreaterThan(0);
+      } finally {
+        await createTestClient().ranges.delete(ranges.map((r) => r.key));
+      }
+    });
+
+    it("should draw no bar for a range inside a collapsed gap", async () => {
+      const start = TimeStamp.now().add(TimeSpan.days(18615));
+      const ranges = await createRanges(start, [
+        [2, 8],
+        [12, 18],
+      ]);
+      try {
+        const provider = mount();
+        const props = segmentedProps(start, [
+          [0, 10],
+          [20, 30],
+        ]);
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toEqual(1);
+      } finally {
+        await createTestClient().ranges.delete(ranges.map((r) => r.key));
+      }
+    });
+
+    it("should ask for the ranges of each segment and not of the gaps", () => {
+      const retrieve = vi.spyOn(ranger.listDefinition, "retrieve");
+      try {
+        const provider = mount();
+        const start = TimeStamp.now();
+        provider.render(
+          segmentedProps(start, [
+            [0, 10],
+            [86400, 86410],
+          ]),
+        );
+        const { where } = retrieve.mock.calls[0][0].query;
+        expect(where?.or).toHaveLength(2);
+      } finally {
+        retrieve.mockRestore();
+      }
+    });
+  });
 });

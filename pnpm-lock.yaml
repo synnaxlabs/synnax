@@ -360,6 +360,9 @@ catalogs:
     '@types/d3-scale':
       specifier: ^4.0.9
       version: 4.0.9
+    '@types/d3-time':
+      specifier: ^3.0.4
+      version: 3.0.4
     '@types/hast':
       specifier: ^3.0.5
       version: 3.0.5
@@ -432,6 +435,9 @@ catalogs:
     d3-scale:
       specifier: ^4.0.3
       version: 4.0.3
+    d3-time:
+      specifier: ^3.1.0
+      version: 3.1.0
     dompurify:
       specifier: ^3.4.18
       version: 3.4.18
@@ -1452,6 +1458,9 @@ importers:
       '@types/d3-scale':
         specifier: 'catalog:'
         version: 4.0.9
+      '@types/d3-time':
+        specifier: 'catalog:'
+        version: 3.0.4
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1479,6 +1488,9 @@ importers:
       d3-scale:
         specifier: 'catalog:'
         version: 4.0.3
+      d3-time:
+        specifier: 'catalog:'
+        version: 3.1.0
       dompurify:
         specifier: 'catalog:'
         version: 3.4.18
@@ -11484,6 +11496,13 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
+  '@napi-rs/wasm-runtime@1.2.4(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
+    dependencies:
+      '@emnapi/core': 1.11.2
+      '@emnapi/runtime': 1.11.2
+      '@tybys/wasm-util': 0.10.3
+    optional: true
+
   '@napi-rs/wasm-runtime@1.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)':
     dependencies:
       '@emnapi/core': 1.11.3
@@ -11501,13 +11520,6 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.11.1
       '@emnapi/runtime': 1.11.1
-      '@tybys/wasm-util': 0.10.3
-    optional: true
-
-  '@napi-rs/wasm-runtime@1.2.7(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
-    dependencies:
-      '@emnapi/core': 1.11.2
-      '@emnapi/runtime': 1.11.2
       '@tybys/wasm-util': 0.10.3
     optional: true
 
@@ -11640,7 +11652,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.11.2
       '@emnapi/runtime': 1.11.2
-      '@napi-rs/wasm-runtime': 1.2.7(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
+      '@napi-rs/wasm-runtime': 1.2.4(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
     optional: true
 
   '@oxc-resolver/binding-win32-arm64-msvc@11.24.2':

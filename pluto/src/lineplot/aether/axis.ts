@@ -20,9 +20,10 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { segments } from "@/lineplot/aether/layout";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import type { TickType } from "@/vis/axis/ticks";
+import type { TickSegment, TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
 import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
@@ -78,6 +79,8 @@ export interface AxisRenderProps {
   container: box.Box;
   canvases: render.CanvasVariant[];
   hold: boolean;
+  /** Set when the gaps between the windows of a time axis collapse into breaks. */
+  gapsCollapsed: boolean;
 }
 
 /** @returns the newest sample of the bounds with an edge, or undefined if none. */
@@ -123,11 +126,11 @@ const autoBounds = (
 
 interface InternalState {
   render: render.Context;
+  theme: baseTheme.Theme;
   base: axis.Axis;
-  // In the case where we're in a hold, we want to keep a snapshot of the hold bounds
-  // so that we can rerender the plot in the same position even if the data changes.
-  // changes.
-  boundSnapshot?: bounds.Bounds;
+  // A hold keeps a snapshot of the segments, so the plot draws in the same place while
+  // the data changes.
+  segmentSnapshot?: bounds.Bounds[];
   updateBounds?: (bounds: bounds.Bounds) => void;
 }
 
@@ -143,8 +146,9 @@ export abstract class BaseAxis<
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
     // A held view in one tick type means nothing in another.
-    if (this.state.type !== this.prevState.type) i.boundSnapshot = undefined;
+    if (this.state.type !== this.prevState.type) i.segmentSnapshot = undefined;
     const theme = theming.use(ctx);
+    i.theme = theme;
     this.state.autoBoundPadding ??=
       direction.swap(location) === "x"
         ? DEFAULT_X_BOUND_PADDING
@@ -166,7 +170,11 @@ export abstract class BaseAxis<
     render.request(ctx, "layout");
   }
 
-  renderAxis(props: AxisRenderProps, decimalToDataScale: scale.Scale): void {
+  renderAxis(
+    props: AxisRenderProps,
+    decimalToDataScale: scale.Scale,
+    segments?: TickSegment[],
+  ): void {
     if (!props.canvases.includes("lower2d")) return;
     const { base } = this.internal;
     const { grid: g, container } = props;
@@ -175,6 +183,7 @@ export abstract class BaseAxis<
       ...props,
       position,
       decimalToDataScale,
+      segments,
       size: this.state.size + this.state.labelSize,
     };
     const { size } = base.render(p);
@@ -186,41 +195,75 @@ export abstract class BaseAxis<
     hold: boolean,
     fetchDataBounds: () => line.DataBounds[],
   ): [bounds.Bounds, Error | null] {
-    if (hold && this.internal.boundSnapshot != null)
-      return [this.internal.boundSnapshot, null];
-    const { manualBounds } = this.state;
-    const autoLower = !manualBounds.lower;
-    const autoUpper = !manualBounds.upper;
-    if (!autoLower && !autoUpper && this.state.bounds != null) {
-      this.internal.boundSnapshot = this.state.bounds;
-      return [this.state.bounds, null];
+    const [segments, err] = this.iSegments(hold, fetchDataBounds, false);
+    return [segments[0], err];
+  }
+
+  // iSegments returns the segments of the axis with the error that its data bounds met.
+  // With collapsed false it returns one segment. Manual bounds clip the outer segments.
+  protected iSegments(
+    hold: boolean,
+    fetchDataBounds: () => line.DataBounds[],
+    collapsed: boolean,
+  ): [bounds.Bounds[], Error | null] {
+    const { internal: i } = this;
+    if (hold && i.segmentSnapshot != null) return [i.segmentSnapshot, null];
+    const { manualBounds, bounds: manual, autoBoundPadding, type } = this.state;
+    const autoLower = !manualBounds.lower || manual == null;
+    const autoUpper = !manualBounds.upper || manual == null;
+    if (!collapsed && !autoLower && !autoUpper) {
+      i.segmentSnapshot = [manual];
+      return [[manual], null];
     }
-    const merge = (auto: bounds.Bounds): bounds.Bounds => ({
-      upper:
-        autoUpper || this.state.bounds == null ? auto.upper : this.state.bounds.upper,
-      lower:
-        autoLower || this.state.bounds == null ? auto.lower : this.state.bounds.lower,
-    });
-    let ab: bounds.Bounds;
+    let auto: bounds.Bounds[];
     let err: Error | null = null;
     let loading = false;
     try {
       const dataBounds = fetchDataBounds();
       loading = dataBounds.some((b) => b.loading);
-      ab = autoBounds(dataBounds, this.state.autoBoundPadding, this.state.type);
+      auto = collapsed
+        ? segments(align(dataBounds), autoBoundPadding ?? 0)
+        : [autoBounds(dataBounds, autoBoundPadding, type)];
+      if (auto.length === 0) auto = [emptyBounds(type)];
     } catch (err_) {
-      ab = emptyBounds(this.state.type);
+      auto = [emptyBounds(type)];
       err = err_ as Error;
     }
-    const bounds = merge(ab);
-    // A hold keeps bounds of loaded data, never of data still loading.
-    if (!loading) this.internal.boundSnapshot = bounds;
+    const clipped = clip(
+      auto,
+      autoLower ? undefined : manual?.lower,
+      autoUpper ? undefined : manual?.upper,
+    );
+    // A hold keeps segments of loaded data, never of data still loading.
+    if (!loading) i.segmentSnapshot = clipped;
+    const outer = { lower: clipped[0].lower, upper: clipped[clipped.length - 1].upper };
     if (
-      this.state.bounds == null ||
-      (autoLower && this.state.bounds.lower !== bounds.lower) ||
-      (autoUpper && this.state.bounds.upper !== bounds.upper)
+      manual == null ||
+      (autoLower && manual.lower !== outer.lower) ||
+      (autoUpper && manual.upper !== outer.upper)
     )
-      this.internal.updateBounds?.(bounds);
-    return [bounds, err];
+      i.updateBounds?.(outer);
+    return [clipped, err];
   }
 }
+
+// clip drops the segments wholly outside lower and upper, and moves the outer edges to
+// them. When no segment is left inside, the nearest one takes both edges.
+const clip = (
+  segments: bounds.Bounds[],
+  lower?: number,
+  upper?: number,
+): bounds.Bounds[] => {
+  let s = segments;
+  if (lower != null) {
+    const inside = s.filter((b) => b.upper > lower);
+    s = inside.length > 0 ? inside : s.slice(-1);
+    s = [{ ...s[0], lower }, ...s.slice(1)];
+  }
+  if (upper != null) {
+    const inside = s.filter((b) => b.lower < upper);
+    s = inside.length > 0 ? inside : s.slice(0, 1);
+    s = [...s.slice(0, -1), { ...s[s.length - 1], upper }];
+  }
+  return s;
+};

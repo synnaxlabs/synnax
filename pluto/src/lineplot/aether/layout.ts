@@ -26,6 +26,13 @@ export interface Segment {
   bounds: bounds.Bounds;
   /** Maps a value to its decimal position across the viewport. */
   scale: scale.Scale;
+  /**
+   * The decimal positions across the viewport that the segment fills. The first and
+   * last segments extend without end.
+   */
+  position: bounds.Bounds;
+  /** The values that the segment draws: its bounds, extended as its position is. */
+  extent: bounds.Bounds;
 }
 
 /**
@@ -69,10 +76,18 @@ export class Layout {
     const translate = -box.root(viewport).x;
     const magnify = 1 / box.width(viewport);
     this.viewport = scale.Scale.translate(translate).magnify(magnify);
-    this.segments = segments.map((b, i) => ({
-      bounds: b,
-      scale: this.homes[i].translate(translate).magnify(magnify),
-    }));
+    this.segments = segments.map((b, i) => {
+      const s = this.homes[i].translate(translate).magnify(magnify);
+      return {
+        bounds: b,
+        scale: s,
+        extent: extended(segments, b.lower),
+        position: {
+          lower: i === 0 ? -Infinity : s.pos(b.lower),
+          upper: i === segments.length - 1 ? Infinity : s.pos(b.upper),
+        },
+      };
+    });
   }
 
   /** The values from the lower bound of the first segment to the upper of the last. */
@@ -89,6 +104,22 @@ export class Layout {
    */
   span(key: string): bounds.Bounds {
     return this.spans.get(key) ?? bounds.INFINITE;
+  }
+
+  /**
+   * @returns the segment that draws the line of key: the segment of its span. A line
+   * with no span draws with the first segment.
+   */
+  segment(key: string): Segment {
+    const span = this.span(key);
+    const value = Number.isFinite(span.lower) ? span.lower : span.upper;
+    if (!Number.isFinite(value)) return this.segments[0];
+    const i = lastAtOrBelow(
+      this.segments.length,
+      (j) => this.segments[j].bounds.lower,
+      value,
+    );
+    return this.segments[i];
   }
 
   /** @returns the decimal position of value across the viewport. */
@@ -139,36 +170,96 @@ const margin = (b: bounds.Bounds): number =>
 const EMPTY: bounds.Bounds = { lower: 0, upper: 0 };
 
 /**
+ * @returns the segments of a time axis whose gaps collapse: the window of each trace
+ * with a margin on each side, merged where they overlap. The outer edges take a share
+ * of the total span, padding, in place of a margin. Returns none when no trace has a
+ * window.
+ * @param traces - the traces, with their edges aligned.
+ */
+export const segments = (
+  traces: line.DataBounds[],
+  padding: number,
+): bounds.Bounds[] => {
+  const windows = traces
+    .filter((t) => bounds.isFinite(t.bounds))
+    .map((t) => ({ window: t.bounds, margined: margined(t) }))
+    .sort((a, b) => a.margined.lower - b.margined.lower);
+  if (windows.length === 0) return [];
+  const merged: Array<{ window: bounds.Bounds; margined: bounds.Bounds }> = [];
+  windows.forEach((w) => {
+    const last = merged.at(-1);
+    if (last == null || w.margined.lower > last.margined.upper) {
+      merged.push({ window: { ...w.window }, margined: { ...w.margined } });
+      return;
+    }
+    last.window = bounds.union([last.window, w.window]);
+    last.margined = bounds.union([last.margined, w.margined]);
+  });
+  const result = merged.map((m) => m.margined);
+  const last = result.length - 1;
+  result[0] = { ...result[0], lower: merged[0].window.lower };
+  result[last] = { ...result[last], upper: merged[last].window.upper };
+  const total = result.reduce((sum, b) => sum + bounds.span(b), 0);
+  // A single sample has no span to take a share of.
+  const pad = total === 0 ? 1 : total * padding;
+  result[0] = { ...result[0], lower: result[0].lower - pad };
+  result[last] = { ...result[last], upper: result[last].upper + pad };
+  return result;
+};
+
+// margined returns the window of a trace with a margin on each side. A window that ends
+// at the newest sample gets no margin after it, as no samples exist there. A growing
+// window keeps its start, so the floor keeps its margin from moving.
+const margined = ({ bounds: b, edge }: line.DataBounds): bounds.Bounds => {
+  if (edge == null) return { lower: b.lower - margin(b), upper: b.upper + margin(b) };
+  const leading = edge === "growing" ? MARGIN_FLOOR : margin(b);
+  return { lower: b.lower - leading, upper: b.upper };
+};
+
+/**
  * @returns the span of each trace that has one, in axis values. On a relative axis each
  * trace spans its window and a margin on each side, with no margin after a window that
  * ends at the newest sample. On a time axis the traces of one group split the time, so
- * each time draws from one trace. A linear axis gives no spans.
+ * each time draws from one trace, and a trace with no group is a group of its own. A
+ * linear axis gives no spans.
+ * @param segments - the segments of a time axis. Each span stays inside the segment of
+ * its window, so no trace reads or draws the gap between two segments. The first and
+ * last segments extend past their bounds.
  */
-export const spans = (traces: Trace[], type: TickType): Map<string, bounds.Bounds> => {
+export const spans = (
+  traces: Trace[],
+  type: TickType,
+  segments: bounds.Bounds[] = [],
+): Map<string, bounds.Bounds> => {
   const finite = traces.filter((t) => bounds.isFinite(t.bounds));
   if (type === "relative") return new Map(finite.map((t) => [t.key, relativeSpan(t)]));
   const result = new Map<string, bounds.Bounds>();
   if (type === "linear") return result;
   const groups = new Map<string, Trace[]>();
   finite.forEach((t) => {
-    if (t.group != null) groups.set(t.group, [...(groups.get(t.group) ?? []), t]);
+    const group = t.group ?? t.key;
+    groups.set(group, [...(groups.get(group) ?? []), t]);
   });
-  groups.forEach((members) => split(members).forEach((b, key) => result.set(key, b)));
+  groups.forEach((members) =>
+    split(members, segments).forEach((b, key) => result.set(key, b)),
+  );
   return result;
 };
 
-const relativeSpan = ({ bounds: b, edge }: Trace): bounds.Bounds => {
-  if (edge == null) return { lower: b.lower - margin(b), upper: b.upper + margin(b) };
-  // A growing window keeps its start, so the floor keeps its span from moving.
-  const lower = edge === "growing" ? MARGIN_FLOOR : margin(b);
-  return { lower: b.lower - lower, upper: Infinity };
+const relativeSpan = (t: Trace): bounds.Bounds => {
+  const m = margined(t);
+  return t.edge == null ? m : { lower: m.lower, upper: Infinity };
 };
 
 // split gives each trace the time of its window that no trace before it takes. Fixed
 // windows go first, in order of start, and a rolling window takes the newest part that
 // is left. The time between two windows goes half to each, and the time before the
-// first window and after the last goes to the outer traces.
-const split = (traces: Trace[]): Map<string, bounds.Bounds> => {
+// first window and after the last goes to the outer traces. No span leaves the segment
+// of its window.
+const split = (
+  traces: Trace[],
+  segments: bounds.Bounds[],
+): Map<string, bounds.Bounds> => {
   const ordered = [...traces].sort(
     (a, b) =>
       Number(a.edge === "rolling") - Number(b.edge === "rolling") ||
@@ -188,12 +279,24 @@ const split = (traces: Trace[]): Map<string, bounds.Bounds> => {
   owned.forEach(([key, piece], i) => {
     const before = owned[i - 1]?.[1];
     const after = owned[i + 1]?.[1];
-    result.set(key, {
+    const span = {
       lower: before == null ? -Infinity : (before.upper + piece.lower) / 2,
       upper: after == null ? Infinity : (piece.upper + after.lower) / 2,
-    });
+    };
+    result.set(key, bounds.intersection([span, extended(segments, piece.lower)]));
   });
   return result;
+};
+
+// extended returns the bounds of the segment that holds value, with the first and last
+// segments extended past their bounds.
+const extended = (segments: bounds.Bounds[], value: number): bounds.Bounds => {
+  if (segments.length < 2) return bounds.INFINITE;
+  const i = lastAtOrBelow(segments.length, (j) => segments[j].lower, value);
+  return {
+    lower: i === 0 ? -Infinity : segments[i].lower,
+    upper: i === segments.length - 1 ? Infinity : segments[i].upper,
+  };
 };
 
 // newestLeft returns the newest part of b that no bound of taken holds, or null when

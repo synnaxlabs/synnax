@@ -414,3 +414,53 @@ describe("RelativeTickFactory", () => {
     expect(relative(S, S, 500)).toEqual([]);
   });
 });
+
+describe("TimeTickFactory segments", () => {
+  const ns = (d: Date): number => Number(new TimeStamp(d).valueOf());
+  const A = [new Date(2026, 10, 17, 10, 0), new Date(2026, 10, 17, 10, 6)];
+  const B = [new Date(2026, 10, 18, 14, 30), new Date(2026, 10, 18, 14, 36)];
+  // Two segments of six minutes that each fill half of the axis.
+  const segments = (seam = 0.5) => [
+    {
+      position: { lower: -Infinity, upper: seam },
+      decimalToDataScale: scale.Scale.scale<number>(0, seam).scale(ns(A[0]), ns(A[1])),
+    },
+    {
+      position: { lower: seam, upper: Infinity },
+      decimalToDataScale: scale.Scale.scale<number>(seam, 1).scale(ns(B[0]), ns(B[1])),
+    },
+  ];
+  const create = (seam = 0.5, size = 800): Tick[] =>
+    newTickFactory({ type: "time" }).create({
+      decimalToDataScale: segments(seam)[0].decimalToDataScale,
+      size,
+      segments: segments(seam),
+    });
+
+  it("should place the ticks of every segment at one interval", () => {
+    const ticks = create();
+    const first = ticks.filter((t) => t.position < 400);
+    const second = ticks.filter((t) => t.position >= 400);
+    expect(first.length).toBeGreaterThan(1);
+    expect(second.length).toBeGreaterThan(1);
+    const step = (t: Tick[]) => t[1].position - t[0].position;
+    expect(step(first)).toBeCloseTo(step(second));
+  });
+
+  it("should give each tick its date and time as an anchor label", () => {
+    const firsts = [0, 1].map((i) => create().find((t) => t.segment === i));
+    expect(firsts.map((t) => t?.anchorLabel)).toEqual(["Nov 17 10:00", "Nov 18 14:30"]);
+  });
+
+  it("should label the ticks in the short form", () => {
+    create().forEach((t) => expect(t.label).toMatch(/^\d+(:\d\d|\.\d+)?s?$/));
+  });
+
+  it("should tick as one axis when one segment is in view", () => {
+    const factory = newTickFactory({ type: "time" });
+    const [a] = segments(1.5);
+    expect(create(1.5)).toEqual(
+      factory.create({ decimalToDataScale: a.decimalToDataScale, size: 800 }),
+    );
+  });
+});

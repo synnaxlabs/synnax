@@ -167,6 +167,7 @@ describe("YAxis", () => {
           container: region,
           canvases: ["gl"],
           hold: false,
+          gapsCollapsed: false,
           layout: new Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
         },
         raised,
@@ -432,6 +433,7 @@ describe("XAxis", () => {
   // Mounts an x axis with a y axis per entry, each holding lines of the given x bounds.
   const mount = (
     yAxes: Record<string, Array<{ x: bounds.Bounds; edge?: telem.Edge }>>,
+    xState: Record<string, unknown> = {},
   ): XAxis => {
     const recorder = canvasTest.record();
     (recorder as { gl: unknown }).gl = GL;
@@ -446,7 +448,11 @@ describe("XAxis", () => {
     });
     const xPath = [...stack.basePath, "host", "x1"];
     stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
-    stack.driver.update(xPath, XAxis.TYPE, { location: "bottom", autoBoundPadding: 0 });
+    stack.driver.update(xPath, XAxis.TYPE, {
+      location: "bottom",
+      autoBoundPadding: 0,
+      ...xState,
+    });
     Object.entries(yAxes).forEach(([yKey, lines]) => {
       const yPath = [...xPath, yKey];
       stack.driver.update(yPath, YAxis.TYPE, { location: "left", autoBoundPadding: 0 });
@@ -532,6 +538,103 @@ describe("XAxis", () => {
         ],
       });
       expect(x.bounds(false)).toEqual({ lower: 970, upper: 1000 });
+    });
+  });
+
+  describe("collapsed gaps", () => {
+    const S = Number(TimeSpan.SECOND.valueOf());
+    const DAY = Number(TimeSpan.DAY.valueOf());
+    // Two windows of a minute, a day apart, on one y axis.
+    const WINDOWS = {
+      y1: [
+        { x: { lower: 0, upper: 60 * S } },
+        { x: { lower: DAY, upper: DAY + 60 * S } },
+      ],
+    };
+    const props = (gapsCollapsed: boolean) => ({
+      hold: false,
+      viewport: box.DECIMAL,
+      gapsCollapsed,
+    });
+    const segmentBounds = (x: XAxis, gapsCollapsed = true) =>
+      x.layout(props(gapsCollapsed)).segments.map((s) => s.bounds);
+
+    it("should give each window far from the others its own segment", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(segmentBounds(x)).toEqual([
+        { lower: 0, upper: 63 * S },
+        { lower: DAY - 3 * S, upper: DAY + 60 * S },
+      ]);
+    });
+
+    it("should lay out one segment when gaps do not collapse", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(segmentBounds(x, false)).toEqual([{ lower: 0, upper: DAY + 60 * S }]);
+    });
+
+    it("should lay out one segment on an axis that is not a time axis", () => {
+      const x = mount(WINDOWS, { type: "linear" });
+      expect(segmentBounds(x)).toHaveLength(1);
+    });
+
+    it("should draw each line with the scale of the segment of its window", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout(props(true));
+      expect(layout.segment("line0")).toBe(layout.segments[0]);
+      expect(layout.segment("line1")).toBe(layout.segments[1]);
+    });
+
+    it("should report the outer edges of its segments as its bounds", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(x.layout(props(true)).bounds).toEqual({ lower: 0, upper: DAY + 60 * S });
+    });
+
+    it("should move the outer edge of a segment to a manual bound", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: 30 * S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)[0]).toEqual({ lower: 30 * S, upper: 63 * S });
+    });
+
+    it("should drop the segments outside a manual bound", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: DAY - S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: DAY - S, upper: DAY + 60 * S }]);
+    });
+
+    it("should keep its segments while it holds", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const before = segmentBounds(x);
+      expect(
+        x.layout({ ...props(false), hold: true }).segments.map((s) => s.bounds),
+      ).toEqual(before);
+    });
+
+    it("should draw a band over each seam in view", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const recorder = (x as unknown as { internal: { render: canvasTest.Recorder } })
+        .internal.render;
+      const plot = box.construct(0, 0, 800, 600);
+      x.render(
+        {
+          ...props(true),
+          grid: {},
+          plot,
+          container: plot,
+          canvases: ["upper2d"],
+        },
+        [],
+      );
+      // The two segments hold 63 and 63 seconds, so the seam is at the middle.
+      const lines = recorder.upper2d.calls
+        .filter((c) => c.op === "moveTo")
+        .map((c) => c.args[0]);
+      expect(lines).toEqual([396.5, 404.5]);
     });
   });
 });

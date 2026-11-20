@@ -9,6 +9,7 @@
 
 import { bounds, type scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-scale";
+import { timeTickInterval } from "d3-time";
 import { z } from "zod";
 
 import { type PreciseTimeScale, preciseTimeScale } from "@/vis/axis/preciseTimeScale";
@@ -17,6 +18,21 @@ import { formatRelativeTime, RELATIVE_STEPS } from "@/vis/axis/relative";
 export interface Tick {
   position: number;
   label: string;
+  /** The index of the segment that holds the tick, on an axis with breaks. */
+  segment?: number;
+  /**
+   * The label of the tick when it anchors its segment: the full date and time. The
+   * first tick of each segment whose anchor label fits is the anchor.
+   */
+  anchorLabel?: string;
+}
+
+/** A segment of an axis with breaks, which maps values with its own scale. */
+export interface TickSegment {
+  /** The decimal positions across the axis that the segment fills. */
+  position: bounds.Bounds;
+  /** Takes a decimal position across the axis and returns the value there. */
+  decimalToDataScale: scale.Scale;
 }
 
 export interface TickFactory {
@@ -40,6 +56,11 @@ export interface TickFactoryRenderParams {
   decimalToDataScale: scale.Scale;
   /** Size is the length of the axis in pixels. */
   size: number;
+  /**
+   * The segments of an axis with breaks, in order. Only a time axis takes more than
+   * one. The segments share one tick interval, and each tick has an anchor label.
+   */
+  segments?: TickSegment[];
 }
 
 export const newTickFactory = (props: TickFactoryProps): TickFactory => {
@@ -66,7 +87,18 @@ class TimeTickFactory implements TickFactory {
     this.currTicks = [];
   }
 
-  create({ decimalToDataScale: scale, size }: TickFactoryRenderParams): Tick[] {
+  create({
+    decimalToDataScale: scale,
+    size,
+    segments = [],
+  }: TickFactoryRenderParams): Tick[] {
+    const visible = segments.filter(
+      ({ position: { lower, upper } }) => Math.max(lower, 0) < Math.min(upper, 1),
+    );
+    // With one segment in view, no seam is in view, so the axis ticks as one with no
+    // breaks.
+    if (visible.length > 1) return this.segmentTicks(visible, size);
+    if (visible.length === 1) scale = visible[0].decimalToDataScale;
     const domain = new TimeRange(
       new TimeStamp(scale.pos(0)),
       new TimeStamp(scale.pos(1)),
@@ -104,6 +136,35 @@ class TimeTickFactory implements TickFactory {
       }));
     }
     return this.currTicks;
+  }
+
+  // segmentTicks places ticks in the visible part of each segment at one interval,
+  // which the visible time of all segments and the size of the axis pick.
+  private segmentTicks(segments: TickSegment[], size: number): Tick[] {
+    const visible = segments.map(({ position, decimalToDataScale: s }) => ({
+      domain: new TimeRange(
+        new TimeStamp(s.pos(Math.max(position.lower, 0))),
+        new TimeStamp(s.pos(Math.min(position.upper, 1))),
+      ),
+      toDecimal: s.reverse(),
+    }));
+    const total = visible.reduce(
+      (sum, { domain }) => sum + domain.span.milliseconds,
+      0,
+    );
+    const count = calcTickCount(size, this.props.tickSpacing);
+    const interval = timeTickInterval(new Date(0), new Date(total), count);
+    if (interval == null) return [];
+    return visible.flatMap(({ domain, toDecimal }, segment) => {
+      const range = interval.range(domain.start.date(), domain.end.date());
+      const ticks = evenlySpaceTwoDayTicks(range, domain);
+      return ticks.map((tick) => ({
+        label: this.normalTickLabel(tick),
+        anchorLabel: anchorLabel(tick),
+        segment,
+        position: toDecimal.pos(Number(new TimeStamp(tick).valueOf())) * size,
+      }));
+    });
   }
 
   normalTickLabel(date: Date): string {
@@ -197,6 +258,18 @@ class RelativeTickFactory implements TickFactory {
     return ticks;
   }
 }
+
+// anchorLabel labels a date with its day and its time, to the finest unit that is not
+// zero: "Nov 18 10:00", "Nov 18 10:00:30", "Nov 18 10:00:30.25".
+const anchorLabel = (date: Date): string => {
+  const time = `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
+  const ms = date.getMilliseconds();
+  let seconds = "";
+  if (date.getSeconds() !== 0 || ms !== 0)
+    seconds = `:${date.getSeconds().toString().padStart(2, "0")}`;
+  if (ms !== 0) seconds += `.${ms.toString().padStart(3, "0").replace(/0+$/, "")}`;
+  return `${MONTH_FORMAT.format(date)} ${date.getDate()} ${time}${seconds}`;
+};
 
 const calcTickCount = (size: number, pixelsPerTick: number): number => {
   const tickCount = Math.floor(size / pixelsPerTick);

@@ -160,7 +160,7 @@ export interface FrameProps
     Partial<
       Pick<
         z.input<typeof lineplot.linePlotStateZ>,
-        "clearOverScan" | "hold" | "visible"
+        "clearOverScan" | "hold" | "visible" | "gapsCollapsed"
       >
     >,
     Omit<HTMLDivProps, "ref">,
@@ -187,6 +187,7 @@ export const Frame = ({
   hold = false,
   onHold,
   visible,
+  gapsCollapsed = false,
   loadingMessage,
   ref,
   viewportRef,
@@ -196,7 +197,7 @@ export const Frame = ({
   const [lines, setLines] = useState<LineState>([]);
   const [viewportElement, setViewportElement] = useState<HTMLElement | null>(null);
 
-  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
+  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible, gapsCollapsed });
 
   const [{ path }, { grid, loading, fetching }, setState, methods] = Aether.use({
     aetherKey,

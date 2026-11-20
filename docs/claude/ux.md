@@ -856,6 +856,17 @@ says why in a sentence, then gives the raw error.
   the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
   is open.
 
+### Plot breaks
+
+- On an absolute time axis, each gap between ranges, past a margin on each side,
+  collapses into a seam. A seam draws an 8 px band through the plot and the range strip,
+  with dashed edges, and a `//` in a gap in the axis line.
+- All segments share one tick interval. In each segment, the first tick whose full label
+  fits is an anchor with the date and time: "Nov 18 14:31". No label comes before the
+  anchor of its segment, and no label overlaps a seam or an anchor.
+- A range bar that crosses a seam draws on each side, cut at the seam with the fade of
+  the plot edge. A range wholly inside a collapsed gap draws nothing.
+
 ### Plot range select
 
 - The dialog opens above the field. The Live row holds one chip per preset and an Off

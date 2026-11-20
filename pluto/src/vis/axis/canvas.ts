@@ -14,15 +14,27 @@ import {
   type AxisProps,
   type AxisState,
   axisStateZ,
+  BREAK_WIDTH,
   type ParsedAxisState,
   type RenderResult,
 } from "@/vis/axis/axis";
-import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
+import {
+  newTickFactory,
+  type Tick,
+  type TickFactory,
+  type TickSegment,
+} from "@/vis/axis/ticks";
 import type { FillTextOptions } from "@/vis/draw2d/canvas";
 import type { render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 5;
 const TICK_PADDING = 6;
+// The space in pixels that a label keeps from a seam or an anchor.
+const LABEL_GAP = 8;
+// The offset in pixels of each stroke of a break's mark from its seam, and the half
+// size of a stroke.
+const BREAK_STROKES = [-2, 2];
+const BREAK_STROKE_SIZE = 4;
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
 const AXES: Record<
@@ -79,6 +91,66 @@ export class Base {
     return maxDimensions;
   }
 
+  // drawBreakAxis draws the axis line from start along x with a gap at each seam, and a
+  // mark of two strokes in each gap.
+  protected drawBreakAxis(start: xy.XY, size: number, seams: number[]): void {
+    let from = 0;
+    [...seams, size + BREAK_WIDTH / 2].forEach((seam) => {
+      const to = seam - BREAK_WIDTH / 2;
+      if (to > from)
+        this.drawLine(xy.translateX(start, from), xy.translateX(start, to));
+      from = seam + BREAK_WIDTH / 2;
+    });
+    seams.forEach((seam) =>
+      BREAK_STROKES.forEach((offset) => {
+        const x = start.x + seam + offset;
+        this.drawLine(
+          { x: x - BREAK_STROKE_SIZE / 2, y: start.y + BREAK_STROKE_SIZE },
+          { x: x + BREAK_STROKE_SIZE / 2, y: start.y - BREAK_STROKE_SIZE },
+        );
+      }),
+    );
+  }
+
+  // labels returns the label that each tick draws. With no seams every tick draws its
+  // label. Else the first tick of each segment whose anchor label is clear of the seams
+  // and of the anchors before it draws its anchor label. Any other tick after the
+  // anchor of its segment draws its label when it is clear of the seams and anchors.
+  protected labels(ticks: Tick[], seams: number[]): Map<Tick, string> {
+    if (seams.length === 0) return new Map(ticks.map((t) => [t, t.label]));
+    const { lower2d: canvas } = this.renderCtx;
+    const extent = (position: number, label: string): bounds.Bounds => {
+      const half = canvas.textDimensions(label, FILL_TEXT_OPTIONS).width / 2;
+      return { lower: position - half, upper: position + half };
+    };
+    const taken = seams.map((s) => ({
+      lower: s - BREAK_WIDTH / 2,
+      upper: s + BREAK_WIDTH / 2,
+    }));
+    const clear = (e: bounds.Bounds): boolean =>
+      taken.every(
+        (o) => e.upper + LABEL_GAP <= o.lower || e.lower >= o.upper + LABEL_GAP,
+      );
+    const labels = new Map<Tick, string>();
+    // The position of the anchor of each segment.
+    const anchors = new Map<number, number>();
+    ticks.forEach((tick) => {
+      const { segment, anchorLabel, position } = tick;
+      if (segment == null || anchorLabel == null || anchors.has(segment)) return;
+      const e = extent(position, anchorLabel);
+      if (!clear(e)) return;
+      taken.push(e);
+      anchors.set(segment, position);
+      labels.set(tick, anchorLabel);
+    });
+    ticks.forEach((tick) => {
+      const anchor = tick.segment == null ? undefined : anchors.get(tick.segment);
+      if (labels.has(tick) || (anchor != null && tick.position < anchor)) return;
+      if (clear(extent(tick.position, tick.label))) labels.set(tick, tick.label);
+    });
+    return labels;
+  }
+
   private static START_BOUND = bounds.construct(-1, 1);
 
   protected maybeDrawGrid(
@@ -113,24 +185,41 @@ export class Base {
   }
 }
 
+// seamPositions returns the position in pixels of each seam between two segments that
+// the axis shows.
+const seamPositions = (segments: TickSegment[] | undefined, size: number): number[] =>
+  (segments ?? [])
+    .slice(1)
+    .map(({ position }) => position.lower * size)
+    .filter((p) => p > 0 && p < size);
+
+// nearSeam is true when position is inside the mark of a seam.
+const nearSeam = (seams: number[], position: number): boolean =>
+  seams.some((s) => Math.abs(s - position) < BREAK_WIDTH / 2);
+
 export class Bottom extends Base implements Axis {
   render(props: AxisProps): RenderResult {
     const { lower2d: canvas } = this.renderCtx;
     const { plot: plottingRegion, position: pos } = props;
     const { width: size, height: gridSize } = box.dims(plottingRegion);
 
-    const ticks = this.tickFactory.create({ ...props, size });
+    const seams = seamPositions(props.segments, size);
+    const ticks = this.tickFactory
+      .create({ ...props, size })
+      .filter((tick) => !nearSeam(seams, tick.position));
+    const labels = this.labels(ticks, seams);
+    const shown = ticks.map((t) => ({ ...t, label: labels.get(t) ?? "" }));
 
     canvas.beginPath();
     this.setColor(this.state.color);
-    this.drawLine(pos, xy.translate(pos, "x", size));
+    this.drawBreakAxis(pos, size, seams);
 
-    const maxTickDims = this.drawTicks(ticks, (d, tick) => {
+    const maxTickDims = this.drawTicks(shown, (d, tick) => {
       this.drawLine(
         xy.translateX(pos, tick.position),
         xy.translate(pos, { x: tick.position, y: TICK_LINE_SIZE }),
       );
-
+      if (tick.label === "") return;
       canvas.fillText(
         tick.label,
         pos.x + tick.position - d.width / 2,
@@ -156,17 +245,23 @@ export class Top extends Base implements Axis {
     const { width: size, height: gridSize } = box.dims(plottingRegion);
 
     const p = xy.translate(props.position, "y", props.size);
-    const ticks = this.tickFactory.create({ ...props, size });
+    const seams = seamPositions(props.segments, size);
+    const ticks = this.tickFactory
+      .create({ ...props, size })
+      .filter((tick) => !nearSeam(seams, tick.position));
+    const labels = this.labels(ticks, seams);
+    const shown = ticks.map((t) => ({ ...t, label: labels.get(t) ?? "" }));
 
     canvas.beginPath();
     this.setColor(this.state.color);
-    this.drawLine(p, xy.translate(p, "x", size));
+    this.drawBreakAxis(p, size, seams);
 
-    const maxTickDims = this.drawTicks(ticks, (d, tick) => {
+    const maxTickDims = this.drawTicks(shown, (d, tick) => {
       this.drawLine(
         xy.translateX(p, tick.position),
         xy.translate(p, { x: tick.position, y: -TICK_LINE_SIZE }),
       );
+      if (tick.label === "") return;
       canvas.fillText(
         tick.label,
         p.x + tick.position - d.width / 2,

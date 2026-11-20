@@ -10,8 +10,10 @@
 import { box, type location, scale, xy } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type AxisProps, axisStateZ } from "@/vis/axis/axis";
+import { type AxisProps, axisStateZ, BREAK_WIDTH } from "@/vis/axis/axis";
 import { newCanvas } from "@/vis/axis/canvas";
+import type { Tick } from "@/vis/axis/ticks";
+import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const LOCATIONS: location.Outer[] = ["bottom", "top", "left", "right"];
@@ -94,5 +96,84 @@ describe("axis/canvas", () => {
         });
       }),
     );
+  });
+
+  describe("breaks", () => {
+    // Two segments of 0 to 50 and 1000 to 1050 that meet at the middle of the axis.
+    const SEGMENTS = [
+      {
+        position: { lower: -Infinity, upper: 0.5 },
+        decimalToDataScale: scale.Scale.scale<number>(0, 0.5).scale(0, 50),
+      },
+      {
+        position: { lower: 0.5, upper: Infinity },
+        decimalToDataScale: scale.Scale.scale<number>(0.5, 1).scale(1000, 1050),
+      },
+    ];
+
+    const render = (ticks: Tick[]) => {
+      const r = canvasTest.record();
+      const axis = newCanvas("bottom", r as unknown as render.Context, state("bottom"));
+      (axis as unknown as { tickFactory: { create: () => Tick[] } }).tickFactory = {
+        create: () => ticks,
+      };
+      axis.render({ ...PROPS, segments: SEGMENTS });
+      const { calls } = r.lower2d;
+      const labels = calls.filter((c) => c.op === "fillText").map((c) => c.args[0]);
+      const ends = calls.filter((c) => c.op === "lineTo").map((c) => c.args[0]);
+      return { labels, ends };
+    };
+
+    it("should stop the axis line at the mark of each seam", () => {
+      const { ends } = render([]);
+      expect(ends).toContain(POSITION.x + 150 - BREAK_WIDTH / 2);
+      expect(ends).toContain(POSITION.x + 300);
+    });
+
+    it("should draw no tick inside the mark of a seam", () => {
+      const { labels } = render([{ position: 151, label: "x" }]);
+      expect(labels).toEqual([]);
+    });
+
+    it("should not draw a label that overlaps a seam", () => {
+      const { labels } = render([
+        { position: 140, label: "long label" },
+        { position: 60, label: "far" },
+      ]);
+      expect(labels).toEqual(["far"]);
+    });
+
+    it("should not draw a label that overlaps an anchor", () => {
+      const { labels } = render([
+        { position: 40, label: "10:00", anchorLabel: "Nov 17 10:00", segment: 0 },
+        { position: 70, label: "10:01", anchorLabel: "Nov 17 10:01", segment: 0 },
+        { position: 118, label: "10:02", anchorLabel: "Nov 17 10:02", segment: 0 },
+      ]);
+      expect(labels).toEqual(["Nov 17 10:00", "10:02"]);
+    });
+
+    it("should anchor a segment at its first tick whose anchor label fits", () => {
+      const { labels } = render([
+        { position: 160, label: "14:30", anchorLabel: "Nov 18 14:30", segment: 1 },
+        { position: 220, label: "14:31", anchorLabel: "Nov 18 14:31", segment: 1 },
+      ]);
+      expect(labels).toEqual(["Nov 18 14:31"]);
+    });
+
+    it("should draw no label before the anchor of its segment", () => {
+      const { labels } = render([
+        { position: 185, label: "14:30", anchorLabel: "Nov 18 14:30 long", segment: 1 },
+        { position: 280, label: "14:31", anchorLabel: "Nov 18 14:31", segment: 1 },
+      ]);
+      expect(labels).toEqual(["Nov 18 14:31"]);
+    });
+
+    it("should draw every label of an axis with no breaks", () => {
+      const r = canvasTest.record();
+      const axis = newCanvas("bottom", r as unknown as render.Context, state("bottom"));
+      axis.render(PROPS);
+      const labels = r.lower2d.calls.filter((c) => c.op === "fillText");
+      expect(labels.length).toBeGreaterThan(0);
+    });
   });
 });
