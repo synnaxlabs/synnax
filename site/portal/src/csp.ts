@@ -30,5 +30,7 @@ export const csp = (vercelEnv?: string): ReturnType<typeof policy> =>
     },
     scripts: [...CLERK, TURNSTILE],
     posthog: true,
+    // Lyra adds a style element for the cursor while a numeric field drags.
+    inlineStyles: true,
     vercelEnv,
   });

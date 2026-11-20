@@ -30,11 +30,8 @@ describe("csp", () => {
     });
   });
 
-  it("should allow inline style attributes but not style elements", () => {
-    expect(csp().styleDirective?.resources).toEqual([
-      "'self'",
-      { resource: "'unsafe-inline'", kind: "attribute" },
-    ]);
+  it("should allow the inline styles that Lyra adds", () => {
+    expect(csp().styleDirective?.resources).toEqual(["'self'", "'unsafe-inline'"]);
   });
 
   it("should allow the Vercel toolbar only on a preview", () => {
