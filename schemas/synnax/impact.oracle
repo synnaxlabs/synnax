@@ -67,7 +67,7 @@ Entry struct {
 
 Plan struct {
     entries Entry[] {
-        @doc value "are the records that the change touches, sorted by id."
+        @doc value "are the records that the change touches, sorted by record."
     }
     kept    uint32  {
         @doc value """

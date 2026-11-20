@@ -185,7 +185,7 @@ func (e Entry) Validate() error {
 
 // Plan is every record that a change touches, with the picks for each.
 type Plan struct {
-	// Entries are the records that the change touches, sorted by id.
+	// Entries are the records that the change touches, sorted by record.
 	Entries []Entry `json:"entries" msgpack:"entries"`
 	// Kept is the number of records that hold a deleted channel and keep it with no
 	// change. They need no pick, so they are not entries.
