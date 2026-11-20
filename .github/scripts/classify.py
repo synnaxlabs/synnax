@@ -20,7 +20,8 @@ reads the pull request number from PR, or else <results-dir>/pr/number, and refu
 unless the pull request's head is HEAD_SHA. When a pull request that a bot opened needs
 review/human, it requests a review from REVIEWER, if set, since no author will. It asks
 only while nobody was ever asked to review the pull request or reviewed it.
-Environment: GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and optionally PR and REVIEWER.
+It reads only its own comment: one that the App named APP posted.
+Environment: APP, GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and optionally PR and REVIEWER.
 """
 
 import json
@@ -242,15 +243,18 @@ def gh_lines(*args: str) -> list[Any]:
     return [json.loads(line) for line in gh(*args).splitlines() if line]
 
 
-def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
+def find_comment(repo: str, *, number: int, app: str) -> dict[str, Any] | None:
     comments = gh_lines(
         "api",
         "--paginate",
         f"repos/{repo}/issues/{number}/comments",
         "--jq",
-        ".[] | {id, body}",
+        ".[] | {id, body, app: .performed_via_github_app.slug}",
     )
-    return next((c for c in comments if c["body"].startswith(MARKER)), None)
+    return next(
+        (c for c in comments if c["app"] == app and c["body"].startswith(MARKER)),
+        None,
+    )
 
 
 def write_comment(
@@ -335,7 +339,7 @@ def main() -> None:
         "--jq",
         ".[] | {filename}",
     )
-    comment = find_comment(repo, number=number)
+    comment = find_comment(repo, number=number, app=os.environ["APP"])
     reasons = trust_reasons(pull, files=files)
     surfaces = read_surfaces(root)
     # A push during the reads leaves the reports stale: check the head before writing.

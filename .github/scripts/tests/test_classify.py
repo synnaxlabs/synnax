@@ -265,6 +265,7 @@ class TestRender:
 
 
 REPO = "synnaxlabs/synnax"
+APP = "classifier-app"
 HUMAN_ADDED = {"event": "labeled", "label": {"name": HUMAN}}
 LABELS = f"repos/{REPO}/issues/5/labels"
 COMMENTS = f"repos/{REPO}/issues/5/comments"
@@ -322,6 +323,7 @@ class TestMain:
         fake = FakeGH()
         monkeypatch.setattr(classify, "gh", fake)
         monkeypatch.setattr(sys, "argv", ["classify.py", str(tmp_path)])
+        monkeypatch.setenv("APP", APP)
         monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
         monkeypatch.setenv("HEAD_SHA", "abc")
         monkeypatch.setenv("PR", "5")
@@ -355,7 +357,7 @@ class TestMain:
     ) -> None:
         (tmp_path / "surface-core" / "status").write_text("changed\n")
         gh.labels = [BOT]
-        gh.comments = [{"id": 9, "body": f"{MARKER}\nold"}]
+        gh.comments = [{"id": 9, "app": APP, "body": f"{MARKER}\nold"}]
         classify.main()
         assert [args for args, _ in gh.writes] == [
             (
@@ -496,7 +498,7 @@ class TestMain:
         classify.main()
         ((_, body),) = gh.writes
         assert body is not None
-        gh.comments = [{"id": 9, "body": json.loads(body)["body"]}]
+        gh.comments = [{"id": 9, "app": APP, "body": json.loads(body)["body"]}]
         gh.writes = []
         gh.heads = ["abc", "abc"]
         classify.main()
@@ -522,7 +524,7 @@ class TestMain:
     def test_lowers_its_own_raise_once_the_reports_pass(self, gh: FakeGH) -> None:
         """Should undo a raise that a failed report caused, such as a cancelled job."""
         gh.labels = [HUMAN]
-        gh.comments = [{"id": 9, "body": f"{MARKER}\n{FROM_BOT.line()}"}]
+        gh.comments = [{"id": 9, "app": APP, "body": f"{MARKER}\n{FROM_BOT.line()}"}]
         gh.timeline = [HUMAN_ADDED]
         classify.main()
         writes = [args for args, _ in gh.writes]
@@ -538,7 +540,7 @@ class TestMain:
         """Should keep a label that a person or an agent on the same App added again,
         which is how a reviewer keeps the tier."""
         gh.labels = [HUMAN]
-        gh.comments = [{"id": 9, "body": f"{MARKER}\n{FROM_BOT.line()}"}]
+        gh.comments = [{"id": 9, "app": APP, "body": f"{MARKER}\n{FROM_BOT.line()}"}]
         gh.timeline = [
             HUMAN_ADDED,
             {"event": "unlabeled", "label": {"name": HUMAN}},
@@ -546,3 +548,13 @@ class TestMain:
         ]
         classify.main()
         assert not any(LABELS in str(args) for args, _ in gh.writes)
+
+    def test_ignores_a_record_in_a_comment_another_account_posted(
+        self, gh: FakeGH
+    ) -> None:
+        """Should not let a person who forges the comment get review/human removed."""
+        gh.labels = [HUMAN]
+        gh.comments = [{"id": 9, "app": None, "body": f"{MARKER}\n{FROM_BOT.line()}"}]
+        gh.timeline = [HUMAN_ADDED]
+        classify.main()
+        assert [args[3] for args, _ in gh.writes] == [COMMENTS]
