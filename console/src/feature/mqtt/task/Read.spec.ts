@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
@@ -33,6 +33,9 @@ import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 const client = createTestClient();
 
 const TOPIC = "plant/oven";
+
+/** The number of ICDs that the message format field reads per page. */
+const PAGE_SIZE = 50;
 
 const createField = (name: string, kind: payload.Kind): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
@@ -1207,6 +1210,29 @@ describe("MQTT read form", () => {
       await dialog.findByText(renamed);
     });
 
+    it("should list a message that is added while the topic is open", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      const dialog = await searchFormats(TOPIC, shared.name);
+      await dialog.findByText(message.name);
+      const added: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("alarm"),
+        payload: { format: "json", fields: [createField("level", "float")] },
+      };
+      await client.icds.dispatch(
+        shared.key,
+        icd.insert({ path: ["messages"], value: added, after: message.key }),
+      );
+      await dialog.findByText(added.name);
+    });
+
     /**
      * Renders a topic whose float temperature field the device stores in a channel,
      * then switches it to a shared message whose temperature field has the kind.
@@ -1334,21 +1360,24 @@ describe("MQTT read form", () => {
     });
 
     describe("past the first page of ICDs", () => {
-      // More ICDs than one page of the field lists. Gorp orders keys by their trailing
-      // bytes, so a key ending in ones lists after every filler.
-      const FILLER_COUNT = 1000;
-      let fillers: icd.Key[] = [];
-
-      beforeAll(async () => {
+      /**
+       * Creates one page of ICDs with no messages, ahead of every other ICD in key
+       * order, and deletes them when the test finishes.
+       */
+      const createEmptyPage = async () => {
         const created = await client.icds.create(
-          Array.from({ length: FILLER_COUNT }, () => ({ name: uniqueName("filler") })),
+          Array.from({ length: PAGE_SIZE }, () => ({
+            key: createKeyEndingIn("0"),
+            name: uniqueName("empty"),
+          })),
         );
-        fillers = created.map(({ key }) => key);
-      });
-
-      afterAll(async () => await client.icds.delete(fillers));
+        onTestFinished(
+          async () => await client.icds.delete(created.map(({ key }) => key)),
+        );
+      };
 
       it("should name the message of an ICD outside the first page", async () => {
+        await createEmptyPage();
         const entry = await createEntry({
           fields: [createField("temperature", "float")],
           icdKey: createKeyEndingIn("f"),
@@ -1359,6 +1388,7 @@ describe("MQTT read form", () => {
       });
 
       it("should find a message of an ICD outside the first page by its ICD name", async () => {
+        await createEmptyPage();
         const entry = await createEntry({
           fields: [createField("temperature", "float")],
         });
@@ -1372,6 +1402,23 @@ describe("MQTT read form", () => {
         await waitFor(async () =>
           expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
         );
+      });
+
+      it("should list the messages of the page after a page with no messages", async () => {
+        await createEmptyPage();
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+        });
+        // The last byte of 1 lists this ICD right after the empty page.
+        const { message } = await createShared(
+          [createField("pressure", "float")],
+          `${createKeyEndingIn("0").slice(0, -1)}1`,
+        );
+        await renderRead({ entries: [entry] });
+        await openTopic();
+        fireEvent.click(await findDialogTriggerByText(TOPIC));
+        const dialogs = await screen.findAllByRole("dialog");
+        await within(dialogs[dialogs.length - 1]).findByText(message.name);
       });
     });
   });

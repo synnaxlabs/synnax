@@ -15,10 +15,11 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import type { deep, destructor, record } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 
 import type { ReadSource } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
@@ -94,9 +95,30 @@ export const MessageFormatField = ({
   );
   const subscribe = (callback: () => void, key: string): destructor.Destructor =>
     icds.subscribe(callback, parseChoiceKey(key)[0]);
+  const parents = Store.useItems({
+    keys: icds.data,
+    subscribe: icds.subscribe,
+    getItem: icds.getItem,
+  });
   const data = useMemoDeepEqual(
-    icds.getItem(icds.data).flatMap((parent) => [...choicesOf(parent).keys()]),
+    parents.flatMap((parent) => [...choicesOf(parent).keys()]),
   );
+  // A page of ICDs with no JSON message adds no row, so no scroll asks for the next.
+  const rowsBeforeRead = useRef<number | null>(null);
+  const handleFetchMore = () => {
+    rowsBeforeRead.current = data.length;
+    icds.more();
+  };
+  const handleSearch = (term: string) => {
+    rowsBeforeRead.current = 0;
+    icds.search(term);
+  };
+  useEffect(() => {
+    const before = rowsBeforeRead.current;
+    if (before == null || icds.variant !== "success") return;
+    rowsBeforeRead.current = null;
+    if (data.length <= before && !icds.complete) handleFetchMore();
+  }, [icds.variant, data]);
   const handleChange = (key: string) => {
     const [parent, messageKey] = parseChoiceKey(key);
     const picked = icds.getItem(parent)?.messages.find(({ key }) => key === messageKey);
@@ -112,8 +134,8 @@ export const MessageFormatField = ({
         data={data}
         getItem={getItem}
         subscribe={subscribe}
-        onFetchMore={icds.more}
-        onSearch={icds.search}
+        onFetchMore={handleFetchMore}
+        onSearch={handleSearch}
         status={icds.status}
         allowNone={false}
         preview={isPreview}
