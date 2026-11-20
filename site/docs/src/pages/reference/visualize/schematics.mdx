@@ -20,6 +20,7 @@ export const components = mdxOverrides;
   layout="bleed"
   tone="deep"
   palette="violet-pink"
+  alt="A schematic of an engine test stand with tanks, valves, and live values"
 />
 
 A schematic draws your system with symbols for tanks, valves, pumps, and sensors. Each
@@ -42,7 +43,10 @@ You can also run the "Create schematic" command from the
 new schematic opens with editing on. To copy a schematic from a Python or TypeScript
 script, see [visualizations in code](/reference/visualize/code#copy-a-schematic).
 
-<Video id="console/schematics/create" />
+<Video
+  id="console/schematics/create"
+  label="Create a schematic and add symbols to it"
+/>
 
 <Divider.Divider x />
 
@@ -79,7 +83,7 @@ To draw your own symbol, see [custom symbols](/reference/visualize/custom-symbol
 Move the pointer over a symbol to show its handles. Drag from one handle to a handle of
 a different symbol to draw a connection line.
 
-<Video id="console/schematics/connections" />
+<Video id="console/schematics/connections" label="Connect two symbols on a schematic" />
 
 <Divider.Divider x />
 
@@ -92,7 +96,10 @@ a different symbol to draw a connection line.
 The symbol shows the latest value of the channel. To set the number format and when the
 value shows as stale, see the [Telemetry tab](#telemetry-tab).
 
-<Video id="console/schematics/value" />
+<Video
+  id="console/schematics/value"
+  label="Show the live value of a channel on a schematic"
+/>
 
 <Divider.Divider x />
 
@@ -106,7 +113,10 @@ of the channel arrived.
 To hide the tooltips, click <Icon.Tooltip /> (**Hide tooltips**) in the controls of the
 schematic. Click it again to show them.
 
-<Video id="console/schematics/tooltip" />
+<Video
+  id="console/schematics/tooltip"
+  label="The tooltip of a symbol with its channels and last sample"
+/>
 
 <Divider.Divider x />
 
@@ -118,7 +128,10 @@ schematic. Click it again to show them.
    clicks the symbol.
 4. Under **State**, select the **Channel** that reports the position of the valve.
 
-<Video id="console/schematics/control-tab" />
+<Video
+  id="console/schematics/control-tab"
+  label="Set the command and state channels of a valve"
+/>
 
 To command the valve, turn off editing and click the valve. To take and release control,
 and to see what each symbol writes, see [manual control](/reference/control/manual).
@@ -159,9 +172,15 @@ With two or more symbols selected, the **Properties** tab shows:
 To group symbols, select them and press **Ctrl+G**. Double-click a symbol in a group to
 select it alone.
 
-<Video id="console/schematics/align-items" />
+<Video
+  id="console/schematics/align-items"
+  label="Align several symbols on a schematic"
+/>
 
-<Video id="console/schematics/edit-several-elements" />
+<Video
+  id="console/schematics/edit-several-elements"
+  label="Edit the properties of several symbols at one time"
+/>
 
 <Divider.Divider x />
 

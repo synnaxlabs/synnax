@@ -195,8 +195,11 @@ export const Editor = <V,>({
       // An Enter that closes the editor must not also press the trigger it focuses.
       e.preventDefault();
       if (!unread && problem == null) finish();
-    } else if (e.key === "Escape") close();
-    else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    } else if (e.key === "Escape") {
+      // An Escape that closes the editor ends here, so a modal around it stays open.
+      if (draftRef.current != null) e.stopPropagation();
+      close();
+    } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
       const up = e.key === "ArrowUp";
       const field = e.currentTarget;

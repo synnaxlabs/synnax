@@ -21,6 +21,7 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import { Portal } from "@/portal";
 import { position } from "@/position";
 import { getRootElement } from "@/util/rootElement";
 
@@ -56,6 +57,7 @@ export const Frame = ({
   onAnchorLost,
   children,
 }: FrameProps): ReactElement => {
+  const portalTarget = Portal.useTarget();
   const ref = useRef<HTMLDivElement | null>(null);
   const prevPlacementRef = useRef<position.Preference | null>(null);
   const locationRef = useSyncedRef(locationProp);
@@ -104,6 +106,6 @@ export const Frame = ({
     >
       {children}
     </div>,
-    getRootElement(),
+    portalTarget ?? getRootElement(),
   );
 };
