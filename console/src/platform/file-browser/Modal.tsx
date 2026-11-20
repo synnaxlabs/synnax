@@ -27,6 +27,7 @@ import {
   type ReactElement,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -115,6 +116,11 @@ const Content = ({
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
   const [shownPath, setShownPath] = useState<string | null>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  // The headings follow the entries when a narrow dialog scrolls them sideways.
+  const alignHead = (left: number): void => {
+    if (headRef.current != null) headRef.current.scrollLeft = left;
+  };
 
   const path = history.stack[history.index];
   const places = placesOf(snapshot.listings.get(""));
@@ -260,6 +266,7 @@ const Content = ({
         onOpen={open}
         onPoint={prefetch}
         onUp={up}
+        onScrollX={alignHead}
       />
     );
 
@@ -352,7 +359,7 @@ const Content = ({
                   />
                 )}
               </Flex.Box>
-              <Head sort={sort} onSort={setSort} />
+              <Head ref={headRef} sort={sort} onSort={setSort} />
               <div
                 className={CSS.cls(
                   CSS.BE("file-browser", "list"),

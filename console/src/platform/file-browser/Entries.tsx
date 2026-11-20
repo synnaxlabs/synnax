@@ -15,6 +15,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import {
+  type ComponentPropsWithRef,
   type KeyboardEvent,
   type ReactElement,
   useEffect,
@@ -84,14 +85,14 @@ const NUMERIC_CLASS = CSS.BE("file-browser", "numeric");
 
 const CELLS_CLASS = CSS.BE("file-browser", "cells");
 
-export interface HeadProps {
+export interface HeadProps extends Pick<ComponentPropsWithRef<"div">, "ref"> {
   sort: Sort;
   onSort: (sort: Sort) => void;
 }
 
 /** The headings of the columns. A click on a heading sorts by its column. */
-export const Head = ({ sort, onSort }: HeadProps): ReactElement => (
-  <div className={CSS.BE("file-browser", "head")}>
+export const Head = ({ sort, onSort, ref }: HeadProps): ReactElement => (
+  <div ref={ref} className={CSS.BE("file-browser", "head")}>
     <List.Cells className={CELLS_CLASS}>
       {COLUMNS.map(({ key, name, numeric = false }) => {
         if (key == null)
@@ -285,6 +286,8 @@ export interface EntriesProps extends Pick<
   selected: string | null;
   /** Opens the parent folder on Backspace. */
   onUp: () => void;
+  /** Called with the sideways offset of the entries when they mount or scroll. */
+  onScrollX: (left: number) => void;
 }
 
 /**
@@ -295,6 +298,7 @@ export const Entries = ({
   folder,
   selected,
   onUp,
+  onScrollX,
   ...rest
 }: EntriesProps): ReactElement => {
   const keyboard = Select.useKeyboard();
@@ -312,6 +316,7 @@ export const Entries = ({
       if (el?.contains(document.activeElement)) holder?.focus();
     };
   }, []);
+  useLayoutEffect(() => onScrollX(ref.current?.scrollLeft ?? 0), [onScrollX]);
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === "Backspace" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
@@ -330,6 +335,7 @@ export const Entries = ({
       onKeyDown={handleKeyDown}
       onKeyUp={keyboard.onKeyUp}
       onBlur={keyboard.onBlur}
+      onScroll={(e) => onScrollX(e.currentTarget.scrollLeft)}
     >
       <List.Items<string>>
         {({ key, ...p }) => <Item key={key} {...p} {...rest} />}
