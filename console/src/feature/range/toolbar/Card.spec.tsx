@@ -15,6 +15,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Card } from "@/feature/range/toolbar/Card";
+import { createTestLabel } from "@/platform/label/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
@@ -124,7 +125,7 @@ describe("range/toolbar/Card", () => {
 
   it("should show the labels of the range", async () => {
     const rng = await createAgo(uniqueName("labeled"), TimeSpan.minutes(1), null);
-    const lbl = await client.labels.create({
+    const lbl = await createTestLabel(client, {
       name: uniqueName("label"),
       color: "#FF0000",
     });
