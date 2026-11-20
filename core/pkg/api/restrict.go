@@ -114,15 +114,16 @@ func describeRestrict(
 		}
 		return id.Key
 	}
-	if hidden {
-		return errors.Wrap(validate.ErrValidation, "You cannot see the "+
-			string(holder.Type)+" that uses "+name(target)+
-			". Ask someone who can see it to change it.")
-	}
-	msg := "cannot delete " + string(target.Type) + " " + name(target) + " because " +
-		string(holder.Type) + " " + name(holder) + " uses it"
+	uses := "uses it"
 	if !ofTask {
-		msg += " as its " + restrict.Reference
+		uses += " as its " + restrict.Reference
+	}
+	msg := "cannot delete " + string(target.Type) + " " + name(target) + " because "
+	if hidden {
+		msg += "the " + string(holder.Type) + " that " + uses + " is not visible to " +
+			"you; ask someone who can see it to remove the use"
+	} else {
+		msg += string(holder.Type) + " " + name(holder) + " " + uses
 	}
 	return errors.Wrap(validate.ErrValidation, msg)
 }

@@ -117,8 +117,9 @@ var _ = Describe("Restrict", func() {
 		)).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(
-				"You cannot see the user that uses Supervisor. Ask someone who can "+
-					"see it to change it.",
+				"cannot delete role Supervisor because the user that uses it as its "+
+					"role is not visible to you; ask someone who can see it to remove "+
+					"the use",
 			)),
 			Not(MatchError(ContainSubstring(holder.Key.String()))),
 		))
