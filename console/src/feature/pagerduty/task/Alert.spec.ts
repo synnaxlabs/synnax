@@ -15,7 +15,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { PagerDuty } from "@/feature/pagerduty";
-import { createSecret } from "@/platform/secret/testutil";
+import { findOption } from "@/platform/picker/testutil";
+import { createFileSecret, createSecret } from "@/platform/secret/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
@@ -163,6 +164,31 @@ describe("PagerDuty Alert form", () => {
     fireEvent.click(await screen.findByText("New secret"));
     const input = await screen.findByLabelText("Secret name");
     expect(input).toHaveProperty("value", `${name} routing key`);
+  });
+
+  it("should list only the file secrets of the rack it connects from", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const prefix = uniqueName("routing key");
+    const onRack = await createFileSecret(client, secrets, own.key, `${prefix} own`);
+    const offRack = await createFileSecret(
+      client,
+      secrets,
+      other.key,
+      `${prefix} other`,
+    );
+    const draft = await client.tasks.create({
+      ...ZERO_DRAFT,
+      rack: own.key,
+      config: await createAlertConfig(),
+    });
+    tasks.push(draft.key);
+    await renderAlert({ taskKey: draft.key });
+    fireEvent.click(await findDialogTriggerByText("Select a secret"));
+    await findOption("secret", onRack.name, prefix);
+    expect(screen.queryByRole("option", { name: new RegExp(offRack.name) })).toBeNull();
   });
 
   describe("deploying against a live Core", () => {
