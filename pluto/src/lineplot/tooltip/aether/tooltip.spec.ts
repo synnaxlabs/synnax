@@ -59,7 +59,9 @@ const texts = (recorder: canvasTest.Recorder): string[] =>
 const arcs = (recorder: canvasTest.Recorder): number =>
   recorder.upper2d.calls.filter((c) => c.op === "arc").length;
 
-const mount = (): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } => {
+const mount = (
+  state: Partial<z.input<typeof tooltip.tooltipStateZ>> = {},
+): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } => {
   const recorder = canvasTest.record();
   const h = renderAether(Requestor, {
     state: {},
@@ -69,7 +71,7 @@ const mount = (): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } 
     children: {
       [TOOLTIP_KEY]: {
         type: tooltip.Tooltip.TYPE,
-        state: { position: { x: 200, y: 100 } },
+        state: { position: { x: 200, y: 100 }, ...state },
       },
     },
   });
@@ -83,6 +85,15 @@ const found = (key: string, y: number): FindResult => ({
   value: { x: 1, y },
   position: { x: 0.5, y: Number.isFinite(y) ? 0.5 : NaN },
 });
+
+// fontOf returns the font that drew text, or undefined when nothing drew it.
+const fontOf = (recorder: canvasTest.Recorder, text: string): string | undefined => {
+  let font = "";
+  for (const c of recorder.upper2d.calls)
+    if (c.op === "set:font") font = String(c.args[0]);
+    else if (c.op === "fillText" && c.args[0] === text) return font;
+  return undefined;
+};
 
 describe("Tooltip", () => {
   it("should list a non-finite value without a dot", () => {
@@ -100,6 +111,67 @@ describe("Tooltip", () => {
     const finiteOnly = mount();
     finiteOnly.component.render({ findByXDecimal: () => [results[0]], region: REGION });
     expect(arcs(recorder)).toBe(arcs(finiteOnly.recorder));
+  });
+
+  it("should list every line when all of them fit in the plot", () => {
+    const { recorder, component } = mount();
+    const results = ["a", "b", "c"].map((k) => found(k, 1));
+    component.render({ findByXDecimal: () => results, region: REGION });
+    expect(texts(recorder)).toEqual(expect.arrayContaining(["a", "b", "c"]));
+    expect(texts(recorder).some((t) => t.endsWith("more"))).toBe(false);
+  });
+
+  it("should end with the count of lines that do not fit in the plot", () => {
+    const { recorder, component } = mount();
+    const results = Array.from({ length: 12 }, (_, i) => found(`line-${i}`, i));
+    // 100 px holds 5 items: the time, 3 lines, and "and 9 more".
+    const region = box.construct(0, 0, 400, 100);
+    component.render({ findByXDecimal: () => results, region });
+    const labels = texts(recorder).filter((t) => t.startsWith("line-"));
+    expect(labels).toHaveLength(3);
+    expect(texts(recorder)).toContain("and 9 more");
+  });
+
+  it("should head the list with the time from zero on a relative axis", () => {
+    const { recorder, component } = mount({ relative: true });
+    const result = { ...FOUND, value: { x: 1.25e9, y: 2 } };
+    component.render({ findByXDecimal: () => [result], region: REGION });
+    expect(texts(recorder)).toContain("T+1.250 s");
+  });
+
+  it("should list each range under its channel, from the highest value", () => {
+    const { recorder, component } = mount({ relative: true });
+    const entry = (channel: string, range: string, y: number): FindResult => ({
+      ...found(`${channel}/${range}`, y),
+      label: channel,
+      group: range,
+    });
+    const results = [
+      entry("ch1", "r1", 1),
+      entry("ch1", "r2", 3),
+      entry("ch2", "r1", 5),
+      entry("ch2", "r2", 4),
+    ];
+    component.render({ findByXDecimal: () => results, region: REGION });
+    expect(texts(recorder).filter((t) => /^(ch|r)\d$/.test(t))).toEqual([
+      "ch1",
+      "r2",
+      "r1",
+      "ch2",
+      "r1",
+      "r2",
+    ]);
+  });
+
+  it("should draw the entry of the line under the cursor in bold", () => {
+    const { recorder, component } = mount();
+    const near = found("near", 1);
+    const far = { ...found("far", 2), position: { x: 0.5, y: 0.1 } };
+    const props = { findByXDecimal: () => [near, far], region: REGION };
+    component.render(props);
+    component.render(props);
+    expect(fontOf(recorder, "near")).toContain("700");
+    expect(fontOf(recorder, "far")).not.toContain("700");
   });
 
   it("should leave out a line with no sample under the cursor", () => {

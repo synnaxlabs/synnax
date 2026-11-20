@@ -62,6 +62,8 @@ const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 // Computed per call so an empty time axis tracks the present instead of app start.
 const emptyBounds = (type: TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
+  if (type === "relative")
+    return { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) };
   const now = TimeStamp.now();
   return {
     lower: Number(now.valueOf()),

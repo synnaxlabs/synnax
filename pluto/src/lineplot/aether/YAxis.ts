@@ -74,7 +74,8 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
       region: plot,
       dataToDecimalScale: new scale.XY(xScale, yScale),
     };
-    this.lines.forEach((el) => el.render(props));
+    this.lines.forEach((el) => !el.raised && el.render(props));
+    this.lines.forEach((el) => el.raised && el.render(props));
   }
 
   private renderRules(

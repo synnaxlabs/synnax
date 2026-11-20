@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
-  type color,
+  color,
   type direction,
   type location,
   primitive,
@@ -23,7 +23,15 @@ import {
   TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
-import { type ReactElement, type RefObject, useEffect, useRef } from "react";
+import {
+  createContext,
+  type ReactElement,
+  type RefObject,
+  use,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
@@ -59,6 +67,7 @@ import { Rule as BaseRule } from "@/lineplot/rule";
 import { useKey } from "@/lineplot/Suspended";
 import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
+import { type tooltip } from "@/lineplot/tooltip/aether";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
 import { type Viewport } from "@/viewport";
@@ -112,10 +121,60 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
     },
   });
 
+/** @returns whether an x axis draws each range from its zero. */
+export const isRelative = ({ type, timeMode }: lineplot.Axis): boolean =>
+  type === "time" && timeMode === "relative";
+
+/** A range that a line plot shows. */
+export interface RangeSpec {
+  /** Identifies the range. Unique among the ranges of a plot. */
+  key: string;
+  window: Window;
+  /** The name of the range on a relative x axis. */
+  label?: string;
+  /** The color of each line of the range on a relative x axis. */
+  color?: color.Crude;
+  /**
+   * The time that a relative x axis draws at zero. A range with no zero does not draw
+   * on a relative axis.
+   */
+  zero?: TimeStamp;
+  /** True when zero is not the start of the range. */
+  customZero?: boolean;
+}
+
+/** The line and range of a line on a relative x axis. */
+export interface TraceKey {
+  line: string;
+  range: string;
+}
+
+/** @returns the key of the line that draws a stored line for a range. */
+export const traceKey = ({ line, range }: TraceKey): string => `${line}/${range}`;
+
+// Hover is the legend entry under the pointer: a line, a range, or a line of a range.
+interface Hover {
+  range?: string;
+  line?: string;
+}
+
+interface HoverContextValue {
+  hover: Hover | null;
+  hiddenRanges?: Set<string>;
+  hiddenTraces?: Set<string>;
+}
+
+const HoverContext = createContext<HoverContextValue>({ hover: null });
+HoverContext.displayName = "LinePlot.HoverContext";
+
+// The opacity of the lines that the hovered legend entry does not name.
+const DIMMED_OPACITY = 0.25;
+
 interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
-  windows?: Window[];
+  ranges?: RangeSpec[];
+  relative: boolean;
   visible?: boolean;
 }
 
@@ -151,20 +210,70 @@ const createTelemetry = (
   };
 };
 
-// Line draws a stored line as one trace per window the plot shows, styled alike. Only
-// the first trace has a legend entry, under the stored line's key.
+// Line draws a stored line as one trace per range the plot shows. On an absolute x axis
+// the traces are styled alike, and only the first has a legend entry, under the stored
+// line's key. On a relative axis each trace takes its range's color and has its own
+// legend entry under the range.
 const Line = ({
   pKey,
   lineKey,
-  windows = [],
+  ranges = [],
+  relative,
   visible = true,
 }: LineProps): ReactElement => {
   const line = useLine({ key: pKey, lineKey });
+  const { hover, hiddenRanges, hiddenTraces } = use(HoverContext);
+  if (!relative) {
+    const hovered = hover?.line === line.key;
+    return (
+      <>
+        {ranges.map((range, i) => (
+          <Trace
+            key={i}
+            line={line}
+            window={range.window}
+            aetherKey={i === 0 ? line.key : `${line.key}/${i}`}
+            legend={i === 0}
+            legendGroup={line.yAxis.toUpperCase()}
+            visible={visible}
+            opacity={hover != null && !hovered ? DIMMED_OPACITY : 1}
+            raised={hovered}
+          />
+        ))}
+      </>
+    );
+  }
   return (
     <>
-      {windows.map((window, i) => (
-        <Trace key={i} line={line} window={window} index={i} visible={visible} />
-      ))}
+      {ranges.map((range) => {
+        if (range.zero == null) return null;
+        const key = traceKey({ line: line.key, range: range.key });
+        const shown =
+          visible &&
+          hiddenRanges?.has(range.key) !== true &&
+          hiddenTraces?.has(key) !== true;
+        const hovered =
+          hover != null &&
+          hover.range === range.key &&
+          (hover.line == null || hover.line === line.key);
+        const c = color.construct(range.color ?? line.color);
+        return (
+          <Trace
+            key={key}
+            line={line}
+            window={range.window}
+            aetherKey={key}
+            legend
+            legendGroup={range.key}
+            visible={shown}
+            zero={range.zero}
+            group={range.label}
+            color={c}
+            opacity={hover != null && hover.range !== range.key ? DIMMED_OPACITY : 1}
+            raised={hovered}
+          />
+        );
+      })}
     </>
   );
 };
@@ -172,16 +281,34 @@ const Line = ({
 interface TraceProps {
   line: DerivedLine;
   window: Window;
-  index: number;
+  aetherKey: string;
+  legend: boolean;
+  legendGroup: string;
   visible: boolean;
+  zero?: TimeStamp;
+  group?: string;
+  color?: color.Color;
+  opacity?: number;
+  raised?: boolean;
 }
 
-const Trace = ({ line, window, index, visible }: TraceProps): ReactElement => {
+const Trace = ({
+  line,
+  window,
+  aetherKey,
+  legend,
+  legendGroup,
+  visible,
+  zero,
+  group,
+  color: traceColor,
+  opacity,
+  raised = false,
+}: TraceProps): ReactElement => {
   const { key, aggregation, detail, ...rest } = line;
   // JSX takes the rest object, so the compiler counts reads from it as changing later.
-  const { xChannel, yChannel } = line;
+  const { xChannel, yChannel, strokeWidth } = line;
   const telemetry = createTelemetry(window, xChannel, yChannel, aggregation);
-  const aetherKey = index === 0 ? key : `${key}/${index}`;
   return (
     <BaseLine
       key={aetherKey}
@@ -189,13 +316,20 @@ const Trace = ({ line, window, index, visible }: TraceProps): ReactElement => {
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
-      legend={index === 0}
+      legend={legend}
       groupsPerColumn={GROUPS_PER_COLUMN[detail]}
       loadingHidden={
         window.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
       }
-      legendGroup={line.yAxis.toUpperCase()}
+      legendGroup={legendGroup}
       {...rest}
+      axis={line.yAxis}
+      color={traceColor ?? line.color}
+      strokeWidth={raised ? strokeWidth * 2 : strokeWidth}
+      zero={zero}
+      group={group}
+      opacity={opacity}
+      raised={raised}
     />
   );
 };
@@ -221,18 +355,25 @@ const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
   );
 };
 
-interface LegendProps {
+interface LegendProps extends Pick<
+  BaseLegendProps,
+  | "ranges"
+  | "hiddenRanges"
+  | "onRangeColorChange"
+  | "onRangeVisibleChange"
+  | "onHoverChange"
+  | "footer"
+> {
   pKey: lineplot.Key;
-  variant?: BaseLegendProps["variant"];
   editable: boolean;
-  onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
+  onLineVisibleChange?: BaseLegendProps["onLineVisibleChange"];
 }
 
 const Legend = ({
   pKey: key,
-  variant,
   editable,
   onLineVisibleChange,
+  ...rest
 }: LegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const legend = useLegend({ key });
@@ -257,7 +398,7 @@ const Legend = ({
       onLineVisibleChange={onLineVisibleChange}
       position={legend.position}
       onPositionChange={handlePositionChange}
-      variant={variant}
+      {...rest}
     />
   );
 };
@@ -265,7 +406,7 @@ const Legend = ({
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   editable: boolean;
-  windows?: Window[];
+  ranges?: RangeSpec[];
   hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
 }
@@ -321,13 +462,15 @@ const Rules = ({ pKey, axisKey, onSelectRule }: RulesProps): ReactElement => {
 
 interface YAxisProps extends AxisChildrenProps {
   axisKey: lineplot.YAxisKey;
+  relative: boolean;
 }
 
 const YAxis = ({
   pKey: key,
   axisKey,
   editable,
-  windows,
+  ranges,
+  relative,
   hiddenLines,
   onSelectRule,
 }: YAxisProps): ReactElement => {
@@ -367,7 +510,8 @@ const YAxis = ({
           key={lineKey}
           pKey={key}
           lineKey={lineKey}
-          windows={windows}
+          ranges={ranges}
+          relative={relative}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
@@ -385,7 +529,7 @@ const XAxis = ({
   pKey: key,
   axisKey,
   editable,
-  windows,
+  ranges,
   hiddenLines,
   onSelectRule,
   rangeProviderProps,
@@ -400,7 +544,9 @@ const XAxis = ({
   };
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
-  const { key: _, ...axisConfig } = useXAxis({ key, axisKey });
+  const axis = useXAxis({ key, axisKey });
+  const { key: _, timeMode: __, ...axisConfig } = axis;
+  const relative = isRelative(axis);
   const yAxes = useYAxisKeys({ key });
   const handleLabelChange = (label: string) =>
     dispatch({
@@ -411,6 +557,7 @@ const XAxis = ({
     <BaseXAxis
       {...axisConfig}
       {...dropProps}
+      type={relative ? "relative" : axisConfig.type}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
@@ -423,41 +570,53 @@ const XAxis = ({
           pKey={key}
           axisKey={yAxisKey}
           editable={editable}
-          windows={windows}
+          ranges={ranges}
+          relative={relative}
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
         />
       ))}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
-      <Range.Provider {...rangeProviderProps} />
+      {!relative && <Range.Provider {...rangeProviderProps} />}
     </BaseXAxis>
   );
 };
 
 interface UseViewportResetParams {
   key: lineplot.Key;
+  relative: boolean;
 }
 
+// useViewportReset resets the view when the first lines appear, and when the x axis
+// changes between absolute and relative time, because a zoom in one means nothing in
+// the other.
 const useViewportReset = ({
   key,
+  relative,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
   const lineCount = useLineCount({ key });
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
-  const prevLineCount = useRef(lineCount);
+  const prev = useRef({ lineCount, relative });
   useEffect(() => {
-    const linesAppeared = prevLineCount.current === 0 && lineCount !== 0;
-    prevLineCount.current = lineCount;
-    if (linesAppeared) viewportRef.current?.reset();
-  }, [lineCount]);
+    const linesAppeared = prev.current.lineCount === 0 && lineCount !== 0;
+    const modeChanged = prev.current.relative !== relative;
+    prev.current = { lineCount, relative };
+    if (linesAppeared || modeChanged) viewportRef.current?.reset();
+  }, [lineCount, relative]);
   return viewportRef;
 };
+
+/** The line and the time under the pointer, on a relative x axis. */
+export interface Hovered extends TraceKey {
+  /** The time of the nearest sample of the line. */
+  time: TimeStamp;
+}
 
 export interface LinePlotProps extends FrameProps {
   editable?: boolean;
   enableTriggers?: Triggers.Condition;
-  /** The windows of the plot's ranges, in order. */
-  windows?: Window[];
-  legendVariant?: BaseLegendProps["variant"];
+  /** The plot's ranges, in order. */
+  ranges?: RangeSpec[];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
   measureMode?: measure.Mode;
@@ -467,12 +626,63 @@ export interface LinePlotProps extends FrameProps {
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
   onSelectRule?: (key: string) => void;
+  /**
+   * The keys of the stored lines that do not show. On a relative x axis, a hidden line
+   * does not show in any range.
+   */
   hiddenLines?: Set<string>;
-  onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
+  /** The keys of the ranges that do not show on a relative x axis. */
+  hiddenRanges?: Set<string>;
+  /** The keys (see traceKey) of the lines of one range that do not show. */
+  hiddenTraces?: Set<string>;
+  /**
+   * Called when the user toggles a legend entry: a stored line on an absolute x axis,
+   * or a line of one range (see traceKey) on a relative axis.
+   */
+  onLineVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  onRangeVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  onRangeColorChange?: (key: string, color: color.Color) => void;
+  /** Shown under the legend. */
+  legendFooter?: BaseLegendProps["footer"];
+  /** Called with the line under the pointer on a relative x axis, or null. */
+  onHoveredChange?: (hovered: Hovered | null) => void;
 }
 
-const fetchingMessage = (windows: Window[] | undefined): string | undefined => {
-  if (windows == null || windows.length === 0) return undefined;
+/** @returns the line and range of a key from traceKey, or null if no range matches. */
+export const parseTraceKey = (key: string, ranges: RangeSpec[]): TraceKey | null => {
+  const range = ranges.find((r) => key.endsWith(`/${r.key}`));
+  if (range == null) return null;
+  return { line: key.slice(0, -range.key.length - 1), range: range.key };
+};
+
+// parseHover reads the key of a legend entry: a line on an absolute axis, and a range
+// or a line of a range on a relative one.
+const parseHover = (
+  key: string | null,
+  relative: boolean,
+  ranges: RangeSpec[],
+): Hover | null => {
+  if (key == null) return null;
+  if (!relative) return { line: key };
+  if (ranges.some((r) => r.key === key)) return { range: key };
+  return parseTraceKey(key, ranges);
+};
+
+const legendRanges = (ranges: RangeSpec[]): BaseLegendProps["ranges"] =>
+  ranges.map((r) => ({
+    key: r.key,
+    name: r.label ?? "",
+    color: r.color,
+    zero: r.zero,
+    start:
+      r.customZero === true && r.window.variant === "static"
+        ? TimeStamp.z.parse(r.window.timeRange.start)
+        : undefined,
+  }));
+
+const fetchingMessage = (ranges: RangeSpec[] | undefined): string | undefined => {
+  if (ranges == null || ranges.length === 0) return undefined;
+  const windows = ranges.map((r) => r.window);
   const now = TimeStamp.now();
   // A range that still runs counts the time it has run, and one that has not started
   // counts none.
@@ -486,8 +696,7 @@ const fetchingMessage = (windows: Window[] | undefined): string | undefined => {
 export const LinePlot = ({
   editable = true,
   enableTriggers = true,
-  windows,
-  legendVariant,
+  ranges = [],
   enableTooltip = true,
   enableMeasure = false,
   measureMode,
@@ -498,7 +707,13 @@ export const LinePlot = ({
   rangeProviderProps,
   onSelectRule,
   hiddenLines,
+  hiddenRanges,
+  hiddenTraces,
   onLineVisibleChange,
+  onRangeVisibleChange,
+  onRangeColorChange,
+  legendFooter,
+  onHoveredChange,
   children,
   ref,
   ...rest
@@ -506,31 +721,50 @@ export const LinePlot = ({
   const key = useKey();
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
-  const viewportRef = useViewportReset({ key });
+  const relative = isRelative(useXAxis({ key, axisKey: "x1" }));
+  const viewportRef = useViewportReset({ key, relative });
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
+  const handleTooltipHover = (found: tooltip.Hovered | null): void => {
+    const trace = found == null ? null : parseTraceKey(found.key, ranges);
+    const zero = ranges.find((r) => r.key === trace?.range)?.zero;
+    onHoveredChange?.(
+      trace == null || zero == null || found == null
+        ? null
+        : { ...trace, time: zero.add(BigInt(Math.round(found.x))) },
+    );
+  };
+  const hover = parseHover(hoverKey, relative, ranges);
   return (
     <Frame
       ref={ref}
       viewportRef={viewportRef}
-      loadingMessage={fetchingMessage(windows)}
+      loadingMessage={fetchingMessage(ranges)}
       {...rest}
     >
-      {xAxisKeys.map((xAxisKey) => (
-        <XAxis
-          key={xAxisKey}
-          pKey={key}
-          axisKey={xAxisKey}
-          editable={editable}
-          windows={windows}
-          hiddenLines={hiddenLines}
-          onSelectRule={onSelectRule}
-          rangeProviderProps={rangeProviderProps}
-        />
-      ))}
+      <HoverContext value={{ hover, hiddenRanges, hiddenTraces }}>
+        {xAxisKeys.map((xAxisKey) => (
+          <XAxis
+            key={xAxisKey}
+            pKey={key}
+            axisKey={xAxisKey}
+            editable={editable}
+            ranges={ranges}
+            hiddenLines={hiddenLines}
+            onSelectRule={onSelectRule}
+            rangeProviderProps={rangeProviderProps}
+          />
+        ))}
+      </HoverContext>
       <Legend
         pKey={key}
-        variant={legendVariant}
         editable={editable}
         onLineVisibleChange={onLineVisibleChange}
+        ranges={relative ? legendRanges(ranges) : undefined}
+        hiddenRanges={hiddenRanges}
+        onRangeVisibleChange={onRangeVisibleChange}
+        onRangeColorChange={onRangeColorChange}
+        onHoverChange={setHoverKey}
+        footer={legendFooter}
       />
       <Title pKey={key} editable={editable} />
       <BaseViewport
@@ -539,9 +773,18 @@ export const LinePlot = ({
         triggers={viewportTriggers}
         ref={viewportRef}
       >
-        {enableTooltip && <Tooltip.Tooltip />}
+        {enableTooltip && (
+          <Tooltip.Tooltip
+            relative={relative}
+            onHoveredChange={relative ? handleTooltipHover : undefined}
+          />
+        )}
         {enableMeasure && (
-          <Measure.Measure mode={measureMode} onModeChange={onMeasureModeChange} />
+          <Measure.Measure
+            mode={measureMode}
+            onModeChange={onMeasureModeChange}
+            relative={relative}
+          />
         )}
         {children}
       </BaseViewport>

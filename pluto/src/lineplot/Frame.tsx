@@ -9,8 +9,9 @@
 
 import "@/lineplot/Frame.css";
 
+import { type lineplot as client } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
-import { useEffectCompare } from "@synnaxlabs/lyra/hooks";
+import { useEffectCompare, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
   type bounds,
@@ -120,12 +121,16 @@ export interface LineSpec {
   color: color.Crude;
   label: string;
   visible: boolean;
+  /** The y axis of the line. */
+  axis?: client.AxisKey;
 }
 
 /** Ref handle exposed by Frame for imperative access */
 export interface FrameRef {
   /** Returns the current bounds for all axes */
   getBounds: () => Promise<lineplot.AxesBounds>;
+  /** Zooms to x, in decimal space, like ContextValue.toggleZoom. */
+  toggleZoom: ContextValue["toggleZoom"];
 }
 
 type LineState = LineSpec[];
@@ -161,6 +166,8 @@ export interface FrameProps
    * from true to false resets it.
    */
   viewportRef?: RefObject<Viewport.UseRefValue | null>;
+  /** Called with the key that toggleZoom zoomed to, or null when the plot zooms out. */
+  onZoomedChange?: (key: string | null) => void;
 }
 
 export const Frame = ({
@@ -175,6 +182,7 @@ export const Frame = ({
   loadingMessage,
   ref,
   viewportRef,
+  onZoomedChange,
   ...rest
 }: FrameProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
@@ -204,10 +212,6 @@ export const Frame = ({
 
   const regionRef = Canvas.useRegion(handleResize, { debounce });
 
-  useImperativeHandle(ref, () => ({ getBounds: methods.getBounds }), [
-    methods.getBounds,
-  ]);
-
   // Worker pushes can carry an older view, so the frame tracks the last one it set.
   const appliedRef = useRef<box.Box>(box.DECIMAL);
   const holdRef = useRef(hold);
@@ -230,7 +234,11 @@ export const Frame = ({
   };
 
   const zoomHistory = useRef<SavedView[]>([]);
-  const [zoomedKey, setZoomedKey] = useState<string | null>(null);
+  const [zoomedKey, setZoomedKeyState] = useState<string | null>(null);
+  const setZoomedKey = (key: string | null) => {
+    setZoomedKeyState(key);
+    onZoomedChange?.(key);
+  };
 
   const applyViewport = (args: Viewport.UseEvent) => {
     if (changesView(args)) {
@@ -295,6 +303,15 @@ export const Frame = ({
     applyViewport({ box: next, mode: "zoom", cursor: xy.ZERO, stage: "start" });
     setHold(back?.hold ?? true);
   };
+  const toggleZoomRef = useSyncedRef(toggleZoom);
+  useImperativeHandle(
+    ref,
+    () => ({
+      getBounds: methods.getBounds,
+      toggleZoom: (key, x) => toggleZoomRef.current(key, x),
+    }),
+    [methods.getBounds],
+  );
 
   const id = `line-plot-${aetherKey}`;
 

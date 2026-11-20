@@ -22,6 +22,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
+import { formatRelativeTime } from "@/vis/axis/relative";
 import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
@@ -46,6 +47,8 @@ export const measureStateZ = z.object({
     .optional(),
   strokeWidth: z.number().default(1),
   strokeDash: z.number().default(2),
+  /** True when x is a span from a zero, shown as T+ time. */
+  relative: z.boolean().default(false),
 });
 
 interface InternalState {
@@ -373,7 +376,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       params;
     const { draw, theme } = this.internal;
     const ts = new TimeStamp(value.x);
-    const xValue = ts.toString(ts.formatBySpan(xDist), "local");
+    const xValue = this.state.relative
+      ? formatRelativeTime(value.x, Number(TimeSpan.MILLISECOND.valueOf()))
+      : ts.toString(ts.formatBySpan(xDist), "local");
     const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 
     const pointText = `${pointNumber}`;

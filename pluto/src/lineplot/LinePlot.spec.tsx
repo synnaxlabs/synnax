@@ -22,7 +22,13 @@ import {
   xy,
 } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  createRef,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useState,
+} from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/lineplot";
@@ -101,6 +107,22 @@ describe("LinePlot", () => {
       await waitFor(() => expect(resets(onViewportChange)).toEqual(1));
     });
 
+    it("should reset the viewport when the x axis changes to relative time", async () => {
+      const key = await createPlot([LINE]);
+      const onViewportChange = vi.fn();
+      render(plot(key, false, onViewportChange), { wrapper });
+      const { result } = renderHook(() => LinePlot.useDispatch(), { wrapper });
+      await act(async () => {
+        await result.current.dispatchAsync({
+          key,
+          actions: [
+            lineplotClient.setAxisTimeMode({ key: "x1", timeMode: "relative" }),
+          ],
+        });
+      });
+      await waitFor(() => expect(resets(onViewportChange)).toEqual(1));
+    });
+
     it("should reset the viewport once when hold is released", async () => {
       const key = await createPlot([LINE]);
       const onViewportChange = vi.fn();
@@ -161,7 +183,11 @@ describe("LinePlot", () => {
       const plotted = ({ children }: PropsWithChildren): ReactElement => (
         <Wrapper>
           <LinePlot.Scope.Provider value={key}>
-            <LinePlot.LinePlot windows={windows}>{children}</LinePlot.LinePlot>
+            <LinePlot.LinePlot
+              ranges={windows.map((window, i) => ({ key: String(i), window }))}
+            >
+              {children}
+            </LinePlot.LinePlot>
           </LinePlot.Scope.Provider>
         </Wrapper>
       );
@@ -197,11 +223,18 @@ describe("LinePlot", () => {
       const onViewport = vi.fn();
       const onHold = vi.fn();
       const sync = vi.fn();
+      const onZoomedChange = vi.fn();
       const viewportRef = { current: { reset: vi.fn(), sync } };
+      const ref = createRef<LinePlot.FrameRef>();
       const Wrapper = wrapper;
       const frame = ({ children }: PropsWithChildren): ReactElement => (
         <Wrapper>
-          <LinePlot.Frame onHold={onHold} viewportRef={viewportRef}>
+          <LinePlot.Frame
+            ref={ref}
+            onHold={onHold}
+            viewportRef={viewportRef}
+            onZoomedChange={onZoomedChange}
+          >
             {children}
           </LinePlot.Frame>
         </Wrapper>
@@ -215,7 +248,7 @@ describe("LinePlot", () => {
       );
       const view = (): box.Box => onViewport.mock.calls.at(-1)?.[0].box;
       const held = (): boolean => onHold.mock.calls.at(-1)?.[0];
-      return { result, view, held, sync };
+      return { result, view, held, sync, ref, onZoomedChange };
     };
 
     it("should zoom to the target and pause the plot", () => {
@@ -271,6 +304,15 @@ describe("LinePlot", () => {
       expect(result.current.zoomedKey).toBeNull();
     });
 
+    it("should zoom from its ref and report each zoomed key", () => {
+      const { ref, view, onZoomedChange } = renderFrame();
+      act(() => ref.current?.toggleZoom("outer", OUTER));
+      expect(view()).toEqual(OUTER_VIEW);
+      expect(onZoomedChange).toHaveBeenLastCalledWith("outer");
+      act(() => ref.current?.toggleZoom("outer", OUTER));
+      expect(onZoomedChange).toHaveBeenLastCalledWith(null);
+    });
+
     it("should zoom in again when the view changes between calls", () => {
       const { result, view } = renderFrame();
       const panned = box.construct({ x: 0.25, y: 0 }, { x: 0.65, y: 1 });
@@ -288,5 +330,20 @@ describe("LinePlot", () => {
       act(() => result.current.toggleZoom("outer", OUTER));
       expect(view()).toEqual(panned);
     });
+  });
+});
+
+describe("traceKey", () => {
+  const RANGES: LinePlot.RangeSpec[] = [
+    { key: "r1", window: staticWindow(new TimeRange(0, 1)) },
+  ];
+
+  it("should read back the line and range of a trace key", () => {
+    const key = LinePlot.traceKey({ line: "a/b", range: "r1" });
+    expect(LinePlot.parseTraceKey(key, RANGES)).toEqual({ line: "a/b", range: "r1" });
+  });
+
+  it("should return null for a key that names no range of the plot", () => {
+    expect(LinePlot.parseTraceKey("a/r2", RANGES)).toBeNull();
   });
 });
