@@ -27,8 +27,12 @@ import (
 )
 
 // owners runs the log, the state, and the checkpointer of fs on exec, as the engine
-// wires them, and returns the log.
-func owners(ctx context.Context, fs xfs.FS, exec func(func())) *log.Log {
+// wires them, and returns the log and the state.
+func owners(
+	ctx context.Context,
+	fs xfs.FS,
+	exec func(func()),
+) (*log.Log, *state.State) {
 	GinkgoHelper()
 	Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
 	var l *log.Log
@@ -69,7 +73,7 @@ func owners(ctx context.Context, fs xfs.FS, exec func(func())) *log.Log {
 	go func() { _ = st.Run(ctx) }()
 	go func() { _ = l.Run(ctx) }()
 	go func() { _ = cp.Run(ctx) }()
-	return l
+	return l, st
 }
 
 // fill appends 12 entries of 10,000 intents to l, which passes three quarters of a log
@@ -102,7 +106,7 @@ var _ = Describe("Switch check", func() {
 		}()
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
-		l := owners(ctx, xfs.NewMem(), func(f func()) { jobs <- f })
+		l, _ := owners(ctx, xfs.NewMem(), func(f func()) { jobs <- f })
 		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 	})
 
@@ -110,7 +114,7 @@ var _ = Describe("Switch check", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
 		fs := xfs.NewMem()
-		l := owners(ctx, fs, func(f func()) { go f() })
+		l, _ := owners(ctx, fs, func(f func()) { go f() })
 		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 		var h checkpoint.Header
 		Eventually(func() error {
@@ -124,6 +128,46 @@ var _ = Describe("Switch check", func() {
 		Expect(f.Close()).To(Succeed())
 		lh := MustSucceed(log.DecodeHeader(b, db, 2, 0))
 		// No segment is open, so log 2 starts with no Seals entry.
+		Expect(h.Sequence).To(Equal(lh.Sequence - 1))
+	})
+
+	It("Should write a head at a switch that covers no entry of the next log, when "+
+		"the next log starts with a Seals entry", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		fs := xfs.NewMem()
+		l, st := owners(ctx, fs, func(f func()) { go f() })
+		// An open segment that no writer holds gets its Seal first in the next log.
+		w := MustSucceed(st.OpenWriter(state.WriterConfig{
+			Keys: []state.WriterKey{{Key: 5, DataType: 4}}, Clock: 5, Start: 10,
+		}))
+		id := MustSucceed(w.NewSegment(5))
+		var e log.Entry
+		e.Add(&log.Create{Segment: id, Key: 5, Clock: 5, Version: 1, DataType: 4})
+		MustSucceed(l.Append(&e).Wait())
+		Expect(w.Close()).To(Succeed())
+		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
+		var h checkpoint.Header
+		Eventually(func() error {
+			var err error
+			h, _, err = checkpoint.Read(fs, 2)
+			return err
+		}).Should(Succeed())
+		f := MustSucceed(fs.Open(log.Name(2), os.O_RDONLY))
+		b := make([]byte, log.FramesStart+log.MaxFrame)
+		n, _ := f.ReadAt(b, 0)
+		Expect(f.Close()).To(Succeed())
+		b = b[:n]
+		lh := MustSucceed(log.DecodeHeader(b, db, 2, 0))
+		first := MustSucceed(
+			log.DecodeFrame(b[log.FramesStart:], db, 2, log.FramesStart),
+		)
+		var d log.Decoder
+		MustSucceed(d.Reset(first.Entries))
+		r, ok := MustSucceed2(d.Next())
+		Expect(ok).To(BeTrue())
+		Expect(r).To(BeAssignableToTypeOf(&log.Seal{}))
+		Expect(first.Sequence).To(Equal(lh.Sequence))
 		Expect(h.Sequence).To(Equal(lh.Sequence - 1))
 	})
 
