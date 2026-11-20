@@ -424,6 +424,34 @@ describe("FileBrowser.useModal", () => {
       expect(up.getAttribute("aria-disabled")).toBe("true");
     });
 
+    it("should treat a network share as the root of a UNC path", async () => {
+      const share = "\\\\srv\\share";
+      await openBrowser(
+        [
+          createListing({ path: share, entries: [dir(`${share}\\certs`, "certs")] }),
+          createListing({
+            path: `${share}\\certs`,
+            entries: [dir(`${share}\\certs\\sub`, "sub")],
+          }),
+          createListing({
+            path: `${share}\\certs\\sub`,
+            entries: [
+              { name: "a.crt", path: `${share}\\certs\\sub\\a.crt`, kind: "file" },
+            ],
+          }),
+        ],
+        `${share}\\certs\\sub\\a.crt`,
+      );
+      await findEntry("a.crt", true);
+      const path = screen.getByLabelText("Path");
+      fireEvent.click(within(path).getByRole("button", { name: "certs" }));
+      await findEntry("sub");
+      const up = screen.getByRole("button", { name: "Up" });
+      fireEvent.click(up);
+      await findEntry("certs", true);
+      expect(up.getAttribute("aria-disabled")).toBe("true");
+    });
+
     it("should go back and forward", async () => {
       await openBrowser(LISTINGS);
       await openEtc();
@@ -624,10 +652,30 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
-    it("should open the field with a ~ typed in the list", async () => {
+    it("should open a typed file that came after its folder listed", async () => {
+      const listings = [...LISTINGS];
+      await openBrowser(listings);
+      await openEtc();
+      const added: FileBrowser.Entry = {
+        name: "new.crt",
+        path: "/etc/new.crt",
+        kind: "file",
+      };
+      listings[2] = { ...ETC, entries: [...ETC.entries, added] };
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      const field = screen.getByRole("textbox", { name: "Path" });
+      fireEvent.change(field, { target: { value: "/etc/new.crt" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(await findEntry("new.crt", true)).toBeDefined();
+    });
+
+    it.each([
+      ["", {}],
+      [" with AltGr", { ctrlKey: true, altKey: true, modifierAltGraph: true }],
+    ])("should open the field with a ~ typed in the list%s", async (_, mods) => {
       await openBrowser(LISTINGS);
       await openEtc();
-      fireEvent.keyDown(findFiles(), { key: "~" });
+      fireEvent.keyDown(findFiles(), { key: "~", ...mods });
       expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
         "value",
         "~",

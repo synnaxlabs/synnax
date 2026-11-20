@@ -280,7 +280,12 @@ const Content = ({
     // The Driver says why it cannot list a path that is not absolute.
     const target = normalize(typed) || typed;
     const folder = dirnameOf(target);
-    const entry = (await listingOf(folder))?.entries.find((e) => e.path === target);
+    const find = (listing?: Listing): Entry | undefined =>
+      listing?.entries.find((e) => e.path === target);
+    // A cached listing can be old, so a target it does not hold lists the folder again.
+    const entry =
+      find(snapshot.listings.get(folder)) ??
+      find(await session?.list(folder).catch(() => undefined));
     if (navigations.current !== navigation) return;
     if (entry?.kind === "file") go(folder, target);
     else go(target);
