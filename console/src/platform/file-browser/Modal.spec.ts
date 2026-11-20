@@ -856,6 +856,16 @@ describe("FileBrowser.useModal", () => {
       expect(findFilter()).toHaveProperty("value", "");
     });
 
+    it("should keep the focus in the filter when Escape clears it", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("host");
+      findFilter().focus();
+      fireEvent.keyDown(findFilter(), { key: "Escape", code: "Escape" });
+      expect(findFilter()).toHaveProperty("value", "");
+      expect(document.activeElement).toBe(findFilter());
+    });
+
     it("should clear on Escape and keep the dialog open", async () => {
       await openBrowser(LISTINGS);
       await openEtc();

@@ -346,7 +346,9 @@ const Content = ({
     }
   };
   const handleFilterKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "ArrowDown") {
+    // The filter keeps the focus while Escape clears it.
+    if (e.key === "Escape" && query !== "") e.preventDefault();
+    else if (e.key === "ArrowDown") {
       e.preventDefault();
       focusList();
     }
