@@ -10,9 +10,9 @@
 """MQTT invalid configuration tests through the Console.
 
 The Console form blocks invalid settings before they reach the Driver and renders a
-field error. The Core rejects a config with no enabled entries, and the footer keeps
-that failure. A broker that is down and a channel another task writes are only found
-at runtime, so the Driver reports those.
+field error. No field shows the error for a config with no enabled entries, so the
+footer shows that failure. A broker that is down and a channel another task writes are
+only found at runtime, so the Driver reports those.
 """
 
 from examples.mqtt_sim import MQTTSim
@@ -23,7 +23,7 @@ from tests.console.task.mqtt_case import MQTTCase
 
 TOPIC = "plant/sensors"
 WILDCARD_TOPIC = "plant/+"
-NO_ENTRIES_ERROR = "the task has no enabled entries"
+NO_ENTRIES_ERROR = "At least one entry must be enabled"
 
 
 class MQTTInvalidConfig(MQTTCase):
@@ -34,8 +34,8 @@ class MQTTInvalidConfig(MQTTCase):
     Tests (run sequentially on one task page):
         1. No device selected: the form blocks the deploy.
         2. Wildcard topic: the form blocks the deploy at the topic field.
-        3. No enabled entries: the Core rejects the config before the start
-           command, so the footer shows the failure and the task does not start.
+        3. No enabled entries: the form blocks the deploy, the footer shows the
+           failure, and the task does not start.
         4. Broker down: the Driver warns until the broker returns, then runs.
         5. Duplicate channel: a second task on the same field is rejected while
            the first one runs.
@@ -85,7 +85,7 @@ class MQTTInvalidConfig(MQTTCase):
             f"The footer should report the failed start, got '{status.message}'"
         )
         assert NO_ENTRIES_ERROR in status.description, (
-            f"The footer should hold the Core's error, got '{status.description}'"
+            f"The footer should hold the form's error, got '{status.description}'"
         )
         assert not page.is_running(), "The task should not start with no entries"
 
