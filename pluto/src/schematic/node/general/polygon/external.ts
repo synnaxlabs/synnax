@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 
 import { colorFallbacks, PolygonForm } from "@/schematic/node/general/polygon/Form";
 import { Preview, Symbol } from "@/schematic/node/general/polygon/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 export const spec: Spec<"polygon", schematic.PolygonNodeConfig> = {
   key: "polygon",

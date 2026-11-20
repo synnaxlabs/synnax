@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep, type patch } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
@@ -50,7 +50,7 @@ import {
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
 import { type LinePlot, linePlotZ } from "@/lineplot/types.gen";
-import { type ranger } from "@/ranger";
+import type { ranger } from "@/ranger";
 
 const applyPath = (state: Draft<LinePlot>, action: patch.Action): HandlerResult =>
   actions.applyPath(state, action, linePlotZ);

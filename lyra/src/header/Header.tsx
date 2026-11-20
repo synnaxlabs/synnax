@@ -9,8 +9,8 @@
 
 import "@/header/Header.css";
 
-import { type text } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { text } from "@synnaxlabs/x";
+import type { ReactElement, ReactNode } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";

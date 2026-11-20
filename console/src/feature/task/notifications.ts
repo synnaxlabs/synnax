@@ -10,8 +10,8 @@
 import { NotFoundError, status, task } from "@synnaxlabs/client";
 import { errors, primitive } from "@synnaxlabs/x";
 
-import { type Device } from "@/platform/device";
-import { type Notifications } from "@/platform/notifications";
+import type { Device } from "@/platform/device";
+import type { Notifications } from "@/platform/notifications";
 
 /** The make and scan task type of an integration. */
 export interface Scanner extends Pick<Device.Integration, "make" | "scanType"> {}

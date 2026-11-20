@@ -9,7 +9,7 @@
 
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Header } from "@synnaxlabs/lyra/header";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 const GAP = 1.5;
 

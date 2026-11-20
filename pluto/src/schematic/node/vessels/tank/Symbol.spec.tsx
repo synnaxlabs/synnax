@@ -18,7 +18,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 

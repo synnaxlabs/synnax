@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 /**
  * ReleaseNotes tells the visitor that every account gets release notes by email. It

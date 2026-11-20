@@ -14,7 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { color as xcolor } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement, type ReactNode, useId } from "react";
 

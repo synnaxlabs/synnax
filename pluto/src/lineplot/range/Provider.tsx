@@ -9,7 +9,7 @@
 
 import "@/lineplot/range/Provider.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";

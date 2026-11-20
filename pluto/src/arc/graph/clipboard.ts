@@ -9,7 +9,7 @@
 
 import { arc, query } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
-import { type RefObject } from "react";
+import type { RefObject } from "react";
 
 import { useDispatch } from "@/arc/queries";
 import { Synnax } from "@/synnax";

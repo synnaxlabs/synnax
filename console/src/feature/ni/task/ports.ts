@@ -10,7 +10,7 @@
 import { channel, type ni } from "@synnaxlabs/client";
 import { array, primitive } from "@synnaxlabs/x";
 
-import { type Device } from "@/feature/ni/device/types";
+import type { Device } from "@/feature/ni/device/types";
 import { getAIChannelSuffix } from "@/feature/ni/task/getAIChannelDeviceKey";
 import {
   type AIChannel,

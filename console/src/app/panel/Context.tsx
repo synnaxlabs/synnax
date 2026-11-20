@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 
 import { Selector } from "@/app/selector";
 import { Settings } from "@/app/settings";

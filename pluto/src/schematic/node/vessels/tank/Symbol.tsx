@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Border } from "@/schematic/node/common/border";
@@ -17,7 +17,7 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale } from "@/schematic/node/common/scale";
 import { Stale } from "@/schematic/node/common/stale";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Scale as VisScale } from "@/vis/scale";
 import { Staleness } from "@/vis/staleness";

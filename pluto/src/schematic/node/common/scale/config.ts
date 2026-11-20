@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 
 import { Color } from "@/color";
 import { Telem } from "@/schematic/node/common/telem";
-import { type telem } from "@/telem/aether";
-import { type Scale as VisScale } from "@/vis/scale";
+import type { telem } from "@/telem/aether";
+import type { Scale as VisScale } from "@/vis/scale";
 
 /** Stored shape of a live scale indicator, shared by every symbol that renders one. */
 export type Config = schematic.ScaleIndicatorConfig;

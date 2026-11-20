@@ -11,7 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { access } from "@/access";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 const id = (type: resource.Type, key: string): resource.ID => ({ type, key });
 

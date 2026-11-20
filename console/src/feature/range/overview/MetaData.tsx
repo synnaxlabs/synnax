@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Ranger } from "@synnaxlabs/pluto";
 import { compare, link } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement } from "react";
+import type { KeyboardEvent, ReactElement } from "react";
 
 import {
   AddButton,

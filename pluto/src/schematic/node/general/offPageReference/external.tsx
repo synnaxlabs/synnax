@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import {
@@ -17,7 +17,7 @@ import {
 } from "@/schematic/node/general/offPageReference/Form";
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 const Preview = ({
   label: _,

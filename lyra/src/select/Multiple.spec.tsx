@@ -15,7 +15,7 @@ import { renderProp } from "@/component/renderProp";
 import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { type Menu } from "@/menu";
+import type { Menu } from "@/menu";
 import { Select } from "@/select";
 import { mockGeometry } from "@/testutil/dom";
 import { Text } from "@/text";
