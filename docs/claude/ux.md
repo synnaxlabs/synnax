@@ -979,3 +979,7 @@ The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 - Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
   bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
   7% tint over the page surface was too flat.
+- The History list on the releases page groups the releases under the year they shipped,
+  with a caret before each year. One year is open at a time: the year of the release
+  being read opens by itself, and a click opens another. Rejected: a list that scrolls
+  inside itself, and a grid of every release three across.
