@@ -16,10 +16,10 @@ const CTX: Context = { target: "test", role: "client", protocol: "test", params:
 
 describe("middleware", () => {
   it("should run the rest of the chain each time a middleware calls next", async () => {
-    const client = new HTTPClient(
-      new url.URL({ host: "127.0.0.1", port: 8080 }),
-      binary.JSON_CODEC,
-    );
+    const client = new HTTPClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port: 8080 }),
+      codec: binary.JSON_CODEC,
+    });
     const calls: string[] = [];
     const retry: Middleware = async (ctx, next) => {
       await next(ctx);
