@@ -513,6 +513,15 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("hosts")).toBeDefined();
     });
 
+    it("should list the places that failed again when a typed folder opens", async () => {
+      const listings = [ROOT, ETC];
+      await openBrowser(listings);
+      await screen.findByText("Failed to list files");
+      listings.push(TOP);
+      submit(openField(), "/etc");
+      expect(await screen.findByText("Secrets folder")).toBeDefined();
+    });
+
     it("should open the folder of a typed file with the file selected", async () => {
       await openBrowser(LISTINGS);
       await findEntry("secrets");
@@ -1167,15 +1176,6 @@ describe("FileBrowser.useModal", () => {
       listings.push(ETC);
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
       expect(await findEntry("client.crt", true)).toBeDefined();
-    });
-
-    it("should list the places that failed again on Try again", async () => {
-      const listings = [ROOT];
-      await openBrowser(listings, "/etc/client.crt");
-      await screen.findByText("/etc does not exist.");
-      listings.push(TOP, ETC);
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-      expect(await screen.findByText("Secrets folder")).toBeDefined();
     });
 
     it("should show the error of a folder that fails and go back from it", async () => {
