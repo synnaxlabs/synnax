@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { type Key } from "@/ranger/types.gen";
+import type { Key } from "@/ranger/types.gen";
 
 /** Zod schema for {@link Name}. A range name cannot be empty. */
 export const nameZ = z.string().min(1);

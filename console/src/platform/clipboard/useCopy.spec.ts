@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { act, waitFor } from "@testing-library/react";

@@ -11,7 +11,7 @@ import { errors } from "@synnaxlabs/x";
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { type Query, type Store, type Tx } from "@/server/db/db";
+import type { Query, Store, Tx } from "@/server/db/db";
 import {
   activation,
   event,
@@ -25,9 +25,9 @@ import { badRequest, HTTPError } from "@/server/errors";
 import { invite } from "@/server/invitation";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { type Held, listAllHeld } from "@/server/license/list";
-import { type Mailer } from "@/server/mail";
-import { type Team } from "@/server/member";
-import { type Session } from "@/server/session";
+import type { Mailer } from "@/server/mail";
+import type { Team } from "@/server/member";
+import type { Session } from "@/server/session";
 
 export interface EnsurePersonalArgs {
   userID: string;

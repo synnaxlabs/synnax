@@ -9,7 +9,7 @@
 
 import "@/platform/certificate/Details.css";
 
-import { type certificate, type rack } from "@synnaxlabs/client";
+import type { certificate, rack } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type TimeStamp } from "@synnaxlabs/x";
+import type { TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { leafDER } from "@/platform/certificate/pem";

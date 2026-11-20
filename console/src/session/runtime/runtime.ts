@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type UnknownAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { NoopRuntime, type Runtime, type StoreState } from "@synnaxlabs/drift";
 import { TauriRuntime, type TauriRuntimeProps } from "@synnaxlabs/drift/tauri";
 import { isTauri } from "@tauri-apps/api/core";

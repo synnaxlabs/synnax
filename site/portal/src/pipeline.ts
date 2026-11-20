@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIContext, type MiddlewareHandler } from "astro";
+import type { APIContext, MiddlewareHandler } from "astro";
 import { sequence } from "astro/middleware";
 
-import { type Portal } from "@/portal";
+import type { Portal } from "@/portal";
 import { forbidden, toResponse } from "@/server/errors";
 
 const CLERK = "https://*.clerk.accounts.dev https://clerk.synnaxlabs.com";

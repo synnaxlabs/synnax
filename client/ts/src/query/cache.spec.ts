@@ -19,7 +19,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";

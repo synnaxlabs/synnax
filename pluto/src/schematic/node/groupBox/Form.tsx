@@ -9,7 +9,7 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 export const GroupBoxForm = (): ReactElement => (
   <Base.Sections x>

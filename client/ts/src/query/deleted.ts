@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type TimeStamp } from "@synnaxlabs/x";
+import type { TimeStamp } from "@synnaxlabs/x";
 
 // Brands instances through the global symbol registry so matches() holds across
 // duplicated module instances (dual CJS/ESM builds), where instanceof does not.

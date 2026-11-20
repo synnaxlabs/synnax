@@ -25,7 +25,7 @@ import {
 
 import { channel } from "@/channel";
 import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { Feed, type FeedProps } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import {

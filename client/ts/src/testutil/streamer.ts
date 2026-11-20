@@ -10,8 +10,8 @@
 import { EOF } from "@synnaxlabs/freighter";
 import { disposable, sleep, TimeSpan } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 
 /** A change stream that delivers the frames a spec pushes, in push order. */
 export class PushStreamer implements framer.Streamer {
