@@ -338,7 +338,10 @@ func (s *Service) Authenticate(
 	if err != nil {
 		return auth.Identity{}, err
 	}
-	return auth.Identity{Subject: link.Subject, Credential: link.Key}, nil
+	return auth.Identity{
+		Subject:    user.ResourceID(link.Subject),
+		Credential: link.Key,
+	}, nil
 }
 
 // Version implements [auth.Authenticator]. A link keeps one version for life. A link
@@ -380,5 +383,5 @@ func (s *Service) createUser(
 	if err != nil {
 		return Link{}, err
 	}
-	return s.newWriter(tx).create(ctx, u.ResourceID(), acc)
+	return s.newWriter(tx).create(ctx, u.Key, acc)
 }

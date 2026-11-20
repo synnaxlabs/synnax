@@ -14,7 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -29,7 +29,7 @@ type writer struct {
 // the account is already linked or subject already has a link for the provider.
 func (w writer) create(
 	ctx context.Context,
-	subject resource.ID,
+	subject user.Key,
 	acc account,
 ) (Link, error) {
 	l := Link{

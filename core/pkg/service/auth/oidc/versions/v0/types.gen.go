@@ -14,7 +14,7 @@ package v0
 import (
 	"uuid"
 
-	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+	user "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -27,7 +27,7 @@ type Link struct {
 	// Key is the unique identifier for this link.
 	Key LinkKey `json:"key" msgpack:"key"`
 	// Subject is the user the provider account logs in as.
-	Subject resource.ID `json:"subject" msgpack:"subject"`
+	Subject user.Key `json:"subject" msgpack:"subject"`
 	// Provider is the name of the provider in the Core's settings.
 	Provider string `json:"provider" msgpack:"provider"`
 	// Issuer is the issuer URL of the provider that proved the account.
@@ -43,6 +43,5 @@ func (l Link) Validate() error {
 	v.NotEmptyString("provider", l.Provider)
 	v.NotEmptyString("issuer", l.Issuer)
 	v.NotEmptyString("account", l.Account)
-	v.Exec(func() error { return validate.PathedError(l.Subject.Validate(), "subject") })
 	return v.Error()
 }

@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/versions/v0"
-	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -37,14 +36,14 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v0.Link{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Subject:  resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-				Provider: "test_5",
-				Issuer:   "test_6",
-				Account:  "test_7",
+				Subject:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				Provider: "test_3",
+				Issuer:   "test_4",
+				Account:  "test_5",
 			}),
 			Entry("zero values", v0.Link{
 				Key:      uuid.Nil(),
-				Subject:  resource.ID{Type: resource.Type(""), Key: ""},
+				Subject:  uuid.Nil(),
 				Provider: "",
 				Issuer:   "",
 				Account:  "",
@@ -56,10 +55,10 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeLink(b *testing.B) {
 	seed := v0.Link{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Subject:  resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-		Provider: "test_5",
-		Issuer:   "test_6",
-		Account:  "test_7",
+		Subject:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+		Provider: "test_3",
+		Issuer:   "test_4",
+		Account:  "test_5",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -80,10 +79,10 @@ func FuzzDecodeLink(f *testing.F) {
 	{
 		seed := v0.Link{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Subject:  resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-			Provider: "test_5",
-			Issuer:   "test_6",
-			Account:  "test_7",
+			Subject:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			Provider: "test_3",
+			Issuer:   "test_4",
+			Account:  "test_5",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -94,7 +93,7 @@ func FuzzDecodeLink(f *testing.F) {
 	{
 		seed := v0.Link{
 			Key:      uuid.Nil(),
-			Subject:  resource.ID{Type: resource.Type(""), Key: ""},
+			Subject:  uuid.Nil(),
 			Provider: "",
 			Issuer:   "",
 			Account:  "",

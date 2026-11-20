@@ -15,7 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 // Retrieve is used to retrieve Link records from the database using a
@@ -32,7 +32,7 @@ type Retrieve struct {
 type indexes struct {
 	provider *gorp.LookupIndex[LinkKey, Link, string]
 	account  *gorp.LookupIndex[LinkKey, Link, string]
-	subject  *gorp.TargetReference[LinkKey, Link]
+	subject  *gorp.KeyReference[LinkKey, Link, user.Key]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -48,13 +48,13 @@ func newIndexes() indexes {
 			"account",
 			func(e *Link) string { return e.Account },
 		),
-		subject: gorp.NewTargetReference(gorp.TargetReferenceConfig[LinkKey, Link]{
+		subject: gorp.NewKeyReference(gorp.KeyReferenceConfig[LinkKey, Link, user.Key]{
 			Name:     "subject",
-			Tables:   []string{"user"},
+			Table:    "user",
 			OnDelete: gorp.Cascade,
 			Kind:     gorp.Place,
-			Targets: func(e *Link) []gorp.Target {
-				return []gorp.Target{resourceTarget(e.Subject)}
+			Targets: func(e *Link) []user.Key {
+				return []user.Key{e.Subject}
 			},
 		}),
 	}
@@ -75,11 +75,6 @@ func (i indexes) references() []gorp.Reference[LinkKey, Link] {
 	return []gorp.Reference[LinkKey, Link]{
 		i.subject,
 	}
-}
-
-// resourceTarget returns the gorp.Target of the resource that id identifies.
-func resourceTarget(id resource.ID) gorp.Target {
-	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -128,13 +123,9 @@ func MatchKeys(keys ...LinkKey) Filter {
 // MatchSubjects returns a filter for links
 // whose Subject matches any of the provided
 // values.
-func MatchSubjects(vals ...resource.ID) Filter {
+func MatchSubjects(vals ...user.Key) Filter {
 	return func(r Retrieve) gorp.Filter[LinkKey, Link] {
-		targets := make([]gorp.Target, len(vals))
-		for i, v := range vals {
-			targets[i] = resourceTarget(v)
-		}
-		return r.indexes.subject.Filter(targets...)
+		return r.indexes.subject.Filter(vals...)
 	}
 }
 
