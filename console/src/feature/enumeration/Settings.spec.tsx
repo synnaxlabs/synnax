@@ -14,7 +14,7 @@ import {
   createTestClientWithPolicy,
   FAST_RETRY,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -24,7 +24,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/feature/enumeration";

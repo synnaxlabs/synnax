@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
-import { type Icon } from "@synnaxlabs/lyra/icon";
-import { type Device } from "@synnaxlabs/pluto";
-import { type ComponentType } from "react";
+import type { device } from "@synnaxlabs/client";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import type { Device } from "@synnaxlabs/pluto";
+import type { ComponentType } from "react";
 
-import {
-  type ConfigureProps,
-  type ConnectProps,
-  type ScanActionProps,
+import type {
+  ConfigureProps,
+  ConnectProps,
+  ScanActionProps,
 } from "@/platform/device/types";
 
 export interface Integration {

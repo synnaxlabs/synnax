@@ -14,7 +14,7 @@ import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
 import { id } from "@/id";
 import { math } from "@/math";
-import { type numeric } from "@/numeric";
+import type { numeric } from "@/numeric";
 import { primitive } from "@/primitive";
 import { bounds } from "@/spatial";
 import {

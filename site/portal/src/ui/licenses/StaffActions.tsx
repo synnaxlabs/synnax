@@ -11,9 +11,9 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type License } from "@/server/db/schema";
+import type { License } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
 import { navigate, post, postFile, reload, save } from "@/ui/api";

@@ -377,6 +377,13 @@ var _ = Describe("Layer", func() {
 				To(Equal(map[secret.Key][]byte{key: []byte("rk")}))
 			data := MustSucceed(layer.PagerDuty.Alert.Read(ctx, db, live))
 			Expect(data).To(HaveKeyWithValue("routing_key", key.String()))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(live)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.PagerDuty.Alert.Hash(ctx, db, live))))
 			for _, k := range []uuid.UUID{live, snapshot} {
 				Expect(db.Get(pagerdutyv2.PlainRoutingKeyKVKey(k))).Error().
 					To(MatchError(query.ErrNotFound))

@@ -9,12 +9,12 @@
 
 import "@/input/Boolean.css";
 
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useItemStatus, useLabelledBy } from "@/input/Item";
-import { type InputProps } from "@/input/types";
+import type { InputProps } from "@/input/types";
 import { preventDefault } from "@/util/event";
 
 export interface BooleanProps

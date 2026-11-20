@@ -9,12 +9,12 @@
 
 import "@/platform/palette/List.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { destructor, type record, strings } from "@synnaxlabs/x";
-import { type MouseEvent, type ReactElement } from "react";
+import type { MouseEvent, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

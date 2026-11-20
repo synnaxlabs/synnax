@@ -27,7 +27,7 @@ import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
-import { type Element } from "@/vis/diagram/aether/Diagram";
+import type { Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { domRadii } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";

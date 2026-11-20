@@ -60,6 +60,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -298,6 +299,8 @@ type Transport struct {
 	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
 	// CertificateDispatch applies path actions to a certificate.
 	CertificateDispatch freighter.UnaryServer[certificate.DispatchRequest, struct{}]
+	// CertificateRefresh saves the details that a rack read from a certificate file.
+	CertificateRefresh freighter.UnaryServer[certificate.RefreshRequest, struct{}]
 	// ViewDispatch applies path actions to a view.
 	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
@@ -599,6 +602,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.CertificateRetrieve,
 		t.CertificateDelete,
 		t.CertificateDispatch,
+		t.CertificateRefresh,
 
 		// ARC
 		t.ArcCreate,
@@ -871,6 +875,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.CertificateRetrieve.BindHandler(bind.Read(l.binder, l.Certificate.Retrieve))
 	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
 	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
+	t.CertificateRefresh.BindHandler(
+		bind.WriteUnchecked(db, l.Certificate.Refresh),
+	)
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
@@ -907,6 +914,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Held:        auth.HeldTables(),
 		Owned:       panel.OwnedTables(),
 		OwnedPlaces: panel.OwnedPlaces(),
+		Vouched:     []resource.Type{resource.TypeSecret},
 	}); err != nil {
 		return nil, err
 	}
@@ -1117,6 +1125,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Secret: cfg.Service.Secret,
 		RBAC:   cfg.Service.RBAC,
 		Task:   cfg.Service.Task,
+		Rack:   cfg.Service.Rack,
+		DB:     cfg.Distribution.DB,
 	}); err != nil {
 		return nil, err
 	}

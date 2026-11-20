@@ -17,7 +17,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Status } from "@synnaxlabs/lyra/status";
 import { deep, id, uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 

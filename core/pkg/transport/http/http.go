@@ -768,6 +768,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathCertificateDispatch,
 		),
+		CertificateRefresh: unary[certificate.RefreshRequest, struct{}](
+			router,
+			"/api/v1/certificate/refresh",
+		),
 
 		// IMPORT/EXPORT
 		ImExImport: unary[imex.ImportRequest, imex.ImportResponse](

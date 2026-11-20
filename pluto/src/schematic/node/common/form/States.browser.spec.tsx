@@ -12,7 +12,7 @@ import { Form as Base } from "@synnaxlabs/lyra/form";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { deep } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Form } from "@/schematic/node/common/form";

@@ -10,7 +10,7 @@
 import { color as xcolor, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type color } from "@/color";
+import type { color } from "@/color";
 import { enumeration } from "@/enumeration";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
