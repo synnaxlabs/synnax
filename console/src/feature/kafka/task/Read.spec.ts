@@ -889,6 +889,84 @@ describe("Kafka read form", () => {
       await dialog.findByText("Failed to read records");
       dialog.getByText(/Failed to reach the cluster/);
     });
+
+    it("should lock a shape whose keys the task reads, marked as in the task", async () => {
+      const { dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const oven = { ...OVEN_SHAPE, sources: ["oven-1"] };
+      const dialog = await openAddData(dev, { data: sampleOf(oven) });
+      const pick = await dialog.findByRole("checkbox", { name: "Pick oven-1" });
+      expect(pick).toHaveProperty("disabled", true);
+      const field = dialog.getByRole("checkbox", { name: "Record /temperature" });
+      expect(field).toHaveProperty("disabled", true);
+      expect(field).toHaveProperty("checked", true);
+      expect(dialog.getAllByText("In task")).toHaveLength(3);
+    });
+
+    it("should add records for only the keys of a shape that the task does not read", async () => {
+      const { draft, dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Record /temperature" }),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      expect(records.map(({ recordKey }) => recordKey)).toEqual(["oven-1", "oven-2"]);
+      const { messages } = await client.icds.retrieve(records[1].icd);
+      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "oven-2"]);
+    });
+
+    it("should say that some records are unread when a sample has shapes and an error", async () => {
+      const { dev } = await renderRead();
+      const record = {
+        partition: 0,
+        offset: 1,
+        key: "oven-1",
+        time: 1,
+        headers: [],
+        format: "json",
+        payload: JSON.stringify({ temperature: 61.5 }),
+      };
+      const topic = {
+        topic: TOPIC,
+        records: [record],
+        shapes: [OVEN_SHAPE],
+        error: "A record is not JSON.",
+      };
+      const dialog = await openAddData(dev, {
+        data: { topics: [topic], truncated: false },
+      });
+      await dialog.findByText("1 record, some unread");
+      dialog.getByRole("checkbox", { name: "Pick oven-1, oven-2" });
+    });
+
+    it("should name the message of keyless records Any key and read the empty key", async () => {
+      const { draft, dev } = await renderRead();
+      const keyless = { ...OVEN_SHAPE, sources: [""] };
+      const dialog = await openAddData(dev, { data: sampleOf(keyless) });
+      await dialog.findByRole("checkbox", { name: "Pick Any key" });
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Record /temperature" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      expect(rec.recordKey).toBe("");
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages.map(({ name }) => name)).toEqual(["Any key"]);
+    });
   });
 
   describe("fields", () => {
