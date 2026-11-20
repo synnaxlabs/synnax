@@ -1879,6 +1879,67 @@ var _ = Describe("Delete", func() {
 				)
 			})
 
+			Describe("OpenDelete", func() {
+				It("Should delete the range when del runs", func(ctx SpecContext) {
+					Expect(unary.Write(
+						ctx, indexDB, 10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					)).To(Succeed())
+					Expect(unary.Write(
+						ctx, dataDB, 10*telem.SecondTS,
+						telem.NewSeriesV[int64](0, 1, 2, 3),
+					)).To(Succeed())
+					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+					del, release, err := dataDB.OpenDelete(tr)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(del(ctx)).To(Succeed())
+					release()
+					Expect(MustSucceed(dataDB.HasDataFor(ctx, tr))).To(BeFalse())
+				})
+				It("Should return an error when a writer controls the range",
+					func(ctx SpecContext) {
+						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo_writer"},
+						}))
+						_, _, err := dataDB.OpenDelete(
+							(10 * telem.SecondTS).Range(12 * telem.SecondTS),
+						)
+						Expect(err).To(HaveOccurred())
+						MustSucceed(w.Close())
+					})
+				It("Should return an error for an invalid range", func() {
+					_, _, err := dataDB.OpenDelete(
+						(12 * telem.SecondTS).Range(10 * telem.SecondTS),
+					)
+					Expect(err).To(HaveOccurred())
+				})
+				It("Should return an error when the DB is closed", func() {
+					Expect(dataDB.Close()).To(Succeed())
+					_, _, err := dataDB.OpenDelete(
+						(10 * telem.SecondTS).Range(12 * telem.SecondTS),
+					)
+					Expect(err).To(MatchError(unary.ErrDBClosed))
+				})
+				It("Should block writers until release", func(ctx SpecContext) {
+					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+					_, release, err := dataDB.OpenDelete(tr)
+					Expect(err).ToNot(HaveOccurred())
+					_, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
+						Start:                 10 * telem.SecondTS,
+						Subject:               control.Subject{Key: "foo_writer"},
+						ErrOnUnauthorizedOpen: new(true),
+					})
+					Expect(err).To(HaveOccurred())
+					release()
+					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
+						Start:   10 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo_writer"},
+					}))
+					MustSucceed(w.Close())
+				})
+			})
+
 			Describe("HasDataFor", func() {
 				It(
 					"Should return whether there is data for the given range",
