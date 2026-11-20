@@ -18,7 +18,7 @@ import {
 
 import { capture, fixtures } from "@/index";
 
-import { dropTemporal, pinClock } from "./common/clock";
+import { dropTemporal, pinClock, runAhead } from "./common/clock";
 import { fitOperator, openOperator, operationsLayout } from "./common/coldflow";
 
 export const viewport = { width: 1280, height: 800 };
@@ -100,6 +100,7 @@ const closeTab = async (
  * the strip above the live pressures.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
+  await runAhead(session);
   const world = await fixtures.testStand({ now: () => session.now() });
   const client = fixtures.connect();
   try {

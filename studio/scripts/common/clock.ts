@@ -7,9 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import type { Page } from "playwright";
 
 import type { capture } from "@/index";
+
+/** How far runAhead puts the virtual clock ahead of wall time. */
+const LEAD = TimeSpan.minutes(30);
+
+/**
+ * runAhead runs the virtual clock ahead of wall time without capturing. The TPC stand
+ * stamps samples on the later of the two clocks, and Arc runs on wall time. A capture
+ * that stays ahead stamps its ranges on the clock the stand uses, and Arc sees each
+ * sample as new. Call it before `fixtures.testStand`.
+ */
+export const runAhead = async (session: capture.CaptureSession): Promise<void> => {
+  session.setSpeed(60);
+  while (session.now().before(TimeStamp.now().add(LEAD))) await session.tick();
+  session.setSpeed(1);
+};
 
 /** pinClock pauses the page's clock at the virtual time, so only ticks move it. */
 export const pinClock = async (session: capture.CaptureSession): Promise<void> => {

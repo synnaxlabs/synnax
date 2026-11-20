@@ -12,7 +12,7 @@ import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
-import { dropTemporal, pinClock } from "./common/clock";
+import { dropTemporal, pinClock, runAhead } from "./common/clock";
 import { createPhases } from "./common/coldflow";
 import { isolateTab } from "./common/panels";
 
@@ -25,12 +25,6 @@ const PLOT = "OX Pressures";
 /** Video time the flow phase takes, however long the stand flows. */
 const FLOW_SHOWN = TimeSpan.seconds(4);
 const REST = { x: 26, y: 600 };
-/**
- * How far the virtual clock runs ahead of wall time before the capture. Arc runs on
- * wall time and the stand on the virtual clock, which falls behind wall time while
- * frames record. The stand's samples must stay ahead for the sequence to advance.
- */
-const LEAD = TimeSpan.minutes(30);
 
 /**
  * Video for the ranges section of the v0.62 release notes: during a live coldflow, an
@@ -40,9 +34,7 @@ const LEAD = TimeSpan.minutes(30);
  * shows each phase as it runs. Stopping Coldflow 12 moves it to Recent.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  session.setSpeed(60);
-  while (session.now().before(TimeStamp.now().add(LEAD))) await session.tick();
-  session.setSpeed(1);
+  await runAhead(session);
   const world = await fixtures.testStand({ now: () => session.now() });
   const client = fixtures.connect();
   try {
