@@ -36,8 +36,8 @@ from review.post import (
 )
 
 USAGE = (
-    "To dismiss this finding, reply `@sedosaur dismiss` and a reason. To ask for a "
-    "review, comment `@sedosaur review` on the pull request."
+    "To dismiss this finding, reply `@sedosaur dismiss` and a reason. A push starts a "
+    "new review."
 )
 UNNAMED = (
     "No one open finding has that title. To dismiss a finding, comment "
