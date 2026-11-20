@@ -69,30 +69,60 @@ func normalizePtr(s *string) *string {
 }
 
 // NormalizeNames returns names, each in NFC, the form in which the Core stores names.
+// It
+// returns names itself when every name is in NFC, so the caller must not change the
+// result.
 func NormalizeNames(names []string) []string {
-	return lo.Map(
-		names,
-		func(n string, _ int) string { return validate.NormalizeName(n) },
-	)
+	var out []string
+	for i, n := range names {
+		nfc := validate.NormalizeName(n)
+		if nfc == n {
+			continue
+		}
+		// Copy only when a name changes, so names already in NFC allocate nothing.
+		if out == nil {
+			out = slices.Clone(names)
+		}
+		out[i] = nfc
+	}
+	if out == nil {
+		return names
+	}
+	return out
 }
 
 // normalizeNameActions returns acts with each name that they set in NFC, so the Core
 // stores and broadcasts one form.
 func normalizeNameActions(acts []Action) []Action {
-	out := slices.Clone(acts)
-	for i, a := range out {
+	var out []Action
+	set := func(i int, a Action) {
+		if out == nil {
+			out = slices.Clone(acts)
+		}
+		out[i] = a
+	}
+	for i, a := range acts {
 		if a.Rename != nil {
-			p := *a.Rename
-			p.Name = validate.NormalizeName(p.Name)
-			out[i].Rename = &p
+			if nfc := validate.NormalizeName(a.Rename.Name); nfc != a.Rename.Name {
+				p := *a.Rename
+				p.Name = nfc
+				a.Rename = &p
+				set(i, a)
+			}
 		}
 		if a.Set != nil && slices.Equal(a.Set.Path, []string{"name"}) {
 			if name, ok := a.Set.Value.(string); ok {
-				p := *a.Set
-				p.Value = validate.NormalizeName(name)
-				out[i].Set = &p
+				if nfc := validate.NormalizeName(name); nfc != name {
+					p := *a.Set
+					p.Value = nfc
+					a.Set = &p
+					set(i, a)
+				}
 			}
 		}
+	}
+	if out == nil {
+		return acts
 	}
 	return out
 }

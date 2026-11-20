@@ -10,6 +10,8 @@
 package validate_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/validate"
@@ -50,6 +52,15 @@ var _ = Describe("Path segments", func() {
 		Entry("an invalid byte", "a\xffb", false),
 		Entry("a name not in NFC", "e\u0301", false),
 	)
+
+	It("Should allocate nothing for an ASCII name or a name in NFC", func() {
+		for _, name := range []string{"pt_unique_01", "Stand A-01", "\u5727\u529b \u00E9"} {
+			Expect(testing.AllocsPerRun(10, func() {
+				_ = validate.IsPathSegment(name)
+				_ = validate.NormalizeName(name)
+			})).To(BeZero())
+		}
+	})
 
 	Describe("NormalizeName", func() {
 		It("Should compose a decomposed name", func() {
