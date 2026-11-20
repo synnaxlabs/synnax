@@ -2510,6 +2510,28 @@ describe("Series", () => {
 });
 
 describe("MultiSeries", () => {
+  it("should throw when the series have different data types", () => {
+    const a = new Series(new Float32Array([1, 2, 3]));
+    const b = new Series(new Float64Array([4, 5, 6]));
+    expect(() => new MultiSeries([a, b])).toThrow("must have the same data type");
+  });
+
+  describe("alignment", () => {
+    it("should return the alignment of the first series", () => {
+      const a = new Series({ data: new Float32Array([1, 2]), alignment: 10n });
+      const b = new Series({ data: new Float32Array([3]), alignment: 12n });
+      const multi = new MultiSeries([a, b]);
+      expect(multi.alignment).toEqual(10n);
+      expect(multi.alignmentBounds).toEqual({ lower: 10n, upper: 13n });
+    });
+
+    it("should return zero for an empty multi-series", () => {
+      const multi = new MultiSeries([]);
+      expect(multi.alignment).toEqual(0n);
+      expect(multi.alignmentBounds).toEqual({ lower: 0n, upper: 0n });
+    });
+  });
+
   describe("length", () => {
     it("should correctly return the length of the multi-series", () => {
       const a = new Series(new Float32Array([1, 2, 3]));
