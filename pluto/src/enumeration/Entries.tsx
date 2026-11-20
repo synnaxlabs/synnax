@@ -385,16 +385,11 @@ export const Entries = ({ enumeration: key }: EntriesProps): ReactElement => {
   const handleChange = ({ changed, added, removed }: Edit): void =>
     form.batch(() => {
       for (const k of removed) form.remove(formPath.entries[k]);
-      for (const { color, ...next } of changed) {
+      for (const next of changed) {
         const current = entries.find((e) => e.key === next.key);
         if (current == null) throw new Error(`no entry with key ${next.key}`);
-        const { color: currentColor, ...base } = current;
-        const at = formPath.entries[next.key];
         // Only the fields that differ go out, so another user's edit to the rest stays.
-        Form.setChanged(form, at, base, next);
-        if (deep.equal(color, currentColor)) continue;
-        if (color == null) form.remove(at.color);
-        else form.set(at.color, color);
+        Form.setChanged(form, formPath.entries[next.key], current, next);
       }
       let after = entries.findLast((e) => !removed.includes(e.key))?.key;
       for (const entry of added) {
