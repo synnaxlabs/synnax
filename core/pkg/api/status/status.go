@@ -100,7 +100,7 @@ func resolveDetails(s *status.Status[any]) error {
 		if details, err = decodeDetails[rack.StatusDetails](s.Details); err == nil {
 			s.Details = details
 		}
-	case resource.TypeChannel:
+	case resource.TypeChannel, resource.TypeCalculation:
 		_, err = decodeDetails[struct{}](s.Details)
 	case resource.TypeArc, resource.TypeBuiltin, resource.TypeFramer,
 		resource.TypeGroup, resource.TypeLabel, resource.TypeLineplot, resource.TypeLog,
