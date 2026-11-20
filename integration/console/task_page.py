@@ -201,19 +201,20 @@ class TaskPage(ConsolePage):
             ),
             None,
         )
-        description = self._controls().locator(".console-task-status__summary")
         return sy.Status.model_validate(
             {
                 "variant": variant,
                 "message": status_element.inner_text(),
-                "description": (
-                    description.first.inner_text() if description.count() > 0 else ""
-                ),
+                "description": self._status_description(),
             }
         )
 
     def _status_element(self) -> _StatusElement:
         return self._controls().locator(".console-task-status__message-text").first
+
+    def _status_description(self) -> str:
+        description = self._controls().locator(".console-task-status__summary")
+        return description.first.inner_text() if description.count() > 0 else ""
 
     def copy_link(self) -> str:
         """Copy link to the task via the utility button in the form header."""
