@@ -19,7 +19,7 @@ color, and the legend, tooltip, hover, and hide controls name the range of each 
 
 Comparing ranges on a shared zero is the most requested range feature (SY-3942). Users
 compare 2 to 5 ranges. Today a plot keeps each range at its real time
-(`site/docs/src/pages/reference/visualize/line-plots.mdx:74`), so two tests a week apart
+(`site/docs/src/docs/reference/visualize/line-plots.mdx:82`), so two tests a week apart
 sit a week apart. All ranges of a channel also draw in one color with one legend entry
 (`pluto/src/lineplot/LinePlot.tsx:154`), so the user cannot tell which line is which
 range.
@@ -152,7 +152,7 @@ rules to `docs/claude/ux.md`. The last phase removes the flag.
 | 2     | Draw and name ranges on a relative line plot axis  | `pluto/src/vis/line`, `pluto/src/vis/axis`, `pluto/src/vis/legend`, `pluto/src/lineplot`    | 1          |
 | 3     | Add a relative time mode to the Console line plot  | `console/src/feature/lineplot`, `console/src/session/lineplot`, `console/src/session/range` | 2          |
 | 4     | Compare a selection of ranges from the range menu  | `console/src/platform/range`                                                                | 3          |
-| 5     | Document range compare and remove its flag         | `site/docs/src/pages/reference/visualize`, `console/src/flags.ts`                           | 4          |
+| 5     | Document range compare and remove its flag         | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`                            | 4          |
 
 ## 4 Resolved decisions
 

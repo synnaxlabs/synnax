@@ -93,21 +93,22 @@ describe("lineplot selector hooks", () => {
 });
 
 describe("lineplot hidden items", () => {
-  it("should read the items and the solo restore point that setHidden sets", () => {
+  it("should read the items and the solo that setHidden sets", () => {
     const store = storeWith({ version: 0, windows: inWindow({ [KEY]: ZERO }) });
     const { result } = renderHook(
       () => ({
         hidden: LinePlot.useSelectHidden(),
-        soloRestore: LinePlot.useSelectSoloRestore(),
+        solo: LinePlot.useSelectSolo(),
       }),
       { wrapper: wrapperFor(store, KEY) },
     );
     const hidden = { lines: ["l1"], ranges: ["r1"], traces: ["l2/r2"] };
-    const soloRestore = { lines: [], ranges: ["r3"], traces: [] };
-    act(
-      () => void store.dispatch(LinePlot.setHidden({ key: KEY, hidden, soloRestore })),
-    );
-    expect(result.current).toEqual({ hidden, soloRestore });
+    const solo = {
+      item: "range:r1",
+      restore: { lines: [], ranges: ["r3"], traces: [] },
+    };
+    act(() => void store.dispatch(LinePlot.setHidden({ key: KEY, hidden, solo })));
+    expect(result.current).toEqual({ hidden, solo });
   });
 });
 
