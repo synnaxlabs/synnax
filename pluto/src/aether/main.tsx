@@ -11,7 +11,6 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { type CrudeTimeSpan, deep, type destructor, type record } from "@synnaxlabs/x";
 import {
-  memo,
   type PropsWithChildren,
   type ReactElement,
   useLayoutEffect,
@@ -280,9 +279,9 @@ export interface CompositeProps extends PropsWithChildren {
 
 /** Pushes a new aether path into the context so descendants register as children of the
  * composite component identified by `path`. */
-export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
+export const Composite = ({ children, path }: CompositeProps): ReactElement => {
   const ctx = useContext();
   const value: ContextValue = { ...ctx, path };
   return <Context value={value}>{children}</Context>;
-});
+};
 Composite.displayName = "Aether.Composite";

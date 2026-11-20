@@ -202,12 +202,10 @@ env:
   GOPROXY: https://proxy.golang.org|direct
   RELEASE_TAG: ${{ inputs.release_tag }}
   # Desktop Console update files that every Core embeds, downloaded one call each so a
-  # missing file fails the build. A Windows or Linux install updates with the installer
-  # it came from, so each stays. The manifest carries the signatures, so the .sig files
-  # stay out.
+  # missing file fails the build. A Windows install updates with the installer it came
+  # from, so each stays. The manifest carries the signatures, so the .sig files stay out.
   CONSOLE_UPDATE_FILES:
     latest.json Synnax.app.tar.gz Synnax_*_x64-setup.exe Synnax_*_x64_en-US.msi
-    Synnax_*_amd64.AppImage Synnax_*_amd64.deb
 
 permissions:
   contents: read
@@ -223,13 +221,13 @@ jobs:
       console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
       tauri_macos_matrix: ${{ steps.set-console-tauri-matrix.outputs.macos }}
       tauri_windows_matrix: ${{ steps.set-console-tauri-matrix.outputs.windows }}
-      tauri_linux_matrix: ${{ steps.set-console-tauri-matrix.outputs.linux }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # Dispatch inputs reach shell commands: reject a malformed tag or version before
       # any job interpolates one.
@@ -300,25 +298,19 @@ jobs:
           if [ "${{ inputs.windows }}" = "true" ]; then
             WINDOWS="\"windows-latest\""
           fi
-          # The oldest hosted Ubuntu gives the AppImage and the .deb the widest glibc
-          # range.
-          LINUX=""
-          if [ "${{ inputs.ubuntu }}" = "true" ]; then
-            LINUX="\"ubuntu-22.04\""
-          fi
           OS_LIST="${MACOS}${MACOS:+${WINDOWS:+,}}${WINDOWS}"
-          OS_LIST="${OS_LIST}${OS_LIST:+${LINUX:+,}}${LINUX}"
           {
             echo "matrix=[${OS_LIST}]"
             echo "macos=[${MACOS}]"
             echo "windows=[${WINDOWS}]"
-            echo "linux=[${LINUX}]"
           } >> "$GITHUB_OUTPUT"
 
       - name: Verify build configuration
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           .github/scripts/verify_build_config.sh \
-            "${{ steps.version.outputs.VERSION }}" \
+            "$VERSION" \
             "${{ inputs.windows }}" \
             "${{ inputs.macos }}" \
             "${{ inputs.ubuntu }}" \
@@ -384,6 +376,9 @@ jobs:
       BAZEL_REMOTE_CACHE_FLAGS:
         --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
         --remote_cache_compression=true
+      VERSION: ${{ needs.setup.outputs.VERSION }}
+      OS_NAME: ${{ matrix.os-name }}
+      EXE: ${{ matrix.executable }}
     strategy:
       fail-fast: false
       matrix:
@@ -392,6 +387,8 @@ jobs:
     steps: &build_steps
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # Only the Bazel Driver build reads the vendored submodules.
       - name: Update submodules
@@ -414,19 +411,12 @@ jobs:
 
       - name: Setup Bazel
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
-        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
-
-      - name: Install Rust
-        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
 
       - name: Build Driver (Windows)
         if:
@@ -488,14 +478,15 @@ jobs:
           read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
           bazel build "${flags[@]}" --config=opt-unix --define=platform=nilinuxrt \
             //driver
-          mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
+          mv bazel-bin/driver/driver "bazel-bin/driver/synnax-driver-v$VERSION-nilinuxrt"
 
       - name: Extract debug symbols (NI Linux Real-Time)
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
         run: |
-          objcopy --only-keep-debug bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt bazel-bin/driver/driver-nilinuxrt.debug
+          objcopy --only-keep-debug "bazel-bin/driver/synnax-driver-v$VERSION-nilinuxrt" \
+            bazel-bin/driver/driver-nilinuxrt.debug
 
       - name: Upload NI Linux Real-Time debug symbols
         if:
@@ -529,7 +520,8 @@ jobs:
           inputs.driver && inputs.nilinuxrt && inputs.release_tag != '' && matrix.os ==
           'ubuntu-build-bot'
         run: |
-          gh release upload --clobber "$RELEASE_TAG" bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
+          gh release upload --clobber "$RELEASE_TAG" \
+            "bazel-bin/driver/synnax-driver-v$VERSION-nilinuxrt"
 
       # The docs site tells NI Linux Real-Time users to download and run this script.
       - name: Upload NI Linux Real-Time install script to release
@@ -579,6 +571,7 @@ jobs:
           if-no-files-found: error
 
       - name: Set up trusted-signing-cli
+        id: signer
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
         uses: ./.github/actions/setup-trusted-signing-cli
 
@@ -596,9 +589,10 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Driver"
+          SIGNER: ${{ steps.signer.outputs.path }}
+        run: >-
+          & $env:SIGNER -e https://wcus.codesigning.azure.net -a CodeSigningAccountName
+          -c CodeSigningCertificateProfile -d "Synnax Driver"
           bazel-bin/driver/driver.exe
 
       # A scratch dir avoids leftovers in the persistent bazel output base.
@@ -625,13 +619,14 @@ jobs:
         run: |
           mkdir -p bazel-bin/driver
           mv "${RUNNER_TEMP}"/cached-driver/synnax-driver-v* \
-            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+            "bazel-bin/driver/synnax-driver-v$VERSION-$OS_NAME$EXE"
 
       - name: Rename Driver binary
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
         shell: bash
         run: |
-          mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+          mv "bazel-bin/driver/driver$EXE" \
+            "bazel-bin/driver/synnax-driver-v$VERSION-$OS_NAME$EXE"
 
       - name: Upload Driver as artifact
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
@@ -657,15 +652,15 @@ jobs:
           max_attempts: 3
           command:
             gh release upload --clobber "$RELEASE_TAG"
-            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
-            matrix.os-name }}${{ matrix.executable }}
+            "bazel-bin/driver/synnax-driver-v$VERSION-$OS_NAME$EXE"
 
       - name: Copy Driver to assets
         if:
           inputs.driver && inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os !=
           'windows-build-bot'
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/driver/assets/driver${{ matrix.executable }}
+          cp "bazel-bin/driver/synnax-driver-v$VERSION-$OS_NAME$EXE" \
+            "core/pkg/driver/assets/driver$EXE"
 
       - name: Copy Driver to assets (Windows)
         if:
@@ -673,7 +668,8 @@ jobs:
           'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
+          Copy-Item -Force "bazel-bin/driver/synnax-driver-v$env:VERSION-$env:OS_NAME.exe" `
+            core/pkg/driver/assets/driver.exe
 
       - name: Download Driver release
         if: inputs.driver_release != '' && inputs.core
@@ -683,9 +679,9 @@ jobs:
         run: |
           mkdir -p core/pkg/driver/assets
           gh release download "$RELEASE" \
-            --pattern "synnax-driver-v*-${{ matrix.os-name }}${{ matrix.executable }}" \
-            --output core/pkg/driver/assets/driver${{ matrix.executable }}
-          chmod +x core/pkg/driver/assets/driver${{ matrix.executable }}
+            --pattern "synnax-driver-v*-$OS_NAME$EXE" \
+            --output "core/pkg/driver/assets/driver$EXE"
+          chmod +x "core/pkg/driver/assets/driver$EXE"
 
       - name: Download Console release
         if: inputs.console_release != '' && inputs.core
@@ -730,8 +726,6 @@ jobs:
       - name: Stamp package versions
         if: inputs.console && env.CONSOLE_REF_RUN_ID == '' && inputs.release_tag != ''
         shell: bash
-        env:
-          VERSION: ${{ needs.setup.outputs.VERSION }}
         run: .github/scripts/stamp_versions.sh ts "$VERSION"
 
       - name: Build Console web assets
@@ -770,8 +764,8 @@ jobs:
         if:
           inputs.console && inputs.release_tag != '' && matrix.os == 'ubuntu-build-bot'
         run: |
-          tar -czf console-web-v${{ needs.setup.outputs.VERSION }}.tar.gz -C console/dist .
-          gh release upload --clobber "$RELEASE_TAG" console-web-v${{ needs.setup.outputs.VERSION }}.tar.gz
+          tar -czf "console-web-v$VERSION.tar.gz" -C console/dist .
+          gh release upload --clobber "$RELEASE_TAG" "console-web-v$VERSION.tar.gz"
 
       - name: Copy Console to assets
         if:
@@ -805,7 +799,7 @@ jobs:
 
       - name: Set up Go
         if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: core/go.mod
           # Don't use github cache. Local cache is faster.
@@ -830,24 +824,29 @@ jobs:
         if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
         working-directory: core
         shell: bash
+        env:
+          GO_BUILD_TAGS: ${{ needs.setup.outputs.GO_BUILD_TAGS }}
         run: |
-          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} \
+          read -ra tags <<< "$GO_BUILD_TAGS"
+          go build "${tags[@]}" \
             -ldflags="-w -s \
-              -X github.com/synnaxlabs/synnax/pkg/version.version=${{ needs.setup.outputs.VERSION }} \
-              -X github.com/synnaxlabs/synnax/pkg/version.gitCommit=${{ github.sha }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.version=$VERSION \
+              -X github.com/synnaxlabs/synnax/pkg/version.gitCommit=$GITHUB_SHA \
               -X github.com/synnaxlabs/synnax/pkg/version.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+            -o "synnax-v$VERSION$EXE"
 
       - name: Sign Windows Core binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
+        shell: powershell
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core"
-          core/synnax-v${{ needs.setup.outputs.VERSION }}.exe
+          SIGNER: ${{ steps.signer.outputs.path }}
+        run: >-
+          & $env:SIGNER -e https://wcus.codesigning.azure.net -a CodeSigningAccountName
+          -c CodeSigningCertificateProfile -d "Synnax Core"
+          "core/synnax-v$env:VERSION.exe"
 
       - name: Upload Core binary as artifact
         if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
@@ -865,8 +864,8 @@ jobs:
       - name: Rename Core binary for release
         if: inputs.core && inputs.release_tag != '' && env.SIGNING_DEFERRED != 'true'
         working-directory: core
-        run: |
-          cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+        shell: bash
+        run: cp "synnax-v$VERSION$EXE" "synnax-v$VERSION-$OS_NAME$EXE"
 
       - name: Upload Core to release
         if: inputs.core && inputs.release_tag != '' && env.SIGNING_DEFERRED != 'true'
@@ -876,8 +875,8 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command:
-            gh release upload --clobber "$RELEASE_TAG" core/synnax-v${{
-            needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+            gh release upload --clobber "$RELEASE_TAG"
+            "core/synnax-v$VERSION-$OS_NAME$EXE"
 
       - name: Clean build caches (Ubuntu)
         if: always() && matrix.os == 'ubuntu-build-bot'
@@ -928,6 +927,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
+          persist-credentials: false
 
       - name: Download unsigned binary
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -995,6 +995,9 @@ jobs:
       CONSOLE_REF_ARTIFACT:
         ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-macos' ||
         format('synnax-console-assets-v{0}-macos', needs.setup.outputs.VERSION) }}
+      VERSION: ${{ needs.setup.outputs.VERSION }}
+      OS_NAME: ${{ matrix.os-name }}
+      EXE: ${{ matrix.executable }}
     strategy: *macos_strategy
     runs-on: ${{ matrix.os }}
     steps: *build_steps
@@ -1028,6 +1031,9 @@ jobs:
     permissions:
       actions: read
     env:
+      VERSION: ${{ needs.setup.outputs.VERSION }}
+      OS_NAME: ${{ matrix.os-name }}
+      EXE: ${{ matrix.executable }}
       DRIVER_REF_RUN_ID:
         ${{ fromJSON(inputs.driver_ref_run_id || '{}')[matrix.os-name] }}
       CONSOLE_REF_RUN_ID:
@@ -1053,7 +1059,7 @@ jobs:
         run: |
           mkdir -p driver-out
           mv driver-in/synnax-driver-v* \
-            driver-out/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+            "driver-out/synnax-driver-v$VERSION-$OS_NAME$EXE"
 
       - name: Upload Driver as artifact
         if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
@@ -1103,8 +1109,7 @@ jobs:
         if: inputs.core && env.CORE_REF_RUN_ID != ''
         run: |
           mkdir -p core-out
-          mv core-in/synnax-v* \
-            core-out/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+          mv core-in/synnax-v* "core-out/synnax-v$VERSION$EXE"
 
       - name: Upload Core binary as artifact
         if: inputs.core && env.CORE_REF_RUN_ID != ''
@@ -1150,7 +1155,7 @@ jobs:
           for file in binaries/*; do
             # A rerun downloads the signatures of the first run too.
             case "$file" in *.sig) continue ;; esac
-            npx --yes @tauri-apps/cli@2.12.3 signer sign "$file"
+            npx --yes @tauri-apps/cli@2.12.6 signer sign "$file"
           done
 
       - name: Upload signatures
@@ -1176,6 +1181,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download Linux Driver artifact
         if: inputs.driver
@@ -1247,23 +1254,17 @@ jobs:
 
       - name: Login to Docker Hub
         if: inputs.release_tag != ''
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-
-      - name: Extract Go version
-        id: go-version
-        run:
-          echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
-          "$GITHUB_OUTPUT"
 
       # A rerun after a newer Core release must not move the channel back.
       - name: Resolve the channel
@@ -1304,7 +1305,6 @@ jobs:
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
-            GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
 
   build-console-tauri:
     name: Build Console app
@@ -1391,8 +1391,7 @@ jobs:
       updater_channel: ${{ inputs.updater_channel }}
     secrets: *tauri_secrets
 
-  # Desktop on Windows or Linux needs only the Core of its OS, so it does not wait for
-  # macOS.
+  # Desktop on Windows needs only the Windows Core, so it does not wait for macOS.
   build-desktop-windows:
     name: Build Synnax Desktop (Windows)
     needs: [setup, build, republish]
@@ -1404,24 +1403,6 @@ jobs:
     with:
       desktop: true
       os: ${{ needs.setup.outputs.tauri_windows_matrix }}
-      version: ${{ needs.setup.outputs.VERSION }}
-      app_version: ${{ inputs.desktop_version }}
-      sign_binaries: ${{ inputs.sign_binaries }}
-      use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
-      updater_channel: ${{ inputs.updater_channel }}
-    secrets: *tauri_secrets
-
-  build-desktop-linux:
-    name: Build Synnax Desktop (Linux)
-    needs: [setup, build, republish]
-    # build.tauri.yaml uploads the bundles to the draft release.
-    permissions:
-      contents: write
-    if: inputs.desktop && needs.setup.outputs.tauri_linux_matrix != '[]'
-    uses: ./.github/workflows/build.tauri.yaml
-    with:
-      desktop: true
-      os: ${{ needs.setup.outputs.tauri_linux_matrix }}
       version: ${{ needs.setup.outputs.VERSION }}
       app_version: ${{ inputs.desktop_version }}
       sign_binaries: ${{ inputs.sign_binaries }}

@@ -10,6 +10,7 @@
 import { type Nav } from "@/components/nav";
 import { ETHERCAT_NAV } from "@/pages/reference/hardware/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/hardware/http/_nav";
+import { ICDS_NAV } from "@/pages/reference/hardware/icds/_nav";
 import { KAFKA_NAV } from "@/pages/reference/hardware/kafka/_nav";
 import { LABJACK_NAV } from "@/pages/reference/hardware/labjack/_nav";
 import { MODBUS_NAV } from "@/pages/reference/hardware/modbus/_nav";
@@ -37,6 +38,7 @@ export const HARDWARE_NAV: Nav.PageNavNode = {
       href: "/reference/hardware/start-and-stop-tasks",
       name: "Start and stop",
     },
+    ICDS_NAV,
     {
       href: "/reference/hardware/troubleshooting",
       name: "Troubleshooting",

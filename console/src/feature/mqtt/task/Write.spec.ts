@@ -10,6 +10,7 @@
 import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -30,7 +31,6 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getSwitchInput,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -89,7 +89,7 @@ const renderWrite = async (
 ) => {
   const dev = await createBroker(client);
   const draft = await createDraft(client, createWriteConfig(dev.key, targets));
-  const result = await renderTaskFormTab(MQTT.Task.Write, {
+  const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
     client,
     taskKey: draft.key,
     ...options,
@@ -290,7 +290,10 @@ describe("MQTT Write form", () => {
       client,
       createWriteConfig(dev.key, [createWriteTarget("t1", "plant/cmd"), tag]),
     );
-    await renderTaskFormTab(MQTT.Task.Write, { client, taskKey: draft.key });
+    await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
+      client,
+      taskKey: draft.key,
+    });
     await waitFor(async () =>
       expect(await retrieveTargets(draft.key)).toMatchObject([
         { channel: { channel: plainCh.key } },
@@ -707,10 +710,13 @@ describe("MQTT Write form", () => {
       );
       const config = createWriteConfig(dev.key, [createTagTarget("s1", "setpoint")]);
       const draft = await createDraft(client, config);
-      const { container } = await renderTaskFormTab(MQTT.Task.Write, {
-        client,
-        taskKey: draft.key,
-      });
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
       const created = await deployAndAwaitTask(
         client,
         container,
@@ -792,10 +798,13 @@ describe("MQTT Write form", () => {
         createWriteTarget("t2", "plant/stored"),
       ]);
       const draft = await createDraft(client, config);
-      const { container } = await renderTaskFormTab(MQTT.Task.Write, {
-        client,
-        taskKey: draft.key,
-      });
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
       const created = await deployAndAwaitTask(
         client,
         container,

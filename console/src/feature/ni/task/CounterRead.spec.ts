@@ -10,6 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -27,7 +28,7 @@ import {
   findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getIconButton, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
@@ -61,7 +62,7 @@ const renderCounterRead = async (
   config: task.Payload<NI.Task.CounterReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.CounterRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.COUNTER_READ_TYPE], {
     client,
     taskKey: draft.key,
   });

@@ -21,8 +21,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Errors, Flux, Panel, Synnax } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
-import { memo, type PropsWithChildren, type ReactElement, useState } from "react";
+import { strings } from "@synnaxlabs/x";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
@@ -200,7 +200,7 @@ const LiveContent = (): ReactElement => {
       y
       full
       empty
-      className={CSS.cls(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
+      className={CSS.cls(CSS.B(strings.toKebab(tabType)), CSS.BE("panel", "tab"))}
     >
       <Triggers.Scope active={triggersActive}>
         <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>
@@ -403,7 +403,7 @@ const KeepAlivePanel = ({ panelKey, ...rest }: KeepAlivePanelProps): ReactElemen
   </Portal.In>
 );
 
-const PortaledInPanels = memo((props: MosaicProps) => {
+const PortaledInPanels = (props: MosaicProps) => {
   const mounted = Session.Panel.useSelectMounted();
   return (
     <>
@@ -412,17 +412,17 @@ const PortaledInPanels = memo((props: MosaicProps) => {
       ))}
     </>
   );
-});
+};
 PortaledInPanels.displayName = "PortaledInPanels";
 
-const PortaledOutPanel = memo(({ onFileDrop }: EmptyContentProps) => {
+const PortaledOutPanel = ({ onFileDrop }: EmptyContentProps) => {
   const selected = Session.Panel.useSelectSelected();
   return selected == null ? (
     <EmptyContent onFileDrop={onFileDrop} />
   ) : (
     <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
   );
-});
+};
 PortaledOutPanel.displayName = "PortaledOutPanel";
 
 export interface MosaicProps {

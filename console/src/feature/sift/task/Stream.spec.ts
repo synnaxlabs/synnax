@@ -10,6 +10,7 @@
 import { DataType, task } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
 import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -24,7 +25,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -35,7 +36,7 @@ const ZERO_DRAFT: task.New<Sift.Task.StreamSchemas> = {
 };
 
 const renderStream = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(Sift.Task.Stream, {
+  const rendered = await renderTaskFormTab(Sift.Task.FORMS[Sift.Task.STREAM_TYPE], {
     client,
     task: ZERO_DRAFT,
     ...options,
@@ -139,7 +140,7 @@ describe("Sift stream form", () => {
       },
       Sift.Task.STREAM_SCHEMAS,
     );
-    await renderTaskFormTab(Sift.Task.Stream, {
+    await renderTaskFormTab(Sift.Task.FORMS[Sift.Task.STREAM_TYPE], {
       client,
       taskKey: t.key,
       as: await createTaskReadOnlyClient(client),
@@ -155,7 +156,7 @@ describe("Sift stream form", () => {
       Sift.Task.STREAM_SCHEMAS,
     );
     const messages: string[] = [];
-    await renderTaskFormTab(Sift.Task.Stream, {
+    await renderTaskFormTab(Sift.Task.FORMS[Sift.Task.STREAM_TYPE], {
       client,
       taskKey: t.key,
       as: await createTaskReadOnlyClient(client),

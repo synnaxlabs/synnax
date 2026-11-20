@@ -92,16 +92,19 @@ type slot struct {
 	record  Target
 	existed bool
 	before  []Link
+	// indexed is true when the index of every reference gave before.
+	indexed bool
 }
 
 // find returns the slot of a write to record, which key stores in tx. On the first
 // write to record, it reads the stored value of record. When record exists, find passes
-// the stored value to held, which returns the links of record.
+// the stored value to held, which returns the links of record and whether the index of
+// every reference gave them.
 func (l *changeList) find(
 	tx Tx,
 	record Target,
 	key []byte,
-	held func(stored []byte) ([]Link, error),
+	held func(stored []byte) ([]Link, bool, error),
 ) (slot, error) {
 	if at, ok := l.at[record]; ok {
 		return slot{at: at}, nil
@@ -115,13 +118,20 @@ func (l *changeList) find(
 		return slot{}, err
 	}
 	s.existed = true
-	if s.before, err = held(stored); err != nil {
+	if s.before, s.indexed, err = held(stored); err != nil {
 		return slot{}, errors.Combine(err, closer.Close())
 	}
 	if err = closer.Close(); err != nil {
 		return slot{}, err
 	}
 	return s, nil
+}
+
+// indexedBefore returns the links of the record of s before the transaction, when s is
+// the first write to the record and the indexes gave them. A write that the indexes
+// report current holds the same links.
+func (s slot) indexedBefore() ([]Link, bool) {
+	return s.before, s.at < 0 && s.indexed
 }
 
 // present reports whether the record of s exists at the write of s.

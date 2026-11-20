@@ -14,7 +14,8 @@ import {
   RoleClients,
 } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -25,22 +26,18 @@ import {
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
   createTestClientWithGrants,
   resolveFocusedTab,
-  uniqueName,
   waitForFocusedTab,
 } from "@/testutil";
 
 const client = createTestClient();
 
 const createRangeID = async () => {
-  const start = TimeStamp.now();
-  const { key } = await client.ranges.create({
-    name: uniqueName("range"),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
-  });
+  const { key } = await createTestRange(client, { name: uniqueName("range") });
   return ranger.resourceID(key);
 };
 const roles = new RoleClients(client);

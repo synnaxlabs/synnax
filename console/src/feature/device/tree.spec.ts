@@ -12,6 +12,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice } from "@synnaxlabs/pluto";
 import { id, TimeStamp } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
@@ -35,12 +36,10 @@ import {
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import {
-  assertDefined,
   awaitGranted,
   awaitTextEditingElement,
   CaptureStatuses,
   commitTextEdit,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

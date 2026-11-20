@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, errors, type record, shallow, state, zod } from "@synnaxlabs/x";
+import { deep, errors, map, type record, shallow, state, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { delta } from "@/aether/aether/delta";
@@ -220,7 +220,7 @@ export abstract class Node implements Component {
   }: ComponentConstructorProps) {
     this.type = type;
     this.path = path;
-    this.label = `${type}(${path[path.length - 1]})`;
+    this.label = `${type}(${path.at(-1)})`;
     this.afterUpdateSpan = `${this.label}:afterUpdate`;
     this.updateStateSpan = `${this.label}:updateState`;
     this.deleteSpan = `${this.label}:delete`;
@@ -314,9 +314,7 @@ export abstract class Node implements Component {
     for (const [key, provider] of reads) {
       if (provider == null || this.ctxSubscriptions.get(key) === provider) continue;
       this.ctxSubscriptions.set(key, provider);
-      let subs = provider.ctxSubscribers.get(key);
-      if (subs == null) provider.ctxSubscribers.set(key, (subs = new Set()));
-      subs.add(this);
+      map.getOrInsert(provider.ctxSubscribers, key, () => new Set()).add(this);
     }
   }
 
@@ -339,9 +337,7 @@ export abstract class Node implements Component {
           if (sub._deleted || queued.has(sub)) continue;
           queued.add(sub);
           const depth = sub._depth;
-          let bucket = buckets.get(depth);
-          if (bucket == null) buckets.set(depth, (bucket = []));
-          bucket.push(sub);
+          map.getOrInsert(buckets, depth, () => []).push(sub);
           if (depth < minDepth) minDepth = depth;
           if (depth > maxDepth) maxDepth = depth;
         }
@@ -435,8 +431,8 @@ export abstract class Node implements Component {
  * @example
  * ```typescript
  * const buttonMethodsZ = {
- *   onMouseDown: z.function(),
- *   onMouseUp: z.function().returns(z.number()),
+ *   onMouseDown: z.function({ input: z.tuple([]), output: z.void() }),
+ *   onMouseUp: z.function({ input: z.tuple([]), output: z.number() }),
  * };
  *
  * class Button extends Leaf<typeof stateZ, {}, typeof buttonMethodsZ>
@@ -502,7 +498,7 @@ export abstract class Leaf<
    * values when their updates cross in flight. */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const prev = this.state;
-    const nextState = state.executeSetter(next, prev);
+    const nextState = state.resolve(next, prev);
     this._prevState = shallow.copy(this._state);
     this._state = zod.parse(this._schema, nextState, { label: this.toString() });
     this.sender.send({

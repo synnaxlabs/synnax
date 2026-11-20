@@ -496,6 +496,43 @@ var _ = Describe("Reference", func() {
 			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 8})).
 				To(MatchError(ContainSubstring("rack: rack 8 does not exist")))
 		})
+
+		DescribeTable("Should not check a target that a write keeps, at any position",
+			func(ctx SpecContext, labels []string) {
+				Expect(devices.NewUncheckedWriter(db).Set(ctx, refDevice{
+					Key:    "a",
+					Labels: []string{"gone", "l1"},
+				})).To(Succeed())
+				createLabels(ctx, "l1", "l2", "l3")
+				Expect(createDevice(ctx, refDevice{Key: "a", Labels: labels})).
+					To(Succeed())
+			},
+			Entry("at its position", []string{"gone", "l1", "l2"}),
+			Entry("at a moved position", []string{"l2", "gone", "l1"}),
+			Entry("two positions away", []string{"l2", "l3", "gone", "l1"}),
+		)
+
+		It("Should index the last of two target changes in one transaction",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				createRack(ctx, 2)
+				createRack(ctx, 3)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					for _, rack := range []uint32{2, 3} {
+						d := refDevice{Key: "a", Rack: rack}
+						if err := devices.NewCreate().
+							Entry(&d).
+							Exec(ctx, tx); err != nil {
+							return err
+						}
+					}
+					return nil
+				})).To(Succeed())
+				Expect(deviceRef.rack.Get(ctx, db, 3)).To(ConsistOf("a"))
+				Expect(deviceRef.rack.Get(ctx, db, 2)).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Get", func() {
@@ -772,9 +809,9 @@ var _ = Describe("Reference", func() {
 					"cannot delete rack 1 because device d1 references it through rack: " +
 						"validation error",
 				))
-				var restrict gorp.RestrictError
-				Expect(errors.As(err, &restrict)).To(BeTrue())
-				Expect(restrict).To(Equal(gorp.RestrictError{
+				Expect(
+					MustBeOk(errors.AsType[gorp.RestrictError](err)),
+				).To(Equal(gorp.RestrictError{
 					Target:    gorp.NewTarget("rack", uint32(1)),
 					Holder:    gorp.NewTarget("device", "d1"),
 					Reference: "rack",

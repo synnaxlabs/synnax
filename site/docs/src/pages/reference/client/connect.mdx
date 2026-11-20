@@ -66,9 +66,7 @@ Without `--allow-sys` or `--allow-read`, the client cannot see Synnax Desktop an
 for a host. Without `--allow-run` or `--allow-env`, it throws an error that names the
 flag. A browser cannot read the file, so give a host. When there is no file, the
 constructor throws `ValidationError`. When Synnax Desktop is closed, `connect` throws
-`DisconnectedError`, as for any Core that does not answer. On Linux, the key program of
-an AppImage goes away when Synnax Desktop closes, so the constructor throws
-`Unreachable` from `@synnaxlabs/freighter` first.
+`DisconnectedError`, as for any Core that does not answer.
 
   </Fragment>
 
@@ -80,7 +78,10 @@ matches the version of Synnax Desktop, and code that you can copy. The **TypeScr
 tab has code for **Node.js** and for a **Browser**. The browser code has the address and
 the API key filled in. Other clients, such as C++, can copy the values from it.
 
-<Video id="client/connect/desktop" />
+<Video
+  id="client/connect/desktop"
+  label="Open the connect from code dialog in Synnax Desktop"
+/>
 
 When you close Synnax Desktop, its Core stops, and the connected scripts lose their
 connection. The API key stays the same the next time you open it. The port also stays

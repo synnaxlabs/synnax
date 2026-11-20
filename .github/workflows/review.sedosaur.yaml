@@ -91,6 +91,7 @@ jobs:
       base: ${{ steps.pr.outputs.base }}
       skip: ${{ steps.skip.outputs.skip }}
       fork: ${{ steps.pr.outputs.fork }}
+      approved: ${{ steps.skip.outputs.approved }}
       carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
     steps:
@@ -139,16 +140,21 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head }}
           KEY: ${{ steps.pr.outputs.key }}
           FORK: ${{ steps.pr.outputs.fork }}
+          PR: ${{ inputs.pr }}
           REPEAT: ${{ inputs.repeat }}
           REPLAY: ${{ inputs.replay }}
         run: |
           skip=$(.github/scripts/sedosaur_skip.sh)
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$FORK" = true ]; then
+            approved=$(.github/scripts/fork_approved.sh "$PR" "$HEAD_SHA")
+            echo "approved=$approved" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Mint the GitHub App token
         id: app
         if: steps.skip.outputs.skip == 'false'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -198,7 +204,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -220,7 +226,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -232,9 +238,10 @@ jobs:
           PR: ${{ inputs.pr }}
           HEAD_SHA: ${{ needs.start.outputs.head }}
           FORK: ${{ needs.start.outputs.fork }}
+          APPROVED: ${{ needs.start.outputs.approved }}
         run: |
-          if [ "$FORK" = true ]; then
-            body="Sedosaur does not review a pull request from a fork."
+          if [ "$FORK" = true ] && [ "$APPROVED" != true ]; then
+            body="Sedosaur reviews a fork only after a maintainer approves its head."
           else
             body="Sedosaur already reviewed $HEAD_SHA under the current rules."
             body+=" To review it again, comment \`@sedosaur review repeat=true\`."
@@ -259,7 +266,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -335,13 +342,12 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
-      # A runner can stay stopped for weeks, so each review installs the latest Claude
-      # Code. The runners on one machine review at the same time, so each review gets
-      # its own copy in the temporary directory, which the runner empties after the job.
+      # The runners on one machine review at the same time, so each review gets its own
+      # copy in the temporary directory, which the runner empties after the job.
       - name: Install Claude Code
         run: |
-          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
-            @anthropic-ai/claude-code@latest
+          cp -R .github/agents/cli "$RUNNER_TEMP/claude"
+          npm ci --prefix "$RUNNER_TEMP/claude"
           echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
       # The fleet controller started the runner on a shared Claude login, which only
@@ -388,7 +394,7 @@ jobs:
           echo "::error::Claude rejected the token of the seat's login. Store a new" \
             "one with infra/agent-runner/seat.sh token <login>."
 
-      # A replay has no check run to keep its record in.
+      # A replay posts nothing, so this artifact is its only output.
       - name: Keep the record of the replay
         if: ${{ inputs.replay }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -403,7 +409,7 @@ jobs:
       - name: Mint the token to post the review
         if: ${{ !inputs.replay }}
         id: post
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -431,7 +437,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -462,7 +468,7 @@ jobs:
     steps:
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -476,7 +482,7 @@ jobs:
             ${{ needs.start.result != 'success' && needs.start.result ||
             needs.review.result }}
         # GitHub does not document whether an output without text keeps the old text,
-        # so the record that the review wrote is sent back.
+        # so the text that the review wrote is sent back.
         run: |
           run="repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN"
           text=$(gh api "$run" --jq '.output.text // ""')
@@ -517,7 +523,7 @@ jobs:
 
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -535,3 +541,13 @@ jobs:
           BASE_SHA: ${{ steps.pr.outputs.base }}
           KEY: ${{ steps.pr.outputs.key }}
         run: python3 -m review restore
+
+  relay-failure:
+    name: Relay the failure
+    needs: [start, react, decline, review, unwatch, end, restore]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

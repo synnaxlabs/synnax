@@ -9,6 +9,7 @@
 
 export * from "@/vis/render/testutil/atlas";
 export * from "@/vis/render/testutil/gl";
+export * from "@/vis/render/testutil/handoff";
 export * from "@/vis/render/testutil/record";
 export * from "@/vis/render/testutil/Recorder";
 export * from "@/vis/render/testutil/RenderProvider";

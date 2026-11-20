@@ -86,6 +86,31 @@ func (m *Multi[S, K, V]) Stage(scope S, key K, values []V) {
 	m.overlay.load(scope).set(key, slices.Clone(values))
 }
 
+// Current reports whether key holds exactly values, with the changes of scope applied,
+// so that staging values for key would change nothing. It is false until the bulk load
+// finishes, and false after the load fails.
+func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
+	select {
+	case <-m.population.done:
+	default:
+		return false
+	}
+	if d, ok := m.overlay.get(scope); ok {
+		if s, ok := d.state[key]; ok {
+			return !s.deleted && slices.Equal(s.values, values)
+		}
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.population.err != nil {
+		return false
+	}
+	if prev, ok := m.reverse[key]; ok {
+		return slices.Equal(prev, values)
+	}
+	return len(values) == 0 && m.none.Contains(key)
+}
+
 // StageDelete removes key in the changes of scope. The removal applies to committed
 // state when scope commits.
 func (m *Multi[S, K, V]) StageDelete(scope S, key K) {
