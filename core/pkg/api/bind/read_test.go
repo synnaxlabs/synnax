@@ -23,6 +23,7 @@ import (
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -264,6 +265,40 @@ var _ = Describe("Snapshot", func() {
 		))
 		Expect(allowed).To(Equal([]bool{true, false}))
 	})
+
+	It("Should keep the records the subject can retrieve, a task config as its task",
+		func(ctx SpecContext) {
+			labels := createLabels(ctx, 2)
+			taskKey := uuid.New().String()
+			taskID := resource.ID{Type: resource.TypeTask, Key: taskKey}
+			configID := resource.ID{
+				Type: resource.Type(taskconfig.TableName("opc_read")),
+				Key:  taskKey,
+			}
+			u := newUser(ctx)
+			grant(ctx, u, access.ActionRetrieve, labels[0].ResourceID(), taskID)
+			var visible []resource.ID
+			MustSucceed(bind.Read(
+				binder,
+				func(
+					_ context.Context,
+					snap bind.Snapshot,
+					_ labelQuery,
+				) (struct{}, error) {
+					visible = snap.Visible([]resource.ID{
+						labels[0].ResourceID(),
+						labels[1].ResourceID(),
+						configID,
+					})
+					return struct{}{}, nil
+				},
+			)(
+				AuthedCtx(ctx, u),
+				labelQuery{},
+			))
+			Expect(visible).To(Equal([]resource.ID{labels[0].ResourceID(), taskID}))
+		},
+	)
 
 	It("Should deny the first record that the subject cannot retrieve", func(
 		ctx SpecContext,

@@ -28,6 +28,7 @@ import { Range } from "@/feature/range";
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
+import { createTestRange, createTestRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
@@ -73,7 +74,7 @@ const createRange = async (
   name: string,
   timeRange: TimeRange,
   parent?: ranger.Key,
-): Promise<ranger.Range> => await client.ranges.create({ name, timeRange, parent });
+): Promise<ranger.Range> => await createTestRange(client, { name, timeRange, parent });
 
 /** Creates a range that started `since` ago and has no end. */
 const createRunning = async (
@@ -224,7 +225,6 @@ describe("range/Toolbar", () => {
         uniqueName("starting"),
         new TimeRange(TimeStamp.now().add(TimeSpan.SECOND), TimeStamp.MAX),
       );
-      onTestFinished(async () => await client.ranges.delete(starting.key));
       await waitForLine("Running", starting.name);
       // Both lists read for the new start at once, and a busy list shows held keys.
       const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
@@ -345,7 +345,7 @@ describe("range/Toolbar", () => {
 
   describe("start", () => {
     it("should start a range at the click time on Enter", async () => {
-      const name = uniqueName("started");
+      const name = createTestRangeName(client, "started");
       await renderToolbar();
       const before = TimeStamp.now();
       fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
@@ -362,7 +362,7 @@ describe("range/Toolbar", () => {
       const analytics = createTestSink();
       await renderToolbar({ analytics });
       fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
-      await typeDraft(uniqueName("reported"));
+      await typeDraft(createTestRangeName(client, "reported"));
       await waitFor(() =>
         expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
       );
@@ -580,9 +580,8 @@ describe("range/Toolbar", () => {
         name: uniqueName("color"),
         light: "#123456",
       });
-      const rng = await client.ranges.create({
+      const rng = await createTestRange(client, {
         name: uniqueName("paint"),
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
         color: { type: "named", key: named.key },
       });
       await renderToolbar({ favorites: [rng] });
@@ -683,9 +682,8 @@ describe("range/Toolbar", () => {
         name: uniqueName("color"),
         light: "#123456",
       });
-      const rng = await client.ranges.create({
+      const rng = await createTestRange(client, {
         name: uniqueName("picture"),
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
         color: { type: "named", key: named.key },
       });
       await renderToolbar({ favorites: [rng] });

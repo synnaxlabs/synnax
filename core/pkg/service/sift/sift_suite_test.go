@@ -181,13 +181,11 @@ func grantConnectionTest(
 	}
 	var g grant.Key
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		g, err = secretSvc.Grant(
-			ctx,
-			tx,
-			rackSvc.EmbeddedKey.ResourceID(),
-			cmd,
-			keys...,
-		)
+		g, err = secretSvc.Grant(ctx, tx, grant.Grant{
+			Subject: rackSvc.EmbeddedKey.ResourceID(),
+			Secrets: keys,
+			Command: cmd,
+		})
 		return err
 	})).To(Succeed())
 	return g

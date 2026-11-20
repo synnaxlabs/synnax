@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import rack as rack_, secret
+from synnax import rack as rack_, resource, secret
 from synnax.resource import ID
 from x import filter, telem
 from x.filter import shorthand
@@ -67,10 +67,13 @@ class Base(BaseModel):
     Attributes:
         key: Is the unique identifier for this certificate.
         name: Is a human-readable name for the certificate.
+        uses: Are the resources that use the certificate and that the caller can read,
+            filled only when a retrieve request asks for them.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
+    uses: list[resource.ID] | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -174,6 +177,7 @@ class RetrieveRequest(BaseModel):
         order: Sorts the certificates. An absent order sorts them by key.
         after: Starts the certificates strictly past this position in their order.
         limit: Is the most certificates to return.
+        include_uses: Includes the uses of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -183,6 +187,7 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_uses: bool = False
 
 
 class RetrieveResponse(BaseModel):

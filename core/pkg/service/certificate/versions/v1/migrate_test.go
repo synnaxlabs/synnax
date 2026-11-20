@@ -42,12 +42,12 @@ var _ = Describe("NewMigration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(got).To(ConsistOf(
 			v1.Certificate{Variant: v1.FileCertificate{
-				Base:            file,
+				Base:            v1.Base{Key: file.Key, Name: file.Name},
 				CertificatePath: "/c.pem",
 				Rack:            7,
 			}},
 			v1.Certificate{Variant: v1.StoredCertificate{
-				Base:    stored,
+				Base:    v1.Base{Key: stored.Key, Name: stored.Name},
 				Pem:     "pem",
 				Details: details,
 			}},

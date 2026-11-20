@@ -13,6 +13,7 @@ syntax = "proto3";
 
 package service.certificate.pb;
 
+import "core/pkg/service/resource/pb/resource.proto";
 import "core/pkg/service/secret/pb/secret.proto";
 import "x/go/filter/pb/filter.proto";
 
@@ -33,6 +34,9 @@ message Details {
   // sha256 is the SHA-256 hash of the DER bytes as hex.
   string sha256 = 6;
 }
+message ResourceIdList {
+  repeated .service.resource.pb.ID values = 1;
+}
 
 // Base carries the fields shared by every certificate.
 message Base {
@@ -40,6 +44,9 @@ message Base {
   string key = 1;
   // name is a human-readable name for the certificate.
   string name = 2;
+  // uses are the resources that use the certificate and that the caller can read,
+  // filled only when a retrieve request asks for them.
+  ResourceIdList uses = 3;
 }
 message WhereList {
   repeated Where values = 1;

@@ -15,7 +15,11 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Label } from "@/platform/label";
-import { searchAndClickLabel } from "@/platform/label/testutil";
+import {
+  createTestLabel,
+  createTestLabelName,
+  searchAndClickLabel,
+} from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import {
   createConsoleWrapper,
@@ -48,7 +52,7 @@ const renderSelect = async (ui: ReactElement, as: Client = client) => {
 
 describe("Label.Select", () => {
   it("should pass the clicked label's key to onChange in SelectMultiple", async () => {
-    const label = await client.labels.create({
+    const label = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#00FF00" },
     });
@@ -60,7 +64,7 @@ describe("Label.Select", () => {
   });
 
   it("should show the labels of its value before it first opens", async () => {
-    const label = await client.labels.create({
+    const label = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#FF0000" },
     });
@@ -70,7 +74,7 @@ describe("Label.Select", () => {
   });
 
   it("should remove a label from its tag before it first opens", async () => {
-    const label = await client.labels.create({
+    const label = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#FF0000" },
     });
@@ -84,7 +88,7 @@ describe("Label.Select", () => {
   });
 
   it("should keep the tag that first opens it, so it can open beside it", async () => {
-    const label = await client.labels.create({
+    const label = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#FF0000" },
     });
@@ -103,11 +107,11 @@ describe("Label.Select", () => {
   });
 
   it("should add a created label to the value the field holds when it closes", async () => {
-    const createdBefore = await client.labels.create({
+    const createdBefore = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#00FF00" },
     });
-    const addedMeanwhile = await client.labels.create({
+    const addedMeanwhile = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#0000FF" },
     });
@@ -122,7 +126,7 @@ describe("Label.Select", () => {
     const { rerender } = render(renderField([createdBefore.key]), { wrapper });
     fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
     fireEvent.click(await screen.findByText("New label"));
-    const name = uniqueName("label");
+    const name = createTestLabelName(client);
     fireEvent.change(await screen.findByPlaceholderText("Label name"), {
       target: { value: name },
     });
@@ -140,7 +144,7 @@ describe("Label.Select", () => {
   });
 
   it("should add a label created from the field to the selection", async () => {
-    const existing = await client.labels.create({
+    const existing = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#00FF00" },
     });
@@ -151,7 +155,7 @@ describe("Label.Select", () => {
     // A trigger that holds labels opens through its add button.
     fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
     fireEvent.click(await screen.findByText("New label"));
-    const name = uniqueName("label");
+    const name = createTestLabelName(client);
     fireEvent.change(await screen.findByPlaceholderText("Label name"), {
       target: { value: name },
     });
@@ -164,7 +168,7 @@ describe("Label.Select", () => {
   });
 
   it("should create a label named after the search text in the create modal", async () => {
-    const existing = await client.labels.create({
+    const existing = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#00FF00" },
     });
@@ -173,7 +177,7 @@ describe("Label.Select", () => {
       <Label.SelectMultiple value={[existing.key]} onChange={onChange} />,
     );
     fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
-    const name = uniqueName("label");
+    const name = createTestLabelName(client);
     fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
       target: { value: name },
     });
@@ -189,7 +193,7 @@ describe("Label.Select", () => {
   });
 
   it("should hide the create option while the search matches a label name in any case", async () => {
-    const existing = await client.labels.create({
+    const existing = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#00FF00" },
     });
@@ -211,7 +215,7 @@ describe("Label.Select permissions", () => {
   // may create, so its absence proves the gate and not a list still in flight.
   const renderPicker = async (as: Client): Promise<string> => {
     const token = uniqueToken();
-    const { name } = await client.labels.create({
+    const { name } = await createTestLabel(client, {
       name: `${token} listed`,
       color: { type: "fixed", value: "#0000FF" },
     });
