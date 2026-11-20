@@ -139,7 +139,7 @@ var _ = Describe("Sweep crash check", func() {
 					DataType: telem.TimestampT,
 				},
 			)).To(Succeed())
-			Expect(commitFrame(ctx, db, idx, 10*telem.SecondTS, telem.UnaryFrame(
+			Expect(commitFrame(ctx, db, 10*telem.SecondTS, telem.UnaryFrame(
 				idx,
 				telem.NewSeriesSecondsTSV(10, 11, 12),
 			))).To(Succeed())
@@ -254,7 +254,7 @@ var _ = Describe("Sweep crash check", func() {
 					Key: dropped, Name: "b", Index: idx, DataType: telem.Int64T,
 				},
 			)).To(Succeed())
-			Expect(commitFrame(ctx, db, idx, 10*telem.SecondTS, telem.MultiFrame(
+			Expect(commitFrame(ctx, db, 10*telem.SecondTS, telem.MultiFrame(
 				[]cesium.ChannelKey{idx, kept, dropped},
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12),
