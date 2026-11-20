@@ -671,17 +671,32 @@ export const parseTraceKey = (
   return { line: key.slice(0, -range.key.length - 1), range: range.key };
 };
 
+interface HoverParams {
+  relative: boolean;
+  ranges: RangeSpec[];
+  hiddenLines?: Set<string>;
+  hiddenRanges?: Set<string>;
+  hiddenTraces?: Set<string>;
+}
+
 // parseHover reads the key of a legend entry: a line on an absolute axis, and a range
-// or a line of a range on a relative one.
+// or a line of a range on a relative one. An entry that draws nothing is no hover.
 const parseHover = (
   key: string | null,
-  relative: boolean,
-  ranges: RangeSpec[],
+  { relative, ranges, hiddenLines, hiddenRanges, hiddenTraces }: HoverParams,
 ): Hover | null => {
   if (key == null) return null;
-  if (!relative) return { line: key };
-  if (ranges.some((r) => r.key === key)) return { range: key };
-  return parseTraceKey(key, ranges);
+  if (!relative) return hiddenLines?.has(key) === true ? null : { line: key };
+  const hover: Hover | null = ranges.some((r) => r.key === key)
+    ? { range: key }
+    : parseTraceKey(key, ranges);
+  const range = ranges.find((r) => r.key === hover?.range);
+  if (hover == null || range?.zero == null || hiddenRanges?.has(range.key) === true)
+    return null;
+  if (hover.line == null) return hover;
+  if (hiddenLines?.has(hover.line) === true || hiddenTraces?.has(key) === true)
+    return null;
+  return hover;
 };
 
 const legendRanges = (ranges: RangeSpec[]): BaseLegendProps["ranges"] =>
@@ -751,7 +766,13 @@ export const LinePlot = ({
         : { ...trace, time: zero.add(BigInt(Math.round(found.x))) },
     );
   };
-  const hover = parseHover(hoverKey, relative, ranges);
+  const hover = parseHover(hoverKey, {
+    relative,
+    ranges,
+    hiddenLines,
+    hiddenRanges,
+    hiddenTraces,
+  });
   return (
     <Frame
       ref={ref}
