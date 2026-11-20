@@ -131,13 +131,16 @@ const Content = ({
       index: h.index,
     }));
 
-  // Each open lists the places again, so one failed list does not leave them empty.
+  // Each open lists the places again, so one failed list does not leave them empty. The
+  // snapshot keeps the failure.
   useEffect(() => {
     session?.list("").catch(() => {});
   }, [session]);
 
-  // Each visit lists the folder again. The snapshot shows the result or the failure.
+  // Each visit lists the folder again, and the places while they have no listing. The
+  // snapshot shows the result or the failure.
   const relist = (): void => {
+    if (!snapshot.listings.has("")) session?.list("").catch(() => {});
     session?.list(path).catch(() => {});
   };
   useEffect(relist, [session, path]);
