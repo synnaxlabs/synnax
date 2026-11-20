@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cesium_test
+package writer_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/channel"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -28,11 +26,11 @@ import (
 // observeControl subscribes to db's control updates and returns a channel receiving
 // them. Sends are non-blocking, since handlers run under the DB's lock.
 func observeControl(
-	db *cesium.DB,
-) (<-chan cesium.ControlUpdate, observe.Disconnect) {
-	updates := make(chan cesium.ControlUpdate, 100)
+	db *testDB,
+) (<-chan controlUpdate, observe.Disconnect) {
+	updates := make(chan controlUpdate, 100)
 	return updates, db.OnControlUpdate(
-		func(u cesium.ControlUpdate) {
+		func(u controlUpdate) {
 			select {
 			case updates <- u:
 			default:
@@ -41,7 +39,7 @@ func observeControl(
 	)
 }
 
-var _ = Describe("Control", func() {
+var _ = Describe("Control moved from Cesium", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
 			var fs fs.FS
@@ -52,7 +50,7 @@ var _ = Describe("Control", func() {
 			})
 			Describe("Persist only writers", func() {
 				var (
-					db     *cesium.DB
+					db     *testDB
 					idxCh  cesium.ChannelKey
 					dataCh cesium.ChannelKey
 					keys   []cesium.ChannelKey
@@ -80,17 +78,17 @@ var _ = Describe("Control", func() {
 						},
 					)).To(Succeed())
 				})
-				openLive := func(ctx SpecContext, authority xcontrol.Authority) *cesium.Writer {
+				openLive := func(ctx SpecContext, authority xcontrol.Authority) *storageWriter {
 					GinkgoHelper()
-					return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					return MustSucceed(db.OpenWriter(ctx, storageConfig{
 						ControlSubject: xcontrol.Subject{Key: "live", Name: "Live"},
 						Start:          10 * telem.SecondTS,
 						Channels:       keys,
 						Authorities:    []xcontrol.Authority{authority},
 					}))
 				}
-				persistConfig := func(start telem.TimeStamp) cesium.WriterConfig {
-					return cesium.WriterConfig{
+				persistConfig := func(start telem.TimeStamp) storageConfig {
+					return storageConfig{
 						ControlSubject: xcontrol.Subject{
 							Key:  "backfill",
 							Name: "Backfill",
@@ -211,7 +209,7 @@ var _ = Describe("Control", func() {
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
 						)
-						operator := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						operator := MustSucceed(db.OpenWriter(ctx, storageConfig{
 							ControlSubject: xcontrol.Subject{
 								Key:  "operator",
 								Name: "Operator",
@@ -263,7 +261,7 @@ var _ = Describe("Control", func() {
 						Expect(
 							db.CreateChannel(ctx, virtualChannel(cmd, "Command")),
 						).To(Succeed())
-						live := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						live := MustSucceed(db.OpenWriter(ctx, storageConfig{
 							ControlSubject: xcontrol.Subject{Key: "live", Name: "Live"},
 							Start:          1 * telem.SecondTS,
 							Channels:       []cesium.ChannelKey{cmd},
@@ -296,7 +294,7 @@ var _ = Describe("Control", func() {
 
 			Describe("Commit without control", func() {
 				var (
-					db  *cesium.DB
+					db  *testDB
 					idx cesium.ChannelKey
 				)
 				open := func(
@@ -304,9 +302,9 @@ var _ = Describe("Control", func() {
 					key string,
 					authority xcontrol.Authority,
 					keys ...cesium.ChannelKey,
-				) *cesium.Writer {
+				) *storageWriter {
 					GinkgoHelper()
-					return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					return MustSucceed(db.OpenWriter(ctx, storageConfig{
 						ControlSubject: xcontrol.Subject{Key: key},
 						Start:          10 * telem.SecondTS,
 						Channels:       keys,
@@ -373,7 +371,7 @@ var _ = Describe("Control", func() {
 				It(
 					"Should report a refused write once and keep the end of a commit with control",
 					func(ctx SpecContext) {
-						low := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						low := MustSucceed(db.OpenWriter(ctx, storageConfig{
 							ControlSubject: xcontrol.Subject{Key: "low"},
 							Start:          10 * telem.SecondTS,
 							Channels:       []cesium.ChannelKey{idx},
@@ -383,7 +381,7 @@ var _ = Describe("Control", func() {
 						MustSucceed(low.Commit(ctx))
 						high := open(ctx, "high", 2, idx)
 						expectUnauthorized(low.Write(ctx, frame(11)))
-						Expect(low.SetAuthority(cesium.WriterConfig{
+						Expect(low.SetAuthority(storageConfig{
 							Authorities: []xcontrol.Authority{1},
 						})).To(Succeed())
 						Expect(high.Close()).To(Succeed())
@@ -479,7 +477,7 @@ var _ = Describe("Control", func() {
 			})
 
 			Describe("Nominal", func() {
-				var db *cesium.DB
+				var db *testDB
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
 					db = mustOpenDBOnFS(ctx, fs)
@@ -510,7 +508,7 @@ var _ = Describe("Control", func() {
 							)).To(Succeed())
 							start := telem.SecondTS * 10
 							By("Opening the first writer")
-							w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							w1 := MustSucceed(db.OpenWriter(ctx, storageConfig{
 								ControlSubject: xcontrol.Subject{Name: "Writer One"},
 								Start:          start,
 								Channels: []cesium.ChannelKey{
@@ -523,7 +521,7 @@ var _ = Describe("Control", func() {
 								ErrOnUnauthorized: new(false),
 							}))
 							By("Opening the second writer")
-							w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							w2 := MustSucceed(db.OpenWriter(ctx, storageConfig{
 								Start:          start,
 								ControlSubject: xcontrol.Subject{Name: "Writer Two"},
 								Channels: []cesium.ChannelKey{
@@ -559,7 +557,7 @@ var _ = Describe("Control", func() {
 
 							expectUnauthorized(w2.Write(ctx, w2Frame))
 
-							Expect(w2.SetAuthority(cesium.WriterConfig{
+							Expect(w2.SetAuthority(storageConfig{
 								Authorities: []xcontrol.Authority{
 									xcontrol.AuthorityAbsolute - 1,
 								},
@@ -618,7 +616,7 @@ var _ = Describe("Control", func() {
 								},
 							)).To(Succeed())
 							MustOpen(
-								db.OpenWriter(ctx, cesium.WriterConfig{
+								db.OpenWriter(ctx, storageConfig{
 									ControlSubject: xcontrol.Subject{Name: "Holder"},
 									Channels:       []cesium.ChannelKey{heldKey},
 									Authorities: []xcontrol.Authority{
@@ -626,7 +624,7 @@ var _ = Describe("Control", func() {
 									},
 								}),
 							)
-							Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+							Expect(db.OpenWriter(ctx, storageConfig{
 								ControlSubject: xcontrol.Subject{Name: "Refused"},
 								Channels: []cesium.ChannelKey{
 									freeKey,
@@ -635,7 +633,7 @@ var _ = Describe("Control", func() {
 								Authorities:       []xcontrol.Authority{100},
 								ErrOnUnauthorized: new(true),
 							})).Error().To(MatchError(xcontrol.ErrUnauthorized))
-							MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+							MustOpen(db.OpenWriter(ctx, storageConfig{
 								ControlSubject:    xcontrol.Subject{Name: "Next"},
 								Channels:          []cesium.ChannelKey{freeKey},
 								Authorities:       []xcontrol.Authority{1},
@@ -673,7 +671,7 @@ var _ = Describe("Control", func() {
 								},
 							)).To(Succeed())
 
-							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+							seq := MustOpen(db.OpenWriter(ctx, storageConfig{
 								Channels: []cesium.ChannelKey{idx, cmd},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(0),
@@ -684,7 +682,7 @@ var _ = Describe("Control", func() {
 							}))
 							operator := MustOpen(db.OpenWriter(
 								ctx,
-								cesium.WriterConfig{
+								storageConfig{
 									Channels: []cesium.ChannelKey{idx, cmd},
 									Authorities: []xcontrol.Authority{
 										xcontrol.Authority(1),
@@ -706,7 +704,7 @@ var _ = Describe("Control", func() {
 							)
 							expectUnauthorized(seq.Write(ctx, seqFrame))
 
-							Expect(seq.SetAuthority(cesium.WriterConfig{
+							Expect(seq.SetAuthority(storageConfig{
 								Channels: []cesium.ChannelKey{cmd},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(210),
@@ -754,7 +752,7 @@ var _ = Describe("Control", func() {
 								},
 							)).To(Succeed())
 
-							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+							seq := MustOpen(db.OpenWriter(ctx, storageConfig{
 								Channels: []cesium.ChannelKey{idx, cmdA, cmdB},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(0),
@@ -765,7 +763,7 @@ var _ = Describe("Control", func() {
 							}))
 							operator := MustOpen(db.OpenWriter(
 								ctx,
-								cesium.WriterConfig{
+								storageConfig{
 									Channels: []cesium.ChannelKey{idx},
 									Authorities: []xcontrol.Authority{
 										xcontrol.Authority(1),
@@ -782,7 +780,7 @@ var _ = Describe("Control", func() {
 								idx, telem.NewSeriesSecondsTSV(10),
 							)))
 
-							Expect(seq.SetAuthority(cesium.WriterConfig{
+							Expect(seq.SetAuthority(storageConfig{
 								Channels: []cesium.ChannelKey{cmdA},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(210),
@@ -792,7 +790,7 @@ var _ = Describe("Control", func() {
 								idx, telem.NewSeriesSecondsTSV(11),
 							)))
 
-							Expect(seq.SetAuthority(cesium.WriterConfig{
+							Expect(seq.SetAuthority(storageConfig{
 								Channels: []cesium.ChannelKey{cmdA},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(0),
@@ -848,7 +846,7 @@ var _ = Describe("Control", func() {
 								},
 							)).To(Succeed())
 
-							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+							seq := MustOpen(db.OpenWriter(ctx, storageConfig{
 								Channels: []cesium.ChannelKey{
 									sharedIdx, cmdA, cmdB, ownIdx, cmdC,
 								},
@@ -861,7 +859,7 @@ var _ = Describe("Control", func() {
 							}))
 							operator := MustOpen(db.OpenWriter(
 								ctx,
-								cesium.WriterConfig{
+								storageConfig{
 									Channels: []cesium.ChannelKey{sharedIdx, ownIdx},
 									Authorities: []xcontrol.Authority{
 										xcontrol.Authority(1),
@@ -881,7 +879,7 @@ var _ = Describe("Control", func() {
 								ownIdx, telem.NewSeriesSecondsTSV(10),
 							)))
 
-							Expect(seq.SetAuthority(cesium.WriterConfig{
+							Expect(seq.SetAuthority(storageConfig{
 								Channels: []cesium.ChannelKey{cmdA, cmdC},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(210),
@@ -895,7 +893,7 @@ var _ = Describe("Control", func() {
 								ownIdx, telem.NewSeriesSecondsTSV(11),
 							)))
 
-							Expect(seq.SetAuthority(cesium.WriterConfig{
+							Expect(seq.SetAuthority(storageConfig{
 								Channels: []cesium.ChannelKey{cmdA},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(0),
@@ -908,7 +906,7 @@ var _ = Describe("Control", func() {
 								ownIdx, telem.NewSeriesSecondsTSV(12),
 							)))
 
-							Expect(seq.SetAuthority(cesium.WriterConfig{
+							Expect(seq.SetAuthority(storageConfig{
 								Channels: []cesium.ChannelKey{cmdC},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(0),
@@ -943,7 +941,7 @@ var _ = Describe("Control", func() {
 								},
 							)).To(Succeed())
 
-							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+							seq := MustOpen(db.OpenWriter(ctx, storageConfig{
 								Channels: []cesium.ChannelKey{idx, cmd},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(0),
@@ -952,7 +950,7 @@ var _ = Describe("Control", func() {
 								ErrOnUnauthorized: new(false),
 								ControlSubject:    xcontrol.Subject{Key: "seq_3"},
 							}))
-							MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+							MustOpen(db.OpenWriter(ctx, storageConfig{
 								Channels: []cesium.ChannelKey{idx, cmd},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(50),
@@ -964,7 +962,7 @@ var _ = Describe("Control", func() {
 								},
 							}))
 
-							Expect(seq.SetAuthority(cesium.WriterConfig{
+							Expect(seq.SetAuthority(storageConfig{
 								Channels: []cesium.ChannelKey{cmd, idx},
 								Authorities: []xcontrol.Authority{
 									xcontrol.Authority(210),
@@ -986,9 +984,9 @@ var _ = Describe("Control", func() {
 				Describe("Mismatched Authorization", func() {
 					var (
 						indexChKey, dataChKey, virtualChKey cesium.ChannelKey
-						w1                                  *cesium.Writer
-						w2                                  *cesium.Writer
-						controlUpdates                      <-chan cesium.ControlUpdate
+						w1                                  *storageWriter
+						w2                                  *storageWriter
+						controlUpdates                      <-chan controlUpdate
 						disconnectControl                   observe.Disconnect
 					)
 					BeforeEach(func(ctx SpecContext) {
@@ -1018,7 +1016,7 @@ var _ = Describe("Control", func() {
 						)).To(Succeed())
 						start := telem.SecondTS * 10
 						By("Opening the first writer")
-						w1 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						w1 = MustOpen(db.OpenWriter(ctx, storageConfig{
 							ControlSubject: xcontrol.Subject{Name: "Writer One"},
 							Start:          start,
 							Channels: []cesium.ChannelKey{
@@ -1030,7 +1028,7 @@ var _ = Describe("Control", func() {
 							ErrOnUnauthorized: new(false),
 						}))
 						By("Opening the second writer")
-						w2 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						w2 = MustOpen(db.OpenWriter(ctx, storageConfig{
 							Start:          start,
 							ControlSubject: xcontrol.Subject{Name: "Writer Two"},
 							Channels: []cesium.ChannelKey{
@@ -1073,7 +1071,7 @@ var _ = Describe("Control", func() {
 							)))
 							Expect(fr.Count()).To(Equal(3))
 
-							Expect(w2.SetAuthority(cesium.WriterConfig{
+							Expect(w2.SetAuthority(storageConfig{
 								Authorities: []xcontrol.Authority{200},
 							})).To(Succeed())
 
@@ -1092,7 +1090,7 @@ var _ = Describe("Control", func() {
 					It(
 						"Should stream partially successful writes",
 						func(ctx SpecContext) {
-							Expect(w2.SetAuthority(cesium.WriterConfig{
+							Expect(w2.SetAuthority(storageConfig{
 								Authorities: []xcontrol.Authority{200},
 							})).To(Succeed())
 							r, err := w1.Write(ctx, telem.MultiFrame(
@@ -1142,9 +1140,9 @@ var _ = Describe("Control", func() {
 									Index:    k2,
 								},
 							)).To(Succeed())
-							w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							w1 := MustSucceed(db.OpenWriter(ctx, storageConfig{
 								Start:    0,
-								Channels: []channel.Key{k1, k2},
+								Channels: []cesium.ChannelKey{k1, k2},
 								ControlSubject: xcontrol.Subject{
 									Key:  "1111",
 									Name: "writer1",
@@ -1153,9 +1151,9 @@ var _ = Describe("Control", func() {
 									xcontrol.AuthorityAbsolute - 1,
 								},
 							}))
-							w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							w2 := MustSucceed(db.OpenWriter(ctx, storageConfig{
 								Start:    2,
-								Channels: []channel.Key{k2, k3},
+								Channels: []cesium.ChannelKey{k2, k3},
 								ControlSubject: xcontrol.Subject{
 									Key:  "2222",
 									Name: "writer2",
@@ -1193,15 +1191,15 @@ var _ = Describe("Control", func() {
 							DataType: telem.StringT,
 						})).To(Succeed())
 						updates, disconnect := observeControl(db)
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w := MustSucceed(db.OpenWriter(ctx, storageConfig{
 							Start:    0,
-							Channels: []channel.Key{k},
+							Channels: []cesium.ChannelKey{k},
 							ControlSubject: xcontrol.Subject{
 								Key:  "3333",
 								Name: "boulder",
 							},
 						}))
-						var acquire cesium.ControlUpdate
+						var acquire controlUpdate
 						Eventually(updates).Should(Receive(&acquire))
 						Expect(acquire.Transfers).To(HaveLen(1))
 						Expect(acquire.Transfers[0].From).To(BeNil())
@@ -1210,7 +1208,7 @@ var _ = Describe("Control", func() {
 						).To(Equal("boulder"))
 
 						Expect(w.Close()).To(Succeed())
-						var release cesium.ControlUpdate
+						var release controlUpdate
 						Eventually(updates).Should(Receive(&release))
 						Expect(release.Transfers).To(HaveLen(1))
 						Expect(release.Transfers[0].To).To(BeNil())
@@ -1219,9 +1217,9 @@ var _ = Describe("Control", func() {
 						).To(Equal("boulder"))
 
 						disconnect()
-						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w2 := MustSucceed(db.OpenWriter(ctx, storageConfig{
 							Start:    0,
-							Channels: []channel.Key{k},
+							Channels: []cesium.ChannelKey{k},
 							ControlSubject: xcontrol.Subject{
 								Key:  "4444",
 								Name: "denver",

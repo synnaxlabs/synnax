@@ -76,16 +76,16 @@ var _ = Describe("Control", func() {
 		full := func(ctx context.Context) control.ServiceConfig {
 			GinkgoHelper()
 			n := testutil.NewNode(ctx)
-			return control.ServiceConfig{TS: n.Storage.TS}
+			return control.ServiceConfig{Framer: n.Framer}
 		}
 
 		It("Should open when all required fields are set", func(ctx SpecContext) {
 			Expect(full(ctx).Validate()).To(Succeed())
 		})
 
-		It("Should fail to open without a time-series database", func(ctx SpecContext) {
+		It("Should fail to open without a framer", func(ctx SpecContext) {
 			Expect(control.OpenService(ctx, control.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("ts: must be non-nil")))
+				To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
 	})
 

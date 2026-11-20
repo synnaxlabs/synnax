@@ -1844,6 +1844,29 @@ var _ = Describe("Control", func() {
 		})
 	})
 
+	Describe("HolderAt", func() {
+		It(
+			"Should return the subject that controls the region of a time range",
+			func() {
+				low, _ := baseConfig(1)
+				low.Subject = control.Subject{Key: "low"}
+				low.Authority = 1
+				high, _ := baseConfig(2)
+				high.Subject = control.Subject{Key: "high"}
+				high.Authority = 2
+				gl, _ := MustSucceed2(c.OpenGate(low))
+				gh, _ := MustSucceed2(c.OpenGate(high))
+				subject, ok := c.HolderAt(low.TimeRange)
+				Expect(ok).To(BeTrue())
+				Expect(subject.Key).To(Equal("high"))
+				gh.Release()
+				gl.Release()
+				_, ok = c.HolderAt(low.TimeRange)
+				Expect(ok).To(BeFalse())
+			},
+		)
+	})
+
 	Describe("ResourceAt", func() {
 		at := func(ts telem.TimeStamp) telem.TimeRange { return ts.Range(ts + 1) }
 		openAt := func(value int, tr telem.TimeRange) *control.Gate[uint32, testResource] {

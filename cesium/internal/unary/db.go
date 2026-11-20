@@ -15,21 +15,22 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/resource"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // DB is a database for a single channel. It executes reads (via iterators) and writes
-// (via writers) against an underlying domain.DB. It also manages the channel's control
-// state, allowing for dynamic handoff between multiple writers.
+// (via writers) against an underlying domain.DB. It also holds the claims of the
+// channel's writers, so writers of one claim share a domain writer.
 type DB struct {
 	// domain is the underlying domain database on which writes will be executed.
-	domain     *domain.DB
-	controller *xcontrol.Controller[channel.Key, *controlledWriter]
+	domain *domain.DB
+	// claims holds the claims of the channel's writers.
+	claims *claim.Set[*sharedWriter]
 	// idx is the index used for resolving timestamp positions on this channel.
 	idx              *index.Domain
 	wrapError        func(error) error
@@ -75,15 +76,10 @@ func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 // reserved, keeping the data ordered after everything already persisted. It returns
 // telem.ErrAlignmentsExhausted when no leading domain is left.
 func (db *DB) WriteCursor(ts telem.TimeStamp) (telem.Alignment, error) {
-	if cw, ok := db.controller.ResourceAt(ts.Range(ts + 1)); ok {
+	if cw, ok := db.claims.ResourceAt(ts.Range(ts + 1)); ok {
 		return cw.loadAlignment(), nil
 	}
 	return db.leadingAlignment.Next()
-}
-
-// LeadingControlState returns the first chronological gate in this unary database.
-func (db *DB) LeadingControlState() *xcontrol.State[channel.Key] {
-	return db.controller.LeadingState()
 }
 
 // HasDataFor check whether there is a time range in the unary DB's underlying domain
@@ -93,9 +89,9 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	if db.closed.Load() {
 		return false, ErrDBClosed
 	}
-	release, err := db.lockControllerForNonWriteOp(tr, "has_data_for")
+	release, err := db.claimForNonWriteOp(tr)
 	if err != nil {
-		return true, errors.Skip(err, xcontrol.ErrUnauthorized)
+		return true, errors.Skip(err, claim.ErrClaimed)
 	}
 	defer release()
 	hasData, err := db.domain.HasDataFor(ctx, tr)

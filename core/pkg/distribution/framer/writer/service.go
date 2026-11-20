@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -152,12 +153,9 @@ func (c Config) splitFree() (stored Config, free channel.Keys) {
 
 func (c Config) toStorage() cesium.WriterConfig {
 	return cesium.WriterConfig{
-		ControlSubject:    c.ControlSubject,
-		Channels:          c.Keys.Uint32(),
-		Start:             c.Start,
-		Authorities:       c.Authorities,
-		ErrOnUnauthorized: c.ErrOnUnauthorized,
-		Mode:              c.Mode,
+		Channels: c.Keys.Uint32(),
+		Start:    c.Start,
+		Mode:     c.Mode,
 	}
 }
 
@@ -271,7 +269,18 @@ type Service struct {
 	// SetFreeIndexResolver; opening a writer on free channels fails until it is set.
 	resolver atomic.Pointer[FreeIndexResolver]
 	claims   *claims
+	controls *controls
 	cfg      ServiceConfig
+}
+
+// ControlStates returns the state of control over each channel that a writer controls.
+func (s *Service) ControlStates() []ControlState { return s.controls.states() }
+
+// OnControlUpdate calls handler with each batch of control transfers between writers.
+func (s *Service) OnControlUpdate(
+	handler func(context.Context, ControlUpdate),
+) observe.Disconnect {
+	return s.controls.updates.OnChange(handler)
 }
 
 // ClaimDelete claims keys for a delete and returns the function that releases the
@@ -293,8 +302,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		cfg:    cfg,
-		claims: newClaims(),
+		cfg:      cfg,
+		claims:   newClaims(),
+		controls: newControls(),
 		freeWriteAlignments: &freeWriteAlignments{
 			counters: make(map[channel.Key]*telem.AlignmentCounter),
 		},

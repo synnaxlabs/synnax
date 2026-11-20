@@ -16,70 +16,13 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
-	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("DB Metadata Operations", func() {
-	for fsName, openFS := range FileSystems {
-		var (
-			fs    fs.FS
-			dbKey channel.Key
-			db    *virtual.DB
-		)
-
-		Context("FS: "+fsName, func() {
-			BeforeEach(func(ctx SpecContext) {
-				fs = openFS()
-				dbKey = GenerateChannelKey()
-				db = MustOpen(virtual.Open(ctx, virtual.Config{
-					FS:        fs,
-					MetaCodec: json.Codec,
-					Channel: channel.Channel{
-						Key:      dbKey,
-						Name:     "test",
-						DataType: telem.Int64T,
-						Virtual:  true,
-					},
-				}))
-			})
-
-			Describe("LeadingControlState", func() {
-				It(
-					"Should return nil when there are no writers open on the DB",
-					func() {
-						Expect(db.LeadingControlState()).To(BeNil())
-					},
-				)
-
-				It(
-					"Should return the leading control state when there are writers open on the DB",
-					func(ctx SpecContext) {
-						w, transfer := MustSucceed2(
-							db.OpenWriter(ctx, virtual.WriterConfig{
-								Start:     10 * telem.SecondTS,
-								Authority: control.AuthorityAbsolute,
-								Subject:   control.Subject{Key: "foo"},
-							}),
-						)
-						Expect(transfer.Occurred()).To(BeTrue())
-						Expect(db.LeadingControlState()).ToNot(BeNil())
-						Expect(
-							db.LeadingControlState().Authority,
-						).To(Equal(control.AuthorityAbsolute))
-						Expect(db.LeadingControlState().Subject.Key).To(Equal("foo"))
-						t := MustSucceed(w.Close())
-						Expect(t.Occurred()).To(BeTrue())
-					},
-				)
-			})
-		})
-	}
-
 	Describe("Close", func() {
 		var db *virtual.DB
 		BeforeEach(func(ctx SpecContext) {
@@ -118,11 +61,9 @@ var _ = Describe("DB Metadata Operations", func() {
 						Virtual:  true,
 					},
 				}))
-				writer, _ := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Subject: control.Subject{Key: "string"},
-				}))
+				writer := MustSucceed(db.OpenWriter(ctx, virtual.WriterConfig{}))
 				Expect(db.Close()).To(MatchError(resource.ErrOpen))
-				_ = MustSucceed(writer.Close())
+				Expect(writer.Close()).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 			},
 		)
@@ -142,22 +83,22 @@ var _ = Describe("DB Metadata Operations", func() {
 				},
 			}))
 		})
-		cfg := virtual.WriterConfig{Subject: control.Subject{Key: "string"}}
+		cfg := virtual.WriterConfig{}
 
 		It("Should refuse new writers until UnmarkClosed", func(ctx SpecContext) {
 			Expect(db.MarkClosed()).To(Succeed())
 			Expect(db.OpenWriter(ctx, cfg)).Error().To(MatchError(virtual.ErrDBClosed))
 			db.UnmarkClosed()
-			w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
-			MustSucceed(w.Close())
+			w := MustSucceed(db.OpenWriter(ctx, cfg))
+			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should leave the DB open if a writer is open", func(ctx SpecContext) {
-			w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
+			w := MustSucceed(db.OpenWriter(ctx, cfg))
 			Expect(db.MarkClosed()).To(MatchError(resource.ErrOpen))
-			MustSucceed(w.Close())
-			w, _ = MustSucceed2(db.OpenWriter(ctx, cfg))
-			MustSucceed(w.Close())
+			Expect(w.Close()).To(Succeed())
+			w = MustSucceed(db.OpenWriter(ctx, cfg))
+			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should return ErrDBClosed if the DB is closed", func() {

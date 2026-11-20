@@ -60,6 +60,14 @@ var _ = Describe("Delete intents", func() {
 		Expect(xfs.CopyDir(mem, cp, "")).To(Succeed())
 		return mustOpenDBOnFS(ctx, cp), cp
 	}
+	// crashWith returns a DB opened on a copy of the files that damage changes.
+	crashWith := func(ctx SpecContext, damage func(*xfs.MemFS)) (*cesium.DB, *xfs.MemFS) {
+		GinkgoHelper()
+		cp := xfs.NewMem()
+		Expect(xfs.CopyDir(mem, cp, "")).To(Succeed())
+		damage(cp)
+		return mustOpenDBOnFS(ctx, cp), cp
+	}
 	expectGone := func(ctx SpecContext, db *cesium.DB, fs xfs.FS, key cesium.ChannelKey) {
 		GinkgoHelper()
 		Expect(db.RetrieveChannel(ctx, key)).Error().
@@ -82,6 +90,33 @@ var _ = Describe("Delete intents", func() {
 	})
 
 	Describe("Drop", func() {
+		It(
+			"Should clear the intents of a batch with syncs that do not grow with the batch",
+			func(ctx SpecContext) {
+				var ops []string
+				logged := mustOpenDBOnFS(ctx, opLogFS{FS: xfs.NewMem(), ops: &ops})
+				keys := make([]cesium.ChannelKey, 100)
+				for i := range keys {
+					keys[i] = GenerateChannelKey()
+					Expect(logged.CreateChannel(ctx, cesium.Channel{
+						Key:      keys[i],
+						Name:     "time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					})).To(Succeed())
+				}
+				Expect(logged.Intend(keys)).To(Succeed())
+				ops = nil
+				Expect(logged.Drop(keys)).To(Succeed())
+				Expect(ops).To(HaveExactElements(
+					"syncdir",
+					"sync delete-intents.tmp",
+					"rename delete-intents.tmp delete-intents",
+					"syncdir",
+				))
+			},
+		)
+
 		It("Should clear the intent after it removes the files", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			Expect(intents(mem)).To(Equal(int64(8)))
@@ -245,6 +280,30 @@ var _ = Describe("Delete intents", func() {
 				Expect(restarted.Sweep(ctx, nil)).To(BeEmpty())
 				expectGone(ctx, restarted, fs, other)
 			})
+		})
+
+		It("Should read the intents after a corrupt record", func(ctx SpecContext) {
+			other := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: other, Name: "other", IsIndex: true, DataType: telem.TimestampT,
+			})).To(Succeed())
+			Expect(db.WriteSeries(
+				ctx,
+				other,
+				10*telem.SecondTS,
+				telem.NewSeriesSecondsTSV(10, 11, 12),
+			)).To(Succeed())
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Intend([]cesium.ChannelKey{other})).To(Succeed())
+			restarted, fs := crashWith(ctx, func(cp *xfs.MemFS) {
+				f := MustSucceed(cp.Open("delete-intents", os.O_RDWR))
+				MustSucceed(f.WriteAt([]byte{0xFF}, 4))
+				Expect(f.Close()).To(Succeed())
+			})
+			Expect(intents(fs)).To(Equal(int64(16)))
+			kept := MustSucceed(restarted.Sweep(ctx, []cesium.ChannelKey{idx}))
+			Expect(kept).To(ConsistOf(HaveField("Key", data)))
+			expectGone(ctx, restarted, fs, other)
 		})
 
 		It("Should ignore a torn intent append", func(ctx SpecContext) {

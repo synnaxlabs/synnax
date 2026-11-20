@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -69,9 +68,8 @@ var _ = Describe("Writer errors", func() {
 				},
 			))).To(Succeed())
 			MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels:       []cesium.ChannelKey{idx1, d1},
-				Start:          5 * telem.SecondTS,
-				ControlSubject: control.Subject{Key: "holder"},
+				Channels: []cesium.ChannelKey{idx1, d1},
+				Start:    5 * telem.SecondTS,
 			}))
 			// Group 2 overlaps its stored data, so its commit fails.
 			err := db.Write(ctx, 5*telem.SecondTS, telem.MultiFrame(
@@ -214,9 +212,8 @@ var _ = Describe("Writer sync durability", func() {
 				start := max(next[i1], next[i2])
 				next[i1], next[i2] = start, start
 				return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels:    keys,
-					Start:       start,
-					Authorities: []control.Authority{100},
+					Channels: keys,
+					Start:    start,
 				}))
 			}
 			expectDurable := func(when string, of ...cesium.ChannelKey) {
@@ -303,10 +300,8 @@ var _ = Describe("Writer sync durability", func() {
 					MustSucceed(w.Commit(ctx))
 					commitAll()
 					high := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-						Channels:       []cesium.ChannelKey{i1, d1},
-						Start:          next[i1],
-						ControlSubject: control.Subject{Key: "high"},
-						Authorities:    []control.Authority{200},
+						Channels: []cesium.ChannelKey{i1, d1},
+						Start:    next[i1],
 					}))
 					n := 1 + rng.IntN(4)
 					MustSucceed(high.Write(ctx, telem.MultiFrame(

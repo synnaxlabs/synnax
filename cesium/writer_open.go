@@ -11,13 +11,11 @@ package cesium
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -35,39 +33,20 @@ func (mode WriterMode) Stream() bool { return mode != WriterModePersistOnly }
 
 const (
 	WriterModePersistStream WriterMode = iota + 1
-	// WriterModePersistOnly stores samples without streaming them. The writer commands
-	// nothing, so it holds only the time it has committed and can write behind a live
-	// writer. It fails to open when another writer holds its Start, and a commit fails
-	// when it reaches another writer's region. It is absent from control state and
-	// ignores virtual channels.
+	// WriterModePersistOnly stores samples without streaming them. The writer holds
+	// only the time it has committed and can write behind a live writer. It fails to
+	// open when another writer holds its Start, and a commit fails when it reaches
+	// another writer's claim. It ignores virtual channels.
 	WriterModePersistOnly
 	WriterModeStreamOnly
 )
 
 // WriterConfig sets the configuration used to open a new writer on the DB.
 type WriterConfig struct {
-	// ErrOnUnauthorized controls whether the writer will return an error when
-	// attempting to open a writer on a channel that it does not have authority over.
-	// This value should be set to false for control related scenarios.
-	//
-	// [OPTIONAL] - Defaults to false.
-	ErrOnUnauthorized *bool
-	// Name sets the human-readable name for the writer, which is useful for identifying
-	// it in control transfer scenarios.
-	//
-	// [OPTIONAL] - Defaults to an empty string.
-	ControlSubject xcontrol.Subject
 	// Channels sets the channels that the writer will write to. If a channel does not
 	// exist, the writer fill fail to open.
 	Channels []channel.Key
-	// Authorities marks the starting control authorities of the writer. This value must
-	// be empty (so the default is applied), have a length of 1 (apply the same
-	// authority to all channels), or have a length equal to the number of channels
-	// (apply granular authorities to each channel).
-	//
-	// [OPTIONAL] - Defaults to control.AuthorityAbsolute on all channels.
-	Authorities []xcontrol.Authority
-	// Start marks the start of the writer's control region. When Start is zero, the
+	// Start marks the start of the writer's claim. When Start is zero, the
 	// region starts at the time the writer opens. If a sample exists for any channel at
 	// a non-zero Start, the writer fails to open. The domains of each index start at
 	// the first timestamp written to that index, not at Start. The region moves back to
@@ -95,13 +74,6 @@ var _ config.Config[WriterConfig] = WriterConfig{}
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
 	v.NotEmptySlice("channels", c.Channels)
-	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorized)
-	v.Exec(c.ControlSubject.Validate)
-	v.Ternary(
-		"authorities",
-		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,
-		"authority count must be 1 or equal to channel count",
-	)
 	return v.Error()
 }
 
@@ -109,31 +81,18 @@ func (c WriterConfig) Validate() error {
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Channels = override.Slice(c.Channels, other.Channels)
-	c.Authorities = override.Slice(c.Authorities, other.Authorities)
-	c.ControlSubject = c.ControlSubject.Override(other.ControlSubject)
-	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	return c
 }
 
-func (c WriterConfig) unaryConfig(i int) unary.WriterConfig {
+func (c WriterConfig) unaryConfig() unary.WriterConfig {
 	return unary.WriterConfig{
-		Subject:                  c.ControlSubject,
-		ErrOnUnauthorizedOpen:    c.ErrOnUnauthorized,
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: commitsNeverPersist,
 		Start:                    c.Start,
 		Persist:                  new(c.Mode.persist()),
 		Bounded:                  new(!c.Mode.Stream()),
-		Authority:                c.authority(i),
 	}
-}
-
-func (c WriterConfig) authority(i int) xcontrol.Authority {
-	if len(c.Authorities) == 1 {
-		return c.Authorities[0]
-	}
-	return c.Authorities[i]
 }
 
 // OpenWriter implements DB.
@@ -150,19 +109,13 @@ func (db *DB) newWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
 ) (w *Writer, err error) {
-	cfg, err := config.New(WriterConfig{
-		ControlSubject:    xcontrol.Subject{Key: uuid.New().String()},
-		Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute},
-		ErrOnUnauthorized: new(false),
-		Mode:              WriterModePersistStream,
-	}, cfgs...)
+	cfg, err := config.New(WriterConfig{Mode: WriterModePersistStream}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	var (
 		domainWriters  = make(map[ChannelKey]*idxWriter)
 		virtualWriters map[ChannelKey]*virtual.Writer
-		controlUpdate  ControlUpdate
 		keyToIdx       = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
 	)
 	defer func() {
@@ -176,9 +129,9 @@ func (db *DB) newWriter(
 	//   Pass 2: Open all non-index unary writers (both fixed-density and
 	//     variable-length) and attach them to the appropriate idxWriter group.
 	// Alignment is not decided here. Data channels resolve it from their index on every
-	// write, so a writer that joins an existing control region cannot end up in a
-	// different alignment space than the index it is being written against.
-	if virtualWriters, controlUpdate.Transfers, err = db.openIndexWriters(
+	// write, so a writer that joins an existing claim cannot end up in a different
+	// alignment space than the index it is being written against.
+	if virtualWriters, err = db.openIndexWriters(
 		ctx,
 		cfg,
 		domainWriters,
@@ -186,18 +139,8 @@ func (db *DB) newWriter(
 	); err != nil {
 		return nil, err
 	}
-	if controlUpdate.Transfers, err = db.openDataWriters(
-		ctx,
-		cfg,
-		domainWriters,
-		keyToIdx,
-		controlUpdate.Transfers,
-	); err != nil {
+	if err = db.openDataWriters(ctx, cfg, domainWriters, keyToIdx); err != nil {
 		return nil, err
-	}
-
-	if len(controlUpdate.Transfers) > 0 {
-		db.controlUpdates.notify(controlUpdate)
 	}
 
 	return db.assembleWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
@@ -211,16 +154,10 @@ func (db *DB) assembleWriter(
 	keyToIdx map[ChannelKey]*idxWriter,
 ) *Writer {
 	w := &Writer{
-		WriterConfig:       cfg,
-		internal:           make([]*idxWriter, 0, len(domainWriters)),
-		virtual:            &virtualWriter{internal: virtualWriters},
-		keyToIdx:           keyToIdx,
-		authorizeEndDomain: db.authorizeEndDomain,
-		updateDBControl: func(update ControlUpdate) {
-			db.mu.RLock()
-			defer db.mu.RUnlock()
-			db.controlUpdates.notify(update)
-		},
+		WriterConfig: cfg,
+		internal:     make([]*idxWriter, 0, len(domainWriters)),
+		virtual:      &virtualWriter{internal: virtualWriters},
+		keyToIdx:     keyToIdx,
 	}
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
@@ -236,34 +173,28 @@ func closeWriters(
 	virtualWriters map[ChannelKey]*virtual.Writer,
 ) error {
 	for _, idx := range domainWriters {
-		_, errClose := idx.Close()
-		err = errors.Combine(errClose, err)
+		err = errors.Combine(idx.Close(), err)
 	}
 	for _, vw := range virtualWriters {
-		_, errClose := vw.Close()
-		err = errors.Combine(errClose, err)
+		err = errors.Combine(vw.Close(), err)
 	}
 	return err
 }
 
 // openIndexWriters opens a writer for each virtual and index channel in cfg, adding
-// the index writers to domainWriters and keyToIdx. It returns the virtual writers and
-// the control transfers the opens caused, including those opened before an error.
+// the index writers to domainWriters and keyToIdx. It returns the virtual writers,
+// including those opened before an error.
 func (db *DB) openIndexWriters(
 	ctx context.Context,
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	keyToIdx map[ChannelKey]*idxWriter,
-) (
-	virtualWriters map[ChannelKey]*virtual.Writer,
-	transfers []xcontrol.Transfer[ChannelKey],
-	err error,
-) {
+) (virtualWriters map[ChannelKey]*virtual.Writer, err error) {
 	for i, key := range cfg.Channels {
 		u, isUnary := db.mu.dbs.unary[key]
 		v, isVirtual := db.mu.dbs.virtual[key]
 		if !isVirtual && !isUnary {
-			return virtualWriters, transfers, channel.NewNotFoundError(key)
+			return virtualWriters, channel.NewNotFoundError(key)
 		}
 		if isUnary && !u.Channel().IsIndex {
 			continue
@@ -271,35 +202,25 @@ func (db *DB) openIndexWriters(
 		if isVirtual && !cfg.Mode.Stream() {
 			continue
 		}
-		var transfer xcontrol.Transfer[ChannelKey]
 		if isVirtual {
-			var vW *virtual.Writer
-			vW, transfer, err = v.OpenWriter(ctx, virtual.WriterConfig{
-				Subject:               cfg.ControlSubject,
-				Start:                 cfg.Start,
-				Authority:             cfg.authority(i),
-				ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorized,
-			})
+			vW, err := v.OpenWriter(ctx, virtual.WriterConfig{Start: cfg.Start})
 			if err != nil {
-				return virtualWriters, transfers, err
+				return virtualWriters, err
 			}
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
 			virtualWriters[key] = vW
 		} else {
-			var idxW *idxWriter
-			if idxW, transfer, err = db.openIndexWriter(ctx, cfg, &u, i); err != nil {
-				return virtualWriters, transfers, err
+			idxW, err := db.openIndexWriter(ctx, cfg, &u, i)
+			if err != nil {
+				return virtualWriters, err
 			}
 			domainWriters[u.Channel().Index] = idxW
 			keyToIdx[key] = idxW
 		}
-		if transfer.Occurred() {
-			transfers = append(transfers, transfer)
-		}
 	}
-	return virtualWriters, transfers, nil
+	return virtualWriters, nil
 }
 
 // openIndexWriter opens the writer for the index channel u at position i of cfg.
@@ -308,32 +229,29 @@ func (db *DB) openIndexWriter(
 	cfg WriterConfig,
 	u *unary.DB,
 	i int,
-) (*idxWriter, xcontrol.Transfer[ChannelKey], error) {
-	uW, transfer, err := u.OpenWriter(ctx, cfg.unaryConfig(i))
+) (*idxWriter, error) {
+	uW, err := u.OpenWriter(ctx, cfg.unaryConfig())
 	if err != nil {
-		return nil, xcontrol.Transfer[ChannelKey]{}, err
+		return nil, err
 	}
 	idxW, err := db.openDomainIdxWriter(u.Channel().Index, cfg)
 	if err != nil {
-		return nil, xcontrol.Transfer[ChannelKey]{}, err
+		return nil, errors.Combine(err, uW.Close())
 	}
 	idxW.writingToIdx = true
 	idxW.internal[cfg.Channels[i]] = &unaryWriterState{Writer: *uW}
-	idxW.dataAuth = make(map[ChannelKey]xcontrol.Authority)
-	return idxW, transfer, nil
+	return idxW, nil
 }
 
 // openDataWriters opens a writer for each non-index unary channel in cfg and attaches
 // it to the idxWriter of its index, opening that idxWriter when domainWriters lacks it.
-// It returns transfers with the control transfers the opens caused appended.
 func (db *DB) openDataWriters(
 	ctx context.Context,
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	keyToIdx map[ChannelKey]*idxWriter,
-	transfers []xcontrol.Transfer[ChannelKey],
-) ([]xcontrol.Transfer[ChannelKey], error) {
-	for i, key := range cfg.Channels {
+) error {
+	for _, key := range cfg.Channels {
 		u, ok := db.mu.dbs.unary[key]
 		if !ok || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
@@ -343,24 +261,18 @@ func (db *DB) openDataWriters(
 		if !ok {
 			var err error
 			if idxW, err = db.openDataOnlyIdxWriter(cfg, u.Channel()); err != nil {
-				return nil, err
+				return err
 			}
 			domainWriters[idxKey] = idxW
 		}
-		uW, transfer, err := u.OpenWriter(ctx, cfg.unaryConfig(i))
+		uW, err := u.OpenWriter(ctx, cfg.unaryConfig())
 		if err != nil {
-			return nil, err
-		}
-		if transfer.Occurred() {
-			transfers = append(transfers, transfer)
+			return err
 		}
 		idxW.internal[key] = &unaryWriterState{Writer: *uW}
 		keyToIdx[key] = idxW
-		if idxW.writingToIdx {
-			idxW.dataAuth[key] = cfg.authority(i)
-		}
 	}
-	return transfers, nil
+	return nil
 }
 
 // openDataOnlyIdxWriter opens an idxWriter for the index of the data channel ch when

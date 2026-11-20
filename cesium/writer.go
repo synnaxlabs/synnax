@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/stringer"
@@ -31,19 +30,15 @@ import (
 // Writer writes frames to a set of channels and commits them. A Writer is not safe for
 // concurrent use.
 //
-// The first error that is not control.ErrUnauthorized breaks the writer: every later
-// call returns that error, and Close returns it after it releases the writer. An error
-// that wraps control.ErrUnauthorized leaves the writer open, so that it can regain
-// control.
+// The first error breaks the writer: every later call returns that error, and Close
+// returns it after it releases the writer.
 type Writer struct {
 	WriterConfig
 	internal []*idxWriter
 	virtual  *virtualWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
-	keyToIdx           map[ChannelKey]*idxWriter
-	updateDBControl    func(u ControlUpdate)
-	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
+	keyToIdx map[ChannelKey]*idxWriter
 	// err is the error that broke the writer.
 	err    error
 	closed bool
@@ -63,10 +58,9 @@ func (w *Writer) check() error {
 	return nil
 }
 
-// fail breaks the writer with err unless err wraps control.ErrUnauthorized, and
-// returns err.
+// fail breaks the writer with err and returns err.
 func (w *Writer) fail(err error) error {
-	if err != nil && !errors.Is(err, xcontrol.ErrUnauthorized) && w.err == nil {
+	if err != nil && w.err == nil {
 		w.err = err
 	}
 	return err
@@ -110,236 +104,135 @@ func (w *Writer) Close() error {
 		return w.err
 	}
 	w.closed = true
-	var (
-		err    = w.persist()
-		update = ControlUpdate{
-			Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
-		}
-	)
+	err := w.persist()
 	for _, idx := range w.internal {
-		u, errClose := idx.Close()
-		if errClose != nil {
-			err = errors.Join(err, errClose)
-		} else {
-			update.Transfers = append(update.Transfers, u.Transfers...)
-		}
+		err = errors.Join(err, idx.Close())
 	}
 	if w.virtual.internal != nil {
-		u, errClose := w.virtual.Close()
-		if errClose != nil {
-			err = errors.Join(err, errClose)
-		} else {
-			update.Transfers = append(update.Transfers, u.Transfers...)
-		}
-	}
-	if len(update.Transfers) > 0 {
-		w.updateDBControl(update)
+		err = errors.Join(err, w.virtual.Close())
 	}
 	w.err = errors.Join(w.err, err)
 	return w.err
 }
 
-// SetAuthority sets the control authority of the writer over its channels. Naming a
-// data channel also moves its written index to the max across that index's data
-// channels, unless the index is named explicitly.
-func (w *Writer) SetAuthority(cfg WriterConfig) error {
+// Write writes fr and returns it with the alignment and time range of each written
+// series set.
+func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
+	written, _, err := w.WriteExcept(ctx, fr, nil)
+	return written, err
+}
+
+// WriteExcept writes fr except the channels in skip, and returns it without them, with
+// the alignment and time range of each written series set. A skipped index also skips
+// the data channels it indexes in the writer. The returned bool is true when
+// WriteExcept
+// skipped a series of fr, and the next commit of that index then commits nothing.
+// WriteExcept validates every series of fr, and returns an error for a key in skip that
+// the writer does not write.
+func (w *Writer) WriteExcept(
+	ctx context.Context,
+	fr Frame,
+	skip set.Set[ChannelKey],
+) (Frame, bool, error) {
 	if err := w.check(); err != nil {
-		return err
+		return Frame{}, false, err
 	}
-	if len(cfg.Authorities) == 0 {
-		return nil
+	if err := w.checkSkip(skip); err != nil {
+		return Frame{}, false, w.fail(err)
 	}
-	if len(cfg.Authorities) != 1 &&
-		len(cfg.Authorities) != len(cfg.Channels) {
-		return w.fail(errors.Wrap(
-			validate.ErrValidation,
-			"authority count must be 1 or equal to channel count",
-		))
-	}
-	cfg = w.propagateAuthority(cfg)
 	var (
-		u = ControlUpdate{
-			Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
-		}
-		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
-			return cfg.Authorities[0], true
-		}
+		err      error
+		excluded []ChannelKey
 	)
-
-	if len(cfg.Channels) > 0 {
-		values := make(map[ChannelKey]xcontrol.Authority, len(cfg.Channels))
-		for i, ch := range cfg.Channels {
-			values[ch] = cfg.authority(i)
-		}
-		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
-			v, ok := values[ch]
-			return v, ok
-		}
-	}
-	for _, chW := range w.virtual.internal {
-		if auth, ok := getAuth(chW.Channel.Key); ok {
-			if t := chW.SetAuthority(auth); t.Occurred() {
-				u.Transfers = append(u.Transfers, t)
-			}
-		}
-	}
-
 	for _, idx := range w.internal {
-		for _, chW := range idx.internal {
-			if auth, ok := getAuth(chW.Channel.Key); ok {
-				if t := chW.SetAuthority(auth); t.Occurred() {
-					u.Transfers = append(u.Transfers, t)
-				}
-			}
+		if fr, err = idx.write(skip, &excluded, fr); err != nil {
+			return Frame{}, false, w.fail(err)
 		}
 	}
+	if w.virtual.internal != nil {
+		if fr, err = w.virtual.write(skip, &excluded, fr); err != nil {
+			return Frame{}, false, w.fail(err)
+		}
+	}
+	return fr.ExcludeKeys(excluded), len(excluded) > 0, nil
+}
 
-	if len(u.Transfers) > 0 {
-		w.updateDBControl(u)
+// checkSkip returns an error for a key in skip that the writer does not write.
+func (w *Writer) checkSkip(skip set.Set[ChannelKey]) error {
+	for k := range skip {
+		if _, ok := w.keyToIdx[k]; ok {
+			continue
+		}
+		if _, ok := w.virtual.internal[k]; ok {
+			continue
+		}
+		return channel.Wrap(k, errors.Wrap(
+			validate.ErrValidation,
+			"cannot skip a channel that the writer does not write",
+		))
 	}
 	return nil
 }
 
-// Write writes fr and returns it with the alignment and time range of each written
-// series set. When the writer lacks control of some channels, Write writes the others
-// and returns the frame without the refused channels, with an error that wraps
-// control.ErrUnauthorized.
-func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
-	if err := w.check(); err != nil {
-		return Frame{}, err
-	}
-	var (
-		unauthorized        error
-		err                 error
-		excludeUnauthorized []ChannelKey
-	)
-	for _, idx := range w.internal {
-		if fr, err = idx.write(&excludeUnauthorized, fr); err != nil {
-			if !errors.Is(err, xcontrol.ErrUnauthorized) {
-				return Frame{}, w.fail(err)
-			}
-			unauthorized = err
-		}
-	}
-	if w.virtual.internal != nil {
-		if fr, err = w.virtual.write(&excludeUnauthorized, fr); err != nil {
-			if !errors.Is(err, xcontrol.ErrUnauthorized) {
-				return Frame{}, w.fail(err)
-			}
-			unauthorized = err
-		}
-	}
-	return fr.ExcludeKeys(excludeUnauthorized), unauthorized
-}
-
-// propagateAuthority synchronizes each idxWriter's per-data-channel authority tracking
-// with the incoming SetAuthority config and augments cfg with an updated authority for
-// each written index whose referencing data channels' max may have changed. Broadcast
-// calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
-// broadcast across every channel in the writer, including indexes — but the tracked
-// state is refreshed so the next per-channel call computes correctly. Indexes the
-// caller explicitly included in cfg.Channels are left untouched.
-//
-// propagateAuthority may append to cfg.Channels and cfg.Authorities, so a caller of
-// SetAuthority must not retain or share the underlying arrays of cfg.Channels and
-// cfg.Authorities.
-func (w *Writer) propagateAuthority(cfg WriterConfig) WriterConfig {
-	if len(cfg.Channels) == 0 {
-		for _, idx := range w.internal {
-			idx.broadcastDataAuth(cfg.Authorities[0])
-		}
-		return cfg
-	}
-	for _, idx := range w.internal {
-		idx.setAuthExplicit = false
-	}
-	nExplicit := len(cfg.Channels)
-	// If the caller broadcast a single authority across multiple channels, materialize
-	// a per-channel authorities slice so the loop below can index Authorities[i]
-	// directly and the implicit-index append loop has the right starting length.
-	if len(cfg.Authorities) < nExplicit {
-		auths := make([]xcontrol.Authority, nExplicit, nExplicit+len(w.internal))
-		for i := range auths {
-			auths[i] = cfg.Authorities[0]
-		}
-		cfg.Authorities = auths
-	}
-	for i, k := range cfg.Channels {
-		idx, ok := w.keyToIdx[k]
-		if !ok {
-			continue
-		}
-		if k == idx.idx.ch.Key {
-			idx.setAuthExplicit = true
-			continue
-		}
-		idx.setDataAuth(k, cfg.Authorities[i])
-	}
-	for _, idx := range w.internal {
-		if !idx.writingToIdx || idx.setAuthExplicit || len(idx.dataAuth) == 0 {
-			continue
-		}
-		cfg.Channels = append(cfg.Channels, idx.idx.ch.Key)
-		cfg.Authorities = append(cfg.Authorities, idx.maxDataAuth())
-	}
-	return cfg
-}
-
 // Commit makes the written samples available to reads and returns the end of the
-// commit. When the writer lacks control of a channel with samples to commit, Commit
-// returns an error that wraps control.ErrUnauthorized and a zero end, and the writer
-// stays open so that it can regain control.
+// commit.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
+	end, _, err := w.CommitExcept(ctx, nil)
+	return end, err
+}
+
+// CommitExcept commits every channel except the channels in skip. The returned bool is
+// true when it skipped a channel of an index with samples to commit, and the end is
+// then zero. The samples of a skipped channel stay uncommitted. CommitExcept returns an
+// error
+// for a key in skip that the writer does not write.
+func (w *Writer) CommitExcept(
+	ctx context.Context,
+	skip set.Set[ChannelKey],
+) (telem.TimeStamp, bool, error) {
 	if err := w.check(); err != nil {
-		return 0, err
+		return 0, false, err
+	}
+	if err := w.checkSkip(skip); err != nil {
+		return 0, false, w.fail(err)
 	}
 	var (
-		maxTS        = telem.TimeStampMin
-		unauthorized error
+		maxTS   = telem.TimeStampMin
+		skipped bool
 	)
 	for _, idxW := range w.internal {
-		ts, err := idxW.Commit(ctx)
-		if errors.Is(err, xcontrol.ErrUnauthorized) {
-			unauthorized = err
-			continue
-		}
+		ts, idxSkipped, err := idxW.Commit(ctx, skip)
 		if err != nil {
-			return 0, w.fail(err)
+			return 0, false, w.fail(err)
 		}
+		skipped = skipped || idxSkipped
 		if ts > maxTS {
 			maxTS = ts
 		}
 	}
-	if unauthorized != nil {
-		return 0, unauthorized
+	if skipped {
+		return 0, true, nil
 	}
-	return maxTS, nil
+	return maxTS, false, nil
 }
 
-// EndDomain commits the writer, then ends the domains of the given indexes and of the
-// data channels they index. The next write to an index starts a new domain at its first
-// timestamp, which frees the time before that timestamp for another writer. Indexes the
-// writer does not write are ignored, and an index with no data keeps its domains.
-// EndDomain returns an error that wraps control.ErrUnauthorized if another writer
-// controls an index or one of its data channels. The index then keeps its domain, and
-// some of its data channels may end theirs.
+// EndDomain commits the given indexes and the data channels they index, then ends their
+// domains. The next write to an index starts a new domain at its first timestamp, which
+// frees the time before that timestamp for another writer. Indexes the writer does not
+// write are ignored, and an index with no data keeps its domains.
 func (w *Writer) EndDomain(ctx context.Context, indexes ...ChannelKey) error {
 	if err := w.check(); err != nil {
 		return err
 	}
-	var unauthorized error
 	for _, idx := range w.internal {
 		if !idx.writingToIdx || !slices.Contains(indexes, idx.idx.ch.Key) {
 			continue
 		}
-		if err := idx.endDomain(ctx, w.authorizeEndDomain); err != nil {
-			if !errors.Is(err, xcontrol.ErrUnauthorized) {
-				return w.fail(err)
-			}
-			unauthorized = err
+		if err := idx.endDomain(ctx); err != nil {
+			return w.fail(err)
 		}
 	}
-	return unauthorized
+	return nil
 }
 
 type unaryWriterState struct {
@@ -380,7 +273,7 @@ type idxWriter struct {
 	// typically true, which allows us to avoid unnecessary lookups.
 	writingToIdx bool
 	// hasUncommittedData tracks whether new data has been written since the last
-	// successful commit. This prevents stale commits when a control transfer
+	// successful commit. This prevents stale commits when another writer of the claim
 	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
 	hasUncommittedData bool
 	// lastCommitEnd stores the end timestamp from the last successful commit,
@@ -388,52 +281,6 @@ type idxWriter struct {
 	lastCommitEnd telem.TimeStamp
 	// group shows every channel of a commit to readers in one step.
 	group domain.Group
-	// dataAuth tracks the most recent control authority for each data channel in this
-	// group (i.e. the keys of internal excluding the index itself). Populated when
-	// writingToIdx is true; updated by SetAuthority calls so that maxDataAuth can
-	// recompute the written index's authority as the max across its referencing data
-	// channels.
-	dataAuth map[ChannelKey]xcontrol.Authority
-	// setAuthExplicit is a transient scratch field used during the per-channel scan in
-	// Writer.propagateAuthority. True when the caller explicitly named this
-	// idxWriter's index key in the SetAuthority config, in which case the index
-	// authority is left untouched. Reset to false at the start of every
-	// propagateAuthority call.
-	setAuthExplicit bool
-}
-
-// setDataAuth records auth as the authority for k if k is one of this group's data
-// channels and returns true. Returns false if k is not in this group (the Writer is
-// expected to try the next idxWriter in that case).
-func (w *idxWriter) setDataAuth(k ChannelKey, auth xcontrol.Authority) bool {
-	if _, isData := w.dataAuth[k]; !isData {
-		return false
-	}
-	w.dataAuth[k] = auth
-	return true
-}
-
-// broadcastDataAuth sets every data channel's authority in this group to auth. Used
-// when the caller issues a writer-wide SetAuthority (cfg.Channels empty), which the
-// downstream layer applies to every channel; this keeps the per-data-channel record
-// consistent so a subsequent per-channel SetAuthority computes the implicit index's max
-// correctly.
-func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
-	for k := range w.dataAuth {
-		w.dataAuth[k] = auth
-	}
-}
-
-// maxDataAuth returns the maximum recorded authority across this group's data channels.
-// Returns 0 when the group has no data channels; propagateAuthority skips such groups.
-func (w *idxWriter) maxDataAuth() xcontrol.Authority {
-	var maxAuth xcontrol.Authority
-	for _, a := range w.dataAuth {
-		if a > maxAuth {
-			maxAuth = a
-		}
-	}
-	return maxAuth
 }
 
 // resolveAlignment returns the alignment for the current write when no index series is
@@ -462,28 +309,28 @@ type indexWrite struct {
 	alignment telem.Alignment
 	timeRange telem.TimeRange
 	written   bool
-	// unauthorized is true when the writer does not control the index.
-	unauthorized bool
+	// skipped is true when the write skips the index.
+	skipped bool
 }
 
 func (w *idxWriter) write(
-	excludeUnauthorized *[]ChannelKey,
+	skip set.Set[ChannelKey],
+	excluded *[]ChannelKey,
 	fr Frame,
 ) (Frame, error) {
 	w.numWriteCalls++
-	err := w.validateWrite(fr)
-	if err != nil {
+	if err := w.validateWrite(fr); err != nil {
 		return fr, err
 	}
 	// Pass 1: the index channel establishes the alignment for the whole frame. Its
 	// sample position is the space every channel it indexes is expressed in, so it must
 	// be written before any of them.
-	idx, err := w.writeIndex(excludeUnauthorized, fr)
-	if err != nil && !idx.unauthorized {
+	idx, err := w.writeIndex(skip, excluded, fr)
+	if err != nil {
 		return fr, err
 	}
 	var (
-		accumulatedErr         = err
+		skipped                = idx.skipped
 		alignment              = idx.alignment
 		alignmentSet           = idx.written
 		incrementedSampleCount = idx.written
@@ -496,11 +343,9 @@ func (w *idxWriter) write(
 		if !ok {
 			continue
 		}
-		// Losing control of the index means there is no position to express these
-		// samples against. Writing them anyway would stamp them in a controlling
-		// writer's space, so the whole group is held back instead.
-		if idx.unauthorized {
-			*excludeUnauthorized = append(*excludeUnauthorized, key)
+		// A skipped index leaves no position for these samples, so the group waits.
+		if idx.skipped {
+			*excluded = append(*excluded, key)
 			continue
 		}
 		if !alignmentSet {
@@ -512,13 +357,15 @@ func (w *idxWriter) write(
 		if idx.written {
 			uWriter.SetDomainStart(idx.timeRange.Start)
 		}
-		if _, err := uWriter.WriteAt(series, alignment); err != nil {
-			accumulatedErr = err
-			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-				return fr, accumulatedErr
+		if skip.Contains(key) {
+			if err = skipSeries(uWriter.Channel, key, series, excluded); err != nil {
+				return fr, err
 			}
-			*excludeUnauthorized = append(*excludeUnauthorized, key)
+			skipped = true
 			continue
+		}
+		if _, err := uWriter.WriteAt(series, alignment); err != nil {
+			return fr, err
 		}
 		if !incrementedSampleCount {
 			w.countSamples(alignment, series.Len())
@@ -530,10 +377,24 @@ func (w *idxWriter) write(
 		}
 		fr.SetRawSeriesAt(i, series)
 	}
-	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+	if skipped {
 		w.hasUncommittedData = false
 	}
-	return fr, accumulatedErr
+	return fr, nil
+}
+
+// skipSeries validates the series of a skipped channel and adds key to excluded.
+func skipSeries(
+	ch Channel,
+	key ChannelKey,
+	series telem.Series,
+	excluded *[]ChannelKey,
+) error {
+	if err := ch.ValidateSeries(series); err != nil {
+		return err
+	}
+	*excluded = append(*excluded, key)
+	return nil
 }
 
 // dataSeries returns the series at raw position i of fr and the writer of its data
@@ -555,11 +416,11 @@ func (w *idxWriter) dataSeries(
 	return uWriter, series, ok
 }
 
-// writeIndex writes the index series of fr when the group writes its index. When the
-// writer does not control the index, it adds the index to excludeUnauthorized and
-// returns the error with unauthorized set.
+// writeIndex writes the index series of fr when the group writes its index. When skip
+// holds the index, it adds the index to excluded and returns with skipped set.
 func (w *idxWriter) writeIndex(
-	excludeUnauthorized *[]ChannelKey,
+	skip set.Set[ChannelKey],
+	excluded *[]ChannelKey,
 	fr Frame,
 ) (idx indexWrite, err error) {
 	if !w.writingToIdx {
@@ -579,12 +440,11 @@ func (w *idxWriter) writeIndex(
 		}
 		first := series.ValueAt[telem.TimeStamp](0)
 		uWriter.SetDomainStart(first)
+		if skip.Contains(key) {
+			idx.skipped = true
+			return idx, skipSeries(uWriter.Channel, key, series, excluded)
+		}
 		if idx.alignment, err = uWriter.Write(series); err != nil {
-			if !errors.Is(err, xcontrol.ErrUnauthorized) {
-				return idx, err
-			}
-			*excludeUnauthorized = append(*excludeUnauthorized, key)
-			idx.unauthorized = true
 			return idx, err
 		}
 		idx.written = true
@@ -614,56 +474,60 @@ func (w *idxWriter) countSamples(alignment telem.Alignment, n int64) {
 	w.hasUncommittedData = true
 }
 
-func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
+// Commit commits every channel of the group except the channels in skip. It returns
+// true when it skipped a channel and the group had samples to commit.
+func (w *idxWriter) Commit(
+	ctx context.Context,
+	skip set.Set[ChannelKey],
+) (telem.TimeStamp, bool, error) {
 	if w.sampleCount == 0 || !w.hasUncommittedData {
-		return w.lastCommitEnd, nil
+		return w.lastCommitEnd, false, nil
 	}
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
 	// No reader sees a channel of the commit before every channel has committed, so no
 	// read finds an index sample without its data.
 	defer w.group.Publish()
-	// The index persists first: after a restart, a reader resolves a data domain
-	// through the index.
-	if w.writingToIdx {
-		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower, &w.group)
-	}
-	// Every channel shares the same end, so their errors repeat. Keep the first.
-	for key, chW := range w.internal {
-		if key == w.idx.ch.Key {
-			continue
+	skipped := false
+	commit := func(key ChannelKey, chW *unaryWriterState) {
+		if skip.Contains(key) {
+			skipped = true
+			return
 		}
+		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if cErr := chW.CommitWithEnd(ctx, end.Lower, &w.group); err == nil {
 			err = cErr
 		}
 	}
-	if err == nil {
-		w.lastCommitEnd = end.Lower
+	// The index persists first: after a restart, a reader resolves a data domain
+	// through the index.
+	if w.writingToIdx {
+		commit(w.idx.ch.Key, w.internal[w.idx.ch.Key])
 	}
-	// Reset on ErrUnauthorized as well: after a control transfer, the new controller
-	// may advance prevCommit, making any future commit with this writer's stale
-	// highWaterMark invalid.
-	if err == nil || errors.Is(err, xcontrol.ErrUnauthorized) {
-		w.hasUncommittedData = false
+	for key, chW := range w.internal {
+		if key != w.idx.ch.Key {
+			commit(key, chW)
+		}
 	}
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	return end.Lower, nil
+	// A skipped commit also ends the uncommitted data: the writer that commits the
+	// skipped channels may advance their domains past this writer's high water mark.
+	w.hasUncommittedData = false
+	if skipped {
+		return 0, true, nil
+	}
+	w.lastCommitEnd = end.Lower
+	return end.Lower, false, nil
 }
 
-func (w *idxWriter) endDomain(
-	ctx context.Context,
-	authorize func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error,
-) error {
-	if _, err := w.Commit(ctx); err != nil {
-		return err
-	}
-	if err := authorize(w.idx.ch.Key, w.internal); err != nil {
+func (w *idxWriter) endDomain(ctx context.Context) error {
+	if _, _, err := w.Commit(ctx, nil); err != nil {
 		return err
 	}
 	// A data domain that outlives its index domain cannot resolve its samples, so the
@@ -679,20 +543,12 @@ func (w *idxWriter) endDomain(
 	return w.internal[w.idx.ch.Key].EndDomain(ctx)
 }
 
-func (w *idxWriter) Close() (ControlUpdate, error) {
+func (w *idxWriter) Close() error {
 	var err error
-	update := ControlUpdate{
-		Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
-	}
 	for _, uWriter := range w.internal {
-		transfer, closeErr := uWriter.Close()
-		if closeErr != nil {
-			err = errors.Join(err, closeErr)
-		} else if transfer.Occurred() {
-			update.Transfers = append(update.Transfers, transfer)
-		}
+		err = errors.Join(err, uWriter.Close())
 	}
-	return update, err
+	return err
 }
 
 func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
@@ -874,10 +730,10 @@ type virtualWriter struct {
 }
 
 func (w virtualWriter) write(
-	filterUnauthorized *[]ChannelKey,
+	skip set.Set[ChannelKey],
+	excluded *[]ChannelKey,
 	fr Frame,
 ) (Frame, error) {
-	var accumulatedErr error
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
@@ -887,33 +743,26 @@ func (w virtualWriter) write(
 			continue
 		}
 		s := fr.RawSeriesAt(rawI)
-		alignment, err := v.Write(s)
-		if err != nil {
-			accumulatedErr = err
-			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+		if skip.Contains(k) {
+			if err := skipSeries(v.Channel, k, s, excluded); err != nil {
 				return fr, err
 			}
-			*filterUnauthorized = append(*filterUnauthorized, k)
 			continue
+		}
+		alignment, err := v.Write(s)
+		if err != nil {
+			return fr, err
 		}
 		s.Alignment = alignment
 		fr.SetRawSeriesAt(rawI, s)
 	}
-	return fr, accumulatedErr
+	return fr, nil
 }
 
-func (w virtualWriter) Close() (ControlUpdate, error) {
+func (w virtualWriter) Close() error {
 	var err error
-	update := ControlUpdate{
-		Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
-	}
 	for _, chW := range w.internal {
-		transfer, closeErr := chW.Close()
-		if closeErr != nil {
-			err = errors.Join(err, closeErr)
-		} else if transfer.Occurred() {
-			update.Transfers = append(update.Transfers, transfer)
-		}
+		err = errors.Join(err, chW.Close())
 	}
-	return update, err
+	return err
 }

@@ -105,11 +105,14 @@ func (db *DB) dropLocked(keys []ChannelKey) error {
 		// The index holds one count, given up after its data channels drop.
 		indexes[key] = &latch{n: 1}
 	}
-	var err error
+	var (
+		err error
+		rm  = &removals{}
+	)
 	for _, key := range keys {
 		if _, ok := db.mu.dbs.virtual[key]; ok {
 			delete(db.mu.dbs.virtual, key)
-			err = errors.Join(err, db.removeDir(key))
+			err = errors.Join(err, rm.remove(db, key))
 			continue
 		}
 		uDB, ok := db.mu.dbs.unary[key]
@@ -122,7 +125,7 @@ func (db *DB) dropLocked(keys []ChannelKey) error {
 		}
 		delete(db.mu.dbs.unary, key)
 		err = errors.Join(err, uDB.Drop(func() error {
-			rmErr := db.removeDir(key)
+			rmErr := rm.remove(db, key)
 			if !waits {
 				return rmErr
 			}
@@ -142,12 +145,12 @@ func (db *DB) dropLocked(keys []ChannelKey) error {
 				if keep {
 					return nil
 				}
-				return db.removeDir(key)
+				return rm.remove(db, key)
 			})
 		}
 		err = errors.Join(err, idx.done())
 	}
-	return err
+	return errors.Join(err, rm.close(db))
 }
 
 // indexesKept reports whether a channel outside dropping uses index as its index. The
@@ -197,9 +200,55 @@ func (l *latch) done() error {
 // Keys are never reused, so only a leftover of the same key can hold the name.
 const deletedDirSuffix = "-DELETE"
 
+// removals collects the keys whose files a drop removes in line, so their intents clear
+// in one rewrite. A removal that runs after the batch closes clears its own intent.
+type removals struct {
+	keys   []ChannelKey
+	mu     sync.Mutex
+	closed bool
+}
+
+// remove removes the files of key and adds key to the batch, or clears its intent when
+// the batch has closed.
+func (r *removals) remove(db *DB, key ChannelKey) error {
+	if err := db.removeDir(key); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	if !r.closed {
+		r.keys = append(r.keys, key)
+		r.mu.Unlock()
+		return nil
+	}
+	r.mu.Unlock()
+	return db.clearRemoved(key)
+}
+
+// close closes the batch and clears the intents of its keys.
+func (r *removals) close(db *DB) error {
+	r.mu.Lock()
+	r.closed = true
+	keys := r.keys
+	r.mu.Unlock()
+	return db.clearRemoved(keys...)
+}
+
+// clearRemoved syncs the root, so that the removals of keys are durable, then clears
+// their intents in one rewrite. A crash then never brings back files that no intent
+// names.
+func (db *DB) clearRemoved(keys ...ChannelKey) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	if err := db.fs.SyncDir(""); err != nil {
+		return err
+	}
+	return db.intents.clear(keys...)
+}
+
 // removeDir renames the directory of key to its deleted name, then removes its data
-// files, its metadata file, and the directory, in that order, and clears the intent of
-// key last. It first removes a leftover of an earlier removal of key.
+// files, its metadata file, and the directory, in that order. It first removes a
+// leftover of an earlier removal of key.
 func (db *DB) removeDir(key ChannelKey) error {
 	name := keyToDirName(key)
 	deleted := name + deletedDirSuffix
@@ -214,16 +263,9 @@ func (db *DB) removeDir(key ChannelKey) error {
 		if err = db.fs.Rename(name, deleted); err != nil {
 			return err
 		}
-		if err = db.removeFiles(deleted); err != nil {
-			return err
-		}
+		return db.removeFiles(deleted)
 	}
-	// The removal is durable before the intent clears, so a crash never brings back
-	// files that no intent names.
-	if err = db.fs.SyncDir(""); err != nil {
-		return err
-	}
-	return db.intents.clear(key)
+	return nil
 }
 
 // removeFiles removes the files of the channel directory dir other than its metadata

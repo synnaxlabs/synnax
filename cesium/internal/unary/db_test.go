@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -74,15 +73,14 @@ var _ = Describe("DB Metadata Operations", func() {
 				It(
 					"Should return the correct size after writing data",
 					func(ctx SpecContext) {
-						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   10 * telem.SecondTS,
-							Subject: control.Subject{Key: "size_test"},
+						w := MustSucceed(indexDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(
 							w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 
 						expectedSize := telem.Size(5 * telem.TimestampT.Density())
 						Expect(indexDB.Size()).To(Equal(expectedSize))
@@ -92,15 +90,14 @@ var _ = Describe("DB Metadata Operations", func() {
 				It(
 					"Should accumulate size across multiple writes",
 					func(ctx SpecContext) {
-						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   10 * telem.SecondTS,
-							Subject: control.Subject{Key: "size_test"},
+						w := MustSucceed(indexDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(13, 14)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 
 						expectedSize := telem.Size(5 * telem.TimestampT.Density())
 						Expect(indexDB.Size()).To(Equal(expectedSize))
@@ -161,11 +158,9 @@ var _ = Describe("DB Metadata Operations", func() {
 						IsIndex:  true,
 					},
 				}))
-				writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-					Subject: control.Subject{Key: "string"},
-				}))
+				writer := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{}))
 				Expect(db.Close()).To(MatchError(resource.ErrOpen))
-				_ = MustSucceed(writer.Close())
+				Expect(writer.Close()).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 			},
 		)
@@ -209,11 +204,9 @@ var _ = Describe("DB Metadata Operations", func() {
 		It(
 			"Should leave the DB open if a writer is open",
 			func(ctx SpecContext) {
-				w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-					Subject: control.Subject{Key: "string"},
-				}))
+				w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{}))
 				Expect(db.MarkClosed()).To(MatchError(resource.ErrOpen))
-				MustSucceed(w.Close())
+				Expect(w.Close()).To(Succeed())
 				i := MustSucceed(db.OpenIterator(unary.IteratorConfig{}))
 				Expect(i.Close()).To(Succeed())
 			},
