@@ -181,6 +181,11 @@ const DEFAULT_AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
 const covers = (pending: Set<string>, path: string): boolean =>
   [...pending].some((p) => deep.pathsMatch(path, p));
 
+const toTarget = (path: string): deep.Target<unknown> =>
+  path
+    .split(deep.SEPARATOR)
+    .reduce<deep.Path<unknown>>((parent, key) => parent[key], deep.path<unknown>());
+
 const ABSENT = Symbol("absent");
 
 /**
@@ -404,8 +409,17 @@ export const createForm = <
       if (covers(pending, path)) return;
       noNotifySet(target, keepPending(form.value(), path, value, pending), options);
     };
-    const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) =>
-      form.reset(next == null ? next : keepPending(form.value(), "", next, pending()));
+    // The reset values become the baseline, so each pending edit stays touched.
+    const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) => {
+      const live = form.value();
+      const kept = next == null ? new Set<string>() : pending();
+      form.reset(next);
+      for (const p of kept) {
+        const edit = readLive(live, p);
+        if (edit === ABSENT || !deep.canSet(form.value(), p)) continue;
+        form.set(toTarget(p), edit, { notifyOnChange: false });
+      }
+    };
     const listenerReset = (next?: z.infer<Schema>) => {
       if (next != null) stored.current = next;
       resetKeeping(pendingPaths)(next);
