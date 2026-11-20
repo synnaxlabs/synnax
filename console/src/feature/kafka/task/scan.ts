@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { kafka, type Synnax } from "@synnaxlabs/client";
+import { kafka, status, type Synnax } from "@synnaxlabs/client";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 
 import type { Device } from "@/feature/kafka/device/types";
@@ -31,14 +31,9 @@ const execute = async (
     one: true,
     schemas: SCAN_SCHEMAS,
   });
-  const { variant, message, description, details } = await scanTask.executeCommandSync({
-    type,
-    timeout: TIMEOUT,
-    args,
-  });
-  if (variant !== "success")
-    throw new Error([message, description].filter(Boolean).join(": "));
-  return details?.data;
+  const res = await scanTask.executeCommandSync({ type, timeout: TIMEOUT, args });
+  if (res.variant !== "success") throw status.toError(res);
+  return res.details?.data;
 };
 
 /**
