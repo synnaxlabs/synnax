@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -25,6 +26,9 @@ import (
 const (
 	// maxEnumLabels is the most distinct strings of a field that infers as an enum.
 	maxEnumLabels = 16
+	// maxEnumLabelLength is the longest string, in bytes, of a field that infers as an
+	// enum.
+	maxEnumLabelLength = 64
 	// maxInferredFields is the most fields that one shape holds.
 	maxInferredFields = 1024
 )
@@ -46,6 +50,8 @@ type InferredField struct {
 	Pointer Pointer `json:"pointer" msgpack:"pointer"`
 	// DataType is the data type of a channel that takes the values of the field.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Kind is the kind of a payload field that holds the values of the field.
+	Kind payload.Kind `json:"kind" msgpack:"kind"`
 	// Type is the JSON type of most values of the field.
 	Type Type `json:"type" msgpack:"type"`
 	// TimeFormat is the format of the values of a timestamp field. Nil for any other
@@ -76,7 +82,7 @@ type Shape struct {
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Types widen across documents: int64, then uint64, then float64. A boolean field
 //     gives uint8. The JSON type of most values wins, and the rest are mismatched.
-//   - A string field that repeats a few values gives an enum.
+//   - A string field that repeats a few values of at most 64 bytes gives an enum.
 //   - A field whose name suggests a time and whose values all fit one format near the
 //     document time gives a timestamp. Unix units come from the magnitude.
 //   - The index is the timestamp nearest the document time that rises in each source.
@@ -122,7 +128,7 @@ func Infer(docs []Document) []Shape {
 		key := strings.Join(sig, "\x00")
 		g, ok := bySignature[key]
 		if !ok {
-			g = &inferGroup{fields: make(map[string]*fieldStats)}
+			g = newInferGroup()
 			bySignature[key] = g
 			groups = append(groups, g)
 		}
@@ -134,6 +140,26 @@ func Infer(docs []Document) []Shape {
 	}
 	return shapes
 }
+
+// Inferrer infers the shape of the documents of one source as they arrive, with the
+// rules of Infer. It keeps counts, not documents, so its memory does not grow with the
+// number of documents. It is not safe for concurrent use.
+type Inferrer struct{ group *inferGroup }
+
+// NewInferrer returns an Inferrer that holds no documents.
+func NewInferrer() *Inferrer { return &Inferrer{group: newInferGroup()} }
+
+// Add adds data, written at t. Data that is not one JSON value adds nothing.
+func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
+	leaves, err := parseLeaves(data)
+	if err != nil {
+		return
+	}
+	i.group.addDocument("", parsedDocument{leaves: leaves, time: t})
+}
+
+// Shape returns the shape of the documents added, with no sources.
+func (i *Inferrer) Shape() Shape { return i.group.shape() }
 
 type inferSource struct {
 	name   string
@@ -212,22 +238,30 @@ type inferGroup struct {
 	count   int
 }
 
+func newInferGroup() *inferGroup {
+	return &inferGroup{fields: make(map[string]*fieldStats)}
+}
+
 func (g *inferGroup) add(src *inferSource) {
 	g.sources = append(g.sources, src.name)
 	for _, doc := range src.docs {
-		g.count++
-		for _, l := range doc.leaves {
-			s, ok := g.fields[l.key]
-			if !ok {
-				if len(g.order) == maxInferredFields {
-					continue
-				}
-				s = newFieldStats(l.pointer)
-				g.fields[l.key] = s
-				g.order = append(g.order, s)
+		g.addDocument(src.name, doc)
+	}
+}
+
+func (g *inferGroup) addDocument(source string, doc parsedDocument) {
+	g.count++
+	for _, l := range doc.leaves {
+		s, ok := g.fields[l.key]
+		if !ok {
+			if len(g.order) == maxInferredFields {
+				continue
 			}
-			s.add(src.name, l, doc.time)
+			s = newFieldStats(l.pointer)
+			g.fields[l.key] = s
+			g.order = append(g.order, s)
 		}
+		s.add(source, l, doc.time)
 	}
 }
 
@@ -262,7 +296,9 @@ type fieldStats struct {
 	// floating is true when a number has a fraction or does not fit a 64-bit integer.
 	floating, unsigned, negative bool
 	labels                       set.Set[string]
-	time                         timeStats
+	// longLabel is true once a string is longer than an enum label can be.
+	longLabel bool
+	time      timeStats
 }
 
 // timeStats tracks whether the values of a field are timestamps.
@@ -308,15 +344,27 @@ func (s *fieldStats) add(source string, l leaf, ref telem.TimeStamp) {
 		}
 	case '"':
 		s.strings++
-		if len(s.labels) <= maxEnumLabels {
-			if text, err := jsontext.AppendUnquote(nil, l.raw); err == nil {
-				s.labels.Add(string(text))
-			}
-		}
+		s.addLabel(l.raw)
 	default:
 		s.booleans++
 	}
 	s.addTime(source, l, ref)
+}
+
+// addLabel keeps the text of raw as a label while the field can still infer as an enum.
+func (s *fieldStats) addLabel(raw []byte) {
+	if s.longLabel || len(s.labels) > maxEnumLabels {
+		return
+	}
+	text, err := jsontext.AppendUnquote(nil, raw)
+	if err != nil {
+		return
+	}
+	if len(text) > maxEnumLabelLength {
+		s.longLabel = true
+		return
+	}
+	s.labels.Add(string(text))
 }
 
 func (s *fieldStats) addTime(source string, l leaf, ref telem.TimeStamp) {
@@ -344,17 +392,22 @@ func (s *fieldStats) field() InferredField {
 	numeric := s.numbers + s.booleans
 	switch {
 	case s.numbers > 0 && numeric >= s.strings:
-		f.Type, f.DataType, f.Mismatched = Number, s.numberType(), s.strings+s.unreadable
+		f.Type, f.Mismatched = Number, s.strings+s.unreadable
+		f.DataType, f.Kind = s.numberType()
 	case s.numbers == 0 && s.booleans > s.strings:
-		f.Type, f.DataType, f.Mismatched = Boolean, telem.Uint8T, s.strings
+		f.Type, f.DataType, f.Kind = Boolean, telem.Uint8T, payload.KindBoolean
+		f.Mismatched = s.strings
 	default:
-		f.Type, f.DataType, f.Mismatched = String, telem.StringT, numeric
+		f.Type, f.DataType, f.Kind, f.Mismatched = String, telem.StringT,
+			payload.KindString, numeric
 	}
 	if s.timestamp() {
-		f.DataType, f.TimeFormat, f.Mismatched = telem.TimestampT, new(s.time.format), 0
+		f.DataType, f.Kind = telem.TimestampT, payload.KindTimestamp
+		f.TimeFormat, f.Mismatched = new(s.time.format), 0
 		return f
 	}
-	if f.Type == String && len(s.labels) <= maxEnumLabels && len(s.labels) < s.strings {
+	if f.Type == String && !s.longLabel && len(s.labels) <= maxEnumLabels &&
+		len(s.labels) < s.strings {
 		f.Enum = make([]string, 0, len(s.labels))
 		for label := range s.labels {
 			f.Enum = append(f.Enum, label)
@@ -364,14 +417,14 @@ func (s *fieldStats) field() InferredField {
 	return f
 }
 
-func (s *fieldStats) numberType() telem.DataType {
+func (s *fieldStats) numberType() (telem.DataType, payload.Kind) {
 	switch {
 	case s.floating, s.unsigned && s.negative:
-		return telem.Float64T
+		return telem.Float64T, payload.KindFloat
 	case s.unsigned:
-		return telem.Uint64T
+		return telem.Uint64T, payload.KindUnsigned
 	default:
-		return telem.Int64T
+		return telem.Int64T, payload.KindInteger
 	}
 }
 

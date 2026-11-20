@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { scheduler } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 import { afterEach } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render, type RenderResult } from "vitest-browser-react";

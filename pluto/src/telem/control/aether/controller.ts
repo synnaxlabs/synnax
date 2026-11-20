@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import {
   channel,
   control,
@@ -21,7 +21,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { array, color, type CrudeSeries, type destructor, errors } from "@synnaxlabs/x";
 import { z } from "zod";
 

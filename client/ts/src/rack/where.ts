@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group } from "@/group";
-import { type Lines } from "@/rack/where.gen";
+import type { Lines } from "@/rack/where.gen";
 
 /** The typed lines of a rack Where. */
 export const LINES: Lines = { ...group.MEMBER_LINES };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Nav } from "@/components/nav";
+import type { Nav } from "@/components/nav";
 import { ETHERCAT_NAV } from "@/pages/reference/hardware/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/hardware/http/_nav";
 import { ICDS_NAV } from "@/pages/reference/hardware/icds/_nav";

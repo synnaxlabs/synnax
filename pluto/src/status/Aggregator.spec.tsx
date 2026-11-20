@@ -10,7 +10,7 @@
 import { status as clientStatus } from "@synnaxlabs/client";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Aether } from "@/aether";

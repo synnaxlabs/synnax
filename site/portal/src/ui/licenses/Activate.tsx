@@ -21,7 +21,7 @@ import { z } from "zod";
 
 import { read } from "@/server/license/fingerprint";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
-import { type Held, type Owned } from "@/server/license/list";
+import type { Held, Owned } from "@/server/license/list";
 import { post, save } from "@/ui/api";
 import { Auth } from "@/ui/auth";
 import { useLogOut } from "@/ui/clerk";

@@ -9,7 +9,7 @@
 
 import "@/platform/settings/UsedBy.css";
 
-import { type resource } from "@synnaxlabs/client";
+import type { resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
