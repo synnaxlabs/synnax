@@ -87,9 +87,10 @@ type delta[K, V comparable] struct {
 	// forward maps each staged value to the keys that hold it. It is nil until a staged
 	// key holds a value.
 	forward map[V]holders[K]
-	// arena backs the values of setOne, so a batch of staged keys allocates a few
-	// arrays instead of one slice per key.
+	// arena backs the values of setOne, and keys the first holder of each staged value,
+	// so a batch of staged keys allocates a few arrays instead of slices per key.
 	arena []V
+	keys  []K
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
@@ -106,7 +107,7 @@ func (d *delta[K, V]) set(key K, values []V) {
 		d.forward = make(map[V]holders[K])
 	}
 	for _, v := range values {
-		addHolder(d.forward, v, key)
+		d.addHolder(v, key)
 	}
 }
 
@@ -118,6 +119,24 @@ func (d *delta[K, V]) setOne(key K, value V) {
 	d.arena = append(d.arena, value)
 	n := len(d.arena)
 	d.set(key, d.arena[n-1:n:n])
+}
+
+// addHolder adds key to the staged holders of value. A first holder takes its slice
+// from keys.
+func (d *delta[K, V]) addHolder(value V, key K) {
+	h := d.forward[value]
+	if h.len() > 0 {
+		h.add(key)
+		d.forward[value] = h
+		return
+	}
+	if len(d.keys) == cap(d.keys) {
+		d.keys = make([]K, 0, max(arenaMin, 2*cap(d.keys)))
+	}
+	d.keys = append(d.keys, key)
+	n := len(d.keys)
+	h.few = d.keys[n-1 : n : n]
+	d.forward[value] = h
 }
 
 // arenaMin is the size of the first arena of a delta.
@@ -292,117 +311,89 @@ func committingEach[S Scope, K, V comparable](
 // a set. Most values have few holders, and a slice costs far less memory than a map.
 const holdersSetSize = 32
 
-// holders is the set of keys that hold one value. It holds one key inline, so the most
-// common set, a single holder, allocates nothing.
+// holders is the set of keys that hold one value.
 type holders[K comparable] struct {
-	// one is the only key when single is true. few and many are then empty.
-	one    K
-	single bool
-	few    []K
-	many   set.Set[K]
+	few  []K
+	many set.Set[K]
 }
 
 func (h *holders[K]) add(key K) {
-	switch {
-	case h.many != nil:
+	if h.many != nil {
 		h.many.Add(key)
-	case h.single:
-		if h.one != key {
-			h.few = []K{h.one, key}
-			h.clearOne()
-		}
-	case len(h.few) == 0:
-		h.one, h.single = key, true
-	case slices.Contains(h.few, key):
-	case len(h.few) < holdersSetSize:
-		h.few = append(h.few, key)
-	default:
-		h.many = set.New(append(h.few, key)...)
-		h.few = nil
+		return
 	}
+	if slices.Contains(h.few, key) {
+		return
+	}
+	if len(h.few) < holdersSetSize {
+		h.few = append(h.few, key)
+		return
+	}
+	h.many = set.New(append(h.few, key)...)
+	h.few = nil
 }
 
 func (h *holders[K]) remove(key K) {
-	switch {
-	case h.many != nil:
+	if h.many != nil {
 		h.many.Remove(key)
-	case h.single:
-		if h.one == key {
-			h.clearOne()
-		}
-	default:
-		if i := slices.Index(h.few, key); i >= 0 {
-			h.few = slices.Delete(h.few, i, i+1)
-		}
+		return
 	}
-}
-
-func (h *holders[K]) clearOne() {
-	var none K
-	h.one, h.single = none, false
+	if i := slices.Index(h.few, key); i >= 0 {
+		h.few = slices.Delete(h.few, i, i+1)
+	}
 }
 
 func (h holders[K]) len() int {
-	switch {
-	case h.many != nil:
+	if h.many != nil {
 		return len(h.many)
-	case h.single:
-		return 1
-	default:
-		return len(h.few)
 	}
+	return len(h.few)
 }
 
 // find returns a key of h that f accepts, and false when f accepts none.
 func (h holders[K]) find(f func(K) bool) (K, bool) {
-	var none K
-	switch {
-	case h.single:
-		if f(h.one) {
-			return h.one, true
-		}
-	case h.many == nil:
+	if h.many == nil {
 		if i := slices.IndexFunc(h.few, f); i >= 0 {
 			return h.few[i], true
 		}
-	default:
-		for k := range h.many {
-			if f(k) {
-				return k, true
-			}
+	}
+	for k := range h.many {
+		if f(k) {
+			return k, true
 		}
 	}
+	var none K
 	return none, false
 }
 
 // some reports whether f accepts any key of h.
 func (h holders[K]) some(f func(K) bool) bool {
-	_, ok := h.find(f)
-	return ok
+	if h.many == nil {
+		return slices.ContainsFunc(h.few, f)
+	}
+	for k := range h.many {
+		if f(k) {
+			return true
+		}
+	}
+	return false
 }
 
 func (h holders[K]) addTo(out set.Set[K]) {
-	switch {
-	case h.single:
-		out.Add(h.one)
-	case h.many != nil:
+	if h.many != nil {
 		for k := range h.many {
 			out.Add(k)
 		}
-	default:
-		out.Add(h.few...)
+		return
 	}
+	out.Add(h.few...)
 }
 
 func (h holders[K]) appendTo(keys []K) []K {
-	switch {
-	case h.single:
-		return append(keys, h.one)
-	case h.many != nil:
+	if h.many != nil {
 		return slices.AppendSeq(keys, maps.Keys(h.many))
-	default:
-		return append(keys, h.few...)
 	}
+	return append(keys, h.few...)
 }
 
 func addHolder[K, V comparable](forward map[V]holders[K], value V, key K) {
