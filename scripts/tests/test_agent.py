@@ -20,6 +20,7 @@ import pytest
 
 from agent.agent import (
     LIMITED,
+    REJECTED,
     Options,
     agent_command,
     branch_name,
@@ -251,6 +252,29 @@ def limited_agent(tmp_path: Path, *, status: str, failed: bool, code: int) -> li
     return ["--prompt", "Fix it", "--agent", "claude", "--bin", str(fake)]
 
 
+def erring_agent(tmp_path: Path, *, error: str) -> list[str]:
+    """A fake Claude Code that fails with an API error, as it does when Claude
+    rejects its OAuth token."""
+    text = "OAuth token revoked \u00b7 Please run /login"
+    content = [{"type": "text", "text": text}]
+    events = [
+        {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": content},
+            "parent_tool_use_id": None,
+            "error": error,
+            "session_id": "s",
+            "uuid": "u",
+        },
+        {"type": "result", "subtype": "success", "is_error": True, "result": text},
+    ]
+    fake = tmp_path / "erring-agent"
+    lines = "\n".join(json.dumps(e) for e in events)
+    fake.write_text(f"#!/bin/sh\ncat << 'EOF'\n{lines}\nEOF\nexit 1\n")
+    fake.chmod(0o755)
+    return ["--prompt", "Fix it", "--agent", "claude", "--bin", str(fake)]
+
+
 class TestMain:
     """Tests for whole runs against a fake agent."""
 
@@ -343,6 +367,28 @@ class TestMain:
         argv = limited_agent(tmp_path, status="allowed", failed=True, code=1)
         with pytest.raises(subprocess.CalledProcessError):
             main(argv)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_exit_rejected_with_the_time_when_claude_rejects_the_token(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        before = int(time.time())
+        assert main(erring_agent(tmp_path, error="authentication_failed")) == REJECTED
+        lines = output.read_text().splitlines()
+        assert lines[0].startswith("login-broken<<EOF_")
+        assert before <= int(lines[1]) <= int(time.time())
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_fail_on_an_api_error_that_is_not_a_rejected_token(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        with pytest.raises(subprocess.CalledProcessError):
+            main(erring_agent(tmp_path, error="server_error"))
+        assert not output.exists()
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
     def test_should_deliver_a_run_that_a_limit_did_not_stop(

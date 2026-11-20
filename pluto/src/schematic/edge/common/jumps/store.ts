@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Path } from "@/schematic/edge/common/path";
+import { map } from "@synnaxlabs/x";
+
+import type { Path } from "@/schematic/edge/common/path";
 
 const EMPTY: Path.Crossing[] = [];
 
@@ -33,9 +35,7 @@ export const createStore = (): Store => {
 
   return {
     subscribe: (key, onChange) => {
-      let set = listeners.get(key);
-      if (set == null) listeners.set(key, (set = new Set()));
-      set.add(onChange);
+      map.getOrInsert(listeners, key, () => new Set()).add(onChange);
       return () => {
         const s = listeners.get(key);
         if (s == null) return;

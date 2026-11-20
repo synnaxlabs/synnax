@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { certificate } from "@/certificate";
 import { NotFoundError, PathError, ValidationError } from "@/index";
@@ -16,6 +16,7 @@ import { rack } from "@/rack";
 import {
   CERTIFICATE,
   createTestClient,
+  expectLive,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -123,23 +124,26 @@ describe("Certificate", () => {
       });
       await expect(create).rejects.toThrow(PathError);
       await expect(create).rejects.toThrow(
-        "private_key_pem: does not match the certificate: validation error",
+        "private_key_pem: does not match the certificate",
       );
     });
 
     it("should create a file certificate", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "File certificate" });
       const c = await client.certificates.set({
         name: "On disk",
         source: "file",
         certificatePath: "/etc/synnax/client.crt",
         privateKeyFile: "client.key",
+        rack: r.key,
       });
       expect(c).toMatchObject({
         name: "On disk",
         source: "file",
         certificatePath: "/etc/synnax/client.crt",
         privateKeyFile: "client.key",
+        rack: r.key,
       });
     });
   });
@@ -147,9 +151,15 @@ describe("Certificate", () => {
   describe("retrieve", () => {
     it("should retrieve certificates by key", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "Retrieve" });
       const created = await client.certificates.set([
         { name: "Retrieve 1", source: "stored", pem: PEM },
-        { name: "Retrieve 2", source: "file", certificatePath: "/tmp/a.crt" },
+        {
+          name: "Retrieve 2",
+          source: "file",
+          certificatePath: "/tmp/a.crt",
+          rack: r.key,
+        },
       ]);
       const keys = created.map((c) => c.key);
       const retrieved = await createTestClient().certificates.retrieve(keys);
@@ -161,15 +171,66 @@ describe("Certificate", () => {
 
     it("should leave out a key that no certificate has in a filter", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "Kept" });
       const c = await client.certificates.set({
         name: "Kept",
         source: "file",
         certificatePath: "/tmp/kept.crt",
+        rack: r.key,
       });
       const retrieved = await createTestClient().certificates.retrieve({
         key: [c.key, uuid.create()],
       });
       expect(retrieved.map((r) => r.key)).toEqual([c.key]);
+    });
+
+    it("should retrieve the file certificates of a rack", async () => {
+      const client = createTestClient();
+      const [r, other] = await Promise.all([
+        client.racks.create({ name: "Filtered" }),
+        client.racks.create({ name: "Other" }),
+      ]);
+      const [kept] = await client.certificates.set([
+        { name: "On rack", source: "file", certificatePath: "/a.crt", rack: r.key },
+        {
+          name: "On other rack",
+          source: "file",
+          certificatePath: "/b.crt",
+          rack: other.key,
+        },
+        { name: "Stored", source: "stored", pem: PEM },
+      ]);
+      expect(
+        await createTestClient().certificates.retrieve({ racks: [r.key] }),
+      ).toEqual([kept]);
+    });
+
+    it("should add a file certificate of a watched rack to the watch", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const [r, other] = await Promise.all([
+        client.racks.create({ name: "Watched" }),
+        client.racks.create({ name: "Unwatched" }),
+      ]);
+      const list = client.certificates.watch({ racks: [r.key] });
+      const off = list.onChange(() => {});
+      try {
+        expect((await list.retrieve()).records).toEqual([]);
+        const [added] = await client.certificates.set([
+          { name: "Watched", source: "file", certificatePath: "/a.crt", rack: r.key },
+          {
+            name: "Unwatched",
+            source: "file",
+            certificatePath: "/b.crt",
+            rack: other.key,
+          },
+        ]);
+        await vi.waitFor(() =>
+          expect(expectLive(list.getCached()).records).toEqual([added]),
+        );
+      } finally {
+        off();
+      }
     });
 
     it("should search for certificates by name", async () => {
@@ -322,7 +383,7 @@ describe("Certificate", () => {
       await expect(del).rejects.toThrow(ValidationError);
       await expect(del).rejects.toThrow(
         "cannot delete secret In use private key because certificate In use uses it " +
-          "as its private_key: validation error",
+          "as its private_key",
       );
       const retrieved = await createTestClient().secrets.retrieve(privateKey);
       expect(retrieved.key).toBe(privateKey);
@@ -340,9 +401,16 @@ describe("Certificate", () => {
         privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
+      const t = await client.tasks.create({
+        name: "Grant scanner",
+        type: "sift_scan",
+        rack: r.key,
+        config: { rate: 1 },
+      });
       const grant = await client.secrets.grant({
         subject: rack.resourceID(r.key),
         secrets: [c.privateKey],
+        command: { task: t.key, type: "test_connection" },
       });
       expect(grant).toHaveLength(36);
     });

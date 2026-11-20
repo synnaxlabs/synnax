@@ -22,6 +22,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+func set(path string, value any) certificate.Action {
+	return certificate.NewSetAction(
+		certificate.SetPayload{Path: []string{path}, Value: value},
+	)
+}
+
 var _ = Describe("Dispatch", func() {
 	type frame = actions.Scoped[certificate.Key, certificate.Action]
 	var (
@@ -32,11 +38,6 @@ var _ = Describe("Dispatch", func() {
 		return e.write(ctx, func(w certificate.Writer) error {
 			return fn(w.WithDispatchKey("dk"))
 		})
-	}
-	set := func(path string, value any) certificate.Action {
-		return certificate.NewSetAction(
-			certificate.SetPayload{Path: []string{path}, Value: value},
-		)
 	}
 	apply := func(ctx context.Context, acts ...certificate.Action) error {
 		return write(ctx, func(w certificate.Writer) error {
@@ -62,8 +63,8 @@ var _ = Describe("Dispatch", func() {
 		Expect(apply(ctx, set("name", "After"))).To(Succeed())
 		got := e.retrieve(ctx, c.Base().Key)
 		Expect(got.Base().Name).To(Equal("After"))
-		Expect(got.Variant.(certificate.StoredCertificate).Pem).
-			To(Equal(c.Variant.(certificate.StoredCertificate).Pem))
+		Expect(storedOf(got).Pem).
+			To(Equal(storedOf(c).Pem))
 		Expect(e.expiry(ctx, c.Base().Key).Name).To(Equal("After"))
 	})
 
@@ -106,6 +107,7 @@ var _ = Describe("Dispatch", func() {
 		created := certificate.Certificate{Variant: certificate.FileCertificate{
 			Base:            certificate.Base{Name: "Created"},
 			CertificatePath: "/etc/plant.pem",
+			Rack:            coreRack,
 		}}
 		Expect(write(ctx, func(w certificate.Writer) error {
 			return w.Set(ctx, &created, nil)

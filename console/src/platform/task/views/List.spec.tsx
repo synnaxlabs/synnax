@@ -17,22 +17,22 @@ import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { getIconButton, queryIconButton, renderWithConsole } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[] } }>();
 
-const listItem = Component.renderProp(({ itemKey }: { itemKey: string }) => (
-  <span>item-{itemKey}</span>
-));
+const ListItem = ({ itemKey }: { itemKey: string }) => <span>item-{itemKey}</span>;
 
-const selectItem = Component.renderProp(
-  ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.Item itemKey={itemKey} {...p}>
-      item-{itemKey}
-    </Select.Item>
-  ),
+const listItem = Component.renderProp(ListItem);
+
+const SelectItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
+  <Select.Item itemKey={itemKey} {...p}>
+    item-{itemKey}
+  </Select.Item>
 );
+
+const selectItem = Component.renderProp(SelectItem);
 
 const resolve = () => null;
 
@@ -90,11 +90,36 @@ describe("layouts.List", () => {
       { values: { config: { channels: [] } } },
     );
     fireEvent.click(getIconButton(container, "add"));
-    expect(createChannel).toHaveBeenCalledWith([]);
+    expect(createChannel).toHaveBeenCalledWith([], undefined);
     await waitFor(() =>
       expect(form.current?.get(path.config.channels).value).toHaveLength(1),
     );
     await waitFor(() => expect(screen.getByText("item-new")).toBeTruthy());
+  });
+
+  it("should copy the selected channel when the add button is pressed", async () => {
+    const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
+    const channels = [
+      { key: "a", disabled: false },
+      { key: "b", disabled: false },
+    ];
+    const { container } = await renderInTaskForm(
+      <Task.Views.List<Channel>
+        path={path.config.channels}
+        createChannel={createChannel}
+        listItem={selectItem}
+        resolve={resolve}
+      />,
+      { values: { config: { channels } } },
+    );
+    fireEvent.click(await screen.findByText("item-b"));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("option", { name: "item-b" }).getAttribute("aria-selected"),
+      ).toBe("true"),
+    );
+    fireEvent.click(getIconButton(container, "add"));
+    expect(createChannel).toHaveBeenCalledWith(channels, "b");
   });
 
   it("should create a channel from the footer action", async () => {

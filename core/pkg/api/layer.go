@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
@@ -36,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -60,7 +60,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // LayerConfig is the configuration for opening the API layer.
@@ -71,6 +73,7 @@ var DefaultLayerConfig = config.DefaultLayerConfig
 type Transport struct {
 	// AUTH
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthMethods         freighter.UnaryServer[struct{}, auth.MethodsResponse]
 	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
 	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
 	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
@@ -196,6 +199,31 @@ type Transport struct {
 	ColorDelete   freighter.UnaryServer[color.DeleteRequest, struct{}]
 	// ColorDispatch applies path actions to a named color.
 	ColorDispatch freighter.UnaryServer[color.DispatchRequest, struct{}]
+	// ColorRetrieveBuiltins returns the shipped values of the built-in named colors.
+	ColorRetrieveBuiltins freighter.UnaryServer[struct{}, color.RetrieveBuiltinsResponse]
+	// ENUMERATION
+	EnumerationCreate freighter.UnaryServer[
+		enumeration.CreateRequest,
+		enumeration.CreateResponse,
+	]
+	EnumerationRetrieve freighter.UnaryServer[
+		enumeration.RetrieveRequest,
+		enumeration.RetrieveResponse,
+	]
+	EnumerationDelete freighter.UnaryServer[enumeration.DeleteRequest, struct{}]
+	// EnumerationDispatch applies path actions to an enumeration.
+	EnumerationDispatch freighter.UnaryServer[enumeration.DispatchRequest, struct{}]
+	// EnumerationRetrieveBuiltins returns the shipped values of the built-in
+	// enumerations.
+	EnumerationRetrieveBuiltins freighter.UnaryServer[
+		struct{},
+		enumeration.RetrieveBuiltinsResponse,
+	]
+	// EnumerationRetrieveDependents returns the records that use an enumeration.
+	EnumerationRetrieveDependents freighter.UnaryServer[
+		enumeration.RetrieveDependentsRequest,
+		enumeration.RetrieveDependentsResponse,
+	]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -274,6 +302,8 @@ type Transport struct {
 	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
 	// CertificateDispatch applies path actions to a certificate.
 	CertificateDispatch freighter.UnaryServer[certificate.DispatchRequest, struct{}]
+	// CertificateRefresh saves the details that a rack read from a certificate file.
+	CertificateRefresh freighter.UnaryServer[certificate.RefreshRequest, struct{}]
 	// ViewDispatch applies path actions to a view.
 	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
@@ -310,6 +340,7 @@ type Layer struct {
 	Panel        *panel.Service
 	Label        *label.Service
 	Color        *color.Service
+	Enumeration  *enumeration.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
@@ -324,6 +355,9 @@ type Layer struct {
 	binder       *bind.Service
 	config       config.LayerConfig
 }
+
+// Errors returns the codec that encodes the errors the API sends to clients.
+func (l *Layer) Errors() *errors.Codec { return l.config.Errors }
 
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
@@ -347,6 +381,7 @@ func (l *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		insecureMiddleware,
 		t.AuthLogin,
+		t.AuthMethods,
 		t.AuthSessionCreate,
 		t.ConnectivityCheck,
 	)
@@ -493,6 +528,15 @@ func (l *Layer) BindTo(t Transport) {
 		t.ColorRetrieve,
 		t.ColorDelete,
 		t.ColorDispatch,
+		t.ColorRetrieveBuiltins,
+
+		// ENUMERATION
+		t.EnumerationCreate,
+		t.EnumerationRetrieve,
+		t.EnumerationDelete,
+		t.EnumerationDispatch,
+		t.EnumerationRetrieveBuiltins,
+		t.EnumerationRetrieveDependents,
 
 		// RACK
 		t.RackCreate,
@@ -561,6 +605,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.CertificateRetrieve,
 		t.CertificateDelete,
 		t.CertificateDispatch,
+		t.CertificateRefresh,
 
 		// ARC
 		t.ArcCreate,
@@ -586,6 +631,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthMethods.BindHandler(l.Auth.Methods)
 	t.AuthChangePassword.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareChangePassword,
@@ -642,7 +688,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
 	// Frame delete changes Cesium data, not Gorp records, so it checks its own access.
-	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
+	t.FrameDelete.BindHandler(bind.WriteUnchecked(db, l.Framer.Delete))
 	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
@@ -751,6 +797,17 @@ func (l *Layer) BindTo(t Transport) {
 	t.ColorRetrieve.BindHandler(bind.Read(l.binder, l.Color.Retrieve))
 	t.ColorDelete.BindHandler(bind.Write(l.binder, l.Color.Delete))
 	t.ColorDispatch.BindHandler(bind.Write(l.binder, l.Color.Dispatch))
+	t.ColorRetrieveBuiltins.BindHandler(l.Color.RetrieveBuiltins)
+
+	// ENUMERATION
+	t.EnumerationCreate.BindHandler(bind.Write(l.binder, l.Enumeration.Create))
+	t.EnumerationRetrieve.BindHandler(bind.Read(l.binder, l.Enumeration.Retrieve))
+	t.EnumerationDelete.BindHandler(bind.Write(l.binder, l.Enumeration.Delete))
+	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
+	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
+	t.EnumerationRetrieveDependents.BindHandler(
+		bind.Read(l.binder, l.Enumeration.RetrieveDependents),
+	)
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
@@ -814,7 +871,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SecretDelete.BindHandler(bind.Write(l.binder, l.Secret.Delete))
 	t.SecretDispatch.BindHandler(bind.Write(l.binder, l.Secret.Dispatch))
 	t.SecretGrantCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
+		bind.WriteUnchecked(db, l.Secret.CreateGrant),
 	)
 	t.SecretResolve.BindHandler(l.Secret.Resolve)
 
@@ -823,6 +880,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.CertificateRetrieve.BindHandler(bind.Read(l.binder, l.Certificate.Retrieve))
 	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
 	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
+	t.CertificateRefresh.BindHandler(
+		bind.WriteUnchecked(db, l.Certificate.Refresh),
+	)
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
@@ -859,6 +919,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Held:        auth.HeldTables(),
 		Owned:       panel.OwnedTables(),
 		OwnedPlaces: panel.OwnedPlaces(),
+		Vouched:     []resource.Type{resource.TypeSecret},
 	}); err != nil {
 		return nil, err
 	}
@@ -878,6 +939,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
+		Auth:     cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -898,6 +960,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		Records:         cfg.Service.Signals.Records(),
+		Errors:          cfg.Errors,
 	}); err != nil {
 		return nil, err
 	}
@@ -990,6 +1053,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
+	if l.Enumeration, err = enumeration.NewService(enumeration.ServiceConfig{
+		Enumeration: cfg.Service.Enumeration,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Rack, err = rack.NewService(rack.ServiceConfig{
 		Rack:   cfg.Service.Rack,
 		Task:   cfg.Service.Task,
@@ -1046,6 +1114,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Instrumentation: cfg.Instrumentation,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		DispatchChannel: bind.Write(l.binder, l.Channel.Dispatch),
 		Stopper:         cfg.Service.TaskStopper,
@@ -1060,6 +1129,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
 		Secret: cfg.Service.Secret,
 		RBAC:   cfg.Service.RBAC,
+		Task:   cfg.Service.Task,
+		Rack:   cfg.Service.Rack,
+		DB:     cfg.Distribution.DB,
 	}); err != nil {
 		return nil, err
 	}

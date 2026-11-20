@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record } from "@synnaxlabs/x";
+import { destructor, type record } from "@synnaxlabs/x";
 
-import { type FrameProps, type GetItem } from "@/list/Frame";
+import type { FrameProps, GetItem } from "@/list/Frame";
 
 export interface UseCombinedDataParams<
   K extends record.Key,
@@ -18,8 +18,6 @@ export interface UseCombinedDataParams<
   first: Pick<FrameProps<K, E>, "data" | "getItem" | "subscribe">;
   second: Pick<FrameProps<K, E>, "data" | "getItem" | "subscribe">;
 }
-
-const noop = () => {};
 
 /**
  * Concatenates two list data sources into one, `first` before `second`. Reads try both.
@@ -50,6 +48,7 @@ export const useCombinedData = <
   }) as GetItem<K, E>;
   const firstKeys = new Set(firstData);
   const subscribe = (callback: () => void, key: K): destructor.Destructor =>
-    (firstKeys.has(key) ? firstSubscribe : secondSubscribe)?.(callback, key) ?? noop;
+    (firstKeys.has(key) ? firstSubscribe : secondSubscribe)?.(callback, key) ??
+    destructor.NOOP;
   return { data, getItem, subscribe };
 };

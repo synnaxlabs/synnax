@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import channel as channel_, device as device_, task
+from synnax import channel as channel_, device as device_, icd as icd_, task
 from x import payload, telem
 
 SPARKPLUG_DATA_TYPE_INT8: Literal["int8"] = "int8"
@@ -70,36 +70,6 @@ QO_S_EXACTLY_ONCE: Literal["exactly_once"] = "exactly_once"
 
 
 QoS = Literal["at_most_once", "at_least_once", "exactly_once"]
-
-
-class ReadField(BaseModel):
-    """Is a single value extracted from the JSON payload of a topic.
-
-    Attributes:
-        key: Uniquely identifies the field within the entry.
-        name: Is the human-readable field name.
-        disabled: Is true when the field is excluded from the task.
-        channel: Is the Synnax channel the extracted value is written to.
-        pointer: Is the JSON Pointer to the value within the payload. An empty pointer
-            takes the whole payload.
-        data_type: Is the data type of the extracted value.
-        time_format: Is the encoding of the JSON value when the target channel holds
-            timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the payload to numeric channel values.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    disabled: bool = False
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    pointer: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class BaseReadEntry(BaseModel):
@@ -214,14 +184,14 @@ class EdgeTag(BaseModel):
 
 
 class PlainReadEntry(BaseReadEntry):
-    """Reads JSON payloads from one topic."""
+    """Reads the JSON payloads of one topic as the messages of an ICD."""
 
     type: Literal["plain"] = "plain"
     topic: str = ""
     qos: QoS = "at_most_once"
     retained_ignored: bool = False
-    fields: list[ReadField] = Field(default_factory=list)
-    index: str = ""
+    icd: icd_.Key
+    messages: list[icd_.ReadMessage] = Field(default_factory=list)
 
 
 class SparkplugReadEntry(BaseReadEntry):

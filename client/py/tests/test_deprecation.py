@@ -9,7 +9,7 @@
 
 import asyncio
 import pathlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from uuid import uuid4
 
@@ -18,6 +18,7 @@ import pytest
 
 import synnax as sy
 from x.telem import seconds_linspace
+from x.testutil import untyped
 
 
 @contextmanager
@@ -51,7 +52,7 @@ class TestPositionalArguments:
     ) -> None:
         host, port, username, password = login_info
         with deprecated():
-            c = sy.Synnax(host, port, username, password)  # type: ignore[call-arg]
+            c = untyped(sy.Synnax)(host, port, username, password)
         try:
             assert c.channels.retrieve(virtual_channel.key).key == virtual_channel.key
         finally:
@@ -60,7 +61,7 @@ class TestPositionalArguments:
     def test_range(self) -> None:
         tr = sy.TimeRange(start=1, end=2)
         with deprecated():
-            rng = sy.Range("range", tr)  # type: ignore[call-arg]
+            rng = untyped(sy.Range)("range", tr)
         assert rng.name == "range"
         assert rng.time_range == tr
 
@@ -73,33 +74,33 @@ class TestPositionalArguments:
         idx, data = written_pair
         tr = sy.TimeRange.MAX
         with deprecated():
-            client.read(tr, data.key, None)  # type: ignore[call-overload]
+            untyped(client.read)(tr, data.key, None)
         with deprecated():
-            client.read_latest(data.key, 1)  # type: ignore[call-overload]
+            untyped(client.read_latest)(data.key, 1)
         with deprecated():
-            client.read_csv(tr, data.key, tmp_path / "a.csv")  # type: ignore[call-arg]
+            untyped(client.read_csv)(tr, data.key, tmp_path / "a.csv")
         with deprecated():
-            client.read_tdms(tr, data.key, tmp_path / "a.tdms")  # type: ignore[call-arg]
+            untyped(client.read_tdms)(tr, data.key, tmp_path / "a.tdms")
         with deprecated():
-            client.open_iterator(tr, data.key, 100).close()  # type: ignore[call-arg]
+            untyped(client.open_iterator)(tr, data.key, 100).close()
         with deprecated():
-            s = client.open_streamer(data.key, 1)  # type: ignore[call-arg]
+            s = untyped(client.open_streamer)(data.key, 1)
         with deprecated():
-            s.read(0)  # type: ignore[call-overload]
+            untyped(s.read)(0)
         with deprecated():
-            s.close(1)  # type: ignore[call-arg]
+            untyped(s.close)(1)
         start = sy.TimeStamp.now()
         with deprecated():
-            w = client.open_writer(start, [idx.key, data.key], 200)  # type: ignore[call-arg]
+            w = untyped(client.open_writer)(start, [idx.key, data.key], 200)
         with w, deprecated():
-            w.set_authority(data.key, 255)  # type: ignore[call-overload]
+            untyped(w.set_authority)(data.key, 255)
 
     def test_async_streamer(
         self, client: sy.Synnax, virtual_channel: sy.Channel
     ) -> None:
         async def run() -> None:
             with deprecated():
-                s = await client.open_async_streamer(virtual_channel.key, 1)  # type: ignore[call-arg]
+                s = await untyped(client.open_async_streamer)(virtual_channel.key, 1)
             await s.close()
 
         asyncio.run(run())
@@ -112,7 +113,7 @@ class TestPositionalArguments:
         )
         key = virtual_channel.key
         with deprecated():
-            ctrl = client.control.acquire("deprecation", [key], [cmd.key, key])  # type: ignore[call-arg]
+            ctrl = untyped(client.control.acquire)("deprecation", [key], [cmd.key, key])
         with ctrl, client.open_streamer(channels=cmd.key) as s:
             assert [ch.key for ch in ctrl._receiver.channels] == [key]
             ctrl[cmd.key] = 2
@@ -120,40 +121,40 @@ class TestPositionalArguments:
             assert frame is not None
             assert frame[cmd.key].to_numpy().tolist() == [2]
             with deprecated():
-                ctrl.set_authority(key, 200)  # type: ignore[call-overload]
+                untyped(ctrl.set_authority)(key, 200)
             ctrl[key] = 1
             with deprecated():
-                assert ctrl.wait_until_defined(key, 5)  # type: ignore[call-arg]
+                assert untyped(ctrl.wait_until_defined)(key, 5)
             with deprecated():
-                assert ctrl.wait_until(lambda _: True, 1)  # type: ignore[call-arg]
+                assert untyped(ctrl.wait_until)(lambda _: True, 1)
             with deprecated():
-                assert ctrl.wait_while(lambda _: False, 1)  # type: ignore[call-arg]
+                assert untyped(ctrl.wait_while)(lambda _: False, 1)
             with deprecated():
-                ctrl.remains_true_for(lambda _: True, 0.01, 1)  # type: ignore[call-arg]
+                untyped(ctrl.remains_true_for)(lambda _: True, 0.01, 1)
             with deprecated():
-                ctrl.sleep(0, False)  # type: ignore[call-arg]
+                untyped(ctrl.sleep)(0, False)
 
     def test_signals(self, client: sy.Synnax, virtual_channel: sy.Channel) -> None:
         with deprecated():
-            client.signals.on([virtual_channel.key], lambda _: True)  # type: ignore[call-arg]
+            untyped(client.signals.on)([virtual_channel.key], lambda _: True)
 
     def test_role_retrieve(self, client: sy.Synnax, empty_role: sy.Role) -> None:
         with deprecated():
-            client.access.roles.retrieve(None, [empty_role.key])  # type: ignore[call-overload]
+            untyped(client.access.roles.retrieve)(None, [empty_role.key])
 
     def test_group_create(self, client: sy.Synnax) -> None:
         parent = sy.group.resource_id(
             client.groups.create(str(uuid4()), scope="channel").key
         )
         with deprecated():
-            g = client.groups.create(parent, "child")  # type: ignore[arg-type, call-arg]
+            g = untyped(client.groups.create)(parent, "child")
         assert (g.name, g.parent) == ("child", parent)
         with deprecated():
-            g = client.groups.create(parent, name="named")  # type: ignore[arg-type, misc]
+            g = untyped(client.groups.create)(parent, name="named")
         assert (g.name, g.parent) == ("named", parent)
         key = uuid4()
         with deprecated():
-            g = client.groups.create(parent, "keyed", key)  # type: ignore[arg-type, call-arg]
+            g = untyped(client.groups.create)(parent, "keyed", key)
         assert (g.key, g.name, g.parent) == (key, "keyed", parent)
 
     def test_policy_retrieve(self, client: sy.Synnax) -> None:
@@ -164,15 +165,15 @@ class TestPositionalArguments:
         user = client.users.create(
             username=str(uuid4()), password="test", role=role.key
         )
-        retrieve = client.access.policies.retrieve
+        retrieve: Callable[..., list[sy.Policy]] = client.access.policies.retrieve
         with deprecated():
-            matched = retrieve([policy.key])  # type: ignore[call-overload]
+            matched = retrieve([policy.key])
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
-            matched = retrieve(None, [user.resource_id], False)  # type: ignore[call-overload]
+            matched = retrieve(None, [user.resource_id], False)
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
-            matched = retrieve(None, None, True)  # type: ignore[call-overload]
+            matched = retrieve(None, None, True)
         assert len(matched) > 0
         assert all(p.internal for p in matched)
 
@@ -180,17 +181,17 @@ class TestPositionalArguments:
         tsk = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
         try:
             with deprecated():
-                tsk.execute_command("deprecation", None)  # type: ignore[call-arg]
+                untyped(tsk.execute_command)("deprecation", None)
             with deprecated():
-                client.tasks.maybe_assign_def_rack(tsk.to_payload(), 0)  # type: ignore[call-arg]
+                untyped(client.tasks.maybe_assign_def_rack)(tsk.to_payload(), 0)
             with deprecated(), pytest.raises(TimeoutError):
-                tsk.execute_command_sync("deprecation", None, 0)  # type: ignore[call-arg]
+                untyped(tsk.execute_command_sync)("deprecation", None, 0)
             starter = _StarterStopper(tsk)
             with deprecated(), pytest.raises(TimeoutError):
-                starter.start(0)  # type: ignore[call-arg]
+                untyped(starter.start)(0)
             with deprecated(), pytest.raises(TimeoutError):
-                starter.stop(0)  # type: ignore[call-arg]
-            with deprecated(), pytest.raises(TimeoutError), starter.run(0):  # type: ignore[call-arg]
+                untyped(starter.stop)(0)
+            with deprecated(), pytest.raises(TimeoutError), untyped(starter.run)(0):
                 pass
         finally:
             client.tasks.delete(tsk.key)

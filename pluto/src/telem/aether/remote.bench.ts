@@ -20,7 +20,7 @@ import { allocSuite } from "@synnaxlabs/x/bench";
 import { afterAll, test } from "vitest";
 
 import { ChannelData, type ChannelDataProps, type Client } from "@/telem/aether/remote";
-import { type ValueProps } from "@/telem/aether/telem";
+import type { ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/testutil";
 
 // Each read is one frame of a line 1000 pixels wide, with every tile it draws cached.
@@ -55,7 +55,7 @@ const createSource = async (
   props: ChannelDataProps,
   view: ValueProps,
 ): Promise<ChannelData> => {
-  const source = new ChannelData(client, props, undefined, client.now);
+  const source = new ChannelData(client, props);
   await settle(source, view);
   return source;
 };
@@ -154,12 +154,28 @@ const stream = async (): Promise<() => Promise<void>> => {
   };
 };
 
+// A line reads its y bounds across the x window after each draw.
+const streamBounds = async (): Promise<() => Promise<void>> => {
+  const { core, source } = await liveRead();
+  return async () => {
+    core.advance(FRAME);
+    await yieldTask();
+    const view = liveView(core);
+    source.value(view);
+    source.value({ bounds: view.bounds, extremesKept: true });
+  };
+};
+
 // Each async read includes one yield, which the baseline measures alone.
 test("read while data moves", async ({ bench }) => {
   await bench.compare(
     bench("baseline: one yield", yieldTask),
     bench("pan an hour view", await pan()),
     bench("live 10 minutes at 1 kHz, 16 ms of new samples", await stream()),
+    bench(
+      "live 10 minutes at 1 kHz, 16 ms of new samples, with bounds",
+      await streamBounds(),
+    ),
   );
 });
 

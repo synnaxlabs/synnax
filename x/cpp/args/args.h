@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <concepts>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -216,6 +218,17 @@ public:
         const auto [value, found] = find_arg(name);
         if (!found) return default_value;
         return parse_value<T>(value, name, "Invalid value");
+    }
+
+    /// @brief parses an optional argument, so a caller can tell a missing argument from
+    /// one set to the default.
+    /// @returns default_value when the argument is missing.
+    template<typename O>
+        requires std::same_as<O, std::optional<typename O::value_type>>
+    O field(const std::string &name, const O &default_value) {
+        const auto [value, found] = find_arg(name);
+        if (!found) return default_value;
+        return parse_value<typename O::value_type>(value, name, "Invalid value");
     }
 
     /// @brief convenience overload for string optional arguments with const char*

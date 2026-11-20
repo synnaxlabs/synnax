@@ -10,9 +10,9 @@
 import { describe, expect, test } from "vitest";
 
 import { box } from "@/spatial/box";
-import { type location } from "@/spatial/location";
+import type { location } from "@/spatial/location";
 import { sticky } from "@/spatial/sticky";
-import { type xy } from "@/spatial/xy";
+import type { xy } from "@/spatial/xy";
 
 describe("sticky", () => {
   describe("toCSS", () => {
@@ -172,67 +172,6 @@ describe("sticky", () => {
     SPECS.forEach(({ value, valid }, i) => {
       test(`xy schema ${i}`, () => {
         expect(sticky.xyZ.validate(value)).toBe(valid);
-      });
-    });
-  });
-  describe("completeXY schema", () => {
-    interface Spec {
-      value: unknown;
-      valid: boolean;
-    }
-    const SPECS: Spec[] = [
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "left", y: "top" },
-          units: { x: "px", y: "px" },
-        },
-        valid: true,
-      },
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "right", y: "bottom" },
-          units: { x: "decimal", y: "decimal" },
-        },
-        valid: true,
-      },
-      {
-        value: {
-          x: 0,
-          y: 0,
-          root: { x: "left", y: "top" },
-          units: { x: "px", y: "px" },
-        },
-        valid: true,
-      },
-      { value: { x: 10, y: 20 }, valid: false },
-      { value: { x: 10, y: 20, root: { x: "left", y: "top" } }, valid: false },
-      { value: { x: 10, y: 20, units: { x: "px", y: "px" } }, valid: false },
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "invalid", y: "top" },
-          units: { x: "px", y: "px" },
-        },
-        valid: false,
-      },
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "left", y: "top" },
-          units: { x: "invalid", y: "px" },
-        },
-        valid: false,
-      },
-    ];
-    SPECS.forEach(({ value, valid }, i) => {
-      test(`completeXY schema ${i}`, () => {
-        expect(sticky.completeXYZ.validate(value)).toBe(valid);
       });
     });
   });

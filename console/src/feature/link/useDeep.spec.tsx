@@ -14,25 +14,24 @@ import {
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient, TEST_CORE_ADDRESS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testCoreAddress } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { scheduler, TimeSpan, uuid } from "@synnaxlabs/x";
-import { type UnlistenFn } from "@tauri-apps/api/event";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Link } from "@/feature/link";
-import { type Link as PlatformLink } from "@/platform/link";
+import type { Link as PlatformLink } from "@/platform/link";
 import { Session } from "@/session";
 import {
-  assertDefined,
   createSessionConsoleWrapper,
   renderHookWithConsole,
   type TestStore,
-  uniqueName,
   withSelectedProject,
 } from "@/testutil";
 
@@ -117,7 +116,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [CORE_KEY]: {
       key: CORE_KEY,
       name: "Local",
-      ...TEST_CORE_ADDRESS,
+      ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -125,7 +124,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [OTHER_CORE_KEY]: {
       key: OTHER_CORE_KEY,
       name: "Other",
-      ...TEST_CORE_ADDRESS,
+      ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -133,7 +132,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [THIRD_CORE_KEY]: {
       key: THIRD_CORE_KEY,
       name: "Third",
-      ...TEST_CORE_ADDRESS,
+      ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -303,7 +302,7 @@ describe("useDeep", () => {
     const getCurrentURLs = vi.fn(async () => ["synnax://cluster/c1/schematic/s1"]);
     const { connect } = await setup({ engine: "web", getCurrentURLs });
     // Async effects start after a task queue flush, so wait one out before asserting.
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();
   });

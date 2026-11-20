@@ -11,7 +11,7 @@ import { access, NotFoundError } from "@synnaxlabs/client";
 import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Role } from "@/access/role";
@@ -279,7 +279,7 @@ describe("queries", () => {
       expect(result.current.status.message).toEqual("Failed to delete role");
       expect(result.current.status.description).toEqual(
         `cannot delete role ${role.name} because user ${u.name} ` +
-          "uses it as its role: validation error",
+          "uses it as its role",
       );
       expect((await client.access.roles.retrieve(role.key)).key).toEqual(role.key);
     });

@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import {
   useResultSlave,
   useSlavesByKeys,
   useSlavesOnRack,
 } from "@/feature/ethercat/device/queries";
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import { needsSetup } from "@/feature/ethercat/device/SetupNote";
+import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
@@ -31,15 +30,14 @@ import { slavesZ } from "@/feature/ethercat/task/checks";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
-  createSlaveChannels,
   findChannelsToCreate,
   retrieveByName,
   retrieveSlaves,
 } from "@/feature/ethercat/task/configure";
+import { createSlaveWriteChannel } from "@/feature/ethercat/task/create";
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
   bindWriteChannel,
-  createEntryWriteChannel,
   createWriteChannel,
   deployWriteConfigZ,
   entryAt,
@@ -48,14 +46,12 @@ import {
   hasEntry,
   mappedChannels,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteChannel,
   writeChannelNames,
   writeChannelOf,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -96,8 +92,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       stateChannel={ch.stateChannel}
       stateDefaultName={names?.state}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
+      warned={!ch.disabled && slave != null && needsSetup(slave)}
       nameDirection="y"
       portMaxChars={20}
     />
@@ -109,9 +104,6 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 const detailsTitle = Component.renderProp(WriteDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
-
-const createSlaveWriteChannel = ({ key }: SlaveDevice, entry: ethercat.PDOEntry) =>
-  createEntryWriteChannel(key, entry);
 
 const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
   <>
@@ -158,26 +150,6 @@ const Form: FC = () => {
       />
     </Flex.Box>
   );
-};
-
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = async ({
-  client,
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (config == null)
-    cfg.channels =
-      deviceKey == null
-        ? [createWriteChannel([])]
-        : await createSlaveChannels(
-            client,
-            deviceKey,
-            "outputs",
-            createSlaveWriteChannel,
-            createWriteChannel([]),
-          );
-  return { name: "EtherCAT write task", type: WRITE_TYPE, config: cfg };
 };
 
 const WRITE_INDEX_OPTIONS = {
@@ -294,15 +266,3 @@ export const Write = Task.wrapForm({
   type: "ethercat_write",
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "EtherCAT write task",
-  label: "Write",
-  icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: useCreateWrite,
-};

@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+type fieldError struct{ msg string }
+
+func (e *fieldError) Error() string { return e.msg }
+
 var _ = Describe("Errors", func() {
 	Describe("PathedError", func() {
 		It("Should add a path to an error", func() {
@@ -55,19 +59,20 @@ var _ = Describe("Errors", func() {
 		})
 
 		Describe("Encoding + Decoding", func() {
+			codec := errors.NewCodec(query.ErrorProvider(), validate.ErrorProvider())
 			It("Should correctly encode and decode", func() {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
-				encoded := errors.Encode(pathed, false)
+				encoded := codec.Encode(pathed, false)
 				Expect(
-					errors.Decode(encoded),
+					codec.Decode(encoded),
 				).To(MatchError(ContainSubstring("field: cat")))
 			})
 
 			It("Should have the correct encoded representation", func() {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
-				encoded := errors.Encode(pathed, false)
+				encoded := codec.Encode(pathed, false)
 				Expect(encoded.Type).To(Equal("sy.validation.path"))
 				Expect(
 					encoded.Data,
@@ -78,13 +83,13 @@ var _ = Describe("Errors", func() {
 				"Should encode a path error around a query error as that error",
 				func() {
 					base := errors.Wrap(query.ErrNotFound, "cat")
-					encoded := errors.Encode(
+					encoded := codec.Encode(
 						validate.PathedError(base, "field"),
 						false,
 					)
 					Expect(encoded.Type).To(Equal("sy.query.not_found"))
 					Expect(
-						errors.Decode(encoded),
+						codec.Decode(encoded),
 					).To(MatchError(query.ErrNotFound))
 				},
 			)
@@ -95,12 +100,122 @@ var _ = Describe("Errors", func() {
 					base := errors.New("cat")
 					first := validate.PathedError(base, "first")
 					parent := validate.PathedError(first, "parent")
-					encoded := errors.Encode(parent, false)
+					encoded := codec.Encode(parent, false)
 					Expect(
-						errors.Decode(encoded),
+						codec.Decode(encoded),
 					).To(MatchError(ContainSubstring("parent.first: cat")))
 				},
 			)
+		})
+	})
+
+	Describe("Encoding + Decoding", func() {
+		codec := errors.NewCodec(query.ErrorProvider(), validate.ErrorProvider())
+		It("Should send the message of a wrap", func() {
+			err := errors.Wrap(validate.ErrValidation, "channel name already exists")
+			encoded := codec.Encode(err, false)
+			Expect(encoded).To(Equal(errors.Payload{
+				Type: "sy.validation",
+				Data: "channel name already exists",
+			}))
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("channel name already exists"),
+			))
+		})
+
+		It("Should send the formatted message of a wrapf", func() {
+			err := errors.Wrapf(validate.ErrValidation, "rate of %d%% is too high", 50)
+			encoded := codec.Encode(err, false)
+			Expect(encoded.Data).To(Equal("rate of 50% is too high"))
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("rate of 50% is too high"),
+			))
+		})
+
+		It("Should send the message of a wrap of a wrap", func() {
+			err := errors.Wrap(errors.Wrap(validate.ErrValidation, "inner"), "outer")
+			encoded := codec.Encode(err, false)
+			Expect(encoded.Data).To(Equal("outer: inner"))
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("outer: inner"),
+			))
+		})
+
+		DescribeTable(
+			"Should keep the message of a derived sentinel",
+			func(err error, msg string) {
+				encoded := codec.Encode(err, false)
+				Expect(encoded.Data).To(Equal(msg))
+				Expect(codec.Decode(encoded)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(msg),
+				))
+			},
+			Entry(
+				"required",
+				errors.Wrap(validate.ErrRequired, "name"),
+				"name: required",
+			),
+			Entry(
+				"conversion",
+				errors.Wrap(validate.ErrConversion, "rate"),
+				"rate: conversion error",
+			),
+			Entry(
+				"invalid type",
+				validate.NewInvalidTypeError("int", "string"),
+				"expected int but received string: invalid type",
+			),
+		)
+
+		It("Should send the message of a path error", func() {
+			err := validate.PathedError(validate.ErrRequired, "name")
+			encoded := codec.Encode(err, false)
+			Expect(encoded).To(Equal(errors.Payload{
+				Type: "sy.validation.path",
+				Data: `{"error":{"type":"sy.validation","data":"required"},` +
+					`"path":["name"]}`,
+			}))
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError("name: required"),
+			))
+		})
+
+		It("Should send the message of each joined error", func() {
+			err := errors.Join(
+				errors.Wrap(validate.ErrValidation, "first"),
+				errors.Wrap(validate.ErrValidation, "second"),
+			)
+			encoded := codec.Encode(err, false)
+			Expect(encoded.Data).To(Equal("first\nsecond"))
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("first\nsecond"),
+			))
+		})
+
+		It("Should send a join with a typed nil member", func() {
+			err := errors.Join(
+				(*fieldError)(nil),
+				errors.Wrap(validate.ErrValidation, "second"),
+			)
+			Expect(codec.Encode(err, false)).To(Equal(errors.Payload{
+				Type: "sy.validation",
+				Data: "<nil>\nsecond",
+			}))
+		})
+
+		It("Should send the message of the bare sentinel", func() {
+			encoded := codec.Encode(validate.ErrValidation, false)
+			Expect(encoded.Data).To(Equal("validation error"))
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("validation error"),
+			))
 		})
 	})
 

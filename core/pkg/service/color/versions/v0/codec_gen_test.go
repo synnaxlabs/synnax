@@ -51,7 +51,8 @@ var _ = Describe("Codec", func() {
 					B: 12,
 					A: 13,
 				}),
-				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
+				Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
+				Position: new(string("test_14")),
 			}),
 			Entry("zero values", v0.Named{
 				Key:  uuid.Nil(),
@@ -62,8 +63,9 @@ var _ = Describe("Codec", func() {
 					B: 0,
 					A: 0,
 				},
-				Dark:  nil,
-				Group: nil,
+				Dark:     nil,
+				Group:    nil,
+				Position: nil,
 			}),
 		)
 	})
@@ -105,7 +107,8 @@ func BenchmarkEncodeDecodeNamed(b *testing.B) {
 			B: 12,
 			A: 13,
 		}),
-		Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
+		Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
+		Position: new(string("test_14")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -156,7 +159,8 @@ func FuzzDecodeNamed(f *testing.F) {
 				B: 12,
 				A: 13,
 			}),
-			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
+			Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
+			Position: new(string("test_14")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -174,8 +178,9 @@ func FuzzDecodeNamed(f *testing.F) {
 				B: 0,
 				A: 0,
 			},
-			Dark:  nil,
-			Group: nil,
+			Dark:     nil,
+			Group:    nil,
+			Position: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

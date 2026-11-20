@@ -53,16 +53,8 @@ func newPublishedTag(
 	channels map[channel.Key]channel.Channel,
 ) (publishedTag, sparkplug.Tag, error) {
 	t := publishedTag{name: cfg.Name, channel: cfg.Channel}
-	if cfg.Name == "" {
-		return publishedTag{}, sparkplug.Tag{}, errors.Wrap(
-			validate.ErrValidation,
-			"tag: required",
-		)
-	}
-	if sparkplug.Reserved(cfg.Name) {
-		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
-			validate.ErrValidation, "tag %s: Sparkplug B reserves the name", cfg.Name,
-		)
+	if err := validateTagName(cfg.Name); err != nil {
+		return publishedTag{}, sparkplug.Tag{}, err
 	}
 	ch, ok := channels[cfg.Channel]
 	if !ok {
@@ -109,6 +101,19 @@ func newPublishedTag(
 	}
 	t.command = &command
 	return t, declared, nil
+}
+
+// validateTagName checks that name is set and that Sparkplug B does not reserve it.
+func validateTagName(name string) error {
+	if name == "" {
+		return errors.Wrap(validate.ErrValidation, "tag: required")
+	}
+	if sparkplug.Reserved(name) {
+		return errors.Wrapf(
+			validate.ErrValidation, "tag %s: Sparkplug B reserves the name", name,
+		)
+	}
+	return nil
 }
 
 // edgeHealth is the state that the Health of an edge node reports.

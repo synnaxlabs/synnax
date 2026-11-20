@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import type { connection } from "@synnaxlabs/client";
+import { testClientParams } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -16,8 +16,8 @@ import { describe, expect, it } from "vitest";
 import { Synnax } from "@/synnax";
 
 const LIVE_PARAMS: connection.CheckParams = {
-  host: TEST_CLIENT_PARAMS.host,
-  port: TEST_CLIENT_PARAMS.port,
+  host: testClientParams().host,
+  port: testClientParams().port,
 };
 
 describe("useCheckConnection", () => {
@@ -34,7 +34,7 @@ describe("useCheckConnection", () => {
 
   it("should resolve an error status against a dead port", async () => {
     const { result } = renderHook(() =>
-      Synnax.useCheckConnection({ host: TEST_CLIENT_PARAMS.host, port: 9999 }),
+      Synnax.useCheckConnection({ host: testClientParams().host, port: 9999 }),
     );
     await waitFor(() => expect(result.current?.variant).toEqual("error"));
   });
@@ -71,7 +71,7 @@ describe("useCheckConnection", () => {
     );
     await waitFor(() => expect(result.current?.variant).toEqual("success"));
     rerender({
-      params: { host: TEST_CLIENT_PARAMS.host, port: 9999 },
+      params: { host: testClientParams().host, port: 9999 },
     });
     await waitFor(() => expect(result.current?.variant).toEqual("error"));
   });

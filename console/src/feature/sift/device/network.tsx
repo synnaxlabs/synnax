@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { INTEGRATION, MAKE } from "@/feature/sift/device/types";
 import { Connect } from "@/feature/sift/device/useConnectModal";
 import { SCAN_TYPE } from "@/feature/sift/task/types";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
   key: INTEGRATION,

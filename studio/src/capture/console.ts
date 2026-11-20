@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator, type Page } from "playwright";
+import type { Locator, Page } from "playwright";
 
 import { type CaptureSession, CREDENTIALS } from "@/capture/rig";
 
@@ -305,13 +305,6 @@ export const openPalette = async (session: CaptureSession): Promise<Locator> => 
   await session.hold(PALETTE_READ_MS);
   return dialog;
 };
-
-/**
- * field returns the input associated with a form label, for filling or
- * clicking. Matches the Console's label-above-input form layout.
- */
-export const field = (page: Page, label: string): Locator =>
-  page.getByText(label, { exact: true }).locator("..").locator("input").first();
 
 /**
  * pickChannel fills the search of the open channel dropdown with `channel` and clicks

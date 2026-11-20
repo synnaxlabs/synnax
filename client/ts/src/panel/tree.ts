@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location, type spatial } from "@synnaxlabs/x";
+import type { location } from "@synnaxlabs/x";
 
-import { type LeafNode, type Node, type Tab, type TabKey } from "@/panel/types.gen";
-import { type resource } from "@/resource";
+import type { LeafNode, Node, Tab, TabKey } from "@/panel/types.gen";
+import type { resource } from "@/resource";
 
 // Nodes in the panel tree are identified by path-derived numeric keys: the root
 // is ROOT_NODE_KEY, and a split's children are childNodeKey(key, "first" | "last").
@@ -20,7 +20,7 @@ import { type resource } from "@/resource";
 export const ROOT_NODE_KEY = 1;
 
 /** childNodeKey returns the path key of a split's child on the given side. */
-export const childNodeKey = (pathKey: number, side: spatial.Order): number =>
+export const childNodeKey = (pathKey: number, side: location.Order): number =>
   side === "first" ? pathKey * 2 : pathKey * 2 + 1;
 
 /**
@@ -28,7 +28,7 @@ export const childNodeKey = (pathKey: number, side: spatial.Order): number =>
  * split at the given location: "first" for left/top, "last" otherwise. The
  * convention is shared by location-bearing InsertTab/MoveTab and SplitTab.
  */
-export const splitSide = (loc: location.Outer): spatial.Order =>
+export const splitSide = (loc: location.Outer): location.Order =>
   loc === "left" || loc === "top" ? "first" : "last";
 
 const pathDirections = (pathKey: number): boolean[] => {
@@ -96,6 +96,13 @@ export const findTabByType = (
   if (node.variant === "leaf")
     return node.tabs.find((t) => t.variant === "view" && t.type === type);
   return findTabByType(node.first, type) ?? findTabByType(node.last, type);
+};
+
+/** tabs returns every tab in traversal order. */
+export const tabs = (node: Node | undefined): Tab[] => {
+  if (node == null) return [];
+  if (node.variant === "leaf") return node.tabs;
+  return [...tabs(node.first), ...tabs(node.last)];
 };
 
 /** leafTabGroups returns each leaf's ordered tab keys, leaves in traversal order. */

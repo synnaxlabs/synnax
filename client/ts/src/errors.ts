@@ -36,7 +36,7 @@ export class PathError extends ValidationError.sub("path") {
     return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
 
-  static matchExact(e: unknown): e is PathError {
+  static override matchExact(e: unknown): e is PathError {
     return (
       e != null &&
       typeof e === "object" &&
@@ -229,11 +229,7 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
     return await next(ctx);
   } catch (err) {
     if (err instanceof Unreachable)
-      throw new Unreachable({
-        message: `Cannot reach Core at ${err.url.host}:${err.url.port}`,
-        url: err.url,
-        cause: err.cause ?? err,
-      });
+      err.message = `Cannot reach Core at ${err.url.host}:${err.url.port}`;
     throw errors.fromUnknown(err);
   }
 };

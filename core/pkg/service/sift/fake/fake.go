@@ -39,6 +39,9 @@ import (
 
 // Config configures a Server.
 type Config struct {
+	// Address is the host and port the Server listens on. An empty Address picks a free
+	// local port.
+	Address string
 	// APIKey is the bearer token every call must carry. An empty APIKey accepts every
 	// call.
 	APIKey string
@@ -89,6 +92,8 @@ type Server struct {
 	runsHeld  chan struct{}
 	runFails  []error
 	updFails  []error
+	runReject error
+	updReject error
 	cfgFails  []error
 }
 
@@ -100,9 +105,13 @@ var (
 	_ runsv2.RunServiceServer                         = (*Server)(nil)
 )
 
-// Open starts a Server on a free local port. The caller must Close it.
+// Open starts a Server. The caller must Close it.
 func Open(cfg Config) (*Server, error) {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	address := cfg.Address
+	if address == "" {
+		address = "127.0.0.1:0"
+	}
+	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +121,9 @@ func Open(cfg Config) (*Server, error) {
 		points:   make(map[channelKey]map[time.Time]any),
 	}
 	s.grpc = grpc.NewServer(
+		// A fixed window stops gRPC from growing it, so a paused stream backs up its
+		// client after 64 KiB.
+		grpc.InitialWindowSize(64<<10),
 		grpc.ChainUnaryInterceptor(s.authorizeUnary),
 		grpc.ChainStreamInterceptor(s.authorizeStream),
 	)
@@ -221,6 +233,22 @@ func (s *Server) FailRunUpdates(errs ...error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.updFails = append(s.updFails, errs...)
+}
+
+// RejectRuns makes every call to CreateAdhocRun return err, until a call with nil. The
+// errors of FailRuns return first.
+func (s *Server) RejectRuns(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.runReject = err
+}
+
+// RejectRunUpdates makes every call to UpdateRun return err, until a call with nil.
+// The errors of FailRunUpdates return first.
+func (s *Server) RejectRunUpdates(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.updReject = err
 }
 
 // FailConfigs makes each of the next calls to CreateIngestionConfig return one of
@@ -432,7 +460,7 @@ func (s *Server) IngestWithConfigDataStream(
 			return err
 		}
 		req, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -592,6 +620,9 @@ func (s *Server) CreateAdhocRun(
 		s.runFails = s.runFails[1:]
 		return nil, err
 	}
+	if s.runReject != nil {
+		return nil, s.runReject
+	}
 	if err := checkRun(req.Name, req.StartTime, req.StopTime); err != nil {
 		return nil, err
 	}
@@ -661,6 +692,9 @@ func (s *Server) UpdateRun(
 		err := s.updFails[0]
 		s.updFails = s.updFails[1:]
 		return nil, err
+	}
+	if s.updReject != nil {
+		return nil, s.updReject
 	}
 	if req.Run == nil || req.UpdateMask == nil {
 		return nil, status.Error(

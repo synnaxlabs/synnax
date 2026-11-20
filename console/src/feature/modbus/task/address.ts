@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ReadChannelType,
-  type WriteChannelType,
-} from "@/feature/modbus/task/types";
+import type { ReadChannelType, WriteChannelType } from "@/feature/modbus/task/types";
 
 export type ChannelType = ReadChannelType | WriteChannelType;
 

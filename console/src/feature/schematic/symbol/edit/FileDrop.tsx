@@ -13,8 +13,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { strings } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { FS } from "@/platform/fs";
@@ -51,7 +51,7 @@ export const FileDrop = ({
         const contents = await read();
         const nameWithoutExt = name.replace(/\.svg$/i, "");
         const properName =
-          nameWithoutExt === "" ? undefined : caseconv.toProperNoun(nameWithoutExt);
+          nameWithoutExt === "" ? undefined : strings.toProperNoun(nameWithoutExt);
         onContentsChange(contents, properName);
       },
       { message: "Failed to load symbol", name },

@@ -10,10 +10,10 @@
 import "@/feature/mqtt/task/Form.css";
 
 import { channel, mqtt } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
@@ -21,11 +21,11 @@ import { type FC, useState } from "react";
 
 import { use, useFromConfig } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
+import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { jsonTypeOf } from "@/feature/mqtt/task/createReadFields";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   fromSparkplugDataType,
@@ -38,19 +38,15 @@ import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
 import {
   deployWriteConfigZ,
   type PlainWriteTarget,
-  type ReadField,
   type SparkplugTag,
   type SparkplugWriteTarget,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteSchemas,
   type WriteTarget,
 } from "@/feature/mqtt/task/types";
-import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
@@ -166,29 +162,34 @@ const PlainChannelNameField: FC<PaneProps<PlainWriteTarget>> = ({
   );
 };
 
-const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => (
-  <PForm.Sections>
-    <PForm.Section title="Publish">
-      <PForm.TextField
-        path={path.topic}
-        label="Topic"
-        padHelpText={false}
-        inputProps={TOPIC_INPUT_PROPS}
-      />
-      <QoSField path={path.qos} />
-      <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
-    </PForm.Section>
-    <Task.Payload.ChannelSections
-      path={path.channel}
-      pointerPlaceholder="Empty sends the bare value"
-    >
-      <PlainChannelNameField path={path} deviceName={deviceName} />
-    </Task.Payload.ChannelSections>
-    <Task.Payload.AdditionalFields key={String(path)} path={path.fields} />
-  </PForm.Sections>
-);
+const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => {
+  const topic = PForm.useFieldValue(path.topic);
+  return (
+    <PForm.Sections>
+      <PForm.Section title="Publish">
+        <PForm.TextField
+          path={path.topic}
+          label="Topic"
+          padHelpText={false}
+          inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
+        />
+        <QoSField path={path.qos} />
+        <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
+      </PForm.Section>
+      <Task.Payload.ChannelSections
+        path={path.channel}
+        pointerPlaceholder="Empty sends the bare value"
+      >
+        <PlainChannelNameField path={path} deviceName={deviceName} />
+      </Task.Payload.ChannelSections>
+      <Task.Payload.AdditionalFields key={String(path)} path={path.fields} />
+    </PForm.Sections>
+  );
+};
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
+// A target added by name has no topic yet, so its pane opens on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
   const type = PForm.useFieldValue(path.type);
@@ -210,14 +211,11 @@ const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
 };
 
 /** Creates a target that publishes to a topic, at the pointer of a browsed field. */
-const createTarget = (topic: string, field?: ReadField): PlainWriteTarget => {
+const createTarget = (topic: string, leaf?: Leaf): PlainWriteTarget => {
   const target = mqtt.plainWriteTargetZ.parse({ type: "plain", topic });
-  if (field == null) return target;
-  const { pointer, dataType } = field;
-  return {
-    ...target,
-    channel: { ...target.channel, pointer, dataType, jsonType: jsonTypeOf(field) },
-  };
+  if (leaf == null) return target;
+  const { pointer, dataType, type: jsonType } = leaf;
+  return { ...target, channel: { ...target.channel, pointer, dataType, jsonType } };
 };
 
 const createSparkplugTarget = (tag?: SparkplugTag): SparkplugWriteTarget => {
@@ -294,12 +292,9 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           emptyContent={EMPTY_TARGETS}
           footer={
             !isPreview && (
-              <PlatformButton.CreateListItem
-                size="small"
-                onClick={() => void handleAdd()}
-              >
+              <Button.CreateListItem size="small" onClick={() => void handleAdd()}>
                 Add targets
-              </PlatformButton.CreateListItem>
+              </Button.CreateListItem>
             )
           }
           createChannels={duplicateTargets}
@@ -315,7 +310,11 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       title={currentPath != null && <EntryLabel path={currentPath} />}
     >
       {currentPath != null ? (
-        <TargetPane path={currentPath} deviceName={device.name} />
+        <TargetPane
+          key={String(currentPath)}
+          path={currentPath}
+          deviceName={device.name}
+        />
       ) : (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">Select a target to configure</Text.Text>
@@ -331,15 +330,6 @@ const Form = PlatformDevice.wrapTaskForm({
   useNoneSelected,
   Content,
 });
-
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "MQTT write task", type: WRITE_TYPE, config: cfg };
-};
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -392,16 +382,3 @@ export const Write = Task.wrapForm({
   type: "mqtt_write",
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "MQTT write task",
-  label: "Write",
-  icon: <Icon.Logo.MQTT />,
-  useOnSelect: useCreateWrite,
-};

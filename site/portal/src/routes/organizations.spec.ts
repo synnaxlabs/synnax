@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import { uuid } from "@synnaxlabs/x";
+import type { APIRoute } from "astro";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as deleteRoute } from "@/pages/api/organizations/[key]/delete";
@@ -454,7 +455,7 @@ describe("organization routes", () => {
         email: "cy@other.com",
       });
       h.signIn(ADMIN);
-      for (const id of [elsewhere.key, crypto.randomUUID(), "inv_9"])
+      for (const id of [elsewhere.key, uuid.create(), "inv_9"])
         await expectError(await revoke(id), 404, "Invitation not found");
       expect(await invitations()).toHaveLength(2);
       expect(await events()).toEqual([]);

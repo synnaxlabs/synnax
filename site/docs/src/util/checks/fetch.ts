@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { map, sleep, TimeSpan } from "@synnaxlabs/x";
+
 import { CDN } from "@/components/media/cdn";
-import { type Context } from "@/util/checks/check";
+import type { Context } from "@/util/checks/check";
 
 // Some hosts reject non-browser user agents outright.
 const HEADERS = {
@@ -21,7 +23,7 @@ const ATTEMPTS = 3;
 const TIMEOUT_MS = 15000;
 
 const backoff = (attempt: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+  sleep.sleep(TimeSpan.seconds(attempt));
 
 // Undici reports every network error as "fetch failed" and puts the code, such as
 // ENOTFOUND, on the cause.
@@ -199,8 +201,7 @@ export const createFetcher = (
     parsed.hash = "";
     const page = parsed.toString();
     const host = parsed.host;
-    let gate = gates.get(host);
-    if (gate == null) gates.set(host, (gate = { active: 0, waiting: [] }));
+    const gate = map.getOrInsert(gates, host, () => ({ active: 0, waiting: [] }));
     const run = async (): Promise<Probe | null> => {
       await enter(gate);
       try {
@@ -220,20 +221,18 @@ export const createFetcher = (
         ) {
           const res = await probe(url);
           if (res == null) hungCounts.set(host, 0);
-          else if (res.hung) hungCounts.set(host, (hungCounts.get(host) ?? 0) + 1);
+          else if (res.hung) map.increment(hungCounts, host);
           return res;
         }
-        let body = bodies.get(page);
-        if (body == null) {
-          // Breaker strikes land here, once per page, not once per awaiter.
-          body = fetchBody(page).then((res) => {
+        // Breaker strikes land here, once per page, not once per awaiter.
+        const body = map.getOrInsert(bodies, page, () =>
+          fetchBody(page).then((res) => {
             if ("reason" in res) {
-              if (res.hung) hungCounts.set(host, (hungCounts.get(host) ?? 0) + 1);
+              if (res.hung) map.increment(hungCounts, host);
             } else hungCounts.set(host, 0);
             return res;
-          });
-          bodies.set(page, body);
-        }
+          }),
+        );
         const res = await body;
         if ("reason" in res) return res;
         if (res.body != null && !hasAnchor(res.body, fragment))

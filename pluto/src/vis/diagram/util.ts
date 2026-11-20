@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
-import {
-  type InternalNode,
-  type NodeChange as RFNodeChange,
-  type ReactFlowInstance,
-  type ReactFlowState,
+import type {
+  InternalNode,
+  NodeChange as RFNodeChange,
+  ReactFlowInstance,
+  ViewportStore,
 } from "@xyflow/react";
 
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);
@@ -29,24 +29,14 @@ const NODE_CONTENT_SELECTOR = ".react-flow__node, .react-flow__node *";
 /// it, or null when no node is rendered. React Flow only measures a node's own box,
 /// which misses content positioned outside it (a label).
 export const selectNodesScreenBounds = (root: HTMLElement): box.Box | null => {
-  let left = Infinity;
-  let top = Infinity;
-  let right = -Infinity;
-  let bottom = -Infinity;
-  root.querySelectorAll(NODE_CONTENT_SELECTOR).forEach((el) => {
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) return;
-    left = Math.min(left, r.left);
-    top = Math.min(top, r.top);
-    right = Math.max(right, r.right);
-    bottom = Math.max(bottom, r.bottom);
-  });
-  if (left === Infinity) return null;
-  return box.construct({ x: left, y: top }, { x: right, y: bottom });
+  const rects = Array.from(root.querySelectorAll(NODE_CONTENT_SELECTOR), (el) =>
+    el.getBoundingClientRect(),
+  ).filter((r) => r.width !== 0 && r.height !== 0);
+  return rects.length === 0 ? null : box.bound(rects);
 };
 
 /// @returns the viewport zoom held in React Flow's store.
-export const selectZoom = ({ transform }: ReactFlowState): number => transform[2];
+export const selectZoom = ({ transform }: ViewportStore): number => transform[2];
 
 /// @returns the box, in flow coordinates, occupied by the given react-flow internal
 /// node. Returns box.ZERO when the node is null or has not been measured yet, which is
@@ -157,7 +147,7 @@ export class NodeLayout {
     const nodeElBox = box.construct(nodeEl);
     const handles = Array.from(handleEls).map((el) => {
       const pos = box.center(box.construct(el));
-      const dist = xy.translation(box.topLeft(nodeElBox), pos);
+      const dist = xy.sub(pos, box.topLeft(nodeElBox));
       const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];
       if (orientation == null || !location.isOuter(orientation))
         throw new Error(`[schematic] - cannot find handle orientation`);
@@ -195,7 +185,7 @@ export interface PartitionedNodeChanges {
 /// still resizing or report a zero width or height are dropped, since react-flow emits
 /// those before a node has settled into its final layout.
 export const partitionNodeChanges = (
-  changes: RFNodeChange[],
+  changes: Iterable<RFNodeChange>,
 ): PartitionedNodeChanges => {
   const passthrough: RFNodeChange[] = [];
   const sizes: [string, dimensions.Dimensions][] = [];

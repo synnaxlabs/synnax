@@ -10,12 +10,12 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Tooltip } from "@synnaxlabs/lyra/tooltip";
+import type { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { strings } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-import { type Mode, type UseTriggers } from "@/viewport/use";
+import type { Mode, UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
@@ -26,7 +26,7 @@ interface TooltipProps {
 
 export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
   <Text.Text level="small">
-    {caseconv.capitalize(mode)}
+    {strings.capitalize(mode)}
     <Triggers.Text trigger={triggers[0]} el="span" />
   </Text.Text>
 );

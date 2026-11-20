@@ -8,15 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   type compare,
   type location,
   type record,
   type state as xstate,
   unique,
 } from "@synnaxlabs/x";
-import { type FocusEvent, type KeyboardEvent, type ReactElement } from "react";
+import type { FocusEvent, KeyboardEvent, ReactElement } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
@@ -122,7 +123,7 @@ export const use = <K extends record.Key = string>({
     const action = currentlyExpanded.includes(key) ? "contract" : "expand";
     const nextExpanded =
       action === "contract"
-        ? currentlyExpanded.filter((k) => k !== key)
+        ? array.remove(currentlyExpanded, key)
         : [...currentlyExpanded, key];
     updateExpanded(nextExpanded);
     onExpand?.({ current: nextExpanded, action, clicked: key });

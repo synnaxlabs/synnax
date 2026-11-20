@@ -44,7 +44,8 @@ Base struct {
         @key
     }
     name string {
-        @doc value "is a human-readable name for the certificate."
+        @doc value         "is a human-readable name for the certificate."
+        @validate required
     }
 
     @doc value  "carries the fields shared by every certificate."

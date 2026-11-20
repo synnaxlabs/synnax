@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -31,6 +31,7 @@ import {
   retrieveResponseZ,
   storedCertificateZ,
 } from "@/certificate/types.gen";
+import { LINES } from "@/certificate/where";
 import {
   compareCursors,
   cursor,
@@ -119,8 +120,8 @@ export class Client extends query.Retriever<
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (certificate, req) => matches(certificate, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (certificate, req) => matches(LINES, certificate, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;

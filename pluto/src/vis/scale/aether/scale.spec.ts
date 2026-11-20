@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, xy } from "@synnaxlabs/x";
+import { box, color, TimeSpan, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
@@ -179,6 +179,13 @@ describe("scale/aether/Scale", () => {
       expect(recorder.upper2d.calls.some(({ op }) => op === "fillText")).toBe(true);
       expect(recorder.lower2d.calls.some(({ op }) => op === "fillText")).toBe(false);
     });
+
+    it("should measure the fill from a stored lower above the upper", () => {
+      const reversed = setup({ bounds: { lower: 100, upper: 0 } }, 25);
+      const ordered = setup({ bounds: { lower: 0, upper: 100 } }, 75);
+      expect(fillRegions(reversed.recorder)).toEqual(fillRegions(ordered.recorder));
+      expect(fillRegions(ordered.recorder).length).toBeGreaterThan(0);
+    });
   });
 
   describe("staleness", () => {
@@ -187,12 +194,24 @@ describe("scale/aether/Scale", () => {
 
     const STALE = color.hex(THEME.colors.warning.m1);
 
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
+      source.setValue(50);
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      source.setValue(60);
+      expect(component.state.stale).toBe(false);
+    });
+
     it("should recolor the fill once the source stops sending", () => {
       const { recorder, source } = setup({
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
@@ -200,12 +219,26 @@ describe("scale/aether/Scale", () => {
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).toContain(STALE);
     });
 
+    it("should keep its own colors while the stale color is hidden", () => {
+      const { component, recorder, source } = setup({
+        color: ACCENT,
+        showCaret: false,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+        staleColorHidden: true,
+      });
+      source.setValue(50);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
+      expect(canvasStyles(recorder, "upper2d", "fillStyle")).not.toContain(STALE);
+    });
+
     it("should stay live while samples keep arriving", () => {
       const { recorder, source } = setup({
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       for (let i = 0; i < 5; i++) {
         source.setValue(50 + i);
@@ -219,7 +252,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showFill: false,
         showScale: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       vi.advanceTimersByTime(2000);
@@ -231,7 +264,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       vi.advanceTimersByTime(2000);

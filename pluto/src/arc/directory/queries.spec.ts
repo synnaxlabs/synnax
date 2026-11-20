@@ -9,9 +9,10 @@
 
 import { arc, NotFoundError, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Arc } from "@/arc";
@@ -19,8 +20,6 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
-
-const uniqueName = (): string => `d_${id.create().replace(/-/g, "_")}`;
 
 const retrieveRoot = async (): Promise<resource.ID> =>
   arc.directory.resourceID((await client.arcs.directories.retrieveRoot()).key);
@@ -47,7 +46,7 @@ describe("Arc.Directory", () => {
   it("should create a directory with useCreate", async () => {
     const { result } = renderHook(() => Arc.Directory.useCreate(), { wrapper });
     const key = uuid.create();
-    const name = uniqueName();
+    const name = uniqueName("d");
     await act(async () => {
       await result.current.updateAsync({ parent: root.key, key, name });
     });
@@ -59,10 +58,10 @@ describe("Arc.Directory", () => {
   it("should rename a directory with useRename", async () => {
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     const { result } = renderHook(() => Arc.Directory.useRename(), { wrapper });
-    const name = uniqueName();
+    const name = uniqueName("d");
     await act(async () => {
       await result.current.updateAsync({ key: d.key, name });
     });
@@ -73,7 +72,7 @@ describe("Arc.Directory", () => {
   it("should delete a directory with useDelete", async () => {
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     const { result } = renderHook(() => Arc.Directory.useDelete(), { wrapper });
     await act(async () => {
@@ -86,7 +85,7 @@ describe("Arc.Directory", () => {
     it("should find a directory by its name", async () => {
       const d = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       const { result } = renderHook(
         () => Arc.Directory.useResultList({ searchTerm: d.name }),
@@ -103,11 +102,11 @@ describe("Arc.Directory", () => {
     it("should keep the directories and the directories above them live", async () => {
       const mid = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       const leaf = await client.arcs.directories.create({
         parent: mid.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       const keysOf = (directories?: arc.directory.Directory[]): arc.directory.Key[] =>
         (directories ?? []).map(({ key }) => key).sort();
@@ -121,7 +120,7 @@ describe("Arc.Directory", () => {
           [leaf.key, mid.key, root.key].sort(),
         );
       });
-      const name = uniqueName();
+      const name = uniqueName("d");
       await act(async () => {
         await client.arcs.directories.rename(mid.key, name);
       });
@@ -132,7 +131,7 @@ describe("Arc.Directory", () => {
       );
       const dest = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       await act(async () => {
         await client.arcs.directories.move(

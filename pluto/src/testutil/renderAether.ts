@@ -10,9 +10,9 @@
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type record, state } from "@synnaxlabs/x";
 import { afterEach } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
 import {
   buildStack,
@@ -153,7 +153,7 @@ export const renderAether = <C extends ComponentClass>(
       stack.driver.update(
         componentPath,
         Component.TYPE,
-        state.executeSetter(next, leaf.state),
+        state.resolve(next, leaf.state),
       );
     },
     setChildState(childKey, type, childState) {

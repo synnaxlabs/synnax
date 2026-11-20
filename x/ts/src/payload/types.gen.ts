@@ -12,17 +12,6 @@
 import { z } from "zod";
 
 import { floatZ, integerZ, unsignedZ } from "@/payload/number";
-import { telem } from "@/telem";
-
-export const TIME_FORMATS = [
-  "iso8601",
-  "unix_sec",
-  "unix_ms",
-  "unix_us",
-  "unix_ns",
-] as const;
-export const timeFormatZ = z.enum(TIME_FORMATS);
-export type TimeFormat = z.infer<typeof timeFormatZ>;
 
 export const KINDS = [
   "float",
@@ -38,6 +27,16 @@ export const KINDS = [
 export const kindZ = z.enum(KINDS);
 export type Kind = z.infer<typeof kindZ>;
 
+export const TIME_FORMATS = [
+  "iso8601",
+  "unix_sec",
+  "unix_ms",
+  "unix_us",
+  "unix_ns",
+] as const;
+export const timeFormatZ = z.enum(TIME_FORMATS);
+export type TimeFormat = z.infer<typeof timeFormatZ>;
+
 export const JSON_TYPES = ["number", "string", "boolean"] as const;
 export const jsonTypeZ = z.enum(JSON_TYPES);
 export type JSONType = z.infer<typeof jsonTypeZ>;
@@ -45,6 +44,10 @@ export type JSONType = z.infer<typeof jsonTypeZ>;
 export const GENERATOR_TYPES = ["uuid", "timestamp"] as const;
 export const generatorTypeZ = z.enum(GENERATOR_TYPES);
 export type GeneratorType = z.infer<typeof generatorTypeZ>;
+
+export const FORMATS = ["json", "text", "binary"] as const;
+export const formatZ = z.enum(FORMATS);
+export type Format = z.infer<typeof formatZ>;
 
 /** FloatEntry maps a payload label to a float channel value. */
 export const floatEntryZ = z.object({
@@ -91,15 +94,6 @@ export const booleanEntryZ = z.object({
 });
 export interface BooleanEntry extends z.infer<typeof booleanEntryZ> {}
 
-/** TimestampRead holds the options of a field that reads a timestamp. */
-export const timestampReadZ = z.object({
-  /** timeFormat is the encoding of the timestamp in the payload. */
-  timeFormat: timeFormatZ,
-  /** fill is written when the payload has no value. Absent requires one. */
-  fill: telem.timeStampZ.optional(),
-});
-export interface TimestampRead extends z.infer<typeof timestampReadZ> {}
-
 /**
  * EnumEntry maps a string label in a payload to a numeric channel value for enum-style
  * parsing (e.g. "ON" -> 1, "OFF" -> 0).
@@ -111,54 +105,3 @@ export const enumEntryZ = z.object({
   value: z.number().default(0),
 });
 export interface EnumEntry extends z.infer<typeof enumEntryZ> {}
-
-/** FloatRead holds the options of a field that reads a float. */
-export const floatReadZ = z.object({
-  /** dataType is the data type of a new channel. Absent for an existing one. */
-  dataType: telem.dataTypeZ.optional(),
-  /** enumValues maps payload labels to channel values. */
-  enumValues: floatEntryZ.array().default(() => []),
-  /** fill is written when the payload has no value. Absent requires one. */
-  fill: floatZ.optional(),
-});
-export interface FloatRead extends z.infer<typeof floatReadZ> {}
-
-/** IntegerRead holds the options of a field that reads a signed integer. */
-export const integerReadZ = z.object({
-  /** dataType is the data type of a new channel. Absent for an existing one. */
-  dataType: telem.dataTypeZ.optional(),
-  /** enumValues maps payload labels to channel values. */
-  enumValues: integerEntryZ.array().default(() => []),
-  /** fill is written when the payload has no value. Absent requires one. */
-  fill: integerZ.optional(),
-});
-export interface IntegerRead extends z.infer<typeof integerReadZ> {}
-
-/** UnsignedRead holds the options of a field that reads an unsigned integer. */
-export const unsignedReadZ = z.object({
-  /** dataType is the data type of a new channel. Absent for an existing one. */
-  dataType: telem.dataTypeZ.optional(),
-  /** enumValues maps payload labels to channel values. */
-  enumValues: unsignedEntryZ.array().default(() => []),
-  /** fill is written when the payload has no value. Absent requires one. */
-  fill: unsignedZ.optional(),
-});
-export interface UnsignedRead extends z.infer<typeof unsignedReadZ> {}
-
-/** StringRead holds the options of a field that reads a string. */
-export const stringReadZ = z.object({
-  /** enumValues maps payload labels to channel values. */
-  enumValues: stringEntryZ.array().default(() => []),
-  /** fill is written when the payload has no value. Absent requires one. */
-  fill: z.string().optional(),
-});
-export interface StringRead extends z.infer<typeof stringReadZ> {}
-
-/** BooleanRead holds the options of a field that reads a boolean. */
-export const booleanReadZ = z.object({
-  /** enumValues maps payload labels to channel values. */
-  enumValues: booleanEntryZ.array().default(() => []),
-  /** fill is written when the payload has no value. Absent requires one. */
-  fill: z.boolean().optional(),
-});
-export interface BooleanRead extends z.infer<typeof booleanReadZ> {}

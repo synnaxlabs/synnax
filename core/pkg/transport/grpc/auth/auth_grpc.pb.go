@@ -129,6 +129,106 @@ var AuthLoginService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	AuthMethodsService_Exec_FullMethodName = "/grpc.auth.AuthMethodsService/Exec"
+)
+
+// AuthMethodsServiceClient is the client API for AuthMethodsService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthMethodsServiceClient interface {
+	Exec(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MethodsResponse, error)
+}
+
+type authMethodsServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthMethodsServiceClient(cc grpc.ClientConnInterface) AuthMethodsServiceClient {
+	return &authMethodsServiceClient{cc}
+}
+
+func (c *authMethodsServiceClient) Exec(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MethodsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MethodsResponse)
+	err := c.cc.Invoke(ctx, AuthMethodsService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthMethodsServiceServer is the server API for AuthMethodsService service.
+// All implementations should embed UnimplementedAuthMethodsServiceServer
+// for forward compatibility.
+type AuthMethodsServiceServer interface {
+	Exec(context.Context, *emptypb.Empty) (*MethodsResponse, error)
+}
+
+// UnimplementedAuthMethodsServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthMethodsServiceServer struct{}
+
+func (UnimplementedAuthMethodsServiceServer) Exec(context.Context, *emptypb.Empty) (*MethodsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthMethodsServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthMethodsServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthMethodsServiceServer will
+// result in compilation errors.
+type UnsafeAuthMethodsServiceServer interface {
+	mustEmbedUnimplementedAuthMethodsServiceServer()
+}
+
+func RegisterAuthMethodsServiceServer(s grpc.ServiceRegistrar, srv AuthMethodsServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthMethodsServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthMethodsService_ServiceDesc, srv)
+}
+
+func _AuthMethodsService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthMethodsServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthMethodsService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthMethodsServiceServer).Exec(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthMethodsService_ServiceDesc is the grpc.ServiceDesc for AuthMethodsService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthMethodsService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthMethodsService",
+	HandlerType: (*AuthMethodsServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthMethodsService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
 	AuthSessionCreateService_Exec_FullMethodName = "/grpc.auth.AuthSessionCreateService/Exec"
 )
 

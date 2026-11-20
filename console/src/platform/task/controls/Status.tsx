@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status as PStatus } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -100,7 +100,13 @@ export const Status = ({
               {message}
             </Text.Text>
             {!expanded && hasDescription && (
-              <Text.Text level="small" color={9} overflow="wrap" lineClamp={2}>
+              <Text.Text
+                level="small"
+                color={9}
+                overflow="wrap"
+                lineClamp={2}
+                className={CSS.BE("task-status", "summary")}
+              >
                 {stat.description}
               </Text.Text>
             )}

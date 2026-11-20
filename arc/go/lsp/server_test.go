@@ -196,7 +196,7 @@ var _ = Describe("Server Diagnostics", func() {
 				)
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
-				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3001"))
+				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("E3001"))
 			},
 		)
 
@@ -211,7 +211,7 @@ var _ = Describe("Server Diagnostics", func() {
 				)
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
-				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3003"))
+				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("E3002"))
 			},
 		)
 
@@ -226,7 +226,7 @@ var _ = Describe("Server Diagnostics", func() {
 				)
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
-				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3002"))
+				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("E2001"))
 			},
 		)
 	})
@@ -494,7 +494,7 @@ var _ = Describe("External Change Notifications", func() {
 			Expect(
 				DiagnosticMessage(client.Diagnostics()[0]),
 			).To(ContainSubstring("undefined symbol: my_channel"))
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "my_channel",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -511,7 +511,7 @@ var _ = Describe("External Change Notifications", func() {
 		func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
 			Expect(client.Diagnostics()).To(HaveLen(1))
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "my_channel",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -531,7 +531,7 @@ var _ = Describe("External Change Notifications", func() {
 			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
 			baseline := client.SemanticRefreshCount()
 
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "my_channel",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -547,14 +547,14 @@ var _ = Describe("External Change Notifications", func() {
 	It(
 		"Should show errors when a previously valid symbol is removed",
 		func(ctx SpecContext) {
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "sensor",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
 			})
 			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := sensor\n}")
 			Expect(client.Diagnostics()).To(BeEmpty())
-			resolver.Remove("sensor")
+			resolver = resolver.Without("sensor")
 			observer.Notify(ctx, struct{}{})
 			Eventually(func() int { return len(client.Diagnostics()) }).Should(Equal(1))
 			Expect(
@@ -570,12 +570,12 @@ var _ = Describe("External Change Notifications", func() {
 			OpenArcDocument(server, ctx, docURI, "func test1() {\n\tx := channel_a\n}")
 			OpenArcDocument(server, ctx, docURI2, "func test2() {\n\ty := channel_b\n}")
 			Expect(client.Diagnostics()).To(HaveLen(1))
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "channel_a",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.I32()),
 			})
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "channel_b",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.I64()),
@@ -590,7 +590,7 @@ var _ = Describe("External Change Notifications", func() {
 	It(
 		"Should not race feature queries against a concurrent republish",
 		func(ctx SpecContext) {
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "my_channel",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),

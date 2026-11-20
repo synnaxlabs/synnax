@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { activation, event, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { activate, decide, reissue, release } from "@/server/license/activate";
-import { type Signer } from "@/server/license/sign";
+import type { Signer } from "@/server/license/sign";
 import {
   activationOf,
   HASH_A,
@@ -348,7 +349,7 @@ describe("activate", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         activate(store, signer, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           fingerprint: [HASH_A],
           name: "Rig",
           actor: "user_a",
@@ -474,7 +475,7 @@ describe("activate", () => {
     it("should throw a 404 for an unknown seat", async () => {
       await expect(
         reissue(store, signer, {
-          activationKey: crypto.randomUUID(),
+          activationKey: uuid.create(),
           actor: "user_a",
           now: NOW,
         }),
@@ -576,7 +577,7 @@ describe("activate", () => {
     it("should throw a 404 for an unknown seat", async () => {
       await expect(
         release(store, {
-          activationKey: crypto.randomUUID(),
+          activationKey: uuid.create(),
           actor: "user_a",
           now: NOW,
         }),

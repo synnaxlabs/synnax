@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type Synnax } from "@synnaxlabs/client";
+import type { label, Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -111,7 +111,7 @@ export const SelectMultiple = ({
   );
   // It is closed until the first open, so the dialog's last state is false.
   const handleVisibleChange = (next: state.SetArg<boolean>): void => {
-    if (!opened && state.executeSetter(next, false)) setOpened(true);
+    if (!opened && state.resolve(next, false)) setOpened(true);
     onVisibleChange?.(next);
   };
   // A change to virtual mounts the trigger again, so the list stays static once open.

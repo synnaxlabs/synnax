@@ -198,19 +198,13 @@ type ConfigReporter struct {
 }
 
 // Report reports err for t, which failed to configure. It writes an error status that
-// answers cmdKey when a caller waits on the command or the task starts automatically,
-// and logs a warning otherwise.
+// answers cmdKey, or NoCommand at boot.
 func (r ConfigReporter) Report(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
-	autoStart bool,
 	err error,
 ) {
-	if cmdKey == NoCommand && !autoStart {
-		r.L.Warn("failed to configure task", zap.Stringer("task", t), zap.Error(err))
-		return
-	}
 	if sErr := NewStatusHandler(r.DB, r.Status, t).Send(
 		ctx,
 		cmdKey,

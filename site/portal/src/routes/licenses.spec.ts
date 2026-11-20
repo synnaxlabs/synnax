@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import { uuid } from "@synnaxlabs/x";
+import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -416,11 +417,7 @@ describe("license routes", () => {
 
     it("should answer 404 for an unknown license", async () => {
       h.signIn(STAFF);
-      await expectError(
-        await post(TERMS, crypto.randomUUID()),
-        404,
-        "License not found",
-      );
+      await expectError(await post(TERMS, uuid.create()), 404, "License not found");
     });
 
     it("should reject a seat count below 1", async () => {
@@ -712,11 +709,7 @@ describe("license routes", () => {
 
     it("should answer 404 for an unknown license", async () => {
       h.signIn(MEMBER);
-      await expectError(
-        await post(MACHINE, crypto.randomUUID()),
-        404,
-        "License not found",
-      );
+      await expectError(await post(MACHINE, uuid.create()), 404, "License not found");
     });
 
     it("should require a fingerprint", async () => {
@@ -797,7 +790,7 @@ describe("license routes", () => {
 
     it("should hold the key for the Console that made the handoff code", async () => {
       h.signIn(MEMBER);
-      const code = crypto.randomUUID();
+      const code = uuid.create();
       const answer = await body<{ key: string }>(
         await post({ ...MACHINE, handoff: code }),
       );
@@ -942,7 +935,7 @@ describe("license routes", () => {
     };
 
     it("should hand the key over once, with no portal session", async () => {
-      const code = crypto.randomUUID();
+      const code = uuid.create();
       const key = await activateWith(code);
       const res = await collect(code);
       expect(res.status).toBe(200);
@@ -952,14 +945,14 @@ describe("license routes", () => {
     });
 
     it("should answer 204 while it holds no key for the code", async () => {
-      await activateWith(crypto.randomUUID());
-      const res = await collect(crypto.randomUUID());
+      await activateWith(uuid.create());
+      const res = await collect(uuid.create());
       expect(res.status).toBe(204);
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
     });
 
     it("should drop a key that nobody collects within an hour", async () => {
-      const code = crypto.randomUUID();
+      const code = uuid.create();
       await activateWith(code);
       h.portal.now = () => new Date(NOW.getTime() + 60 * 60 * 1000);
       expect((await collect(code)).status).toBe(204);
@@ -999,7 +992,7 @@ describe("license routes", () => {
 
     it("should answer 404 for an unknown license", async () => {
       h.signIn(STAFF);
-      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+      await expectError(await post(uuid.create()), 404, "License not found");
     });
 
     it("should refuse a revoked license", async () => {
@@ -1060,7 +1053,7 @@ describe("license routes", () => {
 
     it("should answer 404 for an unknown license", async () => {
       h.signIn(STAFF);
-      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+      await expectError(await post(uuid.create()), 404, "License not found");
     });
 
     it("should revoke the license and record it", async () => {
@@ -1145,7 +1138,7 @@ describe("license routes", () => {
 
     it("should answer 404 for an unknown license", async () => {
       h.signIn(STAFF);
-      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+      await expectError(await post(uuid.create()), 404, "License not found");
     });
 
     it("should delete the license, its machines, and its history", async () => {
@@ -1202,7 +1195,7 @@ describe("license routes", () => {
 
     it("should answer 404 for an unknown license", async () => {
       h.signIn(STAFF);
-      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+      await expectError(await post(uuid.create()), 404, "License not found");
     });
 
     it("should restore the license and record it", async () => {

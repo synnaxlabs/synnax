@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type TimeZone } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { TimeZone } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 export interface SelectTimeZoneProps extends Select.ButtonsProps<TimeZone> {}
 

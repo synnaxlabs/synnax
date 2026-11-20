@@ -23,6 +23,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -32,7 +33,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -55,7 +56,6 @@ import {
   awaitTextEditingElement,
   createTestClientWithGrants,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -106,6 +106,7 @@ const renderMenu = (wrapper: FC<PropsWithChildren>, keys: string[]) =>
         visible
         position={{ x: 0, y: 0 }}
         cursor={{ x: 0, y: 0 }}
+        target={null}
       />
     </Menu.Menu>,
     { wrapper },
@@ -150,6 +151,7 @@ describe("Panel.TabMenuItems", () => {
               visible
               position={{ x: 0, y: 0 }}
               cursor={{ x: 0, y: 0 }}
+              target={null}
             />
           </Menu.Menu>
         </>,
@@ -348,6 +350,7 @@ describe("Panel.TabMenuItems", () => {
                 visible
                 position={{ x: 0, y: 0 }}
                 cursor={{ x: 0, y: 0 }}
+                target={null}
               />
             </Menu.Menu>
             <Modals.Stack />

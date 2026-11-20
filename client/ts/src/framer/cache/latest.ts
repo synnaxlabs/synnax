@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   bounds,
   type breaker,
   DataType,
@@ -22,18 +23,18 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
 import { IndexStamps, Stamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Store } from "@/framer/cache/store";
-import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
-import { type Frame } from "@/framer/frame";
+import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
+import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
-import { type Snapshot } from "@/framer/subscription";
+import type { Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
 // Returns the timestamps as one series at alignment.
@@ -422,7 +423,7 @@ export class Latest {
       if (this.indexStamps !== stamps) return;
       if (times.length === length) {
         stamps.add([realign(times, read.span.lower, tr)], [read.span]);
-        this.indexReads = this.indexReads.filter((r) => r !== read);
+        this.indexReads = array.remove(this.indexReads, read);
         return this.notify();
       }
       read.tries++;
@@ -434,7 +435,7 @@ export class Latest {
   }
 
   private createBuffer(): Dynamic {
-    const size = Math.min(Math.max(this.count, MIN_BUFFER), MAX_BUFFER);
+    const size = bounds.clamp({ lower: MIN_BUFFER, upper: MAX_BUFFER }, this.count);
     // A value keeps every series it served, so a closed buffer stays the same object.
     return new Dynamic({
       dynamicBufferSize: size,

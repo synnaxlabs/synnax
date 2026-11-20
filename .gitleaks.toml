@@ -62,11 +62,14 @@ regexes = [
 ]
 
 [[allowlists]]
-description = "Throwaway ECDSA keys in the secret and certificate specs."
+description = "Throwaway ECDSA keys in the secret, certificate, and X.509 tests."
 regexTarget = "match"
 regexes = [
     '''MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgjJtOV99NCzRnmMoB''',
     '''MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgCEpmg8mYhXe2mUBp''',
+    '''MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgXsLANwJSgnKYh56a''',
+    '''MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg160R6M902UlqFdVs''',
+    '''MIHsMFcGCSqGSIb3DQEFDTBKMCkGCSqGSIb3DQEFDDAcBAh6l9s/jp0Z5gICCAAw''',
 ]
 
 [[allowlists]]

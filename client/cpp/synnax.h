@@ -10,20 +10,29 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 
 #include "absl/log/log.h"
 
 #include "client/cpp/arc/arc.h"
+#include "client/cpp/certificate/certificate.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
+#include "client/cpp/icd/icd.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
+#include "client/cpp/secret/secret.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "client/cpp/version/version.h"
+#include "freighter/cpp/grpc/grpc.h"
+#include "x/cpp/env/env.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
@@ -41,6 +50,15 @@ inline void check_little_endian() {
 }
 }
 
+/// @brief how a client secures its connection to a Core.
+struct TLS {
+    /// @brief whether the client connects with TLS.
+    bool enabled = false;
+    /// @brief the path to a PEM file that verifies the Core's certificate. Empty for
+    /// the default trust anchors.
+    std::string ca_cert;
+};
+
 /// @brief Configuration for opening a Synnax client.
 /// @see Synnax
 struct Config {
@@ -52,9 +70,13 @@ struct Config {
     std::string username = "synnax";
     /// @brief the password to use when authenticating with the Core.
     std::string password = "seldon";
-    /// @brief use TLS encryption. The system trust store verifies the Core's
-    /// certificate.
-    bool secure = false;
+    /// @brief whether to use TLS. When unset, the client uses TLS only if a CA
+    /// certificate is set. See tls.
+    std::optional<bool> secure;
+    /// @brief the path to a PEM file of CA certificates that sign the Core's
+    /// certificate. When both it and secure are unset, the Synnax constructor reads
+    /// SYNNAX_CA_CERT. See tls.
+    std::string ca_cert;
     /// @brief sets the clock skew threshold at which a warning will be logged.
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
     /// @brief sets the maximum number of login retries before giving up.
@@ -63,13 +85,20 @@ struct Config {
     /// ignored.
     std::string api_key;
 
+    /// @brief overrides each field that parser sets. secure and ca_cert are a pair: a
+    /// parser that sets either one replaces both.
     template<typename ParserT>
     void override(ParserT &parser) {
         this->host = parser.field("host", this->host);
         this->port = parser.field("port", this->port);
         this->username = parser.field("username", this->username);
         this->password = parser.field("password", this->password);
-        this->secure = parser.field("secure", this->secure);
+        const auto secure = parser.field("secure", std::optional<bool>());
+        const auto ca_cert = parser.field("ca_cert", std::string());
+        if (secure.has_value() || !ca_cert.empty()) {
+            this->secure = secure;
+            this->ca_cert = ca_cert;
+        }
         this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
@@ -88,7 +117,10 @@ struct Config {
            << "  " << x::log::SHALE() << "api key" << x::log::RESET() << ": "
            << x::log::sensitive_string(cfg.api_key) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
-           << x::log::bool_to_str(cfg.secure);
+           << (cfg.secure.has_value() ? x::log::bool_to_str(*cfg.secure) : "unset");
+        if (!cfg.ca_cert.empty())
+            os << "\n  " << x::log::SHALE() << "ca cert" << x::log::RESET() << ": "
+               << cfg.ca_cert;
         return os;
     }
 
@@ -98,19 +130,63 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
+    /// @brief applies the ca_cert field of env as the lowest source of the secure and
+    /// ca_cert pair: it sets ca_cert only when neither field is set.
+    void override_tls_default(x::env::Parser &env) {
+        if (this->secure.has_value() || !this->ca_cert.empty()) return;
+        this->ca_cert = env.field("ca_cert", std::string());
+    }
+
+    /// @brief resolves how the client secures its connection. A CA certificate turns
+    /// TLS on when secure is unset.
+    /// @returns the TLS settings, or a validation error when secure is false and a CA
+    /// certificate is set.
+    [[nodiscard]] std::pair<TLS, x::errors::Error> tls() const {
+        if (this->ca_cert.empty())
+            return {TLS{.enabled = this->secure.value_or(false)}, x::errors::NIL};
+        if (this->secure == false)
+            return {
+                TLS{},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "secure is false, but the CA certificate " + this->ca_cert +
+                        " is set. Set secure to true, or remove the CA certificate"
+                )
+            };
+        return {TLS{.enabled = true, .ca_cert = this->ca_cert}, x::errors::NIL};
+    }
+
     [[nodiscard]] x::json::json to_json() const {
-        return {
+        x::json::json j = {
             {"host", this->host},
             {"port", this->port},
             {"username", this->username},
             {"password", this->password},
-            {"secure", this->secure},
+            {"ca_cert", this->ca_cert},
             {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
             {"max_retries", this->max_retries},
             {"api_key", this->api_key}
         };
+        if (this->secure.has_value()) j["secure"] = *this->secure;
+        return j;
     }
 };
+
+namespace details {
+/// @brief returns the connection pool for cfg, with SYNNAX_CA_CERT applied as the
+/// lowest source of the TLS pair. A pool for an invalid TLS configuration fails every
+/// call with the reason.
+inline std::shared_ptr<freighter::grpc::Pool> new_pool(Config cfg) {
+    x::env::Parser env("SYNNAX");
+    cfg.override_tls_default(env);
+    const auto [tls, tls_err] = cfg.tls();
+    if (tls_err) return std::make_shared<freighter::grpc::Pool>(tls_err);
+    if (!tls.enabled) return std::make_shared<freighter::grpc::Pool>();
+    auto [creds, err] = freighter::grpc::ssl_credentials(tls.ca_cert);
+    if (err) return std::make_shared<freighter::grpc::Pool>(err);
+    return std::make_shared<freighter::grpc::Pool>(creds);
+}
+}
 
 /// @brief Client to perform operations against a Synnax Core.
 class Synnax {
@@ -136,14 +212,22 @@ public:
     device::Client devices;
     /// @brief Client for managing statuses.
     status::Client statuses;
+    /// @brief Client for reading secrets.
+    secret::Client secrets;
+    /// @brief Client for reading and writing certificates.
+    certificate::Client certificates;
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs;
     /// @brief Client for reading the control state of channels.
     control::Client control;
+    /// @brief Client for creating and retrieving ICDs.
+    icd::Client icds;
 
-    /// @brief constructs the Synnax client from the provided configuration.
+    /// @brief constructs the Synnax client from the provided configuration. When cfg
+    /// sets neither secure nor ca_cert, the client reads the CA certificate from
+    /// SYNNAX_CA_CERT.
     explicit Synnax(const Config &cfg):
-        t(cfg.port, cfg.host, cfg.secure),
+        t(cfg.port, cfg.host, details::new_pool(cfg)),
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth([&]() -> std::shared_ptr<auth::Middleware> {
             auto mw = std::make_shared<auth::Middleware>(
@@ -211,8 +295,15 @@ public:
             this->t.status_delete,
             this->t.status_set_by_key_or_name
         ),
+        secrets(this->t.secret_retrieve, this->t.secret_resolve),
+        certificates(
+            this->t.certificate_retrieve,
+            this->t.certificate_set,
+            this->t.certificate_refresh
+        ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
-        control(this->t.control_retrieve) {
+        control(this->t.control_retrieve),
+        icds(this->t.icd_create, this->t.icd_retrieve) {
         details::check_little_endian();
     }
 

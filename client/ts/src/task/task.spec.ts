@@ -13,14 +13,21 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
+import {
+  DisconnectedError,
+  MultipleFoundError,
+  NotFoundError,
+  type Synnax,
+  ValidationError,
+} from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
-import { type secret } from "@/secret";
-import { type status } from "@/status";
+import type { secret } from "@/secret";
+import type { status } from "@/status";
 import { task } from "@/task";
 import {
+  createProxiedTestClient,
   createTestClient,
   createTestClientWithPolicy,
   expectLive,
@@ -323,7 +330,7 @@ describe("Task", async () => {
     });
 
     it("should retrieve a task by its name", async () => {
-      const name = `test-${Date.now()}-${Math.random()}`;
+      const name = `test-${id.create()}`;
       const m = await testRack.createTask({
         name,
         config: { routingKey: ROUTING_KEY },
@@ -996,7 +1003,7 @@ describe("Task", async () => {
     });
 
     it("should retrieve task by name with schemas", async () => {
-      const uniqueName = `schema-name-test-${Date.now()}`;
+      const uniqueName = `schema-name-test-${id.create()}`;
       await testRack.createTask(
         {
           name: uniqueName,
@@ -1161,8 +1168,8 @@ describe("Task", async () => {
   };
 
   describe("executeCommandSync", () => {
-    // The wait opens its streamer before it sends the command, so once the command
-    // lands, the wait sees every status written after it.
+    // The wait reads statuses before it sends the command, so once the command lands,
+    // the wait sees every status written after it.
     const readCommand = async (
       streamer: framer.Streamer,
       key: task.Key,
@@ -1417,6 +1424,179 @@ describe("Task", async () => {
       await setReply(t, cmd, "success", "Started task");
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
+
+    // The change stream can deliver a status written before the wait began, so each
+    // rack starts with the status of a running Driver.
+    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
+      await c.racks.create({
+        name: `running-${id.create()}`,
+        status: {
+          variant: "success",
+          message: "Driver running",
+          details: { running: true },
+        },
+      });
+
+    describe.each([
+      { replies: "the change stream", cache: true, streamers: 0 },
+      { replies: "a streamer of its own", cache: false, streamers: 1 },
+    ])("with the replies on $replies", ({ cache, streamers }) => {
+      const sender = createTestClient({ cache });
+
+      beforeAll(async () => {
+        await sender.connect();
+        if (cache) await waitForStreamLive(sender.connection);
+      });
+
+      const createWait = async (timeout: TimeSpan = TimeSpan.minutes(1)) => {
+        const r = await createRunningRack(sender);
+        const t = await r.createTask({
+          name: `replies-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => commands.close());
+        const openStreamer = vi.spyOn(sender, "openStreamer");
+        onTestFinished(() => openStreamer.mockRestore());
+        const wait = t.executeCommandSync({ type: "scan", timeout });
+        return { rack: r, task: t, commands, openStreamer, wait };
+      };
+
+      it("should return the reply of the task", async () => {
+        const { task: t, commands, openStreamer, wait } = await createWait();
+        const cmd = await readCommand(commands, t.key);
+        await setReply(t, cmd, "success", "Scan complete");
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+        expect(openStreamer).toHaveBeenCalledTimes(streamers);
+      });
+
+      it("should end the wait with the error of a Driver that goes down", async () => {
+        const { rack: r, task: t, commands, wait } = await createWait();
+        const ended = expect(wait).rejects.toMatchObject({
+          message: "Driver not running",
+          description: "The Core has not heard from the Driver.",
+        });
+        await readCommand(commands, t.key);
+        await setDriverNotRunning(r.key);
+        await ended;
+      });
+
+      it("should start the timeout once the command write ends", async () => {
+        const r = await createRunningRack(sender);
+        const t = await r.createTask({
+          name: `slow-write-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => commands.close());
+        const timeout = TimeSpan.milliseconds(300);
+        const openWriter = sender.openWriter.bind(sender);
+        const slow = vi
+          .spyOn(sender, "openWriter")
+          .mockImplementationOnce(async (cfg) => {
+            await sleep.sleep(timeout.mult(2));
+            return await openWriter(cfg);
+          });
+        onTestFinished(() => slow.mockRestore());
+        const wait = t.executeCommandSync({ type: "scan", timeout });
+        const cmd = await readCommand(commands, t.key);
+        await setReply(t, cmd, "success", "Scan complete");
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+        expect(slow).toHaveBeenCalledOnce();
+      });
+
+      it("should time out when no reply arrives", async () => {
+        const { task: t, wait } = await createWait(TimeSpan.milliseconds(200));
+        await expect(wait).rejects.toThrow(
+          new Error(`Command to ${t.name} timed out after 200ms`),
+        );
+      });
+    });
+
+    it("should end a wait on the change stream with a rack outage written before the command", async () => {
+      const sender = createTestClient();
+      await sender.connect();
+      await waitForStreamLive(sender.connection);
+      const r = await createRunningRack(sender);
+      const t = await r.createTask({
+        name: `outage-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      // Sent before the wait reads statuses, and stored before the command is sent.
+      const down = setDriverNotRunning(r.key);
+      const openWriter = sender.openWriter.bind(sender);
+      const hold = vi
+        .spyOn(sender, "openWriter")
+        .mockImplementationOnce(async (cfg) => {
+          await down;
+          return await openWriter(cfg);
+        });
+      onTestFinished(() => hold.mockRestore());
+      await expect(
+        t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) }),
+      ).rejects.toMatchObject({
+        message: "Driver not running",
+        description: "The Core has not heard from the Driver.",
+      });
+      expect(hold).toHaveBeenCalledOnce();
+    });
+
+    it("should not take a stand-in status of the client as the reply", async () => {
+      const sender = createTestClient();
+      await sender.connect();
+      await waitForStreamLive(sender.connection);
+      const r = await createRunningRack(sender);
+      const t = await r.createTask({
+        name: `stand-in-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await setDriverNotRunning(r.key);
+      // A start to a task on a down Driver gets a stand-in warning that names it.
+      await expect
+        .poll(() => sender.statuses.ownedBy(rack.resourceID(r.key))?.message)
+        .toBe("Driver not running");
+      await expect(
+        t.executeCommandSync({ type: "start", timeout: TimeSpan.milliseconds(300) }),
+      ).rejects.toThrow(new Error(`Command to ${t.name} timed out after 300ms`));
+    });
+
+    it("should end a wait on the change stream once the stream drops", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      await proxied.connect();
+      await waitForStreamLive(proxied.connection);
+      const r = await createRunningRack(proxied);
+      const t = await r.createTask({
+        name: `severed-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      // A sever during the command write fails the write first, so it severs after it.
+      const written = Promise.withResolvers<void>();
+      const openWriter = proxied.openWriter.bind(proxied);
+      const watch = vi
+        .spyOn(proxied, "openWriter")
+        .mockImplementationOnce(async (cfg) => {
+          const w = await openWriter(cfg);
+          const close = w.close.bind(w);
+          vi.spyOn(w, "close").mockImplementationOnce(async () => {
+            await close();
+            written.resolve();
+          });
+          return w;
+        });
+      onTestFinished(() => watch.mockRestore());
+      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      const ended = expect(wait).rejects.toThrow(
+        new DisconnectedError("The connection to the Core dropped."),
+      );
+      await written.promise;
+      await proxy.sever();
+      await ended;
+    });
   });
 
   describe("onChange", () => {
@@ -1578,8 +1758,8 @@ describe("Task", async () => {
       // The store is watched directly so the assertion reads the write the command
       // makes. A subscribed query would let a refetch restore the stored status
       // first, and a poll would only ever see whichever landed last.
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.store.subscribe((event) => {
         // The creation-time "has not been deployed" placeholder echoes back over the
         // status stream at its own pace, so a disabled event is never the command's.
@@ -1608,8 +1788,8 @@ describe("Task", async () => {
       const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(warned.key, "warning", "Driver is degraded", true);
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant !== "disabled")
           seeWrite(event.value);
@@ -1649,6 +1829,25 @@ describe("Task", async () => {
         .toBe("Driver not running");
     });
 
+    it("keeps a stand-in through a fetch of its task", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `fetched-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      await client.tasks.retrieve({ key: t.key });
+      await setRackAliveAfterEcho(dying.key);
+      await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await setRackStatus(dying.key, "warning", "Driver not running");
+      await expect
+        .poll(() => client.statuses.store.get(key)?.message)
+        .toBe("Driver not running");
+      await client.tasks.retrieve({ rack: dying.key });
+      expect(client.statuses.store.get(key)?.message).toBe("Driver not running");
+    });
+
     it("stands the rack's problem in once its Driver goes down during a wait", async () => {
       const dying = await client.racks.create({ name: `dying-${id.create()}` });
       const t = await dying.createTask({
@@ -1657,8 +1856,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1695,8 +1893,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1761,8 +1958,7 @@ describe("Task", async () => {
       // The status store is watched directly, leaving no subscribed query behind:
       // winding the clock forward would otherwise reach the cache streamer's
       // reconcile, whose refetch replaces the very status under test.
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1804,8 +2000,8 @@ describe("Task", async () => {
       const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(down.key, "warning", "no Driver here");
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.onWrite((s) => {
         if (s.key === key && s.variant === "warning") seeWrite(s);
       });
@@ -1828,8 +2024,8 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.onWrite((s) => {
         if (s.key === key && s.variant === "loading") seeWrite(s);
       });
@@ -1851,8 +2047,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const offLoading = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1890,8 +2085,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1947,8 +2141,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -2013,8 +2206,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -2069,8 +2261,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);

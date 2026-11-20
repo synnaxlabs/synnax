@@ -21,7 +21,7 @@ const hoursAgo = (h: number): TimeStamp => TimeStamp.now().sub(TimeSpan.hours(h)
 
 /**
  * Docs `client/ranges/create`: click the "+" in the Ranges toolbar, name the range,
- * add a label, and save it to the Core. The new range appears in the toolbar.
+ * add a label, and create it. The new range appears in the toolbar.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -39,7 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
-  await page.getByText("Open range explorer", { exact: true }).first().click();
+  await page.getByRole("button", { name: "Open range explorer", exact: true }).click();
   const explorer = page.locator(".console-range-tree__list").first();
   await session.waitFor(explorer);
   await session.settle(500);
@@ -48,7 +48,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1500);
 
-  await capture.clickToolbarCreate(session);
+  await session.click(
+    page.getByRole("button", { name: "Create past range", exact: true }),
+  );
   const modal = page.locator(capture.MODAL).first();
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
@@ -73,7 +75,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(item, { text: true });
   await session.hold(1000);
 
-  await capture.clickButton(session, "Save to Core");
+  await capture.clickButton(session, "Create");
   session.endZoom();
   await session.waitForHidden(name);
   await session.waitFor(

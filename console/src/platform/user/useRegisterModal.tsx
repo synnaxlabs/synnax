@@ -12,7 +12,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
@@ -47,6 +47,7 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
     query: null,
     afterSave: () => close(),
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame>

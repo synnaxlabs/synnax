@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 const renderSections = async (
@@ -176,6 +178,27 @@ describe("Form", () => {
         );
       });
 
+      it("should keep the width of a number field in the control of another", async () => {
+        await renderThemed(
+          <Form.Sections>
+            <Form.Section>
+              {textField("Units")}
+              <Input.Item label="Scale">
+                <Flex.Box x align="center">
+                  <Input.Numeric value={1} onChange={() => {}} />
+                  {field("Offset")}
+                </Flex.Box>
+              </Input.Item>
+              {field("Retries")}
+            </Form.Section>
+          </Form.Sections>,
+        );
+        const offset = rect("Offset");
+        expect(offset.control.width).toBe(rect("Retries").control.width);
+        expect(offset.control.width).toBeLessThan(rect("Units").control.width);
+        expect(offset.control.left).toBeGreaterThan(offset.label.right);
+      });
+
       it("should keep the first control when the later fields do not fit", async () => {
         await renderThemed(
           <div style={{ width: "60rem" }}>
@@ -194,6 +217,38 @@ describe("Form", () => {
         expect(timeout.width).toBeGreaterThan(0);
         expect(rect("Retries").label.left).toBeGreaterThan(timeout.right);
       });
+    });
+
+    it("should keep a multiple select of many tags inside the sections", async () => {
+      const names = Array.from(
+        { length: 8 },
+        (_, i) => `sy_node_1_metrics_${i}_percent`,
+      );
+      const { container } = await renderThemed(
+        <div style={{ width: "80rem" }}>
+          <Form.Sections>
+            <Form.Section>
+              <Input.Item label="Channels">
+                <Dialog.Frame>
+                  <Select.Frame<string, undefined>
+                    multiple
+                    value={names}
+                    onChange={() => {}}
+                  >
+                    <Select.MultipleTrigger />
+                  </Select.Frame>
+                </Dialog.Frame>
+              </Input.Item>
+            </Form.Section>
+          </Form.Sections>
+        </div>,
+      );
+      const sections = container.querySelector(`.${CSS.B("form-sections")}`)!;
+      const tags = container.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
+      await expect.poll(() => tags.hasAttribute("data-stacked")).toBe(true);
+      expect(tags.getBoundingClientRect().right).toBeLessThanOrEqual(
+        sections.getBoundingClientRect().right,
+      );
     });
   });
 

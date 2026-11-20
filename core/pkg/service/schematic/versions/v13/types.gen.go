@@ -14,6 +14,7 @@ package v13
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -26,8 +27,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -490,10 +493,83 @@ const (
 )
 
 // LabelConfig is the text label configuration shared by schematic symbols.
-type LabelConfig = v12.LabelConfig
+type LabelConfig struct {
+	// Label is the text content of the label.
+	Label string `json:"label" msgpack:"label"`
+	// Level is the typography level of the label text.
+	Level text.Level `json:"level" msgpack:"level"`
+	// Orientation is the placement of the label relative to the symbol.
+	Orientation spatial.Location `json:"orientation" msgpack:"orientation"`
+	// Direction is the axis along which the label text flows.
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+	// MaxInlineSize is the maximum inline size of the label in pixels before wrapping.
+	MaxInlineSize uint16 `json:"max_inline_size" msgpack:"max_inline_size"`
+	// Align is the alignment of the label text within its box.
+	Align FlexAlignment `json:"align" msgpack:"align"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabelConfig) SetDefaults() {
+	l.Level = text.LevelH5
+	l.Orientation = spatial.LocationTop
+	l.Direction = spatial.DirectionX
+	l.MaxInlineSize = 150
+	l.Align = FlexAlignmentCenter
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LabelConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LabelConfig
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LabelConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LabelConfig
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return dec.Decode((*plain)(l))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l LabelConfig) Validate() error {
+	v := validate.New("LabelConfig")
+	v.Ternaryf("level", !l.Level.IsValid(), "invalid level: %v", l.Level)
+	v.Ternaryf("orientation", !l.Orientation.IsValid(), "invalid orientation: %v", l.Orientation)
+	v.Ternaryf("direction", !l.Direction.IsValid(), "invalid direction: %v", l.Direction)
+	v.Ternaryf("align", !l.Align.IsValid(), "invalid align: %v", l.Align)
+	v.GreaterThanEq("max_inline_size", l.MaxInlineSize, 1)
+	return v.Error()
+}
 
 // LabeledConfig is the base configuration for any symbol that carries a label.
-type LabeledConfig = v12.LabeledConfig
+type LabeledConfig struct {
+	// Label is the symbol's label configuration.
+	Label LabelConfig `json:"label" msgpack:"label"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabeledConfig) SetDefaults() {
+	l.Label.SetDefaults()
+	l.Orientation = spatial.OuterLocationLeft
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l LabeledConfig) Validate() error {
+	v := validate.New("LabeledConfig")
+	v.Ternaryf("orientation", !l.Orientation.IsValid(), "invalid orientation: %v", l.Orientation)
+	v.Exec(func() error { return validate.PathedError(l.Label.Validate(), "label") })
+	return v.Error()
+}
 
 // ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
 type ScaledConfig = v12.ScaledConfig
@@ -501,21 +577,57 @@ type ScaledConfig = v12.ScaledConfig
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
 type StalenessConfig struct {
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessTimeout is the span after which the value is considered stale.
+	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
 	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (s *StalenessConfig) SetDefaults() {
-	s.StalenessTimeout = 5
+	s.StalenessTimeout = 5000000000
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StalenessConfig) Validate() error {
+	v := validate.New("StalenessConfig")
+	v.GreaterThanEq("staleness_timeout", s.StalenessTimeout, 1000000000)
+	v.LessThanEq("staleness_timeout", s.StalenessTimeout, 9007199254740991)
+	return v.Error()
 }
 
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
-type NumericTelemConfig = v12.NumericTelemConfig
+type NumericTelemConfig struct {
+	// Channel is the channel whose value the symbol displays, or 0 when it displays
+	// none.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// RollingAverage is the number of samples in the rolling average.
+	RollingAverage uint16 `json:"rolling_average" msgpack:"rolling_average"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NumericTelemConfig) SetDefaults() {
+	n.RollingAverage = 1
+	n.Notation = "standard"
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NumericTelemConfig) Validate() error {
+	v := validate.New("NumericTelemConfig")
+	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
+	v.GreaterThanEq("rolling_average", n.RollingAverage, 1)
+	if n.Precision != nil {
+		v.LessThanEq("precision", *n.Precision, 17)
+	}
+	return v.Error()
+}
 
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
@@ -527,14 +639,16 @@ type ToggleConfig struct {
 	LabeledConfig
 	ScaledConfig
 	StalenessConfig
-	// StateChannel is the channel whose value drives the symbol's active state.
-	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
-	// CommandChannel is the channel actuation commands are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state, or 0
+	// when none does.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// CommandChannel is the channel actuation commands are written to, or 0 when the
+	// symbol writes to none.
+	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	Control ControlStateConfig `json:"control" msgpack:"control"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -542,16 +656,19 @@ func (t *ToggleConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
 	t.ScaledConfig.SetDefaults()
 	t.StalenessConfig.SetDefaults()
+	t.Control.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t ToggleConfig) Validate() error {
 	v := validate.New("ToggleConfig")
+	v.GreaterThanEq("on_click_delay", t.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", t.OnClickDelay, 2147483647000000)
 	v.Exec(t.LabeledConfig.Validate)
-	if t.Control != nil {
-		v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
-	}
+	v.Exec(t.ScaledConfig.Validate)
+	v.Exec(t.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
 	return v.Error()
 }
 
@@ -574,6 +691,7 @@ func (s *StaticSymbolConfig) SetDefaults() {
 func (s StaticSymbolConfig) Validate() error {
 	v := validate.New("StaticSymbolConfig")
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -623,6 +741,7 @@ func (d *DummyToggleSymbolConfig) SetDefaults() {
 func (d DummyToggleSymbolConfig) Validate() error {
 	v := validate.New("DummyToggleSymbolConfig")
 	v.Exec(d.LabeledConfig.Validate)
+	v.Exec(d.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -674,6 +793,7 @@ func (s ScaleIndicatorConfig) Validate() error {
 	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.NumericTelemConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1431,10 +1551,10 @@ type BoxNodeConfig struct {
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// BorderRadius is the uniform corner radius of the box in pixels.
-	BorderRadius float64 `json:"border_radius" msgpack:"border_radius"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth uint8 `json:"stroke_width" msgpack:"stroke_width"`
+	// BorderRadius is the uniform corner radius of the box in pixels. Absent draws 3.
+	BorderRadius *uint16 `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
+	// StrokeWidth is the border stroke width in pixels. Absent draws 2.
+	StrokeWidth *uint8 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
 
 func (BoxNodeConfig) isNodeConfigVariant() {}
@@ -1444,15 +1564,15 @@ func (b *BoxNodeConfig) SetDefaults() {
 	b.LabeledConfig.SetDefaults()
 	b.Dimensions.Width = 125
 	b.Dimensions.Height = 200
-	b.BorderRadius = 3
-	b.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BoxNodeConfig) Validate() error {
 	v := validate.New("BoxNodeConfig")
-	v.LessThanEq("stroke_width", b.StrokeWidth, 20)
+	if b.StrokeWidth != nil {
+		v.LessThanEq("stroke_width", *b.StrokeWidth, 20)
+	}
 	v.Exec(b.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -1462,18 +1582,17 @@ type ButtonNodeConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the button.
 	Size ComponentSize `json:"size" msgpack:"size"`
-	// Level is the typography level of the button text.
-	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
-	// CommandChannel is the channel button presses are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
+	// CommandChannel is the channel button presses are written to, or 0 when the symbol
+	// writes to none.
+	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
 	// FillColor is the fill color of the button, which its border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
+	Control ControlStateConfig `json:"control" msgpack:"control"`
 }
 
 func (ButtonNodeConfig) isNodeConfigVariant() {}
@@ -1481,6 +1600,7 @@ func (ButtonNodeConfig) isNodeConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (b *ButtonNodeConfig) SetDefaults() {
 	b.LabeledConfig.SetDefaults()
+	b.Control.SetDefaults()
 	b.Size = ComponentSizeMedium
 	b.Mode = ButtonModeFire
 }
@@ -1490,14 +1610,11 @@ func (b *ButtonNodeConfig) SetDefaults() {
 func (b ButtonNodeConfig) Validate() error {
 	v := validate.New("ButtonNodeConfig")
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
-	if b.Level != nil {
-		v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", *b.Level)
-	}
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
+	v.GreaterThanEq("on_click_delay", b.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", b.OnClickDelay, 2147483647000000)
 	v.Exec(b.LabeledConfig.Validate)
-	if b.Control != nil {
-		v.Exec(func() error { return validate.PathedError(b.Control.Validate(), "control") })
-	}
+	v.Exec(func() error { return validate.PathedError(b.Control.Validate(), "control") })
 	return v.Error()
 }
 
@@ -1505,13 +1622,13 @@ func (b ButtonNodeConfig) Validate() error {
 type CircleNodeConfig struct {
 	LabeledConfig
 	// Radius is the radius of the circle in pixels.
-	Radius float64 `json:"radius" msgpack:"radius"`
+	Radius uint16 `json:"radius" msgpack:"radius"`
 	// StrokeColor is the border color of the circle.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the circle.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth uint8 `json:"stroke_width" msgpack:"stroke_width"`
+	// StrokeWidth is the border stroke width in pixels. Absent draws 2.
+	StrokeWidth *uint8 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
 
 func (CircleNodeConfig) isNodeConfigVariant() {}
@@ -1520,14 +1637,16 @@ func (CircleNodeConfig) isNodeConfigVariant() {}
 func (c *CircleNodeConfig) SetDefaults() {
 	c.LabeledConfig.SetDefaults()
 	c.Radius = 20
-	c.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c CircleNodeConfig) Validate() error {
 	v := validate.New("CircleNodeConfig")
-	v.LessThanEq("stroke_width", c.StrokeWidth, 20)
+	v.GreaterThanEq("radius", c.Radius, 1)
+	if c.StrokeWidth != nil {
+		v.LessThanEq("stroke_width", *c.StrokeWidth, 20)
+	}
 	v.Exec(c.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -1538,13 +1657,13 @@ type GaugeNodeConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
-	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 	// StrokeColor is the color of the gauge arc.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
-	BarWidth float64 `json:"bar_width" msgpack:"bar_width"`
+	BarWidth uint16 `json:"bar_width" msgpack:"bar_width"`
 	// Location is the anchor of the value within the gauge.
 	Location spatial.LocationXY `json:"location" msgpack:"location"`
 	// Units is the unit suffix displayed after the value.
@@ -1572,8 +1691,10 @@ func (g *GaugeNodeConfig) SetDefaults() {
 func (g GaugeNodeConfig) Validate() error {
 	v := validate.New("GaugeNodeConfig")
 	v.Ternaryf("level", !g.Level.IsValid(), "invalid level: %v", g.Level)
+	v.GreaterThanEq("bar_width", g.BarWidth, 1)
 	v.Exec(g.LabeledConfig.Validate)
 	v.Exec(g.NumericTelemConfig.Validate)
+	v.Exec(g.StalenessConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -1584,22 +1705,25 @@ type InputNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the input.
 	Size ComponentSize `json:"size" msgpack:"size"`
-	// CommandChannel is the channel submitted values are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
-	// StateChannel is the channel that reports the value the device holds.
-	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
-	// Dimensions is the rendered size of the input in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+	// CommandChannel is the channel submitted values are written to, or 0 when the
+	// symbol writes to none.
+	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
+	// StateChannel is the channel that reports the value the device holds, or 0 when
+	// none does.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// Dimensions is the rendered size of the input in pixels. Zero sizes it to its
+	// content.
+	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// FillColor is the fill color of the Set button, which the input border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
+	Control ControlStateConfig `json:"control" msgpack:"control"`
 }
 
 func (InputNodeConfig) isNodeConfigVariant() {}
@@ -1608,6 +1732,7 @@ func (InputNodeConfig) isNodeConfigVariant() {}
 func (i *InputNodeConfig) SetDefaults() {
 	i.LabeledConfig.SetDefaults()
 	i.StalenessConfig.SetDefaults()
+	i.Control.SetDefaults()
 	i.Size = ComponentSizeMedium
 	i.InlineSize = 150
 }
@@ -1617,10 +1742,12 @@ func (i *InputNodeConfig) SetDefaults() {
 func (i InputNodeConfig) Validate() error {
 	v := validate.New("InputNodeConfig")
 	v.Ternaryf("size", !i.Size.IsValid(), "invalid size: %v", i.Size)
+	v.GreaterThanEq("inline_size", i.InlineSize, 1)
+	v.GreaterThanEq("on_click_delay", i.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", i.OnClickDelay, 2147483647000000)
 	v.Exec(i.LabeledConfig.Validate)
-	if i.Control != nil {
-		v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
-	}
+	v.Exec(i.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
 	return v.Error()
 }
 
@@ -1629,8 +1756,9 @@ type LightNodeConfig struct {
 	LabeledConfig
 	ScaledConfig
 	StalenessConfig
-	// Channel is the channel whose value drives the light's on state.
-	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Channel is the channel whose value drives the light's on state, or 0 when none
+	// does.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
 	// StrokeColor is the outline color of the light.
@@ -1653,6 +1781,8 @@ func (l *LightNodeConfig) SetDefaults() {
 func (l LightNodeConfig) Validate() error {
 	v := validate.New("LightNodeConfig")
 	v.Exec(l.LabeledConfig.Validate)
+	v.Exec(l.ScaledConfig.Validate)
+	v.Exec(l.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1691,10 +1821,11 @@ type OffPageReferenceNodeConfig struct {
 	// FillColor is the fill color of a linked reference. An unlinked reference draws
 	// its outline in this color.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// Page is the page this reference links to.
-	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
-	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
-	DblClickNavDisabled bool `json:"dbl_click_nav_disabled" msgpack:"dbl_click_nav_disabled"`
+	// Page is the page this reference links to. An empty key links to no page.
+	Page Page `json:"page" msgpack:"page"`
+	// DoubleClickNavigationDisabled stops double-clicking from navigating to the linked
+	// page.
+	DoubleClickNavigationDisabled bool `json:"double_click_navigation_disabled" msgpack:"double_click_navigation_disabled"`
 }
 
 func (OffPageReferenceNodeConfig) isNodeConfigVariant() {}
@@ -1703,6 +1834,7 @@ func (OffPageReferenceNodeConfig) isNodeConfigVariant() {}
 func (o *OffPageReferenceNodeConfig) SetDefaults() {
 	o.LabeledConfig.SetDefaults()
 	o.Orientation = spatial.OuterLocationRight
+	o.Page.Type = PageTypeSchematic
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1711,9 +1843,7 @@ func (o OffPageReferenceNodeConfig) Validate() error {
 	v := validate.New("OffPageReferenceNodeConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
 	v.Exec(o.LabeledConfig.Validate)
-	if o.Page != nil {
-		v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
-	}
+	v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
 	return v.Error()
 }
 
@@ -1721,19 +1851,19 @@ func (o OffPageReferenceNodeConfig) Validate() error {
 type PolygonNodeConfig struct {
 	LabeledConfig
 	// NumSides is the number of sides of the polygon.
-	NumSides float64 `json:"num_sides" msgpack:"num_sides"`
+	NumSides uint8 `json:"num_sides" msgpack:"num_sides"`
 	// SideLength is the length of each side in pixels.
-	SideLength float64 `json:"side_length" msgpack:"side_length"`
+	SideLength uint16 `json:"side_length" msgpack:"side_length"`
 	// Rotation is the rotation of the polygon in degrees.
 	Rotation float64 `json:"rotation" msgpack:"rotation"`
-	// CornerRounding is the corner rounding radius in pixels.
-	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
+	// BorderRadius is the corner radius of the polygon in pixels.
+	BorderRadius uint16 `json:"border_radius" msgpack:"border_radius"`
 	// StrokeColor is the border color of the polygon.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the polygon.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth uint8 `json:"stroke_width" msgpack:"stroke_width"`
+	// StrokeWidth is the border stroke width in pixels. Absent draws 2.
+	StrokeWidth *uint8 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
 
 func (PolygonNodeConfig) isNodeConfigVariant() {}
@@ -1743,14 +1873,17 @@ func (p *PolygonNodeConfig) SetDefaults() {
 	p.LabeledConfig.SetDefaults()
 	p.NumSides = 6
 	p.SideLength = 20
-	p.StrokeWidth = 2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PolygonNodeConfig) Validate() error {
 	v := validate.New("PolygonNodeConfig")
-	v.LessThanEq("stroke_width", p.StrokeWidth, 20)
+	v.GreaterThanEq("num_sides", p.NumSides, 3)
+	v.GreaterThanEq("side_length", p.SideLength, 1)
+	if p.StrokeWidth != nil {
+		v.LessThanEq("stroke_width", *p.StrokeWidth, 20)
+	}
 	v.Exec(p.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -1761,22 +1894,24 @@ type SelectNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the select.
 	Size ComponentSize `json:"size" msgpack:"size"`
-	// CommandChannel is the channel the selected value is written to.
-	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
-	// StateChannel is the channel that reports the state the device holds.
-	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel the selected value is written to, or 0 when the
+	// symbol writes to none.
+	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
+	// StateChannel is the channel that reports the state the device holds, or 0 when
+	// none does.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
 	// FillColor is the fill color of the Set button, which the select border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
+	Control ControlStateConfig `json:"control" msgpack:"control"`
 }
 
 func (SelectNodeConfig) isNodeConfigVariant() {}
@@ -1785,6 +1920,7 @@ func (SelectNodeConfig) isNodeConfigVariant() {}
 func (s *SelectNodeConfig) SetDefaults() {
 	s.LabeledConfig.SetDefaults()
 	s.StalenessConfig.SetDefaults()
+	s.Control.SetDefaults()
 	s.Size = ComponentSizeMedium
 	s.InlineSize = 100
 }
@@ -1794,10 +1930,12 @@ func (s *SelectNodeConfig) SetDefaults() {
 func (s SelectNodeConfig) Validate() error {
 	v := validate.New("SelectNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.GreaterThanEq("inline_size", s.InlineSize, 1)
+	v.GreaterThanEq("on_click_delay", s.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
-	if s.Control != nil {
-		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
-	}
+	v.Exec(s.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	return v.Error()
 }
 
@@ -1806,7 +1944,7 @@ type ScaleNodeConfig struct {
 	LabeledConfig
 	ScaleIndicatorConfig
 	// Position is the offset of the scale contents within the symbol.
-	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
 	// to the rendered size.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
@@ -1839,12 +1977,15 @@ type SetpointNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the setpoint.
 	Size ComponentSize `json:"size" msgpack:"size"`
-	// CommandChannel is the channel submitted setpoints are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
-	// StateChannel is the channel that reports the value the device holds.
-	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
-	// Dimensions is the rendered size of the setpoint in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+	// CommandChannel is the channel submitted setpoints are written to, or 0 when the
+	// symbol writes to none.
+	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
+	// StateChannel is the channel that reports the value the device holds, or 0 when
+	// none does.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// Dimensions is the rendered size of the setpoint in pixels. Zero sizes it to its
+	// content.
+	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// FillColor is the fill color of the Set button, which the setpoint border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
@@ -1852,11 +1993,11 @@ type SetpointNodeConfig struct {
 	// Disabled indicates whether the setpoint rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
+	Control ControlStateConfig `json:"control" msgpack:"control"`
 }
 
 func (SetpointNodeConfig) isNodeConfigVariant() {}
@@ -1865,6 +2006,7 @@ func (SetpointNodeConfig) isNodeConfigVariant() {}
 func (s *SetpointNodeConfig) SetDefaults() {
 	s.LabeledConfig.SetDefaults()
 	s.StalenessConfig.SetDefaults()
+	s.Control.SetDefaults()
 	s.Size = ComponentSizeMedium
 	s.InlineSize = 100
 }
@@ -1874,10 +2016,12 @@ func (s *SetpointNodeConfig) SetDefaults() {
 func (s SetpointNodeConfig) Validate() error {
 	v := validate.New("SetpointNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.GreaterThanEq("inline_size", s.InlineSize, 1)
+	v.GreaterThanEq("on_click_delay", s.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
-	if s.Control != nil {
-		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
-	}
+	v.Exec(s.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	return v.Error()
 }
 
@@ -1885,12 +2029,13 @@ func (s SetpointNodeConfig) Validate() error {
 type StateIndicatorNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
-	// Channel is the channel whose value selects the displayed state.
-	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Channel is the channel whose value selects the displayed state, or 0 when none
+	// does.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// StrokeColor is the border color of the indicator.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
 	// Size is the rendered size preset of the indicator.
@@ -1912,7 +2057,9 @@ func (s *StateIndicatorNodeConfig) SetDefaults() {
 func (s StateIndicatorNodeConfig) Validate() error {
 	v := validate.New("StateIndicatorNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.GreaterThanEq("inline_size", s.InlineSize, 1)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1927,9 +2074,10 @@ type StringDisplayNodeConfig struct {
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
-	// Channel is the channel whose string value the symbol displays.
-	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
+	// Channel is the channel whose string value the symbol displays, or 0 when it
+	// displays none.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Level is the typography level of the displayed text.
 	Level text.Level `json:"level" msgpack:"level"`
 }
@@ -1949,7 +2097,9 @@ func (s *StringDisplayNodeConfig) SetDefaults() {
 func (s StringDisplayNodeConfig) Validate() error {
 	v := validate.New("StringDisplayNodeConfig")
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.GreaterThanEq("inline_size", s.InlineSize, 1)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1977,8 +2127,8 @@ type TextBoxNodeConfig struct {
 	LabeledConfig
 	// TextColor is the text color.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
-	// Width is the rendered width of the text box in pixels.
-	Width float64 `json:"width" msgpack:"width"`
+	// InlineSize is the rendered inline size of the text box in pixels.
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Align is the alignment of the text within the box.
 	Align FlexAlignment `json:"align" msgpack:"align"`
 	// AutoFitDisabled stops the box from resizing to fit its content.
@@ -1994,10 +2144,9 @@ func (TextBoxNodeConfig) isNodeConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TextBoxNodeConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
-	t.Width = 75
+	t.InlineSize = 75
 	t.Align = FlexAlignmentCenter
 	t.Level = text.LevelP
-	t.Value = "Text box"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2006,6 +2155,7 @@ func (t TextBoxNodeConfig) Validate() error {
 	v := validate.New("TextBoxNodeConfig")
 	v.Ternaryf("align", !t.Align.IsValid(), "invalid align: %v", t.Align)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
+	v.GreaterThanEq("inline_size", t.InlineSize, 1)
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -2016,7 +2166,7 @@ type ValueNodeConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
-	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 	// StrokeColor is the color of the value's border and units divider.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// TextColor is the color of the displayed value.
@@ -2031,7 +2181,7 @@ type ValueNodeConfig struct {
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Location is the anchor of the value within the symbol.
@@ -2056,8 +2206,10 @@ func (va *ValueNodeConfig) SetDefaults() {
 func (va ValueNodeConfig) Validate() error {
 	v := validate.New("ValueNodeConfig")
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
+	v.GreaterThanEq("inline_size", va.InlineSize, 1)
 	v.Exec(va.LabeledConfig.Validate)
 	v.Exec(va.NumericTelemConfig.Validate)
+	v.Exec(va.StalenessConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -3158,23 +3310,24 @@ func (c *CylinderNodeConfig) SetDefaults() {
 func (c CylinderNodeConfig) Validate() error {
 	v := validate.New("CylinderNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
 // TankNodeConfig is the configuration for tank vessel symbols.
 type TankNodeConfig struct {
 	LabeledConfig
-	// Channel is the channel whose value the symbol displays.
-	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Channel is the channel whose value the symbol displays, or 0 when it displays
+	// none.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// RollingAverage is the number of samples in the rolling average.
+	RollingAverage uint16 `json:"rolling_average" msgpack:"rolling_average"`
 	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessTimeout is the span after which the value is considered stale.
+	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
 	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
@@ -3195,15 +3348,15 @@ type TankNodeConfig struct {
 	// Level is the typography level of the tick labels.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Position is the offset of the tank contents within the symbol.
-	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 	// StrokeColor is the color of the tank's wall.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the tank body.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// BorderRadius is the corner radius of the tank.
-	BorderRadius border.Radius `json:"border_radius" msgpack:"border_radius"`
+	// BorderRadius is the corner radius of the tank. Absent draws 50 by 10 percent.
+	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
 	// CaretVisible shows the caret marking the current level.
 	CaretVisible bool `json:"caret_visible" msgpack:"caret_visible"`
 	// ScaleVisible shows the axis and its tick labels.
@@ -3217,21 +3370,14 @@ func (TankNodeConfig) isNodeConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TankNodeConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
+	t.RollingAverage = 1
 	t.Notation = "standard"
-	t.StalenessTimeout = 5
+	t.StalenessTimeout = 5000000000
 	t.Bounds.Upper = 100
 	t.CaretSide = spatial.OuterLocationRight
 	t.Level = text.LevelSmall
 	t.Dimensions.Width = 125
 	t.Dimensions.Height = 200
-	t.BorderRadius.TopLeft.X = 50
-	t.BorderRadius.TopLeft.Y = 10
-	t.BorderRadius.TopRight.X = 50
-	t.BorderRadius.TopRight.Y = 10
-	t.BorderRadius.BottomLeft.X = 50
-	t.BorderRadius.BottomLeft.Y = 10
-	t.BorderRadius.BottomRight.X = 50
-	t.BorderRadius.BottomRight.Y = 10
 	t.Side = spatial.OuterLocationLeft
 }
 
@@ -3243,9 +3389,12 @@ func (t TankNodeConfig) Validate() error {
 	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
+	v.GreaterThanEq("rolling_average", t.RollingAverage, 1)
 	if t.Precision != nil {
 		v.LessThanEq("precision", *t.Precision, 17)
 	}
+	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1000000000)
+	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -3318,6 +3467,7 @@ func (c *CustomStaticNodeConfig) SetDefaults() {
 func (c CustomStaticNodeConfig) Validate() error {
 	v := validate.New("CustomStaticNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 

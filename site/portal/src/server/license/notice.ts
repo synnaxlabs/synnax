@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type License, type Organization } from "@/server/db/schema";
-import { channels, term } from "@/server/license/limits";
-import { type Fact, type Notice } from "@/server/mail";
+import { strings } from "@synnaxlabs/x";
 
-const inDays = (days: number): string => `${days} ${days === 1 ? "day" : "days"}`;
+import type { License, Organization } from "@/server/db/schema";
+import { channels, term } from "@/server/license/limits";
+import type { Fact, Notice } from "@/server/mail";
+
+const inDays = (days: number): string => strings.count(days, "day");
 
 const facts = (lic: License, org: Organization): Fact[] => [
   { label: "License", value: lic.label },

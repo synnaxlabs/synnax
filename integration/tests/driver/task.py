@@ -19,12 +19,14 @@ import sys
 from abc import abstractmethod
 from collections.abc import Callable
 from contextlib import AbstractContextManager, ExitStack
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol, TypeAlias
 
 from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
+from framework.utils import hold
+from freighter.websocket import ConnectionClosedError
 from x.telem import to_float
 
 _STATUS_CHANNEL = "sy_status_set"
@@ -34,10 +36,8 @@ _STATUS_CHANNEL = "sy_status_set"
 # time to reach steady state.
 RATE_TOLERANCE = 0.20
 
-ConfigT = TypeVar("ConfigT", bound=sy.task.StartConfig, covariant=True)
 
-
-class DriverTask(Protocol[ConfigT]):
+class DriverTask[ConfigT: sy.task.StartConfig](Protocol):
     """A typed hardware task, such as ``sy.modbus.ReadTask``."""
 
     _internal: sy.Task
@@ -68,8 +68,10 @@ class DriverTask(Protocol[ConfigT]):
     ) -> sy.Device | None: ...
 
 
-TaskT = TypeVar("TaskT", bound=DriverTask[sy.task.StartConfig])
-ReadTaskT = TypeVar("ReadTaskT", bound=DriverTask[sy.task.PersistConfig])
+Task: TypeAlias = DriverTask[sy.task.StartConfig]
+"""The bound of the task that a TaskCase tests."""
+ReadTask: TypeAlias = DriverTask[sy.task.PersistConfig]
+"""The bound of the task that a ReadTaskCase tests."""
 
 # ── Channel creation helpers ─────────────────────────────────────
 
@@ -196,7 +198,7 @@ def send_and_verify_commands(
                 finally:
                     try:
                         writer.close()
-                    except Exception:
+                    except (sy.Error, ConnectionClosedError):
                         pass
                 if verified and statuses is not None and task_key is not None:
                     task_errors = _buffered_task_errors(statuses, task_key)
@@ -212,7 +214,7 @@ def send_and_verify_commands(
                 ">>> Retrying command send and verify... "
                 f"({attempt + 1}/{max_attempts})"
             )
-            sy.sleep(2)  # noqa: TID251 retry backoff
+            hold(2, reason="retry backoff")
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
@@ -573,7 +575,7 @@ def collect_samples(
                     f"samples, last frame had {batch}"
                 )
     start = sy.TimeStamp.now()
-    sy.sleep(duration.seconds)  # noqa: TID251 fixed sample window
+    hold(duration.seconds, reason="fixed sample window")
     return start
 
 
@@ -643,7 +645,7 @@ def delete_channels(client: sy.Synnax, keys: list[int]) -> None:
         client.channels.delete(list(index_keys))
 
 
-class TaskCase(TestCase, Generic[TaskT]):
+class TaskCase[TaskT: Task](TestCase):
     """Base class for driver task lifecycle tests.
 
     Provides setup/cleanup, channel key extraction, and generic assertions.
@@ -769,7 +771,7 @@ class TaskCase(TestCase, Generic[TaskT]):
         raise AssertionError(f"Device '{device.name}' still exists after deletion")
 
 
-class ReadTaskCase(TaskCase[ReadTaskT]):
+class ReadTaskCase[ReadTaskT: ReadTask](TaskCase[ReadTaskT]):
     """Base for read task lifecycle tests.
 
     Adds sample counting, data saving toggle, rate reconfiguration,
@@ -843,14 +845,13 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                     )
             try:
                 self.client.channels.delete(ch.key)
+            except sy.Error:
+                pass
+            else:
                 raise AssertionError(
                     f"Channel '{ch.name}' deletion should have been rejected while "
                     "task is running"
                 )
-            except AssertionError:
-                raise
-            except Exception:
-                pass  # Win condition
 
     def assert_sample_count(
         self,
@@ -903,7 +904,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                         "Task is not streaming data with data_saving disabled"
                     )
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)  # noqa: TID251 fixed sample window
+            hold(duration.seconds * 1.25, reason="fixed sample window")
 
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)
@@ -918,7 +919,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                 )
 
 
-class WriteTaskCase(TaskCase[TaskT]):
+class WriteTaskCase[TaskT: Task](TaskCase[TaskT]):
     """Base for write task lifecycle tests.
 
     Adds command sending and task reconfiguration testing.

@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { deep, type text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
+import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
 import { Gauge as VisGauge } from "@/vis/gauge";
 import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
@@ -34,6 +34,7 @@ const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   step: 1,
   bounds: { lower: 1, upper: 50 },
   endContent: "px",
+  integer: true,
   dragScale: { x: 0.1, y: 0.1 },
 };
 

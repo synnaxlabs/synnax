@@ -16,9 +16,10 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { Nav } from "@/components/nav";
+import { APP_ID, ORIGIN } from "@/components/search/algolia";
 import {
   type Entry,
   fromHit,
@@ -30,14 +31,12 @@ import { Text as DocsText } from "@/components/text";
 import { indexName } from "@/util/version";
 import { VERSION } from "@/version";
 
-const ALGOLIA_APP_ID = "YWD9T0JXCS";
 const ALGOLIA_SEARCH_ONLY_API_KEY = "1f8b0497301392c94adedf89a98afb6f";
 const ALGOLIA_INDEX = indexName(VERSION?.name ?? null);
-const ALGOLIA_ORIGIN = `https://${ALGOLIA_APP_ID}-dsn.algolia.net`;
-const ALGOLIA_URL = `${ALGOLIA_ORIGIN}/1/indexes/${ALGOLIA_INDEX}/query`;
+const ALGOLIA_URL = `${ORIGIN}/1/indexes/${ALGOLIA_INDEX}/query`;
 const ALGOLIA_HEADERS = {
   "X-Algolia-API-Key": ALGOLIA_SEARCH_ONLY_API_KEY,
-  "X-Algolia-Application-Id": ALGOLIA_APP_ID,
+  "X-Algolia-Application-Id": APP_ID,
 };
 
 // A result shows the icon of the deepest nav group that has one, such as a vendor under
@@ -180,13 +179,15 @@ export const Results = (): ReactElement => {
   const { close, visible } = Dialog.useContext();
   const [value, setValue] = useState<string>("");
   const [data, setData] = useState<Result[]>([]);
+  const latest = useRef("");
   const handleSearch = useCallback(
     (query: string) => {
       setValue(query);
+      latest.current = query;
       if (query.length === 0) return;
       void search(query)
         .then((data) => {
-          setData(data);
+          if (query === latest.current) setData(data);
         })
         .catch(console.error);
     },

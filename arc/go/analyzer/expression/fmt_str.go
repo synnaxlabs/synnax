@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/literal"
@@ -23,21 +24,21 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// AnalyzeFmtStrLiteral splits a format-string token (STR_LITERAL or STR_LITERAL_MULTI
+// analyzeFmtStrLiteral splits a format-string token (STR_LITERAL or STR_LITERAL_MULTI
 // with f/rf prefix) into segments and analyzes its placeholders in ctx's scope. Each
 // placeholder parses at its position in the source. The segments go in ctx.FmtStrings
 // under strTerm, and a later call reuses them. Placeholder diagnostics anchor on the
 // offending `{...}` span.
-func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
+func analyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	strTerm antlr.TerminalNode,
 ) {
 	text := strTerm.GetText()
 	body, flags, ok := literal.StripQuotes(text)
 	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Error(
-			errors.Newf("invalid string literal: %s", text), ctx.AST,
-		))
+		ctx.Diagnostics.Add(
+			codes.InvalidStringLiteral.Atf(ctx.AST, "invalid string literal: %s", text),
+		)
 		return
 	}
 	if !flags.Format {
@@ -45,7 +46,7 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	}
 	segments, err := literal.FmtStrSplit(body, flags)
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.InvalidStringLiteral.Wrap(err, ctx.AST))
 		return
 	}
 	sym := strTerm.GetSymbol()
@@ -94,7 +95,9 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
 	}
 	if seg.Text == "" {
-		emit(diagnostics.Errorf(ctx.AST, "placeholder '{}' must contain an expression"))
+		emit(codes.InvalidStringLiteral.Atf(
+			ctx.AST, "placeholder '{}' must contain an expression",
+		))
 		return
 	}
 	if !analyzed {
@@ -104,7 +107,7 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 			ctx.Config,
 		)
 		if diags != nil && !diags.Ok() {
-			emit(diagnostics.Errorf(ctx.AST,
+			emit(codes.InvalidStringLiteral.Atf(ctx.AST,
 				"invalid placeholder expression %q: %s", seg.Text, diags.String()))
 			return
 		}
@@ -121,7 +124,7 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 	t := types.InferFromExpression(ctx.Child(out.Expr)).UnwrapChan()
 	if !t.IsNumeric() && t.Kind != basetypes.KindString &&
 		t.Kind != basetypes.KindBool {
-		emit(diagnostics.Errorf(
+		emit(codes.InvalidStringLiteral.Atf(
 			ctx.AST,
 			"placeholder %q has type %s; only numeric, string, and bool types are supported",
 			seg.Text,
@@ -133,7 +136,7 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 		return
 	}
 	if err := literal.FmtStrValidateSpec(seg.Spec, t); err != nil {
-		emit(diagnostics.Error(err, ctx.AST))
+		emit(codes.InvalidStringLiteral.Wrap(err, ctx.AST))
 	}
 }
 
@@ -178,7 +181,7 @@ func readsFailedImport[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) bool {
-	for _, primary := range parser.CollectNamedPrimaries(expr) {
+	for _, primary := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
 		head, tail := parser.PrimaryNameParts(primary)
 		if _, err := ctx.ResolveQualified(head, tail); errors.Is(
 			err,

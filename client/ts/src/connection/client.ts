@@ -14,8 +14,8 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
-  migrate,
   observe,
+  semver,
   sync,
   TimeSpan,
   TimeStamp,
@@ -94,7 +94,7 @@ export interface CheckParams {
 export const check = async (params: CheckParams): Promise<Status> => {
   const { host, port, secure = false, name } = params;
   const endpoint = new url.URL({ host, port: Number(port) });
-  const transport = new Transport(endpoint, {}, secure);
+  const transport = new Transport({ url: endpoint, secure });
   transport.use(errorsMiddleware);
   const cfg: Config = {
     clientVersion: __VERSION__,
@@ -535,7 +535,7 @@ export class Client implements Handle {
     if (clientServerCompatible || this.versionWarned) return;
     this.versionWarned = true;
     const clientIsNewer =
-      nodeVersion == null || migrate.semVerNewer(clientVersion, nodeVersion);
+      nodeVersion == null || semver.newer(clientVersion, nodeVersion);
     const toUpgrade = clientIsNewer ? "Core" : "client";
     console.warn(
       `The Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ` +

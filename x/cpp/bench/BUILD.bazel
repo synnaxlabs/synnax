@@ -10,11 +10,18 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
+    name = "alloc",
+    srcs = ["alloc.cpp"],
+    hdrs = ["alloc.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "bench",
-    srcs = ["bench.cpp"],
     hdrs = ["bench.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":alloc",
         "@google_benchmark//:benchmark",
     ],
 )

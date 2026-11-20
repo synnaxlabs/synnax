@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
@@ -20,8 +20,9 @@ const path = deep.path<schematic.CircleNodeConfig>();
 
 const RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.5, y: 2.5 },
-  bounds: { lower: 0, upper: 500 },
+  bounds: { lower: 1, upper: 500 },
   endContent: "px",
+  integer: true,
 };
 
 export const CircleForm = (): ReactElement => (
@@ -37,11 +38,7 @@ export const CircleForm = (): ReactElement => (
         label="Radius"
         inputProps={RADIUS_INPUT_PROPS}
       />
-      <Base.NumericField
-        path={path.strokeWidth}
-        label="Border width"
-        inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-      />
+      <Form.StrokeWidthField />
     </Base.Section>
   </Base.Sections>
 );

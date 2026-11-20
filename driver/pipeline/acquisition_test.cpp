@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <mutex>
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 #include "absl/log/globals.h"
 #include "gtest/gtest.h"
@@ -95,6 +101,16 @@ x::breaker::Config fast_breaker(const int max_retries) {
     };
 }
 
+/// @brief returns an address in the caller's stack frame. Calls from the same stack
+/// depth return the same address.
+std::uintptr_t stack_address() {
+#ifdef _MSC_VER
+    return reinterpret_cast<std::uintptr_t>(_AddressOfReturnAddress());
+#else
+    return reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
+#endif
+}
+
 /// @brief a writer factory that fails each open or each close until an outage ends.
 class OutageWriterFactory final : public WriterFactory {
     /// @brief whether the outage fails opens instead of closes.
@@ -106,6 +122,10 @@ public:
     /// @brief the frames written after the outage.
     const std::shared_ptr<x::sync::List<x::telem::Frame>>
         writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    /// @brief the lowest stack address of an open.
+    std::uintptr_t stack_min = UINTPTR_MAX;
+    /// @brief the highest stack address of an open.
+    std::uintptr_t stack_max = 0;
 
     /// @param on_open whether the outage fails opens instead of closes.
     /// @param retries the number of retries the outage lasts.
@@ -114,6 +134,9 @@ public:
 
     std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &) override {
+        const auto address = stack_address();
+        this->stack_min = std::min(this->stack_min, address);
+        this->stack_max = std::max(this->stack_max, address);
         if (this->remaining == 0)
             return {std::make_unique<testutil::Writer>(this->writes), x::errors::NIL};
         this->remaining--;
@@ -125,19 +148,24 @@ public:
     }
 };
 
-/// @brief expects the pipeline to write a frame after an outage that would overflow
-/// the thread's stack if each retry grew it.
+/// @brief expects the pipeline to write a frame after an outage, and to open the
+/// writer at the same stack depth on each retry.
 void expect_writes_after_long_outage(const bool on_open) {
     absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfinity);
     x::defer::defer restore([] {
         absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfo);
     });
-    const auto factory = std::make_shared<OutageWriterFactory>(on_open, 100'000);
+    const auto factory = std::make_shared<OutageWriterFactory>(on_open, 1'000);
     auto pipeline = Acquisition(
         factory,
         synnax::framer::WriterConfig(),
         std::make_shared<ScriptedSource>(std::vector<x::errors::Error>{}),
-        fast_breaker(x::breaker::RETRY_INFINITELY)
+        // Windows can round any nonzero wait up to a timer tick.
+        x::breaker::Config{
+            .name = "pipeline",
+            .base_interval = x::telem::TimeSpan::ZERO(),
+            .max_retries = x::breaker::RETRY_INFINITELY,
+        }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
@@ -147,6 +175,7 @@ void expect_writes_after_long_outage(const bool on_open) {
         std::chrono::milliseconds(1)
     );
     ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->stack_min, factory->stack_max);
 }
 
 /// @brief it should retry opening the writer through a long outage.
@@ -676,6 +705,44 @@ TEST(AcquisitionPipeline, ForwardsAuthorityChanges) {
     ASSERT_EQ(change.authorities.size(), 2);
     EXPECT_EQ(change.authorities[0], 100);
     EXPECT_EQ(change.authorities[1], 200);
+}
+
+class InvalidAuthoritySource final : public Source {
+public:
+    x::errors::Error stopped_err = x::errors::NIL;
+
+    x::errors::Error read(
+        x::breaker::Breaker &,
+        x::telem::Frame &fr,
+        Authorities &authorities
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        fr.emplace(1, x::telem::Series(x::telem::TimeStamp::now()));
+        authorities = Authorities{.keys = {1, 2}, .authorities = {1, 2, 3}};
+        return x::errors::NIL;
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+/// @brief it should report invalid authorities from the source as the error that
+/// stopped the pipeline.
+TEST(AcquisitionPipeline, ReportsInvalidAuthorities) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(writes);
+    const auto source = std::make_shared<InvalidAuthoritySource>();
+    auto pipe = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_FALSE(pipe.running());
+    pipe.stop();
+    ASSERT_OCCURRED_AS(source->stopped_err, x::errors::VALIDATION);
 }
 
 class MultiAuthoritySource final : public Source {

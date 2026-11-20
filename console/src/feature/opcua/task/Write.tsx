@@ -9,18 +9,15 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
 import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
-  MAKE,
-  migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
@@ -29,13 +26,11 @@ import {
   deployWriteConfigZ,
   type ScannedNode,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteChannel,
   type WriteSchemas,
 } from "@/feature/opcua/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -66,13 +61,17 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
 
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
-const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
+  channels,
+  keys,
+  target,
+}) => {
   const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
   if (cmdChannel == null) return null;
-  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"));
+  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"), target);
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />
@@ -98,26 +97,16 @@ const TaskForm: FC = createForm<WriteChannel>({
   resolve,
 });
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "OPC UA write task", type: WRITE_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  let dev = await client.devices.retrieve({
+  const dev = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   try {
-    dev = { ...dev, properties: migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);
@@ -179,16 +168,3 @@ export const Write = Task.wrapForm({
   type: "opc_write",
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "OPC UA write task",
-  label: "Write",
-  icon: <Icon.Logo.OPCUA />,
-  useOnSelect: useCreateWrite,
-};

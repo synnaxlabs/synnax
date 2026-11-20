@@ -15,7 +15,9 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
@@ -61,5 +63,61 @@ TEST(RackTest, FatalErrorStopsRack) {
     r.start(args, [&] { shut_down = true; });
     ASSERT_EVENTUALLY_TRUE(shut_down.load());
     ASSERT_OCCURRED_AS(r.stop(), synnax::auth::ERR_INVALID_CREDENTIALS);
+}
+
+/// @brief it should keep waiting for an unreachable Core past its retry limit after its
+/// first run.
+TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
+    const auto conn = test_client_config();
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("outage rack"));
+    const auto cluster_key = client.connectivity->check().cluster_key;
+    CorePipe pipe(conn.port);
+    auto args = fresh_args({
+        "--host",
+        "127.0.0.1",
+        "--port",
+        std::to_string(pipe.port),
+        "--username",
+        conn.username,
+        "--password",
+        conn.password,
+    });
+    const auto kv = ASSERT_NIL_P(
+        x::kv::JSONFile::open_file({
+            .path = RACK_STATE_PATH,
+            .dir_mode = std::filesystem::perms::owner_all,
+            .file_mode = std::filesystem::perms::owner_read |
+                         std::filesystem::perms::owner_write,
+        })
+    );
+    ASSERT_NIL(kv->set(
+        "remote_info",
+        x::json::json{{"rack_key", rack.key}, {"cluster_key", cluster_key}}.dump()
+    ));
+    std::atomic shut_down = false;
+    Rack r({
+        .name = "driver",
+        .base_interval = x::telem::MILLISECOND,
+        .max_retries = 2,
+        .scale = 1,
+        .max_interval = x::telem::MILLISECOND,
+    });
+    r.start(args, [&] { shut_down = true; });
+    const auto running = [&] {
+        const synnax::rack::RetrieveOptions opts{.include_status = true};
+        const auto [remote, err] = client.racks.retrieve(rack.key, opts);
+        return !err && remote.status.has_value() && remote.status->details.running;
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        running(),
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(100)
+    );
+    pipe.pause();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    ASSERT_FALSE(shut_down);
+    pipe.resume();
+    ASSERT_NIL(r.stop());
 }
 }

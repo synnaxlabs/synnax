@@ -12,8 +12,10 @@ package start
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -34,17 +36,21 @@ import (
 	"go.uber.org/zap"
 )
 
-// Cmd represents the start command
-var Cmd = &cobra.Command{
-	Use:     "start",
-	Short:   "Starts a Synnax Core",
-	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
-	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
-	Args:    cobra.NoArgs,
-	PreRunE: func(cmd *cobra.Command, _ []string) error {
-		return viper.BindPFlags(cmd.Flags())
-	},
-	RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
+// NewCmd returns the command that starts a Synnax Core.
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "start",
+		Short:   "Starts a Synnax Core",
+		Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
+		Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
+		Args:    cobra.NoArgs,
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			return viper.BindPFlags(cmd.Flags())
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
+	}
+	AddFlags(cmd)
+	return cmd
 }
 
 // start is the entrypoint for starting a Synnax Core. It handles stop requests and
@@ -90,8 +96,8 @@ func run(cmd *cobra.Command) error {
 		return err
 	}
 
-	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, nil, cfg)
+	sCtx.Go(func(stop context.Context) error {
+		return BootupCore(ctx, stop, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
@@ -142,8 +148,6 @@ func run(cmd *cobra.Command) error {
 	return nil
 }
 
-func init() { AddFlags(Cmd) }
-
 // readLicenseKey returns the trimmed license key from the key flag, or the trimmed
 // contents of the file the path flag names when the key flag is empty.
 func readLicenseKey() (string, error) {
@@ -154,16 +158,16 @@ func readLicenseKey() (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to read the --%s file", FlagLicenseFile)
 	}
 	return strings.TrimSpace(string(b)), nil
 }
 
-// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
-// This is used by the Windows service to start the Core with the config loaded from
-// a YAML file.
+// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration over
+// the defaults. This is used by the Windows service to start the Core with the config
+// loaded from a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
@@ -186,7 +190,16 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return CoreConfig{}, errors.Wrapf(err, "invalid --%s", FlagSecretsKey)
 		}
 	}
-	return CoreConfig{
+	taskWorkerCount := viper.GetInt(FlagTaskWorkerCount)
+	if taskWorkerCount < 0 || taskWorkerCount > math.MaxUint8 {
+		return CoreConfig{}, errors.Wrapf(
+			validate.ErrValidation,
+			"--%s %d is out of range",
+			FlagTaskWorkerCount,
+			taskWorkerCount,
+		)
+	}
+	return defaultCoreConfig().Override(CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		fips:                new(viper.GetBool(FlagFIPS)),
@@ -198,6 +211,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		dataPath:            viper.GetString(FlagData),
 		secretsKey:          secretsKey,
 		secretsKeyFile:      viper.GetString(FlagSecretsKeyFile),
+		secretsDir:          viper.GetString(FlagSecretsDir),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
 		sessionIdleTimeout:  viper.GetDuration(FlagSessionIdleTimeout),
 		rootCredentials: auth.Credentials{
@@ -209,10 +223,23 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),
-		taskWorkerCount:      viper.GetUint8(FlagTaskWorkerCount),
+		taskWorkerCount:      uint8(taskWorkerCount),
 		certFactoryConfig:    factoryCfg,
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
-	}, nil
+		authMethods:          authMethodsFromViper(),
+	}), nil
+}
+
+// authMethodsFromViper returns nil when the setting is unset, so the default applies,
+// and keeps an explicit empty list so that validation rejects it.
+func authMethodsFromViper() []auth.Method {
+	if !viper.IsSet(FlagAuthMethods) {
+		return nil
+	}
+	return lo.Map(
+		viper.GetStringSlice(FlagAuthMethods),
+		func(m string, _ int) auth.Method { return auth.Method(m) },
+	)
 }

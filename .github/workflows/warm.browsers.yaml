@@ -46,10 +46,12 @@ jobs:
         with:
           cache: "false"
 
+      # All packages share one cache. The client installs every browser that the others
+      # install, so its cache serves them all.
       - name: Install browsers
         uses: ./.github/actions/setup-browsers
         with:
-          package: pluto
+          package: client
 
   # CI restores only the newest cache, so the older ones only evict others.
   prune:
@@ -67,3 +69,14 @@ jobs:
           gh cache list --ref refs/heads/main --key browsers- --sort created_at \
             --order desc --limit 100 --json id --jq '.[1:][].id' |
             xargs -r -n1 gh cache delete
+
+  relay-failure:
+    name: Relay the failure
+    needs: [warm, prune]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

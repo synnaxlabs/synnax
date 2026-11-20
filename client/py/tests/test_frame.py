@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import subprocess
+import sys
 from datetime import UTC
 from types import MappingProxyType
-from typing import cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,7 +19,7 @@ import pytest
 
 import synnax as sy
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
-from synnax.framer.frame import FramePayload
+from synnax.framer.frame import FramePayload, is_dataframe
 from synnax.telem import CrudeSeries
 from x.strings import random_name
 
@@ -634,6 +636,16 @@ class TestWriteFrameAdapter:
             series: list[CrudeSeries] = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
             write_adapter.adapt(ch, series)
 
+    def test_adaptation_of_one_series_in_a_list_and_single_payload(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
+        """Should raise a validation error when one channel gets a list holding a
+        series"""
+        write_adapter, ch = adapter
+        series: list[CrudeSeries] = [sy.Series([1.0, 2.0])]
+        with pytest.raises(sy.ValidationError):
+            write_adapter.adapt(ch, series)
+
     def test_adaptation_of_single_channel_and_no_data(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
     ) -> None:
@@ -677,8 +689,9 @@ class TestWriteFrameAdapter:
     ) -> None:
         """Should raise a type error when an invalid value is adapted"""
         write_adapter, _ = adapter
+        invalid: Any = Exception("Invalid value")
         with pytest.raises(TypeError):
-            write_adapter.adapt(cast(sy.Frame, Exception("Invalid value")))
+            write_adapter.adapt(invalid)
 
     def test_adapt_dict_keys(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
@@ -710,6 +723,19 @@ class TestWriteFrameAdapter:
         adapter.update(ch.name)
         adapted = adapter.adapt(ch.name, "hello")
         assert adapted[ch.key][0] == "hello"
+
+    def test_adapt_list_of_strings_to_single_channel(self, client: sy.Synnax) -> None:
+        """Should adapt a list of strings for one channel into one string series"""
+        ch = client.channels.create(
+            name=f"test_{random_name()}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+        )
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
+        adapter.update(ch.name)
+        adapted = adapter.adapt(ch.name, ["hello", "world"])
+        assert adapted.channels == [ch.key]
+        assert list(adapted[ch.key]) == ["hello", "world"]
 
 
 @pytest.mark.framer
@@ -1161,3 +1187,37 @@ class TestReadFrameAdapter:
         )
         adapted = adapter.adapt(frame)
         assert list(adapted.to_df().columns) == [ch1.name, ch2.name]
+
+
+@pytest.mark.framer
+class TestIsDataframe:
+    def test_data_frame(self) -> None:
+        """Should be true for a pandas DataFrame."""
+        assert is_dataframe(pd.DataFrame({"a": [1]}))
+
+    @pytest.mark.parametrize(
+        "value", [{"a": [1]}, [1, 2], sy.Frame({1: sy.Series([1])}), None]
+    )
+    def test_other_values(self, value: object) -> None:
+        """Should be false for any value that is not a DataFrame."""
+        assert not is_dataframe(value)
+
+
+@pytest.mark.framer
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy imports need Python 3.15")
+class TestFramePandasLoading:
+    def test_frame_without_pandas(self) -> None:
+        """Should build frames from mappings and lists without loading pandas."""
+        script = (
+            "import sys\n"
+            "import synnax as sy\n"
+            "f = sy.Frame({1: sy.Series([1.0, 2.0])})\n"
+            "sy.Frame([1, 2], [sy.Series([1]), sy.Series([2])])\n"
+            "sy.Frame(f)\n"
+            "print('pandas' in sys.modules)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"

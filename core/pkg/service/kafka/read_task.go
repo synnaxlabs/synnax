@@ -97,10 +97,10 @@ type readTask struct {
 	client *kgo.Client
 	// closer releases the consumer, nil once released.
 	closer io.Closer
-	// sCtx is the consumer's context. A consumer that fails cancels it.
+	// sCtx is the consumer's context. A consumer that panics or fails without a report
+	// cancels it.
 	sCtx signal.Context
-	// failed is set before the consumer reports its failure. sCtx only cancels once the
-	// consumer exits, after the report.
+	// failed is set before the consumer reports its failure.
 	failed atomic.Bool
 	// skips counts the records of the current run that the task reads and skips.
 	skips *driver.Skips
@@ -156,8 +156,43 @@ func buildReadGroups(
 	svc *channel.Service,
 	cfg ReadConfig,
 ) (map[string]*readGroup, error) {
-	var keys channel.Keys
+	keys, err := enabledFieldKeys(cfg.Records)
+	if err != nil {
+		return nil, err
+	}
+	channels, err := retrieveChannels(ctx, db, svc, keys)
+	if err != nil {
+		return nil, err
+	}
+	claimed := make(set.Set[string])
+	groups := make(map[string]*readGroup)
 	for _, rec := range cfg.Records {
+		if claimed.Contains(rec.RecordKey) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"record key %q: claimed by more than one record",
+				rec.RecordKey,
+			)
+		}
+		claimed.Add(rec.RecordKey)
+		g, err := newReadGroup(rec, channels)
+		if err != nil {
+			return nil, err
+		}
+		if g != nil {
+			groups[rec.RecordKey] = g
+		}
+	}
+	if err = assignGroupIndexes(groups); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+// enabledFieldKeys returns the channels of the enabled fields of records.
+func enabledFieldKeys(records []ReadRecord) (channel.Keys, error) {
+	var keys channel.Keys
+	for _, rec := range records {
 		for _, fld := range rec.Fields {
 			if fld.Disabled {
 				continue
@@ -182,79 +217,85 @@ func buildReadGroups(
 			validate.ErrValidation, "records: at least one field must be enabled",
 		)
 	}
-	channels, err := retrieveChannels(ctx, db, svc, keys)
-	if err != nil {
-		return nil, err
-	}
-	claimed := make(set.Set[string])
-	groups := make(map[string]*readGroup)
-	for _, rec := range cfg.Records {
-		if claimed.Contains(rec.RecordKey) {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"record key %q: claimed by more than one record",
-				rec.RecordKey,
-			)
-		}
-		claimed.Add(rec.RecordKey)
-		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
-		var pointers []xjson.Pointer
-		for _, fld := range rec.Fields {
-			if fld.Disabled {
-				continue
-			}
-			ch := channels[fld.Channel]
-			if ch.DataType != fld.DataType {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"field %q: data type %s does not match channel %s (%s)",
-					fld.Key, fld.DataType, ch.Name, ch.DataType,
-				)
-			}
-			if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"field %q: time_format is required for timestamp channel %s",
-					fld.Key, ch.Name,
-				)
-			}
-			if isIndex := fld.Key == rec.Index; isIndex != ch.IsIndex {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"field %q: only the record's index field targets an index channel",
-					fld.Key,
-				)
-			}
-			pointer, err := xjson.ParsePointer(fld.Pointer)
-			if err != nil {
-				return nil, errors.Wrapf(err, "field %q", fld.Key)
-			}
-			dec, err := newDecoder(fld, ch)
-			if err != nil {
-				return nil, errors.Wrapf(err, "field %q", fld.Key)
-			}
-			if fld.Key == rec.Index {
-				g.stamp = len(g.fields)
-			}
-			g.fields = append(g.fields, fld)
-			g.channels = append(g.channels, ch)
-			pointers = append(pointers, pointer)
-			g.columns = append(g.columns, newColumn(dec, ch.DataType))
-		}
-		if len(g.fields) == 0 {
+	return keys, nil
+}
+
+// newReadGroup returns the group of rec, or nil when rec has no enabled fields.
+// channels holds the channel of each enabled field.
+func newReadGroup(
+	rec ReadRecord,
+	channels map[channel.Key]channel.Channel,
+) (*readGroup, error) {
+	g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
+	var pointers []xjson.Pointer
+	for _, fld := range rec.Fields {
+		if fld.Disabled {
 			continue
 		}
-		g.extractor = xjson.NewExtractor(pointers)
-		g.values = make([]jsontext.Value, len(g.fields))
-		if rec.Index != "" && g.stamp == -1 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"record key %q: index field %q is not an enabled field",
-				rec.RecordKey, rec.Index,
-			)
+		ch := channels[fld.Channel]
+		if err := validateReadField(rec, fld, ch); err != nil {
+			return nil, err
 		}
-		groups[rec.RecordKey] = g
+		pointer, err := xjson.ParsePointer(fld.Pointer)
+		if err != nil {
+			return nil, errors.Wrapf(err, "field %q", fld.Key)
+		}
+		dec, err := newDecoder(fld, ch)
+		if err != nil {
+			return nil, errors.Wrapf(err, "field %q", fld.Key)
+		}
+		if fld.Key == rec.Index {
+			g.stamp = len(g.fields)
+		}
+		g.fields = append(g.fields, fld)
+		g.channels = append(g.channels, ch)
+		pointers = append(pointers, pointer)
+		g.columns = append(g.columns, newColumn(dec, ch.DataType))
 	}
+	if len(g.fields) == 0 {
+		return nil, nil
+	}
+	g.extractor = xjson.NewExtractor(pointers)
+	g.values = make([]jsontext.Value, len(g.fields))
+	if rec.Index != "" && g.stamp == -1 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"record key %q: index field %q is not an enabled field",
+			rec.RecordKey, rec.Index,
+		)
+	}
+	return g, nil
+}
+
+// validateReadField checks that fld, a field of rec, fits ch, the channel it writes to.
+func validateReadField(rec ReadRecord, fld ReadField, ch channel.Channel) error {
+	if ch.DataType != fld.DataType {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"field %q: data type %s does not match channel %s (%s)",
+			fld.Key, fld.DataType, ch.Name, ch.DataType,
+		)
+	}
+	if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"field %q: time_format is required for timestamp channel %s",
+			fld.Key, ch.Name,
+		)
+	}
+	if isIndex := fld.Key == rec.Index; isIndex != ch.IsIndex {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"field %q: only the record's index field targets an index channel",
+			fld.Key,
+		)
+	}
+	return nil
+}
+
+// assignGroupIndexes sets the index and the streamed keys of each group, and
+// validates that no two groups write to one index.
+func assignGroupIndexes(groups map[string]*readGroup) error {
 	indexes := make(map[channel.Key]string, len(groups))
 	for _, g := range groups {
 		for i, ch := range g.channels {
@@ -265,7 +306,7 @@ func buildReadGroups(
 			if i == 0 {
 				g.index = index
 			} else if index != g.index {
-				return nil, errors.Wrapf(
+				return errors.Wrapf(
 					validate.ErrValidation,
 					"record key %q: channels must share one index",
 					g.key,
@@ -275,7 +316,7 @@ func buildReadGroups(
 		// The writer wants every data channel on an index in each frame, so one
 		// index cannot be split across records that arrive independently.
 		if other, ok := indexes[g.index]; ok && g.index != 0 {
-			return nil, errors.Wrapf(
+			return errors.Wrapf(
 				validate.ErrValidation,
 				"record keys %q and %q: channels on one index belong in one record",
 				other, g.key,
@@ -289,7 +330,7 @@ func buildReadGroups(
 			g.keys = append(g.keys, ch.Key())
 		}
 	}
-	return groups, nil
+	return nil
 }
 
 // newDecoder returns the decoder of fld, which writes to ch.
@@ -399,8 +440,8 @@ func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr err
 	return nil, nil
 }
 
-// stop returns the error that ended the consumer, and the error of the status write
-// that answers cmdKey.
+// stop returns the error that ended the consumer and that no status reports, and the
+// error of the status write that answers cmdKey.
 func (t *readTask) stop(
 	ctx context.Context,
 	cmdKey string,
@@ -434,8 +475,10 @@ func resetOffset(start StartOffset) kgo.Offset {
 		return kgo.NewOffset().AtStart()
 	case StartOffsetNone:
 		return kgo.NoResetOffset()
-	default:
+	case StartOffsetLatest:
 		return kgo.NewOffset().AtEnd()
+	default:
+		panic(fmt.Sprintf("unknown start offset %q", start))
 	}
 }
 
@@ -459,19 +502,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	cl, err := openClient(
-		props,
-		kgo.ConsumerGroup(t.group()),
-		kgo.ConsumeTopics(t.cfg.Topic),
-		kgo.ConsumeResetOffset(resetOffset(t.cfg.StartOffset)),
-		kgo.AutoCommitMarks(),
-		kgo.FetchMaxWait(t.factoryCfg.FetchMaxWait.Duration()),
-		kgo.OnPartitionsAssigned(
-			func(context.Context, *kgo.Client, map[string][]int32) {
-				t.reassigned.Store(true)
-			},
-		),
-	)
+	cl, err := openClient(props, t.consumerOpts()...)
 	if err != nil {
 		return err
 	}
@@ -490,16 +521,8 @@ func (t *readTask) open(ctx context.Context) (err error) {
 			return err
 		}
 	}
-	for _, g := range t.groups {
-		g.last = 0
-		g.replaying = false
-		if g.index == 0 {
-			continue
-		}
-		if g.last, err = t.lastStored(ctx, g.index); err != nil {
-			return err
-		}
-		g.replaying = true
+	if err = t.resetGroups(ctx); err != nil {
+		return err
 	}
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
@@ -524,6 +547,40 @@ func (t *readTask) open(ctx context.Context) (err error) {
 			defer cancelWriter()
 			return stopConsumer.Close()
 		}),
+	}
+	return nil
+}
+
+// consumerOpts returns the client options of the consumer.
+func (t *readTask) consumerOpts() []kgo.Opt {
+	return []kgo.Opt{
+		kgo.ConsumerGroup(t.group()),
+		kgo.ConsumeTopics(t.cfg.Topic),
+		kgo.ConsumeResetOffset(resetOffset(t.cfg.StartOffset)),
+		kgo.AutoCommitMarks(),
+		kgo.FetchMaxWait(t.factoryCfg.FetchMaxWait.Duration()),
+		kgo.OnPartitionsAssigned(
+			func(context.Context, *kgo.Client, map[string][]int32) {
+				t.reassigned.Store(true)
+			},
+		),
+	}
+}
+
+// resetGroups loads the last stored timestamp of each group with an index, which
+// replays until a record passes it.
+func (t *readTask) resetGroups(ctx context.Context) error {
+	for _, g := range t.groups {
+		g.last = 0
+		g.replaying = false
+		if g.index == 0 {
+			continue
+		}
+		var err error
+		if g.last, err = t.lastStored(ctx, g.index); err != nil {
+			return err
+		}
+		g.replaying = true
 	}
 	return nil
 }
@@ -559,6 +616,9 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 // closeWriter releases the task's channels. It runs as the consumer exits, for any
 // reason, once no write is in progress.
 func (t *readTask) closeWriter() error {
+	if t.writer == nil {
+		return nil
+	}
 	err := t.writer.Close()
 	t.writer = nil
 	return err
@@ -637,7 +697,12 @@ func (t *readTask) lastStored(
 func (t *readTask) consume(ctx context.Context) error {
 	for {
 		fetches := t.poll(ctx)
-		if ctx.Err() != nil || fetches.IsClientClosed() {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		if fetches.IsClientClosed() {
 			return nil
 		}
 		var fatal, transient error
@@ -696,12 +761,17 @@ func (t *readTask) poll(ctx context.Context) kgo.Fetches {
 	return t.client.PollFetches(ctx)
 }
 
-// fail reports the error that stops the consumer and returns it. A start that follows
-// the status replaces the consumer instead of acknowledging the failure.
+// fail reports the error that stops the consumer. It returns the error only when the
+// report fails, so a stop does not report a failure the status already shows. A start
+// that follows the status replaces the consumer instead of acknowledging the failure.
 func (t *readTask) fail(ctx context.Context, message string, err error) error {
 	t.failed.Store(true)
-	t.setStatus(ctx, driver.NoCommand, status.VariantError, false, message, err.Error())
-	return err
+	if sendErr := t.status.Send(
+		ctx, driver.NoCommand, status.VariantError, false, message, err.Error(),
+	); sendErr != nil {
+		return errors.Combine(err, sendErr)
+	}
+	return nil
 }
 
 // unavailable are the broker errors for a broker or coordinator that is down or
@@ -720,8 +790,8 @@ var unavailable = []error{
 // isConnectionErr reports whether err is a failure to reach the cluster, which the
 // consumer retries on its own.
 func isConnectionErr(err error) bool {
-	var opErr *net.OpError
-	return errors.As(err, &opErr) ||
+	_, op := errors.AsType[*net.OpError](err)
+	return op ||
 		errors.Is(err, io.EOF) ||
 		kgo.IsRetryableBrokerErr(err) ||
 		slices.ContainsFunc(
@@ -766,6 +836,8 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 	t.reportSkips(ctx, time.Now())
 	if keys > 0 {
 		if _, err := t.writer.Write(t.frame(keys, size)); err != nil {
+			// A failed write closes the writer, and err holds its close error.
+			t.writer = nil
 			return errors.Wrap(err, "writing records")
 		}
 	}
@@ -812,7 +884,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 	}
 	for i, fld := range g.fields {
 		if g.values[i] == nil {
-			t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			t.skip(r, "Record has no value at "+fld.Pointer)
 			g.truncate(r.pos)
 			return
 		}

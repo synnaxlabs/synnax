@@ -13,19 +13,28 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
+	sectestutil "github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -39,25 +48,37 @@ import (
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
+	svcnode "github.com/synnaxlabs/synnax/pkg/service/node"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	pagerdutyv1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
+	pagerdutyv2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskversions "github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
+	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	taskv3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -66,6 +87,37 @@ import (
 )
 
 var _ = Describe("Layer", func() {
+	It("Should report the expiry of the Core's CA and listener certificates",
+		func(ctx SpecContext) {
+			certFS := xfs.NewMem()
+			sectestutil.GenerateCerts(certFS)
+			certsDir := MustSucceed(certFS.Sub(cert.DefaultLoaderConfig.CertsDir))
+			n := testutil.NewNode(ctx)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, n, service.LayerConfig{
+				CA: MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: certFS})),
+				Listeners: []certificate.Listener{{
+					Address: "localhost:9090",
+					Source: MustSucceed(
+						file.NewSource(certsDir, "node.crt", "node.key"),
+					),
+				}},
+			}))
+			prefix := svcnode.ResourceID(n.Identity.HostKey).String() + ":certificate:"
+			Eventually(func(g Gomega) {
+				var found []status.Status[any]
+				g.Expect(layer.Status.NewRetrieve[any]().
+					WherePrefix(prefix).
+					Entries(&found).
+					Exec(ctx, n.DB)).To(Succeed())
+				g.Expect(lo.Map(found, func(s status.Status[any], _ int) string {
+					return s.Name
+				})).To(ConsistOf(
+					HavePrefix("CA certificate "),
+					Equal("Certificate of localhost:9090"),
+				))
+			}).Should(Succeed())
+		})
+
 	It("Should cap external channels at the license's limit", func(ctx SpecContext) {
 		signer := svctestutil.NewSigner()
 		lic := svctestutil.NewLicense()
@@ -270,6 +322,116 @@ var _ = Describe("Layer", func() {
 			Where(task.MatchNames("Live")).
 			Exists(ctx, node.DB)).To(BeTrue())
 	})
+
+	// The snapshot gets no secret, because the task chain deletes it before the secret
+	// step runs.
+	DescribeTable(
+		"Should move a stored PagerDuty routing key into a secret after the task chain",
+		func(
+			ctx SpecContext,
+			lastApplied string,
+			storeTask func(context.Context, *gorp.DB, uuid.UUID, string, bool) error,
+		) {
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			chain := lo.Map(
+				taskversions.NewMigrations(taskversions.MigrationsConfig{}),
+				func(m gorp.Migration, _ int) string { return m.Key() },
+			)
+			Expect(chain).To(ContainElement(lastApplied))
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "Task",
+				Migrations: lo.Map(
+					chain[:slices.Index(chain, lastApplied)+1],
+					func(key string, _ int) gorp.Migration {
+						return migrate.New(
+							key,
+							func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+								return nil
+							},
+						)
+					},
+				),
+			})).To(Succeed())
+			store := func(name string, snapshot bool) uuid.UUID {
+				GinkgoHelper()
+				key := uuid.New()
+				Expect(storeTask(ctx, db, key, name, snapshot)).To(Succeed())
+				Expect(gorp.WrapWriter[uuid.UUID, pagerdutyv1.TaskConfig](db).Set(
+					ctx,
+					pagerdutyv1.TaskConfig{Key: key, RoutingKey: "rk"},
+				)).To(Succeed())
+				return key
+			}
+			live := store("Live", false)
+			snapshot := store("Snapshot", true)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			var secrets []secret.Secret
+			Expect(layer.Secret.NewRetrieve().Entries(&secrets).Exec(ctx, db)).
+				To(Succeed())
+			Expect(secrets).To(HaveLen(1))
+			Expect(secrets[0].Base().Name).To(Equal("Live routing key"))
+			key := secrets[0].Base().Key
+			Expect(layer.Secret.Reveal(ctx, db, key)).
+				To(Equal(map[secret.Key][]byte{key: []byte("rk")}))
+			data := MustSucceed(layer.PagerDuty.Alert.Read(ctx, db, live))
+			Expect(data).To(HaveKeyWithValue("routing_key", key.String()))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(live)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.PagerDuty.Alert.Hash(ctx, db, live))))
+			for _, k := range []uuid.UUID{live, snapshot} {
+				Expect(db.Get(pagerdutyv2.PlainRoutingKeyKVKey(k))).Error().
+					To(MatchError(query.ErrNotFound))
+			}
+		},
+		Entry(
+			"from Core v0.60, which stored task v2",
+			"v60_require_name",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				snapshot bool,
+			) error {
+				return gorp.WrapWriter[taskv2.Key, taskv2.Task](
+					db,
+				).Set(ctx, taskv2.Task{
+					Key:      key,
+					Name:     name,
+					Type:     pagerduty.AlertTaskType,
+					Snapshot: snapshot,
+				})
+			},
+		),
+		Entry(
+			"from Core v0.61, which stored task v3",
+			"v61_task_range",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				snapshot bool,
+			) error {
+				t := taskv3.Task{
+					Key:      key,
+					Name:     name,
+					Type:     pagerduty.AlertTaskType,
+					Snapshot: snapshot,
+				}
+				if snapshot {
+					t.Range = new(uuid.New())
+				}
+				return gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(ctx, t)
+			},
+		),
+	)
 
 	It(
 		"Should end root sessions only when the root password changes",
@@ -497,12 +659,19 @@ var _ = Describe("Workspace-era upgrade", func() {
 					log.ResourceID(lg.Key),
 					table.ResourceID(tbl.Key),
 				}
-				resources = []ontology.Resource{{ID: wsID}, {ID: groupedID}}
-				edges     = []ontology.Relationship{{
-					From: groupID,
-					Type: ontology.RelationshipTypeParentOf,
-					To:   groupedID,
-				}}
+				resources = append(
+					make([]ontology.Resource, 0, 2+len(owned)),
+					ontology.Resource{ID: wsID},
+					ontology.Resource{ID: groupedID},
+				)
+				edges = append(
+					make([]ontology.Relationship, 0, 1+len(owned)),
+					ontology.Relationship{
+						From: groupID,
+						Type: ontology.RelationshipTypeParentOf,
+						To:   groupedID,
+					},
+				)
 			)
 			for _, id := range owned {
 				resources = append(resources, ontology.Resource{ID: id})
@@ -574,6 +743,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Channel", resource.TypeChannel),
 		Entry("Color", resource.TypeColor),
 		Entry("Device", resource.TypeDevice),
+		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),
@@ -730,6 +900,70 @@ var _ = Describe("Group moves", Ordered, func() {
 })
 
 var _ = Describe("LayerConfig", func() {
+	It("Should read a file secret of the Core's rack from its secrets folder", func(
+		ctx SpecContext,
+	) {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "token"), []byte("t"), 0o600)).
+			To(Succeed())
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(
+			ctx,
+			node,
+			service.LayerConfig{SecretsDir: dir},
+		))
+		// The Core's rack runs the integrations of the Core, such as Sift.
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration(sift.Make)).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		s := secret.Secret{Variant: secret.FileSecret{
+			Base:     secret.Base{Name: "Token"},
+			FileName: "token",
+			Rack:     coreRack.Key,
+		}}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Secret.NewWriter(tx).Set(ctx, &s, nil)
+		})).To(Succeed())
+		key := s.Base().Key
+		Expect(layer.Secret.Reveal(ctx, node.DB, key)).
+			To(Equal(map[secret.Key][]byte{key: []byte("t")}))
+	})
+
+	It("Should give the Core's rack a file browser task", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration("file")).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		var browser task.Task
+		Expect(layer.Task.NewRetrieve().
+			Where(task.And(
+				task.MatchRacks(coreRack.Key),
+				task.MatchTypes("file_browser"),
+			)).
+			Entry(&browser).
+			Exec(ctx, node.DB)).To(Succeed())
+		Expect(browser.Name).To(Equal("File Browser"))
+		Expect(browser.Internal).To(BeTrue())
+	})
+
+	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {
+		dir := filepath.Join(GinkgoT().TempDir(), "missing")
+		Expect(svctestutil.OpenLayer(
+			ctx,
+			testutil.NewNode(ctx),
+			service.LayerConfig{SecretsDir: dir},
+		)).Error().To(SatisfyAll(
+			MatchError(os.ErrNotExist),
+			MatchError(HavePrefix("secrets folder: ")),
+			MatchError(ContainSubstring(dir)),
+		))
+	})
+
 	It("Should require a secrets key", func() {
 		cfg := service.LayerConfig{
 			Distribution: &distribution.Layer{},
@@ -739,4 +973,42 @@ var _ = Describe("LayerConfig", func() {
 		}
 		Expect(cfg.Validate()).To(MatchError(ContainSubstring("secrets_key: required")))
 	})
+
+	It("Should reject an unknown auth method", func() {
+		cfg := service.LayerConfig{
+			AuthMethods: []auth.Method{auth.MethodPassword, "carrier_pigeon"},
+		}
+		Expect(cfg.Validate()).To(MatchError(And(
+			ContainSubstring("auth_methods"),
+			ContainSubstring("carrier_pigeon"),
+		)))
+	})
+})
+
+var _ = Describe("Auth methods", func() {
+	DescribeTable(
+		"Should accept only the listed methods",
+		func(ctx SpecContext, listed, accepted []auth.Method) {
+			node := testutil.NewNode(ctx)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+				AuthMethods: listed,
+			}))
+			Expect(layer.Auth.Methods()).To(Equal(accepted))
+		},
+		Entry(
+			"password only",
+			[]auth.Method{auth.MethodPassword},
+			[]auth.Method{auth.MethodPassword},
+		),
+		Entry(
+			"API key only",
+			[]auth.Method{auth.MethodAPIKey},
+			[]auth.Method{auth.MethodAPIKey},
+		),
+		Entry(
+			"every method for an empty list",
+			[]auth.Method{},
+			[]auth.Method{auth.MethodAPIKey, auth.MethodPassword},
+		),
+	)
 })

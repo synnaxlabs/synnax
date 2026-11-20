@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import type { panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -17,7 +18,7 @@ import { z } from "zod";
 import { createTestDevice } from "@/platform/device/testutil";
 import { Task } from "@/platform/task";
 import { awaitTaskResourceTab, createSelectedPanel } from "@/platform/task/testutil";
-import { createConsoleWrapper, createTestStore, uniqueName } from "@/testutil";
+import { createConsoleWrapper, createTestStore } from "@/testutil";
 
 const client = createTestClient();
 

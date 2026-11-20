@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement, ReactNode } from "react";
 
-import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
 import { Section } from "@/platform/section";
-import { type BindChannelsProps } from "@/platform/task/BindChannels";
+import type { BindChannelsProps } from "@/platform/task/BindChannels";
 import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
 } from "@/platform/task/ChannelList";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
 interface HeaderProps {
@@ -58,7 +58,9 @@ const Footer = ({ label, onAdd }: FooterProps) => {
 
 export interface UseAddProps<C extends Channel> {
   path: deep.Path<C[]>;
-  createChannel?: (channels: C[]) => C | null;
+  createChannel?: ChannelListProps<C>["createChannel"];
+  /** The key of the channel that the new one copies. */
+  copy?: string;
   onSelect: (keys: string[]) => void;
   /** Skips selecting the new channel, since checkable lists select by checkbox. */
   checkable?: boolean;
@@ -73,12 +75,13 @@ export const useAdd = <C extends Channel>({
   createChannel,
   onSelect,
   checkable = false,
+  copy,
 }: UseAddProps<C>): (() => void) | undefined => {
   const ctx = Form.useContext();
   const { push } = Form.useFieldList(path);
   if (createChannel == null) return undefined;
   return () => {
-    const channel = createChannel(ctx.get(path).value);
+    const channel = createChannel(ctx.get(path).value, copy);
     if (channel == null) return;
     push(channel);
     if (!checkable) onSelect([channel.key]);
@@ -98,8 +101,11 @@ export interface ChannelListProps<C extends Channel> extends Omit<
   /** Replaces the add action, for a list that adds through its own flow. */
   footer?: ReactNode;
   resolve: BindChannelsProps<C>["resolve"] | null;
-  /** Creates what the add action adds, or returns null to add nothing. */
-  createChannel?: (channels: C[]) => C | null;
+  /**
+   * Creates what the add action adds, or returns null to add nothing. copy is the key
+   * of the first selected channel.
+   */
+  createChannel?: (channels: C[], copy?: string) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   /** Shown in place of the items and the footer. */
   ports?: ReactNode;
@@ -122,7 +128,13 @@ export const ChannelList = <C extends Channel>({
 }: ChannelListProps<C>) => {
   const { data, push, remove } = Form.useFieldList(path);
   const { onSelect, checkable = false } = rest;
-  const handleAdd = useAdd({ path, createChannel, onSelect, checkable });
+  const handleAdd = useAdd({
+    path,
+    createChannel,
+    onSelect,
+    checkable,
+    copy: rest.selected[0],
+  });
   const handleDuplicate =
     createChannels == null
       ? undefined

@@ -21,6 +21,20 @@ interface TestRecord {
 }
 
 describe("set", () => {
+  it("should skip null entries after the first in a keyed array", () => {
+    const a = { a: [{ key: "x", v: 1 }, null, { key: "y", v: 2 }] };
+    deep.set(a, "a.y", { key: "y", v: 3 });
+    expect(a).toEqual({ a: [{ key: "x", v: 1 }, null, { key: "y", v: 3 }] });
+  });
+
+  it("should throw for a key into an array whose first entry is null", () => {
+    const a = { a: [null] };
+    expect(() => deep.set(a, "a.x", 1)).toThrow(
+      "Cannot set a.x: the list holds no entry with the key x",
+    );
+    expect(a).toEqual({ a: [null] });
+  });
+
   it("should set a key", () => {
     const a: TestRecord = {
       a: 1,
@@ -79,7 +93,7 @@ describe("set", () => {
       },
     };
     deep.set(data, "config.channels.tMnAnJeQmn6.type", "ai_force_bridge_table");
-    expect(data.config.channels[0].type).toEqual("ai_force_bridge_table");
+    expect(data.config.channels[0]?.type).toEqual("ai_force_bridge_table");
   });
 
   it("should set an entire item in the array by its key", () => {
@@ -111,6 +125,12 @@ describe("set", () => {
     expect(data.a.b.c).toBe(1);
   });
 
+  it("should not write through the object prototype", () => {
+    const obj: Record<string, unknown> = {};
+    deep.set(obj, "__proto__.polluted", 1);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("should handle setting on null", () => {
     const obj: any = { a: null };
     deep.set(obj, "a.b", 1);
@@ -123,10 +143,12 @@ describe("set", () => {
     expect(obj.a.b.c.d).toEqual("value");
   });
 
-  it("should handle set on arrays with negative indices", () => {
+  it("should throw for a negative index", () => {
     const obj = { arr: [1, 2, 3, 4, 5] };
-    deep.set(obj, "arr.-1", 99);
-    expect(obj.arr[obj.arr.length - 1]).toEqual(99);
+    expect(() => deep.set(obj, "arr.-1", 99)).toThrow(
+      "Cannot set arr.-1: the list holds no entry with the key -1",
+    );
+    expect(obj.arr).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("should handle very long paths", () => {
@@ -273,14 +295,17 @@ describe("set", () => {
       ],
     };
     deep.set(obj, "items.duplicate.value", 99);
-    expect(obj.items[0].value).toBe(99);
-    expect(obj.items[1].value).toBe(2);
+    expect(obj.items[0]?.value).toBe(99);
+    expect(obj.items[1]?.value).toBe(2);
   });
 
-  it("should create keyed array items when setting by non-existent key", () => {
+  it("should throw for a key on an empty list instead of writing it onto the array", () => {
     const obj: any = { items: [] };
-    deep.set(obj, "items.newKey.value", 42);
-    expect(obj.items.newKey.value).toBe(42);
+    expect(() => deep.set(obj, "items.newKey.value", 42)).toThrow(
+      "Cannot set items.newKey.value: the list holds no entry with the key newKey",
+    );
+    expect(obj.items).toEqual([]);
+    expect(Object.keys(obj.items)).toEqual([]);
   });
 
   it("should handle mixed numeric and string keys in objects", () => {
@@ -349,7 +374,7 @@ describe("set", () => {
       sections: [{ key: "user.profile", settings: { theme: "light" } }],
     };
     deep.set(obj, "sections.user.profile.settings.theme", "dark");
-    expect(obj.sections[0].settings.theme).toBe("dark");
+    expect(obj.sections[0]?.settings.theme).toBe("dark");
   });
 
   it("should handle setting on Map-like objects", () => {
@@ -372,5 +397,139 @@ describe("set", () => {
     };
     deep.set(obj, "true.false.null.undefined.NaN", "special");
     expect(obj.true.false.null.undefined.NaN).toBe("special");
+  });
+
+  describe("keyed lists", () => {
+    const createList = () => ({
+      items: [
+        { key: "a", value: 1 },
+        { key: "b", value: 2 },
+      ],
+    });
+
+    it("should throw for a missing entry at the end of the path", () => {
+      const obj = createList();
+      expect(() => deep.set(obj, "items.c", { key: "c", value: 3 })).toThrow(
+        "Cannot set items.c: the list holds no entry with the key c",
+      );
+      expect(obj).toEqual(createList());
+    });
+
+    it("should throw for a missing entry in the middle of the path", () => {
+      const obj = createList();
+      expect(() => deep.set(obj, "items.c.value", 3)).toThrow(
+        "Cannot set items.c.value: the list holds no entry with the key c",
+      );
+      expect(obj).toEqual(createList());
+      expect(Object.keys(obj.items)).toEqual(["0", "1"]);
+    });
+
+    it("should throw for an entry key with dots that the list does not hold", () => {
+      const obj = createList();
+      expect(() => deep.set(obj, "items.ns=1;s=a.b.value", 3)).toThrow(
+        "Cannot set items.ns=1;s=a.b.value: the list holds no entry with the key ns=1;s=a",
+      );
+      expect(obj).toEqual(createList());
+    });
+
+    it("should replace an entry found by its key", () => {
+      const obj = createList();
+      deep.set(obj, "items.b", { key: "b", value: 5 });
+      expect(obj.items).toEqual([
+        { key: "a", value: 1 },
+        { key: "b", value: 5 },
+      ]);
+    });
+
+    it("should write into an entry with a dot in its key", () => {
+      const obj = { items: [{ key: "ns=1;s=a.b", port: 1 }] };
+      deep.set(obj, "items.ns=1;s=a.b.port", 2);
+      expect(obj.items[0]?.port).toBe(2);
+    });
+
+    it("should add a field that an entry does not hold yet", () => {
+      const obj: any = createList();
+      deep.set(obj, "items.a.extra", true);
+      expect(obj.items[0]).toEqual({ key: "a", value: 1, extra: true });
+    });
+
+    it("should write an index past the end of a list", () => {
+      const obj: any = createList();
+      deep.set(obj, "items.2", { key: "c", value: 3 });
+      expect(obj.items[2]).toEqual({ key: "c", value: 3 });
+    });
+  });
+
+  describe("missing paths", () => {
+    it("should replace null in the middle of the path with an object", () => {
+      const obj: any = { a: { b: null } };
+      deep.set(obj, "a.b.c", 1);
+      expect(obj).toEqual({ a: { b: { c: 1 } } });
+    });
+
+    it("should replace a null list entry with an object", () => {
+      const obj: any = { a: [null] };
+      deep.set(obj, "a.0.b", 1);
+      expect(obj.a).toEqual([{ b: 1 }]);
+    });
+
+    it("should build an array inside a new object for an index part", () => {
+      const obj: any = { a: {} };
+      deep.set(obj, "a.b.0", "x");
+      expect(obj.a.b).toEqual(["x"]);
+    });
+
+    it("should write the empty path as the empty key", () => {
+      const obj: any = { a: 1 };
+      deep.set(obj, "", 2);
+      expect(obj).toEqual({ a: 1, "": 2 });
+    });
+
+    it("should throw when a primitive sits in the middle of the path", () => {
+      const obj = { a: "text" };
+      expect(() => deep.set(obj, "a.b", 1)).toThrow(TypeError);
+      expect(obj).toEqual({ a: "text" });
+    });
+  });
+
+  describe("keys that hold the separator", () => {
+    it("should overwrite a key with a dot instead of building nested objects", () => {
+      const obj: any = { "a.b": 1 };
+      deep.set(obj, "a.b", 2);
+      expect(obj).toEqual({ "a.b": 2 });
+    });
+
+    it("should add a key below a key with a dot", () => {
+      const obj: any = { "a.b": { c: 1 } };
+      deep.set(obj, "a.b.d", 2);
+      expect(obj).toEqual({ "a.b": { c: 1, d: 2 } });
+    });
+  });
+
+  describe("canSet", () => {
+    const cases: Array<[string, unknown, string, boolean]> = [
+      ["a path that resolves", { a: { b: 1 } }, "a.b", true],
+      ["missing objects on the way", {}, "a.b.c", true],
+      ["a null value on the way", { a: null }, "a.b", true],
+      ["the index just past the end of a list", { items: ["a"] }, "items.1", true],
+      ["a new field of an entry", { items: [{ key: "x" }] }, "items.x.port", true],
+      ["a key that names no entry", { items: [{ key: "x" }] }, "items.y", false],
+      [
+        "a field of an entry that is gone",
+        { items: [{ key: "x" }] },
+        "items.y.a",
+        false,
+      ],
+      ["a key on an empty list", { items: [] }, "items.y", false],
+    ];
+    it.each(cases)("should be %s: %#", (_, obj, path, expected) => {
+      expect(deep.canSet(obj, path)).toBe(expected);
+    });
+    it.each(cases)("should agree with whether set throws for %s", (_, obj, path) => {
+      const settable = deep.canSet(obj, path);
+      const write = () => deep.set(obj, path, 1);
+      if (settable) expect(write).not.toThrow();
+      else expect(write).toThrow();
+    });
   });
 });

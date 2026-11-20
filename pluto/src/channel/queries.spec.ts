@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
@@ -634,7 +634,7 @@ describe("queries", () => {
 
   describe("useResultList", () => {
     it("should search channels and follow a new match", async () => {
-      const token = `rl${Math.random().toString(36).slice(2)}`;
+      const token = `rl${id.create()}`;
       const first = await client.channels.create({
         name: `${token}_a`,
         dataType: DataType.FLOAT32,

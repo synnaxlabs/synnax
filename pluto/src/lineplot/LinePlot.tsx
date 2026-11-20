@@ -18,6 +18,7 @@ import {
   type location,
   primitive,
   resolveWindow,
+  TimeRange,
   TimeSpan,
   TimeStamp,
   type Window,
@@ -28,13 +29,10 @@ import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
-import {
-  Legend as BaseLegend,
-  type LegendProps as BaseLegendProps,
-} from "@/lineplot/Legend";
+import { Legend as BaseLegend } from "@/lineplot/Legend";
 import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
-import { type measure } from "@/lineplot/measure/aether";
+import type { measure } from "@/lineplot/measure/aether";
 import {
   type DerivedLine,
   useAxisRuleKeys,
@@ -60,7 +58,7 @@ import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 
@@ -222,14 +220,12 @@ const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
 
 interface LegendProps {
   pKey: lineplot.Key;
-  variant?: BaseLegendProps["variant"];
   editable: boolean;
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
 const Legend = ({
   pKey: key,
-  variant,
   editable,
   onLineVisibleChange,
 }: LegendProps): ReactElement | null => {
@@ -239,7 +235,12 @@ const Legend = ({
     editable && dispatch({ key, actions: [lineplot.setLegendPosition({ position })] });
   const handleLineColorChange = (lineKey: string, color: color.Color) =>
     editable &&
-    dispatch({ key, actions: [lineplot.setLineColor({ key: lineKey, color })] });
+    dispatch({
+      key,
+      actions: [
+        lineplot.setLineColor({ key: lineKey, color: { type: "fixed", value: color } }),
+      ],
+    });
   const handleLineLabelChange = (lineKey: string, label: string) =>
     editable &&
     dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] });
@@ -251,7 +252,6 @@ const Legend = ({
       onLineVisibleChange={onLineVisibleChange}
       position={legend.position}
       onPositionChange={handlePositionChange}
-      variant={variant}
     />
   );
 };
@@ -451,7 +451,6 @@ export interface LinePlotProps extends FrameProps {
   enableTriggers?: Triggers.Condition;
   /** The windows of the plot's ranges, in order. */
   windows?: Window[];
-  legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
   measureMode?: measure.Mode;
@@ -468,16 +467,19 @@ export interface LinePlotProps extends FrameProps {
 const fetchingMessage = (windows: Window[] | undefined): string | undefined => {
   if (windows == null || windows.length === 0) return undefined;
   const now = TimeStamp.now();
-  const spans = windows.map((w) => resolveWindow(w, now).span);
+  // A range that still runs counts the time it has run, and one that has not started
+  // counts none.
+  const past = new TimeRange(TimeStamp.ZERO, now);
+  const spans = windows.map((w) => resolveWindow(w, now).boundBy(past).span);
   const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
-  return `Fetching ${longest.toString()} of data`;
+  if (longest.isZero) return undefined;
+  return `Fetching ${longest.toString("semantic")} of data`;
 };
 
 export const LinePlot = ({
   editable = true,
   enableTriggers = true,
   windows,
-  legendVariant,
   enableTooltip = true,
   enableMeasure = false,
   measureMode,
@@ -518,7 +520,6 @@ export const LinePlot = ({
       ))}
       <Legend
         pKey={key}
-        variant={legendVariant}
         editable={editable}
         onLineVisibleChange={onLineVisibleChange}
       />

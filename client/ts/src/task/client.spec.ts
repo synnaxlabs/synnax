@@ -17,14 +17,14 @@ import {
   url,
   uuid,
 } from "@synnaxlabs/x";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { framer } from "@/framer";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
-import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
+import { PushStreamer, testCoreAddress } from "@/testutil";
 
 // Every request fails, so the cache holds only what the stream delivers.
 const unary: UnaryClient = {
@@ -43,11 +43,11 @@ const createStreamedClient = async (recordCap?: number) => {
     recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const coreURL = new url.URL(TEST_CORE_ADDRESS);
+  const coreURL = new url.URL(testCoreAddress());
   const frames = new framer.Client({
-    stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
+    stream: new WebSocketClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     unary,
-    file: new HTTPClient(coreURL, binary.JSON_CODEC),
+    file: new HTTPClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     retrieveChannels: async () => [],
   });
   const statuses = new status.Client({ unary, cache });
@@ -220,6 +220,38 @@ describe("task.Client", () => {
       pushStatuses(1);
       await expect.poll(() => statuses.store.size).toBe(9);
       expect(statuses.ownedBy(task.resourceID(key))?.message).toBe("Task not deployed");
+    });
+  });
+});
+
+describe("Task", () => {
+  describe("executeCommandSync", () => {
+    it("should close its streamer when the command write fails", async () => {
+      const close = vi.fn();
+      const frameClient = {
+        openStreamer: async () => ({
+          read: async () => await new Promise(() => {}),
+          close,
+        }),
+        openWriter: async () => {
+          throw new Error("denied");
+        },
+      } as unknown as framer.Client;
+      const tsk = new task.Task(
+        {
+          key: "1",
+          rack: 1,
+          name: "t",
+          type: "x",
+          config: {},
+          configHash: "",
+          internal: false,
+        },
+        undefined,
+        frameClient,
+      );
+      await expect(tsk.executeCommandSync({ type: "start" })).rejects.toThrow("denied");
+      expect(close).toHaveBeenCalledOnce();
     });
   });
 });

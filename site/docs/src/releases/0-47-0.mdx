@@ -1,17 +1,12 @@
 ---
-title: "Version 0.47 release notes"
+title: "Arc-based calculated channels"
+version: "0.47.0"
+date: "Oct 24, 2025"
+breakingChanges: true
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
-
-<Release
-    version="0.47.0"
-    breakingChanges
-    date="Oct 24, 2025"
-    title="Arc-based calculated channels"
->
 
 <Hero.Hero
   image="releases/0-47-0/thumbnail"
@@ -20,6 +15,7 @@ import Release from "@/components/releases/Release.astro";
   layout="bleed"
   tone="soft"
   palette="orange-yellow"
+  alt="A calculated channel with the max operation"
 />
 
 Our Lua-based calculated channels were a powerful first step towards deriving values in
@@ -123,5 +119,3 @@ system simultaneously.
   errors.
 - Fixed startup warnings in the embedded driver for cleaner initialization.
 - Enabled auto-commit for Modbus driver to improve data persistence.
-
-</Release>

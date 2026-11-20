@@ -15,13 +15,14 @@ import numpy as np
 from pydantic import ValidationError
 
 import synnax as sy
-from tests.driver.task import ReadTaskCase, ReadTaskT, status_text
+from framework.utils import hold
+from tests.driver.task import ReadTask, ReadTaskCase, status_text
 
 _ACQUISITION_S = 10
 _STOP_STATUS_TIMEOUT_S = 5
 
 
-class ReadRateCase(ReadTaskCase[ReadTaskT]):
+class ReadRateCase[ReadTaskT: ReadTask](ReadTaskCase[ReadTaskT]):
     """Acquires at each rate of RATES_HZ in turn. At each rate, the Driver must send no
     warning or error, and the samples must fill the whole run with no gap. Records the
     highest rate in the metric max_gap_free_rate_hz."""
@@ -48,7 +49,7 @@ class ReadRateCase(ReadTaskCase[ReadTaskT]):
         with self.client.open_streamer(["sy_status_set"]) as statuses:
             with self.tsk.run():
                 started = sy.TimeStamp.now()
-                sy.sleep(_ACQUISITION_S)  # noqa: TID251 fixed sample window
+                hold(_ACQUISITION_S, reason="fixed sample window")
                 stopping = sy.TimeStamp.now()
             problems = self._read_until_stopped(statuses)
         stamps = (

@@ -13,6 +13,7 @@ import {
   deep,
   destructor,
   errors,
+  map,
   record,
   scheduler,
   state,
@@ -28,8 +29,8 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { type LookupIndex } from "@/query/indexes";
-import { type Listener } from "@/query/streamer";
+import type { LookupIndex } from "@/query/indexes";
+import type { Listener } from "@/query/streamer";
 
 /**
  * Presence of a key in a table: "present" when a live entry exists, "tombstoned" when
@@ -174,7 +175,7 @@ export interface TableParams<
  * each vanished key stands alone, so a few vanished keys cost a few requests, not one
  * per cached key.
  */
-const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
+export const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
   fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
   keys: Key[],
 ): Promise<Array<Keyed<Key, Value>>> => {
@@ -455,7 +456,7 @@ export class Table<
     fetched = false,
   ): destructor.Destructor | undefined {
     const prev = this.base(key);
-    const next = state.executeSetter(value, prev);
+    const next = state.resolve(value, prev);
     if (next == null) return undefined;
     // A fetch reads what the Core holds: a record new to the table is no change there.
     const discovered = fetched && this.status(key) === "unknown";
@@ -939,11 +940,7 @@ export class Table<
       this.broadSubscribers.add(subscriber);
       return () => this.broadSubscribers.delete(subscriber);
     }
-    let held = this.keyedSubscribers.get(key);
-    if (held == null) {
-      held = new Set();
-      this.keyedSubscribers.set(key, held);
-    }
+    const held = map.getOrInsert(this.keyedSubscribers, key, () => new Set());
     held.add(subscriber);
     return () => {
       held.delete(subscriber);

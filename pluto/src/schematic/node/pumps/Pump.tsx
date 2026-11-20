@@ -7,19 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Custom } from "@/schematic/node/common/custom";
+import type { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/pumps/Pump.svg?raw";
+
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 64, height: 64 };
+const SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.96875, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.03125 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.96875 }, orientation: "bottom" },
+  ],
+});
 
 export const Pump = ({
-  strokeColor,
   className,
+  strokeColor,
   orientation = "left",
   scale,
   ...rest
@@ -29,34 +40,12 @@ export const Pump = ({
     className={CSS.cls(CSS.B("pump"), className)}
     orientation={orientation}
   >
-    <Handle.Rectangle
-      orientation={orientation}
-      left={3.125}
-      top={3.125}
-      right={96.875}
-      bottom={96.875}
-    />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Circle cx="32" cy="32" r="30" />
-      <Primitive.Line
-        x1="32"
-        y1="2"
-        x2="62"
-        y2="32"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-      <Primitive.Line
-        x1="32"
-        y1="62"
-        x2="62"
-        y2="32"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-    </Primitive.SVG>
+    />
   </Toggle.Button>
 );

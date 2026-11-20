@@ -15,7 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 
 import { isActive, MONTH, type Period, PERIODS, type Usage } from "@/server/usage";
-import { type Entry } from "@/server/user";
+import type { Entry } from "@/server/user";
 import { userPath } from "@/shell";
 import { ActiveTag } from "@/ui/admin/ActiveTag";
 import { Fact, Facts } from "@/ui/Facts";

@@ -7,15 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/fittings/Filter.svg?raw";
 
 export interface FilterProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const DIMENSIONS = { width: 52, height: 34 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.115385, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.884615, y: 0.5 }, orientation: "right" },
+  ],
+});
 
 export const Filter = ({
   className,
@@ -25,14 +32,12 @@ export const Filter = ({
   ...rest
 }: FilterProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("filter"), className)} {...rest}>
-    <Handle.Linear orientation={orientation} left={11.5385} right={88.4615} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
-      orientation={orientation}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
+      orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Path d="M6 17L24.8 2.9C25.5111 2.36667 26.4889 2.36667 27.2 2.9L46 17M6 17L24.8 31.1C25.5111 31.6333 26.4889 31.6333 27.2 31.1L46 17" />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

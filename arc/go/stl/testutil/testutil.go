@@ -180,20 +180,7 @@ func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 	n := len(imports)
 
 	// Type section (id=1): one func type per import
-	var typeSec bytes.Buffer
-	writeULEB128(&typeSec, uint32(n))
-	for _, imp := range imports {
-		typeSec.WriteByte(0x60) // func type tag
-		writeULEB128(&typeSec, uint32(len(imp.params)))
-		for _, p := range imp.params {
-			typeSec.WriteByte(p)
-		}
-		writeULEB128(&typeSec, uint32(len(imp.results)))
-		for _, r := range imp.results {
-			typeSec.WriteByte(r)
-		}
-	}
-	writeSection(&buf, 1, typeSec.Bytes())
+	writeSection(&buf, 1, typeSection(imports))
 
 	// Import section (id=2)
 	var impSec bytes.Buffer
@@ -225,8 +212,31 @@ func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 	writeSection(&buf, 7, expSec.Bytes())
 
 	// Code section (id=10): each wrapper calls the corresponding import
+	writeSection(&buf, 10, codeSection(imports))
+
+	return buf.Bytes()
+}
+
+func typeSection(imports []funcImport) []byte {
+	var sec bytes.Buffer
+	writeULEB128(&sec, uint32(len(imports)))
+	for _, imp := range imports {
+		sec.WriteByte(0x60) // func type tag
+		writeULEB128(&sec, uint32(len(imp.params)))
+		for _, p := range imp.params {
+			sec.WriteByte(p)
+		}
+		writeULEB128(&sec, uint32(len(imp.results)))
+		for _, r := range imp.results {
+			sec.WriteByte(r)
+		}
+	}
+	return sec.Bytes()
+}
+
+func codeSection(imports []funcImport) []byte {
 	var codeSec bytes.Buffer
-	writeULEB128(&codeSec, uint32(n))
+	writeULEB128(&codeSec, uint32(len(imports)))
 	for i, imp := range imports {
 		var body bytes.Buffer
 		writeULEB128(&body, 0) // no locals
@@ -241,9 +251,7 @@ func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 		writeULEB128(&codeSec, uint32(body.Len()))
 		codeSec.Write(body.Bytes())
 	}
-	writeSection(&buf, 10, codeSec.Bytes())
-
-	return buf.Bytes()
+	return codeSec.Bytes()
 }
 
 func writeSection(buf *bytes.Buffer, id byte, content []byte) {

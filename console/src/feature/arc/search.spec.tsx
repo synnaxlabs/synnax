@@ -12,18 +12,14 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { createResource } from "@/platform/tree/testutil";
-import {
-  createConsoleWrapper,
-  resolveFocusedTab,
-  selectTestProject,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 

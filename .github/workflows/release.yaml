@@ -119,9 +119,11 @@ jobs:
     # A lookup that failed set no output, so CI runs.
     if: ${{ !cancelled() && needs.green-run.outputs.green != 'true' }}
     # A called workflow gets no more than its caller grants. In CI, the fail-fast job
-    # asks for actions: write and the paths filter for pull-requests: read.
+    # asks for actions: write and checks: read, and the paths filter asks for
+    # pull-requests: read.
     permissions:
       actions: write
+      checks: read
       contents: write
       packages: write
       pull-requests: read
@@ -183,9 +185,7 @@ jobs:
     if: inputs.migration_audit
     uses: ./.github/workflows/audit.migration.yaml
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
@@ -232,6 +232,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve Console version
         id: console
@@ -353,6 +354,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -413,6 +415,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Write updater manifest
         uses: ./.github/actions/publish-updater-manifest
@@ -420,7 +424,6 @@ jobs:
           tag: ${{ needs.resolve.outputs.console_tag }}
           version: ${{ needs.resolve.outputs.console_version }}
           app: Synnax
-          linux: true
 
   draft-driver:
     name: Draft Driver
@@ -436,6 +439,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -502,6 +506,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -510,7 +516,9 @@ jobs:
       # only after a stage succeeds, and a run whose tag already names this commit has
       # nothing to stage. While the newest version overall or on this train waits for
       # approval, nothing new stages, so approvals never move a dist-tag back. `client`
-      # is approved last. The check only reads, and the publish job runs it again.
+      # is approved last. A version is on the registry only after approval, so its
+      # provenance is checked here, before the next stage. The check only reads, and
+      # the publish job runs it again.
       - &claim-ts
         name: Check the version claim
         id: claim
@@ -524,6 +532,20 @@ jobs:
             curl -s -o /dev/null -w '%{http_code}' \
               "https://registry.npmjs.org/@synnaxlabs/$1/$2"
           }
+          attested() {
+            local doc code
+            doc=$(curl -s -w '\n%{http_code}' \
+              "https://registry.npmjs.org/@synnaxlabs/$1/$2")
+            code=${doc##*$'\n'}
+            if [ "$code" != 200 ]; then
+              echo "the registry answered $code for $1 $2. If it is 404," >&2
+              echo "approve the other $2 packages." >&2
+              exit 1
+            fi
+            jq -e '.dist.attestations.provenance' <<< "${doc%$'\n'*}" > /dev/null
+          }
+          # A maintainer staged these by hand, with no OIDC token to sign provenance.
+          unattested=" 0.61.1 "
           claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
           if [ "$claimed" = "$GITHUB_SHA" ]; then
             echo "staged=true" >> "$GITHUB_OUTPUT"
@@ -551,7 +573,16 @@ jobs:
             [ -n "$pending" ] || continue
             code=$(status client "$pending")
             case "$code" in
-              200) ;;
+              200)
+                [[ "$unattested" == *" $pending "* ]] && continue
+                for name in x alamos freighter client; do
+                  if ! attested "$name" "$pending"; then
+                    echo "$name $pending has no provenance attestation. After" >&2
+                    echo "review, add $pending to unattested." >&2
+                    exit 1
+                  fi
+                done
+                ;;
               404)
                 echo "client $pending is not out. Approve it, or reject it" >&2
                 echo "and delete the ts/v$pending tag." >&2
@@ -608,6 +639,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # The stage reads only the tarballs, so no dependency code runs in this job.
       - name: Set up pnpm and Node.js
@@ -631,7 +664,7 @@ jobs:
       # A hotfix on an older train must not move `latest` back. The trusted publisher
       # may only stage, so nothing installs until a maintainer approves it with 2FA.
       # pnpm cannot stage a batch, so each package stages on its own, in dependency
-      # order.
+      # order. Without `--provenance`, pnpm only warns and stages when it cannot sign.
       - name: Stage
         id: stage
         if: steps.claim.outputs.staged != 'true'
@@ -644,7 +677,7 @@ jobs:
         run: |
           for name in x alamos freighter client; do
             pnpm stage publish "npm-packages/synnaxlabs-$name-$VERSION.tgz" \
-              --tag "$TAG" --no-git-checks
+              --tag "$TAG" --no-git-checks --provenance
           done
 
       # No tag guards the packages that a failed stage left on the registry.
@@ -695,9 +728,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -743,14 +778,8 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.py_version }}
         run: .github/scripts/stamp_versions.sh py "$VERSION"
 
-      - name: Pin internal dependency constraints
-        run: .github/scripts/pin_internal_deps.sh
-
       - name: Build
-        run: |
-          for package in alamos/py x/py freighter/py client/py; do
-            (cd "$package" && uv build)
-          done
+        run: .github/scripts/build_py.sh dist
 
       - name: Upload packages
         id: upload
@@ -781,9 +810,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -806,16 +837,41 @@ jobs:
         run:
           gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
+      # The provenance check reads the list made before the prune, so it also checks
+      # files that an earlier attempt published.
       - name: Prune already-published distributions
-        run: uv run --no-project python .github/scripts/prune_published.py
-
-      - name: Publish
+        id: prune
         run: |
-          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
-            uv publish --check-url https://pypi.org/simple/
-          else
-            echo "All distributions already published; nothing to upload."
+          ls dist > "$RUNNER_TEMP/distributions"
+          uv run --no-project python .github/scripts/prune_published.py
+          if compgen -G "dist/*" > /dev/null; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # `uv publish` uploads attestations but cannot sign them, so this action signs
+      # and uploads each distribution.
+      - name: Publish
+        if: steps.prune.outputs.pending == 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          attestations: true
+
+      - name: Check provenance
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+        run: |
+          missing=false
+          while read -r file; do
+            name=${file%%-"$VERSION"*}
+            url="https://pypi.org/integrity/$name/$VERSION/$file/provenance"
+            code=$(curl -s --retry 5 --max-time 30 -o /dev/null -w '%{http_code}' \
+              "$url")
+            if [ "$code" != 200 ]; then
+              echo "::error::PyPI answered $code for the provenance of $file."
+              missing=true
+            fi
+          done < "$RUNNER_TEMP/distributions"
+          [ "$missing" = false ]
 
   draft-core:
     name: Draft Core
@@ -831,6 +887,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -907,6 +964,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download Core binary
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -917,10 +976,11 @@ jobs:
       - name: Rename binary for installer
         shell: powershell
         run:
-          Move-Item -Force .github/scripts/synnax-v${{ env.VERSION }}.exe
+          Move-Item -Force ".github/scripts/synnax-v$env:VERSION.exe"
           .github/scripts/synnax-server.exe
 
       - name: Set up trusted-signing-cli
+        id: signer
         uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Build Windows installer
@@ -930,17 +990,18 @@ jobs:
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
           $env:Path = "$nsisDir;$env:Path"
           Copy-Item -Force .\.github\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
-          makensis /DVERSION=${{ env.VERSION }} .\.github\scripts\windows_installer.nsi
+          makensis "/DVERSION=$env:VERSION" .\.github\scripts\windows_installer.nsi
 
       - name: Sign Windows installer
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
-          Installer" .\.github\scripts\synnax-setup-v${{ env.VERSION }}.exe
+          SIGNER: ${{ steps.signer.outputs.path }}
+        run: >-
+          & $env:SIGNER -e https://wcus.codesigning.azure.net -a CodeSigningAccountName
+          -c CodeSigningCertificateProfile -d "Synnax Core Installer"
+          ".\.github\scripts\synnax-setup-v$env:VERSION.exe"
 
       - name: Upload Windows installer
         run: |
@@ -960,6 +1021,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -986,7 +1048,6 @@ jobs:
     with:
       windows: true
       macos: true
-      ubuntu: true
       driver: true
       core: true
       desktop: true
@@ -1028,7 +1089,6 @@ jobs:
     with:
       windows: true
       macos: true
-      ubuntu: true
       core: true
       desktop: true
       sign_binaries: true
@@ -1054,6 +1114,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download bundles
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -1073,7 +1135,6 @@ jobs:
           tag: ${{ needs.resolve.outputs.desktop_tag }}
           version: ${{ needs.resolve.outputs.desktop_version }}
           app: Synnax Desktop
-          linux: true
 
   # The only job that makes a release public. It runs after Verify, the migration audit,
   # and every build of the run pass. A publish of a release that is already public

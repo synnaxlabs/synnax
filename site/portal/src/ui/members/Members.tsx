@@ -17,10 +17,10 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
-import { type Invitation, type Organization } from "@/server/db/schema";
+import type { Invitation, Organization } from "@/server/db/schema";
 import {
   ADMIN_ROLE,
   type Member,

@@ -20,8 +20,7 @@
               "start_bit": 448,
               "bit_length": 64,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": true
+              "kind": "float"
             }
           ],
           "length": 64,

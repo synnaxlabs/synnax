@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
@@ -75,6 +75,18 @@ describe("Modal", () => {
       withIcon.unmount();
       const withoutIcon = renderModal(<Modal.Header>Title</Modal.Header>);
       expect(withoutIcon.baseElement.querySelector(".test-icon")).toBeNull();
+    });
+
+    it("should show the badge after the breadcrumb", () => {
+      renderModal(
+        <Modal.Header badge={<span>USB</span>}>{["Configure", "T7"]}</Modal.Header>,
+      );
+      const title = screen.getByText("T7");
+      const badge = screen.getByText("USB");
+      expect(badge.closest(".lyra-breadcrumb")).toBeNull();
+      expect(
+        title.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
     });
 
     it("should name the close action and its escape key in the tooltip", async () => {

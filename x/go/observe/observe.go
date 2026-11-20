@@ -25,7 +25,7 @@ type Observable[T any] interface {
 	// OnChange is called when the state of the observable changes. The returned
 	// function can be used to disconnect the handler, stopping it from being called
 	// when the observable changes.
-	OnChange(func(context.Context, T)) Disconnect
+	OnChange(handler func(ctx context.Context, value T)) Disconnect
 }
 
 // Observer is an interface that can notify subscribers of changes to an observable.
@@ -34,7 +34,7 @@ type Observer[T any] interface {
 	// Notify notifies all subscribers of the Value. It calls the handlers while it
 	// holds a lock, so a handler must not call Notify, OnChange, or a Disconnect on the
 	// same Observer: the call can deadlock.
-	Notify(context.Context, T)
+	Notify(ctx context.Context, value T)
 }
 
 type base[T any] struct {

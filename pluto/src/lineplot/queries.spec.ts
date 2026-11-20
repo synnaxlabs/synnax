@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  color as colorClient,
   DataType,
   lineplot as lineplotClient,
   NotFoundError,
@@ -15,7 +16,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/lineplot";
@@ -23,6 +24,12 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+
+/** Returns the series colors in palette order. */
+const retrieveSeries = async (): Promise<colorClient.Named[]> =>
+  (await client.colors.retrieve({ groups: [colorClient.SERIES_PALETTE] })).sort(
+    colorClient.compare,
+  );
 
 const createChannel = async () =>
   (
@@ -465,7 +472,7 @@ describe("lineplot queries", () => {
                 yAxis: "y1",
                 yChannel: 1,
                 label: "ghost",
-                color: color.construct("#ff0000"),
+                color: { type: "fixed", value: color.construct("#ff0000") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -691,7 +698,7 @@ describe("lineplot queries", () => {
                 key: "ln-1",
                 yAxis: "y1",
                 yChannel: 1,
-                color: color.construct("#00aaff"),
+                color: { type: "fixed", value: color.construct("#00aaff") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -710,7 +717,10 @@ describe("lineplot queries", () => {
         { wrapper },
       );
       expect(line.current.color).toEqual(color.construct("#00aaff"));
-      expect(line.current.pickedColor).toEqual(color.construct("#00aaff"));
+      expect(line.current.pickedColor).toEqual({
+        type: "fixed",
+        value: color.construct("#00aaff"),
+      });
     });
 
     it("useRules / useRule reflect setRule and removeRule", async () => {
@@ -728,7 +738,7 @@ describe("lineplot queries", () => {
               rule: {
                 key: "rl-1",
                 label: "max",
-                color: color.construct("#ff0000"),
+                color: { type: "fixed", value: color.construct("#ff0000") },
                 axis: "y1",
                 lineWidth: 1,
                 lineDash: 0,
@@ -757,7 +767,8 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.rules).toEqual([]));
     });
 
-    it("useRule resolves a palette color for a rule with no stored color", async () => {
+    it("useRule shows the series color that the Core stores on a rule with no color", async () => {
+      const [first] = await retrieveSeries();
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
         rules: LinePlot.useRules({ key: created.key }),
@@ -787,8 +798,110 @@ describe("lineplot queries", () => {
         () => LinePlot.useRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
-      expect(rule.current.pickedColor).toBeUndefined();
-      expect(rule.current.color).toEqual(rule.current.autoColor);
+      await waitFor(() =>
+        expect(rule.current.pickedColor).toEqual({ type: "named", key: first.key }),
+      );
+      expect(rule.current.color).toEqual(first.light);
+    });
+
+    const setLine = (line: lineplotClient.Line) => lineplotClient.setLine({ line });
+    const LINE_BASE = {
+      yAxis: "y1",
+      yChannel: 1,
+      xChannel: 0,
+      strokeWidth: 2,
+      aggregation: "min_max",
+      detail: "medium",
+    } as const;
+
+    it("useLines repaints a line when its named color changes", async () => {
+      const named = await client.colors.create({
+        name: `lp_${uuid.create()}`,
+        light: "#112233",
+      });
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        lines: LinePlot.useLines({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            setLine({
+              ...LINE_BASE,
+              key: "ln-1",
+              color: { type: "named", key: named.key },
+            }),
+          ],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.lines[0]?.color).toEqual(color.construct("#112233")),
+      );
+      await client.colors.dispatch(
+        named.key,
+        colorClient.set({ path: ["light"], value: color.construct("#998877") }),
+      );
+      await waitFor(() =>
+        expect(result.current.lines[0]?.color).toEqual(color.construct("#998877")),
+      );
+    });
+
+    it("useLines shows the first unused series color that the Core stores on a line", async () => {
+      const [first, second] = await retrieveSeries();
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        lines: LinePlot.useLines({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            setLine({
+              ...LINE_BASE,
+              key: "ln-1",
+              color: { type: "named", key: first.key },
+            }),
+            setLine({ ...LINE_BASE, key: "ln-2", yChannel: 2 }),
+          ],
+        });
+      });
+      // The line paints its series color before the Core's stored color returns.
+      await waitFor(() => {
+        expect(result.current.lines.map((l) => l.color)).toEqual([
+          first.light,
+          second.light,
+        ]);
+        expect(result.current.lines[1].pickedColor).toEqual({
+          type: "named",
+          key: second.key,
+        });
+      });
+    });
+
+    it("useLines shows the series color that the Core stores on an added line", async () => {
+      const [first] = await retrieveSeries();
+      const created = await createPlot();
+      const channel = await createChannel();
+      const { result } = await loadAndUse(created.key, () => ({
+        lines: LinePlot.useLines({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.lines[0]?.pickedColor).toEqual({
+          type: "named",
+          key: first.key,
+        }),
+      );
+      expect(result.current.lines[0].color).toEqual(first.light);
     });
 
     it("useLineCount reflects the number of lines", async () => {
@@ -807,7 +920,7 @@ describe("lineplot queries", () => {
                 key: "ln-count",
                 yAxis: "y1",
                 yChannel: 1,
-                color: color.construct("#00aaff"),
+                color: { type: "fixed", value: color.construct("#00aaff") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -914,7 +1027,7 @@ describe("lineplot queries", () => {
                 key: lineKey,
                 yAxis: "y1",
                 yChannel: key,
-                color: color.construct("#00aaff"),
+                color: { type: "fixed", value: color.construct("#00aaff") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -945,7 +1058,7 @@ describe("lineplot queries", () => {
               rule: {
                 key: "rule-y1",
                 label: "max",
-                color: color.construct("#ff0000"),
+                color: { type: "fixed", value: color.construct("#ff0000") },
                 axis: "y1",
                 lineWidth: 1,
                 lineDash: 0,
@@ -1042,7 +1155,7 @@ describe("lineplot queries", () => {
                 key: "ln-stable",
                 yAxis: "y1",
                 yChannel: 1,
-                color: color.construct("#00aaff"),
+                color: { type: "fixed", value: color.construct("#00aaff") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -1060,7 +1173,7 @@ describe("lineplot queries", () => {
           actions: [
             lineplotClient.setLineColor({
               key: "ln-stable",
-              color: color.construct("#ff0000"),
+              color: { type: "fixed", value: color.construct("#ff0000") },
             }),
           ],
         });
@@ -1083,7 +1196,7 @@ describe("lineplot queries", () => {
               rule: {
                 key: "rule-stable",
                 label: "max",
-                color: color.construct("#ff0000"),
+                color: { type: "fixed", value: color.construct("#ff0000") },
                 axis: "y1",
                 lineWidth: 1,
                 lineDash: 0,
@@ -1285,7 +1398,7 @@ describe("lineplot queries", () => {
                 key: "ln-count-stable",
                 yAxis: "y1",
                 yChannel: 1,
-                color: color.construct("#00aaff"),
+                color: { type: "fixed", value: color.construct("#00aaff") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -1302,7 +1415,7 @@ describe("lineplot queries", () => {
           actions: [
             lineplotClient.setLineColor({
               key: "ln-count-stable",
-              color: color.construct("#ff0000"),
+              color: { type: "fixed", value: color.construct("#ff0000") },
             }),
           ],
         });
@@ -1326,7 +1439,7 @@ describe("lineplot queries", () => {
                 key: "ln-lines-stable",
                 yAxis: "y1",
                 yChannel: 1,
-                color: color.construct("#00aaff"),
+                color: { type: "fixed", value: color.construct("#00aaff") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -1365,7 +1478,7 @@ describe("lineplot queries", () => {
               rule: {
                 key: "rl-rules-stable",
                 label: "max",
-                color: color.construct("#ff0000"),
+                color: { type: "fixed", value: color.construct("#ff0000") },
                 axis: "y1",
                 lineWidth: 1,
                 lineDash: 0,
@@ -1438,7 +1551,7 @@ describe("lineplot queries", () => {
                 yAxis: "y1",
                 yChannel: chA.key,
                 xChannel: index.key,
-                color: color.construct("#00aaff"),
+                color: { type: "fixed", value: color.construct("#00aaff") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -1450,7 +1563,7 @@ describe("lineplot queries", () => {
                 yAxis: "y1",
                 yChannel: chB.key,
                 xChannel: index.key,
-                color: color.construct("#ff8800"),
+                color: { type: "fixed", value: color.construct("#ff8800") },
                 strokeWidth: 2,
                 aggregation: "min_max",
                 detail: "medium",
@@ -1470,9 +1583,11 @@ describe("lineplot queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() =>
-        expect(result.current.line.label).toEqual(`lnstab_a_${suffix}`),
-      );
+      const [first] = await retrieveSeries();
+      await waitFor(() => {
+        expect(result.current.line.label).toEqual(`lnstab_a_${suffix}`);
+        expect(result.current.line.autoColor).toEqual(first.light);
+      });
       const firstLine = result.current.line;
       const countBefore = renderCount;
       await act(async () => {
@@ -1481,7 +1596,7 @@ describe("lineplot queries", () => {
           actions: [
             lineplotClient.setLineColor({
               key: lineB,
-              color: color.construct("#00ff00"),
+              color: { type: "fixed", value: color.construct("#00ff00") },
             }),
           ],
         });
@@ -1508,7 +1623,7 @@ describe("lineplot queries", () => {
               rule: {
                 key: "rl-a",
                 label: "a",
-                color: color.construct("#ff0000"),
+                color: { type: "fixed", value: color.construct("#ff0000") },
                 axis: "y1",
                 lineWidth: 1,
                 lineDash: 0,
@@ -1520,7 +1635,7 @@ describe("lineplot queries", () => {
               rule: {
                 key: "rl-b",
                 label: "b",
-                color: color.construct("#00ff00"),
+                color: { type: "fixed", value: color.construct("#00ff00") },
                 axis: "y1",
                 lineWidth: 1,
                 lineDash: 0,

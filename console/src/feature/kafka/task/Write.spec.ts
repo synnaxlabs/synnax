@@ -9,6 +9,7 @@
 
 import { kafka, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -22,12 +23,15 @@ import {
   type RenderTaskFormTabOptions,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
 const renderWrite = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(Kafka.Task.Write, options);
+  const rendered = await renderTaskFormTab(
+    Kafka.Task.FORMS[Kafka.Task.WRITE_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };

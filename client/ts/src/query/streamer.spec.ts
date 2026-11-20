@@ -8,17 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { DataType, Series, sleep, TimeSpan } from "@synnaxlabs/x";
+import { DataType, disposable, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
 
 class MockHardenedStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private keysI: channel.Params[];
   readonly updateVi = vi.fn();
   readonly closeVi = vi.fn();
@@ -53,7 +59,7 @@ class MockHardenedStreamer implements framer.Streamer {
 
   async next(): Promise<IteratorResult<framer.Frame>> {
     if (this.reads == null && this.nextFn == null) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await sleep.sleep(TimeSpan.milliseconds(1000));
       return { done: true, value: undefined };
     }
     if (this.nextFn != null) return await this.nextFn();
@@ -353,7 +359,7 @@ describe("openStreamer", () => {
 
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
       expect(onChange.mock.calls[0][0]).toEqual([{ value: 1 }]);
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await sleep.sleep(TimeSpan.milliseconds(100));
       await closeStreamer();
     });
 
@@ -430,7 +436,7 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(onError).not.toHaveBeenCalled();
       await closeStreamer();
     });
@@ -458,7 +464,7 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(2);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(onError).not.toHaveBeenCalled();
       await closeStreamer();
     });
@@ -1044,7 +1050,7 @@ describe("openStreamer", () => {
           openStreamer: createFrameStreamer(frames),
         }),
       );
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await sleep.sleep(TimeSpan.milliseconds(100));
       expect(onChange).not.toHaveBeenCalled();
       await closeStreamer();
     });
@@ -1187,7 +1193,7 @@ describe("openStreamer", () => {
 
       await closeStreamer();
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await sleep.sleep(TimeSpan.milliseconds(100));
 
       expect(onChange.mock.calls.length).toBe(callsBeforeClose);
     });

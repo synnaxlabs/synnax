@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var errRoutineFailed = errors.New("routine failed")
@@ -28,7 +29,7 @@ func immediatelyReturnError(context.Context) error {
 	return errRoutineFailed
 }
 
-func immediatelyPanic(context.Context) error { panic("routine panicked") }
+func immediatelyPanic() error { panic("routine panicked") }
 
 func immediatelyReturnNil(context.Context) error { return nil }
 
@@ -155,7 +156,7 @@ var _ = Describe("Signal", func() {
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(2)))
+				Eventually(c.Load).Should(Equal(int32(2)))
 				cancel()
 				v <- 3
 				Expect(ctx.Wait()).To(MatchError(context.Canceled))
@@ -173,7 +174,7 @@ var _ = Describe("Signal", func() {
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(2)))
+				Eventually(c.Load).Should(Equal(int32(2)))
 				close(v)
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
@@ -193,7 +194,7 @@ var _ = Describe("Signal", func() {
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(1)))
+				Eventually(c.Load).Should(Equal(int32(1)))
 				Expect(ctx.Wait()).To(MatchError(err))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
@@ -213,7 +214,7 @@ var _ = Describe("Signal", func() {
 					},
 				)
 				Eventually(
-					func() int32 { return c.Load() },
+					c.Load,
 				).Should(BeNumerically(">", int32(3)))
 				cancel()
 				Expect(ctx.Wait()).To(MatchError(context.Canceled))
@@ -231,7 +232,7 @@ var _ = Describe("Signal", func() {
 				ctx.Go(immediatelyReturnNil, signal.Defer(func() {
 					c.Add(1)
 				}))
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(1)))
+				Eventually(c.Load).Should(Equal(int32(1)))
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
@@ -305,7 +306,7 @@ var _ = Describe("Signal", func() {
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
+				return immediatelyPanic()
 			}, signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("routine panicked")))
@@ -314,7 +315,7 @@ var _ = Describe("Signal", func() {
 		It("Should not error when instructed to not error", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
+				return immediatelyPanic()
 			}, signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).To(Succeed())
@@ -445,6 +446,59 @@ var _ = Describe("Signal", func() {
 			Expect(
 				time.Since(start),
 			).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
+		})
+	})
+
+	Describe("Breaker configuration", func() {
+		It("Should return an invalid config error from Wait", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			var called atomic.Bool
+			ctx.Go(func(context.Context) error {
+				called.Store(true)
+				return nil
+			}, signal.WithRetryScale(0.5))
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(called.Load()).To(BeFalse())
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+
+		It("Should run deferrals and cancel siblings on an invalid config", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				return ctx.Err()
+			})
+			var deferred atomic.Bool
+			ctx.Go(
+				func(context.Context) error { return nil },
+				signal.WithRetryScale(0.5),
+				signal.CancelOnFail(),
+				signal.Defer(func() { deferred.Store(true) }),
+			)
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(deferred.Load()).To(BeTrue())
+		})
+
+		It("Should return an invalid config error after a sibling cancels", func() {
+			ctx, cancel := signal.Isolated()
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				return ctx.Err()
+			})
+			cancel()
+			Eventually(ctx.Stopped()).Should(BeClosed())
+			ctx.Go(
+				func(context.Context) error { return nil },
+				signal.WithKey("invalid"),
+				signal.WithRetryScale(0.5),
+			)
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(ctx.Routines()).To(ContainElement(And(
+				HaveField("Key", "invalid"),
+				HaveField("State", signal.RoutineStateFailed),
+			)))
 		})
 	})
 

@@ -8,18 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { LinePlot } from "@/platform/lineplot";
-import { type Link } from "@/platform/link";
+import type { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const create = LinePlot.useCreate();
-  const getSelectedRef = Session.Range.useGetSelectedRef();
   return async ({ client, key }) => {
     const channel = await client.channels.retrieve(key);
     create({
       name: `${channel.name} Plot`,
       channels: { y1: [channel.key] },
-      ranges: [getSelectedRef()],
+      ranges: [Session.Range.RECENT_REF],
     });
   };
 };

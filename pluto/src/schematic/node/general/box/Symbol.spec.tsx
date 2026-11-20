@@ -14,7 +14,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Symbol } from "@/schematic/node/general/box/Symbol";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 
 const NODE_KEY = "b1";
 
@@ -54,6 +54,11 @@ describe("Box.Symbol", () => {
     const { container } = renderSymbol();
     expect(frame(container)?.getAttribute("width")).toBe("100%");
     expect(frame(container)?.getAttribute("height")).toBe("100%");
+  });
+
+  it("should round the frame by 3 px when the border radius is absent", () => {
+    const { container } = renderSymbol();
+    expect(frame(container)?.getAttribute("rx")).toBe("3");
   });
 
   it("should round the frame so the band follows the corners", () => {

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/cockroachdb/cmux"
 	"github.com/samber/lo"
@@ -97,14 +98,16 @@ var (
 	_ alamos.ReportProvider = Config{}
 	_ alamos.ReportProvider = SecurityConfig{}
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default server configuration.
-	DefaultConfig = Config{
+)
+
+func defaultConfig() Config {
+	return Config{
 		Debug: new(false),
 		Security: SecurityConfig{
 			Insecure: new(false),
 		},
 	}
-)
+}
 
 // Override implements the config.Properties interface.
 func (c Config) Override(other Config) Config {
@@ -141,7 +144,7 @@ type Server struct {
 // Serve starts a new server using the provided configuration. If the configuration
 // is invalid, an error is returned. To stop the server, call the Close method.
 func Serve(cfgs ...Config) (*Server, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(defaultConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +164,7 @@ func (s *Server) start() (err error) {
 	s.listeners = make([]net.Listener, 0, len(s.Listeners))
 	s.addresses = make([]address.Address, 0, len(s.Listeners))
 	for _, l := range s.Listeners {
-		lis, err := net.Listen("tcp", l.bindAddress())
+		bound, err := net.Listen("tcp", l.bindAddress())
 		if err != nil {
 			// Closing the opened listeners unblocks their serve goroutines; cancel then
 			// tears down the signal context so a partial bind leaves nothing running.
@@ -169,10 +172,16 @@ func (s *Server) start() (err error) {
 			cancel()
 			return err
 		}
+		lis := &sharedListener{Listener: bound}
 		s.listeners = append(s.listeners, lis)
-		s.addresses = append(s.addresses, address.Newf(
-			"%s:%d", l.Address.Host(), lis.Addr().(*net.TCPAddr).Port,
-		))
+		tcpAddr, ok := lis.Addr().(*net.TCPAddr)
+		if !ok {
+			panic(fmt.Sprintf("listener address is a %T", lis.Addr()))
+		}
+		s.addresses = append(
+			s.addresses,
+			address.Newf("%s:%d", l.Address.Host(), tcpAddr.Port),
+		)
 		sCtx.Go(func(ctx context.Context) error {
 			mux := cmux.New(lis)
 			if *s.Security.Insecure {
@@ -202,13 +211,27 @@ func (s *Server) Close() error {
 	return errors.Combine(s.closeListeners(), s.shutdown.Close())
 }
 
-// closeListeners closes every bound listener. A Branch that shut down already closed
-// its own listener, so an already-closed listener is not an error.
+// closeListeners closes every bound listener.
 func (s *Server) closeListeners() (err error) {
 	for _, l := range s.listeners {
-		err = errors.Combine(err, filterCloserError(l.Close()))
+		err = errors.Combine(err, l.Close())
 	}
 	return err
+}
+
+// sharedListener is a bound listener that the Server and each of its Branches close,
+// because closing a cmux listener closes the listener at its root. Only the first Close
+// closes it, and every Close returns the result of that first one.
+type sharedListener struct {
+	net.Listener
+	once sync.Once
+	err  error
+}
+
+// Close implements net.Listener.
+func (l *sharedListener) Close() error {
+	l.once.Do(func() { l.err = l.Listener.Close() })
+	return l.err
 }
 
 func (s *Server) serveSecure(sCtx signal.Context, l Listener, root cmux.CMux) error {
@@ -283,6 +306,7 @@ func (s *Server) baseBranchContext(l Listener) BranchContext {
 		Debug:           *s.Debug,
 		Security:        s.Security,
 		ServerName:      l.Address.Host(),
+		TLS:             l.TLS,
 	}
 }
 

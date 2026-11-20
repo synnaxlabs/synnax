@@ -15,15 +15,17 @@ import {
   type task,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
   CONTROL_ENTRY,
+  createDewesoftXSettings,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -37,9 +39,9 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getChannelItemStatus,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -66,14 +68,17 @@ const createDraft = async (
 const renderWrite = async (config: z.infer<EtherCAT.Task.WriteSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
-  const rendered = await renderTaskFormTab(EtherCAT.Task.Write, {
-    client,
-    taskKey: draft.key,
-    onStatuses: (next) => {
-      statuses.length = 0;
-      statuses.push(...next);
+  const rendered = await renderTaskFormTab(
+    EtherCAT.Task.FORMS[EtherCAT.Task.WRITE_TYPE],
+    {
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => {
+        statuses.length = 0;
+        statuses.push(...next);
+      },
     },
-  });
+  );
   await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };
@@ -203,7 +208,7 @@ describe("Write", () => {
     fireEvent.click(await screen.findByRole("option", { name: /Output/ }));
     expect(
       await screen.findByText(
-        /^'Output' matches more than one output entry on slave .+\. Pick an entry\.$/,
+        /^'Output' matches more than one output entry on module .+\. Pick an entry\.$/,
       ),
     ).toBeTruthy();
   });
@@ -626,25 +631,65 @@ describe("Write", () => {
     });
     expect(
       await screen.findByText(
-        "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+        "All modules must be on the same network. Found: eth0, eth1. Pick modules on " +
           "one network.",
       ),
     ).toBeTruthy();
   });
 
-  it("should ask for a scan when no slave of the task has a network", async () => {
+  it("should mark only the enabled channels on a slave that DewesoftX sets up", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [], outputs: [CONTROL_ENTRY] },
+      settings: createDewesoftXSettings(true),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY),
+        {
+          ...EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY),
+          disabled: true,
+        },
+      ],
+    });
+    const [enabled, disabled] = await screen.findAllByRole("option", {
+      name: /0x7000:01/,
+    });
+    await waitFor(() => expect(getChannelItemStatus(enabled)).toBe("warning"));
+    expect(getChannelItemStatus(disabled)).toBeUndefined();
+  });
+
+  it("should ask for a found slave in place of one with no network", async () => {
+    const lost = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "",
       pdos: createPDOs(),
     });
+    const found = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [
+        EtherCAT.Task.createEntryWriteChannel(lost.key, CONTROL_ENTRY),
+        EtherCAT.Task.createEntryWriteChannel(found.key, CONTROL_ENTRY),
+      ],
     });
+    const [lostOption, foundOption] = await screen.findAllByRole("option", {
+      name: /0x7000:01/,
+    });
+    await waitFor(() => expect(getChannelItemStatus(lostOption)).toBe("error"));
+    expect(getChannelItemStatus(foundOption)).toBeUndefined();
+    expect(screen.queryByText(/same network/)).toBeNull();
+    fireEvent.click(lostOption);
     expect(
       await screen.findByText(
-        "No network found for the selected slaves. Scan the network again.",
+        `The Driver has never found ${lost.name} on a network. Select a connected ` +
+          `device for each channel that uses ${lost.name}.`,
       ),
     ).toBeTruthy();
   });

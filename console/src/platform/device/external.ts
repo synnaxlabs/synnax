@@ -19,6 +19,7 @@ export * from "@/platform/device/EditConnectionMenuItem";
 export * from "@/platform/device/Empty";
 export * from "@/platform/device/Find";
 export * from "@/platform/device/integration";
+export * from "@/platform/device/LocationBadge";
 export * from "@/platform/device/RackField";
 export * from "@/platform/device/racks";
 export * from "@/platform/device/Select";

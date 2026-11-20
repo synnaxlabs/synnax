@@ -11,8 +11,9 @@ import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -36,7 +37,7 @@ import {
   createConsoleWrapper,
   getIconButton,
   resolveFocusedTab,
-  uniqueName,
+  type TestStore,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -259,6 +260,79 @@ describe("EtherCAT device ContextMenuItems", () => {
     expect(screen.queryByText("Create write task")).toBeNull();
   });
 
+  describe("several new slaves", () => {
+    const renderNewSlaves = async () => {
+      const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+      const create = async (position: number, pdos: EtherCAT.Device.PDOs) =>
+        await createSlaveDevice(
+          client,
+          rack.key,
+          { name: "IOLITEr 6xSTG", network: "eth0", position, pdos },
+          false,
+        );
+      const second = await create(2, createPDOs());
+      const first = await create(1, { inputs: [STATUS_ENTRY], outputs: [] });
+      const { store } = await renderContextMenu([second, first]);
+      return { first, second, store };
+    };
+
+    const retrieveFocusedKey = async (store: TestStore): Promise<task.Key> => {
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      return tab.resource.key;
+    };
+
+    it("should create one read task with the inputs of each slave in bus order", async () => {
+      const { first, second, store } = await renderNewSlaves();
+      fireEvent.click(await screen.findByText("Create read task"));
+      const key = await retrieveFocusedKey(store);
+      const read = await client.tasks.retrieve({
+        key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(read.config.channels.map((ch) => ch.device)).toEqual([
+        first.key,
+        second.key,
+      ]);
+      expect(screen.queryByText("Sync mode")).toBeNull();
+      const saved = await client.devices.retrieve({
+        key: [first.key, second.key],
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(saved.map((d) => d.configured)).toEqual([true, true]);
+      expect(new Set(saved.map((d) => d.properties.identifier)).size).toBe(2);
+    });
+
+    it("should offer no task for modules on different networks", async () => {
+      const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+      const create = async (network: string) =>
+        await createSlaveDevice(
+          client,
+          rack.key,
+          { network, pdos: createPDOs() },
+          false,
+        );
+      await renderContextMenu([await create("eth0"), await create("eth1")]);
+      expect(await screen.findByText("Disable")).toBeTruthy();
+      expect(screen.queryByText("Create read task")).toBeNull();
+      expect(screen.queryByText("Create write task")).toBeNull();
+    });
+
+    it("should leave a slave with no outputs out of the write task", async () => {
+      const { first, second, store } = await renderNewSlaves();
+      fireEvent.click(await screen.findByText("Create write task"));
+      const key = await retrieveFocusedKey(store);
+      const write = await client.tasks.retrieve({
+        key,
+        schemas: EtherCAT.Task.WRITE_SCHEMAS,
+      });
+      expect(write.config.channels.map((ch) => ch.device)).toEqual([second.key]);
+      expect((await client.devices.retrieve({ key: first.key })).configured).toBe(
+        false,
+      );
+    });
+  });
+
   it("should disable every selected slave on the Core when Disable is clicked", async () => {
     const slaveA = await createSlave(true);
     const slaveB = await createSlave(true);
@@ -426,31 +500,6 @@ describe("EtherCAT device ContextMenuItems", () => {
         await screen.findByText(
           "The Driver uses DC, because the setup of the device needs it. Best for " +
             "most needs.",
-        ),
-      ).toBeTruthy();
-    });
-
-    it("should not run the mode that the catalog gives on an IgH network", async () => {
-      await openConfigure({
-        network: "igh:0",
-        opModes: [SM_MODE, DC_MODE],
-        settings: {
-          device: [],
-          channels: [],
-          mode: {
-            index: 0x8020,
-            subIndex: 9,
-            value: 0,
-            shared: false,
-            opMode: { index: 1, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 },
-            switch: [],
-          },
-        },
-      });
-      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
-      expect(
-        await screen.findByText(
-          "The Driver uses SM sync, because the device lists it. Best for most needs.",
         ),
       ).toBeTruthy();
     });

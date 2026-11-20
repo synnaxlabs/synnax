@@ -9,12 +9,11 @@
 
 // @vitest-environment node
 
-import reactRenderer from "@astrojs/react/server.js";
-import { experimental_AstroContainer } from "astro/container";
-import { type Element, type Root } from "hast";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it, vi } from "vitest";
 
+import { createContainer } from "@/testutil/container";
 import { resolve, ROOT, type Version } from "@/util/version";
 
 const elements = (node: Root | Element): Element[] =>
@@ -38,10 +37,7 @@ const render = async (version: Version | null): Promise<Element[]> => {
   vi.resetModules();
   vi.doMock("@/version", () => ({ VERSION: version }));
   const { default: Layout } = await import("@/layouts/Root.astro");
-  const container = await experimental_AstroContainer.create({
-    astroConfig: { site: ROOT },
-  });
-  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+  const container = await createContainer(ROOT);
   const html = await container.renderToString(Layout, {
     props: { frontmatter: { title: "Control" } },
     request: new Request(`https://docs.synnaxlabs.com${PATH}`),

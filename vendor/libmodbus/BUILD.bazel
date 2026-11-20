@@ -267,17 +267,6 @@ cc_library(
         ":generate_version_h",
         ":prepare_static_sources",
     ],
-    copts = select({
-        "@platforms//os:windows": [
-            "/DHAVE_CONFIG_H",
-            "/D_WIN32_WINNT=0x0600",
-            "/I$(GENDIR)/vendor/libmodbus",  # For config.h
-        ],
-        "//conditions:default": [
-            "-DHAVE_CONFIG_H",
-            "-DIPTOS_LOWDELAY=0x10",
-        ],
-    }),
     defines = select({
         "@platforms//os:windows": [
             "MODBUS_API=",  # Override MODBUS_API for static linking
@@ -301,6 +290,10 @@ cc_library(
     linkopts = select({
         "@platforms//os:windows": ["ws2_32.lib"],
         "//conditions:default": [],
+    }),
+    local_defines = ["HAVE_CONFIG_H"] + select({
+        "@platforms//os:windows": ["_WIN32_WINNT=0x0600"],
+        "//conditions:default": ["IPTOS_LOWDELAY=0x10"],
     }),
     visibility = ["//visibility:public"],
 )

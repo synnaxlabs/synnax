@@ -53,22 +53,23 @@ func salt() ([]byte, error) {
 
 var b64 = base64.RawStdEncoding
 
-// phc splits a PHC-formatted hash, "$id$params$salt$hash", into its parts.
-func phc(hash []byte) (id, params string, salt, key []byte, err error) {
+// phc splits a PHC-formatted hash, "$id$params$salt$hash", into its params, salt,
+// and key.
+func phc(hash []byte) (params string, salt, key []byte, err error) {
 	parts := strings.Split(string(hash), "$")
 	if len(parts) == 5 {
 		parts = append(parts[:2], append([]string{""}, parts[2:]...)...)
 	}
 	if len(parts) != 6 {
-		return "", "", nil, nil, errMalformedHash
+		return "", nil, nil, errMalformedHash
 	}
 	if salt, err = b64.DecodeString(parts[4]); err != nil {
-		return "", "", nil, nil, errors.Combine(errMalformedHash, err)
+		return "", nil, nil, errors.Combine(errMalformedHash, err)
 	}
 	if key, err = b64.DecodeString(parts[5]); err != nil {
-		return "", "", nil, nil, errors.Combine(errMalformedHash, err)
+		return "", nil, nil, errors.Combine(errMalformedHash, err)
 	}
-	return parts[1], parts[3], salt, key, nil
+	return parts[3], salt, key, nil
 }
 
 func compare(stored, computed []byte) error {
@@ -114,7 +115,7 @@ func (argon2id) hash(plaintext string) ([]byte, error) {
 }
 
 func (argon2id) verify(hash []byte, plaintext string) error {
-	_, params, s, key, err := phc(hash)
+	params, s, key, err := phc(hash)
 	if err != nil {
 		return err
 	}
@@ -171,7 +172,7 @@ func (pbkdf2SHA256) hash(plaintext string) ([]byte, error) {
 }
 
 func (pbkdf2SHA256) verify(hash []byte, plaintext string) error {
-	_, params, s, key, err := phc(hash)
+	params, s, key, err := phc(hash)
 	if err != nil {
 		return err
 	}

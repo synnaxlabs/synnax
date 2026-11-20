@@ -10,20 +10,22 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { FC } from "react";
 
-import { type QoS } from "@/feature/mqtt/task/types";
+import type { QoS } from "@/feature/mqtt/task/types";
 
-const renderSelect = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<QoS>, "children" | "resourceName">) => (
-    <Select.Simple<QoS> {...p} resourceName="quality of service">
-      <Select.Item itemKey="at_most_once">At most once (0)</Select.Item>
-      <Select.Item itemKey="at_least_once">At least once (1)</Select.Item>
-      <Select.Item itemKey="exactly_once">Exactly once (2)</Select.Item>
-    </Select.Simple>
-  ),
+const SelectQoS = (
+  p: Omit<Select.SingleSimpleProps<QoS>, "children" | "resourceName">,
+) => (
+  <Select.Simple<QoS> {...p} resourceName="quality of service">
+    <Select.Item itemKey="at_most_once">At most once (0)</Select.Item>
+    <Select.Item itemKey="at_least_once">At least once (1)</Select.Item>
+    <Select.Item itemKey="exactly_once">Exactly once (2)</Select.Item>
+  </Select.Simple>
 );
+
+const renderSelect = Component.renderProp(SelectQoS);
 
 export interface QoSFieldProps {
   path: deep.Target<QoS>;

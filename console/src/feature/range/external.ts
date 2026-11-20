@@ -9,10 +9,9 @@
 
 import { Explorer } from "@/feature/range/explorer";
 import { Overview } from "@/feature/range/overview";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 
 export * from "@/feature/range/commands";
-export * from "@/feature/range/ContextMenu";
 export * from "@/feature/range/explorer";
 export * from "@/feature/range/link";
 export * from "@/feature/range/overview";

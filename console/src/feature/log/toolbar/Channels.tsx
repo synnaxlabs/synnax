@@ -13,17 +13,18 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
-import { type Select } from "@synnaxlabs/lyra/select";
+import type { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
+  array,
   type color,
   DataType,
   notation,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -54,7 +55,7 @@ const ChannelRow = ({
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
-  const otherChannels = Log.useChannelKeys().filter((key) => key !== channel);
+  const otherChannels = array.remove(Log.useChannelKeys(), channel);
   const query = { key: channel };
   const { data: dataType } = Channel.useResultDataType(query);
   const { data: chName } = Channel.useResultName(query);

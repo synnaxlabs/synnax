@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, zod } from "@synnaxlabs/x";
+import { deep, strings, zod } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -66,18 +66,17 @@ const parseThemes = (
   themes: Record<string, baseTheme.ThemeSpec>,
 ): Record<string, baseTheme.Theme> => {
   if (theme != null) {
-    // The override applies to both variants and each keeps its own key, since
-    // consumers tell light from dark by key. The caller's key pins a variant when it
-    // names one and is otherwise ignored.
-    const { key: _, ...override } = theme;
+    // The override applies to both variants, and each keeps its own key and mode. The
+    // caller's key pins a variant when it names one and is otherwise ignored.
+    const { key: _, dark: __, ...override } = theme;
     const synnaxLight = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
+      deep.override(baseTheme.SYNNAX_LIGHT, override),
       { label: "theme" },
     );
     const synnaxDark = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
+      deep.override(baseTheme.SYNNAX_DARK, override),
       { label: "theme" },
     );
     return { synnaxLight, synnaxDark };
@@ -126,8 +125,9 @@ export const useProvider = ({
   useEffect(() => {
     if (theme != null) return;
     const listener = (): void => setSelected(isDarkMode() ? darkTheme : lightTheme);
-    prefersDark()?.addEventListener("change", listener);
-    return () => prefersDark()?.removeEventListener("change", listener);
+    const query = prefersDark();
+    query?.addEventListener("change", listener);
+    return () => query?.removeEventListener("change", listener);
   }, [theme]);
 
   return {
@@ -150,7 +150,7 @@ const CLASS_PREFIX = "lyra-theme-";
 const setThemeClass = (el: HTMLElement, theme: baseTheme.Theme): void => {
   const existing = Array.from(el.classList).find((c) => c.startsWith(CLASS_PREFIX));
   if (existing != null) el.classList.remove(existing);
-  el.classList.add(`${CLASS_PREFIX}${caseconv.toKebab(theme.key)}`);
+  el.classList.add(`${CLASS_PREFIX}${strings.toKebab(theme.key)}`);
 };
 
 export const Provider = ({

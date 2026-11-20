@@ -13,16 +13,16 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
+import { SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
+import { getOpenReadChannel } from "@/feature/modbus/task/create";
 import { DataTypeCell } from "@/feature/modbus/task/DataTypeCell";
 import { RegisterField } from "@/feature/modbus/task/Register";
 import {
@@ -34,10 +34,8 @@ import {
   deployReadConfigZ,
   isStringReadChannel,
   isVariableDensityReadChannel,
-  nextChannel,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
-  READ_TYPE,
   type ReadChannel,
   readChannelName,
   readDataType,
@@ -46,7 +44,6 @@ import {
   UNSUPPORTED_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
@@ -120,19 +117,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   );
 };
 
-const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
-  if (channels.length === 0)
-    return {
-      ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
-      key: id.create(),
-    };
-  return {
-    ...nextChannel(channels[channels.length - 1]),
-    ...Task.READ_CHANNEL_OVERRIDE,
-    key: id.create(),
-  };
-};
-
 const createMapChannel = (type: ReadChannel["type"], address: number): ReadChannel => ({
   ...READ_CHANNEL_SCHEMAS[type].parse({ type, address }),
   ...Task.READ_CHANNEL_OVERRIDE,
@@ -158,8 +142,9 @@ const Form: FC = () => {
     <RegisterMapProvider>
       <Task.Views.List
         path={path.config.channels}
-        createChannel={getOpenChannel}
+        createChannel={getOpenReadChannel}
         contextMenuItems={Task.readChannelContextMenuItem}
+        tareable
         listItem={listItem}
         resolve={resolve}
         map={map}
@@ -168,13 +153,6 @@ const Form: FC = () => {
       />
     </RegisterMapProvider>
   );
-};
-
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
-  const config = READ_SCHEMAS.config.parse({});
-  if (deviceKey != null) config.device = deviceKey;
-  config.channels = [getOpenChannel([])];
-  return { name: "Modbus read task", type: READ_TYPE, config };
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
@@ -252,16 +230,3 @@ export const Read = Task.wrapForm({
   type: "modbus_read",
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: "Modbus read task",
-  label: "Read",
-  icon: <Icon.Logo.Modbus />,
-  useOnSelect: useCreateRead,
-};

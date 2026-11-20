@@ -9,7 +9,7 @@
 
 import { arc, type rack, status, task } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { compare, deep, type record, verbs, xy } from "@synnaxlabs/x";
+import { array, deep, type record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
@@ -17,7 +17,7 @@ import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { Task } from "@/task";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
@@ -99,7 +99,7 @@ export const useNodes = Scope.bindHook(
       const keySet = new Set(keys);
       return graphOf(a).nodes.filter((n) => keySet.has(n.key));
     },
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 

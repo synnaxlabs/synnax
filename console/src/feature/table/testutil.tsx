@@ -15,6 +15,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
@@ -24,7 +25,7 @@ import {
   type ReactElement,
   Suspense,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -105,6 +106,8 @@ export interface RenderTableOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
+  /** Extra Aether components, for a component that needs the worker. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
 
 // renderTable creates a table on the server, mounts Component inside the panel and tab
@@ -113,7 +116,12 @@ export interface RenderTableOptions {
 // plus the Redux store and table key.
 export const renderTable = async (
   Component: ComponentType,
-  { table: overrides, preloadedState, as = client }: RenderTableOptions = {},
+  {
+    table: overrides,
+    preloadedState,
+    as = client,
+    additionalRegistry,
+  }: RenderTableOptions = {},
 ) => {
   const created = await client.tables.create({
     project: await project(),
@@ -123,6 +131,7 @@ export const renderTable = async (
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
     client: as,
     preloadedState: preloadedState?.(created.key),
+    additionalRegistry,
   });
   await loadTable(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(

@@ -94,8 +94,9 @@ def outside(findings: list[Finding], *, blob: str) -> str:
     if not findings:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
     lines += [
-        "These findings could not be posted inline. To dismiss one, a member comments "
-        "`@sedosaur dismiss`, its title, and a reason.",
+        "These findings could not be posted inline. To dismiss one, someone with write "
+        "access runs `gh workflow run dismiss.sedosaur.yaml -f pr=<number> "
+        "-f finding='<title>' -f reason='<why>'`.",
         "",
     ]
     for f in findings:
@@ -121,7 +122,7 @@ def subject(message: str) -> str:
 
 def reviews(body: str) -> int:
     """Returns how many reviews the summary in a pull request body counts."""
-    m = re.search(rf"{re.escape(SUMMARY_START)}.*?Reviews \((\d+)\)", body, re.S)
+    m = re.search(rf"{re.escape(SUMMARY_START)}.*?Reviews \((\d+)\)", body, re.DOTALL)
     return int(m[1]) if m else 0
 
 
@@ -180,7 +181,8 @@ def splice(body: str, block: str) -> str:
 
 def check(review: Review) -> dict[str, str]:
     """Renders the output of the review's check run. Its text carries RULES and lists
-    the findings, so a dismissal can tell when none is left."""
+    the findings so a dismissal can tell when none is left.
+    """
     counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
     return {

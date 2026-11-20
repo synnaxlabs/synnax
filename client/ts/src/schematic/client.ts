@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
+import type { FileTransport, UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -23,7 +23,7 @@ import {
   scopedActionZ,
   set,
 } from "@/schematic/actions.gen";
-import { type ElementConfig } from "@/schematic/element";
+import type { ElementConfig } from "@/schematic/element";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -143,16 +143,10 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.symbols = new symbol.Client(cfg);
     this.store = store;
-    this.setGroupRequest = project.createGroupMoveRequest(
-      "/schematic/dispatch",
-      store,
-      dispatchResZ,
-      reduceAll,
-    );
-    this.setProjectRequest = project.createMoveRequest(
-      "/schematic/dispatch",
-      (keys, to) => project.moveCached(store, keys, to),
-    );
+    const build: group.EntryBuilder<Key> = (key, acts) =>
+      dispatcher.request("/schematic/dispatch", key, acts, dispatchResZ);
+    this.setGroupRequest = group.createMoveRequest(build);
+    this.setProjectRequest = project.createMoveRequest(build);
     this.dispatcher = dispatcher;
   }
 

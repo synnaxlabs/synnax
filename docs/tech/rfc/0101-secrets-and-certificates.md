@@ -79,14 +79,14 @@ the resource type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint              | Caller                                        | Does                                       |
-| --------------------- | --------------------------------------------- | ------------------------------------------ |
-| `secret/set`          | Create for a new secret, update for a replace | Saves a value or file name, or replaces it |
-| `secret/retrieve`     | Can retrieve secrets                          | Returns records without values             |
-| `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename |
-| `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret     |
-| `secret/grant/create` | Can create devices and retrieve the secrets   | Stores a one-time grant (§3.3)             |
-| `secret/resolve`      | A rack only                                   | Returns stored values; refuses file values |
+| Endpoint              | Caller                                        | Does                                                                                                  |
+| --------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `secret/set`          | Create for a new secret, update for a replace | Saves a value or file name, or replaces it                                                            |
+| `secret/retrieve`     | Can retrieve secrets                          | Returns records without values                                                                        |
+| `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename                                                            |
+| `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret                                                                |
+| `secret/grant/create` | Can create devices and retrieve the secrets   | Stores a one-time grant (§3.3)                                                                        |
+| `secret/resolve`      | A rack only                                   | Spends a grant and returns its command, or checks uses (§3.3); file values reach only the Core's rack |
 
 The write binder (`core/pkg/api/bind/write.go`) makes the create, update, and delete
 checks on each record that a write changes. Owner and Engineer get every action on
@@ -145,8 +145,9 @@ that makes its own key refuses to start.
 ### 3.3 Who reads a secret
 
 Only a rack (RFC 0073 §4.8) can call `secret/resolve`. Every other subject, Owner
-included, gets a permission error. The Core's integrations read their secrets in process
-with no check, because they run in the Core. A rack reads a secret when:
+included, gets a permission error. The Core's integrations read their secrets in
+process, because they run in the Core, but follow the same rules as the Driver. A rack
+reads a secret when:
 
 1. A device or task on the rack uses it, directly or through a certificate.
 2. The request carries a grant for that rack and the task of the command, and the grant
@@ -155,8 +156,8 @@ with no check, because they run in the Core. A rack reads a secret when:
 A user who saves a device or task that names a secret must be able to retrieve that
 secret, or the save fails. Otherwise a user could make a rack or a Core integration use
 a secret the user cannot see. A secret reference is a use link, so the write binder
-makes this check on every save (`core/pkg/api/bind/write.go:51`). Phase 7 adds the first
-rule, with the first Driver integration.
+makes this check on every save (`core/pkg/api/bind/write.go:51`). Phase 15 adds the
+first rule, with the Driver's reader.
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
@@ -167,16 +168,20 @@ Console sends the secret in its `private_key`. The Core stores the grant with an
 one minute away and returns its key. The Console then sends that task a command that
 carries only the key.
 
-The Driver resolves the key with the task of the command. The Core refuses a grant for a
-different task, deletes the grant, and returns the stored command with the values of its
-secrets. The Driver runs the stored command, never the arguments on the stream. A grant
-that no resolve uses ends at its expiry. The key travels on `sy_task_cmd`, where an
-Operator can read and write any command
-(`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key runs only the
-Console's own command, against the Console's server, even when the Driver drops or never
-sees the Console's command. At worst, a copied key spends the grant first and the
-Console's test fails. Without grants, an Operator could send a saved password to a
-server of their choice.
+The Driver resolves the key with the task of the command, and a Core integration does
+the same in process (`Service.Resolve`, `core/pkg/service/secret/grant.go`). The Core
+refuses a grant for a different task, deletes the grant, and returns the stored command
+with the values of its secrets. The integration runs the stored command, never the
+arguments on the stream. A Kafka or MQTT test on the Core's rack follows the same rule
+(`core/pkg/service/kafka/scan_task.go:73`). A grant that no resolve uses ends at its
+expiry. The key travels on `sy_task_cmd`, where an Operator can read and write any
+command (`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key runs
+only the Console's own command, against the Console's server, even when the Driver drops
+or never sees the Console's command. At worst, a copied key spends the grant first and
+the Console's test fails. Without grants, an Operator could send a saved password to a
+server of their choice. Phase 4 stores a grant with only its subject and secrets
+(`schemas/synnax/grant.oracle`). Phase 11 adds the task and the command, before any
+integration test reads a secret.
 
 A user who can edit a device can still point it at their own server, as in Grafana and
 Ignition. Write-only keeps secrets from people who can only view, and out of statuses,
@@ -198,24 +203,25 @@ a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 A file item names the rack that reads it: a Driver's rack for OPC UA and HTTP, or the
 Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT, and PagerDuty.
-Phase 5 adds the `rack` field with the reader. Until then a file item names no rack, and
-PagerDuty refuses a routing key that names a file secret with "routing_key: must be a
-stored secret, not a file". A file certificate names the path of its certificate and the
-name of its key file in the rack's secrets folder. A file secret names only a file in
-that folder. An admin sets the folder with `secrets_dir` in the Driver's config
-(`driver/rack/file.cpp`), or with `--secrets-dir` on the Core. With no folder set, a
-file secret fails at connect. The Core refuses a file name that is `.` or `..`, or that
-holds `/`, `\`, or `:` (a Windows drive), so a file secret cannot reach outside its
-folder. The same rule holds for the key file of a certificate. A secret's bytes go to a
-server that the user picks, such as a Kafka broker, so a path would let the user send
-any file that the reader can open, the secrets key included. TLS sends no private key,
-but the reader signs with it, so a key path would let the user connect as any system
-whose key the reader can open. A certificate is public, so its path can point anywhere.
-Each integration's Core service refuses a device or task that names a file item of
-another rack, directly or through a certificate. A replace keeps the source of an item,
-so a stored secret never becomes a file. A replace of an item in use keeps its rack, or
-fails as a delete does. So an item has one file and one set of details. The reader opens
-the file at each connect, and the value never enters the store.
+Phase 5 adds the `rack` field with the Core's reader, and phase 15 adds the Driver's
+reader. Until then a file item names no rack, and PagerDuty refuses a routing key that
+names a file secret with "routing_key: must be a stored secret, not a file". A file
+certificate names the path of its certificate and the name of its key file in the rack's
+secrets folder. A file secret names only a file in that folder. An admin sets the folder
+with `secrets_dir` in the Driver's config (`driver/rack/file.cpp`), or with
+`--secrets-dir` on the Core. With no folder set, a file secret fails at connect. The
+Core refuses a file name that is `.` or `..`, or that holds `/`, `\`, or `:` (a Windows
+drive), so a file secret cannot reach outside its folder. The same rule holds for the
+key file of a certificate. A secret's bytes go to a server that the user picks, such as
+a Kafka broker, so a path would let the user send any file that the reader can open, the
+secrets key included. TLS sends no private key, but the reader signs with it, so a key
+path would let the user connect as any system whose key the reader can open. A
+certificate is public, so its path can point anywhere. Each integration's Core service
+refuses a device or task that names a file item of another rack, directly or through a
+certificate. A replace keeps the source of an item, so a stored secret never becomes a
+file. A replace of an item in use keeps its rack, or fails as a delete does. So an item
+has one file and one set of details. The reader opens the file at each connect, and the
+value never enters the store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
@@ -259,24 +265,25 @@ the device write carries only its key.
 
 ### 3.7 Console
 
-A Credentials toolbar lists secrets and certificates in two groups, with "Used by",
-Replace, and Delete. Every connect form uses two shared fields:
+The Secrets and Certificates pages of Settings list the items, with "Used by", Replace,
+and Delete (`console/src/feature/secret/Settings.tsx`). Every connect form uses two
+shared fields:
 
-- **Secret field**: Shows the name and "Set on <date>". It picks from the list, or adds
-  a secret from a typed value.
-- **Certificate field**: Shows the subject, issuer, expiry, and SHA-256 fingerprint,
-  with Download. It picks from the list, or adds a certificate from a dropped file
-  (`console/src/platform/fs/DropZone.tsx`), pasted PEM, or the file browser on the
-  device's rack, with an optional key file.
+- **Secret field**: Shows the name. Its list shows "Set on <date>" for a stored secret
+  and "Read from <file>" for a file secret. It picks from the list, or adds a secret
+  from a typed value.
+- **Certificate field**: Shows the name, with the expiry in a badge at its end. A line
+  under it shows the path of a file certificate. Details shows the subject, issuer,
+  expiry, and SHA-256 fingerprint, with Download. It picks from the list, or adds a
+  certificate from a dropped file (`console/src/platform/fs/DropZone.tsx`), pasted PEM,
+  or the file browser on the device's rack, with an optional key file.
 
-From phase 5, both fields list only the file items of the device's rack. Until then, the
-secret field lists every secret. A new item is named after its device and field, such as
-"Plant OPC UA password". The dialog saves it before its first test, and Cancel deletes
-the items it made that nothing uses. OPC UA's Trust button saves the offered certificate
-as an item.
-
-The user and rack menu item "Manage credentials" becomes "Manage sign-in", so
-"credentials" names only the toolbar.
+Phase 9 adds the certificate field without the file browser, and phase 10 adds the file
+browser to both fields. From phase 10, both fields list only the file items of the
+device's rack. Until then, the secret field lists every secret. A new item is named
+after its device and field, such as "Plant OPC UA password". The dialog saves it before
+its first test, and Cancel deletes the items it made that nothing uses. OPC UA's Trust
+button saves the offered certificate as an item.
 
 ### 3.8 Expiry
 
@@ -296,34 +303,48 @@ the Core needs them before it opens its database.
 
 ### 3.9 Migration and clients
 
-v0.60.1 shipped the OPC UA, HTTP, and PagerDuty fields. At first start, each
-integration's Go service migrates its own records. Each password, token, API key, and
-routing key becomes a secret named "<device name> <field>". A PagerDuty task has no
-device, so its secret is named "<task name> routing key". Each OPC UA path pair becomes
-a file certificate whose key file is `<certificate key>.pem`, and each PEM pin a stored
-certificate. The certificate key is unique, so two old keys with the same file name,
-such as the `own/private/private.pem` of two OPC UA PKI folders, get two names. No other
-record keeps the old path, so the migration writes the warning "Private key file
-renamed" under `certificate:<key>`, with the old path and the new name in the
-description. Until an admin copies the key into the secrets folder under the new name,
-connect fails with an error that names the folder and the file. The reader saves details
-only after a connect that reads every file (§3.5), and the expiry check writes no status
-for a certificate with no details. So the warning stays until the certificate first gets
-details, and the first expiry status after that replaces it. Details come from the
-reader once the key is in place, or earlier from a replace that picks the certificate
-file in the file browser. Kafka and MQTT have not shipped, so their fields change with
-no migration. The Core, the Driver, and the Console change in one release.
+v0.60.1 shipped the OPC UA, HTTP, and PagerDuty fields, and v0.61.0 shipped the Kafka
+and MQTT fields. At first start, each integration's Go service migrates its own records.
+Each password, token, API key, and routing key becomes a secret named "<device name>
+<field>". A PagerDuty task has no device, so its secret is named "<task name> routing
+key". Each PEM, a Kafka CA or an OPC UA pin, becomes a stored certificate. Each path
+becomes a file certificate on the rack that reads it: the Core's rack for MQTT, and the
+device's rack for OPC UA. A key path, MQTT `key_file` or OPC UA `client_private_key`,
+becomes the key file `<certificate key>.pem`. The certificate key is unique, so two old
+keys with the same file name, such as the `own/private/private.pem` of two OPC UA PKI
+folders, get two names. No other record keeps the old path, so the migration writes the
+warning "Private key file renamed" under `certificate:<key>`, with the old path and the
+new name in the description. Until an admin copies the key into the secrets folder under
+the new name, connect fails with an error that names the folder and the file. The reader
+saves details only after a connect that reads every file (§3.5), and the expiry check
+writes no status for a certificate with no details. So the warning stays until the
+certificate first gets details, and the first expiry status after that replaces it.
+Details come from the reader once the key is in place, or earlier from a replace that
+picks the certificate file in the file browser.
 
-The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
-C++ client gets `resolve` for the Driver. A script makes a secret with
-`client.secrets.set(name=..., value=...)` and puts its key on the device.
+An empty field makes no item and stays empty, as an empty PagerDuty routing key does
+(`core/pkg/service/pagerduty/versions/v2/migrate.go:30`). So an anonymous MQTT broker
+keeps no password, an empty CA keeps the system roots, and an empty OPC UA client
+certificate still selects the Driver certificate. Each migration creates its items in
+its own transaction, as PagerDuty's `SecretMigration` does
+(`core/pkg/service/pagerduty/migrate.go:38`). Each migration ships in the same PR as the
+code that reads the new field, so `main` keeps working.
+
+The TypeScript and Python clients get `secrets` and `certificates` from Oracle. The C++
+client gets `resolve`, and certificate retrieve, create, and refresh, for the Driver. A
+script makes a secret with `client.secrets.set(name=..., value=...)` and puts its key on
+the device.
 
 ## 4 Implementation phases
 
 Phases 2 and 3 are the stores with no users, and Phase 4 their Console and first user.
-Kafka and MQTT have not shipped, while OPC UA and HTTP need a migration that ships with
-the Driver change, so they are separate phases. Phase 4 landed as eight PRs, #4434 to
-#4505.
+Phase 4 landed as eight PRs, #4434 to #4505. Phases 5 to 10 add file items, the two file
+browsers, and the certificate field. Phase 11 binds each grant to its task and command
+before Kafka moves, because Kafka has the first test that reads a secret. Phase 15 lets
+the Driver read items before the first Driver integration moves. OPC UA and HTTP move
+their secrets first and their certificates second, and each migration ships with the
+change that reads the new field. Phase 20 needs only the certificate service, so it can
+start at any time.
 
 | Phase | Scope                                                  | Touches                                                                                                                                                                                                                                                                 | Depends on |
 | ----- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -331,10 +352,22 @@ the Driver change, so they are separate phases. Phase 4 landed as eight PRs, #44
 | 2     | Add the secret service                                 | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `core/cmd/start`, `client/ts`, `client/py`                                                                                | 1          |
 | 3     | Add the certificate service                            | `schemas/synnax`, `core/pkg/service/certificate`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `client/ts`, `client/py`                                                                                                                      | 2          |
 | 4     | Pick secrets in the Console and move PagerDuty to them | `core/pkg/service/secret`, `core/pkg/service/task`, `core/pkg/service/pagerduty`, `schemas/synnax`, `client/ts`, `client/py`, `pluto/src/secret`, `pluto/src/certificate`, `console/src/platform/secret`, `console/src/feature/secret`, `console/src/feature/pagerduty` | 3          |
-| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/cmd/start`, `core/pkg/service/file`, `core/pkg/service/secret`, `core/pkg/service/certificate`, `core/pkg/service/pagerduty`, `schemas/synnax`, `core/pkg/service/layer.go`, `console/src/feature/file`                             | 4          |
-| 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/service/certificate`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                                                               | 5          |
-| 7     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/secret`, `core/pkg/api/certificate`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests`                        | 5          |
-| 8     | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                                                   | 3          |
+| 5     | Read file items from a rack's secrets folder           | `schemas/synnax`, `core/cmd/start`, `core/pkg/service/secret`, `core/pkg/service/certificate`, `core/pkg/service/pagerduty`, `client/ts`, `client/py`                                                                                                                   | 4          |
+| 6     | Move certificate parsing from OPC UA to `x/cpp/x509`   | `driver/opcua/certificate`, `x/cpp/x509`                                                                                                                                                                                                                                | -          |
+| 7     | Add the Driver file browser                            | `driver/file`, `driver/rack`, `x/cpp/x509`                                                                                                                                                                                                                              | 6          |
+| 8     | Add the Core file browser                              | `core/pkg/service/file`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`                                                                                                                                                                                    | 5          |
+| 9     | Add a certificate field to the Console                 | `console/src/platform/certificate`, `pluto/src/certificate`                                                                                                                                                                                                             | 4          |
+| 10    | Pick rack files in the secret and certificate fields   | `console/src/platform/secret`, `console/src/platform/certificate`, `console/src/feature/file`                                                                                                                                                                           | 7, 8, 9    |
+| 11    | Bind each grant to a task and its command              | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/api/secret`, `client/ts`, `client/py`                                                                                                                                                                            | 4          |
+| 12    | Move the Kafka password and CA certificate to items    | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                          | 5, 9, 11   |
+| 13    | Add a client certificate to Kafka                      | `schemas/synnax`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                                                                                       | 12         |
+| 14    | Move MQTT to secrets and certificates                  | `schemas/synnax`, `core/pkg/service/mqtt`, `core/pkg/service/layer.go`, `console/src/feature/mqtt`, `client/ts`, `client/py`                                                                                                                                            | 12         |
+| 15    | Read secrets and certificates in the Driver            | `client/cpp`, `driver/secret`, `driver/rack`, `core/pkg/service/secret`, `core/pkg/api/secret`, `core/pkg/api/certificate`                                                                                                                                              | 5, 7, 11   |
+| 16    | Move the OPC UA password to a secret                   | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 15         |
+| 17    | Move OPC UA certificates to the certificate service    | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 9, 16      |
+| 18    | Move HTTP auth values to secrets                       | `schemas/synnax`, `core/pkg/service/http`, `core/pkg/service/layer.go`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                          | 15         |
+| 19    | Add CA and client certificates to HTTP devices         | `schemas/synnax`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`                                                                                                                                            | 9, 18      |
+| 20    | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                                                   | 3          |
 
 ## 5 Resolved decisions
 
@@ -398,7 +431,7 @@ the Driver change, so they are separate phases. Phase 4 landed as eight PRs, #44
     certificate's key file follows the same rule: the reader signs with the key, so a
     key path would let a user connect as any system whose key the reader can open. The
     trade is real: an admin must set the folder on each rack before a file secret works,
-    and must copy each OPC UA key into it under its new name.
+    and must copy each OPC UA and MQTT key into it under its new name.
 
 ## 6 What this RFC does not cover
 
@@ -406,6 +439,12 @@ the Driver change, so they are separate phases. Phase 4 landed as eight PRs, #44
   encryption (RFC 0009).
 - External secret providers such as Vault. A `vault` source next to `stored` and `file`
   fits later, and so does a secrets key that a key service holds (§3.2).
+- An `env` source that reads a secret from an environment variable. A user who picks the
+  variable could send `SYNNAX_SECRETS_KEY` to a server of their choice, as a file path
+  could (decision 15). If it is added later, it reads only variables with the fixed
+  prefix `SYNNAX_SECRET_`.
+- Secrets defined in the Core's config file. The store would then have two sources of
+  truth.
 - The Driver's own OPC UA certificate, which stays in the Driver's directory.
 - Credentials typed into HTTP task headers or query parameters. The device's API key
   auth sends a credential header.

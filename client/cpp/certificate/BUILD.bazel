@@ -1,0 +1,58 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "certificate",
+    srcs = ["certificate.cpp"],
+    hdrs = [
+        "actions.gen.h",
+        "certificate.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/errors",
+        "//client/cpp/rack",
+        "//client/cpp/resource",
+        "//client/cpp/secret",
+        "//core/pkg/api/certificate:certificate_grpc",
+        "//core/pkg/service/certificate:certificate_grpc",
+        "//core/pkg/transport/grpc:api_grpc",
+        "//freighter/cpp:freighter",
+        "//x/cpp/errors",
+        "//x/cpp/filter",
+        "//x/cpp/json",
+        "//x/cpp/mem",
+        "//x/cpp/patch",
+        "//x/cpp/pb",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+        "@protobuf",
+    ],
+)
+
+cc_test(
+    name = "certificate_test",
+    srcs = ["certificate_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":certificate",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "//x/cpp/x509/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

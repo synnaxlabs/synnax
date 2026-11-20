@@ -86,7 +86,8 @@ class Sequence(BaseModel):
     """Runs on the first Core after every other sequence ends, with nothing else
     running, as a timing test needs."""
     independent: bool = False
-    """No test needs another test of the sequence, so shards can split it."""
+    """No test needs another test of the sequence, so shards can split it and a retry
+    runs only its failed tests."""
     tests: list[TestDefinition] = Field(default_factory=list)
 
 
@@ -205,10 +206,7 @@ class ConfigClient:
             expanded_tests: list[TestDefinition] = []
             for test in raw_tests:
                 case_path = test.case
-                if not seq_name_matches and (
-                    target_filter.case_filter is None
-                    or not target_filter.matches_case(case_path)
-                ):
+                if not seq_name_matches:
                     continue
 
                 class_defs = self._expand_test_classes(test)
@@ -241,9 +239,6 @@ class ConfigClient:
                         or (t.name is not None and target_filter.excluded(t.name))
                     )
                 ]
-
-            if not seq_name_matches and not expanded_tests:
-                continue
 
             if expanded_tests:
                 seq = seq_dict.model_copy(

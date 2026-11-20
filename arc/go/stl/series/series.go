@@ -68,40 +68,40 @@ func NewSymbols() []*symbol.Symbol {
 	}
 	rScalarIn := types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}
 	seriesBinIn := types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}
-	resultOut := types.Params{{Name: "result", Type: i32}}
+	out := types.Params{{Name: "result", Type: i32}}
 	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
-	mod.AddChild(
-		symbol.InternalHostFunc("element_add", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_sub", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_mul", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_div", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_mod", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_radd", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rsub", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rmul", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rdiv", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rmod", rScalarIn, resultOut),
-		symbol.InternalHostFunc("series_add", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_sub", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_mul", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_div", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_mod", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("compare_gt", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("compare_lt", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("compare_ge", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("compare_le", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("compare_eq", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("compare_ne", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("compare_gt_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("compare_lt_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("compare_ge_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("compare_le_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("compare_eq_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("compare_ne_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("and", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("or", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("and_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("or_scalar", scalarArithIn, resultOut),
+	mod.AddChild(slices.Concat(
+		hostFuncs(scalarArithIn, out, "element_add", "element_sub", "element_mul",
+			"element_div", "element_mod"),
+		hostFuncs(rScalarIn, out, "element_radd", "element_rsub", "element_rmul",
+			"element_rdiv", "element_rmod"),
+		hostFuncs(seriesBinIn, out, "series_add", "series_sub", "series_mul",
+			"series_div", "series_mod"),
+		hostFuncs(seriesBinIn, out, "compare_gt", "compare_lt", "compare_ge",
+			"compare_le", "compare_eq", "compare_ne"),
+		hostFuncs(scalarArithIn, out, "compare_gt_scalar", "compare_lt_scalar",
+			"compare_ge_scalar", "compare_le_scalar", "compare_eq_scalar",
+			"compare_ne_scalar"),
+		hostFuncs(seriesBinIn, out, "and", "or"),
+		hostFuncs(scalarArithIn, out, "and_scalar", "or_scalar"),
+		handleSymbols(out),
+	)...)
+	return []*symbol.Symbol{mod, newUserLenSymbol()}
+}
+
+// hostFuncs returns an internal host function for each name, all with the same inputs
+// and outputs.
+func hostFuncs(in, out types.Params, names ...string) []*symbol.Symbol {
+	syms := make([]*symbol.Symbol, len(names))
+	for i, name := range names {
+		syms[i] = symbol.InternalHostFunc(name, in, out)
+	}
+	return syms
+}
+
+func handleSymbols(resultOut types.Params) []*symbol.Symbol {
+	handleIn := types.Params{{Name: "handle", Type: i32}}
+	return []*symbol.Symbol{
 		symbol.InternalHostFunc(
 			"create_empty",
 			types.Params{{Name: "len", Type: i32}},
@@ -121,19 +121,11 @@ func NewSymbols() []*symbol.Symbol {
 			types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}},
 			types.Params{{Name: "value", Type: tv()}},
 		),
-		symbol.InternalHostFunc(
-			"negate",
-			types.Params{{Name: "handle", Type: i32}},
-			resultOut,
-		),
-		symbol.InternalHostFunc(
-			"not",
-			types.Params{{Name: "handle", Type: i32}},
-			resultOut,
-		),
+		symbol.InternalHostFunc("negate", handleIn, resultOut),
+		symbol.InternalHostFunc("not", handleIn, resultOut),
 		symbol.InternalHostFunc(
 			"len",
-			types.Params{{Name: "handle", Type: i32}},
+			handleIn,
 			types.Params{{Name: "length", Type: i64}},
 		),
 		symbol.InternalHostFunc(
@@ -155,8 +147,7 @@ func NewSymbols() []*symbol.Symbol {
 			},
 			resultOut,
 		),
-	)
-	return []*symbol.Symbol{mod, newUserLenSymbol()}
+	}
 }
 
 // Host is the runtime host-side support for the series module: it
@@ -191,13 +182,17 @@ func NewHost(
 	builder = bindF64(builder, s)
 	builder = bindBool(builder, s)
 	builder = bindCreateEmpty(builder, s, "str", telem.StringT)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32) uint64 {
-			if ser, ok := s.Get(handle); ok {
-				return uint64(ser.Len())
-			}
-			return 0
-		}).Export("len")
+	builder = bindIndexConversions(builder)
+	builder = bindHandleOps(builder, s)
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return h, nil
+}
+
+// bindIndexConversions registers the narrowing of 64-bit indices to the i32 that series
+// indexing takes. Both trap on an index outside the i32 range.
+func bindIndexConversions(builder wazero.HostModuleBuilder) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, index int64) int32 {
 			if index < math.MinInt32 || index > math.MaxInt32 {
@@ -205,13 +200,28 @@ func NewHost(
 			}
 			return int32(index)
 		}).Export("index_from_i64")
-	builder = builder.NewFunctionBuilder().
+	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, index uint64) int32 {
 			if index > math.MaxInt32 {
 				panic(fmt.Sprintf(indexOverflow, index))
 			}
 			return int32(index)
 		}).Export("index_from_u64")
+}
+
+// bindHandleOps registers len and slice, which work on a series of any type, and not,
+// which works on a bool series.
+func bindHandleOps(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32) uint64 {
+			if ser, ok := s.Get(handle); ok {
+				return uint64(ser.Len())
+			}
+			return 0
+		}).Export("len")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, start, end uint32) uint32 {
 			ser, ok := s.Get(handle)
@@ -230,7 +240,7 @@ func NewHost(
 				Data:     slices.Clone(ser.Data[startIdx*density : endIdx*density]),
 			})
 		}).Export("slice")
-	builder = builder.NewFunctionBuilder().
+	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
@@ -240,10 +250,6 @@ func NewHost(
 			op.Not(ser, &result)
 			return s.Store(result)
 		}).Export("not")
-	if _, err := builder.Instantiate(ctx); err != nil {
-		return nil, err
-	}
-	return h, nil
 }
 
 const indexOverflow = "index %d out of bounds for an i32 series index"
@@ -374,141 +380,118 @@ type seriesOps[T any] struct {
 	negate     func(telem.Series, *telem.Series) // nil for unsigned types
 }
 
-func bindI32Type[T i32Scalar](
+// numeric is a series element type, and wasmValue is the WASM value type that carries
+// it across the host boundary.
+type (
+	numeric interface {
+		i32Scalar | uint64 | int64 | float32 | float64
+	}
+	wasmValue interface {
+		uint32 | uint64 | float32 | float64
+	}
+)
+
+// bindNumericType registers every series operation for element type T, whose values
+// cross the host boundary as W.
+func bindNumericType[T numeric, W wasmValue](
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 	suffix string,
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
-	dt := ops.dt
-	builder = bindCreateEmpty(builder, s, suffix, dt)
+	builder = bindCreateEmpty(builder, s, suffix, ops.dt)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
+		WithFunc(func(_ context.Context, handle, index uint32, value W) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				ser.SetValueAt(mustIndex(ser, index), T(value))
 			}
 			return handle
 		}).Export("set_element_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
+		WithFunc(func(_ context.Context, handle, index uint32) W {
 			if ser, ok := s.Get(handle); ok {
-				return uint32(ser.ValueAt[T](mustIndex(ser, index)))
+				return W(ser.ValueAt[T](mustIndex(ser, index)))
 			}
 			return 0
 		}).Export("index_" + suffix)
-
-	builder = bindElementOpsI32(builder, s, suffix, ops)
+	builder = bindScalarOps[T, W](builder, s, suffix, ops)
 	builder = bindSeriesOps(builder, s, suffix, ops)
 	builder = bindCompareOps(builder, s, suffix, ops)
-	builder = bindCompareScalarI32(builder, s, suffix, ops)
 	if ops.negate != nil {
 		builder = bindNegate(builder, s, suffix, ops.negate)
 	}
 	return builder
 }
 
-func bindElementOpsI32[T i32Scalar](
+// scalarOp is a host function that combines a series with a scalar. UnknownT as
+// resultDT keeps the series' type.
+type scalarOp[T any] struct {
+	name     string
+	fn       func(telem.Series, T, *telem.Series)
+	resultDT telem.DataType
+}
+
+// bindScalarOps registers the element-wise arithmetic and comparison operations between
+// a series and a scalar, in both operand orders.
+func bindScalarOps[T numeric, W wasmValue](
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 	suffix string,
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_add_", ops.addScalar},
-		{"element_sub_", ops.subScalar},
-		{"element_mul_", ops.mulScalar},
-		{"element_div_", ops.divScalar},
-		{"element_mod_", ops.modScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+	seriesFirst := []scalarOp[T]{
+		{"element_add_", ops.addScalar, telem.UnknownT},
+		{"element_sub_", ops.subScalar, telem.UnknownT},
+		{"element_mul_", ops.mulScalar, telem.UnknownT},
+		{"element_div_", ops.divScalar, telem.UnknownT},
+		{"element_mod_", ops.modScalar, telem.UnknownT},
+		{"compare_gt_scalar_", ops.gtScalar, telem.BooleanT},
+		{"compare_lt_scalar_", ops.ltScalar, telem.BooleanT},
+		{"compare_ge_scalar_", ops.geScalar, telem.BooleanT},
+		{"compare_le_scalar_", ops.leScalar, telem.BooleanT},
+		{"compare_eq_scalar_", ops.eqScalar, telem.BooleanT},
+		{"compare_ne_scalar_", ops.neScalar, telem.BooleanT},
 	}
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_rsub_", ops.rSubScalar},
-		{"element_rdiv_", ops.rDivScalar},
-		{"element_rmod_", ops.rModScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, scalar, handle uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+	// Add and mul commute, so their reverse forms reuse the forward ops.
+	scalarFirst := []scalarOp[T]{
+		{"element_radd_", ops.addScalar, telem.UnknownT},
+		{"element_rsub_", ops.rSubScalar, telem.UnknownT},
+		{"element_rmul_", ops.mulScalar, telem.UnknownT},
+		{"element_rdiv_", ops.rDivScalar, telem.UnknownT},
+		{"element_rmod_", ops.rModScalar, telem.UnknownT},
 	}
-	// Reverse add and mul are commutative - reuse add/mul scalar ops
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar, handle uint32) uint32 {
-			ser, ok := s.Get(handle)
-			if !ok {
-				return 0
-			}
-			result := telem.Series{DataType: ser.DataType}
-			ops.addScalar(ser, T(scalar), &result)
-			return s.Store(result)
-		}).Export("element_radd_" + suffix)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar, handle uint32) uint32 {
-			ser, ok := s.Get(handle)
-			if !ok {
-				return 0
-			}
-			result := telem.Series{DataType: ser.DataType}
-			ops.mulScalar(ser, T(scalar), &result)
-			return s.Store(result)
-		}).Export("element_rmul_" + suffix)
+	for _, o := range seriesFirst {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar W) uint32 {
+				return applyScalarOp(s, o, handle, T(scalar))
+			}).Export(o.name + suffix)
+	}
+	for _, o := range scalarFirst {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, scalar W, handle uint32) uint32 {
+				return applyScalarOp(s, o, handle, T(scalar))
+			}).Export(o.name + suffix)
+	}
 	return builder
 }
 
-func bindCompareScalarI32[T i32Scalar](
-	builder wazero.HostModuleBuilder,
+func applyScalarOp[T any](
 	s *ProgramState,
-	suffix string,
-	ops seriesOps[T],
-) wazero.HostModuleBuilder {
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"compare_gt_scalar_", ops.gtScalar},
-		{"compare_lt_scalar_", ops.ltScalar},
-		{"compare_ge_scalar_", ops.geScalar},
-		{"compare_le_scalar_", ops.leScalar},
-		{"compare_eq_scalar_", ops.eqScalar},
-		{"compare_ne_scalar_", ops.neScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: telem.BooleanT}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+	o scalarOp[T],
+	handle uint32,
+	scalar T,
+) uint32 {
+	ser, ok := s.Get(handle)
+	if !ok {
+		return 0
 	}
-	return builder
+	dt := o.resultDT
+	if dt == telem.UnknownT {
+		dt = ser.DataType
+	}
+	result := telem.Series{DataType: dt}
+	o.fn(ser, scalar, &result)
+	return s.Store(result)
 }
 
 // bindSeriesBinary registers a host function that takes two series handles and
@@ -607,253 +590,11 @@ func bindNegate(
 	return builder
 }
 
-// bindI64Type handles uint64 and int64 which use i64 in WASM.
-func bindI64Type[T uint64 | int64](
-	builder wazero.HostModuleBuilder,
-	s *ProgramState,
-	suffix string,
-	dt telem.DataType,
-	ops seriesOps[T],
-) wazero.HostModuleBuilder {
-	builder = bindCreateEmpty(builder, s, suffix, dt)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle, index uint32, value uint64) uint32 {
-			if ser, ok := s.Get(handle); ok {
-				ser.SetValueAt(mustIndex(ser, index), T(value))
-			}
-			return handle
-		}).Export("set_element_" + suffix)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle, index uint32) uint64 {
-			if ser, ok := s.Get(handle); ok {
-				return uint64(ser.ValueAt[T](mustIndex(ser, index)))
-			}
-			return 0
-		}).Export("index_" + suffix)
-
-	// Element scalar ops
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_add_", ops.addScalar},
-		{"element_sub_", ops.subScalar},
-		{"element_mul_", ops.mulScalar},
-		{"element_div_", ops.divScalar},
-		{"element_mod_", ops.modScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle uint32, scalar uint64) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_rsub_", ops.rSubScalar},
-		{"element_rdiv_", ops.rDivScalar},
-		{"element_rmod_", ops.rModScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, scalar uint64, handle uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar uint64, handle uint32) uint32 {
-			ser, ok := s.Get(handle)
-			if !ok {
-				return 0
-			}
-			result := telem.Series{DataType: ser.DataType}
-			ops.addScalar(ser, T(scalar), &result)
-			return s.Store(result)
-		}).Export("element_radd_" + suffix)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar uint64, handle uint32) uint32 {
-			ser, ok := s.Get(handle)
-			if !ok {
-				return 0
-			}
-			result := telem.Series{DataType: ser.DataType}
-			ops.mulScalar(ser, T(scalar), &result)
-			return s.Store(result)
-		}).Export("element_rmul_" + suffix)
-
-	// Scalar comparisons for i64 types
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"compare_gt_scalar_", ops.gtScalar},
-		{"compare_lt_scalar_", ops.ltScalar},
-		{"compare_ge_scalar_", ops.geScalar},
-		{"compare_le_scalar_", ops.leScalar},
-		{"compare_eq_scalar_", ops.eqScalar},
-		{"compare_ne_scalar_", ops.neScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle uint32, scalar uint64) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: telem.BooleanT}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-
-	builder = bindSeriesOps(builder, s, suffix, ops)
-	builder = bindCompareOps(builder, s, suffix, ops)
-	if ops.negate != nil {
-		builder = bindNegate(builder, s, suffix, ops.negate)
-	}
-	return builder
-}
-
-// bindFloatType handles f32 or f64.
-func bindFloatType[T float32 | float64](
-	builder wazero.HostModuleBuilder,
-	s *ProgramState,
-	suffix string,
-	dt telem.DataType,
-	ops seriesOps[T],
-) wazero.HostModuleBuilder {
-	builder = bindCreateEmpty(builder, s, suffix, dt)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle, index uint32, value T) uint32 {
-			if ser, ok := s.Get(handle); ok {
-				ser.SetValueAt(mustIndex(ser, index), value)
-			}
-			return handle
-		}).Export("set_element_" + suffix)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle, index uint32) T {
-			if ser, ok := s.Get(handle); ok {
-				return ser.ValueAt[T](mustIndex(ser, index))
-			}
-			return 0
-		}).Export("index_" + suffix)
-
-	// Element scalar ops
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_add_", ops.addScalar},
-		{"element_sub_", ops.subScalar},
-		{"element_mul_", ops.mulScalar},
-		{"element_div_", ops.divScalar},
-		{"element_mod_", ops.modScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle uint32, scalar T) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, scalar, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_rsub_", ops.rSubScalar},
-		{"element_rdiv_", ops.rDivScalar},
-		{"element_rmod_", ops.rModScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, scalar T, handle uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, scalar, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar T, handle uint32) uint32 {
-			ser, ok := s.Get(handle)
-			if !ok {
-				return 0
-			}
-			result := telem.Series{DataType: ser.DataType}
-			ops.addScalar(ser, scalar, &result)
-			return s.Store(result)
-		}).Export("element_radd_" + suffix)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar T, handle uint32) uint32 {
-			ser, ok := s.Get(handle)
-			if !ok {
-				return 0
-			}
-			result := telem.Series{DataType: ser.DataType}
-			ops.mulScalar(ser, scalar, &result)
-			return s.Store(result)
-		}).Export("element_rmul_" + suffix)
-
-	// Scalar comparisons for float types
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"compare_gt_scalar_", ops.gtScalar},
-		{"compare_lt_scalar_", ops.ltScalar},
-		{"compare_ge_scalar_", ops.geScalar},
-		{"compare_le_scalar_", ops.leScalar},
-		{"compare_eq_scalar_", ops.eqScalar},
-		{"compare_ne_scalar_", ops.neScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle uint32, scalar T) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: telem.BooleanT}
-				fn(ser, scalar, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-
-	builder = bindSeriesOps(builder, s, suffix, ops)
-	builder = bindCompareOps(builder, s, suffix, ops)
-	if ops.negate != nil {
-		builder = bindNegate(builder, s, suffix, ops.negate)
-	}
-	return builder
-}
-
 func bindU8(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type(builder, s, "u8", seriesOps[uint8]{
+	return bindNumericType[uint8, uint32](builder, s, "u8", seriesOps[uint8]{
 		dt:        telem.Uint8T,
 		addScalar: op.AddScalarU8, subScalar: op.SubtractScalarU8,
 		mulScalar: op.MultiplyScalarU8, divScalar: op.DivideScalarU8,
@@ -876,7 +617,7 @@ func bindU16(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type(builder, s, "u16", seriesOps[uint16]{
+	return bindNumericType[uint16, uint32](builder, s, "u16", seriesOps[uint16]{
 		dt:        telem.Uint16T,
 		addScalar: op.AddScalarU16, subScalar: op.SubtractScalarU16,
 		mulScalar: op.MultiplyScalarU16, divScalar: op.DivideScalarU16,
@@ -899,7 +640,7 @@ func bindU32(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type(builder, s, "u32", seriesOps[uint32]{
+	return bindNumericType[uint32, uint32](builder, s, "u32", seriesOps[uint32]{
 		dt:        telem.Uint32T,
 		addScalar: op.AddScalarU32, subScalar: op.SubtractScalarU32,
 		mulScalar: op.MultiplyScalarU32, divScalar: op.DivideScalarU32,
@@ -922,7 +663,7 @@ func bindI8(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type(builder, s, "i8", seriesOps[int8]{
+	return bindNumericType[int8, uint32](builder, s, "i8", seriesOps[int8]{
 		dt:        telem.Int8T,
 		addScalar: op.AddScalarI8, subScalar: op.SubtractScalarI8,
 		mulScalar: op.MultiplyScalarI8, divScalar: op.DivideScalarI8,
@@ -946,7 +687,7 @@ func bindI16(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type(builder, s, "i16", seriesOps[int16]{
+	return bindNumericType[int16, uint32](builder, s, "i16", seriesOps[int16]{
 		dt:        telem.Int16T,
 		addScalar: op.AddScalarI16, subScalar: op.SubtractScalarI16,
 		mulScalar: op.MultiplyScalarI16, divScalar: op.DivideScalarI16,
@@ -970,7 +711,7 @@ func bindI32(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type(builder, s, "i32", seriesOps[int32]{
+	return bindNumericType[int32, uint32](builder, s, "i32", seriesOps[int32]{
 		dt:        telem.Int32T,
 		addScalar: op.AddScalarI32, subScalar: op.SubtractScalarI32,
 		mulScalar: op.MultiplyScalarI32, divScalar: op.DivideScalarI32,
@@ -994,7 +735,7 @@ func bindU64(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI64Type(builder, s, "u64", telem.Uint64T, seriesOps[uint64]{
+	return bindNumericType[uint64, uint64](builder, s, "u64", seriesOps[uint64]{
 		dt:        telem.Uint64T,
 		addScalar: op.AddScalarU64, subScalar: op.SubtractScalarU64,
 		mulScalar: op.MultiplyScalarU64, divScalar: op.DivideScalarU64,
@@ -1017,7 +758,7 @@ func bindI64(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI64Type(builder, s, "i64", telem.Int64T, seriesOps[int64]{
+	return bindNumericType[int64, uint64](builder, s, "i64", seriesOps[int64]{
 		dt:        telem.Int64T,
 		addScalar: op.AddScalarI64, subScalar: op.SubtractScalarI64,
 		mulScalar: op.MultiplyScalarI64, divScalar: op.DivideScalarI64,
@@ -1041,7 +782,7 @@ func bindF32(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindFloatType(builder, s, "f32", telem.Float32T, seriesOps[float32]{
+	return bindNumericType[float32, float32](builder, s, "f32", seriesOps[float32]{
 		dt:        telem.Float32T,
 		addScalar: op.AddScalarF32, subScalar: op.SubtractScalarF32,
 		mulScalar: op.MultiplyScalarF32, divScalar: op.DivideScalarF32,
@@ -1065,7 +806,7 @@ func bindF64(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindFloatType(builder, s, "f64", telem.Float64T, seriesOps[float64]{
+	return bindNumericType[float64, float64](builder, s, "f64", seriesOps[float64]{
 		dt:        telem.Float64T,
 		addScalar: op.AddScalarF64, subScalar: op.SubtractScalarF64,
 		mulScalar: op.MultiplyScalarF64, divScalar: op.DivideScalarF64,

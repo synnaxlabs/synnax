@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { type record, zod } from "@synnaxlabs/x";
+import { type record, sleep, TimeSpan, zod } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 
@@ -67,7 +67,7 @@ const silentStreamer = (): framer.Streamer => {
     },
     next: async () => {
       // Blocks until closed so the read loop stays alive like a real stream.
-      while (!closed) await new Promise((resolve) => setTimeout(resolve, 5));
+      while (!closed) await sleep.sleep(TimeSpan.milliseconds(5));
       return { done: true, value: undefined };
     },
     read: async () => {
@@ -75,6 +75,8 @@ const silentStreamer = (): framer.Streamer => {
       throw new EOF();
     },
     [Symbol.asyncIterator]: () => streamer,
+    [Symbol.dispose]: () => streamer.close(),
+    [Symbol.asyncDispose]: async () => streamer.close(),
   };
   return streamer;
 };

@@ -15,13 +15,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep } from "@synnaxlabs/x";
+import { deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { z } from "zod";
 
 import { read } from "@/server/license/fingerprint";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
-import { type Held, type Owned } from "@/server/license/list";
+import type { Held, Owned } from "@/server/license/list";
 import { post, save } from "@/ui/api";
 import { Auth } from "@/ui/auth";
 import { useLogOut } from "@/ui/clerk";
@@ -84,8 +84,7 @@ const DAMAGED =
   "The link holds no fingerprint the portal can read. Open it again from the Console, " +
   "or paste the fingerprint below.";
 
-const adapters = (count: number): string =>
-  `${count} network ${count === 1 ? "adapter" : "adapters"}`;
+const adapters = (count: number): string => strings.count(count, "network adapter");
 
 const backToPortal = (
   <Button.Button variant="text" size="small" textColor={9} href="/">

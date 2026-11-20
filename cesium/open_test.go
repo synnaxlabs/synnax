@@ -17,12 +17,44 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Close", func() {
+	It("Should fail while Run runs", func(ctx SpecContext) {
+		// The cleanup closes db after Run returns, and asserts that it succeeds.
+		db := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs.NewMem()))))
+		StartRun(db.Run)
+		Expect(db.Close()).To(MatchError(resource.ErrOpen))
+	})
+})
+
+var _ = Describe("Run", func() {
+	var db *cesium.DB
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs.NewMem()))))
+	})
+
+	It("Should fail while another Run runs", func(ctx SpecContext) {
+		StartRun(db.Run)
+		Expect(db.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+	})
+
+	It("Should fail after an earlier Run returns", func(ctx SpecContext) {
+		StartRun(db.Run)()
+		Expect(db.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+	})
+
+	It("Should fail after Close", func(ctx SpecContext) {
+		Expect(db.Close()).To(Succeed())
+		Expect(db.Run(ctx)).To(MatchError(cesium.ErrDBClosed))
+	})
+})
 
 var _ = Describe("Options", func() {
 	DescribeTable(

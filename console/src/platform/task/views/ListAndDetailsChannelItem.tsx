@@ -9,10 +9,10 @@
 
 import "@/platform/task/views/ListAndDetailsChannelItem.css";
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type List } from "@synnaxlabs/lyra/list";
+import type { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
@@ -24,7 +24,7 @@ import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName"
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { TareButton } from "@/platform/task/TareButton";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { WriteChannelNames } from "@/platform/task/WriteChannelNames";
 
 /** A read channel carries a name. A write channel carries two names. */
@@ -45,7 +45,6 @@ export interface ListAndDetailsChannelItemProps<
   port: ReactNode;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
-  canTare: boolean;
   /** The Synnax channel the item names. Absent when the channel type has none. */
   channel?: channel.Key;
   /** The name deploying the task gives the channel, shown while it has none. */
@@ -57,9 +56,11 @@ export interface ListAndDetailsChannelItemProps<
   stateDefaultName?: string;
   /** Deploying the task does not create the channels, because they are disabled. */
   skipped?: boolean;
-  onTare?: (channel: channel.Key) => void;
+  /** Marks the channel with a warning, which its details explain. */
+  warned?: boolean;
   path: deep.Target<ItemChannel>;
-  hasTareButton: boolean;
+  /** Shows a tare button for a float channel. */
+  tareable?: boolean;
   nameDirection?: direction.Direction;
 }
 
@@ -79,10 +80,8 @@ const getChannelNameProps = (
 export const ListAndDetailsChannelItem = <K extends string>({
   port,
   portMaxChars,
-  canTare,
-  onTare,
   path,
-  hasTareButton,
+  tareable = false,
   channel,
   defaultName,
   suffix,
@@ -90,6 +89,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   stateChannel,
   stateDefaultName,
   skipped,
+  warned = false,
   nameDirection = "x",
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
@@ -99,18 +99,19 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const item = deep.widen(path);
   const disabled = Form.useFieldValue(item.disabled);
   const failed = Form.useStatuses(path).some(({ variant }) => variant === "error");
+  const variant = failed ? "error" : warned ? "warning" : undefined;
   const channelNameProps = getChannelNameProps(hasIcon);
   const portStyle: CSSProperties = { width: `${portMaxChars * 1.25}rem` };
   return (
     <Select.Item
       {...rest}
-      status={failed ? "error" : undefined}
+      status={variant}
       justify="between"
       align="center"
       className={CSS.cls(
         CSS.B("channel-item"),
         disabled && CSS.BM("channel-item", "disabled"),
-        failed && CSS.BM("channel-item", "error"),
+        variant != null && CSS.BM("channel-item", variant),
       )}
     >
       <Flex.Box
@@ -164,11 +165,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
         )}
       </Flex.Box>
       <Flex.Box x align="center" gap="tiny">
-        {hasTareButton && (
-          <TareButton
-            disabled={!canTare}
-            onTare={() => channel != null && onTare?.(channel)}
-          />
+        {tareable && channel != null && (
+          <TareButton channel={channel} disabled={disabled} />
         )}
         <EnabledCheckbox path={item.disabled} />
       </Flex.Box>

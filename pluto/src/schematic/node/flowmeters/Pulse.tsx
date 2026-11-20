@@ -7,15 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Label } from "@/schematic/node/flowmeters/Label";
-import { type Props } from "@/schematic/node/flowmeters/props";
+import type { Props } from "@/schematic/node/flowmeters/props";
+import svg from "@/schematic/node/flowmeters/Pulse.svg?raw";
 
-const DIMENSIONS = { width: 71, height: 36 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.04, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.98, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.06 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.91 }, orientation: "bottom" },
+  ],
+});
 
 export const Pulse = ({
   id,
@@ -26,26 +34,12 @@ export const Pulse = ({
   ...rest
 }: Props): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-Pulse"), className)}>
-    <Handle.Rectangle
-      orientation={orientation}
-      left={4}
-      top={6}
-      right={98}
-      bottom={91}
-    />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Primitive.Path d="M31 13.5H39" strokeLinecap="round" />
-      <Primitive.Path d="M23 21.5H31" strokeLinecap="round" />
-      <Primitive.Path d="M39 21.5H47" strokeLinecap="round" />
-      <Primitive.Path d="M39 13.5V21.5" strokeLinecap="round" />
-      <Primitive.Path d="M31 13.5V21.5" strokeLinecap="round" />
-      <Label strokeColor={strokeColor} />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

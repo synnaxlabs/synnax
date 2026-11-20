@@ -10,7 +10,7 @@
 import "@/color/Swatch.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -28,6 +28,8 @@ const createHaulItem = (key: string): HaulItem => ({
   type: HAUL_TYPE,
   key,
 });
+
+const FACTS = ["Color"];
 
 const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
   items.filter((item): item is HaulItem => item.type === HAUL_TYPE);
@@ -52,6 +54,20 @@ export const BaseSwatch = ({
 }: BaseSwatchProps): ReactElement => {
   const { gray } = Theming.use().colors;
   const hex = color.hex(value);
+  // A clear fill shows the surface, so its text takes the icon gray. A translucent fill
+  // shows the l2 and l5 checkerboard, so the icon takes the gray that reads over both.
+  const opacity = color.opacity(value);
+  const contrastOverCheckerboard = (icon: color.Color): number =>
+    Math.min(
+      color.contrast(color.over(value, gray.l2, opacity), icon),
+      color.contrast(color.over(value, gray.l5, opacity), icon),
+    );
+  const text =
+    opacity === 0
+      ? gray.l9
+      : contrastOverCheckerboard(gray.l0) >= contrastOverCheckerboard(gray.l11)
+        ? gray.l0
+        : gray.l11;
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = ({ items }) => {
     const [k] = filterHaulItems(items);
@@ -76,11 +92,19 @@ export const BaseSwatch = ({
       square
       disabled={disabled}
       draggable={draggable}
-      onDragStart={() => startDrag([createHaulItem(hex)])}
+      onDragStart={(event) =>
+        startDrag({
+          event,
+          items: [createHaulItem(hex)],
+          preview: (
+            <Haul.Preview swatch={color.cssString(value)} name={hex} facts={FACTS} />
+          ),
+        })
+      }
       style={{
         ...style,
         [COLOR_VAR]: color.cssString(value),
-        [TEXT_VAR]: color.cssString(color.pickByContrast(value, gray.l0, gray.l11)),
+        [TEXT_VAR]: color.cssString(text),
       }}
       variant="outlined"
       {...haulProps}

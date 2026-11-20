@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Service", func() {
 	Describe("ShouldValidateNames", func() {
-		It("Should report true by default", func(ctx SpecContext) {
+		It("Should report true by default", func() {
 			Expect(svc.ShouldValidateNames()).To(BeTrue())
 		})
 		It(
@@ -344,7 +344,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Observe", func() {
-		It("Should return a non-nil observable", func(ctx SpecContext) {
+		It("Should return a non-nil observable", func() {
 			obs := svc.Observe()
 			Expect(obs).ToNot(BeNil())
 		})

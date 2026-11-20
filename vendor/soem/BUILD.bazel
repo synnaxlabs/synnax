@@ -163,7 +163,7 @@ extern "C" {
 #define EC_BUFSIZE 1518
 
 /** number of frame buffers per channel (tx, rx1 rx2) */
-#define EC_MAXBUF 16
+#define EC_MAXBUF 32
 
 /** size of EEPROM bitmap cache */
 #define EC_MAXEEPBITMAP 128
@@ -267,6 +267,7 @@ EOF""",
 # The headers, options, and links of soem and core.
 SOEM_LIBRARY_HDRS = SOEM_HDRS + [
     "SOEM/osal/osal.h",
+    "soem_patched.h",
     ":generate_ec_options_h",
 ] + select({
     "@platforms//os:linux": LINUX_PLATFORM_HDRS,
@@ -274,15 +275,9 @@ SOEM_LIBRARY_HDRS = SOEM_HDRS + [
     "@platforms//os:windows": WIN32_PLATFORM_HDRS,
 })
 
-SOEM_COPTS = select({
-    "@platforms//os:windows": [
-        "/D_CRT_SECURE_NO_WARNINGS",
-        "/DWIN32",
-    ],
-    "//conditions:default": [
-        "-Wno-unused-parameter",
-        "-Wno-sign-compare",
-    ],
+SOEM_LOCAL_DEFINES = select({
+    "@platforms//os:windows": ["WIN32"],
+    "//conditions:default": [],
 })
 
 SOEM_INCLUDES = [
@@ -331,9 +326,9 @@ cc_library(
         ],
     }),
     hdrs = SOEM_LIBRARY_HDRS,
-    copts = SOEM_COPTS,
     includes = SOEM_INCLUDES,
     linkopts = SOEM_LINKOPTS,
+    local_defines = SOEM_LOCAL_DEFINES,
     visibility = ["//visibility:public"],
 )
 
@@ -347,9 +342,9 @@ cc_library(
         "//conditions:default": [],
     }),
     hdrs = SOEM_LIBRARY_HDRS,
-    copts = SOEM_COPTS,
     includes = SOEM_INCLUDES,
     linkopts = SOEM_LINKOPTS,
+    local_defines = SOEM_LOCAL_DEFINES,
     target_compatible_with = select({
         "@platforms//os:linux": [],
         "@platforms//os:macos": [],

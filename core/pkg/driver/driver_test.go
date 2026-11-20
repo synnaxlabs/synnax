@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"testing/fstest"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,10 +31,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -75,6 +80,10 @@ func newTestLogger() (*alamos.Logger, *syncBuffer) {
 
 var rackKey = rack.NewKey(1, 1)
 
+// notLoaded matches driver.ErrNotLoaded. MatchError uses the standard errors.Is, which
+// does not see the mark.
+func notLoaded(err error) bool { return errors.Is(err, driver.ErrNotLoaded) }
+
 // mockConfig returns a config that starts the mock Driver in new directories.
 func mockConfig(logger *alamos.Logger) driver.Config {
 	return driver.Config{
@@ -86,8 +95,30 @@ func mockConfig(logger *alamos.Logger) driver.Config {
 		BinaryDirname:   GinkgoT().TempDir(),
 		Keys:            keys,
 		DB:              db,
+		License:         licenses,
 		RackKey:         rackKey,
 	}
+}
+
+// openUnlicensed opens a license service that does not cover the Core.
+func openUnlicensed(ctx context.Context) *license.Service {
+	GinkgoHelper()
+	return MustOpen(license.OpenService(ctx, license.ServiceConfig{
+		DB:      DeferClose(memkv.New()),
+		Anchors: signer.Anchors,
+	}))
+}
+
+// activate gives svc a new license that covers the Core and returns its ID.
+func activate(ctx context.Context, svc *license.Service) uuid.UUID {
+	GinkgoHelper()
+	lic := svctestutil.NewLicense()
+	Expect(svc.Activate(ctx, signer.Sign(lic))).To(HaveField("State", license.StateOk))
+	return lic.Jti
+}
+
+func countStarts(buffer *syncBuffer) func() int {
+	return func() int { return strings.Count(buffer.String(), "started successfully") }
 }
 
 func openMockDriver(
@@ -119,6 +150,21 @@ func (r racingFS) Rename(oldPath, newPath string) error {
 	return fstestutil.ErrFault
 }
 
+var _ = Describe("AllIntegrations", func() {
+	It("Should hold every integration that a Driver build can run", func() {
+		Expect(driver.AllIntegrations).To(ConsistOf(
+			"arc",
+			"ethercat",
+			"file",
+			"http",
+			"labjack",
+			"modbus",
+			"ni",
+			"opc",
+		))
+	})
+})
+
 var _ = Describe("Open", func() {
 	Describe("contract", func() {
 		It("Should return a non-nil driver on success", func(ctx SpecContext) {
@@ -142,6 +188,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -159,14 +206,14 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should return before the Driver starts when detached",
+			"Should return before the Driver starts when unlicensed",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
 				logger, _ := newTestLogger()
 				start := time.Now()
 				d := openMockDriver(ctx, logger, driver.Config{
-					Detached:     new(true),
+					License:      openUnlicensed(ctx),
 					StartTimeout: 10 * time.Second,
 					StopTimeout:  500 * time.Millisecond,
 				})
@@ -177,18 +224,25 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should fail when detached and the Driver cannot load",
+			"Should fail when unlicensed and the Driver cannot load",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
 				logger, _ := newTestLogger()
+				start := time.Now()
 				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
-					Detached:     new(true),
-					StartTimeout: 500 * time.Millisecond,
+					License:      openUnlicensed(ctx),
+					StartTimeout: time.Minute,
 					StopTimeout:  500 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring(
-					"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
-				)))
+				})).Error().To(SatisfyAll(
+					MatchError(notLoaded, "driver.ErrNotLoaded"),
+					MatchError(ContainSubstring(
+						"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
+					)),
+				))
+				// The first exit ends the start, with no restart and no wait for the
+				// start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 			},
 		)
 
@@ -205,6 +259,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -234,17 +289,24 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should name the loader error of a Driver that cannot load",
+			"Should fail at once when the Driver cannot load",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
 				logger, _ := newTestLogger()
+				start := time.Now()
 				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
-					StartTimeout: 500 * time.Millisecond,
+					StartTimeout: time.Minute,
 					StopTimeout:  500 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring(
-					"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
-				)))
+				})).Error().To(SatisfyAll(
+					MatchError(notLoaded, "driver.ErrNotLoaded"),
+					MatchError(ContainSubstring(
+						"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
+					)),
+				))
+				// The first exit ends the start, with no restart and no wait for the
+				// start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 			},
 		)
 
@@ -258,6 +320,16 @@ var _ = Describe("Open", func() {
 				Expect(d).To(BeNil())
 			},
 		)
+
+		It("Should refuse a secrets folder that is not an absolute path", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			cfgs := []driver.Config{mockConfig(logger), {SecretsDir: "secrets"}}
+			Expect(driver.Open(ctx, cfgs...)).Error().To(MatchError(
+				ContainSubstring("secrets_dir: must be an absolute path"),
+			))
+		})
 
 		It("Should return a non-nil driver when disabled", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
@@ -280,6 +352,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -302,6 +375,7 @@ var _ = Describe("Open", func() {
 					Address:             "localhost:9090",
 					Keys:                keys,
 					DB:                  db,
+					License:             licenses,
 					RackKey:             rackKey,
 					ParentDirname:       GinkgoT().TempDir(),
 					BinaryDirname:       GinkgoT().TempDir(),
@@ -323,6 +397,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -413,11 +488,39 @@ var _ = Describe("Open", func() {
 			})
 			Expect(readDriverConnection(dir)).To(HaveKeyWithValue("secure", true))
 			anchorFile := filepath.Join(dir, "driver", "trust-anchors.pem")
-			Expect(os.ReadFile(anchorFile)).To(Equal(anchors))
-			Expect(os.ReadFile(envFile)).To(ContainSubstring(
+			Expect(
+				fs.ReadFile(os.DirFS(dir), "driver/trust-anchors.pem"),
+			).To(Equal(anchors))
+			Expect(os.ReadFile(filepath.Clean(envFile))).To(ContainSubstring(
 				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=" + anchorFile,
 			))
 			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should give the Driver the secrets folder of its rack", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			secrets := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname: dir,
+				SecretsDir:    secrets,
+			})
+			cfg := readDriverConfig(dir)
+			Expect(d.Close()).To(Succeed())
+			Expect(cfg).To(HaveKeyWithValue("secrets_dir", secrets))
+		})
+
+		It("Should give the Driver no secrets folder when none is set", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
+			cfg := readDriverConfig(dir)
+			Expect(d.Close()).To(Succeed())
+			Expect(cfg).ToNot(HaveKey("secrets_dir"))
 		})
 
 		It("Should give the Driver an API key for its rack", func(ctx SpecContext) {
@@ -428,8 +531,9 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 			Expect(conn).ToNot(HaveKey("username"))
 			Expect(conn).ToNot(HaveKey("password"))
-			Expect(authenticate(ctx, conn["api_key"].(string)).Subject).
-				To(Equal(rackKey.ResourceID()))
+			apiKey, ok := conn["api_key"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(authenticate(ctx, apiKey).Subject).To(Equal(rackKey.ResourceID()))
 		})
 
 		It("Should reuse its API key across Core processes", func(ctx SpecContext) {
@@ -487,6 +591,7 @@ var _ = Describe("Open", func() {
 				KeyDirname:      keyDir,
 				Keys:            keys,
 				DB:              db,
+				License:         licenses,
 				RackKey:         rackKey,
 			})).Error().To(MatchError(syscall.EISDIR))
 			Expect(count()).To(Equal(before))
@@ -603,7 +708,7 @@ var _ = Describe("Open", func() {
 			Expect(readDriverConnection(dir)).To(HaveKeyWithValue("secure", false))
 			Expect(filepath.Join(dir, "driver", "trust-anchors.pem")).
 				ToNot(BeAnExistingFile())
-			Expect(os.ReadFile(envFile)).
+			Expect(os.ReadFile(filepath.Clean(envFile))).
 				ToNot(ContainSubstring("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"))
 			Expect(d.Close()).To(Succeed())
 		})
@@ -647,20 +752,88 @@ func authenticate(ctx context.Context, key string) auth.Identity {
 // readSavedKey returns the API key the Driver saved in keyDir.
 func readSavedKey(keyDir string) string {
 	GinkgoHelper()
-	path := filepath.Join(keyDir, "embedded-driver-key")
-	return string(MustSucceed(os.ReadFile(path)))
+	return string(MustSucceed(fs.ReadFile(os.DirFS(keyDir), "embedded-driver-key")))
+}
+
+// readDriverConfig returns the config file the Driver was started with. It must be
+// called while the Driver is running, since the file is removed once the process
+// exits.
+func readDriverConfig(parentDirname string) map[string]any {
+	GinkgoHelper()
+	b := MustSucceed(fs.ReadFile(os.DirFS(parentDirname), "driver/config.json"))
+	var cfg map[string]any
+	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
+	return cfg
 }
 
 // readDriverConnection returns the connection block of the config file the Driver was
-// started with. It must be called while the Driver is running, since the file is
-// removed once the process exits.
+// started with, under the same rule as readDriverConfig.
 func readDriverConnection(parentDirname string) map[string]any {
 	GinkgoHelper()
-	b := MustSucceed(os.ReadFile(filepath.Join(parentDirname, "driver", "config.json")))
-	var cfg map[string]any
-	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
-	return cfg["connection"].(map[string]any)
+	conn, ok := readDriverConfig(parentDirname)["connection"].(map[string]any)
+	Expect(ok).To(BeTrue())
+	return conn
 }
+
+var _ = Describe("license", func() {
+	It(
+		"Should restart the Driver once when a license activates",
+		func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			svc := openUnlicensed(ctx)
+			d := openMockDriver(ctx, logger, driver.Config{License: svc})
+			Eventually(countStarts(buffer)).Should(Equal(1))
+			activate(ctx, svc)
+			Eventually(countStarts(buffer)).Should(Equal(2))
+			activate(ctx, svc)
+			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(2))
+			Expect(buffer.String()).ToNot(ContainSubstring("exited unexpectedly"))
+			Expect(d.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should not restart the Driver when the Core starts licensed",
+		func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			svc := openUnlicensed(ctx)
+			activate(ctx, svc)
+			d := openMockDriver(ctx, logger, driver.Config{License: svc})
+			activate(ctx, svc)
+			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(1))
+			Expect(d.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should restart the Driver again when a lost license activates",
+		func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			svc := openUnlicensed(ctx)
+			jti := activate(ctx, svc)
+			d := openMockDriver(ctx, logger, driver.Config{License: svc})
+			Eventually(countStarts(buffer)).Should(Equal(1))
+			Expect(svc.Deactivate(ctx, jti)).
+				ToNot(HaveField("State", license.StateOk))
+			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(1))
+			activate(ctx, svc)
+			Eventually(countStarts(buffer)).Should(Equal(2))
+			Expect(d.Close()).To(Succeed())
+		},
+	)
+
+	It("Should stop cleanly when closed during a restart", func(ctx SpecContext) {
+		logger, buffer := newTestLogger()
+		svc := openUnlicensed(ctx)
+		d := openMockDriver(ctx, logger, driver.Config{
+			License:     svc,
+			StopTimeout: 500 * time.Millisecond,
+		})
+		activate(ctx, svc)
+		Expect(d.Close()).To(Succeed())
+		Expect(buffer.String()).ToNot(ContainSubstring("exited unexpectedly"))
+	})
+})
 
 var _ = Describe("restart", func() {
 	It(
@@ -696,6 +869,7 @@ var _ = Describe("restart", func() {
 			Address:         "localhost:9090",
 			Keys:            keys,
 			DB:              db,
+			License:         licenses,
 			RackKey:         rackKey,
 			ParentDirname:   GinkgoT().TempDir(),
 			BinaryDirname:   GinkgoT().TempDir(),
@@ -713,6 +887,55 @@ var _ = Describe("restart", func() {
 		Expect(d).To(BeNil())
 		Expect(buffer.String()).To(ContainSubstring("exceeded restart limit"))
 	})
+
+	It(
+		"Should restart a Driver that loaded and then cannot load again",
+		func(ctx SpecContext) {
+			loaderErrFile := filepath.Join(GinkgoT().TempDir(), "loader_error")
+			Expect(os.Setenv("MOCK_LOADER_ERROR_FILE", loaderErrFile)).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR_FILE")).To(Succeed()) }()
+			Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
+			logger, buffer := newTestLogger()
+			d := openMockDriver(ctx, logger, driver.Config{
+				StartTimeout:        5 * time.Second,
+				RestartBaseInterval: time.Millisecond,
+				RestartMaxRetries:   2,
+			})
+			Expect(os.WriteFile(loaderErrFile, nil, 0o644)).To(Succeed())
+			Eventually(buffer.String, 5*time.Second).Should(ContainSubstring(
+				"exceeded restart limit: driver: version `GLIBC_2.39' not found",
+			))
+			Expect(buffer.String()).ToNot(ContainSubstring("did not start"))
+			Expect(d.Close()).To(MatchError(ContainSubstring("exceeded restart limit")))
+		},
+	)
+
+	DescribeTable(
+		"Should restart a Driver that crashes before its first log line",
+		func(ctx SpecContext, licensed bool) {
+			Expect(os.Setenv("MOCK_CRASH_BANNER", "1")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_CRASH_BANNER")).To(Succeed()) }()
+			logger, _ := newTestLogger()
+			cfg := mockConfig(logger)
+			if !licensed {
+				cfg.License = openUnlicensed(ctx)
+			}
+			Expect(driver.Open(ctx, cfg, driver.Config{
+				StartTimeout:        time.Minute,
+				StopTimeout:         500 * time.Millisecond,
+				RestartBaseInterval: time.Millisecond,
+				RestartMaxRetries:   2,
+			})).Error().To(SatisfyAll(
+				Not(MatchError(notLoaded, "driver.ErrNotLoaded")),
+				MatchError(ContainSubstring(
+					"exceeded restart limit: *** driver crashed: SIGSEGV",
+				)),
+			))
+		},
+		Entry("licensed", true),
+		Entry("unlicensed", false),
+	)
 
 	It("Should launch the same binary after a restart", func(ctx SpecContext) {
 		Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())

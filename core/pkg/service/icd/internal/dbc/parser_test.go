@@ -10,8 +10,8 @@
 package dbc_test
 
 import (
+	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,12 +25,13 @@ import (
 // FuzzParse checks that Parse returns definitions or an *Error for any input, and never
 // panics.
 func FuzzParse(f *testing.F) {
-	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "*.dbc"))
+	testdata := os.DirFS("../../testdata")
+	paths, err := fs.Glob(testdata, "*.dbc")
 	if err != nil {
 		f.Fatal(err)
 	}
 	for _, path := range paths {
-		data, err := os.ReadFile(path)
+		data, err := fs.ReadFile(testdata, path)
 		if err != nil {
 			f.Fatal(err)
 		}
@@ -41,8 +42,7 @@ func FuzzParse(f *testing.F) {
 		if err == nil {
 			return
 		}
-		var perr *dbc.Error
-		if !errors.As(err, &perr) || defs != nil {
+		if _, ok := errors.AsType[*dbc.Error](err); !ok || defs != nil {
 			t.Fatalf("Parse returned %d definitions and error %v", len(defs), err)
 		}
 	})
@@ -53,7 +53,9 @@ func parseOne[D dbc.Def](src string) D {
 	GinkgoHelper()
 	defs := MustSucceed(dbc.Parse([]byte(src)))
 	Expect(defs).To(HaveLen(1))
-	return defs[0].(D)
+	def, ok := defs[0].(D)
+	Expect(ok).To(BeTrue())
+	return def
 }
 
 func signalOf(marker string) dbc.SignalDef {
@@ -233,11 +235,13 @@ VAL_ 256 Mode -1 "Fault" 0 "Off" ;
 SIG_VALTYPE_ 256 Temp : 1;
 `)))
 		Expect(defs).To(HaveLen(3))
-		table := defs[0].(*dbc.ValueTableDef)
+		table, ok := defs[0].(*dbc.ValueTableDef)
+		Expect(ok).To(BeTrue())
 		Expect(table.TableName).To(Equal(dbc.Identifier("Gear")))
 		Expect(table.ValueDescriptions).To(HaveLen(2))
 		Expect(table.ValueDescriptions[1]).To(HaveField("Description", "D"))
-		vals := defs[1].(*dbc.ValueDescriptionsDef)
+		vals, ok := defs[1].(*dbc.ValueDescriptionsDef)
+		Expect(ok).To(BeTrue())
 		Expect(vals.ObjectType).To(Equal(dbc.ObjectTypeSignal))
 		Expect(vals.ValueDescriptions[0]).To(HaveField("Value", -1.0))
 		Expect(defs[2]).To(HaveField("SignalValueType", dbc.SignalValueTypeFloat32))

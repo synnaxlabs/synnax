@@ -8,16 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import { z } from "zod";
 
 import { binary } from "@/binary";
 import { math } from "@/math";
 import { primitive } from "@/primitive";
 import {
-  convertDataType,
   type CrudeDataType,
   DataType,
   Density,
   dynamicWindow,
+  isCrudeValueExtension,
   Rate,
   resolveWindow,
   Size,
@@ -26,8 +27,78 @@ import {
   TimeSpan,
   TimeStamp,
   type TimestampFormat,
+  ValueExtension,
   windowZ,
 } from "@/telem";
+
+describe("ValueExtension", () => {
+  class MyValueExtension extends ValueExtension<bigint> {}
+
+  describe("valueOf", () => {
+    it("should return the value", () => {
+      const value = new MyValueExtension(12n);
+      expect(value.valueOf()).toEqual(12n);
+    });
+  });
+
+  describe("toJSON", () => {
+    it("should return the value", () => {
+      const value = new MyValueExtension(12n);
+      expect(value.toJSON()).toEqual(12n);
+    });
+  });
+
+  describe("toString", () => {
+    it("should return the value", () => {
+      const value = new MyValueExtension(12n);
+      expect(value.toString()).toEqual("12");
+    });
+  });
+
+  describe("encode + decode", () => {
+    it("should encode + decode a value extension", () => {
+      const v = { myDog: new MyValueExtension(12n) };
+      const encoded = binary.JSON_CODEC.encode(v);
+      const decoded = binary.JSON_CODEC.decode(encoded);
+      expect(decoded).toEqual({ myDog: "12" });
+    });
+
+    it("should encode + decode a value extension with a schema", () => {
+      const v = { myDog: new MyValueExtension(12n) };
+      const schema = z.object({
+        myDog: z
+          .bigint()
+          .or(z.string())
+          .transform((v) => new MyValueExtension(BigInt(v))),
+      });
+      const encoded = binary.JSON_CODEC.encode(v);
+      const decoded = binary.JSON_CODEC.decode(encoded, schema);
+      expect(decoded).toEqual({ myDog: new MyValueExtension(12n) });
+      expect(decoded.myDog).toBeInstanceOf(MyValueExtension);
+    });
+  });
+});
+
+describe("isCrudeValueExtension", () => {
+  it("should return true for an object whose value has the given type", () => {
+    expect(isCrudeValueExtension({ value: 12n }, "bigint")).toBe(true);
+    expect(isCrudeValueExtension({ value: 12 }, "number")).toBe(true);
+    expect(isCrudeValueExtension({ value: "int32" }, "string")).toBe(true);
+    expect(isCrudeValueExtension(TimeSpan.SECOND, "bigint")).toBe(true);
+  });
+
+  it("should return false for an object whose value has another type", () => {
+    expect(isCrudeValueExtension({ value: 12 }, "bigint")).toBe(false);
+    expect(isCrudeValueExtension({ value: "12" }, "number")).toBe(false);
+    expect(isCrudeValueExtension({ value: null }, "string")).toBe(false);
+  });
+
+  it("should return false for a value that is not an object with a value", () => {
+    expect(isCrudeValueExtension(12n, "bigint")).toBe(false);
+    expect(isCrudeValueExtension(null, "bigint")).toBe(false);
+    expect(isCrudeValueExtension({}, "bigint")).toBe(false);
+  });
+});
 
 describe("TimeStamp", () => {
   test("construct", () => {
@@ -64,6 +135,40 @@ describe("TimeStamp", () => {
     expect(tsString).toEqual("1970-04-01T00:20:00.283Z");
   });
 
+  test("now should advance in steps finer than a millisecond with Temporal", () => {
+    const limit = typeof Temporal !== "undefined" ? TimeSpan.MILLISECOND : TimeSpan.DAY;
+    // A paused thread lengthens one step, so only the finest step counts. A CI VM
+    // clock can tick coarsely for a few milliseconds, so the budget is clock time.
+    let finest = TimeSpan.MAX;
+    const start = Date.now();
+    let prev = TimeStamp.now();
+    while (finest.greaterThanOrEqual(limit) && Date.now() - start < 1000) {
+      const now = TimeStamp.now();
+      if (!now.after(prev)) continue;
+      const step = prev.span(now);
+      if (step.lessThan(finest)) finest = step;
+      prev = now;
+    }
+    expect(finest.lessThan(limit)).toBe(true);
+  });
+
+  describe("now", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("should read Temporal when it exists", () => {
+      const epochNanoseconds = 1_700_000_000_123_456_789n;
+      vi.stubGlobal("Temporal", { Now: { instant: () => ({ epochNanoseconds }) } });
+      expect(TimeStamp.now().valueOf()).toBe(epochNanoseconds);
+    });
+
+    it("should read Date when Temporal does not exist", () => {
+      vi.stubGlobal("Temporal", undefined);
+      expect(TimeStamp.now().valueOf() % TimeSpan.MILLISECOND.valueOf()).toBe(0n);
+    });
+  });
+
   test("encode", () => {
     const ts = TimeStamp.now();
     new binary.JSONCodec().encode(ts);
@@ -74,11 +179,6 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeSpan.microseconds(10))).toBe(true);
   });
 
-  test("construct from local TimeZone", () => {
-    const ts = new TimeStamp(TimeSpan.microseconds(10), "local");
-    expect(ts.equals(TimeSpan.microseconds(10).add(TimeStamp.utcOffset))).toBe(true);
-  });
-
   test("construct from a bigint", () => {
     expect(new TimeStamp(42n).valueOf()).toBe(42n);
     expect(new TimeStamp(-5n).valueOf()).toBe(-5n);
@@ -86,19 +186,66 @@ describe("TimeStamp", () => {
   });
 
   describe("construct in the local time zone", () => {
+    let originalTZ: string | undefined;
     beforeEach(() => {
-      vi.spyOn(TimeStamp, "utcOffset", "get").mockReturnValue(TimeSpan.hours(-6));
+      originalTZ = process.env.TZ;
+      process.env.TZ = "America/Denver";
     });
-    afterEach(() => vi.restoreAllMocks());
+    afterEach(() => {
+      process.env.TZ = originalTZ;
+    });
 
     test("from a bigint", () => {
-      const ts = new TimeStamp(42n, "local");
-      expect(ts.valueOf()).toBe(42n - TimeSpan.hours(6).valueOf());
+      expect(new TimeStamp(42n, "local").valueOf()).toBe(42n);
+    });
+
+    test("from a number", () => {
+      expect(new TimeStamp(42, "local").valueOf()).toBe(42n);
+    });
+
+    test("from a Number object", () => {
+      // eslint-disable-next-line no-new-wrappers
+      expect(new TimeStamp(new Number(42) as number, "local").valueOf()).toBe(42n);
     });
 
     test("from a TimeStamp", () => {
-      const ts = new TimeStamp(new TimeStamp(42n), "local");
-      expect(ts.valueOf()).toBe(42n - TimeSpan.hours(6).valueOf());
+      expect(new TimeStamp(new TimeStamp(42n), "local").valueOf()).toBe(42n);
+    });
+
+    test("from a TimeSpan", () => {
+      const ts = new TimeStamp(TimeSpan.microseconds(10), "local");
+      expect(ts.equals(TimeSpan.microseconds(10))).toBe(true);
+    });
+
+    test("from a Date", () => {
+      const date = new Date("2021-01-01T00:00:00Z");
+      expect(new TimeStamp(date, "local").equals(new TimeStamp(date))).toBe(true);
+    });
+
+    test("from a value extension", () => {
+      expect(new TimeStamp({ value: 42n }, "local").valueOf()).toBe(42n);
+    });
+
+    test("from a string with no zone", () => {
+      expect(
+        new TimeStamp("2021-01-01 12:30", "local").equals(
+          new TimeStamp("2021-01-01T19:30:00Z"),
+        ),
+      ).toBe(true);
+    });
+
+    test("from a date string", () => {
+      expect(
+        new TimeStamp("2021-01-01", "local").equals(new TimeStamp("2021-01-01T07:00Z")),
+      ).toBe(true);
+    });
+
+    test("from a string with a zone", () => {
+      expect(
+        new TimeStamp("2021-01-01T12:30:00Z", "local").equals(
+          new TimeStamp("2021-01-01 12:30"),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -107,24 +254,15 @@ describe("TimeStamp", () => {
     expect(new TimeStamp(TimeStamp.MAX.nanoseconds).equals(TimeStamp.MAX)).toBe(true);
   });
 
-  test("construct from time string", () => {
-    const ts = new TimeStamp("12:30", "UTC");
-    expect(ts.date().getUTCHours()).toEqual(12);
-    expect(ts.equals(TimeSpan.hours(12).add(TimeSpan.minutes(30)))).toBe(true);
-    const ts2 = new TimeStamp("12:30:00.22");
-    expect(
-      ts2.equals(
-        TimeSpan.hours(12).add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22))),
-      ),
-    ).toBe(true);
-    const ts3 = new TimeStamp("12:30:00.22", "local");
-    expect(
-      ts3.equals(
-        TimeSpan.hours(12)
-          .add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
-          .add(TimeStamp.utcOffset),
-      ),
-    ).toBe(true);
+  describe("construct from a string that TimeStamp.parse cannot read", () => {
+    const SPECS = ["12:30", "12:30:00.22", "1/2/2021", "2021-02-30", "now", ""];
+    SPECS.forEach((text) =>
+      it(`should throw for "${text}"`, () => {
+        expect(() => new TimeStamp(text)).toThrow(
+          `unable to parse "${text}" as a timestamp`,
+        );
+      }),
+    );
   });
 
   describe("datetime-local format parsing", () => {
@@ -209,12 +347,8 @@ describe("TimeStamp", () => {
     const ts = new TimeStamp("2021-01-01T00:00:00.000Z", "UTC");
     expect(ts.date().getUTCFullYear()).toEqual(2021);
     expect(ts.date().getUTCHours()).toEqual(0);
-    const ts2 = new TimeStamp("2021-01-01", "local");
-    expect(ts2.date().getUTCFullYear()).toEqual(2021);
-    expect(ts2.date().getUTCHours()).toEqual(
-      Number(TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf()),
-    );
-    expect(ts2.date().getUTCMinutes()).toEqual(0);
+    const ts2 = new TimeStamp("2021-01-01");
+    expect(ts2.equals(ts)).toBe(true);
   });
 
   describe("equals", () => {
@@ -582,6 +716,35 @@ describe("TimeStamp", () => {
     });
   });
 
+  describe("toString on a host whose date differs from the UTC date", () => {
+    let originalTZ: string | undefined;
+    beforeEach(() => {
+      originalTZ = process.env.TZ;
+    });
+    afterEach(() => {
+      process.env.TZ = originalTZ;
+    });
+
+    test("west of UTC", () => {
+      process.env.TZ = "America/Denver";
+      const ts = new TimeStamp("2022-12-16T03:20:00Z");
+      expect(ts.toString("date", "UTC")).toEqual("Dec 16");
+      expect(ts.toString("dateTime", "UTC")).toEqual("Dec 16 03:20:00");
+      expect(ts.toString("preciseDate", "UTC")).toEqual("Dec 16 03:20:00.000");
+      expect(ts.toString("date", "local")).toEqual("Dec 15");
+      expect(ts.toString("dateTime", "local")).toEqual("Dec 15 20:20:00");
+    });
+
+    test("east of UTC", () => {
+      process.env.TZ = "Asia/Tokyo";
+      const ts = new TimeStamp("2022-12-15T20:00:00Z");
+      expect(ts.toString("date", "UTC")).toEqual("Dec 15");
+      expect(ts.toString("dateTime", "UTC")).toEqual("Dec 15 20:00:00");
+      expect(ts.toString("date", "local")).toEqual("Dec 16");
+      expect(ts.toString("dateTime", "local")).toEqual("Dec 16 05:00:00");
+    });
+  });
+
   describe("unit getters", () => {
     test("hour", () => {
       expect(TimeStamp.hours(1).add(TimeSpan.minutes(30)).hour).toEqual(1);
@@ -783,6 +946,12 @@ describe("TimeStamp", () => {
         process.env.TZ = originalTZ;
       });
 
+      test("DateComponents construct midnight UTC east of UTC", () => {
+        const ts = new TimeStamp([2021, 1, 1]);
+        expect(ts.valueOf()).toEqual(BigInt(Date.UTC(2021, 0, 1)) * 1_000_000n);
+        expect(ts.toString("ISODate")).toEqual("2021-01-01");
+      });
+
       test("localYear", () => {
         // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
         const ts = new TimeStamp(Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6);
@@ -949,6 +1118,13 @@ describe("TimeStamp", () => {
       );
     });
 
+    it("should parse a date-time with a space and a zone", () => {
+      const expected = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5)));
+      expect(TimeStamp.parse("2026-08-23 14:05:00Z")?.equals(expected)).toBe(true);
+      expect(TimeStamp.parse("2026-08-23 16:05:00+02:00")?.equals(expected)).toBe(true);
+      expect(new TimeStamp("2026-08-23 14:05:00Z").equals(expected)).toBe(true);
+    });
+
     it("should return null for text that is not an instant", () => {
       const invalid = [
         "",
@@ -963,6 +1139,34 @@ describe("TimeStamp", () => {
         "2026-08-23 13:00 pm",
       ];
       for (const text of invalid) expect(TimeStamp.parse(text), text).toBeNull();
+    });
+
+    describe("in a time zone with daylight saving time", () => {
+      let originalTZ: string | undefined;
+      beforeEach(() => {
+        originalTZ = process.env.TZ;
+        process.env.TZ = "America/New_York";
+      });
+      afterEach(() => {
+        process.env.TZ = originalTZ;
+      });
+
+      it("should return null for a local time skipped by the clock change", () => {
+        expect(TimeStamp.parse("2026-03-08 02:30", "local")).toBeNull();
+      });
+
+      it("should parse a local time next to the clock change", () => {
+        const expected = new TimeStamp(new Date(Date.UTC(2026, 2, 8, 7, 30)));
+        expect(TimeStamp.parse("2026-03-08 03:30", "local")?.equals(expected)).toBe(
+          true,
+        );
+      });
+
+      it("should parse a date whose midnight is skipped by the clock change", () => {
+        process.env.TZ = "America/Santiago";
+        const expected = new TimeStamp(new Date(Date.UTC(2026, 8, 6, 4)));
+        expect(TimeStamp.parse("2026-09-06", "local")?.equals(expected)).toBe(true);
+      });
     });
   });
 
@@ -1032,7 +1236,7 @@ describe("TimeStamp", () => {
         .add(TimeStamp.hours(12))
         .add(TimeSpan.minutes(20))
         .add(TimeSpan.milliseconds(12));
-      const remainder = ts.remainder(TimeStamp.DAY);
+      const remainder = ts.remainder(TimeSpan.DAY);
       expect(
         remainder.equals(expectedRemainder),
         `expected ${new TimeSpan(expectedRemainder).toString()} got ${new TimeSpan(
@@ -1164,17 +1368,6 @@ describe("TimeSpan", () => {
     });
   });
 
-  describe("fromSeconds", () => {
-    it("should interpret a pure number or bigint as seconds", () => {
-      const ts = TimeSpan.fromSeconds(1);
-      expect(ts.equals(TimeSpan.SECOND)).toBe(true);
-    });
-    it("should interpret a TimeSpan as a normal TimeSpan", () => {
-      const ts = TimeSpan.fromSeconds(TimeSpan.milliseconds(30));
-      expect(ts.equals(TimeSpan.milliseconds(30))).toBe(true);
-    });
-  });
-
   test("seconds", () => {
     expect(TimeSpan.seconds(1).seconds).toEqual(1);
   });
@@ -1299,9 +1492,20 @@ describe("TimeSpan", () => {
     });
   });
 
-  const TRUNCATE_TESTS = [
+  const TRUNCATE_TESTS: Array<[TimeSpan, TimeSpan, TimeSpan]> = [
     [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.days(1)],
     [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.hours(1)],
+    [
+      TimeSpan.days(200).add(TimeSpan.nanoseconds(999)),
+      TimeSpan.NANOSECOND,
+      TimeSpan.days(200).add(TimeSpan.nanoseconds(999)),
+    ],
+    [
+      TimeSpan.days(200).add(TimeSpan.nanoseconds(999)),
+      TimeSpan.MICROSECOND,
+      TimeSpan.days(200),
+    ],
+    [TimeSpan.days(-1).sub(TimeSpan.hours(1)), TimeSpan.DAY, TimeSpan.days(-1)],
   ];
 
   test("truncate", () => {
@@ -1313,7 +1517,7 @@ describe("TimeSpan", () => {
     });
   });
 
-  const REMAINDER_TESTS = [
+  const REMAINDER_TESTS: Array<[TimeSpan, TimeSpan, TimeSpan]> = [
     [
       TimeSpan.days(1).add(TimeSpan.nanoseconds(50)),
       TimeSpan.DAY,
@@ -1328,7 +1532,7 @@ describe("TimeSpan", () => {
     });
   });
 
-  const TO_STRING_TESTS = [
+  const TO_STRING_TESTS: Array<[TimeSpan, string]> = [
     [TimeSpan.nanoseconds(1), "1ns"],
     [TimeSpan.microseconds(1), "1μs"],
     [TimeSpan.milliseconds(1), "1ms"],
@@ -1343,6 +1547,7 @@ describe("TimeSpan", () => {
       "1ms 500μs 50ns",
     ],
     [TimeSpan.seconds(1).add(TimeSpan.microseconds(500)), "1s 500μs"],
+    [TimeSpan.days(200).add(TimeSpan.nanoseconds(999)), "200d 999ns"],
   ];
 
   test("toString", () => {
@@ -1632,6 +1837,8 @@ describe("TimeSpan", () => {
 describe("Rate", () => {
   test("construct", () => expect(new Rate(1).equals(1)).toBe(true));
 
+  test("toString", () => expect(new Rate(5).toString()).toEqual("5 Hz"));
+
   test("period", () => expect(new Rate(1).period.equals(TimeSpan.SECOND)).toBe(true));
 
   test("period", () =>
@@ -1640,19 +1847,10 @@ describe("Rate", () => {
   test("sampleCount", () =>
     expect(new Rate(1).sampleCount(TimeSpan.SECOND)).toEqual(1));
 
-  test("byteCount", () =>
-    expect(new Rate(1).byteCount(TimeSpan.SECOND, Density.BIT64)).toEqual(8));
-
   test("span", () =>
     expect(new Rate(1).span(4).equals(TimeSpan.seconds(4))).toBe(true));
 
-  test("byteSpan", () =>
-    expect(
-      new Rate(1).byteSpan(new Size(32), Density.BIT64).equals(TimeSpan.seconds(4)),
-    ).toBe(true));
-
   test("Hz", () => expect(Rate.hz(1).equals(1)).toBe(true));
-  test("KHz", () => expect(Rate.khz(1).equals(1e3)).toBe(true));
 
   describe("schema", () => {
     it("should parse number", () => {
@@ -1681,66 +1879,6 @@ describe("Rate", () => {
         expect(rate).toBeInstanceOf(Rate);
         expect(rate.valueOf()).toBe(expected);
       });
-    });
-  });
-
-  describe("arithmetic operations", () => {
-    test("add", () => {
-      const r1 = new Rate(100);
-      const r2 = new Rate(50);
-      const result = r1.add(r2);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(150);
-    });
-
-    test("add with number", () => {
-      const r1 = new Rate(100);
-      const result = r1.add(50);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(150);
-    });
-
-    test("sub", () => {
-      const r1 = new Rate(100);
-      const r2 = new Rate(30);
-      const result = r1.sub(r2);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(70);
-    });
-
-    test("sub with number", () => {
-      const r1 = new Rate(100);
-      const result = r1.sub(30);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(70);
-    });
-
-    test("mult", () => {
-      const r1 = new Rate(100);
-      const result = r1.mult(2);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(200);
-    });
-
-    test("mult with decimal", () => {
-      const r1 = new Rate(100);
-      const result = r1.mult(0.5);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(50);
-    });
-
-    test("div", () => {
-      const r1 = new Rate(100);
-      const result = r1.div(2);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(50);
-    });
-
-    test("div with decimal", () => {
-      const r1 = new Rate(100);
-      const result = r1.div(0.5);
-      expect(result).toBeInstanceOf(Rate);
-      expect(result.valueOf()).toBe(200);
     });
   });
 
@@ -1815,6 +1953,14 @@ describe("TimeRange", () => {
         false,
       );
     });
+    test("TimeRange that shares an end", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      expect(tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(1000)))).toBe(
+        true,
+      );
+      expect(tr.contains(tr)).toBe(true);
+      expect(tr.contains(new TimeStamp(1000))).toBe(false);
+    });
   });
   describe("comparisons", () => {
     // The allocating forms of equals, overlapsWith, and contains that the bigint forms
@@ -1866,7 +2012,7 @@ describe("TimeRange", () => {
           check(
             `${a.hash()} contains ${b.hash()}`,
             a.contains(b),
-            reference.contains(a, b.start) && reference.contains(a, b.end),
+            b.start.afterEq(a.start) && b.end.beforeEq(a.end),
           );
           for (const delta of deltas) {
             const suffix = `${b.hash()} by ${delta.valueOf()}`;
@@ -2247,66 +2393,6 @@ describe("Density", () => {
       });
     });
   });
-
-  describe("arithmetic operations", () => {
-    test("add", () => {
-      const d1 = new Density(8);
-      const d2 = new Density(4);
-      const result = d1.add(d2);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(12);
-    });
-
-    test("add with number", () => {
-      const d1 = new Density(8);
-      const result = d1.add(4);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(12);
-    });
-
-    test("sub", () => {
-      const d1 = new Density(8);
-      const d2 = new Density(3);
-      const result = d1.sub(d2);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(5);
-    });
-
-    test("sub with number", () => {
-      const d1 = new Density(8);
-      const result = d1.sub(3);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(5);
-    });
-
-    test("mult", () => {
-      const d1 = new Density(4);
-      const result = d1.mult(2);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(8);
-    });
-
-    test("mult with decimal", () => {
-      const d1 = new Density(8);
-      const result = d1.mult(0.5);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(4);
-    });
-
-    test("div", () => {
-      const d1 = new Density(8);
-      const result = d1.div(2);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(4);
-    });
-
-    test("div with decimal", () => {
-      const d1 = new Density(4);
-      const result = d1.div(0.5);
-      expect(result).toBeInstanceOf(Density);
-      expect(result.valueOf()).toBe(8);
-    });
-  });
 });
 
 describe("DataType", () => {
@@ -2334,7 +2420,7 @@ describe("DataType", () => {
       expect(dt.toString()).toBe("int32");
     });
 
-    [
+    const tests: Array<[CrudeDataType, DataType]> = [
       [new Int32Array(), DataType.INT32],
       [new Int8Array(), DataType.INT8],
       [new Uint8Array(), DataType.UINT8],
@@ -2346,7 +2432,8 @@ describe("DataType", () => {
       [new Float64Array(), DataType.FLOAT64],
       [new BigInt64Array(), DataType.INT64],
       [new BigUint64Array(), DataType.UINT64],
-    ].forEach(([array, expected]) => {
+    ];
+    tests.forEach(([array, expected]) => {
       test(`construct from ${array.constructor.name} to ${expected.toString()}`, () => {
         const dt = new DataType(array);
         expect(dt.toString()).toBe(expected.toString());
@@ -2364,80 +2451,37 @@ describe("DataType", () => {
     });
   });
 
-  describe("canSafelyCastTo", () => {
-    const TESTS: [DataType, DataType, boolean][] = [
-      [DataType.INT32, DataType.INT32, true],
-      [DataType.INT32, DataType.INT64, true],
-      [DataType.INT32, DataType.FLOAT32, false],
-      [DataType.INT32, DataType.FLOAT64, true],
-      [DataType.INT32, DataType.STRING, false],
-      [DataType.INT32, DataType.INT8, false],
-      [DataType.INT64, DataType.INT32, false],
-      [DataType.INT64, DataType.INT64, true],
-      [DataType.INT64, DataType.FLOAT32, false],
-      [DataType.INT64, DataType.FLOAT64, false],
-      [DataType.INT64, DataType.STRING, false],
-      [DataType.FLOAT64, DataType.FLOAT32, false],
-      [DataType.FLOAT64, DataType.FLOAT64, true],
-      [DataType.FLOAT64, DataType.STRING, false],
-      [DataType.FLOAT32, DataType.FLOAT64, true],
-      [DataType.FLOAT32, DataType.FLOAT32, true],
-      [DataType.FLOAT32, DataType.STRING, false],
-      [DataType.STRING, DataType.STRING, true],
-      [DataType.STRING, DataType.INT32, false],
-      [DataType.STRING, DataType.INT64, false],
-      [DataType.STRING, DataType.FLOAT32, false],
-      [DataType.STRING, DataType.FLOAT64, false],
-      [DataType.STRING, DataType.INT8, false],
-      [DataType.INT8, DataType.FLOAT32, true],
-      [DataType.BYTES, DataType.BYTES, true],
-      [DataType.BYTES, DataType.INT32, false],
-      [DataType.BYTES, DataType.STRING, false],
-      [DataType.BOOLEAN, DataType.BOOLEAN, true],
-      [DataType.BOOLEAN, DataType.UINT8, true],
-      [DataType.BOOLEAN, DataType.INT32, true],
-      [DataType.BOOLEAN, DataType.FLOAT64, true],
-      [DataType.UINT8, DataType.BOOLEAN, false],
-      [DataType.INT32, DataType.BOOLEAN, false],
-      [DataType.FLOAT64, DataType.BOOLEAN, false],
-    ];
-    TESTS.forEach(([from, to, expected]) =>
-      it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {
-        expect(from.canSafelyCastTo(to)).toBe(expected);
-      }),
-    );
-  });
-
-  describe("canCastTo", () => {
-    it("should return true for any two numeric data types", () => {
-      const numericTypes = [
-        DataType.INT32,
-        DataType.INT64,
-        DataType.FLOAT32,
-        DataType.FLOAT64,
-      ];
-      for (const from of numericTypes)
-        for (const to of numericTypes) expect(from.canCastTo(to)).toBe(true);
-    });
-    it("should return true for non-numeric data types ONLY if they are equal", () => {
-      const nonNumericTypes = [DataType.STRING, DataType.BYTES];
-      for (const from of nonNumericTypes)
-        for (const to of nonNumericTypes) expect(from.canCastTo(to)).toBe(from === to);
-    });
-  });
-
   describe("equals", () => {
-    const TESTS: [DataType, CrudeDataType, boolean][] = [
-      [DataType.INT32, DataType.INT32, true],
-      [DataType.INT32, DataType.INT64, false],
-      [DataType.INT32, "int32", true],
-      [DataType.INT32, "int64", false],
+    const TESTS: [string, CrudeDataType, boolean][] = [
+      ["DataType.INT32", DataType.INT32, true],
+      ["DataType.INT64", DataType.INT64, false],
+      ["int32", "int32", true],
+      ["int64", "int64", false],
+      ["an Int32Array", new Int32Array([1]), true],
+      ["a Float32Array", new Float32Array([1]), false],
+      ["{ value: int32 }", { value: "int32" }, true],
+      ["{ value: int64 }", { value: "int64" }, false],
     ];
-    TESTS.forEach(([dt, other, expected]) =>
-      it(`should return ${expected} when comparing ${dt.toString()} to ${JSON.stringify(other)}`, () => {
-        expect(dt.equals(other)).toBe(expected);
+    TESTS.forEach(([name, other, expected]) =>
+      it(`should return ${expected} when comparing int32 to ${name}`, () => {
+        expect(DataType.INT32.equals(other)).toBe(expected);
       }),
     );
+  });
+
+  describe("matches", () => {
+    it("should return true when any of the data types is equal", () => {
+      expect(
+        DataType.INT64.matches(new Float32Array([1]), new BigInt64Array([1n])),
+      ).toBe(true);
+      expect(DataType.INT64.matches("int32", { value: "int64" })).toBe(true);
+    });
+    it("should return false when none of the data types is equal", () => {
+      expect(DataType.INT64.matches(new Float32Array([1]), { value: "int32" })).toBe(
+        false,
+      );
+      expect(DataType.INT64.matches()).toBe(false);
+    });
   });
 
   describe("schema", () => {
@@ -2526,7 +2570,7 @@ describe("Size", () => {
       expect(size.valueOf()).toBe(1024);
     });
   });
-  const TO_STRING_TESTS = [
+  const TO_STRING_TESTS: Array<[Size, string]> = [
     [Size.bytes(1), "1B"],
     [Size.kilobytes(1), "1KB"],
     [Size.megabytes(1), "1MB"],
@@ -2541,7 +2585,7 @@ describe("Size", () => {
     });
   });
 
-  const TRUNCATE_TESTS = [
+  const TRUNCATE_TESTS: Array<[Size, Size, Size]> = [
     [Size.bytes(1).add(Size.kilobytes(1)), Size.KILOBYTE, Size.kilobytes(1)],
     [Size.megabytes(100).add(Size.kilobytes(500)), Size.MEGABYTE, Size.megabytes(100)],
     [
@@ -2652,48 +2696,6 @@ describe("Size", () => {
       expect(result).toBeInstanceOf(Size);
       expect(result.valueOf()).toBe(10000);
     });
-  });
-});
-
-describe("convertDataType", () => {
-  it("preserves precision when subtracting a bigint offset above 2^53 (INT64 -> FLOAT32)", () => {
-    const offset = 1778020940471336960n;
-    const value = 1778020940471336960n + 137438953472n;
-    const result = convertDataType(DataType.INT64, DataType.FLOAT32, value, offset);
-    expect(result).toBe(137438953472);
-  });
-
-  it("preserves precision when subtracting a bigint offset above 2^53 (TIMESTAMP -> FLOAT32)", () => {
-    const offset = 1778020940471336960n;
-    const value = 1778020940471336960n + 1n;
-    const result = convertDataType(DataType.TIMESTAMP, DataType.FLOAT32, value, offset);
-    expect(result).toBe(1);
-  });
-
-  it("returns a bigint when target uses bigint and source does not", () => {
-    const result = convertDataType(DataType.FLOAT32, DataType.INT64, 100, 10);
-    expect(result).toBe(90n);
-  });
-
-  it("falls back to math.sub when neither source nor target use bigint", () => {
-    const result = convertDataType(DataType.FLOAT32, DataType.FLOAT64, 5.5, 1.5);
-    expect(result).toBe(4);
-  });
-
-  it("normalizes a nonzero number to 1 when casting to BOOLEAN", () => {
-    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 5)).toBe(1);
-  });
-
-  it("normalizes zero to 0 when casting to BOOLEAN", () => {
-    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 0)).toBe(0);
-  });
-
-  it("normalizes a nonzero bigint to 1 when casting to BOOLEAN", () => {
-    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 5n)).toBe(1);
-  });
-
-  it("normalizes a zero bigint to 0 when casting to BOOLEAN", () => {
-    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 0n)).toBe(0);
   });
 });
 

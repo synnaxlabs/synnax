@@ -10,7 +10,7 @@
 import ssl
 from collections.abc import MutableMapping
 from contextlib import ExitStack
-from typing import Any, Generic, Literal, Self, override
+from typing import Any, Literal, Self, override
 
 from pydantic import BaseModel
 from websockets.asyncio.client import ClientConnection as AsyncClientConnection, connect
@@ -27,7 +27,7 @@ from websockets.sync.client import (
 from freighter.context import Context
 from freighter.exceptions import EOF, StreamClosed
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
-from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector, P
+from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector
 from freighter.url import URL
 from x.codec import Codec
 from x.exceptions import ExceptionPayload, Registry
@@ -54,7 +54,7 @@ def _decode_close_exception(
     return EOF() if exc is None else exc
 
 
-class Message(BaseModel, Generic[P]):
+class Message[P: BaseModel](BaseModel):
     type: Literal["data", "close", "open"]
     payload: P | None = None
     error: ExceptionPayload | None = None
@@ -505,6 +505,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         assert socket is not None
         return socket
 
+    @override
     def with_codec(self, codec: Codec) -> "WebsocketClient":
         """
         Create a new client with a different codec.

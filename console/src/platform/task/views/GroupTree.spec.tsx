@@ -7,19 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type Synnax } from "@synnaxlabs/client";
+import { DataType, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { deep, id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Profiler } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { CaptureStatuses, uniqueName } from "@/testutil";
+import {
+  awaitTare,
+  renderInTaskForm,
+  renderInTaskFormWithClient,
+} from "@/platform/task/testutil";
+import { CaptureStatuses, getIconButtons } from "@/testutil";
 
 type Field = Task.Views.GroupField;
 
@@ -59,17 +64,23 @@ const branches = deep.widen<Branch[]>(path.config.groups);
 
 const fieldsOf = (groupKey: string) => deep.present(branches[groupKey].fields);
 
-const groupLabel = Component.renderProp(({ groupKey }: Task.Views.GroupProps<Item>) => (
+const GroupLabel = ({ groupKey }: Task.Views.GroupProps<Item>) => (
   <span>group-{groupKey}</span>
-));
+);
 
-const groupDetails = Component.renderProp(({ path }: Task.Views.GroupProps<Item>) => (
-  <span>details-for-{String(path)}</span>
-));
+const groupLabel = Component.renderProp(GroupLabel);
 
-const fieldDetails = Component.renderProp(({ path }: Task.Views.FieldProps<Field>) => (
+const GroupDetails = ({ path }: Task.Views.GroupProps<Item>) => (
   <span>details-for-{String(path)}</span>
-));
+);
+
+const groupDetails = Component.renderProp(GroupDetails);
+
+const FieldDetails = ({ path }: Task.Views.FieldProps<Field>) => (
+  <span>details-for-{String(path)}</span>
+);
+
+const fieldDetails = Component.renderProp(FieldDetails);
 
 const createGroups = async (): Promise<Item[]> => [
   { key: id.create(), label: "", disabled: false, index: "", fields: [] },
@@ -81,11 +92,13 @@ interface RenderOptions extends Partial<Task.Views.GroupTreeProps<Item, Field>> 
   mode?: "preview";
   /** Resolves the channels of the groups and fields. */
   client?: Synnax;
+  /** The key of a running task that the form edits. */
+  runningTask?: task.Key;
 }
 
 const renderTree = async (
   groups: Item[],
-  { mode, client, ...props }: RenderOptions = {},
+  { mode, client, runningTask, ...props }: RenderOptions = {},
   onStatuses?: (statuses: Status.NotificationSpec[]) => void,
 ) => {
   const ui = (
@@ -106,7 +119,11 @@ const renderTree = async (
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
     </>
   );
-  const options = { values: { config: { groups } }, mode };
+  const running =
+    runningTask == null
+      ? {}
+      : { key: runningTask, status: { details: { running: true } } };
+  const options = { values: { ...running, config: { groups } }, mode };
   if (client == null) return await renderInTaskForm(ui, options);
   return await renderInTaskFormWithClient(ui, { ...options, client });
 };
@@ -234,6 +251,14 @@ describe("GroupTree", () => {
     await screen.findByText("details-for-config.groups.e");
   });
 
+  it("should not move the selection onto a field of a removed group", async () => {
+    await renderTree([EMPTY_GROUP, GROUP, { ...EMPTY_GROUP, key: "f" }]);
+    fireEvent.click((await screen.findAllByText("group-g"))[0]);
+    fireEvent.contextMenu(screen.getAllByText("group-g")[0]);
+    fireEvent.click(await screen.findByText("Remove"));
+    await screen.findByText("details-for-config.groups.f");
+  });
+
   it("should duplicate a group with fresh fields and a remapped index", async () => {
     const { form } = await renderTree([GROUP]);
     // The selected group also names the details header; the tree item comes first.
@@ -328,23 +353,23 @@ describe("GroupTree", () => {
 
   it("should re-render no group when a field takes a keystroke", async () => {
     const updates: string[] = [];
-    const countedLabel = Component.renderProp(
-      ({ groupKey }: Task.Views.GroupProps<Item>) => (
-        <Profiler
-          id={groupKey}
-          onRender={(groupKey, phase) => {
-            if (phase !== "mount") updates.push(groupKey);
-          }}
-        >
-          <span>group-{groupKey}</span>
-        </Profiler>
-      ),
+    const CountedLabel = ({ groupKey }: Task.Views.GroupProps<Item>) => (
+      <Profiler
+        id={groupKey}
+        onRender={(groupKey, phase) => {
+          if (phase !== "mount") updates.push(groupKey);
+        }}
+      >
+        <span>group-{groupKey}</span>
+      </Profiler>
     );
-    const pointerDetails = Component.renderProp(
-      ({ path }: Task.Views.FieldProps<Field>) => (
-        <Form.TextField path={path.pointer} label="Pointer" />
-      ),
+
+    const countedLabel = Component.renderProp(CountedLabel);
+    const PointerDetails = ({ path }: Task.Views.FieldProps<Field>) => (
+      <Form.TextField path={path.pointer} label="Pointer" />
     );
+
+    const pointerDetails = Component.renderProp(PointerDetails);
     const other: Group = { ...GROUP, key: "h", fields: [field("w", "/wind")] };
     await renderTree([GROUP, other], {
       groupLabel: countedLabel,
@@ -422,6 +447,69 @@ describe("GroupTree", () => {
         "Channel not foundIt may have been deleted. Deploying the task does not " +
           "create a disabled channel.",
       );
+    });
+
+    describe("tare", () => {
+      const createChannel = async (dataType: DataType) =>
+        (
+          await client.channels.create({
+            name: uniqueName("tare"),
+            dataType,
+            virtual: true,
+          })
+        ).key;
+
+      // Renders a float and an integer field of a running task, then resolves with the
+      // tare command that the action sends.
+      const tareThrough = async (
+        trigger: (container: HTMLElement) => Promise<void>,
+      ): Promise<{ args: unknown; float: number }> => {
+        const [float, integer] = await Promise.all([
+          createChannel(DataType.FLOAT32),
+          createChannel(DataType.UINT8),
+        ]);
+        const group: Group = {
+          ...GROUP,
+          fields: [
+            field("ts", "/time"),
+            field("f", "/float", float),
+            field("i", "/integer", integer),
+          ],
+        };
+        const rack = await client.racks.create({ name: uniqueName("rack") });
+        const tsk = await rack.createTask({
+          name: uniqueName("tsk"),
+          type: "http_read",
+          config: {},
+        });
+        const args = await awaitTare(client, tsk.key, async () => {
+          const { container } = await renderTree([group], {
+            client,
+            tareable: true,
+            runningTask: tsk.key,
+          });
+          await trigger(container);
+        });
+        return { args, float };
+      };
+
+      it("should tare from the one button, which a float field shows", async () => {
+        const { args, float } = await tareThrough(async (container) => {
+          await waitFor(() =>
+            expect(getIconButtons(container, "tare")).toHaveLength(1),
+          );
+          fireEvent.click(getIconButtons(container, "tare")[0]);
+        });
+        expect(args).toEqual({ keys: [float] });
+      });
+
+      it("should tare the channel of a field from its menu", async () => {
+        const { args, float } = await tareThrough(async () => {
+          fireEvent.contextMenu(await screen.findByText("/float"));
+          fireEvent.click(await screen.findByText("Tare"));
+        });
+        expect(args).toEqual({ keys: [float] });
+      });
     });
   });
 });

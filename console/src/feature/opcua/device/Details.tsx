@@ -21,13 +21,20 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { math } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import { math, narrow } from "@synnaxlabs/x";
+import {
+  type DragEvent,
+  type ReactElement,
+  type ReactNode,
+  useRef,
+  useState,
+} from "react";
 
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
+import { HaulPreview } from "@/feature/opcua/device/HaulPreview";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
-import { type Device } from "@/feature/opcua/device/types";
+import type { Device } from "@/feature/opcua/device/types";
 import {
   type NodeDetails,
   nodeDetailsZ,
@@ -84,9 +91,6 @@ const statusVariant = (value: string): status.Variant => {
   return "success";
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value != null && !Array.isArray(value);
-
 const PREVIEW_LENGTH = 8;
 
 const text = (value: unknown): string => {
@@ -102,7 +106,9 @@ const text = (value: unknown): string => {
 const fields = (value: Record<string, unknown>, path = ""): Array<[string, string]> =>
   Object.entries(value).flatMap(([key, field]) => {
     const fieldPath = path === "" ? key : `${path}.${key}`;
-    return isRecord(field) ? fields(field, fieldPath) : [[fieldPath, text(field)]];
+    return narrow.isObject(field)
+      ? fields(field, fieldPath)
+      : [[fieldPath, text(field)]];
   });
 
 interface Preview {
@@ -116,7 +122,7 @@ interface Preview {
 const preview = (value: string): Preview | undefined => {
   const parsed: unknown = JSON.parse(value);
   if (parsed == null) return undefined;
-  if (isRecord(parsed)) return { fields: fields(parsed) };
+  if (narrow.isObject(parsed)) return { fields: fields(parsed) };
   const cut = Array.isArray(parsed) && parsed.length > PREVIEW_LENGTH;
   return { text: text(parsed), total: cut ? parsed.length : undefined };
 };
@@ -292,9 +298,13 @@ export const Details = ({
     );
   const draggable =
     fresh && (details?.nodeClass === "Variable" || details?.nodeClass === "Object");
-  const handleDragStart = () => {
-    if (draggable && details != null)
-      startDrag([createHaulItem({ ...details.node, key: nodeIdentity(details.node) })]);
+  const handleDragStart = (event: DragEvent<HTMLElement>) => {
+    if (!draggable || details == null) return;
+    startDrag({
+      event,
+      items: [createHaulItem({ ...details.node, key: nodeIdentity(details.node) })],
+      preview: <HaulPreview node={details.node} />,
+    });
   };
   return (
     <Flex.Box y empty className={CSS.B("opc-details")}>

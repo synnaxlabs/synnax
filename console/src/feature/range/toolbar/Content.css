@@ -1,0 +1,325 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-range-toolbar {
+    --line-h: 5rem;
+    --inset: 1rem;
+    --pad: 1rem;
+
+    /* Lyra draws the item caret as a tiny square button. The gap keeps its hover fill
+       clear of the color mark. */
+    --caret: var(--pluto-height-tiny);
+    --gutter: calc(var(--caret) + 0.75rem);
+    --step: 2.5rem;
+    --mark: 1.5rem;
+    --mark-x: calc(var(--inset) + var(--pad) + var(--gutter));
+
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 3rem;
+    color: var(--pluto-gray-l10);
+    font-family: var(--pluto-font-family);
+}
+
+.console-range-toolbar__frame {
+    height: 100%;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    container: range-toolbar / inline-size;
+}
+
+.console-range-toolbar__group {
+    display: flex;
+    flex-direction: column;
+
+    &:first-child {
+        margin-top: 1rem;
+    }
+
+    /* Collapsed bars keep a gap between them. */
+    & + .console-range-toolbar__group {
+        margin-top: 0.5rem;
+    }
+}
+
+.console-range-toolbar__group-body {
+    padding: 0.5rem 0;
+}
+
+/* The icon sits over the item carets, the title over the color marks, and the caret
+   over the actions. */
+.console-range-toolbar .console-range-toolbar__group-header {
+    --icon: 2rem;
+
+    margin: 0 var(--inset);
+    padding: 0 1.375rem 0 calc(var(--pad) + (var(--caret) - var(--icon)) / 2);
+
+    & .console-range-toolbar__group-icon {
+        display: flex;
+        margin-right: calc(var(--gutter) - (var(--caret) + var(--icon)) / 2 - 1rem);
+
+        & svg {
+            width: var(--icon);
+            height: var(--icon);
+        }
+    }
+}
+
+.console-range-toolbar__line {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: var(--line-h);
+    margin: 0 var(--inset);
+    padding: 0 0.5rem 0 var(--pad);
+    border-radius: var(--pluto-border-radius-small);
+    cursor: pointer;
+
+    &:hover,
+    &[data-context-open] {
+        background: var(--pluto-gray-l2-l3);
+    }
+}
+
+.console-range-toolbar__indent {
+    flex-shrink: 0;
+    width: calc(var(--console-range-depth, 0) * var(--step));
+}
+
+.console-range-toolbar__gutter {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    width: var(--gutter);
+}
+
+.console-range-toolbar__caret {
+    padding: 0;
+
+    & svg {
+        width: 1.75rem;
+        height: 1.75rem;
+        transition: transform 0.2s ease;
+    }
+
+    &.console-range-toolbar__caret--expanded svg {
+        transform: rotate(90deg);
+    }
+}
+
+.console-range-toolbar__mark {
+    position: relative;
+    flex-shrink: 0;
+    width: var(--mark);
+    height: var(--mark);
+    margin-right: 1.5rem;
+    border-radius: 2px;
+    background: var(--console-range-color, var(--pluto-gray-l7));
+    opacity: 0.8;
+}
+
+.console-range-toolbar__line--live .console-range-toolbar__mark {
+    opacity: 1;
+}
+
+.console-range-toolbar__text {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    gap: 1rem;
+    min-width: 0;
+
+    /* The parent gives up its width before the name does. */
+    & .console-range-toolbar__name {
+        flex-shrink: 0;
+        max-width: 100%;
+    }
+
+    & .console-range-toolbar__parent {
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+}
+
+.console-range-toolbar__meta {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: 1rem;
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-tiny-size);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+
+    & svg {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+}
+
+.console-range-toolbar__actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    margin-left: 0.5rem;
+}
+
+/* Start child and Next. A narrow toolbar moves them out of the line until hover. */
+.console-range-toolbar__more {
+    display: contents;
+}
+
+/* Holds the Next column on a line without Next, so the times line up. */
+.console-range-toolbar__slot {
+    flex-shrink: 0;
+    width: var(--pluto-height-tiny);
+}
+
+/* The range that stops when the draft below it saves. */
+.console-range-toolbar__line--ending {
+    opacity: 0.55;
+}
+
+.console-range-toolbar__line--draft {
+    cursor: default;
+    background: var(--pluto-gray-l2-l3);
+}
+
+/* The draft's color mark is a swatch. Its button overhangs the mark so the name stays
+   in line with the names above. */
+.console-range-toolbar .console-range-toolbar__draft-color {
+    --overhang: calc((var(--mark) - var(--pluto-height-tiny)) / 2);
+
+    flex-shrink: 0;
+    margin: 0 calc(1.5rem + var(--overhang)) 0 var(--overhang);
+
+    &::before {
+        inset: calc(50% - var(--mark) / 2);
+        border-radius: 2px;
+    }
+}
+
+/* Cancel sits in the Stop column, so the time lines up with the times above. */
+.console-range-toolbar__line--draft .console-range-toolbar__actions {
+    padding-left: calc(2 * var(--pluto-height-tiny));
+}
+
+.console-range-toolbar__draft-input {
+    flex: 1;
+    min-width: 0;
+    height: calc(var(--line-h) - 1rem);
+
+    & input {
+        padding-left: 0;
+    }
+}
+
+.console-range-toolbar__hint {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: var(--line-h);
+    padding-left: calc(var(--mark-x) - 0.25rem);
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-small-size);
+
+    & svg {
+        width: 2rem;
+        height: 2rem;
+    }
+}
+
+.console-range-toolbar__all,
+.console-range-toolbar__show-more {
+    align-self: flex-start;
+    margin: 0.5rem 0 0 calc(var(--mark-x) - 1.5rem);
+}
+
+.console-range-toolbar__content {
+    container: range-toolbar-content / inline-size;
+}
+
+/* A narrow toolbar gives up the parents and the actions but Stop first, then every
+   time but a live one, then the live times. The name keeps its space longest. */
+@container range-toolbar (max-width: 46rem) {
+    .console-range-toolbar {
+        --step: 2rem;
+    }
+
+    .console-range-toolbar__parent {
+        display: none;
+    }
+
+    /* On hover, Start child and Next take the place of the time, so the name never
+       moves. */
+    .console-range-toolbar__more {
+        position: absolute;
+        inset-block: 0;
+        right: calc(0.5rem + var(--pluto-height-tiny));
+        display: flex;
+        align-items: center;
+        padding-left: 2rem;
+        background: linear-gradient(
+            to right,
+            transparent,
+            var(--pluto-gray-l2-l3) 2rem
+        );
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .console-range-toolbar__line:is(:hover, :focus-within, [data-context-open]) {
+        & .console-range-toolbar__more {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        &:has(.console-range-toolbar__more) .console-range-toolbar__meta {
+            visibility: hidden;
+        }
+    }
+
+    .console-range-toolbar__slot {
+        display: none;
+    }
+
+    .console-range-toolbar__line--draft .console-range-toolbar__actions {
+        padding-left: 0;
+    }
+}
+
+@container range-toolbar (max-width: 38rem) {
+    .console-range-toolbar {
+        --step: 1.5rem;
+    }
+
+    .console-range-toolbar__line:not(.console-range-toolbar__line--live)
+        .console-range-toolbar__meta {
+        display: none;
+    }
+}
+
+/* The hover card shows the live times. The draft keeps its count. */
+@container range-toolbar (max-width: 34rem) {
+    .console-range-toolbar__line:not(.console-range-toolbar__line--draft)
+        .console-range-toolbar__meta {
+        display: none;
+    }
+}
+
+/* All ranges, at the end of Recent, opens the same page. */
+@container range-toolbar-content (max-width: 34rem) {
+    .console-range-toolbar__explore {
+        display: none;
+    }
+}

@@ -48,3 +48,34 @@ export const codePoints = (a: string, b: string): number => {
  * if they order the same.
  */
 export const text = (a: string, b: string): number => codePoints(lower(a), lower(b));
+
+const RUNS = /\d+|\D+/g;
+const DIGITS = /^\d/;
+const LEADING_ZEROS = /^0+/;
+
+// Compares two runs of ASCII digits by value, without a limit on their length.
+const digits = (a: string, b: string): number => {
+  const x = a.replace(LEADING_ZEROS, "");
+  const y = b.replace(LEADING_ZEROS, "");
+  if (x.length !== y.length) return x.length < y.length ? -1 : 1;
+  return x < y ? -1 : x > y ? 1 : 0;
+};
+
+/**
+ * Orders strings in natural order: "file2" before "file10". Compares runs of digits by
+ * value and runs of other characters by {@link text}.
+ *
+ * @returns a negative number if a orders before b, a positive number if after, and 0
+ * if they order the same.
+ */
+export const natural = (a: string, b: string): number => {
+  const aRuns = a.match(RUNS) ?? [];
+  const bRuns = b.match(RUNS) ?? [];
+  for (const [i, x] of aRuns.entries()) {
+    const y = bRuns[i];
+    if (y == null) break;
+    const c = DIGITS.test(x) && DIGITS.test(y) ? digits(x, y) : text(x, y);
+    if (c !== 0) return c;
+  }
+  return Math.sign(aRuns.length - bRuns.length);
+};

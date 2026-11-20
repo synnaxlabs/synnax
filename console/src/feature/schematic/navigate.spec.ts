@@ -10,6 +10,7 @@
 import { panel, schematic } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -21,12 +22,7 @@ import {
   testProjectKey,
 } from "@/feature/schematic/testutil";
 import { Session } from "@/session";
-import {
-  renderHookWithConsole,
-  resolveFocusedTab,
-  type TestStore,
-  uniqueName,
-} from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab, type TestStore } from "@/testutil";
 
 interface RenderNavigateParams {
   configs?: Record<string, schematic.NodeConfig>;
@@ -156,7 +152,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
       configs: {
         n1: offPageConfig(
           { type: "schematic", key: target.key },
-          { dblClickNavDisabled: true },
+          { doubleClickNavigationDisabled: true },
         ),
       },
     });

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type table } from "@synnaxlabs/client";
+import type { channel, table } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, deep, notation } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { color, deep, notation, TimeSpan } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
@@ -76,7 +76,7 @@ const TelemForm = () => {
         </Input.Item>
       </Form.Section>
       <Form.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.Fields unit={TimeSpan.SECOND} />
       </Form.Section>
     </>
   );

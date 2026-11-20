@@ -11,14 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import secret
+from synnax import rack as rack_, secret
 from synnax.resource import ID
 from x import filter, telem
+from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -69,7 +70,7 @@ class Base(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
 
     @_override
     def __hash__(self) -> int:
@@ -85,6 +86,8 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
+        source: Selects by source.
+        racks: Matches the file certificates on any of the given racks.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -94,6 +97,13 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
+    source: filter.Set[secret.Source] | None = None
+    racks: list[rack_.Key] | None = None
+
+    @field_validator("racks", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -106,6 +116,8 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
+        "source": filter.SetInput[secret.Source],
+        "racks": rack_.Key | list[rack_.Key],
     },
     total=False,
 )
@@ -141,6 +153,7 @@ class FileCertificate(Base):
     certificate_path: str
     private_key_file: str | None = None
     details: Details | None = None
+    rack: rack_.Key = Field(gt=0, le=4294967295)
 
 
 # Is a public certificate that a device uses to secure a connection, with the

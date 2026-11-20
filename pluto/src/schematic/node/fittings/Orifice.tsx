@@ -7,15 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/fittings/Orifice.svg?raw";
 
 export interface OrificeProps extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 70, height: 34 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.028571, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.971429, y: 0.5 }, orientation: "right" },
+  ],
+});
 
 export const Orifice = ({
   className,
@@ -25,21 +32,12 @@ export const Orifice = ({
   ...rest
 }: OrificeProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("orifice"), className)} {...rest}>
-    <Handle.Linear orientation={orientation} left={2.8571} right={97.1429} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
-      orientation={orientation}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
+      orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Path
-        d="M2 2.5C27.451 21.3469 60.0915 12.0132 68 2.5"
-        strokeLinecap="round"
-      />
-      <Primitive.Path
-        d="M2 32.5C27.451 13.6531 60.0915 22.9868 68 32.5"
-        strokeLinecap="round"
-      />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

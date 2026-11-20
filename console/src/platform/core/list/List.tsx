@@ -10,17 +10,18 @@
 import "@/platform/core/list/List.css";
 
 import { connection } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { compare } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { Button } from "@/platform/button";
 import { Clipboard } from "@/platform/clipboard";
 import { ContextMenu } from "@/platform/context-menu";
 import { Item, nameID } from "@/platform/core/list/Item";
@@ -42,7 +43,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleLink = Link.useCopyToClipboard();
   const copy = Clipboard.useCopy();
   const openConnect = useConnectModal();
-  const allCores = cores.toSorted((a, b) => a.name.localeCompare(b.name));
+  const allCores = cores.toSorted(compare.by((c) => c.name));
   const keys = allCores.map((c) => c.key);
 
   const handleRemove = (key: string): void => {

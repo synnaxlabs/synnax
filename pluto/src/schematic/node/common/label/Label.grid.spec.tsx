@@ -9,10 +9,10 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type location } from "@synnaxlabs/x";
+import type { location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Grid } from "@/schematic/node/common/grid";
@@ -118,6 +118,15 @@ describe("Label.Label as GridItem", () => {
       const el = labelEl(container) as HTMLElement;
       expect(el.style.textAlign).toBe("start");
       expect(el.style.maxInlineSize).toBe("200px");
+    });
+
+    it("should wrap at the default width of a parsed config", () => {
+      const { container } = render(
+        <Wrap>
+          <Label.Label config={cfg({ label: "X" })} />
+        </Wrap>,
+      );
+      expect((labelEl(container) as HTMLElement).style.maxInlineSize).toBe("150px");
     });
 
     it("should apply the direction modifier class when direction is set", () => {

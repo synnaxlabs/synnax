@@ -10,8 +10,9 @@
 import { channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Modals } from "@/platform/modals";
@@ -23,7 +24,7 @@ import {
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
-import { createConsoleWrapper, createTestStore, uniqueName } from "@/testutil";
+import { createConsoleWrapper, createTestStore } from "@/testutil";
 
 const client = createTestClient();
 

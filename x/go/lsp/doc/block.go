@@ -34,7 +34,7 @@ func (t title) Render() string {
 	if t.kind != "" {
 		return fmt.Sprintf("#### %s\n##### %s", t.name, t.kind)
 	}
-	return fmt.Sprintf("#### %s", t.name)
+	return "#### " + t.name
 }
 
 // Paragraph is a simple text block.
@@ -86,7 +86,7 @@ type Hint string
 
 // Render returns the markdown representation of the hint.
 func (h Hint) Render() string {
-	return fmt.Sprintf("_Hint_: %s", string(h))
+	return "_Hint_: " + string(h)
 }
 
 // Bold renders bold text.

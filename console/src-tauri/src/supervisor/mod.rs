@@ -12,7 +12,6 @@
 
 pub mod commands;
 mod diagnostics;
-pub mod discovery;
 mod launch;
 pub mod probe;
 mod reset;
@@ -37,9 +36,17 @@ const STOP_LINE: &[u8] = b"stop\n";
 /// The name of the Core config file in the work directory.
 const CONFIG_FILE: &str = "core.json";
 
+/// The name of the file in the log directory that receives the Core's stderr.
+const STDERR_FILE: &str = "core-stderr.log";
+
 /// The exit code of a Core whose data directory another process holds, `DataLocked` in
 /// the Core's `cmd/exit` package.
 const LOCKED_CODE: i32 = 75;
+
+/// The exit codes of a Core that fails the same way on every start, `DataRefused`,
+/// `Unavailable`, and `Config` in the Core's `cmd/exit` package. Such a Core is not
+/// restarted.
+const FINAL_CODES: [i32; 3] = [65, 69, 78];
 
 /// Configures a [`Supervisor`].
 #[derive(Clone)]
@@ -391,6 +398,12 @@ impl Task {
                     }
                 }
                 Outcome::Exited {
+                    reason,
+                    message,
+                    code: Some(code),
+                    ..
+                } if FINAL_CODES.contains(&code) => self.give_up(reason, message),
+                Outcome::Exited {
                     uptime,
                     reason,
                     message,
@@ -557,7 +570,13 @@ impl Task {
                     return match status {
                         Ok(status) if status.code() == Some(LOCKED_CODE) => Outcome::Locked,
                         Ok(status) => {
-                            exited(Reason::Crashed, format!("exited with {status}"), status.code())
+                            // A signal, such as from the OOM killer, ends the Core before
+                            // it writes its error.
+                            let message = status
+                                .code()
+                                .and_then(|_| self.exit_error())
+                                .unwrap_or_else(|| format!("exited with {status}"));
+                            exited(Reason::Crashed, message, status.code())
                         }
                         Err(err) => exited(
                             Reason::Crashed,
@@ -680,11 +699,23 @@ impl Task {
     /// Opens the file that receives the Core's stderr, where a Go panic lands. The file
     /// of the previous Core is kept under a second name.
     fn stderr(&self) -> io::Result<Stdio> {
-        let path = self.cfg.log_dir.join("core-stderr.log");
+        let path = self.cfg.log_dir.join(STDERR_FILE);
         if path.exists() {
             std::fs::rename(&path, self.cfg.log_dir.join("core-stderr.previous.log"))?;
         }
         Ok(std::fs::File::create(path)?.into())
+    }
+
+    /// Returns the error that ended the Core: the first line of a Go panic, or else the
+    /// last line of its stderr, which the Core writes as it exits. Libraries log to
+    /// stderr too, so the first line can be older. It returns None for an empty stderr.
+    fn exit_error(&self) -> Option<String> {
+        let text = std::fs::read_to_string(self.cfg.log_dir.join(STDERR_FILE)).ok()?;
+        let mut lines = text.lines().map(str::trim).filter(|l| !l.is_empty());
+        let panic = lines
+            .clone()
+            .find(|l| l.starts_with("panic: ") || l.starts_with("fatal error: "));
+        panic.or_else(|| lines.next_back()).map(str::to_string)
     }
 
     /// Asks the Core to stop and kills it when it outlives the stop timeout.
@@ -753,7 +784,6 @@ impl Drop for Prober {
 mod tests {
     use super::*;
     use std::future::Future;
-    use std::os::unix::fs::PermissionsExt;
     use std::pin::Pin;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -797,6 +827,38 @@ echo run >> "$(dirname "$0")/runs"
 exit 3
 "#;
 
+    /// A stand-in Core that writes the error that ends it to stderr, as the Core does.
+    const FAILING: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+echo "grpc: an earlier log line" >&2
+echo "embedded Driver did not start: GLIBC_2.39 not found" >&2
+exit 1
+"#;
+
+    /// A stand-in Core that panics after a library logged to stderr.
+    const PANICKING: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+echo "grpc: an earlier log line" >&2
+echo "panic: boom" >&2
+echo "" >&2
+echo "goroutine 1 [running]:" >&2
+exit 2
+"#;
+
+    /// A stand-in Core that a signal kills after it logged to stderr.
+    const KILLED: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+echo "grpc: an earlier log line" >&2
+kill -9 $$
+"#;
+
+    /// A stand-in Core whose embedded Driver cannot load, `Unavailable` in the Core's
+    /// `cmd/exit` package.
+    const UNAVAILABLE: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+exit 69
+"#;
+
     /// A stand-in Core that finds its data directory locked on its first three starts.
     /// Then it creates `ready` and behaves as `OBEDIENT`.
     const LOCKED_THRICE: &str = r#"#!/bin/sh
@@ -831,8 +893,16 @@ while true; do sleep 1; done
         fn new(script: &str, probe: probe::Probe) -> Self {
             let dir = tempfile::tempdir().unwrap();
             let program = dir.path().join("core");
-            std::fs::write(&program, script).unwrap();
-            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+            // On Linux, a fork on another test thread can inherit a write fd on the
+            // script until it execs, and then running the script fails with ETXTBSY. A
+            // child writes it, so this process never holds that fd.
+            let written = std::process::Command::new("/bin/sh")
+                .args(["-c", r#"printf '%s' "$1" > "$0" && chmod 755 "$0""#])
+                .arg(&program)
+                .arg(script)
+                .status()
+                .unwrap();
+            assert!(written.success());
             let cfg = Config {
                 start_timeout: Duration::from_secs(5),
                 stop_timeout: Duration::from_millis(300),
@@ -990,6 +1060,61 @@ while true; do sleep 1; done
     }
 
     #[tokio::test]
+    async fn reports_the_error_the_core_wrote_to_stderr() {
+        let f = Fixture::new(FAILING, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        let Status::Failed { reason, message } = status else {
+            unreachable!()
+        };
+        assert_eq!(reason, Reason::Crashed);
+        assert_eq!(
+            message,
+            "embedded Driver did not start: GLIBC_2.39 not found"
+        );
+    }
+
+    async fn failure_message(core: &str) -> String {
+        let f = Fixture::new(core, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        match wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await {
+            Status::Failed { message, .. } => message,
+            _ => unreachable!(),
+        }
+    }
+
+    #[tokio::test]
+    async fn reports_the_first_line_of_a_panic() {
+        assert_eq!(failure_message(PANICKING).await, "panic: boom");
+    }
+
+    #[tokio::test]
+    async fn reports_the_signal_that_killed_the_core() {
+        let message = failure_message(KILLED).await;
+        assert!(message.contains("signal: 9"), "{message}");
+    }
+
+    #[tokio::test]
+    async fn does_not_restart_a_core_that_cannot_start() {
+        let f = Fixture::new(UNAVAILABLE, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert!(matches!(
+            status,
+            Status::Failed {
+                reason: Reason::Crashed,
+                ..
+            }
+        ));
+        assert_eq!(f.runs(), 1);
+        assert_eq!(sup.history().last_exit.unwrap().exit_code, Some(69));
+        sup.restart().await;
+        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
+        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert_eq!(f.runs(), 2);
+    }
+
+    #[tokio::test]
     async fn gives_up_on_a_crash_loop_and_starts_again_on_request() {
         let f = Fixture::new(CRASHING, always(false));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
@@ -1017,10 +1142,16 @@ while true; do sleep 1; done
         assert_eq!(first.starts, 0);
         assert_eq!(first.failures, 1);
         assert_eq!(first.last_exit.unwrap().reason, Reason::FailedToStart);
+        // Starting can pass before a status read, so wait on the count instead.
+        let mut history = sup.history.clone();
         sup.restart().await;
-        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
-        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
-        assert_eq!(sup.history().failures, 2);
+        tokio::time::timeout(
+            Duration::from_secs(10),
+            history.wait_for(|h| h.failures == 2),
+        )
+        .await
+        .expect("timed out waiting for the second failure")
+        .unwrap();
     }
 
     #[tokio::test]
@@ -1219,7 +1350,7 @@ while true; do sleep 1; done
     async fn gives_up_on_a_core_that_hangs_after_each_start_despite_a_long_stop() {
         let calls = Arc::new(AtomicUsize::new(0));
         let probe: probe::Probe = Arc::new(move |_| {
-            let ok = calls.fetch_add(1, Ordering::SeqCst) % 4 == 0;
+            let ok = calls.fetch_add(1, Ordering::SeqCst).is_multiple_of(4);
             Box::pin(async move { ok })
         });
         let mut f = Fixture::new(STUBBORN, probe);

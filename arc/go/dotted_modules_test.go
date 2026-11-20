@@ -48,7 +48,7 @@ var _ = Describe("Dotted modules", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 			import time
-			func get_now() {t u8} i64 {
+			func get_now() {t u8} i64 ns {
 			    return time.now()
 			}
 			trig -> get_now() -> now_out`, resolver,
