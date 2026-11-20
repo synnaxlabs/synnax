@@ -14,6 +14,7 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  errors,
   filter,
   id,
   primitive,
@@ -24,6 +25,7 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { DisconnectedError } from "@/errors";
 import { type framer } from "@/framer";
 import { query } from "@/query";
 import {
@@ -159,12 +161,12 @@ export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandsSyncInternalParams<StatusData>,
-  "frameClient" | "name" | "racks"
+  "frameClient" | "openStatuses" | "name" | "racks"
 > {}
 
 export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandSyncInternalParams<StatusData>,
-  "frameClient" | "name" | "racks"
+  "frameClient" | "openStatuses" | "name" | "racks"
 > {}
 
 /**
@@ -183,6 +185,7 @@ export class Task<S extends Schemas = Schemas> {
 
   readonly schemas: S;
   private readonly frame?: framer.Client;
+  private readonly openStatuses?: StatusOpener;
 
   get frameClient(): framer.Client {
     if (this.frame == null) throw new Error("Task not created");
@@ -202,6 +205,7 @@ export class Task<S extends Schemas = Schemas> {
     }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
+    openStatuses?: StatusOpener,
   ) {
     this.key = key;
     this.rack = rack;
@@ -219,6 +223,7 @@ export class Task<S extends Schemas = Schemas> {
     this.internal = internal;
     this.status = status;
     this.frame = frameClient;
+    this.openStatuses = openStatuses;
   }
 
   get payload(): Payload<S> {
@@ -250,7 +255,7 @@ export class Task<S extends Schemas = Schemas> {
   /**
    * Sends a command and waits for the reply of the task.
    * @throws once the timeout passes, or with the status of the rack once the Driver
-   * that runs the task goes down.
+   * that runs the task goes down, or once the connection to the Core drops.
    */
   async executeCommandSync(
     params: TaskExecuteCommandSyncParams,
@@ -258,6 +263,7 @@ export class Task<S extends Schemas = Schemas> {
     return await executeCommandSync<S["statusData"]>({
       ...params,
       frameClient: this.frameClient,
+      openStatuses: this.openStatuses ?? streamStatuses(this.frameClient),
       task: this.key,
       configHash: this.configHash,
       name: this.name,
@@ -862,7 +868,7 @@ export class Client extends query.Retriever<
     const isSingle = !Array.isArray(payloads);
     const res = array
       .toArray(payloads)
-      .map((payload) => new Task(payload, schemas, this.cfg.framer));
+      .map((payload) => new Task(payload, schemas, this.cfg.framer, this.openStatuses));
     return isSingle ? res[0] : res;
   }
 
@@ -934,7 +940,7 @@ export class Client extends query.Retriever<
   /**
    * Sends commands and waits for the reply of each task.
    * @throws once the timeout passes, or with the status of a rack once the Driver
-   * that runs one of the tasks goes down.
+   * that runs one of the tasks goes down, or once the connection to the Core drops.
    */
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandsSyncParams<StatusData>,
@@ -943,7 +949,7 @@ export class Client extends query.Retriever<
   /**
    * Sends a command and waits for the reply of the task.
    * @throws once the timeout passes, or with the status of the rack once the Driver
-   * that runs the task goes down.
+   * that runs the task goes down, or once the connection to the Core drops.
    */
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandSyncParams<StatusData>,
@@ -963,6 +969,7 @@ export class Client extends query.Retriever<
         ...params,
         commands: params.commands.map((c) => this.stampConfigHash(c)),
         frameClient: this.cfg.framer,
+        openStatuses: this.openStatuses,
         name: retrieveNames,
         racks: this.racksOf(params.commands.map((c) => c.task)),
       });
@@ -974,12 +981,30 @@ export class Client extends query.Retriever<
     };
     return await executeCommandSync({
       frameClient: this.cfg.framer,
+      openStatuses: this.openStatuses,
       name: retrieveName,
       ...params,
       racks: this.racksOf([params.task]),
       configHash: params.configHash ?? this.store.get(params.task)?.configHash,
     });
   }
+
+  // The change stream carries every status, so a wait while it is live opens nothing.
+  private readonly openStatuses: StatusOpener = async ({ onStatus, onError }) => {
+    const { cache, framer, statuses } = this.cfg;
+    if (!cache.live) return await streamStatuses(framer)({ onStatus, onError });
+    // A local status is a stand-in reply of this client, not the Driver's.
+    const stopWrites = statuses.onWrite((stat, { local }) => {
+      if (!local) onStatus(stat);
+    });
+    const stopDown = cache.onStreamDown(() =>
+      onError(new DisconnectedError("The connection to the Core dropped.")),
+    );
+    return () => {
+      stopWrites();
+      stopDown();
+    };
+  };
 
   // Reads only cached tasks: a fetch would make a command need read access to its task.
   private racksOf(tasks: Key[]): RackKey[] {
@@ -1019,22 +1044,74 @@ interface ExecuteCommandsInternalParams {
   commands: NewCommand[];
 }
 
-const executeCommands = async ({
-  frameClient,
-  commands,
-}: ExecuteCommandsInternalParams): Promise<string[]> => {
-  if (frameClient == null) throw new Error("Task not created");
-  const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
-  const cmds = commands.map((c) => ({
+interface KeyedCommand extends NewCommand {
+  key: string;
+}
+
+const keyCommands = (commands: NewCommand[]): KeyedCommand[] =>
+  commands.map((c) => ({
     ...c,
     configHash: c.configHash ?? "",
     pinned: c.pinned ?? false,
     key: id.create(),
   }));
-  await w.write(COMMAND_CHANNEL_NAME, cmds);
+
+const writeCommands = async (
+  frameClient: framer.Client,
+  commands: KeyedCommand[],
+): Promise<void> => {
+  const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
+  await w.write(COMMAND_CHANNEL_NAME, commands);
   await w.close();
+};
+
+const executeCommands = async ({
+  frameClient,
+  commands,
+}: ExecuteCommandsInternalParams): Promise<string[]> => {
+  if (frameClient == null) throw new Error("Task not created");
+  const cmds = keyCommands(commands);
+  await writeCommands(frameClient, cmds);
   return cmds.map((c) => c.key);
 };
+
+/** The handlers that a {@link StatusOpener} calls. */
+interface StatusHandlers {
+  /** Receives each status that the Core streams. The wait parses it for its replies. */
+  onStatus: (status: unknown) => void;
+  /** Receives the error that ends the statuses, after which no reply arrives. */
+  onError: (error: Error) => void;
+}
+
+/**
+ * Calls the handlers until the returned destructor runs. Once it resolves, each status
+ * that the Core writes reaches onStatus, so no reply to a later command is lost.
+ */
+export type StatusOpener = (handlers: StatusHandlers) => Promise<destructor.Destructor>;
+
+/** @returns an opener that opens a streamer of statuses for each wait. */
+const streamStatuses =
+  (frameClient: framer.Client): StatusOpener =>
+  async ({ onStatus, onError }) => {
+    const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
+    let closed = false;
+    const read = async (): Promise<void> => {
+      while (true) {
+        const frame = await streamer.read();
+        if (closed) return;
+        for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings())
+          onStatus(binary.JSON_CODEC.decodeString(str));
+      }
+    };
+    // A read fails once the wait closes the streamer, and that wait has ended.
+    read().catch((e: unknown) => {
+      if (!closed) onError(errors.fromUnknown(e));
+    });
+    return () => {
+      closed = true;
+      streamer.close();
+    };
+  };
 
 interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodNever>
   extends
@@ -1046,6 +1123,7 @@ interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodN
 
 const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
+  openStatuses,
   task,
   type,
   timeout,
@@ -1059,6 +1137,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   (
     await executeCommandsSync({
       frameClient,
+      openStatuses,
       commands: [{ args, task, type, configHash, pinned }],
       racks,
       timeout,
@@ -1069,6 +1148,8 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
 
 interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodNever> {
   frameClient: framer.Client | null;
+  /** Gives the statuses that the wait reads its replies from. */
+  openStatuses: StatusOpener;
   commands: NewCommand[];
   /** The racks of the commanded tasks. The wait fails when one of them goes down. */
   racks: RackKey[];
@@ -1079,6 +1160,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
 
 const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
+  openStatuses,
   commands,
   racks,
   timeout = COMMAND_DEADLINE,
@@ -1091,72 +1173,71 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
       .filter((r) => primitive.isNonZero(r))
       .map((r) => resource.idToString(rackResourceID(r))),
   );
-  const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
+  const cmds = keyCommands(commands);
+  const cmdKeys = cmds.map((c) => c.key);
+  const parsedTimeout = new TimeSpan(timeout);
+  const finalTimeout = parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
+    ? parsedTimeout
+    : FINAL_STATUS_TIMEOUT;
+  const { promise, resolve, reject } = Promise.withResolvers<Status<StatusData>[]>();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeOutAfter = (span: TimeSpan): void => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      formatTimeoutError(
+        taskName,
+        span,
+        commands.map((c) => c.task),
+      ).then(reject, reject);
+    }, span.milliseconds);
+  };
+  const acknowledged = new Set<string>();
+  // A loading status shows the Driver still works on its command, so once every
+  // command is acknowledged, it starts the wait again.
+  const acknowledge = (cmd: string, loading: boolean): void => {
+    const first = !acknowledged.has(cmd);
+    acknowledged.add(cmd);
+    if (acknowledged.size < cmdKeys.length || (!first && !loading)) return;
+    timeOutAfter(finalTimeout);
+  };
+  let states: Status<StatusData>[] = [];
+  // Statuses for other tasks and racks arrive too. Rack details parse as task details,
+  // so the owner tells a rack status apart.
+  const onStatus = (decoded: unknown): void => {
+    const rackRes = rackStatusZ.safeParse(decoded);
+    if (
+      rackRes.success &&
+      rackRes.data.owner != null &&
+      rackOwners.has(resource.idToString(rackRes.data.owner))
+    ) {
+      // A down Driver never replies, so its rack's problem ends the wait.
+      if (!isRackHealthy(rackRes.data)) reject(status.toError(rackRes.data));
+      return;
+    }
+    const res = statusZ(statusDataZ).safeParse(decoded);
+    if (!res.success) return;
+    const state = res.data;
+    if (!cmdKeys.includes(state.details.cmd)) return;
+    // Any reply acknowledges its command. A loading reply is not the final one.
+    acknowledge(state.details.cmd, state.variant === "loading");
+    if (state.variant === "loading") return;
+    states = [...states.filter((s) => s.key !== state.key), state];
+    if (states.length === cmdKeys.length) resolve(states);
+  };
+  const close = await openStatuses({ onStatus, onError: reject });
+  let ended = false;
+  // The timeout starts once the write ends, so a slow link does not use it up.
+  const written = writeCommands(frameClient, cmds).then(() => {
+    if (!ended && acknowledged.size < cmdKeys.length) timeOutAfter(parsedTimeout);
+  });
   try {
-    const cmdKeys = await executeCommands({ frameClient, commands });
-    const parsedTimeout = new TimeSpan(timeout);
-    const finalTimeout = parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
-      ? parsedTimeout
-      : FINAL_STATUS_TIMEOUT;
-    const collect = async (
-      acknowledge: (cmd: string, loading: boolean) => void,
-    ): Promise<Status<StatusData>[]> => {
-      let states: Status<StatusData>[] = [];
-      while (true) {
-        const frame = await streamer.read();
-        // A frame can hold statuses for other tasks and racks. Rack details parse as
-        // task details, so the owner tells a rack status apart.
-        for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
-          const decoded = binary.JSON_CODEC.decodeString(str);
-          const rackRes = rackStatusZ.safeParse(decoded);
-          if (
-            rackRes.success &&
-            rackRes.data.owner != null &&
-            rackOwners.has(resource.idToString(rackRes.data.owner))
-          ) {
-            // A down Driver never replies, so its rack's problem ends the wait.
-            if (!isRackHealthy(rackRes.data)) throw status.toError(rackRes.data);
-            continue;
-          }
-          const res = statusZ(statusDataZ).safeParse(decoded);
-          if (!res.success) continue;
-          const state = res.data;
-          if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd))
-            continue;
-          // Any reply acknowledges its command. A loading reply is not the final one.
-          acknowledge(state.details.cmd, state.variant === "loading");
-          if (state.variant === "loading") continue;
-          states = [...states.filter((s) => s.key !== state.key), state];
-          if (states.length === cmdKeys.length) return states;
-        }
-      }
-    };
-    return await new Promise<Status<StatusData>[]>((resolve, reject) => {
-      const timeOutAfter = (span: TimeSpan): ReturnType<typeof setTimeout> =>
-        setTimeout(() => {
-          formatTimeoutError(
-            taskName,
-            span,
-            commands.map((c) => c.task),
-          ).then(reject, reject);
-        }, span.milliseconds);
-      let timer = timeOutAfter(parsedTimeout);
-      const acknowledged = new Set<string>();
-      // A loading status shows the Driver still works on its command, so once every
-      // command is acknowledged, it starts the wait again.
-      const acknowledge = (cmd: string, loading: boolean): void => {
-        const first = !acknowledged.has(cmd);
-        acknowledged.add(cmd);
-        if (acknowledged.size < cmdKeys.length || (!first && !loading)) return;
-        clearTimeout(timer);
-        timer = timeOutAfter(finalTimeout);
-      };
-      collect(acknowledge)
-        .then(resolve, reject)
-        .finally(() => clearTimeout(timer));
-    });
+    // A down Driver can end the wait before the write returns.
+    const [, replies] = await Promise.all([written, promise]);
+    return replies;
   } finally {
-    streamer.close();
+    ended = true;
+    clearTimeout(timer);
+    close();
   }
 };
 
