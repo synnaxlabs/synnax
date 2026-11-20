@@ -129,9 +129,9 @@ var _ = Describe("Service key cap", func() {
 			go func() { second <- allocate() }()
 			Consistently(second, 100*time.Millisecond).ShouldNot(Receive())
 			close(blocking.release)
-			Expect(<-first).To(Succeed())
-			Expect(
-				<-second,
-			).To(MatchError(ContainSubstring("maximum number of channels")))
+			Eventually(first).Should(Receive(BeNil()))
+			Eventually(second).Should(
+				Receive(MatchError(ContainSubstring("maximum number of channels"))),
+			)
 		})
 })
