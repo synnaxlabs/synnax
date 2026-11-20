@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/feature/range/tree";
 import { createItemCounter } from "@/feature/range/tree/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
@@ -81,12 +82,15 @@ const createRanges = async (): Promise<{
 }> => {
   const { key } = await client.labels.create({ name: "tree", color: "#000000" });
   const end = TimeStamp.now().sub(TimeSpan.days(1));
-  const ranges = await client.ranges.create(
-    ["a", "b", "c"].map((name) => ({
-      name,
-      timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
-      labels: [key],
-    })),
+  const ranges = await Promise.all(
+    ["a", "b", "c"].map(
+      async (name) =>
+        await createTestRange(client, {
+          name,
+          timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+          labels: [key],
+        }),
+    ),
   );
   return { label: key, ranges };
 };
@@ -111,15 +115,18 @@ describe("range tree", () => {
     const { key } = await client.labels.create({ name: "short", color: "#000000" });
     const now = TimeStamp.now();
     const old = now.sub(TimeSpan.days(400));
-    const ranges = await client.ranges.create(
+    const ranges = await Promise.all(
       [
         { name: "new", start: now },
         { name: "old", start: old },
-      ].map(({ name, start }) => ({
-        name,
-        timeRange: new TimeRange(start, start.add(TimeSpan.hours(1))),
-        labels: [key],
-      })),
+      ].map(
+        async ({ name, start }) =>
+          await createTestRange(client, {
+            name,
+            timeRange: new TimeRange(start, start.add(TimeSpan.hours(1))),
+            labels: [key],
+          }),
+      ),
     );
     await renderTree(key, ranges, "list");
     // A narrow list shows this form in place of the full start.
@@ -193,7 +200,7 @@ describe("range tree", () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges);
     const end = TimeStamp.now().sub(TimeSpan.days(1));
-    await client.ranges.create({
+    await createTestRange(client, {
       name: "d",
       timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
       labels: [label],

@@ -20,6 +20,23 @@ export interface ReadSource {
   messages: icd.ReadMessage[];
 }
 
+/**
+ * @returns the ICD that takes the messages of new sources: the one that the most
+ * sources read, or the first of those. Undefined when no source reads one.
+ */
+export const mostRead = (sources: Pick<ReadSource, "icd">[]): icd.Key | undefined => {
+  const counts = new Map<icd.Key, number>();
+  for (const { icd: key } of sources) counts.set(key, (counts.get(key) ?? 0) + 1);
+  let most: icd.Key | undefined;
+  let count = 0;
+  for (const [key, n] of counts)
+    if (n > count) {
+      most = key;
+      count = n;
+    }
+  return most;
+};
+
 /** The messages of each ICD, by ICD key. */
 export type Messages = Map<icd.Key, icd.Message[]>;
 
