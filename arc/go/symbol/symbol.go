@@ -86,7 +86,7 @@ func (e ExecContext) Compatible(target ExecContext) bool {
 // Kind categorizes symbols by their role in the Arc program.
 type Kind int
 
-//go:generate stringer -type=Kind
+//go:generate go tool stringer -type=Kind
 const (
 	// KindVariable represents a regular variable within a function or block scope.
 	KindVariable Kind = iota

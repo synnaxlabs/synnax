@@ -28,6 +28,8 @@ bazel_dep(
 bazel_dep(name = "grpc", version = "1.84.0")
 bazel_dep(name = "openssl", version = "4.0.1.bcr.0")
 bazel_dep(name = "rules_cc", version = "0.2.26")
+
+WASMTIME_VERSION = "50.0.3"
 """
 
 GITLINKS = """100644 aaaa 0\tMODULE.bazel
@@ -92,16 +94,24 @@ class TestQueries:
             "curl 8.22.0",
             "grpc 1.84.0",
             "openssl 4.0.1.bcr.0",
+            "wasmtime 50.0.3",
             "vendor/open62541/open62541 b1e4008bc461",
         ]
         curl = {"name": "https://github.com/curl/curl.git", "ecosystem": "GIT"}
         assert found[1][2] == {"package": curl, "version": "curl-8_22_0"}
-        assert found[4][2] == {"commit": "b1e4008bc4611a422a86704a60c29d390fa486a5"}
+        crate = {"name": "wasmtime", "ecosystem": "crates.io"}
+        assert found[4][2] == {"package": crate, "version": "50.0.3"}
+        assert found[5][2] == {"commit": "b1e4008bc4611a422a86704a60c29d390fa486a5"}
 
     def test_should_reject_a_module_it_cannot_find(self) -> None:
         """Should fail when a checked Bazel module has no readable version."""
         with pytest.raises(ValueError, match="no version for grpc"):
             queries(MODULE.replace('"grpc"', '"grpc_old"'), GITLINKS)
+
+    def test_should_reject_a_module_without_a_wasmtime_version(self) -> None:
+        """Should fail when MODULE.bazel does not pin the prebuilt wasmtime."""
+        with pytest.raises(ValueError, match="no WASMTIME_VERSION"):
+            queries(MODULE.replace("WASMTIME_VERSION", "VERSION"), GITLINKS)
 
 
 class TestSarif:
@@ -159,4 +169,5 @@ class TestMain:
             "curl 8.22.0: Bad",
             "grpc 1.84.0: Bad",
             "openssl 4.0.1.bcr.0: Bad",
+            "wasmtime 50.0.3: Bad",
         ]

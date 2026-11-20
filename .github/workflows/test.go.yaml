@@ -431,10 +431,6 @@ jobs:
         working-directory: ${{ inputs.directory }}
         run: go mod verify
 
-      - name: Install stringer
-        if: matrix.codegen
-        run: go install golang.org/x/tools/cmd/stringer@v0.52.0
-
       - name: Install antlr4
         if: matrix.codegen && inputs.install_antlr4
         run: |
@@ -504,7 +500,7 @@ jobs:
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
           read -ra flags <<< "$FLAGS"
           read -ra suites <<< "${suites//$'\n'/ }"
-          go run github.com/onsi/ginkgo/v2/ginkgo "${flags[@]}" --randomize-suites \
+          go tool ginkgo "${flags[@]}" --randomize-suites \
             --fail-on-empty --keep-going --trace --timeout=2h --github-output \
             "${suites[@]}"
         working-directory: ${{ inputs.directory }}
