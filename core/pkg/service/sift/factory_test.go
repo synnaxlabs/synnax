@@ -259,7 +259,7 @@ var _ = Describe("Factory", func() {
 					"grant": grantConnectionTest(ctx, uuid.New(), conn, key),
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring(
+				Expect(stat.Description).To(ContainSubstring(
 					"grant is not for task " + t.Key.String(),
 				))
 			})
@@ -277,7 +277,7 @@ var _ = Describe("Factory", func() {
 						),
 					})
 					Expect(stat.Variant).To(Equal(status.VariantError))
-					Expect(stat.Message).To(Equal(
+					Expect(stat.Description).To(Equal(
 						"grant does not hold API key " + key.String() + ": access denied: " +
 							"auth error",
 					))
@@ -335,7 +335,7 @@ var _ = Describe("Factory", func() {
 					})
 					Expect(stat.Variant).To(Equal(status.VariantError))
 					Expect(
-						stat.Message,
+						stat.Description,
 					).To(ContainSubstring("has ended or does not exist"))
 				})
 
@@ -344,7 +344,7 @@ var _ = Describe("Factory", func() {
 					APIKey: createAPIKey(ctx, fakeKey),
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring("uri"))
+				Expect(stat.Description).To(ContainSubstring("uri"))
 			})
 		})
 
@@ -457,7 +457,7 @@ var _ = Describe("Factory", func() {
 				record(ctx, nil)
 				stat := exec(ctx, "list_uploads", map[string]any{})
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("range: required"))
+				Expect(stat.Description).To(Equal("range: required"))
 			})
 		})
 	})

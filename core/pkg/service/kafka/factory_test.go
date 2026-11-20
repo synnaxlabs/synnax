@@ -290,7 +290,7 @@ var _ = Describe("Factory", func() {
 		expectInvalid := func(stat task.Status, reason string) {
 			GinkgoHelper()
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring(reason))
+			Expect(stat.Description).To(ContainSubstring(reason))
 			Expect(stat.Details.Data).To(BeEmpty())
 		}
 
