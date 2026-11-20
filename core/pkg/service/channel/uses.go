@@ -64,8 +64,14 @@ func (s *Service) Uses(
 		return nil, err
 	}
 	out := make([][]Use, len(keys))
+	total := 0
+	for _, held := range deps {
+		total += len(held)
+	}
+	// One array backs the uses of every channel.
+	backing := make([]Use, 0, total)
 	for i, held := range deps {
-		uses := make([]Use, 0, len(held))
+		start := len(backing)
 		for _, d := range held {
 			if d.Tag == 0 {
 				continue
@@ -79,8 +85,9 @@ func (s *Service) Uses(
 					d.Tag,
 				)
 			}
-			uses = append(uses, Use{Holder: d.Holder, Direction: dir})
+			backing = append(backing, Use{Holder: d.Holder, Direction: dir})
 		}
+		uses := backing[start:len(backing):len(backing)]
 		slices.SortFunc(uses, compareUses)
 		out[i] = slices.Compact(uses)
 	}

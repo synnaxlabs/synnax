@@ -262,19 +262,26 @@ func (s *Service) fillUses(
 		allowed bool
 	}
 	holders := make(map[gorp.Target]holder)
+	total := 0
+	for _, u := range uses {
+		total += len(u)
+	}
+	// One array backs the uses of every channel.
+	backing := make([]Use, 0, total)
 	for i := range channels {
-		channels[i].Uses = lo.FilterMap(
-			uses[i],
-			func(u channel.Use, _ int) (Use, bool) {
-				h, ok := holders[u.Holder]
-				if !ok {
-					h.id = taskconfig.RecordOf(u.Holder)
-					h.allowed = snap.Allowed(h.id)
-					holders[u.Holder] = h
-				}
-				return Use{ID: h.id, Direction: u.Direction}, h.allowed
-			},
-		)
+		start := len(backing)
+		for _, u := range uses[i] {
+			h, ok := holders[u.Holder]
+			if !ok {
+				h.id = taskconfig.RecordOf(u.Holder)
+				h.allowed = snap.Allowed(h.id)
+				holders[u.Holder] = h
+			}
+			if h.allowed {
+				backing = append(backing, Use{ID: h.id, Direction: u.Direction})
+			}
+		}
+		channels[i].Uses = backing[start:len(backing):len(backing)]
 	}
 	return nil
 }
