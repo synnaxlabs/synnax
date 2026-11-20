@@ -14,12 +14,16 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient, holdResponses } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  holdResponses,
+  rejectRequests,
+} from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar as LinePlotToolbar } from "@/feature/lineplot/toolbar";
@@ -89,6 +93,26 @@ const createRunning = async (
     parent,
   );
 
+/**
+ * Creates count ranges that started `since` ago and have no end, and deletes them when
+ * the test finishes.
+ */
+const createRunningPage = async (
+  prefix: string,
+  count: number,
+  since: TimeSpan,
+): Promise<ranger.Range[]> => {
+  const start = TimeStamp.now().sub(since);
+  const page = await client.ranges.create(
+    Array.from({ length: count }, () => ({
+      name: uniqueName(prefix),
+      timeRange: new TimeRange(start, TimeStamp.MAX),
+    })),
+  );
+  onTestFinished(async () => await client.ranges.delete(page.map((r) => r.key)));
+  return page;
+};
+
 const endRange = async (r: ranger.Range, end: TimeStamp): Promise<void> => {
   const value = { start: r.timeRange.start.valueOf(), end: end.valueOf() };
   expect(
@@ -115,6 +139,10 @@ const queryLine = (title: string, name: string): HTMLElement | null => {
     ? null
     : within(group).queryByLabelText(name, { selector: '[role="listitem"]' });
 };
+
+/** Reads the count of ranges that Running shows. */
+const runningCount = (): number =>
+  parseInt(within(groupOf("Running")).getByText(/^\d+\+?$/).textContent ?? "", 10);
 
 const queryShowMore = (title: string): HTMLElement | null => {
   const group = screen.queryByLabelText(title, { selector: "section" });
@@ -237,13 +265,7 @@ describe("range/Toolbar", () => {
     });
 
     it("should keep Show more enabled during a read after a running range is deleted", async () => {
-      const page = await client.ranges.create(
-        Array.from({ length: 120 }, () => ({
-          name: uniqueName("page"),
-          timeRange: new TimeRange(TimeStamp.now().sub(TimeSpan.SECOND), TimeStamp.MAX),
-        })),
-      );
-      onTestFinished(async () => await client.ranges.delete(page.map((r) => r.key)));
+      const page = await createRunningPage("page", 120, TimeSpan.SECOND);
       const newest = await createRunning(uniqueName("newest"), {
         since: TimeSpan.ZERO,
       });
@@ -272,6 +294,45 @@ describe("range/Toolbar", () => {
       await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
         timeout: 10_000,
       });
+    });
+
+    it("should enable Show more again when the cache answers its read", async () => {
+      await createRunningPage("cached", 120, TimeSpan.SECOND);
+      await renderToolbar();
+      await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
+        timeout: 10_000,
+      });
+      // The open list takes in each new range that starts before its end, so it holds a
+      // second page before Show more asks for one.
+      await createRunningPage("newest", 120, TimeSpan.ZERO);
+      await waitFor(() => expect(runningCount()).toBeGreaterThanOrEqual(200));
+      const showMore = queryShowMore("Running");
+      if (showMore == null) throw new Error("Running has no Show more");
+      fireEvent.click(showMore);
+      await waitFor(() => expect(showMore.getAttribute("aria-disabled")).toBeNull());
+    });
+
+    it("should enable Show more again when its read fails", async () => {
+      await createRunningPage("failed", 120, TimeSpan.SECOND);
+      await renderToolbar();
+      await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
+        timeout: 10_000,
+      });
+      // Only the read past the first page fails.
+      const paged = vi.fn(
+        (target: string, req: unknown) =>
+          target === "/range/retrieve" &&
+          ranger.retrieveRequestZ.parse(req).after != null,
+      );
+      const spy = rejectRequests(client, paged, new Error("page read failed"));
+      onTestFinished(() => spy.mockRestore());
+      const showMore = queryShowMore("Running");
+      if (showMore == null) throw new Error("Running has no Show more");
+      fireEvent.click(showMore);
+      await waitFor(() => expect(paged).toHaveReturnedWith(true));
+      await waitFor(() =>
+        expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull(),
+      );
     });
 
     it("should read a later start or end only after the reads in flight land", async () => {

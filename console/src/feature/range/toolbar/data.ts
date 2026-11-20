@@ -12,7 +12,7 @@ import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
 import { array, map, TimeStamp, unique } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Session } from "@/session";
 
@@ -68,12 +68,14 @@ export const useGroups = (): Groups => {
     initialSize: runningSize,
     eager: true,
   });
-  // Show more pages until its read lands. The render that grows the size still has the
-  // status of the last read, so the page waits to see its own read start.
+  // Show more pages until its read settles. The list starts that read in an effect of
+  // the commit that grows the size, so the page reads from the effect after it, and the
+  // first status that is not loading from then on is the read's own.
   const [page, setPage] = useState<"idle" | "asked" | "reading">("idle");
-  const runningReads = runningList.variant === "loading";
-  if (page === "asked" && runningReads) setPage("reading");
-  else if (page === "reading" && !runningReads) setPage("idle");
+  useEffect(() => {
+    if (page === "asked") setPage("reading");
+  }, [page]);
+  if (page === "reading" && runningList.variant !== "loading") setPage("idle");
   const recentList = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: Ranger.stageWhere("completed", at), order: LATEST_END },
