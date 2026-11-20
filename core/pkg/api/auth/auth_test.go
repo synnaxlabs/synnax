@@ -538,6 +538,20 @@ var _ = Describe("CreatePassword", func() {
 		})).Error().ToNot(HaveOccurred())
 		login(ctx, nopass.Name, "p")
 	})
+	It("Should let a user give itself its first password", func(ctx SpecContext) {
+		key := MustSucceed(createKey(
+			authed(ctx, rootToken),
+			apiauth.KeyCreateRequest{Subject: nopass.ResourceID(), Name: "nopass"},
+		))
+		token := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: keyProof(key.Token)},
+		)).Token
+		Expect(create(ctx, token, apiauth.PasswordCreateRequest{
+			Username: nopass.Name, Password: "p",
+		})).Error().ToNot(HaveOccurred())
+		login(ctx, nopass.Name, "p")
+	})
 	It("Should deny a user giving another user a password", func(ctx SpecContext) {
 		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
 			Subject:  nopass.ResourceID(),
