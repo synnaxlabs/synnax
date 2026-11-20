@@ -179,14 +179,18 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err = w.tx.Set(ctx, encoded, data); err != nil {
 		return err
 	}
-	links, indexed := s.indexedBefore()
-	if !current || !indexed {
-		links = w.links(&entry)
-	}
-	changes.set(s, data, links, w.derived)
 	for _, idx := range w.indexes {
+		// The check found the index of each reference current.
+		if _, ok := idx.(Reference[K, E]); ok && current {
+			continue
+		}
 		idx.stageSet(w.tx, entry)
 	}
+	links, indexed := s.indexedBefore()
+	if !current || !indexed {
+		links = w.links(k, &entry)
+	}
+	changes.set(s, data, links, w.derived)
 	db := txDB(w.tx)
 	if db == nil {
 		return nil
@@ -263,11 +267,18 @@ func (w *Writer[K, E]) storedLinks(k K, stored []byte) ([]Link, bool, error) {
 	return links, indexed, nil
 }
 
-// links returns the links that e holds.
-func (w *Writer[K, E]) links(e *E) []Link {
-	var links []Link
+// links returns the links that e, written with key k, holds. It reads them from the
+// index of each reference that has loaded, which holds the targets of e once the write
+// has staged them.
+func (w *Writer[K, E]) links(k K, e *E) []Link {
+	var (
+		links []Link
+		known bool
+	)
 	for _, r := range w.references {
-		links = r.links(links, e)
+		if links, known = r.indexedLinks(links, w.tx, k); !known {
+			links = r.links(links, e)
+		}
 	}
 	return links
 }
