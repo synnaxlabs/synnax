@@ -29,8 +29,8 @@
 #include "x/cpp/telem/telem.h"
 
 namespace driver::common {
-/// @brief how long a resource's status must be silent before a scan on another rack
-/// takes the resource over.
+/// @brief how long a resource's status must stay unchanged before a scan on another
+/// rack takes the resource over.
 const auto TAKEOVER_THRESHOLD = x::telem::SECOND * 30;
 
 /// @brief stores the resources of one type and tells them apart. One implementation
@@ -79,6 +79,7 @@ class Sync {
     std::unique_ptr<Store<D>> store;
     synnax::rack::Key rack;
     std::string log_prefix;
+    x::telem::TimeSpan takeover_threshold;
     /// @brief held for a whole scan, so two scans do not create the same hardware.
     std::mutex scan_mu;
     std::mutex mu;
@@ -89,6 +90,10 @@ class Sync {
     std::unordered_map<std::string, std::uint64_t> versions;
     /// @brief counts every set and delete signal.
     std::uint64_t epoch = 0;
+    /// @brief the last status time that another rack reported for each match key, and
+    /// the local time this Sync first saw it. Requires scan_mu.
+    std::unordered_map<std::string, std::pair<x::telem::TimeStamp, x::telem::TimeStamp>>
+        reports;
 
     /// @brief a found resource and what the scan decided for it.
     struct Result {
@@ -98,11 +103,20 @@ class Sync {
     };
 
     /// @brief returns whether a scan on this rack can move stored to this rack. A
-    /// resource moves when another rack has not reported its status for a while.
-    [[nodiscard]] bool can_take_over(const D &stored) const {
+    /// resource moves when another rack has not changed its status for the takeover
+    /// threshold. It measures with the local clock only, as rack clocks can differ.
+    /// Requires scan_mu.
+    [[nodiscard]] bool can_take_over(const std::string &match, const D &stored) {
         if (stored.rack == this->rack) return true;
         if (!stored.status.has_value()) return true;
-        return x::telem::TimeStamp::now() - stored.status->time > TAKEOVER_THRESHOLD;
+        const auto now = x::telem::TimeStamp::now();
+        auto [it, inserted] = this->reports
+                                  .try_emplace(match, stored.status->time, now);
+        if (inserted || it->second.first != stored.status->time) {
+            it->second = {stored.status->time, now};
+            return false;
+        }
+        return now - it->second.second >= this->takeover_threshold;
     }
 
     /// @brief gives present the status that the scanner reported for found, or a
@@ -151,9 +165,13 @@ public:
     Sync(
         std::unique_ptr<Store<D>> store,
         const synnax::rack::Key rack,
-        std::string log_prefix
+        std::string log_prefix,
+        const x::telem::TimeSpan takeover_threshold = TAKEOVER_THRESHOLD
     ):
-        store(std::move(store)), rack(rack), log_prefix(std::move(log_prefix)) {}
+        store(std::move(store)),
+        rack(rack),
+        log_prefix(std::move(log_prefix)),
+        takeover_threshold(takeover_threshold) {}
 
     /// @brief saves the hardware that a scan found, and the status of every tracked
     /// resource. It first tracks the resources that the Core holds on the rack, except
@@ -231,7 +249,7 @@ public:
                 to_create.push_back(std::move(res));
                 continue;
             }
-            if (!this->can_take_over(*stored)) continue;
+            if (!this->can_take_over(res.match, *stored)) continue;
             auto merged = this->store->merge_identity(*stored, res.resource);
             if (merged.to_json() != stored->to_json()) {
                 if (const auto err = this->store->update_identity(merged)) {

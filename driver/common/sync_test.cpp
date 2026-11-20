@@ -132,12 +132,22 @@ Resource found(const std::string &serial, const std::string &model = "9205") {
 }
 
 /// @brief returns a sync over a fake store, and the store.
-std::pair<std::unique_ptr<Sync<Resource>>, FakeStore *>
-new_sync(std::vector<Resource> stored = {}) {
+std::pair<std::unique_ptr<Sync<Resource>>, FakeStore *> new_sync(
+    std::vector<Resource> stored = {},
+    const x::telem::TimeSpan takeover_threshold = TAKEOVER_THRESHOLD
+) {
     auto store = std::make_unique<FakeStore>();
     store->stored = std::move(stored);
     auto *ptr = store.get();
-    return {std::make_unique<Sync<Resource>>(std::move(store), RACK, "[test] "), ptr};
+    return {
+        std::make_unique<Sync<Resource>>(
+            std::move(store),
+            RACK,
+            "[test] ",
+            takeover_threshold
+        ),
+        ptr,
+    };
 }
 }
 
@@ -192,26 +202,33 @@ TEST(Sync, MarksMissingHardwareDisconnected) {
     ASSERT_EQ(store->statuses.at(0).status.value().message, "Device disconnected");
 }
 
-/// @brief it should move hardware from another rack whose status is stale.
+/// @brief it should move hardware from another rack whose status stays unchanged for
+/// the takeover threshold.
 TEST(Sync, TakesOverStaleHardwareFromAnotherRack) {
+    auto stored = found("01A");
+    stored.key = "key-01A";
+    stored.rack = 2;
+    stored.status = synnax::status::Status<>{.time = x::telem::TimeStamp::now()};
+    auto [sync, store] = new_sync({stored}, x::telem::TimeSpan(0));
+    ASSERT_NIL(sync->sync({found("01A")}));
+    ASSERT_TRUE(store->identity_updates.empty());
+    ASSERT_NIL(sync->sync({found("01A")}));
+    ASSERT_EQ(store->identity_updates.at(0).rack, RACK);
+}
+
+/// @brief it should leave hardware on another rack that keeps reporting its status,
+/// even when that rack's clock is behind.
+TEST(Sync, KeepsHardwareOnAnActiveRack) {
     auto stored = found("01A");
     stored.key = "key-01A";
     stored.rack = 2;
     stored.status = synnax::status::Status<>{
         .time = x::telem::TimeStamp::now() - TAKEOVER_THRESHOLD * 2,
     };
-    auto [sync, store] = new_sync({stored});
+    auto [sync, store] = new_sync({stored}, x::telem::TimeSpan(0));
     ASSERT_NIL(sync->sync({found("01A")}));
-    ASSERT_EQ(store->identity_updates.at(0).rack, RACK);
-}
-
-/// @brief it should leave hardware on another rack that reported its status recently.
-TEST(Sync, KeepsHardwareOnAnActiveRack) {
-    auto stored = found("01A");
-    stored.key = "key-01A";
-    stored.rack = 2;
-    stored.status = synnax::status::Status<>{.time = x::telem::TimeStamp::now()};
-    auto [sync, store] = new_sync({stored});
+    auto &report = store->stored.at(0).status.value();
+    report.time = report.time + x::telem::SECOND;
     ASSERT_NIL(sync->sync({found("01A")}));
     ASSERT_TRUE(store->identity_updates.empty());
     ASSERT_FALSE(sync->get("01A").has_value());
@@ -299,10 +316,9 @@ TEST(Sync, RetriesFailedTakeover) {
     auto stored = found("01A");
     stored.key = "key-01A";
     stored.rack = 2;
-    stored.status = synnax::status::Status<>{
-        .time = x::telem::TimeStamp::now() - TAKEOVER_THRESHOLD * 2,
-    };
-    auto [sync, store] = new_sync({stored});
+    stored.status = synnax::status::Status<>{.time = x::telem::TimeStamp::now()};
+    auto [sync, store] = new_sync({stored}, x::telem::TimeSpan(0));
+    ASSERT_NIL(sync->sync({found("01A")}));
     store->update_err = x::errors::Error(x::errors::INTERNAL, "timeout");
     ASSERT_OCCURRED_AS(sync->sync({found("01A")}), x::errors::INTERNAL);
     ASSERT_FALSE(sync->get("01A").has_value());
