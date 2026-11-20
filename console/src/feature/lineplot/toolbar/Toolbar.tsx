@@ -23,6 +23,7 @@ import { Data } from "@/feature/lineplot/toolbar/Data";
 import { Lines } from "@/feature/lineplot/toolbar/Lines";
 import { Properties } from "@/feature/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
+import { FLAGS } from "@/flags";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -46,7 +47,7 @@ const Internal = (): ReactElement => {
   };
   const downloadAsCSV = useDownloadPlotAsCSV(key);
   const x1 = LinePlot.useXAxis({ axisKey: "x1" });
-  const relative = LinePlot.isRelative(x1);
+  const relative = FLAGS.compare && LinePlot.isRelative(x1);
   return (
     <Base.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>

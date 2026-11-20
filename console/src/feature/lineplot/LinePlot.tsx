@@ -55,6 +55,7 @@ import {
   type Visibility,
 } from "@/feature/lineplot/visibility";
 import { Sift } from "@/feature/sift";
+import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import type { Panel } from "@/platform/panel";
@@ -353,7 +354,7 @@ const Internal = (): ReactElement => {
   const refs = Base.useRanges();
   const ranges = Session.Range.useResolveRanges(refs, Base.useRangeColors({}));
   const x1 = Base.useXAxis({ axisKey: "x1" });
-  const relative = Base.isRelative(x1);
+  const relative = FLAGS.compare && Base.isRelative(x1);
 
   const derived = Base.useLines();
   const scope: Scope = {
@@ -517,6 +518,7 @@ const Internal = (): ReactElement => {
           onRangeColorChange={hasUpdatePermission ? handleRangeColorChange : undefined}
           legendFooter={legendFooter}
           onHoveredChange={handleHoveredChange}
+          relativeDisabled={!FLAGS.compare}
           onZoomedChange={setZoomed}
           hold={hold}
           onHold={handleHold}
