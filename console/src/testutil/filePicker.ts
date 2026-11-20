@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { File as NodeFile } from "node:buffer";
-
 import { vi } from "vitest";
 
 /**
@@ -21,6 +19,8 @@ export const fakePickedFile = (
   contents: string | Uint8Array<ArrayBuffer> = "content",
   webkitRelativePath?: string,
 ): File => {
+  // Loaded at call time, so that browser specs can import the test utilities.
+  const { File: NodeFile } = process.getBuiltinModule("node:buffer");
   const file = new NodeFile([contents], name) as unknown as File;
   if (webkitRelativePath != null)
     Object.defineProperty(file, "webkitRelativePath", { value: webkitRelativePath });

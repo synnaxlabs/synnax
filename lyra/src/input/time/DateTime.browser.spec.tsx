@@ -13,7 +13,6 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 import { loadLanguage } from "@/input/time/suggest";
-import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
 
 const local = (...args: [number, number, number, number, number]): number =>
@@ -35,9 +34,6 @@ const type = (field: HTMLInputElement, text: string): void => {
 
 describe("Input.DateTime", () => {
   beforeAll(loadLanguage);
-  beforeAll(() => {
-    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-  });
 
   it("should open the editor on the value in a fixed local layout", () => {
     const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
