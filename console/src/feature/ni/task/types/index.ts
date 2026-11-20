@@ -321,6 +321,22 @@ const deployReadRateShape = {
 
 const deployStateRateZ = z.number().positive().max(50000);
 
+// DAQmx refuses a channel whose minimum is not below its maximum.
+const validateRanges = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<(AIChannel | AOChannel | CIChannel)[]>) =>
+  channels.forEach((c, i) => {
+    if (c.disabled || !("minVal" in c) || c.minVal < c.maxVal) return;
+    issues.push({
+      continue: true,
+      code: "custom",
+      message: "Minimum value must be less than maximum value",
+      path: [i, "minVal"],
+      input: channels,
+    });
+  });
+
 export const analogReadConfigZ = ni.analogReadConfigZ;
 
 export const deployAnalogReadConfigZ = ni.analogReadConfigZ
@@ -329,6 +345,7 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
     channels: z
       .array(ni.aiChannelZ)
       .check(Task.validateReadChannels)
+      .check(validateRanges)
       .check(Task.validateEnabledChannel)
       .check(Task.validateChannelDevices),
   })
@@ -356,6 +373,7 @@ export const deployCounterReadConfigZ = ni.counterReadConfigZ
     channels: z
       .array(ni.ciChannelZ)
       .check(Task.validateReadChannels)
+      .check(validateRanges)
       .check(Task.validateEnabledChannel)
       .check(Task.validateChannelDevices),
   })
@@ -379,6 +397,7 @@ export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
   channels: z
     .array(ni.aoChannelZ)
     .check(Task.validateWriteChannels)
+    .check(validateRanges)
     .check(Task.validateEnabledChannel),
 });
 
