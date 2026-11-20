@@ -54,11 +54,26 @@ export const clockSkewDetailsSchema = z.object({
   clockSkew: z.number(),
 });
 
+// The Core whose clock this machine's clock disagrees with, or null when in sync.
+const skewedCluster = ({ details }: connection.Status): string | null =>
+  details.clockSkewExceeded ? details.clusterKey : null;
+
 const addClockSkewStatus = (
   addStatus: Status.Adder,
-  status: connection.Status,
+  prev: connection.Status,
+  next: connection.Status,
 ): void => {
-  const skew = status.details.clockSkew;
+  const cluster = skewedCluster(next);
+  if (cluster === skewedCluster(prev)) return;
+  if (cluster == null) {
+    addStatus({
+      variant: "success",
+      message: "Clock skew resolved",
+      description: "This machine's clock is back in sync with the Core.",
+    });
+    return;
+  }
+  const skew = next.details.clockSkew;
   const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
   addStatus<typeof clockSkewDetailsSchema>({
     variant: "warning",
@@ -148,8 +163,7 @@ export const Provider = ({
       reasonOf(prev) !== reasonOf(connStatus)
     )
       addStatus(connStatus);
-    if (connStatus.variant === "success" && connStatus.details.clockSkewExceeded)
-      addClockSkewStatus(addStatus, connStatus);
+    addClockSkewStatus(addStatus, prev, connStatus);
     if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
     setState((prev) => ({ ...prev, status: connStatus }));
   };

@@ -306,6 +306,38 @@ describe("connection", () => {
       warn.mockRestore();
     });
 
+    it("should warn only when skew starts and log once when it ends", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      let skew = TimeSpan.hours(1);
+      const unary = mockUnary(() => TimeStamp.now().add(skew));
+      const send = vi.mocked(unary.send);
+      // checks run in sequence, so the second check sent after the change starts only
+      // once the first has finished
+      const passChecks = async (set: TimeSpan): Promise<void> => {
+        skew = set;
+        const target = send.mock.calls.length + 2;
+        await expect
+          .poll(() => send.mock.calls.length, POLL)
+          .toBeGreaterThanOrEqual(target);
+      };
+      const client = createClient(unary);
+      await client.connect(TimeSpan.seconds(5));
+      await passChecks(TimeSpan.hours(2));
+      await passChecks(TimeSpan.hours(3));
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await passChecks(TimeSpan.ZERO);
+      await passChecks(TimeSpan.ZERO);
+      expect(info).toHaveBeenCalledOnce();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining("back in sync"));
+      await passChecks(TimeSpan.hours(1));
+      expect(warn).toHaveBeenCalledTimes(2);
+      await client.close();
+      warn.mockRestore();
+      info.mockRestore();
+    });
+
     it("should not flag skew within threshold", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary, { clockSkewThreshold: TimeSpan.seconds(1) });
