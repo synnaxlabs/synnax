@@ -807,8 +807,6 @@ type decodeHeader struct {
 	alignment telem.Alignment
 	// decoded is the running count of bytes the frame decodes to.
 	decoded int64
-	// ordinal is the position of the next series in the frame.
-	ordinal uint32
 	// next is the ordinal of the next series that has an override.
 	next uint32
 }
@@ -861,14 +859,29 @@ func (c *Codec) decode(src io.Reader, h *decodeHeader) (framer.Frame, error) {
 // decodeAllSeries decodes one series for each key of the state, in key order, from
 // the frame that src holds.
 func (c *Codec) decodeAllSeries(src io.Reader, h *decodeHeader) (framer.Frame, error) {
-	keys := h.state.dec.all
-	fr := frame.Alloc(len(keys))
-	for _, k := range keys {
-		s, err := c.decodeSeries(h, k)
+	var (
+		ag = &h.state.dec
+		n  = uint32(len(ag.all))
+		fr = frame.Alloc(len(ag.all))
+		i  uint32
+	)
+	for {
+		for end := min(h.next, n); i < end; i++ {
+			s, err := c.decodeSeries(h, &ag.series[i])
+			if err != nil {
+				return framer.Frame{}, err
+			}
+			fr = fr.Append(ag.all[i], s)
+		}
+		if i == n {
+			break
+		}
+		s, err := c.decodeOverridden(h, i, int(i))
 		if err != nil {
 			return framer.Frame{}, err
 		}
-		fr = fr.Append(k, s)
+		fr = fr.Append(ag.all[i], s)
+		i++
 	}
 	if err := c.readEnd(src); err != nil {
 		return framer.Frame{}, err
@@ -894,22 +907,65 @@ func (c *Codec) readEnd(src io.Reader) error {
 func trailingError() error { return invalidf("remote sent bytes after the last series") }
 
 // decodeKeyedSeries decodes series that each carry their key until the frame ends.
+// Once no override is pending, a series needs no ordinal.
 func (c *Codec) decodeKeyedSeries(h *decodeHeader) (framer.Frame, error) {
-	var fr framer.Frame
-	for {
-		k, err := c.reader.Uint32()
-		if errors.Is(err, io.EOF) {
-			return fr, nil
+	var (
+		ag = &h.state.dec
+		fr framer.Frame
+	)
+	for ordinal := uint32(0); h.next != noOverride; ordinal++ {
+		pos, err := c.readKey(h)
+		if err != nil {
+			return endKeyed(fr, err)
+		}
+		var s telem.Series
+		if ordinal == h.next {
+			s, err = c.decodeOverridden(h, ordinal, pos)
+		} else {
+			s, err = c.decodeSeries(h, &ag.series[pos])
 		}
 		if err != nil {
 			return framer.Frame{}, err
 		}
-		s, err := c.decodeSeries(h, channel.Key(k))
-		if err != nil {
-			return framer.Frame{}, err
-		}
-		fr = fr.Append(channel.Key(k), s)
+		fr = fr.Append(ag.all[pos], s)
 	}
+	for {
+		pos, err := c.readKey(h)
+		if err != nil {
+			return endKeyed(fr, err)
+		}
+		s, err := c.decodeSeries(h, &ag.series[pos])
+		if err != nil {
+			return framer.Frame{}, err
+		}
+		fr = fr.Append(ag.all[pos], s)
+	}
+}
+
+// endKeyed returns fr when err is the end of the frame, and err otherwise.
+func endKeyed(fr framer.Frame, err error) (framer.Frame, error) {
+	if errors.Is(err, io.EOF) {
+		return fr, nil
+	}
+	return framer.Frame{}, err
+}
+
+// readKey reads the key of the next series and returns its position in the keys of
+// the state.
+func (c *Codec) readKey(h *decodeHeader) (int, error) {
+	k, err := c.reader.Uint32()
+	if err != nil {
+		return 0, err
+	}
+	pos, ok := h.state.dec.positions[channel.Key(k)]
+	if !ok {
+		return 0, unknownKeyError(channel.Key(k))
+	}
+	return pos, nil
+}
+
+func unknownKeyError(key channel.Key) error {
+	return errors.Newf("unknown channel key: %v", key)
 }
 
 func (c *Codec) readHeader(h *decodeHeader) error {
@@ -972,40 +1028,53 @@ func (c *Codec) readHeader(h *decodeHeader) error {
 	return nil
 }
 
-// decodeSeries reads the series for key and adds its size to h.decoded.
-func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, error) {
-	dataType, clock, err := c.readSeriesAgreement(h, key)
+// decodeOverridden reads the override of the series at ordinal, whose key is at pos in
+// the keys of the state, and then the series.
+func (c *Codec) decodeOverridden(
+	h *decodeHeader,
+	ordinal uint32,
+	pos int,
+) (telem.Series, error) {
+	a, err := c.readOverride(h, ordinal, pos)
 	if err != nil {
 		return telem.Series{}, err
 	}
-	h.ordinal++
-	if h.fgs.equalLens && dataType.IsVariable() {
-		return telem.Series{}, invalidf(
-			"remote sent variable data type %s under a shared length",
-			dataType,
-		)
-	}
+	return c.decodeSeries(h, &a)
+}
+
+// decodeSeries reads one series that decodes as a, and adds its size to h.decoded.
+func (c *Codec) decodeSeries(h *decodeHeader, a *agreed) (telem.Series, error) {
 	s := telem.Series{
 		TimeRange: h.tr,
 		Alignment: h.alignment,
-		DataType:  dataType,
-		Clock:     clock,
+		DataType:  a.dataType,
+		Clock:     a.clock,
 	}
 	dataLenOrSize := h.dataLen
+	var err error
 	if !h.fgs.equalLens {
 		if dataLenOrSize, err = c.reader.Uint32(); err != nil {
 			return telem.Series{}, err
 		}
 	}
 	size := int64(dataLenOrSize)
-	if !dataType.IsVariable() && dataType != telem.BooleanT {
-		size = int64(dataType.Density().Size(size))
+	switch a.layout {
+	case fixedLayout:
+		size = int64(a.density.Size(size))
+	case variableLayout:
+		if h.fgs.equalLens {
+			return telem.Series{}, invalidf(
+				"remote sent variable data type %s under a shared length",
+				a.dataType,
+			)
+		}
+	case bitLayout:
 	}
 	h.decoded += size + SeriesOverhead
 	if err = c.checkDecodeLimit(h); err != nil {
 		return telem.Series{}, err
 	}
-	if dataType == telem.BooleanT {
+	if a.layout == bitLayout {
 		packed, err := c.readBytes(bitPackedByteCount(int64(dataLenOrSize)))
 		if err != nil {
 			return telem.Series{}, err
