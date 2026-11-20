@@ -61,3 +61,35 @@ var _ = Describe("A channel that changes its data type", func() {
 		Expect(out.Get(102).Series[0].Unmarshal[float64]()).To(Equal([]float64{600}))
 	})
 })
+
+var _ = Describe("A string channel that changes to a number type", func() {
+	It("Should not invent text from the bytes of a number series", func(
+		ctx SpecContext,
+	) {
+		h := newRuntimeHarness(ctx, `
+		func f() {
+			out = label
+		}
+		trig -> f()`, channelSymbols(map[string]channelDef{
+			"label": {types.String(), 100},
+			"trig":  {types.U8(), 101},
+			"out":   {types.String(), 102},
+		}),
+			channels.Digest{Key: 100, DataType: telem.StringT},
+			channels.Digest{Key: 101, DataType: telem.Uint8T},
+			channels.Digest{Key: 102, DataType: telem.StringT},
+		)
+		defer h.Close(ctx)
+		// Two uint32 samples: 2, then the bytes "hi" and two zero bytes.
+		h.Ingest(100, telem.NewSeriesV[uint32](2, 0x6968))
+		h.Ingest(101, telem.NewSeriesV[uint8](1))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		series := out.Get(102).Series
+		written := make([]string, 0, len(series))
+		for _, s := range series {
+			written = append(written, s.Unmarshal[string]()...)
+		}
+		Expect(written).To(BeEmpty())
+	})
+})

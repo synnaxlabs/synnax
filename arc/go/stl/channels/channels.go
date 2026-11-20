@@ -508,7 +508,14 @@ func bindBool(
 				}
 				return 0
 			}
-			if last[float64](ps, chID, series) != 0 {
+			v, err := telem.ValueAs[float64](series, -1)
+			if err != nil {
+				panic(ps.readError(chID, telem.ConversionError{
+					From: series.DataType,
+					To:   telem.BooleanT,
+				}))
+			}
+			if v != 0 {
 				return 1
 			}
 			return 0
@@ -568,6 +575,12 @@ func bindStr(
 			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
+			}
+			if !isString(series.DataType) {
+				panic(ps.readError(chID, telem.ConversionError{
+					From: series.DataType,
+					To:   telem.StringT,
+				}))
 			}
 			unmarshaled := series.Unmarshal[string]()
 			if len(unmarshaled) == 0 {
