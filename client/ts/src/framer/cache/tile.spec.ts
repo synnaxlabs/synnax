@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";

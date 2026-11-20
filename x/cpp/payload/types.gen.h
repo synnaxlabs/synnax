@@ -11,15 +11,12 @@
 
 #pragma once
 
-#include <optional>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/number.h"
-#include "x/cpp/telem/types.gen.h"
 
 #include "x/go/payload/pb/payload.pb.h"
 
@@ -28,21 +25,9 @@ namespace x::payload {
 struct StringEntry;
 struct BooleanEntry;
 struct EnumEntry;
-struct StringRead;
-struct BooleanRead;
 struct FloatEntry;
 struct IntegerEntry;
 struct UnsignedEntry;
-struct TimestampRead;
-struct FloatRead;
-struct IntegerRead;
-struct UnsignedRead;
-
-constexpr const char *TIME_FORMAT_ISO_8601 = "iso8601";
-constexpr const char *TIME_FORMAT_UNIX_SEC = "unix_sec";
-constexpr const char *TIME_FORMAT_UNIX_MS = "unix_ms";
-constexpr const char *TIME_FORMAT_UNIX_US = "unix_us";
-constexpr const char *TIME_FORMAT_UNIX_NS = "unix_ns";
 
 constexpr const char *KIND_FLOAT = "float";
 constexpr const char *KIND_INTEGER = "integer";
@@ -53,6 +38,12 @@ constexpr const char *KIND_TIMESTAMP = "timestamp";
 constexpr const char *KIND_JSON = "json";
 constexpr const char *KIND_UUID = "uuid";
 constexpr const char *KIND_BYTES = "bytes";
+
+constexpr const char *TIME_FORMAT_ISO_8601 = "iso8601";
+constexpr const char *TIME_FORMAT_UNIX_SEC = "unix_sec";
+constexpr const char *TIME_FORMAT_UNIX_MS = "unix_ms";
+constexpr const char *TIME_FORMAT_UNIX_US = "unix_us";
+constexpr const char *TIME_FORMAT_UNIX_NS = "unix_ns";
 
 constexpr const char *JSON_TYPE_NUMBER = "number";
 constexpr const char *JSON_TYPE_STRING = "string";
@@ -111,28 +102,6 @@ struct EnumEntry {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief StringRead holds the options of a field that reads a string.
-struct StringRead {
-    /// @brief enum_values maps payload labels to channel values.
-    std::vector<StringEntry> enum_values;
-    /// @brief fill is written when the payload has no value. Absent requires one.
-    std::optional<std::string> fill;
-
-    static StringRead parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief BooleanRead holds the options of a field that reads a boolean.
-struct BooleanRead {
-    /// @brief enum_values maps payload labels to channel values.
-    std::vector<BooleanEntry> enum_values;
-    /// @brief fill is written when the payload has no value. Absent requires one.
-    std::optional<bool> fill;
-
-    static BooleanRead parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief FloatEntry maps a payload label to a float channel value.
 struct FloatEntry {
     /// @brief label is the label in the payload.
@@ -182,55 +151,5 @@ struct UnsignedEntry {
     to_proto() const;
     static std::pair<UnsignedEntry, x::errors::Error>
     from_proto(const ::x::payload::pb::UnsignedEntry &pb);
-};
-
-/// @brief TimestampRead holds the options of a field that reads a timestamp.
-struct TimestampRead {
-    /// @brief time_format is the encoding of the timestamp in the payload.
-    std::string time_format;
-    /// @brief fill is written when the payload has no value. Absent requires one.
-    std::optional<::x::telem::TimeStamp> fill;
-
-    static TimestampRead parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief FloatRead holds the options of a field that reads a float.
-struct FloatRead {
-    /// @brief data_type is the data type of a new channel. Absent for an existing one.
-    std::optional<::x::telem::DataType> data_type;
-    /// @brief enum_values maps payload labels to channel values.
-    std::vector<FloatEntry> enum_values;
-    /// @brief fill is written when the payload has no value. Absent requires one.
-    std::optional<Float> fill;
-
-    static FloatRead parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief IntegerRead holds the options of a field that reads a signed integer.
-struct IntegerRead {
-    /// @brief data_type is the data type of a new channel. Absent for an existing one.
-    std::optional<::x::telem::DataType> data_type;
-    /// @brief enum_values maps payload labels to channel values.
-    std::vector<IntegerEntry> enum_values;
-    /// @brief fill is written when the payload has no value. Absent requires one.
-    std::optional<Integer> fill;
-
-    static IntegerRead parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief UnsignedRead holds the options of a field that reads an unsigned integer.
-struct UnsignedRead {
-    /// @brief data_type is the data type of a new channel. Absent for an existing one.
-    std::optional<::x::telem::DataType> data_type;
-    /// @brief enum_values maps payload labels to channel values.
-    std::vector<UnsignedEntry> enum_values;
-    /// @brief fill is written when the payload has no value. Absent requires one.
-    std::optional<Unsigned> fill;
-
-    static UnsignedRead parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
 };
 }

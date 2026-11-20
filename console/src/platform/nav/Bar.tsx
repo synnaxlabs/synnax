@@ -10,7 +10,7 @@
 import "@/platform/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

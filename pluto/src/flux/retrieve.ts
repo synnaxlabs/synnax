@@ -27,7 +27,7 @@ import {
 import { use, useEffect, useRef, useSyncExternalStore } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
-import { type flux } from "@/flux/aether";
+import type { flux } from "@/flux/aether";
 import { DeletedError, type Tombstone, tombstoneOf } from "@/flux/errors";
 import {
   errorResult,

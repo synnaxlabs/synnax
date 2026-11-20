@@ -12,7 +12,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { type Plugin } from "vite";
+import type { Plugin } from "vite";
 
 export const TSCONFIG = "tsconfig.build.json";
 const SPECIFIER = /((?:from|import)\s*\(?\s*)(["'])(@\/[^"']*|\.{1,2}(?:\/[^"']*)?)\2/g;

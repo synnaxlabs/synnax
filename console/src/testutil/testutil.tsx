@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EnhancedStore } from "@reduxjs/toolkit";
+import type { EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type connection,
@@ -36,7 +36,12 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useLayoutEffect,
+} from "react";
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
@@ -147,10 +152,12 @@ export interface CaptureStatusesProps {
 /**
  * Reports the current status notifications to onStatuses on every change. Mount
  * alongside the UI under test to observe statuses raised during a component render.
+ * The report lands in the commit that changed them, so it is current once a `findBy*`
+ * query sees that commit.
  */
 export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
   const { statuses } = Status.useNotifications();
-  useEffect(() => {
+  useLayoutEffect(() => {
     onStatuses(statuses);
   }, [onStatuses, statuses]);
   return null;

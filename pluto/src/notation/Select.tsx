@@ -11,7 +11,7 @@ import "@/notation/Select.css";
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-import { type notation } from "@synnaxlabs/x";
+import type { notation } from "@synnaxlabs/x";
 import { type ReactElement, useSyncExternalStore } from "react";
 
 import { CSS } from "@/css";

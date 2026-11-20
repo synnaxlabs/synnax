@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 

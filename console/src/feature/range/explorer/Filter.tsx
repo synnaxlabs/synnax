@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";

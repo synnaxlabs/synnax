@@ -11,7 +11,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";

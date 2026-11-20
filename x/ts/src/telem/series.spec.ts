@@ -11,7 +11,7 @@ import { describe, expect, it, type Mock, test, vi } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { type GLBufferController } from "@/telem/gl";
+import type { GLBufferController } from "@/telem/gl";
 import { type CrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,

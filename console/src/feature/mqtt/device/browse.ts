@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import type { Synnax } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
-import { type Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device/types";
 import {
   BROWSE_COMMAND_TYPE,
   BROWSE_SPARKPLUG_COMMAND_TYPE,

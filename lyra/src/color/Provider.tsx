@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, TimeStamp } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { z } from "zod";
 
 import { context } from "@/context";

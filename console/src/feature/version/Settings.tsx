@@ -11,7 +11,7 @@ import "@/feature/version/Settings.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Settings as PlatformSettings } from "@/platform/settings";

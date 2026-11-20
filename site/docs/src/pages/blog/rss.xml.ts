@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 import { escape } from "html-escaper";
 
 import { POSTS } from "@/util/pages";
@@ -18,12 +18,12 @@ export const GET: APIRoute = ({ site }) => {
   const blog = new URL("/blog", site).href;
   const items = POSTS.map(({ route, title, description, published }) => {
     const link = new URL(route, site).href;
-    const date = published == null ? "" : new Date(published).toUTCString();
+    const date = published?.toUTCString() ?? "";
     return `<item>
 <title>${escape(title)}</title>
 <link>${link}</link>
 <guid>${link}</guid>
-<description>${escape(description ?? "")}</description>
+<description>${escape(description)}</description>
 <pubDate>${date}</pubDate>
 </item>`;
   });

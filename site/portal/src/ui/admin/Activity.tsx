@@ -14,8 +14,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { record } from "@synnaxlabs/x";
 import { type ReactElement, useId } from "react";
 
-import { type Activity as ActivityData } from "@/page";
-import { type Category } from "@/server/event";
+import type { Activity as ActivityData } from "@/page";
+import type { Category } from "@/server/event";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
 import { navigate } from "@/ui/api";
 import { Page } from "@/ui/Page";
