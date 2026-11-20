@@ -107,13 +107,13 @@ const (
 )
 
 // Format is the encoding of a whole payload.
-type Format = v0.Format
+type Format = v1.Format
 
 const (
 	// FormatJSON is one JSON value.
-	FormatJSON Format = v0.FormatJSON
+	FormatJSON Format = v1.FormatJSON
 	// FormatText is UTF-8 text.
-	FormatText Format = v0.FormatText
+	FormatText Format = v1.FormatText
 	// FormatBinary is raw bytes.
-	FormatBinary Format = v0.FormatBinary
+	FormatBinary Format = v1.FormatBinary
 )

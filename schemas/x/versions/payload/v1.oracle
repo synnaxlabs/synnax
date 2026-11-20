@@ -11,6 +11,8 @@ Kind = v0.Kind
 
 TimeFormat = v0.TimeFormat
 
+Format = v0.Format
+
 Float = v0.Float
 
 Integer = v0.Integer

@@ -53,6 +53,18 @@ const (
 	TimeFormatUnixNs TimeFormat = v0.TimeFormatUnixNs
 )
 
+// Format is the encoding of a whole payload.
+type Format = v0.Format
+
+const (
+	// FormatJSON is one JSON value.
+	FormatJSON Format = v0.FormatJSON
+	// FormatText is UTF-8 text.
+	FormatText Format = v0.FormatText
+	// FormatBinary is raw bytes.
+	FormatBinary Format = v0.FormatBinary
+)
+
 // Float is a 64-bit float. It is a JSON number when finite, and the text "NaN",
 // "Infinity", or "-Infinity" when not.
 type Float = v0.Float
