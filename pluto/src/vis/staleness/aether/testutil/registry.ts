@@ -22,9 +22,9 @@ export const createRegistry = <S extends { stale: boolean }>(
   onUpdate?: (state: S) => void,
 ): aether.ComponentRegistry => {
   class Stale extends aether.Leaf<typeof schema> {
-    schema = schema;
+    override schema = schema;
 
-    afterUpdate(): void {
+    override afterUpdate(): void {
       onUpdate?.(this.state);
       if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
     }

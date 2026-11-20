@@ -291,13 +291,23 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("lists the ranges newest first", async () => {
-      const older = await createLeadingRange(3);
-      const newer = await createLeadingRange(2);
+      // Later than the far-future ranges of other specs, so only planned ranges sort
+      // above these two.
+      const start = TimeStamp.now().add(TimeSpan.days(365 * 200));
+      const create = async (offset: TimeSpan): Promise<ranger.Range> =>
+        await client.ranges.create({
+          name: uniqueName("range"),
+          timeRange: start.add(offset).spanRange(TimeSpan.hours(1)),
+        });
+      const older = await create(TimeSpan.ZERO);
+      const newer = await create(TimeSpan.hours(1));
       await renderData([]);
       openSearch();
-      const texts = await optionsShowing(older, newer);
-      const at = ({ name }: ranger.Range) => texts.findIndex((t) => t.includes(name));
-      expect(at(newer)).toBeLessThan(at(older));
+      await screen.findByText(older.name);
+      await screen.findByText(newer.name);
+      const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+      const at = (name: string) => names.findIndex((n) => n.includes(name));
+      expect(at(newer.name)).toBeLessThan(at(older.name));
     });
 
     it("lists the plotted ranges first", async () => {
