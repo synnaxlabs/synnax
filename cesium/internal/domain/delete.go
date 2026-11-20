@@ -262,6 +262,7 @@ func (idx *index) unprotectedSplice(start, end deleteBound, tr telem.TimeRange) 
 			append(newPointers, idx.mu.pointers[start.position:]...)...,
 		)
 	}
+	idx.checkApart(start.position, start.position+len(newPointers))
 }
 
 // GarbageCollect rewrites files that have accumulated enough tombstones to warrant
@@ -497,6 +498,7 @@ func (db *DB) swapCollectedFile(
 			db.idx.persistHead = min(db.idx.persistHead, i)
 		}
 	}
+	db.idx.checkApart(0, len(db.idx.mu.pointers)-1)
 	return nil
 }
 
