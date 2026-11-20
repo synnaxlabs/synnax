@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 )
 
 // records holds the channels that a Node creates, so that distribution-layer tests can
@@ -36,13 +37,13 @@ func (r *records) add(channels []channel.Channel) {
 func (r *records) Resolve(
 	_ context.Context,
 	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
+) (map[channel.Key]writer.Facts, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	found := make(map[channel.Key]channel.Channel, len(keys))
+	found := make(map[channel.Key]writer.Facts, len(keys))
 	for _, k := range keys {
 		if ch, ok := r.byKey[k]; ok {
-			found[k] = ch
+			found[k] = writer.FactsOf(ch)
 		}
 	}
 	return found, nil

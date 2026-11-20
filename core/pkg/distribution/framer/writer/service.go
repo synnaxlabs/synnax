@@ -275,11 +275,23 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // layer. The service-layer channel service implements it, and
 // Service.SetChannelResolver registers it.
 type ChannelResolver interface {
-	// Resolve returns the record of each channel in keys that has one.
-	Resolve(
-		ctx context.Context,
-		keys channel.Keys,
-	) (map[channel.Key]channel.Channel, error)
+	// Resolve returns the facts of each channel in keys that has a record.
+	Resolve(ctx context.Context, keys channel.Keys) (map[channel.Key]Facts, error)
+}
+
+// Facts are the facts of a channel record that a writer needs.
+type Facts struct {
+	// Index is the key of the channel's index, or zero for a channel with none.
+	Index channel.Key
+	// Concurrency is the concurrency of the channel's writers.
+	Concurrency control.Concurrency
+	// Virtual is true for a virtual channel.
+	Virtual bool
+}
+
+// FactsOf returns the facts of ch.
+func FactsOf(ch channel.Channel) Facts {
+	return Facts{Index: ch.Index(), Concurrency: ch.Concurrency, Virtual: ch.Virtual}
 }
 
 // Service is the central service for the writer package, allowing the caller to open
@@ -394,11 +406,14 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if err != nil {
 		return nil, err
 	}
+	var virtual set.Set[channel.Key]
+	if len(virtualChannels) > 0 {
+		virtual = make(set.Set[channel.Key], len(virtualChannels))
+		for _, ch := range virtualChannels {
+			virtual.Add(channel.Key(ch.Key))
+		}
+	}
 	var (
-		virtual = set.New(lo.Map(
-			virtualChannels,
-			func(ch cesium.Channel, _ int) channel.Key { return channel.Key(ch.Key) },
-		)...)
 		storedCfg, leased, freeKeys     = cfg.split(virtual)
 		hasStorage                      = len(storedCfg.Keys) > 0
 		hasFree                         = len(freeKeys) > 0 || len(leased.Keys) > 0
@@ -420,33 +435,29 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			return nil, err
 		}
 	}
-	if leasedAlignment, err = s.freeWriteAlignments.reserve(
-		leased.Keys,
-		nil,
-	); err != nil {
-		return nil, err
-	}
-	if freeAlignments == nil {
-		freeAlignments = leasedAlignment
-	} else {
-		maps.Copy(freeAlignments, leasedAlignment)
-	}
 	// A writer on a leased virtual channel holds it against a delete, as a writer on a
 	// stored channel does. Free channels have no delete claim and no control.
 	var (
 		releaseLeased func()
-		leasedGates   = &gates{controls: s.controls}
+		leasedGates   *gates
 		transfers     []transfer
 	)
 	if len(leased.Keys) > 0 {
-		if releaseLeased, err = s.claims.hold(leased.Keys); err != nil {
+		if leasedAlignment, err = s.freeWriteAlignments.reserve(
+			leased.Keys,
+			nil,
+		); err != nil {
 			return nil, err
 		}
-		if leasedGates, transfers, err = s.controls.openGates(
+		if freeAlignments == nil {
+			freeAlignments = leasedAlignment
+		} else {
+			maps.Copy(freeAlignments, leasedAlignment)
+		}
+		if releaseLeased, leasedGates, transfers, err = s.holdLeased(
 			leased,
 			virtualChannels,
 		); err != nil {
-			releaseLeased()
 			return nil, err
 		}
 	}
@@ -462,8 +473,8 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		routeSequencerTo = storageWriterAddr
 		w, err := s.newStorage(ctx, storedCfg, stored)
 		if err != nil {
-			leasedGates.release()
 			if releaseLeased != nil {
+				leasedGates.release()
 				releaseLeased()
 			}
 			return nil, err
@@ -475,10 +486,14 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	if hasFree {
 		routeSequencerTo = freeWriterAddr
+		keys := freeKeys
+		if len(leased.Keys) > 0 {
+			keys = append(slices.Clone(freeKeys), leased.Keys...)
+		}
 		w := s.newFree(
 			cfg.Mode,
 			*cfg.Sync,
-			append(slices.Clone(freeKeys), leased.Keys...),
+			keys,
 			freeIndexes,
 			freeAlignments,
 			cfg.ControlSubject.Group,
@@ -489,15 +504,28 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
 
+	var sw func(context.Context, Request, map[address.Address]Request) error
 	if hasStorage && hasFree {
 		routeSequencerTo = switchAddr
+		sw = newSwitch(set.New(storedCfg.Keys...))
 	}
-	return newSegment(
-		pipe,
-		receiverAddresses,
-		routeSequencerTo,
-		newSwitch(set.New(storedCfg.Keys...)),
-	), nil
+	return newSegment(pipe, receiverAddresses, routeSequencerTo, sw), nil
+}
+
+// holdLeased holds the leased virtual channels of leased against a delete and opens
+// their gates. It returns the function that releases the hold.
+func (s *Service) holdLeased(
+	leased Config,
+	virtualChannels []cesium.Channel,
+) (release func(), g *gates, transfers []transfer, err error) {
+	if release, err = s.claims.hold(leased.Keys); err != nil {
+		return nil, nil, nil, err
+	}
+	if g, transfers, err = s.controls.openGates(leased, virtualChannels); err != nil {
+		release()
+		return nil, nil, nil, err
+	}
+	return release, g, transfers, nil
 }
 
 // resolve returns the Cesium channels of the keys that Cesium stores, the channels of
@@ -509,7 +537,7 @@ func (s *Service) resolve(
 	keys channel.Keys,
 ) (
 	stored, virtual []cesium.Channel,
-	records map[channel.Key]channel.Channel,
+	records map[channel.Key]Facts,
 	err error,
 ) {
 	stored, err = s.cfg.TS.FindChannels(
@@ -556,7 +584,7 @@ func (s *Service) resolve(
 // it.
 func virtualOf(
 	unresolved channel.Keys,
-	records map[channel.Key]channel.Channel,
+	records map[channel.Key]Facts,
 ) ([]cesium.Channel, error) {
 	var virtual []cesium.Channel
 	for _, k := range unresolved {
@@ -573,8 +601,6 @@ func virtualOf(
 		}
 		virtual = append(virtual, cesium.Channel{
 			Key:         uint32(k),
-			Name:        r.Name,
-			DataType:    r.DataType,
 			Virtual:     true,
 			Concurrency: cesium.Concurrency(r.Concurrency),
 		})
@@ -585,12 +611,12 @@ func virtualOf(
 // freeIndexesOf returns the index of each free channel in keys whose record has one.
 func freeIndexesOf(
 	keys channel.Keys,
-	records map[channel.Key]channel.Channel,
+	records map[channel.Key]Facts,
 ) map[channel.Key]channel.Key {
 	indexes := make(map[channel.Key]channel.Key)
 	for _, k := range keys {
-		if r, ok := records[k]; ok && r.Index() != 0 {
-			indexes[k] = r.Index()
+		if r, ok := records[k]; ok && r.Index != 0 {
+			indexes[k] = r.Index
 		}
 	}
 	return indexes

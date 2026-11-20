@@ -354,7 +354,7 @@ type channelResolver struct{ svc *Service }
 func (r channelResolver) Resolve(
 	ctx context.Context,
 	keys Keys,
-) (map[Key]channel.Channel, error) {
+) (map[Key]writer.Facts, error) {
 	var channels []Channel
 	if err := r.svc.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return r.svc.NewRetrieve().
@@ -364,11 +364,11 @@ func (r channelResolver) Resolve(
 	}); err != nil {
 		return nil, err
 	}
-	records := make(map[Key]channel.Channel, len(channels))
+	facts := make(map[Key]writer.Facts, len(channels))
 	for _, ch := range channels {
-		records[ch.Key()] = ch.Distribution()
+		facts[ch.Key()] = writer.FactsOf(ch.Distribution())
 	}
-	return records, nil
+	return facts, nil
 }
 
 // ChannelResolver returns the resolver the distribution framer writer uses for the

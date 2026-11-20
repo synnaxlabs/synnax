@@ -111,7 +111,8 @@ type freeWriter struct {
 	// including Write commands.
 	sync bool
 	// gates gate the writes of the writer on its control of each leased virtual
-	// channel. Free channels have no control.
+	// channel. Free channels have no control, so gates is nil when the writer holds no
+	// leased virtual channel.
 	gates    *gates
 	controls *controls
 	// release releases the writer's hold on its leased virtual channels. It is nil for
@@ -124,22 +125,53 @@ type freeWriter struct {
 	writeRefused bool
 }
 
-// Flow implements confluence.Flow. The writer releases its gates and its hold when it
-// exits.
+// Flow implements confluence.Flow. A writer that holds leased virtual channels releases
+// its gates and its hold when it exits.
 func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	if w.release == nil {
 		w.LinearTransform.Flow(ctx, opts...)
 		return
 	}
-	w.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(w.Out)
+	ctx.Go(func(ctx context.Context) error {
+		err := w.run(ctx)
 		w.controls.notify(w.gates.release())
 		w.release()
-	}))...)
+		return err
+	}, o.Signal...)
+}
+
+// run serves requests until the inlet closes or ctx ends.
+func (w *freeWriter) run(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case req, ok := <-w.In.Outlet():
+			if !ok {
+				return nil
+			}
+			res, send, err := w.transform(ctx, req)
+			if err != nil {
+				return err
+			}
+			if !send {
+				continue
+			}
+			if err = signal.SendUnderContext(ctx, w.Out.Inlet(), res); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // exclude returns fr without the leased virtual channels that the writer does not
 // control, and true when it left one out.
 func (w *freeWriter) exclude(fr frame.Frame) (frame.Frame, bool) {
+	if w.gates == nil {
+		return fr, false
+	}
 	refused := w.gates.refused()
 	if len(refused) == 0 {
 		return fr, false
@@ -213,6 +245,10 @@ func (w *freeWriter) transform(
 		res.Authorized = !w.writeRefused
 		w.writeRefused = false
 	case CommandSetAuthority:
+		if w.gates == nil {
+			res.Authorized = true
+			break
+		}
 		var transfers []transfer
 		transfers, res.Err = w.gates.setAuthority(req.Config)
 		res.Authorized = res.Err == nil

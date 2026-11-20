@@ -65,9 +65,12 @@ func (db *DB) FindChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, 
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	chs := make([]Channel, 0, len(keys))
+	var chs []Channel
 	for _, key := range keys {
 		if u, ok := db.mu.dbs.unary[key]; ok {
+			if chs == nil {
+				chs = make([]Channel, 0, len(keys))
+			}
 			chs = append(chs, u.Channel())
 		}
 	}
