@@ -100,7 +100,13 @@ export const Status = ({
               {message}
             </Text.Text>
             {!expanded && hasDescription && (
-              <Text.Text level="small" color={9} overflow="wrap" lineClamp={2}>
+              <Text.Text
+                level="small"
+                color={9}
+                overflow="wrap"
+                lineClamp={2}
+                className={CSS.BE("task-status", "summary")}
+              >
                 {stat.description}
               </Text.Text>
             )}

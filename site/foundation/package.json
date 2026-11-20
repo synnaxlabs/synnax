@@ -24,7 +24,6 @@
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/site-common": "catalog:",
     "astro": "catalog:",
-    "astro-seo": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
