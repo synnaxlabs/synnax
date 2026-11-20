@@ -129,6 +129,11 @@ const Content = ({
   // one.
   const navigations = useRef(0);
   const [resolving, setResolving] = useState(false);
+  const headRef = useRef<HTMLDivElement>(null);
+  // The headings follow the entries when a narrow dialog scrolls them sideways.
+  const alignHead = (left: number): void => {
+    if (headRef.current != null) headRef.current.scrollLeft = left;
+  };
 
   const path = history.stack[history.index];
   const places = placesOf(snapshot.listings.get(""));
@@ -339,6 +344,7 @@ const Content = ({
         onPoint={prefetch}
         onUp={up}
         onEditPath={setEditing}
+        onScrollX={alignHead}
       />
     );
 
@@ -441,7 +447,7 @@ const Content = ({
                   />
                 )}
               </Flex.Box>
-              <Head sort={sort} onSort={setSort} />
+              <Head ref={headRef} sort={sort} onSort={setSort} />
               <div
                 className={CSS.cls(
                   CSS.BE("file-browser", "list"),

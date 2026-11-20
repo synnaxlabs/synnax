@@ -166,6 +166,7 @@
 .console-file-browser__head {
     display: flex;
     flex-shrink: 0;
+    overflow: hidden;
     padding: 1rem 3rem;
     font-family: var(--pluto-font-family);
     font-size: var(--pluto-small-size);

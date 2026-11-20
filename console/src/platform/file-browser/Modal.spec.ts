@@ -862,6 +862,27 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("etc")).toBeDefined();
     });
 
+    it.each([
+      ["Expired", TimeSpan.days(-30), TimeSpan.days(-1)],
+      ["Not yet valid", TimeSpan.days(1), TimeSpan.days(365)],
+    ])("should mark a certificate as %s", async (label, notBefore, notAfter) => {
+      const now = TimeStamp.now();
+      const certificate = {
+        ...DETAILS,
+        notBefore: now.add(notBefore),
+        notAfter: now.add(notAfter),
+      };
+      await openBrowser([
+        TOP,
+        createListing({
+          path: "/",
+          entries: [{ name: "a.crt", path: "/a.crt", kind: "file", certificate }],
+        }),
+      ]);
+      await openFolder("/");
+      expect(await within(await findEntry("a.crt")).findByText(label)).toBeDefined();
+    });
+
     it("should name a certificate by a subject with an escaped comma", async () => {
       await openBrowser([TOP, FILES]);
       await openFolder("/");
