@@ -13,7 +13,6 @@ import {
   createTestClientWithRole,
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -330,7 +329,7 @@ describe("ICD editor", () => {
     fireEvent.change(input, { target: { value: "3000000h" } });
     expect(
       await screen.findByText(
-        `Cycle time must be ${Input.formatTimeSpan(TimeSpan.MAX)} or less`,
+        "Cycle time must be 106751d 23h 47min 16s 854ms 775μs 807ns or less",
       ),
     ).toBeTruthy();
     fireEvent.blur(input);
