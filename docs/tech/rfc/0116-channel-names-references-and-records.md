@@ -237,9 +237,12 @@ Binding struct {
   can carry a dead link. It checks that the key was issued, through one optional
   predicate of the target table: the channel table answers from its key counter. A dead
   key passes; a key above the counter fails, so no new channel takes a key that a link
-  holds. `DropDangling` clears a weak link whose key was never issued and keeps a dead
-  one, so an import of raw keys from another Core, as the line plot import already does,
-  drops the keys that mean nothing here instead of failing.
+  holds. A key on the lease of another node counts as issued: the Core issues keys only
+  on its own lease and the free lease, so no new channel can take it, and the links of a
+  cluster from before `core/v0.61.0`, which removed `--peers`, stay. `DropDangling`
+  clears a weak link whose key was never issued and keeps a dead one, so an import of
+  raw keys from another Core, as the line plot import already does, drops the keys that
+  mean nothing here instead of failing.
 - **Direction**: `@ref direction read | write` (NEW) says how the holder uses a channel.
   It sits on the key field or on a field above it. Gorp does not learn it. A reference
   carries one opaque `Tag uint8` (NEW) that Gorp stores and never reads, and Oracle
