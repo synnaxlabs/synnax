@@ -392,13 +392,9 @@ func commitFrame(
 	if err != nil {
 		return err
 	}
-	clock := first.Index
-	if first.IsIndex {
-		clock = first.Key
-	}
 	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 		Channels: keys,
-		Clock:    clock,
+		Clock:    first.Clock(),
 		Start:    start,
 	})
 	if err != nil {
