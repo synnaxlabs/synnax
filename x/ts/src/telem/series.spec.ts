@@ -2573,6 +2573,15 @@ describe("MultiSeries", () => {
       expect(multi.at(10)).toBeUndefined();
     });
 
+    it("should return undefined for a negative index past the start", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(multi.at(-7)).toBeUndefined();
+      expect(multi.at(-12)).toBeUndefined();
+      expect(() => multi.at(-7, true)).toThrow();
+    });
+
     it("should throw an error if the index is not found and required is true", () => {
       const a = new Series(new Float32Array([1, 2, 3]));
       const b = new Series(new Float32Array([4, 5, 6]));

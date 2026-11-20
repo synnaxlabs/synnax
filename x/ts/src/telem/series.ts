@@ -1619,10 +1619,11 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   at(index: number, required?: false): T | undefined;
   at(index: number, required: boolean = false): T | undefined {
     if (index < 0) index = this.length + index;
-    for (const ser of this.series) {
-      if (index < ser.length) return ser.at(index, required as true);
-      index -= ser.length;
-    }
+    if (index >= 0)
+      for (const ser of this.series) {
+        if (index < ser.length) return ser.at(index, required as true);
+        index -= ser.length;
+      }
     if (required) throw new Error(`[series] - no value at index ${index}`);
     return undefined;
   }
