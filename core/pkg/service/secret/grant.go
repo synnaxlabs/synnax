@@ -10,7 +10,9 @@
 package secret
 
 import (
+	"bytes"
 	"context"
+	"io/fs"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -44,26 +46,27 @@ func (s *Service) Grant(
 }
 
 // Resolve spends the grant with the given key and returns its command, with the plain
-// text value of each secret that the grant names, for rack to run the command on the
+// text value of each secret that the grant names, for reader to run the command on the
 // task with taskKey. The Core's integrations call it in process for the Core's rack.
 // Resolve returns access.ErrDenied when the grant has ended, is for another subject,
 // or is for another task. A grant for another task is spent. It returns
-// query.ErrNotFound when a secret no longer exists, and a validation error for a file
-// secret, whose value only the file holds. Resolve opens its own snapshot and
-// transaction, so the caller must not hold either.
+// query.ErrNotFound when a secret no longer exists. It reads a file secret only for
+// the Core's rack, as Reveal does, and returns a validation error for one that another
+// rack reads itself. Resolve opens its own snapshot and transaction, so the caller must
+// not hold either.
 func (s *Service) Resolve(
 	ctx context.Context,
-	rack resource.ID,
+	reader resource.ID,
 	taskKey task.Key,
 	grantKey grant.Key,
 ) (task.Command, map[Key][]byte, error) {
-	g, err := s.cfg.Grant.Redeem(ctx, grantKey, rack, taskKey)
+	g, err := s.cfg.Grant.Redeem(ctx, grantKey, reader, taskKey)
 	if err != nil {
 		return task.Command{}, nil, err
 	}
 	var values map[Key][]byte
 	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		values, err = s.Reveal(ctx, snap, g.Secrets...)
+		values, err = s.reveal(ctx, snap, reader == s.cfg.Rack.ResourceID(), g.Secrets)
 		return err
 	}); err != nil {
 		return task.Command{}, nil, err
@@ -71,14 +74,27 @@ func (s *Service) Resolve(
 	return g.Command, values, nil
 }
 
-// Reveal returns the plain text value of each stored secret with the given keys, with
-// no access check. It is for Core code that connects with a secret itself, which must
-// never send the values to a client. Reveal returns query.ErrNotFound when a secret
-// does not exist, and a validation error for a file secret.
+// Reveal returns the plain text value of each secret with the given keys, with no
+// access check. It is for Core code that connects with a secret itself, which must
+// never send the values to a client. Reveal reads a file secret of the Core's rack
+// from the Core's secrets folder. It returns query.ErrNotFound when a secret does not
+// exist, and a validation error for a file secret of another rack, or when the Core
+// has no secrets folder.
 func (s *Service) Reveal(ctx context.Context, snap gorp.Snapshot, keys ...Key) (
 	map[Key][]byte,
 	error,
 ) {
+	return s.reveal(ctx, snap, true, keys)
+}
+
+// reveal returns the values of the secrets with keys. It reads file secrets only when
+// files is true.
+func (s *Service) reveal(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	files bool,
+	keys []Key,
+) (map[Key][]byte, error) {
 	var secrets []Secret
 	if err := s.NewRetrieve().
 		Where(MatchKeys(keys...)).
@@ -86,26 +102,50 @@ func (s *Service) Reveal(ctx context.Context, snap gorp.Snapshot, keys ...Key) (
 		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
-	return s.open(secrets)
-}
-
-func (s *Service) open(secrets []Secret) (map[Key][]byte, error) {
 	values := make(map[Key][]byte, len(secrets))
 	for _, sec := range secrets {
-		base := sec.Base()
-		stored, ok := sec.Variant.(StoredSecret)
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"secret %q is a file, so only the file holds its value",
-				base.Name,
-			)
+		value, err := s.open(sec, files)
+		if err != nil {
+			return nil, err
 		}
-		value, err := s.aead.Open(nil, nil, stored.Value, base.Key[:])
+		values[sec.Base().Key] = value
+	}
+	return values, nil
+}
+
+// open returns the value of sec. The value of a file secret is the file without the
+// "\r" and "\n" characters at its end, so a file that ends with a line ending works.
+func (s *Service) open(sec Secret, files bool) ([]byte, error) {
+	base := sec.Base()
+	switch variant := sec.Variant.(type) {
+	case StoredSecret:
+		value, err := s.aead.Open(nil, nil, variant.Value, base.Key[:])
 		if err != nil {
 			return nil, errors.Wrapf(err, "decrypt secret %q", base.Name)
 		}
-		values[base.Key] = value
+		return value, nil
+	case FileSecret:
+		if !files || variant.Rack != s.cfg.Rack {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"secret %q is a file, so rack %d reads it from its own secrets folder",
+				base.Name,
+				variant.Rack,
+			)
+		}
+		if s.cfg.Folder == nil {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"secret %q is a file, but the Core has no secrets folder",
+				base.Name,
+			)
+		}
+		value, err := fs.ReadFile(s.cfg.Folder, variant.FileName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "read secret %q", base.Name)
+		}
+		return bytes.TrimRight(value, "\r\n"), nil
+	default:
+		return nil, errors.Newf("secret %q has no source", base.Name)
 	}
-	return values, nil
 }

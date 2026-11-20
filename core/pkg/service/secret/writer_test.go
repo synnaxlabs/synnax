@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,6 +33,7 @@ var _ = Describe("Writer", func() {
 		return secret.Secret{Variant: secret.FileSecret{
 			Base:     secret.Base{Name: "A"},
 			FileName: fileName,
+			Rack:     coreRack,
 		}}
 	}
 
@@ -59,18 +62,60 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			Expect(e.retrieve(ctx, key).Base().Name).To(Equal("Password"))
 		})
-		It("Should save the file name of a file secret", func(ctx SpecContext) {
+		It(
+			"Should save the file name and rack of a file secret",
+			func(ctx SpecContext) {
+				s := e.createFile(ctx, "Client key", "key.pem", otherRack)
+				file, ok := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
+				Expect(ok).To(BeTrue())
+				Expect(file.FileName).To(Equal("key.pem"))
+				Expect(file.Rack).To(Equal(otherRack))
+			},
+		)
+		It("Should refuse a file secret on a rack that does not exist", func(
+			ctx SpecContext,
+		) {
 			s := secret.Secret{Variant: secret.FileSecret{
 				Base:     secret.Base{Name: "Client key"},
 				FileName: "key.pem",
+				Rack:     9,
 			}}
 			Expect(e.write(ctx, func(w secret.Writer) error {
 				return w.Set(ctx, &s, nil)
+			})).To(MatchError(ContainSubstring("rack: rack 9 does not exist")))
+		})
+		It("Should move a file secret that nothing uses to another rack", func(
+			ctx SpecContext,
+		) {
+			s := e.createFile(ctx, "Client key", "key.pem", coreRack)
+			moved := e.fileOn(s, otherRack)
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Set(ctx, &moved, nil)
 			})).To(Succeed())
 			file, ok := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
 			Expect(ok).To(BeTrue())
-			Expect(file.FileName).To(Equal("key.pem"))
+			Expect(file.Rack).To(Equal(otherRack))
 		})
+		It("Should refuse to move a file secret that a record uses to another rack",
+			func(ctx SpecContext) {
+				s := e.createFile(ctx, "Client key", "key.pem", coreRack)
+				e.openDevices(ctx)
+				Expect(gorp.NewCreate[string, device]().
+					Entry(&device{Key: "d1", Password: s.Base().Key}).
+					Exec(ctx, e.db)).To(Succeed())
+				moved := e.fileOn(s, otherRack)
+				Expect(e.write(ctx, func(w secret.Writer) error {
+					return w.Set(ctx, &moved, nil)
+				})).To(MatchError(
+					"cannot change the rack of secret " + s.Base().Key.String() +
+						" because device d1 references it through password: " +
+						"validation error",
+				))
+				file, ok := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
+				Expect(ok).To(BeTrue())
+				Expect(file.Rack).To(Equal(coreRack))
+			},
+		)
 		It(
 			"Should replace the value of the secret with the same key",
 			func(ctx SpecContext) {
@@ -137,9 +182,18 @@ var _ = Describe("Writer", func() {
 			),
 			Entry(
 				"a file secret with no file name",
-				secret.Secret{Variant: secret.FileSecret{Base: secret.Base{Name: "A"}}},
+				fileSecret(""),
 				"",
 				"file_name: required",
+			),
+			Entry(
+				"a file secret with no rack",
+				secret.Secret{Variant: secret.FileSecret{
+					Base:     secret.Base{Name: "A"},
+					FileName: "a",
+				}},
+				"",
+				"rack: must be non-zero",
 			),
 			Entry(
 				"a file secret with an absolute path",
@@ -240,6 +294,19 @@ var _ = Describe("Writer", func() {
 			Expect(e.write(ctx, func(w secret.Writer) error {
 				return w.Delete(ctx, uuid.New())
 			})).To(Succeed())
+		})
+		It("Should delete the file secrets of a rack that is deleted", func(
+			ctx SpecContext,
+		) {
+			kept := e.createFile(ctx, "Core key", "core.key", coreRack)
+			gone := e.createFile(ctx, "Other key", "other.key", otherRack)
+			Expect(e.racks.NewDelete().
+				Where(gorp.MatchKeys[rack.Key, rack.Rack](otherRack)).
+				Exec(ctx, e.db)).To(Succeed())
+			Expect(e.svc.NewRetrieve().
+				Where(secret.MatchKeys(gone.Base().Key)).
+				Exec(ctx, e.db)).To(MatchError(query.ErrNotFound))
+			Expect(e.retrieve(ctx, kept.Base().Key).Base().Name).To(Equal("Core key"))
 		})
 	})
 })

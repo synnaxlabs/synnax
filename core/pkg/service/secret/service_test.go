@@ -11,18 +11,29 @@ package secret_test
 
 import (
 	"context"
+	"io/fs"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+)
+
+// coreRack is the Core's rack in each env, and otherRack is a rack that reads its own
+// file secrets.
+const (
+	coreRack  rack.Key = 1
+	otherRack rack.Key = 2
 )
 
 // env is a secret service on its own in-memory DB, with a clock that each spec
@@ -31,7 +42,10 @@ type env struct {
 	db     *gorp.DB
 	grants *grant.Service
 	svc    *secret.Service
+	racks  *gorp.Table[rack.Key, rack.Rack]
 	now    telem.TimeStamp
+	// folder is the secrets folder of the Core's rack. Nil for no folder.
+	folder fs.FS
 }
 
 func openService(
@@ -45,17 +59,28 @@ func openService(
 		Grant:         e.grants,
 		Now:           func() telem.TimeStamp { return e.now },
 		EncryptionKey: key,
+		Rack:          coreRack,
+		Folder:        e.folder,
 	})
 }
 
 // newStore returns an env with the services that a secret service needs, and no secret
-// service.
+// service. It holds coreRack and otherRack.
 func newStore(ctx SpecContext) *env {
 	GinkgoHelper()
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(e.db.Run)
 	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
+	e.racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+		DB:   e.db,
+		Name: "rack",
+	}))
+	for _, k := range []rack.Key{coreRack, otherRack} {
+		Expect(e.racks.NewCreate().
+			Entry(&rack.Rack{Key: k, Name: "Rack"}).
+			Exec(ctx, e.db)).To(Succeed())
+	}
 	return e
 }
 
@@ -81,6 +106,24 @@ func (d *device) DecodeOrc(r *orc.Reader) (err error) {
 	return err
 }
 
+// openDevices opens a table of devices that use their password secret.
+func (e *env) openDevices(ctx SpecContext) {
+	GinkgoHelper()
+	MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, device]{
+		DB:   e.db,
+		Name: "device",
+		References: []gorp.Reference[string, device]{
+			gorp.NewKeyReference(gorp.KeyReferenceConfig[string, device, secret.Key]{
+				Name:     "password",
+				Table:    "secret",
+				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
+				Targets:  func(d *device) []secret.Key { return []secret.Key{d.Password} },
+			}),
+		},
+	}))
+}
+
 func newEnv(ctx SpecContext) *env {
 	GinkgoHelper()
 	e := newStore(ctx)
@@ -95,6 +138,33 @@ func (e *env) createStored(ctx SpecContext, name, value string) secret.Secret {
 		return w.Set(ctx, &s, []byte(value))
 	})).To(Succeed())
 	return s
+}
+
+// createFile creates a secret that names the file fileName on the rack r.
+func (e *env) createFile(
+	ctx SpecContext,
+	name, fileName string,
+	r rack.Key,
+) secret.Secret {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.FileSecret{
+		Base:     secret.Base{Name: name},
+		FileName: fileName,
+		Rack:     r,
+	}}
+	Expect(e.write(ctx, func(w secret.Writer) error {
+		return w.Set(ctx, &s, nil)
+	})).To(Succeed())
+	return s
+}
+
+// fileOn returns the file secret s, moved to the rack r.
+func (e *env) fileOn(s secret.Secret, r rack.Key) secret.Secret {
+	GinkgoHelper()
+	file, ok := s.Variant.(secret.FileSecret)
+	Expect(ok).To(BeTrue())
+	file.Rack = r
+	return secret.Secret{Variant: file}
 }
 
 // write runs fn with a writer on a new transaction.
@@ -142,6 +212,28 @@ var _ = Describe("Service", func() {
 			Expect(openService(ctx, newStore(ctx), secret.EncryptionKey{})).Error().
 				To(MatchError(ContainSubstring("encryption_key: required")))
 		})
+		It("Should move each stored v0 file secret to the Core's rack",
+			func(ctx SpecContext) {
+				e := newStore(ctx)
+				old := MustSucceed(gorp.OpenTable(
+					ctx,
+					gorp.TableConfig[v0.Key, v0.Secret]{DB: e.db, Name: "secret"},
+				))
+				base := v0.Base{Key: uuid.New(), Name: "Key"}
+				Expect(gorp.NewCreate[v0.Key, v0.Secret]().
+					Entry(&v0.Secret{Variant: v0.FileSecret{Base: base, FileName: "k"}}).
+					Exec(ctx, e.db)).To(Succeed())
+				Expect(old.Close()).To(Succeed())
+				e.svc = MustOpen(openService(ctx, e, secret.NewEncryptionKey()))
+				Expect(e.retrieve(ctx, base.Key)).To(Equal(secret.Secret{
+					Variant: secret.FileSecret{
+						Base:     base,
+						FileName: "k",
+						Rack:     coreRack,
+					},
+				}))
+			},
+		)
 	})
 
 	Describe("NewRetrieve", func() {
@@ -172,6 +264,34 @@ var _ = Describe("Service", func() {
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Routing key"))
 		})
+		It("Should match secrets by source and by the rack of a file", func(
+			ctx SpecContext,
+		) {
+			e := newEnv(ctx)
+			stored := e.createStored(ctx, "Password", "a")
+			core := e.createFile(ctx, "Core key", "core.key", coreRack)
+			other := e.createFile(ctx, "Other key", "other.key", otherRack)
+			keys := func(w secret.Where) []secret.Key {
+				GinkgoHelper()
+				var found []secret.Secret
+				Expect(e.svc.NewRetrieve().
+					Where(MustSucceed(secret.MatchWhere(w))).
+					Entries(&found).
+					Exec(ctx, e.db)).To(Succeed())
+				keys := make([]secret.Key, len(found))
+				for i, s := range found {
+					keys[i] = s.Base().Key
+				}
+				return keys
+			}
+			src := secret.SourceStored
+			Expect(keys(secret.Where{Source: &filter.Set[secret.Source]{Eq: &src}})).
+				To(Equal([]secret.Key{stored.Base().Key}))
+			Expect(keys(secret.Where{Racks: []rack.Key{otherRack}})).
+				To(Equal([]secret.Key{other.Base().Key}))
+			Expect(keys(secret.Where{Racks: []rack.Key{coreRack, otherRack}})).
+				To(ConsistOf(core.Base().Key, other.Base().Key))
+		})
 	})
 
 	Describe("Uses", func() {
@@ -186,23 +306,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				e := newEnv(ctx)
 				s := e.createStored(ctx, "Password", "hunter2")
-				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, device]{
-					DB:   e.db,
-					Name: "device",
-					References: []gorp.Reference[string, device]{
-						gorp.NewKeyReference(
-							gorp.KeyReferenceConfig[string, device, secret.Key]{
-								Name:     "password",
-								Table:    "secret",
-								OnDelete: gorp.Restrict,
-								Kind:     gorp.Use,
-								Targets: func(d *device) []secret.Key {
-									return []secret.Key{d.Password}
-								},
-							},
-						),
-					},
-				}))
+				e.openDevices(ctx)
 				Expect(gorp.NewCreate[string, device]().
 					Entry(&device{Key: "d1", Password: s.Base().Key}).
 					Exec(ctx, e.db)).To(Succeed())

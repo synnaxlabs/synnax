@@ -176,6 +176,25 @@ portal. When `--license-key` is also set, the key wins. See
 
 </Field.Item>
 
+<Field.Item name="--secrets-key" type="string" env="SYNNAX_SECRETS_KEY">
+
+The base64 key that encrypts stored secrets. Prefer the environment variable.
+
+</Field.Item>
+
+<Field.Item name="--secrets-key-file" type="path" env="SYNNAX_SECRETS_KEY_FILE">
+
+A file that holds the base64 key that encrypts stored secrets. Defaults to `secrets.key`
+in the data directory.
+
+</Field.Item>
+
+<Field.Item name="--secrets-dir" type="path" env="SYNNAX_SECRETS_DIR">
+
+The folder that holds the file secrets of the Core's rack.
+
+</Field.Item>
+
 <Field.Item name="--debug" env="SYNNAX_DEBUG">
 
 Serves a metrics page and profiling routes to every network with no login, and turns on

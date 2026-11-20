@@ -33,6 +33,7 @@ import {
   secretZ,
   storedSecretZ,
 } from "@/secret/types.gen";
+import { LINES } from "@/secret/where";
 import {
   compareCursors,
   cursor,
@@ -162,8 +163,8 @@ export class Client extends query.Retriever<
         fetch: async (req) => await uses.fetch(req),
         // A secret whose uses the client does not hold fetches the query again.
         matches: (secret, req) =>
-          uses.lacks(secret, req) ? null : matches(secret, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+          uses.lacks(secret, req) ? null : matches(LINES, secret, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         triggers: [uses.trigger],
       },
       compose: (record, q) => uses.compose(record, q),

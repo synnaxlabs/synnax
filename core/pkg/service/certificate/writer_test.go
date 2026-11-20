@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
@@ -225,6 +226,20 @@ var _ = Describe("Writer", func() {
 			})).
 				To(MatchError(ContainSubstring("source: required")))
 		})
+		It("Should refuse a file certificate on a rack that does not exist", func(
+			ctx SpecContext,
+		) {
+			c := file("Plant", 9)
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Set(ctx, &c, nil)
+			})).To(MatchError(ContainSubstring("rack: rack 9 does not exist")))
+		})
+		It("Should refuse a file certificate with no rack", func(ctx SpecContext) {
+			c := file("Plant", 0)
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Set(ctx, &c, nil)
+			})).To(MatchError(ContainSubstring("rack: must be non-zero")))
+		})
 		DescribeTable("Should reject an invalid file certificate",
 			func(
 				ctx SpecContext,
@@ -236,6 +251,7 @@ var _ = Describe("Writer", func() {
 				c := certificate.Certificate{Variant: certificate.FileCertificate{
 					Base:            certificate.Base{Name: "Plant"},
 					CertificatePath: path,
+					Rack:            coreRack,
 					PrivateKeyFile:  keyFile,
 				}}
 				Expect(e.write(ctx, func(w certificate.Writer) error {
@@ -342,7 +358,7 @@ var _ = Describe("Writer", func() {
 					))
 				},
 			)
-			It("Should delete the private key secret when a file replaces it",
+			It("Should refuse a replace of a stored certificate with a file",
 				func(ctx SpecContext) {
 					key := newKey()
 					c := e.create(
@@ -350,16 +366,81 @@ var _ = Describe("Writer", func() {
 						stored("Plant", newCertificate(key, "a", time.Hour)),
 						encodeKey(key),
 					)
-					secretKey := *storedOf(c).PrivateKey
-					e.create(ctx, certificate.Certificate{
-						Variant: certificate.FileCertificate{
-							Base:            c.Base(),
-							CertificatePath: "/c.pem",
+					next := file("Plant", coreRack)
+					next.SetBase(c.Base())
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &next, nil)
+					})).To(MatchError(ContainSubstring(
+						"source: cannot change from stored to file",
+					)))
+					Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
+				},
+			)
+			It("Should refuse a replace of a file certificate with a stored one",
+				func(ctx SpecContext) {
+					c := e.create(ctx, file("Plant", coreRack), nil)
+					next := stored("Plant", newCertificate(newKey(), "a", time.Hour))
+					next.SetBase(c.Base())
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &next, nil)
+					})).To(MatchError(ContainSubstring(
+						"source: cannot change from file to stored",
+					)))
+					Expect(e.retrieve(ctx, c.Base().Key)).To(Equal(c))
+				},
+			)
+			It("Should move a file certificate that nothing uses to another rack",
+				func(ctx SpecContext) {
+					c := e.create(ctx, file("Plant", coreRack), nil)
+					moved := file("Plant", otherRack)
+					moved.SetBase(c.Base())
+					e.create(ctx, moved, nil)
+					Expect(
+						fileOf(e.retrieve(ctx, c.Base().Key)).Rack,
+					).To(Equal(otherRack))
+				},
+			)
+			It(
+				"Should refuse to move a file certificate that a record uses to another rack",
+				func(ctx SpecContext) {
+					c := e.create(ctx, file("Plant", coreRack), nil)
+					listeners := MustOpen(gorp.OpenTable(
+						ctx,
+						gorp.TableConfig[string, listener]{
+							DB:   e.db,
+							Name: "listener",
+							References: []gorp.Reference[string, listener]{
+								gorp.NewKeyReference(gorp.KeyReferenceConfig[
+									string,
+									listener,
+									certificate.Key,
+								]{
+									Name:     "certificate",
+									Table:    "certificate",
+									OnDelete: gorp.Restrict,
+									Kind:     gorp.Use,
+									Targets: func(l *listener) []certificate.Key {
+										return []certificate.Key{l.Certificate}
+									},
+								}),
+							},
 						},
-					}, nil)
-					Expect(e.secrets.NewRetrieve().
-						Where(secret.MatchKeys(secretKey)).
-						Exec(ctx, e.db)).To(MatchError(query.ErrNotFound))
+					))
+					Expect(listeners.NewCreate().
+						Entry(&listener{Key: "l1", Certificate: c.Base().Key}).
+						Exec(ctx, e.db)).To(Succeed())
+					moved := file("Plant", otherRack)
+					moved.SetBase(c.Base())
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &moved, nil)
+					})).To(MatchError(
+						"cannot change the rack of certificate " + c.Base().Key.String() +
+							" because listener l1 references it through certificate: " +
+							"validation error",
+					))
+					Expect(
+						fileOf(e.retrieve(ctx, c.Base().Key)).Rack,
+					).To(Equal(coreRack))
 				},
 			)
 		})
@@ -437,6 +518,31 @@ var _ = Describe("Writer", func() {
 				Expect(found).To(BeEmpty())
 			},
 		)
+		It("Should delete the file certificates of a rack that is deleted", func(
+			ctx SpecContext,
+		) {
+			c := file("Plant", otherRack)
+			variant := fileOf(c)
+			variant.Details = &certificate.Details{
+				NotAfter: telem.NewTimeStamp(start.Add(time.Hour)),
+			}
+			c.Variant = variant
+			c = e.create(ctx, c, nil)
+			kept := e.create(ctx, file("Core", coreRack), nil)
+			Expect(e.racks.NewDelete().
+				Where(gorp.MatchKeys[rack.Key, rack.Rack](otherRack)).
+				Exec(ctx, e.db)).To(Succeed())
+			Expect(e.svc.NewRetrieve().
+				Where(certificate.MatchKeys(c.Base().Key)).
+				Exec(ctx, e.db)).To(MatchError(query.ErrNotFound))
+			var found []status.Status[any]
+			Expect(e.status.NewRetrieve[any]().
+				Where(status.MatchOwners[any](c.ResourceID())).
+				Entries(&found).
+				Exec(ctx, e.db)).To(Succeed())
+			Expect(found).To(BeEmpty())
+			Expect(e.retrieve(ctx, kept.Base().Key).Base().Name).To(Equal("Core"))
+		})
 		It("Should succeed for a missing certificate", func(ctx SpecContext) {
 			Expect(e.write(ctx, func(w certificate.Writer) error {
 				return w.Delete(ctx, uuid.New())
