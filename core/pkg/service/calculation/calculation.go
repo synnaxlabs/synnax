@@ -15,10 +15,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 )
 
-// fromChannelOperations returns the calculation form of the operations of a channel. A
+// FromChannelOperations returns the calculation form of the operations of a channel. A
 // none operation has no calculation form, and a reset channel of 0 is absent. It panics
 // on an operation whose type is not valid.
-func fromChannelOperations(ops []channel.Operation) []Operation {
+func FromChannelOperations(ops []channel.Operation) []Operation {
 	out := make([]Operation, 0, len(ops))
 	for _, op := range ops {
 		w := Window{Duration: op.Duration}

@@ -223,6 +223,27 @@ var _ = Describe("Service", func() {
 					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
 			},
 		)
+		It(
+			"Should refuse a dispatch that makes a calculation read an unreadable channel",
+			func(ctx SpecContext) {
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				grantOn(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(calc.Key),
+				)
+				Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+					Key: calc.Key,
+					Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: fmt.Sprintf("return %s * 2", secret.Name),
+					})},
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(expressionOf(ctx, calc.Key)).
+					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
+			},
+		)
 	})
 
 	Describe("Group", func() {

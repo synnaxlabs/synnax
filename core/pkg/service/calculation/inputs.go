@@ -49,11 +49,16 @@ func resets(ops []Operation) []channel.Key {
 	return keys
 }
 
-// pending is a calculation that Inputs has yet to analyze.
-type pending struct {
-	output     channel.Channel
-	expression string
-	operations []Operation
+// Unsaved is a calculation that a request asks for and that is not stored, with the
+// channel it writes.
+type Unsaved struct {
+	// Output is the channel that the calculation writes. It has no key when the request
+	// makes it.
+	Output channel.Channel
+	// Expression is the expression of the calculation.
+	Expression string
+	// Operations are the operations of the calculation.
+	Operations []Operation
 }
 
 // newAnalyzer returns an analyzer that resolves channels through snap.
@@ -64,50 +69,47 @@ func (s *Service) newAnalyzer(snap gorp.Snapshot) *channel.CalculationAnalyzer {
 	)
 }
 
-// Inputs returns the stored channels that the calculations among channels read,
-// directly or through other calculations, and the channels that reset their
-// operations. A channel among channels is a calculation when it has an expression,
-// which replaces its stored calculation, or when a calculation writes it. A channel
-// that is not stored yet is not an input. A calculation whose expression fails analysis
-// reads nothing. Inputs returns the error of a channel read that fails, and reads
-// through snap.
+// Inputs returns the stored channels that the calculations of outputs and the unsaved
+// calculations read, directly or through other calculations, and the channels that
+// reset their operations. An unsaved calculation replaces the stored calculation of its
+// output. A channel that is not stored yet is not an input. A calculation whose
+// expression fails analysis reads the channels that it resolved. Inputs returns the
+// error of a channel read that fails, and reads through snap.
 func (s *Service) Inputs(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	channels []channel.Channel,
+	outputs channel.Keys,
+	unsaved []Unsaved,
 ) (channel.Keys, error) {
-	stored, err := s.Outputs(ctx, snap, channel.KeysFromChannels(channels)...)
-	if err != nil {
-		return nil, err
-	}
 	var (
 		analyzer = s.newAnalyzer(snap)
 		visited  = set.New[channel.Key]()
-		level    []pending
 		inputs   channel.Keys
 	)
-	for _, ch := range channels {
-		if ch.Expression != "" {
-			level = append(level, pending{
-				output:     ch,
-				expression: ch.Expression,
-				operations: fromChannelOperations(ch.Operations),
-			})
-			visited.Add(ch.Key())
-		} else if c, ok := stored[ch.Key()]; ok {
-			level = append(level, pending{ch, c.Expression, c.Operations})
-			visited.Add(ch.Key())
+	for _, u := range unsaved {
+		visited.Add(u.Output.Key())
+	}
+	var stored channel.Keys
+	for _, k := range outputs {
+		if !visited.Contains(k) {
+			visited.Add(k)
+			stored = append(stored, k)
 		}
 	}
+	level, err := s.pendingOf(ctx, snap, stored)
+	if err != nil {
+		return nil, err
+	}
+	level = append(slices.Clone(unsaved), level...)
 	for len(level) > 0 {
 		var next channel.Keys
-		for _, p := range level {
-			reads, err := calculationReads(ctx, analyzer, p)
+		for _, u := range level {
+			reads, err := calculationReads(ctx, analyzer, u)
 			if err != nil {
 				return nil, err
 			}
 			for _, k := range reads {
-				// A channel among channels that is not stored yet has no local key.
+				// A channel of the request that is not stored yet has no local key.
 				if k.LocalKey() == 0 {
 					continue
 				}
@@ -125,12 +127,12 @@ func (s *Service) Inputs(
 	return inputs.Unique(), nil
 }
 
-// pendingOf returns the calculations that write the channels with keys.
+// pendingOf returns the stored calculations that write the channels with keys.
 func (s *Service) pendingOf(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	keys channel.Keys,
-) ([]pending, error) {
+) ([]Unsaved, error) {
 	calcs, err := s.Outputs(ctx, snap, keys...)
 	if err != nil || len(calcs) == 0 {
 		return nil, err
@@ -146,32 +148,34 @@ func (s *Service) pendingOf(
 		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
-	level := make([]pending, len(channels))
+	level := make([]Unsaved, len(channels))
 	for i, ch := range channels {
 		c := calcs[ch.Key()]
-		level[i] = pending{ch, c.Expression, c.Operations}
+		level[i] = Unsaved{
+			Output:     ch,
+			Expression: c.Expression,
+			Operations: c.Operations,
+		}
 	}
 	return level, nil
 }
 
-// calculationReads returns the channels that p reads, and the channels that reset its
-// operations. It returns none when the expression of p fails analysis.
+// calculationReads returns the channels that u reads, and the channels that reset its
+// operations. When its expression fails analysis, it returns the channels the analysis
+// resolved.
 func calculationReads(
 	ctx context.Context,
 	analyzer *channel.CalculationAnalyzer,
-	p pending,
+	u Unsaved,
 ) (channel.Keys, error) {
 	result, err := analyzer.AnalyzeExpression(
 		ctx,
-		p.output,
-		p.expression,
-		HasDerivative(p.operations),
+		u.Output,
+		u.Expression,
+		HasDerivative(u.Operations),
 	)
-	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
-		return nil, nil
-	}
-	if err != nil {
+	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); err != nil && !ok {
 		return nil, err
 	}
-	return append(result.Deps, resets(p.operations)...), nil
+	return append(result.Deps, resets(u.Operations)...), nil
 }

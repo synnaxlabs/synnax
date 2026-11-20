@@ -100,7 +100,7 @@ func (w Writer) CreateChannels(
 		}
 		c := Calculation{
 			Expression: ch.Expression,
-			Operations: fromChannelOperations(ch.Operations),
+			Operations: FromChannelOperations(ch.Operations),
 		}
 		created, err := w.CreateOutput(ctx, &c, ch.Name, ch.Group)
 		if err != nil {
@@ -215,7 +215,7 @@ func (w Writer) applyLegacy(
 		NewSetAction(SetPayload{Path: []string{"expression"}, Value: doc.Expression}),
 		NewSetAction(SetPayload{
 			Path:  []string{"operations"},
-			Value: fromChannelOperations(doc.Operations),
+			Value: FromChannelOperations(doc.Operations),
 		}),
 	); err != nil {
 		return nil, err

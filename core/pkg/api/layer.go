@@ -1084,6 +1084,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Calculation, err = calculation.NewService(calculation.ServiceConfig{
 		Calculation: cfg.Service.Calculation,
 		Status:      cfg.Service.Status,
+		RBAC:        cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

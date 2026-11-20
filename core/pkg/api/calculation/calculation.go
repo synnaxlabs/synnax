@@ -14,9 +14,14 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -34,6 +39,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// RBAC checks that the subject of a save can read the channels it reads.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -42,6 +51,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -50,6 +60,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.calculation")
 	v.NotNil("calculation", c.Calculation)
 	v.NotNil("status", c.Status)
+	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
@@ -57,6 +68,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	internal *calculation.Service
 	status   *status.Service
+	access   *rbac.Service
 }
 
 // NewService opens a Service with the given configuration.
@@ -65,7 +77,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Calculation, status: cfg.Status}, nil
+	return &Service{
+		internal: cfg.Calculation,
+		status:   cfg.Status,
+		access:   cfg.RBAC,
+	}, nil
 }
 
 // CreateRequest holds the calculations to create.
@@ -91,10 +107,15 @@ func (s *Service) Create(
 	req CreateRequest,
 ) (CreateResponse, error) {
 	w := s.internal.NewWriter(tx).WithDispatchKey(req.DispatchKey)
+	outputs := make(channel.Keys, len(req.Calculations))
 	for i := range req.Calculations {
 		if err := w.Create(ctx, &req.Calculations[i]); err != nil {
 			return CreateResponse{}, err
 		}
+		outputs[i] = req.Calculations[i].Output
+	}
+	if err := s.enforceInputs(ctx, tx, outputs...); err != nil {
+		return CreateResponse{}, err
 	}
 	return CreateResponse{Calculations: req.Calculations}, nil
 }
@@ -192,9 +213,37 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
+	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
+		Apply(ctx, req.Key, req.Actions...); err != nil {
+		return struct{}{}, err
+	}
+	var c calculation.Calculation
+	if err := s.internal.NewRetrieve().
+		Where(calculation.MatchKeys(req.Key)).
+		Entry(&c).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.enforceInputs(ctx, tx, c.Output)
+}
+
+// enforceInputs fails when the subject of ctx cannot read a channel that the
+// calculations of outputs read, as tx sees them.
+func (s *Service) enforceInputs(
+	ctx context.Context,
+	tx gorp.Tx,
+	outputs ...channel.Key,
+) error {
+	inputs, err := s.internal.Inputs(ctx, tx, outputs, nil)
+	if err != nil {
+		return err
+	}
+	return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.ResourceIDs(inputs),
+	})
 }
 
 // DeleteRequest selects the calculations to delete.

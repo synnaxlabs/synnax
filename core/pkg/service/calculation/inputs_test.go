@@ -44,6 +44,27 @@ func openChannels(
 	}}, cfgs...)...))
 }
 
+// split returns the keys of the channels of given that have no expression, and an
+// unsaved calculation for each one that has.
+func split(given []channel.Channel) (channel.Keys, []calculation.Unsaved) {
+	var (
+		outputs channel.Keys
+		unsaved []calculation.Unsaved
+	)
+	for _, ch := range given {
+		if ch.Expression == "" {
+			outputs = append(outputs, ch.Key())
+			continue
+		}
+		unsaved = append(unsaved, calculation.Unsaved{
+			Output:     ch,
+			Expression: ch.Expression,
+			Operations: calculation.FromChannelOperations(ch.Operations),
+		})
+	}
+	return outputs, unsaved
+}
+
 var _ = Describe("Service", func() {
 	var (
 		db       *gorp.DB
@@ -89,7 +110,8 @@ var _ = Describe("Service", func() {
 		}
 		inputs := func(ctx SpecContext, given ...channel.Channel) channel.Keys {
 			GinkgoHelper()
-			return MustSucceed(svc.Inputs(ctx, db, given))
+			outputs, unsaved := split(given)
+			return MustSucceed(svc.Inputs(ctx, db, outputs, unsaved))
 		}
 		It(
 			"Should return the channels a calculation reads through other calculations",
@@ -163,7 +185,8 @@ var _ = Describe("Service", func() {
 				Expression: "return " + base.Name + " * 2",
 			}
 			channels := []channel.Channel{calc}
-			Expect(svc.Inputs(ctx, tx, channels)).
+			outputs, unsaved := split(channels)
+			Expect(svc.Inputs(ctx, tx, outputs, unsaved)).
 				To(ConsistOf(base.Key()))
 			Expect(inputs(ctx, calc)).To(BeEmpty())
 		})
@@ -217,7 +240,8 @@ var _ = Describe("Service", func() {
 				ctx,
 				calculation.ServiceConfig{DB: node.DB, Channel: limitSvc},
 			))
-			Expect(limitCalcs.Inputs(ctx, node.DB, channels)).
+			outputs, unsaved := split(channels)
+			Expect(limitCalcs.Inputs(ctx, node.DB, outputs, unsaved)).
 				Error().To(MatchError(errLimit))
 		})
 		DescribeTable(

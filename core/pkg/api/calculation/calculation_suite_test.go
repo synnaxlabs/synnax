@@ -63,6 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc := MustSucceed(apicalculation.NewService(apicalculation.ServiceConfig{
 		Calculation: svc.Calculation,
 		Status:      svc.Status,
+		RBAC:        svc.RBAC,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,

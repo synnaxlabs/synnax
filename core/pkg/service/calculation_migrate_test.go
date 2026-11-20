@@ -172,7 +172,11 @@ var _ = Describe("Calculated channels of a channel-only subject after upgrade", 
 			Calculation: l.Calculation,
 		}))
 		apiCalculations := MustSucceed(apicalculation.NewService(
-			apicalculation.ServiceConfig{Calculation: l.Calculation, Status: l.Status},
+			apicalculation.ServiceConfig{
+				Calculation: l.Calculation,
+				Status:      l.Status,
+				RBAC:        l.RBAC,
+			},
 		))
 		binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 			DB:   n.DB,

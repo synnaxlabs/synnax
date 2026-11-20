@@ -183,7 +183,22 @@ func (s *Service) Create(
 	req CreateRequest,
 ) (CreateResponse, error) {
 	translated := translateChannelsBackward(req.Channels)
-	inputs, err := s.calculations.Inputs(ctx, tx, translated)
+	var (
+		outputs channel.Keys
+		unsaved []calculation.Unsaved
+	)
+	for _, ch := range translated {
+		if ch.Expression != "" {
+			unsaved = append(unsaved, calculation.Unsaved{
+				Output:     ch,
+				Expression: ch.Expression,
+				Operations: calculation.FromChannelOperations(ch.Operations),
+			})
+		} else if ch.LocalKey != 0 {
+			outputs = append(outputs, ch.Key())
+		}
+	}
+	inputs, err := s.calculations.Inputs(ctx, tx, outputs, unsaved)
 	if err != nil {
 		return CreateResponse{}, err
 	}
@@ -502,6 +517,17 @@ func (s *Service) Dispatch(
 		WithDispatchKey(req.DispatchKey).
 		ApplyChannel(ctx, req.Key, req.Actions...)
 	if err != nil {
+		return DispatchResponse{}, err
+	}
+	inputs, err := s.calculations.Inputs(ctx, tx, channel.Keys{req.Key}, nil)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.ResourceIDs(inputs),
+	}); err != nil {
 		return DispatchResponse{}, err
 	}
 	return DispatchResponse{Actions: computed}, nil
