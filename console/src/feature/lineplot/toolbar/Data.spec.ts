@@ -291,23 +291,28 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("lists the ranges newest first", async () => {
-      // Later than the far-future ranges of other specs, so only planned ranges sort
-      // above these two.
-      const start = TimeStamp.now().add(TimeSpan.days(365 * 200));
-      const create = async (offset: TimeSpan): Promise<ranger.Range> =>
-        await client.ranges.create({
-          name: uniqueName("range"),
-          timeRange: start.add(offset).spanRange(TimeSpan.hours(1)),
-        });
-      const older = await create(TimeSpan.ZERO);
-      const newer = await create(TimeSpan.hours(1));
+      // The picker lists the ranges of other specs too, so the spec checks the order
+      // of every listed row. Its own two ranges make sure there are at least two.
+      await createTestRange(client);
+      await createTestRange(client);
       await renderData([]);
       openSearch();
-      await screen.findByText(older.name);
-      await screen.findByText(newer.name);
-      const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
-      const at = (name: string) => names.findIndex((n) => n.includes(name));
-      expect(at(newer.name)).toBeLessThan(at(older.name));
+      await waitFor(async () => {
+        const keys = screen.getAllByRole("option").map((o) => o.id);
+        // Another spec can delete a listed range, and the Core returns only the ranges
+        // that exist.
+        const ranges = await reader.ranges.retrieve({ where: { key: { in: keys } } });
+        const starts = keys.flatMap((k) => {
+          const range = ranges.find((r) => r.key === k);
+          return range == null ? [] : [range.timeRange.start];
+        });
+        expect(starts.length).toBeGreaterThanOrEqual(2);
+        starts
+          .slice(1)
+          .forEach((start, i) =>
+            expect(start.valueOf()).toBeLessThanOrEqual(starts[i].valueOf()),
+          );
+      });
     });
 
     it("lists the plotted ranges first", async () => {
