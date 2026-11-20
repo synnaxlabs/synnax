@@ -137,7 +137,9 @@ const Content = ({
   useEffect(relist, [session, path]);
 
   const listing = snapshot.listings.get(path);
-  if (listing != null && shownPath !== path) setShownPath(path);
+  // The home folder replaces the top level, so the top level never shows as stale.
+  if (listing != null && shownPath !== path && (path !== "" || home == null))
+    setShownPath(path);
   // A folder that is still loading shows the folder before it, dimmed.
   const shown =
     listing ?? (shownPath == null ? undefined : snapshot.listings.get(shownPath));
