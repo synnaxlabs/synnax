@@ -683,6 +683,19 @@ describe("line", () => {
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
       });
 
+      it("should return no value past either end of the line's data", () => {
+        const m = mount([X], [Y]);
+        expect(m.line.findByXValue(PROPS, -1).value.x).toBeNaN();
+        expect(m.line.findByXValue(PROPS, 30).value.x).toBeNaN();
+      });
+
+      it("should return a sample before the data within 12 pixels of the target", () => {
+        // PROPS draws one unit of x across 800 pixels.
+        const m = mount([X1], [Y1]);
+        expect(m.line.findByXValue(PROPS, -6 / 800).value).toEqual({ x: 0, y: 10 });
+        expect(m.line.findByXValue(PROPS, -13 / 800).value.x).toBeNaN();
+      });
+
       it("should return the exact value of a float64 sample", () => {
         const y = new Series({
           data: new Float64Array([0.1, 0.2, 0.3]),
@@ -765,12 +778,23 @@ describe("line", () => {
         expect(find(m, 3.6)).toEqual({ x: 4, y: 40 });
       });
 
-      it("should return the nearest sample across domains and past either end", () => {
+      it("should return the nearest sample across a gap between domains", () => {
         const m = mount([X1, X2], [Y1, Y2]);
         expect(find(m, 3)).toEqual({ x: 2, y: 30 });
         expect(find(m, 4)).toEqual({ x: 5, y: 40 });
-        expect(find(m, -1)).toEqual({ x: 0, y: 10 });
-        expect(find(m, 10)).toEqual({ x: 6, y: 50 });
+      });
+
+      it("should return no point past either end of the line's data", () => {
+        const m = mount([X1, X2], [Y1, Y2]);
+        expect(find(m, -1).x).toBeNaN();
+        expect(find(m, 10).x).toBeNaN();
+      });
+
+      it("should return a point past the data within 12 pixels of the target", () => {
+        // PROPS draws one unit of x across 800 pixels.
+        const m = mount([X1], [Y1]);
+        expect(find(m, 2 + 6 / 800)).toEqual({ x: 2, y: 30 });
+        expect(find(m, 2 + 13 / 800).x).toBeNaN();
       });
 
       it("should skip an x sample that is NaN", () => {
