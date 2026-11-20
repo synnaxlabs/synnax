@@ -31,14 +31,14 @@ import {
 } from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
-import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
+import { TEST_CREDENTIALS, testClientParams } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
   const transport = new Transport({
     url: new url.URL({
-      host: TEST_CLIENT_PARAMS.host,
-      port: Number(TEST_CLIENT_PARAMS.port),
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
     }),
   });
   const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
@@ -255,8 +255,8 @@ describe("connection", () => {
   describe("check", () => {
     it("should return a success status against a live cluster", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
+        host: testClientParams().host,
+        port: testClientParams().port,
         name: "test-cluster",
       });
       expect(status.variant).toEqual("success");
@@ -266,8 +266,8 @@ describe("connection", () => {
 
     it("should include the client version in the check", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
+        host: testClientParams().host,
+        port: testClientParams().port,
       });
       expect(status.details.clientVersion).toBeDefined();
       expect(status.details.clientServerCompatible).toBe(true);
@@ -284,7 +284,7 @@ describe("connection", () => {
 
     it("should return an error status against a dead port", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
+        host: testClientParams().host,
         port: 9999,
       });
       expect(status.variant).toEqual("error");
