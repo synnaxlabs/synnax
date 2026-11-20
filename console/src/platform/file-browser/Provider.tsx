@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax as Client } from "@synnaxlabs/client";
+import type { rack, Synnax as Client } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement, useState } from "react";

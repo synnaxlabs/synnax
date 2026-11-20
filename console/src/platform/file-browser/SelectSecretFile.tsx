@@ -18,7 +18,7 @@ import { unique } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { useSession } from "@/platform/file-browser/Provider";
-import { type Session } from "@/platform/file-browser/session";
+import type { Session } from "@/platform/file-browser/session";
 
 type State =
   | { variant: "loading" }

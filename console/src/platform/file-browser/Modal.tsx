@@ -25,7 +25,7 @@ import { Rack } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Entry, type Listing } from "@/platform/file-browser/list";
+import type { Entry, Listing } from "@/platform/file-browser/list";
 import { useSession } from "@/platform/file-browser/Provider";
 import { Modals } from "@/platform/modals";
 import { Validity } from "@/platform/secret/validity";
