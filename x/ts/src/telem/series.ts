@@ -888,7 +888,10 @@ export class Series<T extends TelemValue = TelemValue> {
       if (required) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return uuid.fromBytes(this.data as Uint8Array, index * this.dataType.density.valueOf());
+    return uuid.fromBytes(
+      this.data as Uint8Array,
+      index * this.dataType.density.valueOf(),
+    );
   }
 
   asString(index: number, required: true): string;
