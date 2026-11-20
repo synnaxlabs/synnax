@@ -361,6 +361,16 @@ describe("Enumeration.Settings", () => {
     expect(screen.queryByRole("region", { name: `${e.name} entries` })).toBeNull();
   });
 
+  it("should keep the settings menu off a right click in the entries", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    const input = await within(await openEntries(e.name)).findByLabelText("Name 1");
+    // A menu that opens prevents the default, which hides the browser's own menu.
+    expect(fireEvent.contextMenu(input)).toBe(true);
+    await openContextMenu(e.name);
+    expect(await screen.findByText("Rename")).toBeTruthy();
+  });
+
   it("should rename an enumeration from its menu", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
@@ -495,6 +505,38 @@ describe("Enumeration.Settings", () => {
         }),
       ),
     );
+  });
+
+  it("should keep the users and Replace after the Core refuses a replace", async () => {
+    const e = await createEnumeration();
+    const to = await createEnumeration();
+    const user = await createSelectUser(e.key);
+    const limited = await createTestClientWithPolicy(client, [
+      {
+        name: uniqueName("policy"),
+        objects: [enumeration.TYPE_RESOURCE_ID],
+        actions: ["retrieve", "delete"],
+      },
+      {
+        name: uniqueName("policy"),
+        objects: [schematic.TYPE_RESOURCE_ID],
+        actions: ["retrieve"],
+      },
+    ]);
+    await awaitGranted(limited, enumeration.TYPE_RESOURCE_ID, "delete");
+    const { statuses } = await renderEnumerations(limited);
+    const dialog = await openDelete(e.name);
+    expect(await dialog.findByText(user.name)).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    await clickWhenEnabled(dialog, "Replace");
+    await waitFor(() =>
+      expect(statuses()).toContainEqual(
+        expect.objectContaining({ message: "Failed to replace enumeration" }),
+      ),
+    );
+    expect(dialog.getByText(user.name)).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Replace" })).toBeTruthy();
+    expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
   });
 
   it("should disable Cancel and Delete while the delete runs", async () => {

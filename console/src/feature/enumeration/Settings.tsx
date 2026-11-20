@@ -141,11 +141,13 @@ const Item = ({
         </List.Cells>
       </Select.Item>
       {open && (
+        // A right click in the grid keeps the browser's menu, not the settings menu.
         <div
           role="region"
           aria-label={`${e.name} entries`}
           className={CSS.BE("enumeration-settings", "entries")}
           onFocus={onEntriesFocus}
+          onContextMenu={(ev) => ev.stopPropagation()}
         >
           <Enumeration.Entries enumeration={e.key} autoFocus={autoFocus} />
         </div>
