@@ -24,7 +24,7 @@ export default defineConfig({
         "img-src": ["'self'", "data:"],
         "media-src": ["'self'", CDN],
       },
-      posthog: true,
+      posthogAllowed: true,
       vercelEnv: process.env.VERCEL_ENV,
     }),
   },
