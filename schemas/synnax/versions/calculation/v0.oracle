@@ -59,24 +59,30 @@ Calculation struct {
         @doc value "is the key of the calculation."
         @key
     }
-    output     channel.Key  {
+    output     channel.Key   {
         @doc value """
             is the channel that the calculation writes. A channel holds at most one
             calculation, and a delete of the channel deletes it.
         """
     }
-    expression string       {
+    expression string        {
         @doc value "is the Arc expression that computes each output sample."
     }
     operations Operation[] = [] {
         @doc value "are the operations applied to the computed samples, in order."
     }
-    primary    channel.Key? {
+    primary    channel.Key?  {
         @doc value """
             is the channel that the expression reads whose samples time the output.
         """
     }
-    status     Status?      {
+    reads      channel.Key[] = [] {
+        @doc value """
+            are the channels that the expression reads, as its last compile that
+            succeeded found them.
+        """
+    }
+    status     Status?       {
         @doc value  "is the status of the calculation, joined on retrieve."
         @go marshal omit
     }

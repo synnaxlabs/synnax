@@ -138,6 +138,11 @@ export const calculationZ = z.object({
   operations: operationZ.array().default(() => []),
   /** primary is the channel that the expression reads whose samples time the output. */
   primary: channel.keyZ.optional(),
+  /**
+   * reads are the channels that the expression reads, as its last compile that
+   * succeeded found them.
+   */
+  reads: channel.keyZ.array().default(() => []),
   /** status is the status of the calculation, joined on retrieve. */
   status: statusZ.optional(),
 });

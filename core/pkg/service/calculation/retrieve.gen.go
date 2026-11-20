@@ -13,6 +13,7 @@ package calculation
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -36,6 +37,7 @@ type Retrieve struct {
 type indexes struct {
 	output          *gorp.KeyReference[Key, Calculation, channel.Key]
 	primary         *gorp.KeyReference[Key, Calculation, channel.Key]
+	reads           *gorp.KeyReference[Key, Calculation, channel.Key]
 	operationsReset *gorp.KeyReference[Key, Calculation, channel.Key]
 }
 
@@ -68,6 +70,21 @@ func newIndexes() indexes {
 				return []channel.Key{*e.Primary}
 			},
 			Detach: func(e *Calculation, _ channel.Key) { e.Primary = nil },
+		}),
+		reads: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Calculation, channel.Key]{
+			Name:     "reads",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Calculation) []channel.Key {
+				return e.Reads
+			},
+			Detach: func(e *Calculation, t channel.Key) {
+				e.Reads = slices.DeleteFunc(e.Reads, func(v channel.Key) bool {
+					return v == t
+				})
+			},
 		}),
 		operationsReset: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Calculation, channel.Key]{
 			Name:     "operations.reset",
@@ -132,6 +149,7 @@ func (i indexes) references() []gorp.Reference[Key, Calculation] {
 	return []gorp.Reference[Key, Calculation]{
 		i.output,
 		i.primary,
+		i.reads,
 		i.operationsReset,
 	}
 }
@@ -202,6 +220,23 @@ func MatchPrimaries(vals ...channel.Key) Filter {
 func MatchHasPrimary(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Calculation] {
 		return r.indexes.primary.FilterHolding(has)
+	}
+}
+
+// MatchReads returns a filter for calculations
+// whose Reads contains any of the provided
+// values.
+func MatchReads(vals ...channel.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Calculation] {
+		return r.indexes.reads.Filter(vals...)
+	}
+}
+
+// MatchHasReads returns a filter for calculations whose
+// Reads holds a target when has is true, and holds none when has is false.
+func MatchHasReads(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Calculation] {
+		return r.indexes.reads.FilterHolding(has)
 	}
 }
 

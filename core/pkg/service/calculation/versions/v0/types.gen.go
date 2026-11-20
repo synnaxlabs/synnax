@@ -223,6 +223,9 @@ type Calculation struct {
 	Operations []Operation `json:"operations" msgpack:"operations"`
 	// Primary is the channel that the expression reads whose samples time the output.
 	Primary *channel.Key `json:"primary,omitzero" msgpack:"primary,omitempty"`
+	// Reads are the channels that the expression reads, as its last compile that
+	// succeeded found them.
+	Reads []channel.Key `json:"reads" msgpack:"reads"`
 	// Status is the status of the calculation, joined on retrieve.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }

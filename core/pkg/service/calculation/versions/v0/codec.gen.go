@@ -38,6 +38,13 @@ func (c Calculation) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	w.Bool(c.Reads != nil)
+	if c.Reads != nil {
+		w.Uint32(uint32(len(c.Reads)))
+		for i := range c.Reads {
+			w.Uint32(uint32(c.Reads[i]))
+		}
+	}
 	return nil
 }
 
@@ -90,6 +97,28 @@ func (c *Calculation) DecodeOrc(r *orc.Reader) error {
 				hv = channel.Key(rawV)
 			}
 			c.Primary = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Reads = make([]channel.Key, n)
+			for i := range c.Reads {
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					c.Reads[i] = channel.Key(rawV)
+				}
+			}
 		}
 	}
 	return nil

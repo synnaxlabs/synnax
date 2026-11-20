@@ -46,6 +46,7 @@ var _ = Describe("Codec", func() {
 				Expression: "test_3",
 				Operations: []v0.Operation{{Variant: v0.MinOperation{Window: fullyPopulatedWindow}}},
 				Primary:    new(channel.Key(6)),
+				Reads:      []channel.Key{channel.Key(7)},
 			}),
 			Entry("zero values", v0.Calculation{
 				Key:        uuid.Nil(),
@@ -53,6 +54,7 @@ var _ = Describe("Codec", func() {
 				Expression: "",
 				Operations: []v0.Operation{},
 				Primary:    nil,
+				Reads:      []channel.Key{},
 			}),
 			Entry("empty collections", v0.Calculation{
 				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -60,6 +62,7 @@ var _ = Describe("Codec", func() {
 				Expression: "test_3",
 				Operations: []v0.Operation{},
 				Primary:    new(channel.Key(6)),
+				Reads:      []channel.Key{},
 			}),
 		)
 	})
@@ -104,6 +107,7 @@ func BenchmarkEncodeDecodeCalculation(b *testing.B) {
 		Expression: "test_3",
 		Operations: []v0.Operation{{Variant: v0.MinOperation{Window: fullyPopulatedWindow}}},
 		Primary:    new(channel.Key(6)),
+		Reads:      []channel.Key{channel.Key(7)},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -162,6 +166,7 @@ func FuzzDecodeCalculation(f *testing.F) {
 			Expression: "test_3",
 			Operations: []v0.Operation{{Variant: v0.MinOperation{Window: fullyPopulatedWindow}}},
 			Primary:    new(channel.Key(6)),
+			Reads:      []channel.Key{channel.Key(7)},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -176,6 +181,7 @@ func FuzzDecodeCalculation(f *testing.F) {
 			Expression: "",
 			Operations: []v0.Operation{},
 			Primary:    nil,
+			Reads:      []channel.Key{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -190,6 +196,7 @@ func FuzzDecodeCalculation(f *testing.F) {
 			Expression: "test_3",
 			Operations: []v0.Operation{},
 			Primary:    new(channel.Key(6)),
+			Reads:      []channel.Key{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

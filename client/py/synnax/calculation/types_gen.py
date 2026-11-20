@@ -148,6 +148,8 @@ class Calculation(BaseModel):
         expression: Is the Arc expression that computes each output sample.
         operations: Are the operations applied to the computed samples, in order.
         primary: Is the channel that the expression reads whose samples time the output.
+        reads: Are the channels that the expression reads, as its last compile that
+            succeeded found them.
         status: Is the status of the calculation, joined on retrieve.
     """
 
@@ -156,6 +158,7 @@ class Calculation(BaseModel):
     expression: str = Field(min_length=1)
     operations: list[Operation] = Field(default_factory=list)
     primary: channel.Key | None = Field(default=None, ge=0, le=4294967295)
+    reads: list[channel.Key] = Field(default_factory=list)
     status: Status | None = None
 
     @_override

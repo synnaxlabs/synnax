@@ -73,6 +73,24 @@ var _ = Describe("Calculation access checks", func() {
 		Expect(res.Calculations).To(BeEmpty())
 	})
 
+	It("Should leave out a calculation whose read the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		out, read := createVirtual(ctx), createVirtual(ctx)
+		createAsCore(ctx, calculation.Calculation{
+			Output:     out.Key(),
+			Expression: "return 2",
+			Reads:      []channel.Key{read.Key()},
+		})
+		grant(ctx, retrieves, u.ResourceID(), anyCalculation)
+		grant(ctx, retrieves, u.ResourceID(), channel.ResourceID(out.Key()))
+		res := MustSucceed(
+			retrieve(AuthedCtx(ctx, u), apicalculation.RetrieveRequest{}),
+		)
+		Expect(res.Calculations).To(BeEmpty())
+	})
+
 	It("Should refuse a create without update on the output", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.AllActions, u.ResourceID(), anyCalculation)
