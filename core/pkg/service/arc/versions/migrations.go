@@ -34,6 +34,7 @@ func NewMigrations(root uuid.UUID, cfg parser.Config) []gorp.Migration {
 			v4.NewMigration(cfg),
 			v4.NewRootMigration(root),
 			v4.NameMigration,
+			v4.ApplyNameMigration,
 		},
 	)
 }
