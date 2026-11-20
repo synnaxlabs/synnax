@@ -109,20 +109,23 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`). `Drop` never refuses. It
    removes the segments of the key when reader pins drop. An error of `Drop` raises a
    status.
-5. At start, before a writer opens, the Core calls `DB.Sweep` with each key of the
-   table. For a key with an intent and a record, the commit never happened: `Sweep`
-   clears the intent and opens the key's directory, which the open skipped. It drops a
-   key with an intent and no record, and a key with no record and no samples. It keeps a
-   key with samples, no record, and no intent, refuses writers and readers on it, and
-   returns it. The Core then raises a warning status whose description names the keys
-   and their bytes and says: restore the records from a backup to keep the data, or stop
-   the Core and run `synnax purge <keys>` to remove it. Before any create, the channel
-   service raises each key counter above the highest key that `Sweep` returns, so a kept
-   key is never given to a new channel after an undo or a lost metadata tail. A missing
-   record can come from a restored backup or lost metadata, never only from a delete, so
-   `Sweep` never removes samples on absence alone. The command `synnax purge` runs with
-   the Core stopped: it takes the directory lock, opens storage, and lists the kept keys
-   and their bytes. With keys, it refuses any key that has a record or is not kept, and
+5. At start, before a writer opens, the Core calls `DB.Sweep` once with each key of the
+   table; a second call in one open fails. For a key with an intent and a record, the
+   commit never happened: `Sweep` clears the intent and opens the key's directory, which
+   the open skipped. It drops a key with an intent and no record, and a key with no
+   record and no samples; every drop logs an intent first, so a crash in it ends as the
+   crash table says. It keeps a key with samples, no record, and no intent, refuses
+   writers and readers on it, and returns it. The Core then raises a warning status
+   whose description names the keys and their bytes and says: restore the records from a
+   backup to keep the data, or stop the Core and run `synnax purge <keys>` to remove it.
+   Before any create, the channel service raises each key counter above the highest key
+   that Cesium holds in any form (live, kept, or with an intent), which `Sweep` returns,
+   so such a key is never given to a new channel after an undo or a lost metadata tail.
+   A missing record can come from a restored backup or lost metadata, never only from a
+   delete, so `Sweep` never removes samples on absence alone. The command `synnax purge`
+   runs with the Core stopped: it takes the directory lock, opens storage, and lists the
+   kept keys and their bytes. With keys, it refuses any key that has a record or is not
+   kept, and any key that a kept channel uses as its index, naming that channel, and
    calls `Intend`, then `Drop`, on the rest. A route would put a remote delete of
    telemetry on the wire, and a start flag stays in a service file and purges every
    later kept key unseen.
@@ -136,21 +139,24 @@ key while a live pointer of another key names it, as today (`cesium/delete.go:26
 
 **The intent on the old layout (Phase 5).** The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
-where `SyncDir` does nothing (§13 item 4). Each record is 12 bytes: the key, flags (bit
-0: the intent is cleared), and a CRC32C of the record's file offset, the key, and the
-flags (`uint32` each). `Intend` appends the records of one call with one `WriteAt` and
-one sync, so a batch of deletes costs one sync. A failed sync closes the file, and every
-later `Intend` fails until a restart (as every failed sync, §6). `Drop` marks the key
-gone at once, so a new writer or iterator on it fails, and when its last open iterator
-closes removes its data files, then its metadata files, then its directory, then appends
-and syncs a clear record. An open skips a channel directory whose key has an intent, so
-a directory that a removal cut short never stops an open. It still loads such a
-directory when a kept directory's `meta.json` names it as its index, and `Sweep` drops
-it after the last such channel goes. `Sweep` appends a clear record for each intent that
-it clears; a failed sync there fails the start. Only the last record can tear, so a bad
-record before a valid one raises a status. A delete costs 24 bytes of file, so a million
-deletes are 24 MB before the conversion of Phase 7 ends the file. The old binary warns
-about the unknown root file and ignores it (`cesium/open.go:59-63`).
+where `SyncDir` does nothing (§13 item 4). Each append is one batch: an 8-byte header
+(record count, then a CRC32C of the batch's file offset and every record of it), then
+8-byte records (the key, then flags, bit 0: the intent is cleared; `uint32` each).
+`Intend` appends the batch of one call with one `WriteAt` and one sync, so a batch of
+deletes costs one sync, and a crash that keeps some blocks of a batch fails its CRC as a
+whole. A failed sync closes the file, and every later `Intend` fails until a restart (as
+every failed sync, §6). `Drop` marks the key gone at once, so a new writer or iterator
+on it fails, and when its last open iterator closes removes its data files, then its
+metadata files, then its directory, then appends and syncs a clear record. An open skips
+a channel directory whose key has an intent, so a directory that a removal cut short
+never stops an open. It still loads such a directory when a kept directory's `meta.json`
+names it as its index, and `Sweep` drops it after the last such channel goes. `Sweep`
+appends a clear record for each intent that it clears; a failed sync there fails the
+start. Only the last batch can tear, so a bad batch before a valid one raises a status.
+When `Sweep` leaves no live intent, it truncates the file to 0 and syncs it, which needs
+no rename; a crash leaves the old length or 0, and both hold no live intent. A delete
+costs at most 32 bytes of file between two truncations. The old binary warns about the
+unknown root file and ignores it (`cesium/open.go:59-63`).
 
 | Crash after                                     | State at the next start       | `Sweep`                                                             |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------- |
@@ -938,8 +944,9 @@ on the same event counter, decoder fuzz tests, and an invariants build. Phase 5 
 §4 on the old layout, except that `CreateChannel` stays, `OpenWriter` keeps the key set
 of today, and a writer that opens inside a live claim joins it, as today, with no
 authority in Cesium: the framer gates each session per channel. `Write` and `Commit`
-take a predicate over the keys that the session lacks, which Cesium calls under each
-channel's claim lock, so a write never lands after a new holder's. A group whose index
+take a predicate over the keys that the session lacks (nil skips nothing; one method
+each), which Cesium calls under each channel's claim lock, with the lock order claim,
+then the framer's gate, so a write never lands after a new holder's. A group whose index
 the session lacks is skipped whole, as today (`cesium/writer_stream.go:687-693`), so no
 data lands at another session's stamps, and a narrowed `EndDomain` still reports that
 the session is not authorized; and the framer names to `EndDomain` only the indexes
