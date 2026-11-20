@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+// The pure entry leaves the act environment of the browser specs alone.
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react/pure";
 import { type ReactElement, Suspense, use, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -331,6 +332,8 @@ describe("menu filter", () => {
 });
 
 describe("menu filter", () => {
+  afterEach(cleanup);
+
   const ITEMS = (
     <Menu.Menu>
       <Menu.Item itemKey="open">
