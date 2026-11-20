@@ -16,18 +16,33 @@ cc_library(
     hdrs = [
         "json.gen.h",
         "number.h",
+        "proto.gen.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/pb",
         "//x/cpp/telem",
+        "//x/go/payload:payload_grpc",
     ],
 )
 
 cc_test(
     name = "number_test",
     srcs = ["number_test.cpp"],
+    deps = [
+        ":payload",
+        "//x/cpp/errors",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "proto_test",
+    srcs = ["proto_test.cpp"],
     deps = [
         ":payload",
         "//x/cpp/errors",
