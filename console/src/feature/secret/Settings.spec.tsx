@@ -235,10 +235,12 @@ describe("Secret.Secrets", () => {
   });
 
   it("offers no replacement for a file secret", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
     const s = await client.secrets.set({
       name: uniqueName("secret"),
       source: "file",
       fileName: "token",
+      rack: r.key,
     });
     createdSecrets.push(s.key);
     await renderSecrets();

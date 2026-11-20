@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import rack as rack_
 from synnax.secret.types_gen import Key
 
 
@@ -29,15 +30,17 @@ class NewStored(BaseModel):
 
 
 class NewFile(BaseModel):
-    """A secret whose value is a file in the secrets folder of the rack that uses it.
+    """A secret whose value is a file in the secrets folder of a rack.
 
     :param key: Replaces the secret with this key when it exists.
+    :param rack: The key of the rack that reads the file.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     source: Literal["file"] = "file"
     file_name: str
+    rack: rack_.Key
 
 
 New = Annotated[NewStored | NewFile, Field(discriminator="source")]

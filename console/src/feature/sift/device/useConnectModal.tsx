@@ -74,15 +74,20 @@ const beforeSave = async ({
     includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
-  // The rack reads the API key once, for this test only.
+  // The rack runs this test once with the API key, so a copied grant runs only it.
   const grant = await client.secrets.grant({
     subject: rack.resourceID(rackKey),
     secrets: [connection.apiKey],
+    command: {
+      task: scanTask.key,
+      type: TEST_CONNECTION_COMMAND_TYPE,
+      args: { connection },
+    },
   });
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TEST_CONNECTION_TIMEOUT,
-    args: { connection, grant },
+    args: { grant },
   });
   if (state.variant === "error")
     throw new Error([state.message, state.description].filter(Boolean).join(": "));
