@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi } from "vitest";
+import { onTestFinished, vi } from "vitest";
 
 export const MOCK_OBJECT_URL = "blob:mock";
 
@@ -36,6 +36,15 @@ export const captureBrowserDownloads = (): CapturedDownloads => {
   });
   vi.spyOn(URL, "revokeObjectURL").mockImplementation((url) => {
     revoked.push(url);
+  });
+  // A browser with a save picker writes the file through it, so the picker is hidden
+  // for the test.
+  Object.defineProperty(window, "showSaveFilePicker", {
+    configurable: true,
+    value: undefined,
+  });
+  onTestFinished(() => {
+    Reflect.deleteProperty(window, "showSaveFilePicker");
   });
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
     this: HTMLAnchorElement,
