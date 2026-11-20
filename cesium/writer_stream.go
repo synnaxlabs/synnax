@@ -541,6 +541,9 @@ type idxWriter struct {
 	// successful commit. This prevents stale commits when a control transfer
 	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
 	hasUncommittedData bool
+	// dataPending is true when a refused index commit held back the data channels.
+	// Commit retries them once another controller commits the index samples.
+	dataPending bool
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
@@ -803,7 +806,13 @@ func (w *idxWriter) countSamples(alignment telem.Alignment, n int64) {
 }
 
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
-	if w.sampleCount == 0 || !w.hasUncommittedData {
+	if w.sampleCount == 0 {
+		return w.lastCommitEnd, nil
+	}
+	if !w.hasUncommittedData {
+		if w.dataPending {
+			return w.commitPendingData(ctx)
+		}
 		return w.lastCommitEnd, nil
 	}
 	end, err := w.resolveCommitEnd(ctx)
@@ -816,18 +825,13 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	// read finds an index sample without its data.
 	defer w.group.Publish()
 	// The index persists first: after a restart, a reader resolves a data domain
-	// through the index.
+	// through the index. The data commits only if the index did.
 	if w.writingToIdx {
 		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower, &w.group)
+		w.dataPending = errors.Is(err, xcontrol.ErrUnauthorized)
 	}
-	// Every channel shares the same end, so their errors repeat. Keep the first.
-	for key, chW := range w.internal {
-		if key == w.idx.ch.Key {
-			continue
-		}
-		if cErr := chW.CommitWithEnd(ctx, end.Lower, &w.group); err == nil {
-			err = cErr
-		}
+	if err == nil {
+		err = w.commitData(ctx, end.Lower)
 	}
 	if err == nil {
 		w.lastCommitEnd = end.Lower
@@ -842,6 +846,45 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 		return 0, err
 	}
 	return end.Lower, nil
+}
+
+// commitPendingData commits the data channels that a refused index commit held back,
+// once the index holds the group's last sample. It never commits the index again: the
+// controller that committed it may have moved its commit end past this writer's.
+func (w *idxWriter) commitPendingData(ctx context.Context) (telem.TimeStamp, error) {
+	end := w.idx.highWaterMark + 1
+	covered, _, err := w.idx.Coverage(ctx, w.idx.highWaterMark.Range(end))
+	if err != nil {
+		return 0, err
+	}
+	if covered < end {
+		return w.lastCommitEnd, nil
+	}
+	defer w.group.Publish()
+	err = w.commitData(ctx, end)
+	if err == nil || errors.Is(err, xcontrol.ErrUnauthorized) {
+		w.dataPending = false
+	}
+	if err != nil {
+		return 0, err
+	}
+	w.lastCommitEnd = end
+	return end, nil
+}
+
+// commitData commits every data channel of the group with end. Every channel shares
+// the same end, so their errors repeat. It returns the first.
+func (w *idxWriter) commitData(ctx context.Context, end telem.TimeStamp) error {
+	var err error
+	for key, chW := range w.internal {
+		if key == w.idx.ch.Key {
+			continue
+		}
+		if cErr := chW.CommitWithEnd(ctx, end, &w.group); err == nil {
+			err = cErr
+		}
+	}
+	return err
 }
 
 func (w *idxWriter) endDomain(
