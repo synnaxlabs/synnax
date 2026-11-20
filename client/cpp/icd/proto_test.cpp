@@ -315,6 +315,16 @@ TEST(BinaryField, RejectsUnknownByteOrderToProto) {
     );
 }
 
+/// @brief it should reject a timestamp field with an unknown time format.
+TEST(TimestampJSONField, RejectsUnknownTimeFormatToProto) {
+    TimestampJSONField f;
+    f.time_format = "fortnight";
+    ASSERT_OCCURRED_AS_P(
+        f.to_proto(),
+        x::errors::Error("unrecognized TimeFormat value: fortnight")
+    );
+}
+
 /// @brief it should reject a message with no key.
 TEST(Message, RejectsEmptyKeyFromProto) {
     const ::service::icd::pb::Message pb;
