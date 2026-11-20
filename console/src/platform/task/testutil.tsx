@@ -30,6 +30,7 @@ import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
+  getConfig,
   type RenderOptions,
   type RenderResult,
   screen,
@@ -40,6 +41,8 @@ import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
+  Suspense,
+  useEffect,
   useImperativeHandle,
 } from "react";
 import { expect, onTestFinished } from "vitest";
@@ -445,6 +448,16 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
   tabKey: panel.TabKey;
 }
 
+interface LoadProbeProps {
+  onLoad: () => void;
+}
+
+// Commits with the form in its Suspense boundary, so it runs once the form loads.
+const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
+  useEffect(onLoad, [onLoad]);
+  return null;
+};
+
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside the
@@ -475,13 +488,17 @@ export const renderTaskFormTab = async (
     onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
+  const loaded = Promise.withResolvers<void>();
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
       <RegistryProvider registry={DEFAULT_REGISTRY}>
         <HaulProvider>
           <Modals.Stack />
           <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-            <Form taskKey={taskKey} />
+            <Suspense fallback={null}>
+              <Form taskKey={taskKey} />
+              <LoadProbe onLoad={loaded.resolve} />
+            </Suspense>
             {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
           </PanelScopes>
         </HaulProvider>
@@ -489,6 +506,9 @@ export const renderTaskFormTab = async (
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );
+  // A lazy form loads its module after the first render. The wait runs outside act,
+  // as findBy does, since act holds React's retry until its callback returns.
+  await getConfig().asyncWrapper(async () => await loaded.promise);
   return { ...result, ...created, store, tabKey: tab.key };
 };
 
