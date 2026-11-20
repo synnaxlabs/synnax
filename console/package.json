@@ -15,7 +15,8 @@
     "lint": "eslint && stylelint \"src/**/*.css\"",
     "fix": "eslint --fix && stylelint --fix \"src/**/*.css\"",
     "test": "vitest",
-    "cov": "vitest --coverage",
+    "cov": "vitest --coverage --project console --project desktop --project chromium",
+    "install-browsers": "playwright install chromium webkit",
     "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
@@ -60,10 +61,12 @@
     "@types/react-dom": "catalog:",
     "@types/ws": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "fake-indexeddb": "catalog:",
     "jsdom": "catalog:",
+    "playwright": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

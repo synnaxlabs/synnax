@@ -168,6 +168,7 @@ jobs:
       x_go: ${{ steps.filter.outputs.x_go }}
       x_py: ${{ steps.filter.outputs.x_py }}
       x_ts: ${{ steps.filter.outputs.x_ts }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -457,6 +458,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'console')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: console
       directory: console
@@ -511,6 +513,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5
         with:
@@ -530,6 +533,7 @@ jobs:
         exclude:
           - os: ${{ !inputs.full && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -591,6 +595,7 @@ jobs:
       inputs.full || needs.changes.outputs.console_deps == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell-audit')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -722,6 +727,7 @@ jobs:
       GOPROXY: https://proxy.golang.org|direct
       MODULES: >-
         alamos/go arc/go cesium core freighter/go freighter/integration gorp oracle x/go
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -804,6 +810,7 @@ jobs:
       inputs.full || needs.changes.outputs.exports_py == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'exports-py')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -826,6 +833,7 @@ jobs:
       inputs.full || needs.changes.outputs.suppressions_py == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1038,6 +1046,7 @@ jobs:
       inputs.full || needs.changes.outputs.knip == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'knip')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1268,6 +1277,7 @@ jobs:
       inputs.full || needs.changes.outputs.stylelint == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'stylelint')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1436,6 +1446,9 @@ jobs:
     permissions:
       actions: write
       checks: read
+    # It lasts as long as the run, which can wait for the groups ahead. A GitHub-hosted
+    # job runs at most 360.
+    timeout-minutes: 360
     steps:
       # GraphQL filters the jobs by conclusion, and its budget is apart from the REST
       # budget that every job of the repository shares.
@@ -1564,6 +1577,7 @@ jobs:
       - x-py-lowest
       - x-ts
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Fail on a failed or cancelled job
         env:
@@ -1585,6 +1599,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout the default branch scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

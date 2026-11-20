@@ -55,6 +55,7 @@ jobs:
     if: inputs.finding != ''
     name: Record the dismissal
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pull-requests: read
     steps:
@@ -129,6 +130,7 @@ jobs:
       key: ${{ steps.pr.outputs.key }}
       bot: ${{ steps.app.outputs.app-slug }}
       judge: ${{ steps.answer.outputs.judge }}
+    timeout-minutes: 10
     steps:
       - *read
       - *checkout
