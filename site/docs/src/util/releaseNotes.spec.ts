@@ -33,23 +33,21 @@ describe("releaseAnchor", () => {
 });
 
 describe("listReleaseNotes", () => {
-  it("should anchor each file to the version it renders", () => {
+  it("should anchor each file to the version in its frontmatter", () => {
     const dir = write({
-      "0-31-0.mdx": '<Release version="0.31.1" date="May 1, 2024">',
-      "0-59-0.mdx": '<Releases.Release\n    version="0.59.0"\n>',
+      "0-31-0.mdx": '---\nversion: "0.31.1"\n---\n',
+      "0-59-0.mdx": '---\ntitle: "Notes"\nversion: "0.59.0"\n---\n',
       "notes.txt": "",
     });
     expect(listReleaseNotes(dir)).toEqual([
-      { name: "0-31-0", anchor: "0-31-1" },
-      { name: "0-59-0", anchor: "0-59-0" },
+      { name: "0-31-0", version: "0.31.1", anchor: "0-31-1" },
+      { name: "0-59-0", version: "0.59.0", anchor: "0-59-0" },
     ]);
   });
 
-  it("should throw when a file passes no version", () => {
-    const dir = write({ "0-60-0.mdx": "<Release />" });
-    expect(() => listReleaseNotes(dir)).toThrow(
-      "0-60-0.mdx passes no version to its release",
-    );
+  it("should throw when a file has no version", () => {
+    const dir = write({ "0-60-0.mdx": '---\ntitle: "Notes"\n---\n' });
+    expect(() => listReleaseNotes(dir)).toThrow("0-60-0.mdx has no version");
   });
 
   it("should give every shipped release an anchor on /releases", () => {

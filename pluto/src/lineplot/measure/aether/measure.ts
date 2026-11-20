@@ -139,9 +139,9 @@ export interface MeasureProps {
 
 export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
-  schema = measureStateZ;
+  override schema = measureStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const renderCtx = render.Context.use(ctx);
     this.internal.theme = theming.use(ctx);
     this.internal.renderCtx = renderCtx;
@@ -151,7 +151,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.dotColorContrast = this.internal.theme.colors.textInverted;
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 

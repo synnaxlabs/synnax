@@ -10,26 +10,29 @@
 import { schematic } from "@synnaxlabs/client";
 import { scheduler, type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
+import {
+  type Node,
+  ReactFlowProvider,
+  type ReactFlowStoreApi,
+  useReactFlowStoreApi,
+} from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Symbol } from "@/schematic/node/general/line/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 
-type Store = ReturnType<typeof useStoreApi>;
-
 const POSITION = { x: 100, y: 100 };
 const NODES: Node[] = [{ id: "l1", position: POSITION, data: {} }];
 
-const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
-  onStore(useStoreApi());
+const StoreProbe = ({ onStore }: { onStore: (s: ReactFlowStoreApi) => void }): null => {
+  onStore(useReactFlowStoreApi());
   return null;
 };
 
 // A horizontal line from (100, 100) to (200, 100) in flow coordinates.
 const renderSymbol = (props: Partial<NodeProps<schematic.LineNodeConfig>> = {}) => {
   const onConfigChange = vi.fn();
-  let store!: Store;
+  let store!: ReactFlowStoreApi;
   const { container } = render(
     <ReactFlowProvider defaultNodes={NODES}>
       <StoreProbe onStore={(s) => (store = s)} />
@@ -49,8 +52,8 @@ const renderSymbol = (props: Partial<NodeProps<schematic.LineNodeConfig>> = {}) 
   return { handles, onConfigChange, store };
 };
 
-const nodePosition = (store: Store): xy.XY | undefined =>
-  store.getState().nodes.find((n) => n.id === "l1")?.position;
+const nodePosition = ({ nodesStore }: ReactFlowStoreApi): xy.XY | undefined =>
+  nodesStore.getState().nodes.find((n) => n.id === "l1")?.position;
 
 const POINTER = { pointerId: 1, button: 0, isPrimary: true };
 
@@ -122,7 +125,7 @@ describe("Line.Symbol", () => {
 
     it("should divide the pointer delta by the viewport zoom", async () => {
       const { handles, onConfigChange, store } = renderSymbol();
-      store.setState({ transform: [0, 0, 2] });
+      store.viewportStore.setState({ transform: [0, 0, 2] });
       await drag(handles[1], { x: 40, y: 20 });
       expect(onConfigChange).toHaveBeenLastCalledWith({
         start: { x: 0, y: 0 },
