@@ -821,10 +821,39 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	if err := c.readHeader(&h); err != nil {
 		return framer.Frame{}, drop(&h, err)
 	}
-	if h.fgs.allChannelsPresent {
-		return c.decodeAllSeries(reader, &h)
+	if !h.fgs.allChannelsPresent {
+		return c.decodeKeyedSeries(&h)
 	}
-	return c.decodeKeyedSeries(&h)
+	// The frame is built here, not in a helper, since each return copies it.
+	var (
+		ag = &h.state.dec
+		n  = uint32(len(ag.all))
+		fr = frame.Alloc(len(ag.all))
+	)
+	for i := uint32(0); ; i++ {
+		for end := min(h.next, n); i < end; i++ {
+			s, err := c.decodeSeries(&h, &ag.series[i])
+			if err != nil {
+				return framer.Frame{}, drop(&h, err)
+			}
+			fr = fr.Append(ag.all[i], s)
+		}
+		if i == n {
+			break
+		}
+		s, err := c.decodeOverridden(&h, i, int(i))
+		if err != nil {
+			return framer.Frame{}, drop(&h, err)
+		}
+		fr = fr.Append(ag.all[i], s)
+	}
+	if err := c.readEnd(reader); err != nil {
+		return framer.Frame{}, drop(&h, err)
+	}
+	if h.next != noOverride {
+		return framer.Frame{}, drop(&h, pendingError(h.next))
+	}
+	return fr, nil
 }
 
 // drop marks the state of a frame that failed to decode with err, and returns the error
@@ -839,48 +868,11 @@ func drop(h *decodeHeader, err error) error {
 	return err
 }
 
-// end returns fr once the frame has no override pending.
-func end(h *decodeHeader, fr framer.Frame) (framer.Frame, error) {
-	if h.next != noOverride {
-		return framer.Frame{}, drop(h, invalidf(
-			"remote ended the frame with the override for series %d pending",
-			h.next,
-		))
-	}
-	return fr, nil
-}
-
-// decodeAllSeries decodes one series for each key of the state, in key order, from
-// the frame that src holds.
-func (c *Codec) decodeAllSeries(src io.Reader, h *decodeHeader) (framer.Frame, error) {
-	var (
-		ag = &h.state.dec
-		n  = uint32(len(ag.all))
-		fr = frame.Alloc(len(ag.all))
-		i  uint32
+func pendingError(next uint32) error {
+	return invalidf(
+		"remote ended the frame with the override for series %d pending",
+		next,
 	)
-	for {
-		for end := min(h.next, n); i < end; i++ {
-			s, err := c.decodeSeries(h, &ag.series[i])
-			if err != nil {
-				return framer.Frame{}, drop(h, err)
-			}
-			fr = fr.Append(ag.all[i], s)
-		}
-		if i == n {
-			break
-		}
-		s, err := c.decodeOverridden(h, i, int(i))
-		if err != nil {
-			return framer.Frame{}, drop(h, err)
-		}
-		fr = fr.Append(ag.all[i], s)
-		i++
-	}
-	if err := c.readEnd(src); err != nil {
-		return framer.Frame{}, drop(h, err)
-	}
-	return end(h, fr)
 }
 
 // readEnd fails when src holds bytes after the last series.
@@ -936,12 +928,16 @@ func (c *Codec) decodeKeyedSeries(h *decodeHeader) (framer.Frame, error) {
 	}
 }
 
-// endKeyed returns fr when err is the end of the frame, and drops the state otherwise.
+// endKeyed returns fr when err is the end of a frame with no override pending, and
+// drops the state otherwise.
 func endKeyed(h *decodeHeader, fr framer.Frame, err error) (framer.Frame, error) {
-	if errors.Is(err, io.EOF) {
-		return end(h, fr)
+	if !errors.Is(err, io.EOF) {
+		return framer.Frame{}, drop(h, err)
 	}
-	return framer.Frame{}, drop(h, err)
+	if h.next != noOverride {
+		return framer.Frame{}, drop(h, pendingError(h.next))
+	}
+	return fr, nil
 }
 
 // readKey reads the key of the next series and returns its position in the keys of
