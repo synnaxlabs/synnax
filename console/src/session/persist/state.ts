@@ -725,7 +725,8 @@ export const flush = async (dispatch: (action: Action) => unknown): Promise<void
  * Creates a middleware that persists the redux store state to the given engine after an
  * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
- * target's partitions load, and a single hydrate action applies them.
+ * target's partitions load, and a single hydrate action applies them. Nothing else is
+ * saved while the swap is in flight, so a change made then is lost.
  */
 const createMiddleware = <S extends object>(
   engine: Engine<S>,
@@ -736,9 +737,11 @@ const createMiddleware = <S extends object>(
   // Concurrent switches race: a slow stale swap hydrating last would clobber
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
+  // The swap in flight, or null. While one is, `current` names a context whose slices
+  // the store does not hold yet, so nothing is saved until it hydrates or ends.
+  let swap: { includeCore: boolean } | null = null;
   // Everything the store writes runs in turn. A swap flushes the partition it leaves,
-  // so a purge of that partition has to wait behind it or the keys come back, and a
-  // write queued mid-swap lands under the context it hydrated into.
+  // so a purge of that partition has to wait behind it or the keys come back.
   let queue: Promise<unknown> = Promise.resolve();
   return (store) => {
     // Redux forbids dispatching while middleware is constructed, so an engine that
@@ -771,8 +774,9 @@ const createMiddleware = <S extends object>(
       if (type === storeUnavailable.type) return result;
       const state = store.getState() as S;
       if (type === revertState.type)
-        engine
-          .revert(current, state)
+        // Mid-swap, no partition holds what the store shows. The swap's flush already
+        // selected the target, so the reload alone composes it.
+        (swap == null ? engine.revert(current, state) : queue)
           .then(() => window.location.reload())
           .catch((err: unknown) => {
             engine.onError(new Error("failed to revert state", { cause: err }));
@@ -785,6 +789,8 @@ const createMiddleware = <S extends object>(
             engine.onError(new Error("failed to clear state", { cause: err }));
           });
       else if (type === flushState.type) {
+        // Mid-swap, the swap's own flush is the last save before the hydrate.
+        if (swap != null) return queue;
         debouncedPersist.cancel();
         return persist(state, current);
       } else if (type === purge.type) {
@@ -797,19 +803,26 @@ const createMiddleware = <S extends object>(
             );
           });
       } else if (type === hydrate.type) {
+        swap = null;
         current = getContext(state);
         debouncedPersist();
-      } else {
+      } else if (type === endSwap.type) swap = null;
+      else {
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
           const old = current;
-          const includeCore = ctx.core !== old.core;
+          // A swap in flight already flushed the store's slices, and may have left the
+          // Core they came from.
+          const superseded = swap;
+          const includeCore = ctx.core !== old.core || superseded?.includeCore === true;
+          swap = { includeCore };
+          debouncedPersist.cancel();
           current = ctx;
           const gen = ++swapGen;
           store.dispatch(beginSwap());
           queue = queue
             .then(async () => {
-              await engine.persist(state, old);
+              if (superseded == null) await engine.persist(state, old);
               if (gen !== swapGen) return;
               const loaded = await engine.loadSwap(state, ctx, includeCore);
               if (gen !== swapGen) return;
@@ -821,7 +834,7 @@ const createMiddleware = <S extends object>(
                 new Error("failed to swap session context", { cause: err }),
               );
             });
-        } else debouncedPersist();
+        } else if (swap == null) debouncedPersist();
       }
       return result;
     };
