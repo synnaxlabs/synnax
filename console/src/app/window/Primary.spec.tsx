@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { project, Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Project } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { act, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 
 // The full-width top bar is macOS only, so the engine stays the sole variable
@@ -24,21 +29,31 @@ vi.mock("@/session/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+import type { ReactNode } from "react";
+
 import { Primary } from "@/app/window/Primary";
 import { Session } from "@/session";
-import { type ConsolePreloadedState, renderWithConsole } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  renderSuspended,
+  renderWithConsole,
+  type TestStore,
+} from "@/testutil";
+
+const client: Synnax = createTestClient();
 
 const PROJECT_KEY = "f5d0a5c8-5a1e-4b1f-9c0e-0b0c1d2e3f40";
 const [CORE_KEY] = Object.keys(Session.Core.ZERO_SLICE_STATE.cores);
 
-const withWorkspace = (): ConsolePreloadedState => ({
+const withWorkspace = (projectKey: string = PROJECT_KEY): ConsolePreloadedState => ({
   [Session.Core.SLICE_NAME]: {
     ...Session.Core.ZERO_SLICE_STATE,
     selected: CORE_KEY,
   },
   [Session.Project.SLICE_NAME]: {
     ...Session.Project.ZERO_SLICE_STATE,
-    selected: PROJECT_KEY,
+    selected: projectKey,
   },
 });
 
@@ -46,13 +61,18 @@ const WORKSPACE = ".console-main__workspace";
 const RAIL = ".console-nav__bar.lyra--location-left";
 const TOP_BAR = ".console-nav__bar.lyra--location-top";
 
-const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
+const BASE_TITLE = "Synnax Console";
+
+const setEngine = (engine: "web" | "tauri"): void => {
   mocks.engine = engine;
-  if (engine === "tauri") {
-    // A dev build version skips the update check.
-    mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
-    onTestFinished(clearMocks);
-  }
+  if (engine !== "tauri") return;
+  // A dev build version skips the update check.
+  mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
+  onTestFinished(clearMocks);
+};
+
+const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
+  setEngine(engine);
   const { container } = await renderWithConsole(<Primary />, {
     preloadedState: withWorkspace(),
     // No Core is connected, so the panel boundary catches the disconnect.
@@ -61,6 +81,35 @@ const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
   const workspace = container.querySelector<HTMLElement>(WORKSPACE);
   assert(workspace != null);
   return workspace;
+};
+
+// Reads the query the tab title reads, so its text shows that the name has arrived.
+const ProjectName = ({ projectKey }: { projectKey: project.Key }): ReactNode =>
+  Project.useResult({ key: projectKey }).data?.name;
+
+interface Connected {
+  proj: project.Project;
+  store: TestStore;
+}
+
+/** Renders Primary against the test Core with a new project selected. */
+const renderConnected = async (engine: "web" | "tauri"): Promise<Connected> => {
+  setEngine(engine);
+  document.title = BASE_TITLE;
+  const proj = await client.projects.create({ name: uniqueName("tab") });
+  const { wrapper, store } = await createConsoleWrapper({
+    client,
+    preloadedState: withWorkspace(proj.key),
+  });
+  await renderSuspended(
+    <>
+      <Primary />
+      <ProjectName projectKey={proj.key} />
+    </>,
+    { wrapper },
+  );
+  await screen.findAllByText(proj.name);
+  return { proj, store };
 };
 
 describe("app/window/Primary", () => {
@@ -82,5 +131,32 @@ describe("app/window/Primary", () => {
   it("should keep the top bar beside the rail in the browser", async () => {
     const workspace = await renderPrimary("web");
     expect(workspace.classList).not.toContain("console--full-width-top");
+  });
+
+  describe("browser tab title", () => {
+    it("should start with the name of the selected project", async () => {
+      const { proj } = await renderConnected("web");
+      expect(document.title).toBe(`${proj.name} - ${BASE_TITLE}`);
+    });
+
+    it("should follow a rename of the selected project", async () => {
+      const { proj } = await renderConnected("web");
+      const name = uniqueName("renamed");
+      await client.projects.rename(proj.key, name);
+      await waitFor(() => expect(document.title).toBe(`${name} - ${BASE_TITLE}`));
+    });
+
+    it("should go back to the base title when the project closes", async () => {
+      const { store } = await renderConnected("web");
+      act(() => {
+        store.dispatch(Session.Project.clearSelected());
+      });
+      expect(document.title).toBe(BASE_TITLE);
+    });
+
+    it("should not change on desktop", async () => {
+      await renderConnected("tauri");
+      expect(document.title).toBe(BASE_TITLE);
+    });
   });
 });
