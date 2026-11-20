@@ -116,6 +116,7 @@ markers = [
     "cli: mark test as a cli test",
     "color: mark test as a color test",
     "enumeration: mark test as an enumeration test",
+    "calculation: mark test as a calculation test",
     "control: mark test as a control test",
     "core: the test needs a running Core",
     "deprecation: mark test as a deprecation test",
