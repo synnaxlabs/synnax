@@ -291,8 +291,6 @@ export interface EntriesProps extends Pick<
   onSelect: (path: string) => void;
   /** Opens the parent folder on Backspace. */
   onUp: () => void;
-  /** Opens the path field with a typed / or ~. */
-  onEditPath: (text: string) => void;
   /** Called with the sideways offset of the entries when they mount or scroll. */
   onScrollX: (left: number) => void;
 }
@@ -311,7 +309,6 @@ export const Entries = ({
   ref: propsRef,
   onSelect,
   onUp,
-  onEditPath,
   onScrollX,
   ...rest
 }: EntriesProps): ReactElement => {
@@ -353,10 +350,7 @@ export const Entries = ({
     // AltGr reports Ctrl and Alt on Windows, and still types a character.
     if ((e.ctrlKey || e.metaKey || e.altKey) && !e.getModifierState("AltGraph"))
       keyboard.onKeyDown(e);
-    else if (e.key === "/" || e.key === "~") {
-      e.preventDefault();
-      onEditPath(e.key);
-    } else if (e.key === "Backspace") {
+    else if (e.key === "Backspace") {
       e.preventDefault();
       onUp();
     } else if (e.key.length === 1 && e.key !== " ") {

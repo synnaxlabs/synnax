@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import {
   findButton,
   type ModalOpenerHandle,
@@ -133,7 +134,7 @@ describe("Range.useCreateModal", () => {
 
   it("should attach the parent and labels", async () => {
     const parent = await createTestRange(client);
-    const label = await client.labels.create({
+    const label = await createTestLabel(client, {
       name: uniqueName("label"),
       color: "#E774D0",
     });

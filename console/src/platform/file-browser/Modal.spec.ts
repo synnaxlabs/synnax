@@ -584,6 +584,16 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
+    it("should open the field with a / typed in an empty folder", async () => {
+      await openBrowser([TOP, createListing({ path: "/" })]);
+      await openFolder("/");
+      fireEvent.keyDown(await screen.findByText("This folder is empty"), { key: "/" });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "/",
+      );
+    });
+
     it("should open the field with the open folder on Ctrl+L", async () => {
       await openBrowser(LISTINGS);
       await openEtc();

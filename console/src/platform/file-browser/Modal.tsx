@@ -354,6 +354,16 @@ const Content = ({
     }
   };
 
+  // A / or ~ typed in the list, or in a state in its place, opens the path field.
+  const handlePathKey = (e: KeyboardEvent<HTMLElement>): void => {
+    if (e.key !== "/" && e.key !== "~") return;
+    // AltGr reports Ctrl and Alt on Windows, and still types a character.
+    if ((e.ctrlKey || e.metaKey || e.altKey) && !e.getModifierState("AltGraph")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setEditing(e.key);
+  };
+
   let body: ReactElement;
   if (failure != null)
     body = (
@@ -439,7 +449,6 @@ const Content = ({
         onOpen={open}
         onPoint={prefetch}
         onUp={up}
-        onEditPath={setEditing}
         onScrollX={alignHead}
       />
     );
@@ -579,6 +588,7 @@ const Content = ({
                 )}
                 ref={holderRef}
                 tabIndex={-1}
+                onKeyDownCapture={handlePathKey}
               >
                 {body}
               </div>
