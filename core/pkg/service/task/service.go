@@ -163,9 +163,8 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
-	// A detach or a retarget changes a config, and a write to a record that a config
-	// hashes can change its hash, so the task stores the new hash in the same
-	// transaction.
+	// A detach changes a config, and a write to a record that a config hashes can
+	// change its hash, so the task stores the new hash in the same transaction.
 	for _, t := range cfg.Configs.Types() {
 		store, _ := cfg.Configs.Store(t)
 		store.OnRewrite(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {

@@ -25,9 +25,6 @@ type registeredTable interface {
 	// canonical reports whether k is a key of the table in the text form that
 	// FormatKey returns.
 	canonical(k string) bool
-	// formatKey returns k, a text key of the table, in the text form that FormatKey
-	// returns.
-	formatKey(k string) (string, error)
 	// exists reports whether the entry with the text key k exists in snap.
 	exists(ctx context.Context, snap Snapshot, k string) (bool, error)
 	// issues reports whether the table has a TableConfig.Issued.
@@ -39,17 +36,6 @@ type registeredTable interface {
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
-	// retarget replaces the targets that the entry with the text key k holds through
-	// each reference named in refs and that are keys of to, a map between keys of the
-	// table named table, and writes the entry once when it held one.
-	retarget(
-		ctx context.Context,
-		tx Tx,
-		k string,
-		refs []string,
-		table string,
-		to any,
-	) error
 	// watches reports whether the table runs a hook when an entry of the table named
 	// table that its entries hold is set.
 	watches(table string) bool

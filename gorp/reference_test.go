@@ -1432,6 +1432,32 @@ var _ = Describe("Reference", func() {
 				"project.references.1.detach: must be set when on_delete is Detach",
 			),
 			Entry(
+				"retargeting a Restrict reference",
+				gorp.KeyReferenceConfig[string, refProject, string]{
+					Name:     "label",
+					Table:    "label",
+					OnDelete: gorp.Restrict,
+					Kind:     gorp.Use,
+					Targets:  func(*refProject) []string { return nil },
+					Retarget: func(*refProject, map[string]string) {},
+				},
+				"project.references.1.retarget: "+
+					"must be nil unless on_delete is Detach or Weak",
+			),
+			Entry(
+				"retargeting a Cascade reference",
+				gorp.KeyReferenceConfig[string, refProject, string]{
+					Name:     "label",
+					Table:    "label",
+					OnDelete: gorp.Cascade,
+					Kind:     gorp.Place,
+					Targets:  func(*refProject) []string { return nil },
+					Retarget: func(*refProject, map[string]string) {},
+				},
+				"project.references.1.retarget: "+
+					"must be nil unless on_delete is Detach or Weak",
+			),
+			Entry(
 				"inlining with no Inline",
 				gorp.KeyReferenceConfig[string, refProject, string]{
 					Name:     "label",
