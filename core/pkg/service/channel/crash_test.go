@@ -441,14 +441,18 @@ func (e *crashEngine) Close() error {
 }
 
 // runOnCore runs the harness under Strict on the adapter, and checks each crash image.
-func runOnCore(ctx context.Context, dirsDurable bool) (crash.Result, error) {
+func runOnCore(
+	ctx context.Context,
+	dirsDurable bool,
+	wrap func(*crashEngine) crash.Engine,
+) (crash.Result, error) {
 	return crash.Run(ctx, crash.Config{
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
 			e, err := openEngine(ctx, fs, dirsDurable)
 			if err != nil {
 				return nil, err
 			}
-			return e, nil
+			return wrap(e), nil
 		},
 		Commits:    4,
 		Stride:     1,
@@ -494,8 +498,13 @@ func emptyMeta(cause string, locals ...distchannel.LocalKey) []string {
 // samples of a record that stays, and a crash stops the open on a channel directory
 // with no meta file or with an empty one.
 var _ = DescribeTable("Crash harness on the channel services",
-	func(ctx SpecContext, dirsDurable bool, want []string) {
-		result, err := runOnCore(ctx, dirsDurable)
+	func(
+		ctx SpecContext,
+		dirsDurable bool,
+		wrap func(*crashEngine) crash.Engine,
+		want []string,
+	) {
+		result, err := runOnCore(ctx, dirsDurable, wrap)
 		if len(want) == 0 {
 			Expect(err).ToNot(HaveOccurred())
 			return
@@ -509,8 +518,9 @@ var _ = DescribeTable("Crash harness on the channel services",
 		}
 		Expect(found.Slice()).To(ConsistOf(want))
 	},
-	Entry("plain", false, nil),
-	Entry("with durable Cesium directories", true, slices.Concat(
+	Entry("plain", false, asEngine, nil),
+	Entry("plain, with a refused delete of the index", false, withRefusedDelete, nil),
+	Entry("with durable Cesium directories", true, asEngine, slices.Concat(
 		emptyMeta("the engine did not recover", 1, 4, 6, 8),
 		emptyMeta("the engine did not recover after a crash in recovery", 1, 2),
 		[]string{
@@ -519,6 +529,35 @@ var _ = DescribeTable("Crash harness on the channel services",
 		},
 	)),
 )
+
+func asEngine(e *crashEngine) crash.Engine { return e }
+
+func withRefusedDelete(e *crashEngine) crash.Engine { return refusedDelete{e} }
+
+// refusedDelete is a crashEngine whose every commit then runs a transaction that
+// creates the channel x<k> and tries to delete the clock, which d<k> uses as its
+// index. The delete is refused, and the transaction commits the create.
+type refusedDelete struct{ *crashEngine }
+
+func (e refusedDelete) Commit(
+	ctx context.Context,
+	r crash.Record,
+	ack crash.Ack,
+) (crash.Ack, error) {
+	got, err := e.crashEngine.Commit(ctx, r, ack)
+	if err != nil {
+		return 0, err
+	}
+	other := e.samples("x" + strconv.FormatUint(r.ID, 10))
+	return got, e.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := e.svc.NewWriter(tx)
+		var restricted gorp.RestrictError
+		if err := w.Delete(ctx, e.clock.Key(), false); !errors.As(err, &restricted) {
+			return errors.Newf("the delete of the clock was not refused: %v", err)
+		}
+		return w.Create(ctx, &other)
+	})
+}
 
 var _ = Describe("Crash adapter on the channel services", func() {
 	var (
