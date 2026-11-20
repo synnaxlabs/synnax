@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   type color,
@@ -21,8 +21,8 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type framer } from "@/framer";
-import { type label } from "@/label";
+import type { framer } from "@/framer";
+import type { label } from "@/label";
 import { query } from "@/query";
 import { createOf, encode, parentOf, reduceAll } from "@/ranger/actions";
 import {
@@ -34,7 +34,7 @@ import {
 } from "@/ranger/actions.gen";
 import { kv } from "@/ranger/kv";
 import { Client as KVClient } from "@/ranger/kv/client";
-import { type Name, type Params } from "@/ranger/payload";
+import type { Name, Params } from "@/ranger/payload";
 import {
   type Key,
   keyZ,
@@ -55,7 +55,7 @@ import {
   shortcutZ,
 } from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const ACTION_CHANNEL_NAME = "sy_range_action_set";

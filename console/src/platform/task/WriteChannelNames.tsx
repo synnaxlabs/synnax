@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { type deep } from "@synnaxlabs/x";
+import type { channel } from "@synnaxlabs/client";
+import type { deep } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";

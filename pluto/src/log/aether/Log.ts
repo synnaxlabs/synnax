@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log, type status } from "@synnaxlabs/client";
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import {
   array,
   bounds,

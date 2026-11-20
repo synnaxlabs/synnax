@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Context,
-  type Middleware,
-  type Next,
-  type UnaryClient,
-} from "@synnaxlabs/freighter";
+import type { Context, Middleware, Next, UnaryClient } from "@synnaxlabs/freighter";
 import { binary, errors, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 

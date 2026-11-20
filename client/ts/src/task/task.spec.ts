@@ -23,8 +23,8 @@ import {
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
-import { type secret } from "@/secret";
-import { type status } from "@/status";
+import type { secret } from "@/secret";
+import type { status } from "@/status";
 import { task } from "@/task";
 import {
   createProxiedTestClient,

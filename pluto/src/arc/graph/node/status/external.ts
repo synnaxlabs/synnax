@@ -10,7 +10,7 @@
 import { Symbol } from "@/arc/graph/node/status/Change";
 import { type Config, defaultConfig } from "@/arc/graph/node/status/config";
 import { Form } from "@/arc/graph/node/status/Form";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import type { Spec } from "@/arc/graph/node/types/spec";
 
 export { configZ } from "@/arc/graph/node/status/config";
 

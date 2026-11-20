@@ -11,7 +11,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { and, desc, eq, inArray, isNull, max } from "drizzle-orm";
 
-import { type Reader, type Store } from "@/server/db/db";
+import type { Reader, Store } from "@/server/db/db";
 import {
   type Activation,
   activation,

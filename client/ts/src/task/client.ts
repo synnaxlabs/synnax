@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   binary,
@@ -26,7 +26,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { DisconnectedError } from "@/errors";
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { query } from "@/query";
 import {
   type Key as RackKey,

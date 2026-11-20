@@ -9,7 +9,7 @@
 
 import { EDGE_TYPE, READ_TYPE, WRITE_TYPE } from "@/feature/mqtt/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/mqtt/task/commands";
 export * from "@/feature/mqtt/task/create";

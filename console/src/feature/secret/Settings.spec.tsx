@@ -16,7 +16,7 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -27,7 +27,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
