@@ -361,24 +361,27 @@ func (c *Codec) readDataType() (telem.DataType, error) {
 }
 
 // readExtension reads the extension flags, the type declaration, and the declared
-// clocks of the frame.
+// clocks of an extended frame.
 func (c *Codec) readExtension(h *decodeHeader) error {
-	if h.fgs.extended {
-		var err error
-		if h.ext, err = c.reader.Uint8(); err != nil {
-			return err
-		}
-		if h.ext == 0 {
-			return invalidf("remote sent extension flags of 0")
-		}
-		if h.ext&reservedExtensionFlags != 0 {
-			return invalidf(
-				"remote sent extension flags %08b, which hold a reserved bit",
-				h.ext,
-			)
-		}
+	var err error
+	if h.ext, err = c.reader.Uint8(); err != nil {
+		return err
 	}
-	if err := c.readTypes(h); err != nil {
+	if h.ext == 0 {
+		return invalidf("remote sent extension flags of 0")
+	}
+	if h.ext&reservedExtensionFlags != 0 {
+		return invalidf(
+			"remote sent extension flags %08b, which hold a reserved bit",
+			h.ext,
+		)
+	}
+	if typesDeclaredFlagPos.Get(h.ext) {
+		err = c.readTypes(h)
+	} else {
+		err = checkTypesDeclared(h)
+	}
+	if err != nil {
 		return err
 	}
 	if clocksDeclaredFlagPos.Get(h.ext) {
@@ -387,19 +390,25 @@ func (c *Codec) readExtension(h *decodeHeader) error {
 	return nil
 }
 
-// readTypes reads the type declaration of the frame, if it has one.
+// checkTypesDeclared fails when no earlier frame of the state declared its types.
+func checkTypesDeclared(h *decodeHeader) error {
+	if !h.state.dec.typesDeclared {
+		return noTypesError(h.seqNum)
+	}
+	return nil
+}
+
+func noTypesError(seqNum uint32) error {
+	return invalidf(
+		"remote sent no type declaration for state %d, so it runs an older codec, "+
+			"which this codec does not support",
+		seqNum,
+	)
+}
+
+// readTypes reads the type declaration of the frame.
 func (c *Codec) readTypes(h *decodeHeader) error {
 	ag := &h.state.dec
-	if !typesDeclaredFlagPos.Get(h.ext) {
-		if !ag.typesDeclared {
-			return invalidf(
-				"remote sent no type declaration for state %d, so it runs an older "+
-					"codec, which this codec does not support",
-				h.seqNum,
-			)
-		}
-		return nil
-	}
 	if ag.typesDeclared {
 		return invalidf("remote declared the types of state %d twice", h.seqNum)
 	}
@@ -454,12 +463,13 @@ func (c *Codec) readDeclared(h *decodeHeader) error {
 // checkDecodeLimit fails when the frame decodes to more than the decode limit.
 func (c *Codec) checkDecodeLimit(h *decodeHeader) error {
 	if c.decodeLimit > 0 && h.decoded > c.decodeLimit {
-		return invalidf(
-			"frame decodes to more than the limit of %d bytes",
-			c.decodeLimit,
-		)
+		return limitError(c.decodeLimit)
 	}
 	return nil
+}
+
+func limitError(limit int64) error {
+	return invalidf("frame decodes to more than the limit of %d bytes", limit)
 }
 
 // readSeriesAgreement returns the data type and the clock of the series of key at

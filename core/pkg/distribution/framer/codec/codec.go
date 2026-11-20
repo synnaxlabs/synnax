@@ -134,6 +134,8 @@ type Codec struct {
 	// reader is reused for each decode operation. Unlike the standard library
 	// binary.Read, this avoids reflection overhead.
 	reader *binary.Reader
+	// tail receives the byte that readEnd reads past the last series.
+	tail [1]byte
 	// channelResolver is used in dynamic codecs to look up the data types of channels
 	// when Update is called. It is nil for codecs created with NewStatic.
 	channelResolver ChannelResolver
@@ -818,7 +820,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	c.panicIfNotUpdated("Decode")
 	c.reader.Reset(reader)
 	var h decodeHeader
-	fr, err := c.decode(&h)
+	fr, err := c.decode(reader, &h)
 	if err != nil {
 		if h.state != nil {
 			h.state.dec.dropped = true
@@ -831,7 +833,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	return fr, nil
 }
 
-func (c *Codec) decode(h *decodeHeader) (framer.Frame, error) {
+func (c *Codec) decode(src io.Reader, h *decodeHeader) (framer.Frame, error) {
 	if err := c.readHeader(h); err != nil {
 		return framer.Frame{}, err
 	}
@@ -840,7 +842,7 @@ func (c *Codec) decode(h *decodeHeader) (framer.Frame, error) {
 		err error
 	)
 	if h.fgs.allChannelsPresent {
-		fr, err = c.decodeAllSeries(h)
+		fr, err = c.decodeAllSeries(src, h)
 	} else {
 		fr, err = c.decodeKeyedSeries(h)
 	}
@@ -856,8 +858,9 @@ func (c *Codec) decode(h *decodeHeader) (framer.Frame, error) {
 	return fr, nil
 }
 
-// decodeAllSeries decodes one series for each key of the state, in key order.
-func (c *Codec) decodeAllSeries(h *decodeHeader) (framer.Frame, error) {
+// decodeAllSeries decodes one series for each key of the state, in key order, from
+// the frame that src holds.
+func (c *Codec) decodeAllSeries(src io.Reader, h *decodeHeader) (framer.Frame, error) {
 	keys := h.state.dec.all
 	fr := frame.Alloc(len(keys))
 	for _, k := range keys {
@@ -867,11 +870,28 @@ func (c *Codec) decodeAllSeries(h *decodeHeader) (framer.Frame, error) {
 		}
 		fr = fr.Append(k, s)
 	}
-	if _, err := c.reader.Uint8(); !errors.Is(err, io.EOF) {
-		return framer.Frame{}, invalidf("remote sent bytes after the last series")
+	if err := c.readEnd(src); err != nil {
+		return framer.Frame{}, err
 	}
 	return fr, nil
 }
+
+// readEnd fails when src holds bytes after the last series.
+func (c *Codec) readEnd(src io.Reader) error {
+	n, err := src.Read(c.tail[:])
+	if n == 0 && err == nil {
+		n, err = io.ReadFull(src, c.tail[:])
+	}
+	if n > 0 {
+		return trailingError()
+	}
+	if err == io.EOF {
+		return nil
+	}
+	return err
+}
+
+func trailingError() error { return invalidf("remote sent bytes after the last series") }
 
 // decodeKeyedSeries decodes series that each carry their key until the frame ends.
 func (c *Codec) decodeKeyedSeries(h *decodeHeader) (framer.Frame, error) {
@@ -918,7 +938,12 @@ func (c *Codec) readHeader(h *decodeHeader) error {
 	}
 	h.state = cState
 	h.fgs = decodeFlags(flagB)
-	if err = c.readExtension(h); err != nil {
+	if h.fgs.extended {
+		err = c.readExtension(h)
+	} else {
+		err = checkTypesDeclared(h)
+	}
+	if err != nil {
 		return err
 	}
 	if h.fgs.equalLens {
