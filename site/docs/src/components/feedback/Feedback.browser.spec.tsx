@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Feedback } from "@/components/feedback";
@@ -18,7 +17,7 @@ describe("feedback", () => {
   let unmount: (() => void) | null = null;
 
   const open = (): HTMLButtonElement => {
-    ({ unmount } = render(createElement(Feedback.Button)));
+    ({ unmount } = render(<Feedback.Button />));
     fireEvent.click(screen.getByText("Stuck? Let us know!"));
     return screen.getByText("Send").closest("button") as HTMLButtonElement;
   };
@@ -38,14 +37,6 @@ describe("feedback", () => {
   beforeEach(() => {
     fetch = vi.fn(async () => ({ ok: true }));
     vi.stubGlobal("fetch", fetch);
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe = vi.fn();
-        unobserve = vi.fn();
-        disconnect = vi.fn();
-      },
-    );
   });
 
   afterEach(() => {
