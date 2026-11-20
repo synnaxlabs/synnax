@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { record } from "@synnaxlabs/x";
-import z from "zod/v4";
+import { z } from "zod";
 
 import { Constant } from "@/arc/graph/node/constant";
 import { Operator } from "@/arc/graph/node/operator";
