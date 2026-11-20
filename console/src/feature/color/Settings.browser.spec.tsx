@@ -263,7 +263,7 @@ describe("Color.Settings", () => {
       shipped.key,
       color.set({ path: ["light"], value: xcolor.construct("#123456") }),
     );
-    // The WebKit run reads the built-ins next, so a failed restore must not stick.
+    // A failed restore must not leave the built-in edited for later runs.
     onTestFinished(async () => {
       await client.colors.dispatch(
         shipped.key,

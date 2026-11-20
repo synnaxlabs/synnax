@@ -396,7 +396,7 @@ describe("Enumeration.Settings", () => {
       shipped.key,
       enumeration.set({ path: ["entries"], value: shipped.entries.slice(1) }),
     );
-    // The WebKit run reads the built-ins next, so a failed restore must not stick.
+    // A failed restore must not leave the built-in edited for later runs.
     onTestFinished(async () => {
       await client.enumerations.dispatch(
         shipped.key,
