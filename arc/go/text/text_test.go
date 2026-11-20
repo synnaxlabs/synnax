@@ -4102,6 +4102,41 @@ var _ = Describe("Text", func() {
 			)
 
 			It(
+				"Should resolve a positional channel input to its channel key",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "temp_sensor",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10042,
+						},
+					}
+					source := `
+				func reader(channel chan f64) f64 {
+				    return channel
+				}
+
+				func display() {value f64} {}
+
+				reader(temp_sensor) -> display()`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					readerNode := findNodeByKey(inter.Nodes, "reader_0")
+					Expect(readerNode.Inputs[0].Value).To(Equal(uint32(10042)))
+					Expect(readerNode.Channels.Read).To(Equal(
+						map[uint32]string{10042: "temp_sensor"},
+					))
+				},
+			)
+
+			It(
 				"Should produce diagnostic error when channel input type mismatches",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{

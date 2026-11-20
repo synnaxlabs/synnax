@@ -57,6 +57,36 @@ func nested_write_2() {val f32} {
 
 time.interval(100ms) -> nested_write_1()
 
+// Channels passed by position, alone and among literals.
+func positional_read(src chan u8) f32 {
+    if src == 1 {
+        return 1.0
+    }
+    return 0.0
+}
+
+func positional_write(dst chan f32) {
+    dst = 2.0
+}
+
+func positional_after(v f32, dst chan f32) {
+    dst = v
+}
+
+func positional_before(dst chan f32, v f32) {
+    dst = v
+}
+
+func positional_between(a f32, dst chan f32, b f32) {
+    dst = a + b
+}
+
+start_lifecycle_cmd -> positional_read(start_lifecycle_cmd) -> lifecycle_pos_read
+start_lifecycle_cmd -> positional_write(lifecycle_pos_write)
+start_lifecycle_cmd -> positional_after(3.0, lifecycle_pos_after)
+start_lifecycle_cmd -> positional_before(lifecycle_pos_before, 4.0)
+start_lifecycle_cmd -> positional_between(2.0, lifecycle_pos_between, 3.0)
+
 sequence main {
     stage press {
         SOME_CONST_1 => const_output
@@ -110,6 +140,15 @@ lifecycle_own_first -> lifecycle_own_second
 
 OWN_WRITE_STARTS = 5
 
+# The value each positional flow writes, by output channel.
+POSITIONAL_OUTPUTS = {
+    "lifecycle_pos_read": 1.0,
+    "lifecycle_pos_write": 2.0,
+    "lifecycle_pos_after": 3.0,
+    "lifecycle_pos_before": 4.0,
+    "lifecycle_pos_between": 5.0,
+}
+
 
 class Lifecycle(ArcCase, ConsoleCase):
     """Test Arc lifecycle operations: rename, delete, status, stable_for, select.
@@ -126,6 +165,7 @@ class Lifecycle(ArcCase, ConsoleCase):
     8. Stale virtual channel signal does not trigger stage re-entry on first
        yield activation (regression for source node watermark bug)
     9. An Arc reads its own first write on every start
+    10. A flow passes a channel to a function by position, alone or among literals
     """
 
     arc_source = ARC_LIFECYCLE_SOURCE
@@ -140,6 +180,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         "end_test_cmd",
         "lifecycle_log",
         "signal_stage_log",
+        *POSITIONAL_OUTPUTS,
     ]
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
     collect_notifications = True
@@ -162,6 +203,8 @@ class Lifecycle(ArcCase, ConsoleCase):
         )
         for ch in ("lifecycle_own_first", "lifecycle_own_second"):
             create_virtual_channel(self.client, ch, data_type=sy.DataType.UINT8)
+        for ch in POSITIONAL_OUTPUTS:
+            create_virtual_channel(self.client, ch)
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
@@ -197,6 +240,11 @@ class Lifecycle(ArcCase, ConsoleCase):
         # accumulation propagates through function calls.
         self.log("Verifying transitive channel write (function call propagation)")
         self.wait_for_gt("arc_lifecycle_virt", 20)
+
+        # --- 0c. Verify channels passed to a function by position ---
+        self.log("Verifying positional channel inputs")
+        for channel, expected in POSITIONAL_OUTPUTS.items():
+            self.wait_for_near(channel, expected, tolerance=0.01)
 
         # --- 1. Verify select true branch: stable_for emits after pressure
         # stays above 25 PSI for 500ms, then select routes to warning status ---

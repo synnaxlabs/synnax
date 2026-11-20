@@ -2290,9 +2290,7 @@ func (p *inputParser) parseAnonymous(
 		if pos >= len(exprs) {
 			break
 		}
-		value, typ, ok := p.parse(
-			exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos),
-		)
+		value, typ, ok := p.parse(exprs[pos], input[i].Type, input[i].Name)
 		if !ok {
 			return false
 		}
