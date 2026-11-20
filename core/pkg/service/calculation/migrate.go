@@ -11,6 +11,7 @@ package calculation
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/telem"
 	xuuid "github.com/synnaxlabs/x/uuid"
 )
 
@@ -34,8 +36,13 @@ func MigratedKey(key channel.Key) Key {
 
 // Migration returns the migration that builds the calculation record of each stored
 // channel with an expression, keyed by MigratedKey, and deletes the status of each
-// one. It reads the channel and status tables, so it runs after both open.
-func (s *Service) Migration(statuses *status.Service) gorp.Migration {
+// one. A reset channel that issuedAtOpen says the Core never issued becomes absent. An
+// operation of no type is dropped, and the calculation gets a warning status that names
+// it. Migration reads the channel and status tables, so it runs after both open.
+func (s *Service) Migration(
+	statuses *status.Service,
+	issuedAtOpen func(channel.Key) bool,
+) gorp.Migration {
 	return migrate.New(
 		"v63_create_calculations",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
@@ -47,19 +54,62 @@ func (s *Service) Migration(statuses *status.Service) gorp.Migration {
 				return err
 			}
 			owners := make([]resource.ID, len(channels))
+			var warnings []Status
 			for i, ch := range channels {
 				owners[i] = channel.ResourceID(ch.Key())
+				ops, dropped := storedOperations(ch.Operations, issuedAtOpen)
 				c := Calculation{
 					Key:        MigratedKey(ch.Key()),
 					Output:     ch.Key(),
 					Expression: ch.Expression,
-					Operations: FromChannelOperations(ch.Operations),
+					Operations: FromChannelOperations(ops),
 				}
 				if err := s.table.NewCreate().Entry(&c).Exec(ctx, tx); err != nil {
 					return err
 				}
+				if dropped {
+					warnings = append(warnings, droppedStatus(c.Key, ch.Name))
+				}
 			}
-			return statuses.NewWriter(tx).DeleteOwned(ctx, owners...)
+			w := statuses.NewWriter(tx)
+			if err := w.DeleteOwned(ctx, owners...); err != nil {
+				return err
+			}
+			return w.SetMany(ctx, &warnings)
 		},
 	)
+}
+
+// storedOperations returns the operations of ops that have a type, with each reset
+// channel that the Core never issued cleared, and whether it dropped any.
+func storedOperations(
+	ops []channel.Operation,
+	issuedAtOpen func(channel.Key) bool,
+) ([]channel.Operation, bool) {
+	kept := make([]channel.Operation, 0, len(ops))
+	for _, op := range ops {
+		if !op.Type.IsValid() {
+			continue
+		}
+		if op.ResetChannel != 0 && !issuedAtOpen(op.ResetChannel) {
+			op.ResetChannel = 0
+		}
+		kept = append(kept, op)
+	}
+	return kept, len(kept) < len(ops)
+}
+
+func droppedStatus(key Key, name string) Status {
+	return Status{
+		Owner:   new(ResourceID(key)),
+		Name:    name,
+		Variant: status.VariantWarning,
+		Message: "Dropped operations with no type",
+		Description: fmt.Sprintf(
+			"The upgrade dropped the stored operations of %s that had no type. Add "+
+				"them again to keep them.",
+			name,
+		),
+		Time: telem.Now(),
+	}
 }

@@ -9,7 +9,11 @@
 
 package calculation
 
-import "github.com/synnaxlabs/synnax/pkg/service/channel"
+import (
+	"fmt"
+
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+)
 
 // Resets returns the reset channel of each windowed operation of c that has one, in
 // the order of the operations.
@@ -35,7 +39,8 @@ func Resets(c Calculation) []channel.Key {
 }
 
 // FromChannelOperations returns the calculation form of the operations of a channel. A
-// none operation has no calculation form, and a reset channel of 0 is absent.
+// none operation has no calculation form, and a reset channel of 0 is absent. It panics
+// on an operation whose type is not valid.
 func FromChannelOperations(ops []channel.Operation) []Operation {
 	out := make([]Operation, 0, len(ops))
 	for _, op := range ops {
@@ -55,6 +60,8 @@ func FromChannelOperations(ops []channel.Operation) []Operation {
 			variant = DerivativeOperation{}
 		case channel.OperationTypeNone:
 			continue
+		default:
+			panic(fmt.Sprintf("operation of unknown type %q", op.Type))
 		}
 		out = append(out, Operation{Variant: variant})
 	}

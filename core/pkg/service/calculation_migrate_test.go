@@ -10,6 +10,7 @@
 package service_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,7 @@ import (
 	apicalculation "github.com/synnaxlabs/synnax/pkg/api/calculation"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -217,51 +220,26 @@ var _ = Describe("Calculated channels of a channel-only subject after upgrade", 
 	})
 })
 
+// openUpgraded runs create on a node, then returns a node over the same storage, so
+// that each key create allocates counts as issued when the Core opens, as on a store
+// that an older Core wrote.
+func openUpgraded(ctx context.Context, create func(n testutil.Node)) testutil.Node {
+	GinkgoHelper()
+	store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+	first := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
+	create(first)
+	Expect(first.Close()).To(Succeed())
+	return testutil.NewNode(ctx, distribution.LayerConfig{Storage: store.Layer})
+}
+
 var _ = Describe("Calculation records upgrade", func() {
 	It("Should build a record for each calculated channel of a v0.62 store", func(
 		ctx SpecContext,
 	) {
-		n := testutil.NewNode(ctx)
-		// v0.62 stores channel v1 records, under keys that its counter issued.
-		keys := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
-			{Name: "plain", Leaseholder: node.KeyFree, Virtual: true},
-			{Name: "doubled", Leaseholder: node.KeyFree, Virtual: true},
-			{Name: "windowed", Leaseholder: node.KeyFree, Virtual: true},
-		}))
-		virtual := func(i int) channelv1.Channel {
-			return channelv1.Channel{
-				Name:        keys[i].Name,
-				Leaseholder: node.KeyFree,
-				LocalKey:    keys[i].LocalKey,
-				DataType:    telem.Float32T,
-				Virtual:     true,
-			}
-		}
-		plain := virtual(0)
-		doubled := virtual(1)
-		doubled.Expression = "return 2"
-		windowed := virtual(2)
-		windowed.Expression = "return 3"
-		windowed.Operations = []channelv1.Operation{
-			{Type: channelv1.OperationTypeAvg, Duration: telem.Second},
-			{Type: channelv1.OperationTypeMax, ResetChannel: plain.Key()},
-		}
-		Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
-			Set(ctx, plain, doubled, windowed)).To(Succeed())
-		// v0.62 stores status v2 records, and its status chain has run, so opening the
-		// status service once applies the chain before the record is written.
-		Expect(MustSucceed(status.OpenService(ctx, status.ServiceConfig{DB: n.DB})).
-			Close()).To(Succeed())
-		owned := status.Status[any]{
-			Key:     "calculation-status",
-			Name:    doubled.Name,
-			Variant: status.VariantError,
-			Message: "Failed to compile calculation",
-			Owner:   new(channel.ResourceID(doubled.Key())),
-		}
-		Expect(gorp.WrapWriter[status.Key, status.Status[any]](n.DB).Set(ctx, owned)).
-			To(Succeed())
-
+		var plain, doubled, windowed channelv1.Channel
+		n := openUpgraded(ctx, func(n testutil.Node) {
+			createV062Store(ctx, n, &plain, &doubled, &windowed)
+		})
 		l := MustOpen(svctestutil.OpenLayer(ctx, n))
 
 		var records []calculation.Calculation
@@ -287,7 +265,110 @@ var _ = Describe("Calculation records upgrade", func() {
 			}},
 		}))
 		Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().
-			Where(gorp.MatchKeys[status.Key, status.Status[any]](owned.Key)).
+			Where(gorp.MatchKeys[status.Key, status.Status[any]](v062StatusKey)).
 			Exists(ctx, n.DB)).To(BeFalse())
 	})
+
+	It("Should warn on a calculation whose operation it drops for no type", func(
+		ctx SpecContext,
+	) {
+		var untyped channelv1.Channel
+		n := openUpgraded(ctx, func(n testutil.Node) {
+			keys := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+				{Name: "untyped", Leaseholder: node.KeyFree, Virtual: true},
+			}))
+			untyped = channelv1.Channel{
+				Name:        keys[0].Name,
+				Leaseholder: node.KeyFree,
+				LocalKey:    keys[0].LocalKey,
+				DataType:    telem.Float32T,
+				Virtual:     true,
+				Expression:  "return 3",
+				Operations: []channelv1.Operation{
+					{Duration: telem.Second},
+					{Type: channelv1.OperationTypeMax},
+				},
+			}
+			Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
+				Set(ctx, untyped)).To(Succeed())
+		})
+
+		l := MustOpen(svctestutil.OpenLayer(ctx, n))
+
+		key := calculation.MigratedKey(untyped.Key())
+		var c calculation.Calculation
+		Expect(l.Calculation.NewRetrieve().
+			Where(calculation.MatchKeys(key)).
+			Entry(&c).
+			Exec(ctx, n.DB)).To(Succeed())
+		Expect(c.Operations).To(Equal([]calculation.Operation{
+			{Variant: calculation.MaxOperation{}},
+		}))
+		var warning status.Status[any]
+		Expect(l.Status.NewRetrieve[any]().
+			Where(status.MatchOwners[any](calculation.ResourceID(key))).
+			Entry(&warning).
+			Exec(ctx, n.DB)).To(Succeed())
+		Expect(warning.Variant).To(Equal(status.VariantWarning))
+		Expect(warning.Name).To(Equal("untyped"))
+		Expect(warning.Message).To(Equal("Dropped operations with no type"))
+		Expect(warning.Description).To(Equal(
+			"The upgrade dropped the stored operations of untyped that had no type. " +
+				"Add them again to keep them.",
+		))
+	})
 })
+
+// v062StatusKey is the key of the status that createV062Store gives the doubled
+// channel.
+const v062StatusKey = "calculation-status"
+
+// createV062Store writes the channel and status records that v0.62 stores for a plain
+// channel, a calculated channel with a status, and a calculated channel with
+// operations.
+func createV062Store(
+	ctx context.Context,
+	n testutil.Node,
+	plain, doubled, windowed *channelv1.Channel,
+) {
+	GinkgoHelper()
+	// v0.62 stores channel v1 records, under keys that its counter issued.
+	keys := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+		{Name: "plain", Leaseholder: node.KeyFree, Virtual: true},
+		{Name: "doubled", Leaseholder: node.KeyFree, Virtual: true},
+		{Name: "windowed", Leaseholder: node.KeyFree, Virtual: true},
+	}))
+	virtual := func(i int) channelv1.Channel {
+		return channelv1.Channel{
+			Name:        keys[i].Name,
+			Leaseholder: node.KeyFree,
+			LocalKey:    keys[i].LocalKey,
+			DataType:    telem.Float32T,
+			Virtual:     true,
+		}
+	}
+	*plain = virtual(0)
+	*doubled = virtual(1)
+	doubled.Expression = "return 2"
+	*windowed = virtual(2)
+	windowed.Expression = "return 3"
+	windowed.Operations = []channelv1.Operation{
+		{Type: channelv1.OperationTypeAvg, Duration: telem.Second},
+		{Type: channelv1.OperationTypeMax, ResetChannel: plain.Key()},
+	}
+	Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
+		Set(ctx, *plain, *doubled, *windowed)).To(Succeed())
+	// v0.62 stores status v2 records, and its status chain has run, so opening the
+	// status service once applies the chain before the record is written.
+	Expect(MustSucceed(status.OpenService(ctx, status.ServiceConfig{DB: n.DB})).
+		Close()).To(Succeed())
+	owned := status.Status[any]{
+		Key:     v062StatusKey,
+		Name:    doubled.Name,
+		Variant: status.VariantError,
+		Message: "Failed to compile calculation",
+		Owner:   new(channel.ResourceID(doubled.Key())),
+	}
+	Expect(gorp.WrapWriter[status.Key, status.Status[any]](n.DB).Set(ctx, owned)).
+		To(Succeed())
+}

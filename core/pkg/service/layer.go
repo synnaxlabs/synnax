@@ -446,6 +446,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Calculation) {
 		return nil, err
 	}
+	// The graph writes the statuses of calculations as it opens, so their records and
+	// statuses move first.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Child("composition"),
+		DB:              cfg.Distribution.DB,
+		Namespace:       "Composition",
+		Migrations: []gorp.Migration{l.Calculation.Migration(
+			l.Status,
+			cfg.Distribution.Channel.IssuedAtOpen,
+		)},
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
@@ -1106,7 +1119,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Namespace:       "Composition",
 		Migrations: append(
 			l.Panel.CompositionMigrations(),
-			l.Calculation.Migration(l.Status),
 			newCalculationGrantMigration(l.RBAC.Policy, l.Calculation),
 			newGroupRemovalReport(l.Resource, l.Status),
 			ontologyDropMigration,
