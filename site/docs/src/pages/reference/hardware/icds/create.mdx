@@ -135,7 +135,7 @@ property.
 
 ```python
 for problem in client.icds.check(oven):
-    print(problem.path, problem.message)
+    print(".".join(problem.path), problem.error)
 ```
 
   </Fragment>
@@ -143,16 +143,17 @@ for problem in client.icds.check(oven):
   <Fragment slot="typescript">
 
 ```typescript
-for (const { path, message } of await client.icds.check(oven))
-  console.log(path, message);
+for (const { path, error } of await client.icds.check(oven))
+  console.log(path.join("."), error.message);
 ```
 
   </Fragment>
 
 </Client.Tabs>
 
-`path` is the place of the problem, such as `messages.0.name`. It is empty for a problem
-with the whole ICD. The [problems](/reference/hardware/icds/reference#problems) in the
+Each problem is a path error. Its `path` lists the keys to the bad value, such as
+`["messages", "0", "name"]`, and is empty for a problem with the whole ICD. Its `error`
+says what is wrong. The [problems](/reference/hardware/icds/reference#problems) in the
 reference say how to fix each one.
 
 <Divider.Divider x />
