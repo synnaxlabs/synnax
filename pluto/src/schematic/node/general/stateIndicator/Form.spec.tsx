@@ -15,8 +15,8 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Enumeration } from "@/enumeration";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
+import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
@@ -32,9 +32,7 @@ describe("StateIndicator form", () => {
     const Base = await createAsyncSynnaxWrapper({ client });
     wrapper = ({ children }) => (
       <Base>
-        <Enumeration.CreatePromptProvider value={vi.fn()}>
-          {children}
-        </Enumeration.CreatePromptProvider>
+        <CreatePromptStub>{children}</CreatePromptStub>
       </Base>
     );
     ch = await client.channels.create({

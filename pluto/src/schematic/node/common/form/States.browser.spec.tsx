@@ -13,10 +13,10 @@ import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { deep } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { Enumeration } from "@/enumeration";
 import { Form } from "@/schematic/node/common/form";
+import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
@@ -49,9 +49,9 @@ describe("Form.States", () => {
     const Wrapper = createSynnaxWrapper({ client: null });
     await renderThemed(
       <Wrapper>
-        <Enumeration.CreatePromptProvider value={vi.fn()}>
+        <CreatePromptStub>
           <States />
-        </Enumeration.CreatePromptProvider>
+        </CreatePromptStub>
       </Wrapper>,
     );
     const picker = screen
