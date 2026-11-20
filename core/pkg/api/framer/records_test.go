@@ -405,6 +405,62 @@ var _ = Describe("Change channels", func() {
 		Expect(sent).To(Equal([]string{shown.ResourceID().String()}))
 	})
 
+	It("Should not send a reference change for a target the subject cannot read", func(
+		ctx SpecContext,
+	) {
+		virtual := func(name string) channel.Channel {
+			return channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
+		}
+		hidden, shown := virtual(
+			"reference_target_hidden",
+		), virtual(
+			"reference_target_shown",
+		)
+		proj := project.Project{Name: "reference-target"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := svc.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+				return err
+			}
+			if err := svc.Channel.NewWriter(tx).Create(ctx, &hidden); err != nil {
+				return err
+			}
+			return svc.Channel.NewWriter(tx).Create(ctx, &shown)
+		})).To(Succeed())
+		// The subject can retrieve schematics and only the shown channel.
+		stream(
+			ctx,
+			signals.ReferenceChangeName,
+			shown.ResourceID(),
+			resource.ID{Type: resource.TypeSchematic},
+		)
+		createSchematic := func(name string, key channel.Key) {
+			GinkgoHelper()
+			var value schematic.ValueNodeConfig
+			value.SetDefaults()
+			value.Channel = key
+			sch := schematic.Schematic{
+				Name:    name,
+				Project: &proj.Key,
+				Nodes: []schematic.Node{
+					{Key: "value", Config: schematic.NodeConfig{Variant: value}},
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Schematic.NewWriter(tx).Create(ctx, &sch)
+			})).To(Succeed())
+		}
+		createSchematic("hidden target", hidden.Key())
+		createSchematic("shown target", shown.Key())
+		res := MustSucceed(client.Receive())
+		var sent []string
+		for _, series := range res.Frame.Get(ch.Key()).Series {
+			for sample := range series.Samples() {
+				sent = append(sent, string(sample))
+			}
+		}
+		Expect(sent).To(Equal([]string{shown.ResourceID().String()}))
+	})
+
 	It("Should send a subject the changes to the policies of its role", func(
 		ctx SpecContext,
 	) {
