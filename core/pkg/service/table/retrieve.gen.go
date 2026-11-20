@@ -85,7 +85,7 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *Table) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Rows))
 				for _, v1 := range e.Rows {
 					for _, v2 := range v1.Cells {
 						switch v3 := v2.Config.Variant.(type) {

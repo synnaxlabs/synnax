@@ -29,7 +29,7 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *AnalogReadConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AIVoltageChannel:
@@ -319,7 +319,7 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *AnalogReadConfig) []device.Key {
-				var targets []device.Key
+				targets := make([]device.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AIVoltageChannel:
@@ -616,7 +616,7 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *CounterReadConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CIFrequencyChannel:
@@ -735,7 +735,7 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *CounterReadConfig) []device.Key {
-				var targets []device.Key
+				targets := make([]device.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CIFrequencyChannel:
@@ -879,7 +879,7 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *AnalogWriteConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AOCurrentChannel:
@@ -918,7 +918,7 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *AnalogWriteConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AOCurrentChannel:
@@ -981,7 +981,7 @@ func digitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *DigitalReadConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					if v1.Channel != 0 {
 						targets = append(targets, v1.Channel)
@@ -1028,7 +1028,7 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *DigitalWriteConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					if v1.CmdChannel != 0 {
 						targets = append(targets, v1.CmdChannel)
@@ -1051,7 +1051,7 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *DigitalWriteConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					if v1.StateChannel != 0 {
 						targets = append(targets, v1.StateChannel)

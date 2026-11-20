@@ -88,7 +88,7 @@ func (m *Multi[S, K, V]) Stage(scope S, key K, values []V) {
 
 // Current reports whether key holds exactly values, with the changes of scope applied,
 // so that staging values for key would change nothing. It is false until the bulk load
-// finishes.
+// finishes, and false after the load fails.
 func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 	select {
 	case <-m.population.done:
