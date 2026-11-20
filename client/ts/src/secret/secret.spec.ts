@@ -13,7 +13,7 @@ import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { z } from "zod";
 
 import { framer } from "@/framer";
-import { NotFoundError, PathError } from "@/index";
+import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { secret } from "@/secret";
@@ -947,6 +947,46 @@ describe("Secret", () => {
       });
       await expect(grant).rejects.toThrow(PathError);
       await expect(grant).rejects.toThrow(`is not on rack:${r.key}`);
+    });
+
+    it("should grant a file certificate of the subject rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const c = await client.certificates.set({
+        name: "Grant certificate",
+        source: "file",
+        certificatePath: "/etc/synnax/client.crt",
+        rack: r.key,
+      });
+      const grant = await client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [],
+        certificates: [c.key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
+      });
+      expect(grant).toHaveLength(36);
+    });
+
+    it("should throw a ValidationError for a file certificate of another rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const other = await client.racks.create({ name: "Other rack" });
+      const c = await client.certificates.set({
+        name: "Other certificate",
+        source: "file",
+        certificatePath: "/etc/synnax/client.crt",
+        rack: other.key,
+      });
+      const grant = client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [],
+        certificates: [c.key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
+      });
+      await expect(grant).rejects.toThrow(ValidationError);
+      await expect(grant).rejects.toThrow(
+        `certificate "Other certificate" is a file of rack ${other.key}, not of rack:${r.key}`,
+      );
     });
   });
 

@@ -108,7 +108,8 @@ jobs:
           - surface: client-cpp
             paths: client/cpp scripts/surface_cpp.py
             uv: true
-    timeout-minutes: 10
+    # The Core surfaces build the Core twice without a cache, in up to 21 minutes.
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
