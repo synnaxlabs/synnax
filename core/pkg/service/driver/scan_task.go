@@ -12,7 +12,6 @@ package driver
 import (
 	"context"
 	"encoding/json/v2"
-	"fmt"
 	"sync"
 	"time"
 	"uuid"
@@ -27,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -189,16 +187,8 @@ func (c ScanTaskConfig) Validate() error {
 // it runs. Safe for concurrent use.
 type ScanTask struct {
 	*Runner
-	cfg ScanTaskConfig
-	// turn holds a token while a command of the scanner runs.
-	turn     chan struct{}
-	commands struct {
-		// sCtx runs the commands of the scanner. It is nil when no command ran since
-		// the last stop.
-		sCtx   signal.Context
-		cancel context.CancelFunc
-		sync.Mutex
-	}
+	cfg      ScanTaskConfig
+	commands *Commander
 }
 
 var _ Task = (*ScanTask)(nil)
@@ -209,7 +199,7 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &ScanTask{cfg: cfg, turn: make(chan struct{}, 1)}
+	t := &ScanTask{cfg: cfg}
 	t.Runner, err = NewRunner(RunnerConfig{
 		DB:              cfg.DB,
 		Status:          cfg.Status,
@@ -220,6 +210,14 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 		},
 	})
 	if err != nil {
+		return nil, err
+	}
+	if t.commands, err = NewCommander(CommanderConfig{
+		Instrumentation: cfg.Instrumentation,
+		Status:          t.status,
+		Exec:            cfg.Scanner.Exec,
+		Message:         "Command executed successfully",
+	}); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -234,100 +232,14 @@ func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 	if cmd.Type == startCommandType || cmd.Type == stopCommandType {
 		return t.Runner.Exec(ctx, cmd)
 	}
-	deadline, limited := ctx.Deadline()
-	limit := time.Until(deadline)
-	t.commands.Lock()
-	defer t.commands.Unlock()
-	if t.commands.sCtx == nil {
-		t.commands.sCtx, t.commands.cancel = signal.Isolated(
-			signal.WithInstrumentation(t.cfg.Instrumentation),
-		)
-	}
-	t.commands.sCtx.Go(func(ctx context.Context) error {
-		select {
-		case <-ctx.Done():
-			return nil
-		case t.turn <- struct{}{}:
-		}
-		defer func() { <-t.turn }()
-		if limited {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, limit)
-			defer cancel()
-		}
-		t.execScanner(ctx, cmd)
-		return nil
-	}, signal.RecoverWithErrOnPanic())
-	return nil
-}
-
-// execScanner runs cmd on the Scanner and answers it. A command cancelled by a stop
-// gets no answer, since the successor of the task owns its status.
-func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
-	data, err := t.cfg.Scanner.Exec(ctx, cmd)
-	if errors.Is(ctx.Err(), context.Canceled) {
-		return
-	}
-	if sErr := checkSize(data); sErr != nil {
-		data, err = nil, sErr
-	}
-	var (
-		variant     = status.VariantSuccess
-		message     = "Command executed successfully"
-		description string
-		f           Failure
-	)
-	switch {
-	case errors.Is(err, ErrUnsupportedCommand):
-		t.cfg.L.Warn(
-			"unsupported command",
-			zap.Stringer("command", cmd),
-			zap.Stringer("task", cmd.Task),
-		)
-		variant = status.VariantError
-		message = failureMessage(cmd.Type)
-		description = unsupportedDescription(cmd.Type)
-	case errors.As(err, &f):
-		variant, message, description = status.VariantError, f.Message, f.Description
-	case err != nil:
-		variant, message = status.VariantError, err.Error()
-	}
-	if rErr := t.status.Reply(
-		context.WithoutCancel(ctx), cmd.Key, variant, message, description, data,
-	); rErr != nil {
-		t.cfg.L.Error("failed to answer command", zap.Error(rErr))
-	}
-}
-
-// checkSize returns a Failure when data holds more than replyLimit bytes of JSON.
-func checkSize(data msgpack.EncodedJSON) error {
-	encoded, err := json.Marshal(data)
-	if err != nil || len(encoded) <= replyLimit {
-		return err
-	}
-	return Failure{
-		Message: "Answer too large",
-		Description: fmt.Sprintf(
-			"The answer holds %.1f MiB of JSON, and a command answers with at most "+
-				"1 MiB. Ask for less data, such as fewer topics.",
-			float64(len(encoded))/replyLimit,
-		),
-	}
+	return t.commands.Exec(ctx, cmd)
 }
 
 // Stop implements Task. It also cancels the commands of the Scanner and waits for them
 // to return.
 func (t *ScanTask) Stop(sendStatus bool) error {
 	err := t.Runner.Stop(sendStatus)
-	t.commands.Lock()
-	sCtx, cancel := t.commands.sCtx, t.commands.cancel
-	t.commands.sCtx, t.commands.cancel = nil, nil
-	t.commands.Unlock()
-	if sCtx == nil {
-		return err
-	}
-	cancel()
-	return errors.Combine(err, errors.Skip(sCtx.Wait(), context.Canceled))
+	return errors.Combine(err, t.commands.Stop(sendStatus))
 }
 
 // health is the part of a device status that a check decides.
