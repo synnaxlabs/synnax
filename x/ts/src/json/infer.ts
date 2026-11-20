@@ -48,7 +48,7 @@ export const inferredFieldZ = z.object({
 
 export interface InferredField extends z.infer<typeof inferredFieldZ> {}
 
-/** The fields of one kind of document, from one or more sources. */
+/** The fields of one cluster of documents, from one or more sources. */
 export const shapeZ = z.object({
   /** sources name the sources of the documents, such as topics or record keys. */
   sources: z.array(z.string()),

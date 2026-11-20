@@ -31,8 +31,8 @@ const (
 	maxEnumLabelLength = 64
 	// maxInferredFields is the most fields that one shape holds.
 	maxInferredFields = 1024
-	// maxKinds is the most kinds of document that one source splits into.
-	maxKinds = 16
+	// maxClusters is the most clusters of documents that one source splits into.
+	maxClusters = 16
 	// maxFieldSets is the most sets of fields of one source that split compares.
 	maxFieldSets = 256
 )
@@ -68,7 +68,7 @@ type InferredField struct {
 	Mismatched int `json:"mismatched" msgpack:"mismatched"`
 }
 
-// Shape is the layout of one kind of document, from one or more sources.
+// Shape is the layout of one cluster of documents, from one or more sources.
 type Shape struct {
 	// Sources are the sources of the documents, in the order first seen.
 	Sources []string `json:"sources" msgpack:"sources"`
@@ -82,12 +82,13 @@ type Shape struct {
 }
 
 // Infer returns the shapes of docs, which are in the order that each source wrote them.
-//   - The documents of a source that hold the same fields are one kind. A kind whose
-//     fields are all in one widest kind joins it, so a field that some documents lack
-//     does not split a kind. A source with more than 16 kinds or 256 sets of fields
-//     is one kind.
-//   - A document with no fields joins the one widest kind of its source, or no kind.
-//   - The kinds of every source that hold the same fields share a shape.
+//   - The documents of a source that hold the same fields are one cluster. A cluster
+//     whose fields are all in one widest cluster joins it, so a field that some
+//     documents lack does not split a cluster. A source with more than 16 clusters or
+//     256 sets of fields is one cluster.
+//   - A document with no fields joins the one widest cluster of its source, or no
+//     cluster.
+//   - The clusters of every source that hold the same fields share a shape.
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Types widen across documents: int64, then uint64, then float64. A boolean field
 //     gives uint8. The JSON type of most values wins, and the rest are mismatched.
@@ -126,14 +127,14 @@ func Infer(docs []Document) []Shape {
 		byKey  = make(map[string]*inferGroup)
 	)
 	for _, src := range sources {
-		for _, k := range src.split() {
-			g, ok := byKey[k.key]
+		for _, c := range src.split() {
+			g, ok := byKey[c.key]
 			if !ok {
 				g = newInferGroup()
-				byKey[k.key] = g
+				byKey[c.key] = g
 				groups = append(groups, g)
 			}
-			g.add(src.name, k.docs)
+			g.add(src.name, c.docs)
 		}
 	}
 	shapes := make([]Shape, len(groups))
@@ -165,12 +166,17 @@ func (i *Inferrer) Shape() Shape { return i.group.shape() }
 
 type inferSource struct {
 	name string
-	docs []parsedDocument
+	docs []sourceDocument
 	// sets holds each set of fields of docs, in the order first seen.
 	sets  []fieldSet
 	byKey map[string]int
-	// setOf holds the index in sets of each document of docs.
-	setOf []int
+}
+
+// sourceDocument is a document of a source, with the index in inferSource.sets of its
+// set of fields.
+type sourceDocument struct {
+	parsedDocument
+	set int
 }
 
 // fieldSet is a set of field pointers in their text form.
@@ -186,8 +192,8 @@ func newFieldSet(fields set.Set[string]) fieldSet {
 	return fieldSet{key: strings.Join(sorted, "\x00"), fields: fields}
 }
 
-// kind is the documents of a source that share a shape.
-type kind struct {
+// cluster is the documents of a source that share a shape.
+type cluster struct {
 	key  string
 	docs []parsedDocument
 }
@@ -204,53 +210,56 @@ func (src *inferSource) add(doc parsedDocument) {
 		src.byKey[fs.key] = k
 		src.sets = append(src.sets, fs)
 	}
-	src.docs = append(src.docs, doc)
-	src.setOf = append(src.setOf, k)
+	src.docs = append(src.docs, sourceDocument{parsedDocument: doc, set: k})
 }
 
-// split returns the kinds of the documents of src, in the order of their first
-// documents. Each kind keeps the order of its documents.
-func (src *inferSource) split() []kind {
+// split returns the clusters of the documents of src, in the order of their first
+// documents. Each cluster keeps the order of its documents.
+func (src *inferSource) split() []cluster {
 	if len(src.sets) > maxFieldSets {
 		return src.union()
 	}
 	into := src.joins()
 	var (
-		kinds []kind
-		at    = make(map[int]int)
+		clusters []cluster
+		at       = make(map[int]int)
 	)
-	for i, doc := range src.docs {
-		target := into[src.setOf[i]]
+	for _, doc := range src.docs {
+		target := into[doc.set]
 		if target < 0 {
 			continue
 		}
-		k, ok := at[target]
+		c, ok := at[target]
 		if !ok {
-			k = len(kinds)
-			at[target] = k
-			kinds = append(kinds, kind{key: src.sets[target].key})
+			c = len(clusters)
+			at[target] = c
+			clusters = append(clusters, cluster{key: src.sets[target].key})
 		}
-		kinds[k].docs = append(kinds[k].docs, doc)
+		clusters[c].docs = append(clusters[c].docs, doc.parsedDocument)
 	}
-	if len(kinds) > maxKinds {
+	if len(clusters) > maxClusters {
 		return src.union()
 	}
-	return kinds
+	return clusters
 }
 
-// union returns one kind that holds every document of src.
-func (src *inferSource) union() []kind {
+// union returns one cluster that holds every document of src.
+func (src *inferSource) union() []cluster {
 	fields := make(set.Set[string])
 	for _, fs := range src.sets {
 		fields.Add(fs.fields.Slice()...)
 	}
-	return []kind{{key: newFieldSet(fields).key, docs: src.docs}}
+	docs := make([]parsedDocument, len(src.docs))
+	for i, doc := range src.docs {
+		docs[i] = doc.parsedDocument
+	}
+	return []cluster{{key: newFieldSet(fields).key, docs: docs}}
 }
 
-// joins returns, for each set of fields of src, the set whose kind its documents join:
-// the one widest set that holds all of its fields, or else itself. A set is widest when
-// no other set holds all of its fields. An empty set that two widest sets hold joins no
-// kind: -1.
+// joins returns, for each set of fields of src, the set whose cluster its documents
+// join: the one widest set that holds all of its fields, or else itself. A set is
+// widest when no other set holds all of its fields. An empty set that two widest sets
+// hold joins no cluster: -1.
 func (src *inferSource) joins() []int {
 	holds := func(a, b int) bool {
 		return len(src.sets[a].fields) > len(src.sets[b].fields) &&

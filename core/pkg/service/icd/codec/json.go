@@ -49,10 +49,10 @@ type JSON struct {
 	// values holds the values that the match rules test, then the value of each field
 	// of each message, in message order.
 	values []jsontext.Value
-	// routed is the number of values that the match rules test.
-	routed   int
-	messages []jsonMessage
-	router   *router
+	// ruleValues is the number of values that the match rules test.
+	ruleValues int
+	messages   []jsonMessage
+	router     *router
 }
 
 type jsonMessage struct {
@@ -99,9 +99,9 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	}
 	pointers := r.pointers()
 	j := &JSON{
-		messages: make([]jsonMessage, len(messages)),
-		router:   r,
-		routed:   len(pointers),
+		messages:   make([]jsonMessage, len(messages)),
+		router:     r,
+		ruleValues: len(pointers),
 	}
 	for i, m := range messages {
 		if j.messages[i], err = newJSONMessage(m); err != nil {
@@ -113,7 +113,7 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	}
 	j.extractor = xjson.NewExtractor(pointers)
 	j.values = make([]jsontext.Value, len(pointers))
-	values := j.values[j.routed:]
+	values := j.values[j.ruleValues:]
 	for i := range j.messages {
 		m := &j.messages[i]
 		m.values, values = values[:len(m.fields)], values[len(m.fields):]
@@ -372,7 +372,7 @@ func (j *JSON) Decode(
 	if err := j.extractor.Extract(doc, j.values); err != nil {
 		return 0, false, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	if message, ok, err = j.router.find(j.values[:j.routed]); err != nil || !ok {
+	if message, ok, err = j.router.find(j.values[:j.ruleValues]); err != nil || !ok {
 		return 0, false, err
 	}
 	m := &j.messages[message]

@@ -138,11 +138,11 @@ func newRouter(messages []JSONMessage) (*router, error) {
 	// the other rule meets.
 	for k, p := range r.present {
 		other, at := -1, xjson.Pointer(nil)
-		if r.ruled && within(p.pointer, r.pointer) {
+		if r.ruled && within(r.pointer, p.pointer) {
 			other, at = first, r.pointer
 		}
 		for j, q := range r.present {
-			if j != k && within(p.pointer, q.pointer) {
+			if j != k && within(q.pointer, p.pointer) {
 				other, at = q.message, q.pointer
 			}
 		}
@@ -160,7 +160,7 @@ func newRouter(messages []JSONMessage) (*router, error) {
 }
 
 // within reports whether inner is outer or a pointer into the value at outer.
-func within(outer, inner xjson.Pointer) bool {
+func within(inner, outer xjson.Pointer) bool {
 	return len(outer) <= len(inner) && slices.Equal(outer, inner[:len(outer)])
 }
 

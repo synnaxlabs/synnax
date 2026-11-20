@@ -142,17 +142,17 @@ var _ = Describe("Infer", func() {
 			To(HaveValue(Equal(xjson.UnixSecond)))
 	})
 
-	It("Should give a shape to each kind of document of one source", func() {
-		kinds := func(i int) string {
+	It("Should give a shape to each cluster of documents of one source", func() {
+		clusters := func(i int) string {
 			ms := t0Milliseconds + int64(i)
 			if i%2 == 0 {
 				return fmt.Sprintf(`{"time":%d,"pressure":%d.5,"flow":2}`, ms, i)
 			}
 			return fmt.Sprintf(`{"time":%d,"state":"run","faults":0}`, ms)
 		}
-		docs := documents("line-1", 6, kinds)
+		docs := documents("line-1", 6, clusters)
 		docs = append(docs, documents("line-2", 2, func(i int) string {
-			return kinds(i * 2)
+			return clusters(i * 2)
 		})...)
 		shapes := xjson.Infer(docs)
 		Expect(shapes).To(HaveLen(2))
@@ -167,7 +167,7 @@ var _ = Describe("Infer", func() {
 		Expect(indexPointer(shapes[1])).To(Equal("/time"))
 	})
 
-	It("Should join a kind whose fields are all in one wider kind", func() {
+	It("Should join a cluster whose fields are all in one wider cluster", func() {
 		shapes := xjson.Infer(documents("tank", 4, func(i int) string {
 			flow := "2"
 			if i%2 == 1 {
@@ -183,7 +183,7 @@ var _ = Describe("Infer", func() {
 		Expect(indexPointer(shapes[0])).To(Equal("/ts"))
 	})
 
-	It("Should keep apart a kind whose fields are in two wider kinds", func() {
+	It("Should keep apart a cluster whose fields are in two wider clusters", func() {
 		shapes := xjson.Infer(documents("line", 3, func(i int) string {
 			return [...]string{
 				`{"t":1,"pressure":1}`,
@@ -196,7 +196,7 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[2].Count).To(Equal(1))
 	})
 
-	It("Should give documents with no fields to no kind of two", func() {
+	It("Should give documents with no fields to no cluster of two", func() {
 		shapes := xjson.Infer(documents("line", 4, func(i int) string {
 			return [...]string{
 				`{"t":1,"pressure":1}`,
@@ -210,16 +210,19 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[1].Count).To(Equal(1))
 	})
 
-	It("Should give documents with no fields to the one kind of their source", func() {
-		shapes := xjson.Infer(documents("tank", 2, func(i int) string {
-			return [...]string{`{"pressure":1}`, `{}`}[i]
-		}))
-		Expect(shapes).To(HaveLen(1))
-		Expect(shapes[0].Count).To(Equal(2))
-		Expect(fieldAt(shapes[0], "/pressure").Count).To(Equal(1))
-	})
+	It(
+		"Should give documents with no fields to the one cluster of their source",
+		func() {
+			shapes := xjson.Infer(documents("tank", 2, func(i int) string {
+				return [...]string{`{"pressure":1}`, `{}`}[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(shapes[0].Count).To(Equal(2))
+			Expect(fieldAt(shapes[0], "/pressure").Count).To(Equal(1))
+		},
+	)
 
-	DescribeTable("Should split a source into kinds only up to 16 kinds",
+	DescribeTable("Should split a source into clusters only up to 16 clusters",
 		func(sets, shapes, fields int) {
 			inferred := xjson.Infer(documents("devices", sets, func(i int) string {
 				return fmt.Sprintf(`{"device-%d":1}`, i)
@@ -228,11 +231,11 @@ var _ = Describe("Infer", func() {
 			Expect(inferred[0].Fields).To(HaveLen(fields))
 			Expect(inferred[0].Count).To(Equal(fields))
 		},
-		Entry("16 kinds", 16, 16, 1),
-		Entry("17 kinds", 17, 1, 17),
+		Entry("16 clusters", 16, 16, 1),
+		Entry("17 clusters", 17, 1, 17),
 	)
 
-	DescribeTable("Should count kinds after joining up to 256 sets of fields",
+	DescribeTable("Should count clusters after joining up to 256 sets of fields",
 		func(sets, shapes int) {
 			docs := documents("line", sets-1, func(i int) string {
 				fields := []string{`"t":1`, `"pressure":1`}
