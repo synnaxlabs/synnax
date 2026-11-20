@@ -470,6 +470,31 @@ describe("AnalogRead", () => {
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
 
+  it("should give each device's first channel the device's widest voltage range", async () => {
+    const hardware = (upper: number) => ({
+      ...createHardware(),
+      aiVoltageRanges: [
+        { lower: -0.5, upper: 0.5 },
+        { lower: -upper, upper },
+      ],
+    });
+    const devices = [
+      await createNIDevice(client, { properties: { hardware: hardware(5) } }),
+      await createNIDevice(client, { properties: { hardware: hardware(60) } }),
+    ];
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+      { deviceKeys: devices.map((d) => d.key) },
+    );
+    expect(
+      tsk.config.channels.map((c) => ("minVal" in c ? [c.minVal, c.maxVal] : null)),
+    ).toEqual([
+      [-5, 5],
+      [-60, 60],
+    ]);
+  });
+
   it("should create the task with a channel on each of the given devices", async () => {
     const devices = [await createNIDevice(client), await createNIDevice(client)];
     const keys = devices.map((d) => d.key);
