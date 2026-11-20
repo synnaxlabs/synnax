@@ -130,6 +130,19 @@ const Ordered = ({
   </Triggers.Provider>
 );
 
+const OrderedSingle = ({ value }: { value: string }): ReactElement => (
+  <Triggers.Provider>
+    <Dialog.Frame visible onVisibleChange={vi.fn()}>
+      <Select.Frame data={["a", "b"]} value={value} onChange={vi.fn()} selectedFirst>
+        <Select.List>
+          <Select.Item itemKey="none">None</Select.Item>
+          <Select.Items<string>>{row}</Select.Items>
+        </Select.List>
+      </Select.Frame>
+    </Dialog.Frame>
+  </Triggers.Provider>
+);
+
 describe("Select.Frame selectedFirst", () => {
   const options = (c: ReturnType<typeof render>): string[] =>
     c.getAllByRole("option").map((option) => option.textContent ?? "");
@@ -156,5 +169,13 @@ describe("Select.Frame selectedFirst", () => {
 
   it("should list the selected entries of its data first", () => {
     expect(options(render(<Ordered selectedFirst />))).toEqual(["None", "b", "a"]);
+  });
+
+  it("should list the selected entry of a single selection first", () => {
+    expect(options(render(<OrderedSingle value="b" />))).toEqual(["None", "b", "a"]);
+  });
+
+  it("should keep a selected fixed item of a single selection in its place", () => {
+    expect(options(render(<OrderedSingle value="none" />))).toEqual(["None", "a", "b"]);
   });
 });

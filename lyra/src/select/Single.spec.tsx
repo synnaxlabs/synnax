@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -45,7 +45,11 @@ describe("Select.Single", () => {
     );
   });
 
-  const createSelectSingle = () => {
+  const createSelectSingle = (
+    initialValue?: string,
+    /** Replaces the keys of the data, as a list that has not loaded every page. */
+    dataKeys?: string[],
+  ) => {
     const onChange = vi.fn();
     const SelectSingle = (
       props: Omit<
@@ -56,7 +60,7 @@ describe("Select.Single", () => {
       const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const [value, setValue] = useState<string | undefined>(undefined);
+      const [value, setValue] = useState<string | undefined>(initialValue);
       const handleChange = (key: string | undefined) => {
         setValue(key);
         onChange(key);
@@ -64,7 +68,7 @@ describe("Select.Single", () => {
       return (
         <Select.Single<string, TestEntry>
           getItem={getItem}
-          data={data}
+          data={dataKeys ?? data}
           value={value}
           onChange={handleChange}
           resourceName="Test Item"
@@ -270,6 +274,92 @@ describe("Select.Single", () => {
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
     ).not.toContain("lyra-btn--prevent-click");
+  });
+
+  describe("selected first", () => {
+    const options = (c: RenderResult): string[] =>
+      c.getAllByRole("option").map((option) => option.textContent ?? "");
+    const toggle = (c: RenderResult): void => {
+      fireEvent.click(c.getByRole("button", { name: /^Test Item/ }));
+    };
+
+    it("should list the selected item first when the dialog opens", () => {
+      const { SelectSingle } = createSelectSingle("3");
+      const c = render(<SelectSingle />);
+      toggle(c);
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
+
+    it("should keep the order while the dialog stays open", () => {
+      const { SelectSingle, onChange } = createSelectSingle("3");
+      const c = render(<SelectSingle closeDialogOnSelect={false} />);
+      toggle(c);
+      fireEvent.click(c.getByText("Second Item Option"));
+      expect(onChange).toHaveBeenLastCalledWith("2");
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
+
+    it("should list the new selection first when the dialog opens again", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle />);
+      toggle(c);
+      fireEvent.click(c.getByText("Second Item Option"));
+      toggle(c);
+      expect(options(c)).toEqual([
+        "Second Item Option",
+        "First Item Option",
+        "Third Item Option",
+      ]);
+    });
+
+    it("should list the matches of a search in their own order", () => {
+      const { SelectSingle } = createSelectSingle("3");
+      const c = render(<SelectSingle />);
+      toggle(c);
+      const search = c.getByPlaceholderText("Search Test Items...");
+      fireEvent.change(search, { target: { value: "Item" } });
+      expect(options(c)).toEqual([
+        "First Item Option",
+        "Second Item Option",
+        "Third Item Option",
+      ]);
+      fireEvent.change(search, { target: { value: "" } });
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
+
+    it("should leave out a selected key that names no item", () => {
+      const { SelectSingle } = createSelectSingle("deleted");
+      const c = render(<SelectSingle />);
+      toggle(c);
+      expect(options(c)).toEqual([
+        "First Item Option",
+        "Second Item Option",
+        "Third Item Option",
+      ]);
+    });
+
+    it("should list a selected item that the data has not loaded", () => {
+      const { SelectSingle } = createSelectSingle("3", ["1", "2"]);
+      const c = render(<SelectSingle />);
+      toggle(c);
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
   });
 
   describe("narrow layout", () => {

@@ -23,7 +23,7 @@ export interface SingleProps<
   E extends record.Keyed<K> | undefined,
 >
   extends
-    Omit<SingleFrameProps<K, E>, "multiple" | "children">,
+    Omit<SingleFrameProps<K, E>, "multiple" | "children" | "selectedFirst">,
     Pick<
       BodyProps<K>,
       "emptyContent" | "status" | "onSearch" | "actions" | "footer" | "fixedItems"
@@ -96,6 +96,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         onFetchMore={onFetchMore}
         itemHeight={itemHeight}
         virtual={virtual}
+        selectedFirst
         closeDialogOnSelect={closeDialogOnSelect}
         autoSelectOnNone={autoSelectOnNone}
         initialHover={initialHover}

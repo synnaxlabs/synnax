@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type optional, type record } from "@synnaxlabs/x";
+import { array, type destructor, type optional, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -82,7 +82,14 @@ export interface TriggerProps<
 interface BaseFrameProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
-> extends optional.Optional<Omit<List.FrameProps<K, E>, "onChange">, "data"> {}
+> extends optional.Optional<Omit<List.FrameProps<K, E>, "onChange">, "data"> {
+  /**
+   * Whether to list the selected entries first each time the enclosing dialog opens.
+   * The order holds while the dialog stays open, and a search lists its matches in
+   * their own order.
+   */
+  selectedFirst?: boolean;
+}
 
 export interface MultipleFrameProps<
   K extends record.Key,
@@ -90,12 +97,6 @@ export interface MultipleFrameProps<
 >
   extends BaseFrameProps<K, E>, UseMultipleProps<K> {
   multiple: true;
-  /**
-   * Whether to list the selected entries first each time the enclosing dialog opens.
-   * The order holds while the dialog stays open, and a search lists its matches in
-   * their own order.
-   */
-  selectedFirst?: boolean;
 }
 
 export interface SingleFrameProps<
@@ -169,6 +170,7 @@ export const Frame = <
     pinned,
     value,
     onChange,
+    selectedFirst = false,
     ...rest
   } = props;
   const registry = useRegistry();
@@ -176,7 +178,7 @@ export const Frame = <
     registry,
     data,
     getItem,
-    props.multiple === true && props.selectedFirst === true ? props.value : null,
+    selectedFirst ? array.toArray<K>(value) : null,
   );
   return (
     <List.Frame<K, E>
