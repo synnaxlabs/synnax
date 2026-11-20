@@ -128,7 +128,7 @@ describe("Picker", () => {
     });
 
     it("should take the width of an open view, not its own", async () => {
-      const picker = await renderLibrary(undefined, undefined, <SwatchMenu />);
+      const picker = await renderLibrary({ swatchMenu: <SwatchMenu /> });
       const swatch = page.getByRole("button", { name: "Color 2", exact: true });
       await userEvent.click(swatch, { button: "right" });
       await userEvent.click(page.getByRole("menuitem", { name: "Edit" }));
