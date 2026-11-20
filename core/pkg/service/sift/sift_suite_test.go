@@ -79,13 +79,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		// No Driver reports for the rack, so a check would overwrite task statuses.
 		HealthCheckInterval: telem.Hour,
 	}))
-	secretSvc = secrettestutil.OpenService(ctx, db)
+	secretSvc = secrettestutil.OpenService(
+		ctx,
+		db,
+		secret.ServiceConfig{Rack: rackSvc.EmbeddedKey},
+	)
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
 		Status: statusSvc,
 		Rack:   rackSvc,
 		References: []gorp.Reference[device.Key, device.Device]{
-			sift.APIKeyReference(),
+			sift.APIKeyReference(secretSvc),
 		},
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
@@ -160,12 +164,30 @@ func createAPIKey(ctx context.Context, value string) secret.Key {
 	return s.Base().Key
 }
 
-// grantToRack lets the embedded rack read the secret with key once.
-func grantToRack(ctx context.Context, key secret.Key) grant.Key {
+// grantConnectionTest lets the embedded rack test conn once on the task with taskKey,
+// reading the secrets with keys.
+func grantConnectionTest(
+	ctx context.Context,
+	taskKey task.Key,
+	conn sift.Properties,
+	keys ...secret.Key,
+) grant.Key {
 	GinkgoHelper()
+	cmd := task.Command{
+		Task: taskKey,
+		Type: "test_connection",
+		Key:  uuid.New().String(),
+		Args: toJSON(map[string]any{"connection": conn}),
+	}
 	var g grant.Key
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		g, err = secretSvc.Grant(ctx, tx, rackSvc.EmbeddedKey.ResourceID(), key)
+		g, err = secretSvc.Grant(
+			ctx,
+			tx,
+			rackSvc.EmbeddedKey.ResourceID(),
+			cmd,
+			keys...,
+		)
 		return err
 	})).To(Succeed())
 	return g

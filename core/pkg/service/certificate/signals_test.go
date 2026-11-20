@@ -83,6 +83,7 @@ var _ = Describe("Signals", Ordered, func() {
 		return certificate.Certificate{Variant: certificate.FileCertificate{
 			Base:            certificate.Base{Name: name},
 			CertificatePath: "/etc/plant.pem",
+			Rack:            layer.Rack.EmbeddedKey,
 		}}
 	}
 	create := func(ctx context.Context, c *certificate.Certificate) {

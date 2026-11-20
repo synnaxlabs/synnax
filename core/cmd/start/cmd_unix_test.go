@@ -128,6 +128,16 @@ var _ = Describe("Start", func() {
 		})
 	})
 
+	It("Should refuse a secrets folder that does not exist", func() {
+		dir := filepath.Join(GinkgoT().TempDir(), "missing")
+		session, _, _ := launchCore("--secrets-dir", dir)
+		Eventually(session, 30*time.Second).Should(gexec.Exit())
+		Expect(session.ExitCode()).ToNot(BeZero())
+		Expect(string(session.Err.Contents())).To(ContainSubstring(
+			"secrets folder: stat " + dir + ": no such file or directory",
+		))
+	})
+
 	It("Should exit at once on two signals after the stop keyword", func() {
 		session, stdin, addr := startCore()
 		holdShutdown(addr)
