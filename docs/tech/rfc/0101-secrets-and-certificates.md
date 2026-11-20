@@ -169,10 +169,10 @@ one minute away and returns its key. The Console then sends that task a command 
 carries only the key.
 
 The Driver resolves the key with the task of the command, and a Core integration does
-the same in process (`core/pkg/service/secret/grant.go:51`). The Core refuses a grant
-for a different task, deletes the grant, and returns the stored command with the values
-of its secrets. The integration runs the stored command, never the arguments on the
-stream. A Kafka or MQTT test on the Core's rack follows the same rule
+the same in process (`Service.Resolve`, `core/pkg/service/secret/grant.go`). The Core
+refuses a grant for a different task, deletes the grant, and returns the stored command
+with the values of its secrets. The integration runs the stored command, never the
+arguments on the stream. A Kafka or MQTT test on the Core's rack follows the same rule
 (`core/pkg/service/kafka/scan_task.go:73`). A grant that no resolve uses ends at its
 expiry. The key travels on `sy_task_cmd`, where an Operator can read and write any
 command (`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key runs
